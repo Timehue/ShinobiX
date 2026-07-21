@@ -14,8 +14,8 @@ type LegalDocument = {
     sections: LegalSection[];
 };
 
-const LAST_UPDATED = "July 14, 2026";
-const VERSION = "1.0";
+const LAST_UPDATED = "July 20, 2026";
+const VERSION = "1.3";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -28,6 +28,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Agreement and eligibility",
                 content: <>
                     <p>By creating an account or using Shinobi Journey, you agree to these Terms and the Community Rules. If you cannot legally agree to them, do not use the service.</p>
+                    <p><strong>You must be at least 13 years old to create an account or use the service.</strong> Shinobi Journey is not directed to children under 13, and we do not knowingly allow them to register. Where the law of your country sets a higher minimum age for using an online service or for consenting to the processing of personal data, you confirm that you meet that higher age. When you create a character you confirm that you meet this age requirement.</p>
                     <p>The public beta may change, reset, pause, or end as development continues. Features and availability are not guaranteed.</p>
                 </>,
             },
@@ -72,6 +73,14 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 </>,
             },
             {
+                id: "governing-law",
+                title: "Governing law and disputes",
+                content: <>
+                    <p>These Terms, and any dispute arising from them or from your use of Shinobi Journey, are governed by the laws of the State of Wisconsin, USA, without regard to its conflict-of-laws rules. You and the operator agree that the state and federal courts located in Wisconsin are the venue for any dispute, unless a mandatory law that applies to you provides otherwise.</p>
+                    <p>Nothing here removes protections you cannot legally waive. If you are a consumer, you keep the mandatory consumer rights — and any right to bring a claim in the courts of your own country or state — that the law of your home jurisdiction guarantees.</p>
+                </>,
+            },
+            {
                 id: "changes-contact",
                 title: "Changes and contact",
                 content: <>
@@ -92,6 +101,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <>
                     <p>Shinobi Journey processes account identifiers, salted password hashes, session records, character saves, progression, inventory, currencies, combat results, rankings, clan and social activity, preferences, and support or moderation records.</p>
                     <p>The service may also process IP addresses, a browser-derived device fingerprint, request and performance diagnostics, error details, and security events. If you use social or creative features, submitted messages, titles, names, images, uploads, and optional image-generation prompts are also processed.</p>
+                    <p>Shinobi Journey is intended for players aged 13 and older and is not directed to children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact staff through the official community link and we will remove the account and its personal information.</p>
                 </>,
             },
             {
@@ -237,8 +247,8 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             },
             {
                 id: "consent",
-                title: "Why there is no decorative banner",
-                content: <p>The current game does not offer an advertising preference banner because the published client does not describe advertising storage. If optional analytics or advertising storage is introduced, it must be controlled before loading where consent is required and this notice must be updated.</p>,
+                title: "Notice, not a consent gate",
+                content: <p>New visitors see a short notice that the game stores data on the device for sign-in and gameplay, with a link to this page. Because that storage is strictly necessary, the notice is informational and there is nothing here to opt out of — the game uses no advertising or third-party tracking cookies. If optional analytics or advertising storage is ever introduced, it must be gated behind consent before loading where consent is required, and this notice must be updated.</p>,
             },
         ],
     },
@@ -256,7 +266,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "report",
                 title: "Copyright reports",
                 content: <>
-                    <p>Send a private report to game staff through the official community link on the main page. Do not post personal contact details in a public channel. Include:</p>
+                    <p>Send a copyright notice by email to <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a>, or privately through the official community link on the main page. Do not post personal contact details in a public channel. Include:</p>
                     <ul>
                         <li>your contact information and authority to act;</li>
                         <li>the copyrighted work you believe is affected;</li>
@@ -280,7 +290,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             {
                 id: "dmca",
                 title: "DMCA status",
-                content: <p>This page does not claim that a United States DMCA designated agent has been registered. The ordinary private reporting process above is the currently published contact path.</p>,
+                content: <p>Copyright and DMCA notices may be sent to <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a>. Any registered United States DMCA designated-agent details, once filed with the U.S. Copyright Office, will be published here.</p>,
             },
         ],
     },
@@ -321,6 +331,44 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "safety",
                 title: "Request safety",
                 content: <p>Staff will not ask you to publish a password or authentication token. Requests may be paused when identity cannot be verified or when fulfilling them would expose another player's private information, undermine service security, or conflict with a lawful retention duty.</p>,
+            },
+        ],
+    },
+    notices: {
+        shortTitle: "Notices",
+        title: "Additional Notices",
+        summary: "Who runs the service and how to reach us, plus accessibility, families, AI content, and security reporting.",
+        sections: [
+            {
+                id: "provider-contact",
+                title: "Provider and contact",
+                content: <>
+                    <p>Shinobi Journey is an independent browser game. For account, legal, privacy, copyright, or safety matters, contact the operator by email at <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a>, or privately through the official community link on the main page.</p>
+                    <p>Email is the direct contact point for formal notices; community channels are for general help. Please do not put passwords, session tokens, or identity documents in any public channel.</p>
+                </>,
+            },
+            {
+                id: "accessibility",
+                title: "Accessibility",
+                content: <p>We want the game to be usable by as many players as possible and treat the WCAG 2.1 AA guidelines as our target. Accessibility is a work in progress and some features are inherently visual. If you hit a barrier that stops you playing, email <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a> with what you were trying to do, and we will try to help or improve it.</p>,
+            },
+            {
+                id: "children",
+                title: "Children and families",
+                content: <p>Shinobi Journey is intended for players aged 13 and older and is not directed to children under 13 — see the <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms</a>. We take a data-minimizing, high-privacy-by-default approach: an email is not required to play, there is no advertising or third-party tracking, and product analytics are aggregate-only. We do not knowingly collect personal information from children under 13.</p>,
+            },
+            {
+                id: "ai-content",
+                title: "AI-generated content",
+                content: <p>Some artwork may be generated with AI image tools from text prompts. Where player-facing generation is enabled, prompts are filtered for family-friendly, non-infringing content and remain subject to the provider's own safety systems. Where the law requires AI-generated media to be labeled as such, we will label it. Report any generated content that looks harmful or infringing using the in-game report control or the contact email above.</p>,
+            },
+            {
+                id: "security",
+                title: "Security and responsible disclosure",
+                content: <>
+                    <p>If you find a security vulnerability, please report it privately to <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a> and give us a reasonable chance to fix it before sharing it publicly. While testing, do not access other players' data, degrade the service, or use the issue for in-game advantage.</p>
+                    <p>A machine-readable contact is published at <a href="/.well-known/security.txt">/.well-known/security.txt</a>. We appreciate good-faith reports and will not pursue researchers who follow this policy.</p>
+                </>,
             },
         ],
     },

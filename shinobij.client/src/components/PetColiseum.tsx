@@ -23,7 +23,7 @@ import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, OrbitControls, OrthographicCamera, Sparkles } from "@react-three/drei";
+import { Billboard, Html, OrbitControls, OrthographicCamera, PerformanceMonitor, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Pet } from "../types/pet";
 import type { PetArenaFrame, PetBattleRecord } from "../types/pet-arena";
@@ -44,21 +44,23 @@ import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } fro
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, BASE_SCORE_RANGE, BOSS_RADIUS, BOSS_ATK_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot, type ShrineKind } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
-import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
+import { isPetSfxMuted, setPetSfxMuted, playPetSfx } from "../lib/pet-sfx";
 import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pet-coliseum-flag";
-import { petCombatModel } from "../lib/pet-3d-models";
+import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
-import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
+import { boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove } from "../lib/pet-duel-presentation";
+import { petVisualQuality, type PetVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
+import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -110,11 +112,11 @@ function loadSceneTexture(url: string): THREE.Texture {
 
 // ── Procedural placeholder + floor textures (used until real art is published) ─
 const ELEMENT_COLOR: Record<string, { base: string; glow: string }> = {
-    Fire: { base: "#ff6a2c", glow: "#ffb066" },
-    Water: { base: "#38bdf8", glow: "#bae6fd" },
-    Wind: { base: "#5eead4", glow: "#ccfbf1" },
+    Fire: { base: "#ef4d24", glow: "#ffb066" },
+    Water: { base: "#148fc4", glow: "#bae6fd" },
+    Wind: { base: "#26b88f", glow: "#ccfbf1" },
     Lightning: { base: "#facc15", glow: "#fef08a" },
-    Earth: { base: "#d6a76a", glow: "#f0d9b5" },
+    Earth: { base: "#b9854d", glow: "#f0d9b5" },
 };
 function elementColor(element?: string | null) {
     return ELEMENT_COLOR[String(element ?? "")] ?? { base: "#c4b5fd", glow: "#e9d5ff" };
@@ -1078,13 +1080,20 @@ function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdro
 /** Adapt the camera to the canvas aspect: portrait/narrow screens widen the
  *  FOV so both sides of the arena stay in frame on mobile. Applied per-frame
  *  (no-op unless it changed) — the idiomatic r3f mutation point. */
+// Transient FOV punch-IN on crit/KO, set by DuelDirector and applied + decayed by
+// ResponsiveCamera (the single owner of camera.fov, so nothing fights it). A lens
+// snap layered on top of the existing dolly zoom. Safe as a module singleton:
+// only one duel mounts at a time, and it decays to 0 every frame, so a stale
+// value from a prior fight is gone within a few frames.
+const duelFovKick = { current: 0 };
 function ResponsiveCamera() {
     const { camera, size } = useThree();
     useFrame(() => {
         const aspect = size.width / Math.max(1, size.height);
-        const fov = aspect < 0.8 ? 60 : aspect < 1.2 ? 47 : CAM_FOV;
+        const baseFov = aspect < 0.8 ? 60 : aspect < 1.2 ? 47 : CAM_FOV;
+        const fov = baseFov - duelFovKick.current;   // narrower FOV = zoom-in punch (decayed by DuelDirector)
         const cam = camera as THREE.PerspectiveCamera;
-        if (cam.fov !== fov) {
+        if (Math.abs(cam.fov - fov) > 0.001) {
             // eslint-disable-next-line react-hooks/immutability -- the r3f camera is a mutable three.js object; per-frame mutation inside useFrame is the library's idiomatic pattern (same as CameraRig's position writes)
             cam.fov = fov;
             cam.updateProjectionMatrix();
@@ -1730,15 +1739,15 @@ const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look poi
 const DUEL_MIN_WORLD_X = 3.7;    // min world-x gap so two big fighters never merge / cross
 const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
 const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of a melee lunge (close but not overlapping)
-const DUEL_3D_BODY_GAP = 4.2;    // wider neutral pocket for readable silhouettes and dodge lanes
-const DUEL_3D_CONTACT_GAP = 3.4; // committed hit distance: VFX bridges the gap without face-over-face overlap
-const DUEL_3D_READABLE_X_GAP = 2.15; // stop depth-aligned pets collapsing into one camera silhouette
+const DUEL_3D_BODY_GAP = 5.45;   // neutral guard range: enough runway for a readable approach, evade, or cast
+const DUEL_3D_CONTACT_GAP = 2.55; // committed hits enter a tight pocket; the elemental contact reaches the defender
+const DUEL_3D_READABLE_X_GAP = 2.65; // stop depth-aligned pets collapsing into one camera silhouette
 // ── Opening choreography (render-only) — a still ranged face-off and restrained
 // power gather. Movement begins only when the combat simulation starts.
-const INTRO_SPLASH_END = 1.5;    // s — VS splash clears before the gather is fully visible
-const INTRO_PAUSE_END = 1.7;     // s — still face-off before the power-up pose
-const INTRO_SIZEUP_END = 3.15;   // s — power gather at the real starting positions
-const INTRO_TOTAL = 3.35;        // s — brief lock-in beat, then FIGHT
+const INTRO_SPLASH_END = 1.05;   // s — establish the matchup without delaying the first exchange
+const INTRO_PAUSE_END = 1.18;    // s — one clean still face-off before the gather
+const INTRO_SIZEUP_END = 2.15;   // s — readable power gather at the real starting positions
+const INTRO_TOTAL = 2.35;        // s — brief lock-in beat, then FIGHT
 const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
 const DUEL_CAMERA_Y = 5.75;
 const DUEL_LOOK_Y = 0.9;
@@ -1751,12 +1760,13 @@ function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
  *  on the floor with a real contact shadow, driven by the interpolated duel tick
  *  stream + the anime strike choreography (ability-distinct strikes, recoil,
  *  status tints, KO topple). Same grounded rig as the round renderer's Standee. */
-function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }: {
-    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean;
+function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, dashCue }: {
+    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean; dashCue?: DuelDashCue;
 }) {
     const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
     const poses = usePetPoses(petVisualId(pet), mirror);
     const combatModel = useMemo(() => petCombatModel(pet), [pet]);
+    const heroMoveWindows = useMemo(() => petHeroMoveWindows(duel.events, id, { ...pet, profile: combatModel?.profile }), [combatModel?.profile, duel.events, id, pet]);
     const modelFrame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const group = useRef<THREE.Group>(null);     // floor position + lunge offset
     const poseG = useRef<THREE.Group>(null);      // squash/stretch + topple, pivots at the feet
@@ -1796,8 +1806,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
     const lastPos = useRef<[number, number] | null>(null);
     const smoothedSpeed = useRef(0);
     const locomotionActive = useRef(false);
+    const dashRecoveryUntil = useRef(0);
+    const dashRouteId = useRef<number | null>(null);
+    const dashEntryOffset = useRef<[number, number]>([0, 0]);
     const travelFacing = useRef<[number, number]>([mirror ? -1 : 1, 0]);
+    const combatFacing = useRef<[number, number]>([mirror ? -1 : 1, 0]);
     const runClock = useRef(0);
+    const terminalTimeline = useRef<{ wall: number; base: number } | null>(null);
     // Anime strike choreography (render-only): eased offsets + phase clocks. The LONG sim
     // states (windup/stagger/dodge) drive beatTimeline directly; the 1-tick `strike` drives
     // a self-timed forward pulse off the windup-exit edge.
@@ -1865,10 +1880,15 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         const a0 = findActor(snaps[i0], id);
         if (!a0) return;
         const a1 = findActor(snaps[i1], id) ?? a0;
-        // A >3-field-unit jump in one tick is a teleport (reserve swap-in), never real
-        // travel — hard-cut at the tick midpoint instead of sliding across.
+        // A >3-field-unit jump is normally a reserve swap. Dash/dodge states are
+        // explicitly locomotion, though: hard-cutting those states was the reason
+        // an authored dash still looked like a teleport even with a speed trail.
         const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
-        const teleport = (tdx * tdx + tdy * tdy) > 9;
+        const burstTravel = a0.state === "dash" || a1.state === "dash" || a0.state === "dodge" || a1.state === "dodge";
+        // Active 3D fighters must never hard-cut across the floor. Even a large
+        // director correction is blended as very fast locomotion; only the legacy
+        // standee/reserve presentation retains a true discontinuity cut.
+        const teleport = !freeRoam3d && !burstTravel && (tdx * tdx + tdy * tdy) > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
         const fp = duelFieldToFloor(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
         let wx = fp.wx, wz = fp.wz;
@@ -1880,6 +1900,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         const actors = snaps[i0].actors;
         let foeWX: number | null = null;   // nearest opposing fighter's world-x → legacy standee lunge target
         let foeDistance: number | null = null; // true floor distance → 3D free-roam lunge target
+        let faceTargetWX: number | null = null;
+        let faceTargetWZ: number | null = null;
         for (let k = 0; k < actors.length; k++) {
             const other = actors[k];
             if (other.id === id || other.state === "dead") continue;
@@ -1926,7 +1948,67 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
                     wz += uz * (DUEL_3D_BODY_GAP - distance) * 0.5;
                     distance = DUEL_3D_BODY_GAP;
                 }
-                if (foeDistance === null || distance < foeDistance) foeDistance = distance;
+                if (foeDistance === null || distance < foeDistance) {
+                    foeDistance = distance;
+                    faceTargetWX = of.wx;
+                    faceTargetWZ = of.wz;
+                }
+            }
+        }
+
+        // A dash is one authored phrase shared by the creature and its VFX. The
+        // previous renderer advanced the model from snapshots while a separate
+        // comet advanced on wall time, which let the streak travel while the pet
+        // appeared to pop directly to its destination. During an active cue this
+        // world-space route owns the model position as well.
+        let dashActive = false;
+        let dashTravelFacing: [number, number] | null = null;
+        if (dashCue) {
+            const travelP = dashCueTravelProgress(dashCue, clock.current.t);
+            if (clock.current.t >= dashCue.startTick && clock.current.t <= dashCue.contactTick) {
+                dashActive = true;
+                dashRecoveryUntil.current = performance.now() + 720;
+                const routePoint = dashPathPoint(dashCue, travelP);
+                if (dashRouteId.current !== dashCue.id) {
+                    const routeStart = dashPathPoint(dashCue, 0);
+                    const visibleStart = visualPos.current ?? [wx, wz];
+                    dashRouteId.current = dashCue.id;
+                    dashEntryOffset.current = [visibleStart[0] - routeStart[0], visibleStart[1] - routeStart[2]];
+                }
+                // Join the authored route from the creature's CURRENT rendered
+                // position, then bleed the seam out before contact. This prevents
+                // the first dash frame from popping back to an old snapshot.
+                const seam = Math.pow(1 - travelP, 2);
+                wx = routePoint[0] + dashEntryOffset.current[0] * seam;
+                wz = routePoint[2] + dashEntryOffset.current[1] * seam;
+                // The creature and its elemental trail share the route tangent.
+                // Deriving heading from the lagged visual snapshot made zig-zag
+                // dashes briefly point backward at each bend (and could leave a
+                // Kitsune facing away on contact).
+                const routeAhead = dashPathPoint(dashCue, Math.min(1, travelP + 0.025));
+                const dashDx = routeAhead[0] - routePoint[0];
+                const dashDz = routeAhead[2] - routePoint[2];
+                const dashLength = Math.hypot(dashDx, dashDz);
+                if (dashLength > 1e-4) dashTravelFacing = [dashDx / dashLength, dashDz / dashLength];
+            }
+        }
+
+        // Dash routing runs after the neutral spacing pass, so it needs its own
+        // contact guard. Without this final projection the authored S-curve could
+        // finish at the opponent's simulation origin and visually merge both
+        // meshes even though ordinary locomotion respected the body gap. Keep the
+        // route tangent and all of its visible travel; only compress the last few
+        // feet into a readable VFX-bridged contact pocket.
+        if (freeRoam3d && dashActive && faceTargetWX !== null && faceTargetWZ !== null) {
+            const gapX = wx - faceTargetWX;
+            const gapZ = wz - faceTargetWZ;
+            const contactDistance = Math.hypot(gapX, gapZ);
+            if (contactDistance < DUEL_3D_CONTACT_GAP) {
+                const fallbackX = myEnemy ? 1 : -1;
+                const ux = contactDistance > 1e-4 ? gapX / contactDistance : fallbackX;
+                const uz = contactDistance > 1e-4 ? gapZ / contactDistance : 0;
+                wx = faceTargetWX + ux * DUEL_3D_CONTACT_GAP;
+                wz = faceTargetWZ + uz * DUEL_3D_CONTACT_GAP;
             }
         }
 
@@ -1939,9 +2021,16 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         // Interpolate the presentation target again with a frame-rate-independent
         // response so a slow capture/GPU frame cannot expose snapshot stair-steps.
         // Dashes stay snappy; neutral travel is slightly softer. Teleports still cut.
-        if (!visualPos.current || teleport) visualPos.current = [wx, wz];
-        else {
-            const response = a0.state === "dash" || a0.state === "dodge" ? 20 : a0.state === "idle" ? 14 : 17;
+        const dashRecovering = !dashActive && performance.now() < dashRecoveryUntil.current;
+        if (!visualPos.current || (teleport && !dashRecovering)) visualPos.current = [wx, wz];
+        else if (dashActive) {
+            // Keep an anime-fast burst, but never let a slow render frame collapse
+            // several feet of its route into one visible update.
+            visualPos.current = boundedBurstStep(visualPos.current, [wx, wz], delta);
+        } else {
+            // Let the eye track a burst over several render frames. A response of
+            // 20 caught up in roughly one frame after a large snapshot jump.
+            const response = dashRecovering ? 8.5 : a0.state === "dash" ? 10.5 : a0.state === "dodge" ? 12 : a0.state === "idle" ? 14 : 17;
             const alpha = 1 - Math.exp(-response * Math.min(delta, 1 / 15));
             visualPos.current[0] = lerp(visualPos.current[0], wx, alpha);
             visualPos.current[1] = lerp(visualPos.current[1], wz, alpha);
@@ -1954,7 +2043,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         const dwz = lastPos.current ? wz - lastPos.current[1] : 0;
         const rawSpeed = Math.hypot(dwx, dwz) / Math.max(1 / 240, delta);
         const travelStep = Math.hypot(dwx, dwz);
-        if (!teleport && travelStep > 0.003) {
+        if (dashTravelFacing) {
+            travelFacing.current[0] = dashTravelFacing[0];
+            travelFacing.current[1] = dashTravelFacing[1];
+        } else if (!teleport && travelStep > 0.003) {
             // Preserve locomotion direction independently from target-facing.
             // Quadrupeds consume this so a lateral kite becomes a real turn-and-run
             // instead of a forward walk animation sliding sideways across the floor.
@@ -1984,9 +2076,27 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         // non-crossing clamp above, this always matches the statically-mirrored art.
         const mappedFaceX = a0.faceX * (DUEL_FLOOR_HALF_W / ARENA_X);
         const mappedFaceZ = a0.faceY * (DUEL_FLOOR_HALF_D / ARENA_Y);
-        const faceLength = Math.hypot(mappedFaceX, mappedFaceZ) || 1;
-        const faceWX = freeRoam3d ? mappedFaceX / faceLength : (myEnemy ? -1 : 1);
-        const faceWZ = freeRoam3d ? mappedFaceZ / faceLength : 0;
+        let desiredFaceX = mappedFaceX;
+        let desiredFaceZ = mappedFaceZ;
+        // Navigation briefly points the sim-facing vector along a maneuver. For
+        // presentation, keep the creature's eyes and attack axis on its nearest
+        // live opponent while it circles, side-steps, or backs away.
+        if (freeRoam3d && faceTargetWX !== null && faceTargetWZ !== null) {
+            desiredFaceX = faceTargetWX - wx;
+            desiredFaceZ = faceTargetWZ - wz;
+        }
+        const desiredFaceLength = Math.hypot(desiredFaceX, desiredFaceZ) || 1;
+        const targetFaceX = freeRoam3d ? desiredFaceX / desiredFaceLength : (myEnemy ? -1 : 1);
+        const targetFaceZ = freeRoam3d ? desiredFaceZ / desiredFaceLength : 0;
+        const faceResponse = a0.state === "windup" || a0.state === "strike" || a0.state === "recover" ? 18 : 10;
+        const faceAlpha = 1 - Math.exp(-faceResponse * Math.min(delta, 1 / 15));
+        const blendedFaceX = lerp(combatFacing.current[0], targetFaceX, faceAlpha);
+        const blendedFaceZ = lerp(combatFacing.current[1], targetFaceZ, faceAlpha);
+        const blendedFaceLength = Math.hypot(blendedFaceX, blendedFaceZ) || 1;
+        combatFacing.current[0] = blendedFaceX / blendedFaceLength;
+        combatFacing.current[1] = blendedFaceZ / blendedFaceLength;
+        const faceWX = combatFacing.current[0];
+        const faceWZ = combatFacing.current[1];
         const facing = faceWX < 0 ? -1 : 1;
 
         // ── Anime strike choreography (render-only — never touches the sim) ──────
@@ -2000,6 +2110,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         const sizingUp = introSec >= INTRO_PAUSE_END && introSec < INTRO_SIZEUP_END;
         if (sizingUp) basePose = "charge";
         const curTick = Math.floor(clock.current.t);
+        const activeHeroMove = petHeroMoveAt(heroMoveWindows, clock.current.t);
         // A SUPPORT cast (heal/shield/buff) winds up as a GATHER/RISE, not the melee
         // coil-back, so a healer reads as drawing power up — not flinching to strike.
         if (a0.state === "windup") {
@@ -2021,7 +2132,17 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         // Stagger ENTRY → scale this recoil's knockback by how hard the incoming blow landed.
         if (a0.state === "stagger" && prevSimState.current !== "stagger") {
             let rp = 0.55;
-            for (let k = 0; k < inHits.length; k++) { const it = inHits[k]; if (it.t > curTick + 4) break; if (it.t >= curTick - 1) { rp = Math.max(0.28, it.power); break; } }
+            for (let k = 0; k < inHits.length; k++) {
+                const it = inHits[k];
+                if (it.t > curTick + 4) break;
+                if (it.t >= curTick - 1) {
+                    // Damage fractions are usually small, so feeding them through
+                    // directly produced a barely visible flinch. Remap them into a
+                    // readable recoil range and give crits a decisive snap.
+                    rp = Math.min(1.25, 0.48 + it.power * 1.55 + (it.crit ? 0.24 : 0));
+                    break;
+                }
+            }
             recoilPow.current = rp;
         }
         const base = beatTimeline(basePose, facing, 1.0, baseProg, { power: basePose === "recoil" ? recoilPow.current : 0.6 });
@@ -2143,7 +2264,20 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         const feint = idling ? Math.max(0, Math.sin(neutralT * 1.35) - 0.96) * 0.45 * facing : 0;
         const bFreq = desperate ? 7.4 : 5.2, bAmp = desperate ? 0.075 : 0.04;
         const breathe = idling && !combatModel ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * bFreq + bobPhase)) * bAmp : 1;
-        g.position.set(wx + choX.current, FLOOR_Y + Math.max(0, choY.current) + bob, wz + choZ.current);
+        // The authored dash route is already a complete launch → S-step → contact
+        // phrase. Suppress the ordinary melee-lunge offset until its short recovery
+        // window clears; adding both translations made the pet overshoot and snap.
+        const routeOwnsPosition = dashActive || dashRecovering;
+        // The 3D stage track already contains approach, contact, recoil and exit
+        // displacement. Adding the legacy billboard lunge on top caused a second
+        // horizontal shove followed by a correction (the remaining stiff slide).
+        // Keep vertical anticipation/hops, but give horizontal ownership to one
+        // system. An authored dash owns all three axes because its S-route has its
+        // own hop arc.
+        const presentationChoX = (freeRoam3d || routeOwnsPosition) ? 0 : choX.current;
+        const presentationChoY = routeOwnsPosition ? 0 : choY.current;
+        const presentationChoZ = (freeRoam3d || routeOwnsPosition) ? 0 : choZ.current;
+        g.position.set(wx + presentationChoX, FLOOR_Y + Math.max(0, presentationChoY) + bob, wz + presentationChoZ);
         if (combatModel) {
             const settle = 1 - Math.exp(-16 * Math.min(delta, 1 / 15));
             pg.scale.x = lerp(pg.scale.x, 1, settle);
@@ -2203,7 +2337,25 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         tg -= 0.3 * hurt; tb -= 0.3 * hurt;
         if (desperate) { tr = Math.min(1.25, tr + 0.14); tg *= 0.93; tb *= 0.88; }   // bloodied red-rage rim (R3)
         const mf = modelFrame.current;
-        mf.motion = a0.state === "idle" && moving ? "run" : a0.state;
+        // The simulator's strike state is intentionally only one tick long, but a
+        // production animation needs a complete anticipation -> contact -> follow-
+        // through phrase. Keep the authored attack clip alive for the render-side
+        // strike pulse instead of replacing it with `recover` after ~33 ms. This is
+        // the difference between a creature visibly attacking and a model merely
+        // sliding forward while its attack clip flashes for a single frame.
+        const striking = pe >= 0 && pe < pulseS.current;
+        mf.motion = a0.state === "dead"
+            ? "dead"
+            : dashActive
+                ? "dash"
+                : dashRecovering && dashCue && !dashCue.impact
+                    // A missed gap-closer plants and turns after crossing the empty
+                    // lane. Leaving the simulator's one-tick strike here made the
+                    // fox instantly change from gallop to idle at its new position.
+                    ? "recover"
+                : striking
+                ? "strike"
+                : a0.state === "idle" && moving ? "run" : a0.state;
         mf.moving = moving;
         mf.speed = smoothedSpeed.current;
         mf.moveX = travelFacing.current[0];
@@ -2211,9 +2363,27 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
         mf.faceX = faceWX;
         mf.faceZ = faceWZ;
         mf.hit = flash.current;
-        mf.casting = sizingUp || buffPosing || (a0.state === "windup" && strikeKind.current === "ranged");
+        const atTerminal = clock.current.t >= snaps.length - 1 - 0.001;
+        const winnerTeam = myEnemy ? "enemy" : "player";
+        const defeated = atTerminal && duel.winner !== null && duel.winner !== winnerTeam;
+        const victorious = atTerminal && a0.state !== "dead" && duel.winner === winnerTeam;
+        if (defeated) mf.motion = "dead";
+        mf.casting = sizingUp || buffPosing || victorious || (a0.state === "windup" && strikeKind.current === "ranged");
         mf.desperate = desperate;
         mf.statuses = st;
+        mf.victorious = victorious;
+        mf.moveStyle = activeHeroMove?.style ?? "generic";
+        mf.moveName = activeHeroMove?.move;
+        const battleTimeline = (clock.current.intro ?? 0) >= INTRO_TOTAL
+            ? INTRO_TOTAL + clock.current.t / DUEL_TPS
+            : (clock.current.intro ?? 0);
+        if (atTerminal) {
+            if (!terminalTimeline.current) terminalTimeline.current = { wall: state.clock.elapsedTime, base: battleTimeline };
+            mf.timeline = terminalTimeline.current.base + (state.clock.elapsedTime - terminalTimeline.current.wall);
+        } else {
+            terminalTimeline.current = null;
+            mf.timeline = battleTimeline;
+        }
         if (m) {
             m.color.setRGB(Math.min(2, tr + fl), Math.min(2, Math.max(0, tg) + fl), Math.min(2, Math.max(0, tb) + fl));
             m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
@@ -2242,8 +2412,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }:
 
         // Contact shadow — flat on the floor, tracks x/z, fades + shrinks as the pet lifts.
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(wx + choX.current, 0.02, wz + choZ.current);
-            const lift = Math.max(0, choY.current);
+            shadow.current.position.set(wx + presentationChoX, 0.02, wz + presentationChoZ);
+            const lift = Math.max(0, presentationChoY);
             const sf = Math.max(0, 1 - lift * 0.7);
             shadowMat.current.opacity = 0.42 * sf * (a0.state === "dead" ? 0.4 : 1);
             const s = 0.85 + 0.15 * sf;
@@ -2555,7 +2725,7 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
  * from solid toon cores, translucent energy shells and receding trail geometry,
  * so it belongs to the same lit 3D space as the pets instead of reading like a
  * flat icon pasted between them. */
-function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
+function NativeProjectileBody({ visual, quality }: { visual: ProjectileVisual; quality: PetVisualQualityConfig }) {
     const root = useRef<THREE.Group>(null);
     const shell = useRef<THREE.Mesh>(null);
     const light = useRef<THREE.PointLight>(null);
@@ -2563,6 +2733,7 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
     const key = visual.spriteKey ?? (visual.tex === "crescent" ? "wind" : visual.tex === "bolt" ? "lightning" : visual.tex === "rock" ? "earth" : "arcane");
     const flameHead = useMemo(() => key === "fire" ? makeFlamePetalGeometry(0.92, 0.28, 0.32) : null, [key]);
     const flameInner = useMemo(() => key === "fire" ? makeFlamePetalGeometry(0.68, 0.17, 0.2) : null, [key]);
+    const lightningBolts = useMemo(() => key === "lightning" ? Array.from({ length: 3 }, (_, i) => makeElementVolumeCurve("lightning", i, "contact")) : [], [key]);
     const energyTrails = useMemo(() => key === "earth" ? [] : Array.from({ length: 3 }, (_, i) => makeFlameRibbonGeometry(
         0.9 - i * 0.14,
         0.07 - i * 0.01,
@@ -2572,10 +2743,11 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
     useEffect(() => () => {
         flameHead?.dispose();
         flameInner?.dispose();
+        lightningBolts.forEach((geometry) => geometry.dispose());
         energyTrails.forEach((geometry) => geometry.dispose());
-    }, [energyTrails, flameHead, flameInner]);
+    }, [energyTrails, flameHead, flameInner, lightningBolts]);
     const coreColor = key === "fire" ? "#ff5a18" : key === "water" ? "#168fda" : key === "wind" ? "#49cdb7" : key === "earth" ? "#9a5a2d" : key === "lightning" ? "#8d63ff" : visual.core;
-    const edgeColor = key === "fire" ? "#ffd65a" : key === "water" ? "#c9f8ff" : key === "wind" ? "#e0fff5" : key === "earth" ? "#e8ad5d" : key === "lightning" ? "#fff6a9" : visual.glow;
+    const edgeColor = key === "fire" ? "#ffd65a" : key === "water" ? "#52cbe0" : key === "wind" ? "#73dfc4" : key === "earth" ? "#e8ad5d" : key === "lightning" ? "#fff6a9" : visual.glow;
     useFrame((state) => {
         const t = state.clock.elapsedTime;
         const pulse = 1 + Math.sin(t * (key === "lightning" ? 34 : 15)) * (key === "earth" ? 0.035 : 0.075);
@@ -2591,11 +2763,11 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
         if (trail.current) trail.current.rotation.x = Math.sin(t * 9) * 0.16;
         if (light.current) light.current.intensity = (visual.charged ? 3.8 : 2.3) + Math.abs(Math.sin(t * 21)) * 0.9;
     });
-    const additive = (opacity: number, color = edgeColor) => (
-        <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+    const energyLayer = (opacity: number, color = edgeColor) => (
+        <meshToonMaterial color={color} emissive={color} emissiveIntensity={0.16} transparent opacity={Math.min(0.92, opacity * 1.45)} depthWrite={false} side={THREE.DoubleSide} />
     );
     return (
-        <group ref={root} scale={visual.size * 2.8}>
+        <group ref={root} scale={visual.size * 1.55}>
             {/* Solid identity core. */}
             {key === "earth" ? (
                 <group rotation={[0.18, -0.32, 0.12]}>
@@ -2604,7 +2776,13 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
                     <mesh position={[0.15, -0.18, -0.18]} rotation={[-0.5, 0.7, 0.2]} scale={0.27}><icosahedronGeometry args={[0.34, 1]} /><meshToonMaterial color="#704128" emissive="#2b1309" emissiveIntensity={0.05} /></mesh>
                 </group>
             ) : key === "water" ? (
-                <mesh scale={[1.18, 0.82, 0.82]}><sphereGeometry args={[0.38, 18, 12]} /><meshToonMaterial color={coreColor} emissive="#063e73" emissiveIntensity={0.2} transparent opacity={0.9} depthWrite={false} /></mesh>
+                <group position={[-0.08, 0, 0]}>
+                    <mesh scale={[1.38, 0.64, 0.64]} castShadow><sphereGeometry args={[0.36, 22, 14]} /><meshToonMaterial color="#075f9b" emissive="#042b55" emissiveIntensity={0.06} /></mesh>
+                    <mesh position={[0.09, 0.03, 0.03]} scale={[1.08, 0.46, 0.46]}><sphereGeometry args={[0.34, 20, 12]} /><meshToonMaterial color={coreColor} emissive="#21c7e6" emissiveIntensity={0.1} transparent opacity={0.88} depthWrite={false} /></mesh>
+                    <mesh position={[-0.47, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.78, 1.1, 0.78]}><coneGeometry args={[0.25, 0.72, 14]} /><meshToonMaterial color="#075f9b" emissive="#042b55" emissiveIntensity={0.05} /></mesh>
+                    <mesh position={[0.03, 0, 0]} rotation={[0, Math.PI / 2, 0]}><torusGeometry args={[0.31, 0.043, 8, 30, Math.PI * 1.62]} /><meshToonMaterial color={edgeColor} emissive={coreColor} emissiveIntensity={0.1} transparent opacity={0.74} depthWrite={false} /></mesh>
+                    <mesh position={[-0.24, 0.02, 0]} rotation={[0, Math.PI / 2, 0.64]} scale={0.72}><torusGeometry args={[0.31, 0.035, 8, 26, Math.PI * 1.38]} /><meshToonMaterial color="#d8fbff" transparent opacity={0.58} depthWrite={false} /></mesh>
+                </group>
             ) : key === "fire" && flameHead && flameInner ? (
                 <group position={[-0.28, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
                     <mesh geometry={flameHead} rotation={[0, 0, 0.12]}>
@@ -2620,26 +2798,21 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
                     <mesh rotation={[-Math.PI / 2, 0, -0.38]} scale={0.74}><torusGeometry args={[0.34, 0.065, 8, 24, Math.PI * 1.16]} /><meshToonMaterial color={edgeColor} transparent opacity={0.74} depthWrite={false} /></mesh>
                 </group>
             ) : key === "lightning" ? (
-                <group rotation={[0, 0, -0.12]}>
-                    {[
-                        { x: 0.24, y: 0.12, a: -0.35, l: 0.46 },
-                        { x: -0.08, y: -0.02, a: 0.48, l: 0.4 },
-                        { x: -0.36, y: 0.1, a: -0.42, l: 0.38 },
-                    ].map((segment, i) => (
-                        <group key={i} position={[segment.x, segment.y, i % 2 ? -0.035 : 0.035]} rotation={[0, 0, segment.a]}>
-                            <mesh scale={[segment.l, 0.11, 0.11]}><boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color={edgeColor} toneMapped={false} /></mesh>
-                            <mesh scale={[segment.l * 1.08, 0.2, 0.2]}><boxGeometry args={[1, 1, 1]} />{additive(0.48, coreColor)}</mesh>
-                        </group>
+                <group rotation={[0, 0, -Math.PI / 2]} scale={0.5} position={[-0.15, 0, 0]}>
+                    {lightningBolts.map((geometry, i) => (
+                        <mesh key={i} geometry={geometry} rotation={[i * 0.18, i * 0.42, i * 0.22]}>
+                            <meshToonMaterial color={i === 0 ? edgeColor : coreColor} emissive={edgeColor} emissiveIntensity={0.24} transparent opacity={i === 0 ? 0.96 : 0.72} depthWrite={false} />
+                        </mesh>
                     ))}
                 </group>
             ) : (
-                <mesh><sphereGeometry args={[0.36, 22, 14]} /><meshToonMaterial color={coreColor} emissive={edgeColor} emissiveIntensity={key === "fire" ? 0.48 : 0.28} /></mesh>
+                <mesh scale={[1.18, 0.88, 0.88]}><icosahedronGeometry args={[0.36, 1]} /><meshToonMaterial color={coreColor} emissive={edgeColor} emissiveIntensity={key === "fire" ? 0.48 : 0.28} /></mesh>
             )}
 
             {/* Energy envelope catches the silhouette without whitening the core. */}
             <mesh ref={shell} scale={key === "wind" ? 1.35 : 1.15}>
-                {key === "wind" ? <torusGeometry args={[0.34, 0.045, 7, 30, Math.PI * 1.7]} /> : <sphereGeometry args={[0.43, 20, 12]} />}
-                {additive(key === "earth" ? 0.12 : 0.26)}
+                {key === "wind" ? <torusGeometry args={[0.34, 0.045, 7, 30, Math.PI * 1.7]} /> : key === "water" ? <torusGeometry args={[0.38, 0.055, 8, 30, Math.PI * 1.78]} /> : <sphereGeometry args={[0.43, 20, 12]} />}
+                {energyLayer(key === "earth" ? 0.12 : key === "water" ? 0.18 : 0.26)}
             </mesh>
 
             {/* Receding volumes give real travel direction and speed. */}
@@ -2648,11 +2821,11 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
                     <mesh key={i} position={[-0.5 - i * 0.28, (i - 1) * 0.1, (i % 2 ? -1 : 1) * 0.11]} scale={0.13 - i * 0.02} rotation={[i, i * 0.8, 0]}><dodecahedronGeometry args={[1, 0]} /><meshToonMaterial color={i ? "#6f3d22" : edgeColor} /></mesh>
                 ) : (
                     <mesh key={i} geometry={energyTrails[i]} position={[-0.42 - i * 0.18, (i - 1) * 0.11, (i % 2 ? -1 : 1) * 0.09]} rotation={[0, i * 0.42, -Math.PI / 2]} scale={[0.8 - i * 0.12, 0.78 - i * 0.1, 0.78 - i * 0.1]}>
-                        {additive(0.4 - i * 0.1, i === 0 ? edgeColor : coreColor)}
+                        {energyLayer(0.4 - i * 0.1, i === 0 ? edgeColor : coreColor)}
                     </mesh>
                 ))}
             </group>
-            <pointLight ref={light} color={edgeColor} intensity={2.4} distance={visual.charged ? 5.4 : 3.8} decay={2} />
+            {quality.dynamicPetLight && <pointLight ref={light} color={edgeColor} intensity={2.4} distance={visual.charged ? 5.4 : 3.8} decay={2} />}
         </group>
     );
 }
@@ -2660,7 +2833,7 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
 /** One in-flight projectile — an element-distinct flying attack (fireball /
  *  water ball / wind cut / rock throw / lightning bolt) that points where it's
  *  going. Driven by the sim's homing projectile in `snapshots[t].projectiles`. */
-function DuelProjectile({ index, duel, clock, native = false }: { index: number; duel: DuelResult; clock: { current: DuelClock }; native?: boolean }) {
+function DuelProjectile({ index, duel, clock, quality, native = false }: { index: number; duel: DuelResult; clock: { current: DuelClock }; quality: PetVisualQualityConfig; native?: boolean }) {
     const grp = useRef<THREE.Group>(null);
     const inner = useRef<THREE.Group>(null);
     const curId = useRef<number | null>(null);
@@ -2698,7 +2871,7 @@ function DuelProjectile({ index, duel, clock, native = false }: { index: number;
     });
     if (native) return (
         <group ref={grp} visible={false}>
-            <group ref={inner}><NativeProjectileBody visual={visual} /></group>
+            <group ref={inner}><NativeProjectileBody visual={visual} quality={quality} /></group>
         </group>
     );
     return (
@@ -2715,17 +2888,177 @@ function DuelProjectile({ index, duel, clock, native = false }: { index: number;
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-type DuelSetPieceKind = "flameBurst" | "abyssBurst" | "tidalWave" | "tornado" | "lightningStorm" | "earthBurst" | "elemental";
+type DuelSetPieceKind = "flameBurst" | "abyssBurst" | "tidalWave" | "tornado" | "lightningStorm" | "earthBurst" | "lunarBurst" | "elemental";
 type DuelElementBurstKind = "fire" | "water" | "wind" | "lightning" | "earth" | "abyss" | "arcane";
 type DuelMoveCalloutTone = "attack" | "support" | "maneuver" | "combo";
 type DuelImpactMode = "impact" | "tell" | "dodge";
 type DuelSupportKind = "heal" | "shield";
+type DuelAttackWeight = "basic" | "ability" | "heavy";
+type DuelDashCue = {
+    id: number;
+    actorId?: string;
+    from: Vec3;
+    to: Vec3;
+    /** The attacker lands at `to`; damage and the contact burst resolve on the
+     * defender at `impactAt`. Keeping these separate prevents a safe body gap
+     * from turning a successful hit into VFX that visibly detonates in empty air. */
+    impactAt: Vec3;
+    color: string;
+    kind: DuelElementBurstKind;
+    move?: string;
+    style: PetHeroMoveStyle;
+    impact: boolean;
+    createdAt: number;
+    duration: number;
+    travelDuration: number;
+    /** Simulation-clock ownership keeps the model, trail and contact on one
+     * timeline instead of skipping travel frames during a slow render. */
+    startTick: number;
+    contactTick: number;
+    endTick: number;
+    /** Signed lateral bow plus a smaller counter-sweep. Both return to zero at contact. */
+    bend: number;
+    weave: number;
+};
+function dashCueTravelProgress(cue: Pick<DuelDashCue, "startTick" | "contactTick">, tick: number): number {
+    return Math.min(1, Math.max(0, (tick - cue.startTick) / Math.max(1, cue.contactTick - cue.startTick)));
+}
+type DuelPressureCue = { id: number; from: Vec3; to: Vec3; leftColor: string; rightColor: string; leftKind: DuelElementBurstKind; rightKind: DuelElementBurstKind };
+function dashTravelEase(progress: number): number {
+    const p = Math.min(1, Math.max(0, progress));
+    // Cubic smoothstep keeps the burst fast but spreads its displacement across
+    // more visible frames than the old quadratic ease, whose steep midpoint read
+    // like a teleport at 50-60 fps.
+    return p * p * (3 - 2 * p);
+}
+function dashPathPoint(cue: Pick<DuelDashCue, "from" | "to" | "bend" | "weave" | "impact">, progress: number, y = FLOOR_Y): Vec3 {
+    const p = dashTravelEase(progress);
+    const dx = cue.to[0] - cue.from[0], dz = cue.to[2] - cue.from[2];
+    const length = Math.max(0.001, Math.hypot(dx, dz));
+    const sideX = -dz / length, sideZ = dx / length;
+    // The first sine bows into a lane; the second crosses that lane once, creating
+    // an authored anime S-step rather than random locomotion noise. Both are zero
+    // at launch/contact, so the deterministic simulation endpoints stay exact.
+    const lateral = Math.sin(Math.PI * p) * cue.bend + Math.sin(Math.PI * 2 * p) * cue.weave;
+    const hop = Math.sin(Math.PI * p) * (cue.impact ? 0.3 : 0.42);
+    return [
+        lerp(cue.from[0], cue.to[0], p) + sideX * lateral,
+        y + hop,
+        lerp(cue.from[2], cue.to[2], p) + sideZ * lateral,
+    ];
+}
+type DuelFxPalette = { dark: string; body: string; accent: string; core: string };
+function duelFxPalette(kind: DuelElementBurstKind, fallback: string): DuelFxPalette {
+    if (kind === "fire") return { dark: "#421008", body: "#d92d12", accent: "#ff7a18", core: "#ffd36a" };
+    if (kind === "water") return { dark: "#042b55", body: "#0877bd", accent: "#21c7e6", core: "#d8fbff" };
+    if (kind === "wind") return { dark: "#073b3d", body: "#14796f", accent: "#50d9b8", core: "#e0fff3" };
+    if (kind === "lightning") return { dark: "#211047", body: "#5c38c4", accent: "#b48cff", core: "#fff3a3" };
+    if (kind === "earth") return { dark: "#2c190e", body: "#754321", accent: "#ce8f38", core: "#ffe0a1" };
+    if (kind === "abyss") return { dark: "#15081d", body: "#47102f", accent: "#e5224f", core: "#ffad86" };
+    const base = new THREE.Color(fallback);
+    return {
+        dark: base.clone().multiplyScalar(0.28).getStyle(),
+        body: base.clone().multiplyScalar(0.72).getStyle(),
+        accent: base.getStyle(),
+        core: base.clone().lerp(new THREE.Color("#fff1d4"), 0.7).getStyle(),
+    };
+}
+
+/** A beveled, tapered brush stroke. These opaque silhouettes replace the flat
+ * rings/orbs that made combat effects look like UI laid over sculpted pets. */
+function makeAnimeStrokeGeometry(length: number, width: number, curl: number, jagged = 0): THREE.ExtrudeGeometry {
+    const steps = 24;
+    const upper: THREE.Vector2[] = [];
+    const lower: THREE.Vector2[] = [];
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = (t - 0.18) * length;
+        const tooth = jagged > 0 && i > 0 && i < steps ? (i % 2 ? 1 : -1) * jagged * (0.45 + Math.sin(Math.PI * t) * 0.55) : 0;
+        const centerY = Math.sin(Math.PI * t) * curl + Math.sin(Math.PI * 2 * t) * curl * 0.16 + tooth;
+        const nextT = Math.min(1, t + 1 / steps);
+        const nextTooth = jagged > 0 && i < steps - 1 ? ((i + 1) % 2 ? 1 : -1) * jagged * (0.45 + Math.sin(Math.PI * nextT) * 0.55) : 0;
+        const nextY = Math.sin(Math.PI * nextT) * curl + Math.sin(Math.PI * 2 * nextT) * curl * 0.16 + nextTooth;
+        const tangentX = length / steps;
+        const tangentY = nextY - centerY;
+        const tangentLength = Math.max(0.001, Math.hypot(tangentX, tangentY));
+        const nx = -tangentY / tangentLength;
+        const ny = tangentX / tangentLength;
+        const envelope = Math.pow(Math.sin(Math.PI * t), 0.48) * (1 - t * 0.52) + 0.018;
+        const half = width * envelope;
+        upper.push(new THREE.Vector2(x + nx * half, centerY + ny * half));
+        lower.push(new THREE.Vector2(x - nx * half, centerY - ny * half));
+    }
+    const shape = new THREE.Shape();
+    shape.moveTo(upper[0].x, upper[0].y);
+    for (let i = 1; i < upper.length; i++) shape.lineTo(upper[i].x, upper[i].y);
+    for (let i = lower.length - 1; i >= 0; i--) shape.lineTo(lower[i].x, lower[i].y);
+    shape.closePath();
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.065, steps: 1, bevelEnabled: true, bevelSegments: 2, bevelSize: 0.018, bevelThickness: 0.02 });
+    geometry.translate(0, 0, -0.0375);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+function makeDashRibbonGeometry(cue: DuelDashCue, bodyY: number, halfHeight: number, lateralOffset = 0): THREE.BufferGeometry {
+    const segments = 36;
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const at = dashPathPoint(cue, t, bodyY);
+        const envelope = Math.max(0.018, Math.pow(Math.sin(Math.PI * t), 0.58));
+        const ahead = dashPathPoint(cue, Math.min(1, t + 1 / segments), bodyY);
+        const tangentX = ahead[0] - at[0], tangentZ = ahead[2] - at[2];
+        const tangentLength = Math.max(0.001, Math.hypot(tangentX, tangentZ));
+        const sideX = -tangentZ / tangentLength, sideZ = tangentX / tangentLength;
+        const offset = lateralOffset * envelope;
+        const x = at[0] + sideX * offset, z = at[2] + sideZ * offset;
+        positions.push(x, at[1] + halfHeight * envelope, z, x, at[1] - halfHeight * envelope, z);
+        uvs.push(t, 1, t, 0);
+        if (i < segments) {
+            const n = i * 2;
+            indices.push(n, n + 1, n + 2, n + 2, n + 1, n + 3);
+        }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    geometry.setDrawRange(0, 0);
+    return geometry;
+}
+
+/** A short, solid elemental stroke between the attacker's planted body position
+ * and the defender's actual hurt point. The pets never have to overlap to sell
+ * contact, and the player can read exactly where a successful dash connected. */
+function makeDashContactGeometry(cue: DuelDashCue, radius: number, lateral = 0): THREE.TubeGeometry {
+    const from = new THREE.Vector3(cue.to[0], FLOOR_Y + 0.82, cue.to[2]);
+    const to = new THREE.Vector3(cue.impactAt[0], FLOOR_Y + 0.86, cue.impactAt[2]);
+    const dx = to.x - from.x;
+    const dz = to.z - from.z;
+    const length = Math.max(0.001, Math.hypot(dx, dz));
+    const sideX = -dz / length;
+    const sideZ = dx / length;
+    const arc = Math.min(0.34, length * 0.12) * lateral;
+    const middle = from.clone().lerp(to, 0.5);
+    middle.x += sideX * arc;
+    middle.y += 0.2 + Math.min(0.18, length * 0.04);
+    middle.z += sideZ * arc;
+    if (length < 0.08) to.z += 0.08;
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3([from, middle, to]), 10, radius, 7, false);
+}
 function duelElementBurstKind(element?: string | null, move?: string): DuelElementBurstKind {
     const name = String(move ?? "").toLowerCase();
     // Some pets deliberately subvert their roster element. The Oni Hound is an
     // Earth-slot assassin, but a move named Hellhound Execution should erupt in
     // abyssal hellfire instead of throwing generic tan rocks at the opponent.
     if (/hell|oni|abyss|demon|soul|corruption/.test(name)) return "abyss";
+    // Move identity takes precedence over the roster element. Eclipse Kitsune is
+    // catalogued as Wind, but a lunar signature should carry the same violet,
+    // celestial language through anticipation, dash trail and contact payoff.
+    if (/lunar|eclipse|moon|ninetail|kitsune/.test(name)) return "arcane";
     const key = String(element ?? "").toLowerCase();
     if (key === "fire" || key === "water" || key === "wind" || key === "lightning" || key === "earth") return key;
     return "arcane";
@@ -2739,6 +3072,7 @@ function liveDuelEffectPosition(duel: DuelResult, clock: { current: DuelClock },
 function duelSetPieceKind(element?: string | null, move?: string): DuelSetPieceKind {
     const name = String(move ?? "").toLowerCase();
     if (/hell|oni|abyss|demon|soul|corruption/.test(name)) return "abyssBurst";
+    if (/lunar|eclipse|moon|ninetail|kitsune/.test(name)) return "lunarBurst";
     if (/tidal|wave|tsunami|torrent|undertow/.test(name) || element === "Water") return "tidalWave";
     if (/tornado|cyclone|tempest|gale|vortex/.test(name) || element === "Wind") return "tornado";
     if (/flame|fire|inferno|blaze|cinder|burst/.test(name) || element === "Fire") return "flameBurst";
@@ -2754,20 +3088,33 @@ function arenaScaleMove(move?: string): boolean {
     return /\b(tidal wave|tsunami|maelstrom|tornado|cyclone|flame burst|inferno|eruption|cataclysm|thunderstorm|hellhound execution|hellgate|soul devour)\b/i.test(String(move ?? ""));
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnFx, spawnSupport, spawnShock, spawnPowerUp, spawnTrail, spawnSetPiece, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; contactDelayMs: number } {
+    if (kind === "tidalWave") return { durationSec: 1.95, contactDelayMs: 560 };
+    if (kind === "tornado") return { durationSec: 2.05, contactDelayMs: 280 };
+    if (kind === "lunarBurst") return { durationSec: 1.86, contactDelayMs: 230 };
+    return { durationSec: 1.86, contactDelayMs: 180 };
+}
+
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => void;
-    spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number }) => void;
+    spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number; style?: PetHeroMoveStyle }) => void;
+    spawnAftermath: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnSupport: (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
-    spawnPowerUp: (n: { x: number; z: number; color: string; actorId?: string }) => void;
-    spawnTrail: (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string }) => void;
-    spawnSetPiece: (n: { fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => void;
+    spawnDust: (n: { x: number; z: number }) => void;
+    spawnScorch: (n: { x: number; z: number; big?: boolean }) => void;
+    spawnPowerUp: (n: { x: number; z: number; color: string; actorId?: string; style?: PetHeroMoveStyle }) => void;
+    spawnTrail: (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string; weight: DuelAttackWeight; style: PetHeroMoveStyle }) => void;
+    spawnDash: (n: { actorId?: string; fromX: number; fromZ: number; toX: number; toZ: number; impactX?: number; impactZ?: number; color: string; element?: string | null; move?: string; style?: PetHeroMoveStyle; impact: boolean; startTick?: number; contactTick?: number }) => void;
+    spawnPressure: (n: { fromX: number; fromZ: number; toX: number; toZ: number; leftColor: string; rightColor: string; leftElement?: string | null; rightElement?: string | null }) => void;
+    spawnSetPiece: (n: { actorId?: string; targetId?: string; fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => void;
     elementById: Record<string, string | null | undefined>;
     nameById: Record<string, string>;
+    profileById: Record<string, PetCombatModelProfile | undefined>;
     ultById: Record<string, string>;
     heroMoveById: Record<string, string>;
     onCutIn: (actorId: string, move: string) => void;
@@ -2786,7 +3133,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const endHold = useRef(0);
     const shake = useRef(0);
     const hitStop = useRef(0);
-    const timeScale = useRef(1);   // playback slow-mo on ultimate / KO; eases to 1
+    const timeScale = useRef(1.45);   // brisk opening release; authored beats temporarily slow this lane
     const zoomKick = useRef(0);    // transient dolly-IN punch on heavy hits (decays)
     const koPull = useRef(0);      // camera pull-BACK on KO (eases out slowly)
     const comboN = useRef(0);      // consecutive-hit combo counter
@@ -2796,18 +3143,81 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const lastReversal = useRef(0);                  // wall-time of the last reversal call (debounce)
     const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
-    const lastHeroCut = useRef(-999);                // wall-time of the last hero-move anime cut-in (throttle)
+    const heroCutActors = useRef<Set<string>>(new Set()); // every showcase fighter earns one marquee reveal
     const lastElementChain = useRef(-999);           // elemental payoff banner throttle
+    // All arena-scale techniques share one presentation lane. Raw simulator
+    // events can legitimately overlap (counter-ultimate, buff during pressure),
+    // but launching their long-lived VFX independently produces an unreadable
+    // stack. The lane serializes only presentation; combat truth is untouched.
+    const majorVfxUntilWall = useRef(0);
+    const majorVfxTimers = useRef<number[]>([]);
+    useEffect(() => () => majorVfxTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
+    const majorVfxBusy = () => performance.now() / 1000 < majorVfxUntilWall.current;
+    const occupyMajorVfxLane = (durationSec: number) => {
+        majorVfxUntilWall.current = Math.max(majorVfxUntilWall.current, performance.now() / 1000 + durationSec);
+    };
+    const scheduleDirectorCue = (run: () => void, delayMs: number) => {
+        const timer = window.setTimeout(run, delayMs);
+        majorVfxTimers.current.push(timer);
+    };
     // ── Cinematic camera (render-only): a live look target eased toward the fighters'
     // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /
     // victim on KO), plus an adaptive dolly that tightens when they plant close.
     const camAim = useRef<[number, number, number]>([CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]]);
+    // `camAim` is the authored shot target; these are the actually rendered eye
+    // and look positions. Keeping them separate turns a cue change into a quick
+    // camera move instead of making the entire arena appear to teleport.
+    const camLook = useRef<[number, number, number]>([CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]]);
+    const camEye = useRef<[number, number, number]>([CAM_POS[0], CAM_POS[1], CAM_POS[2]]);
     const camAimHold = useRef(0);      // seconds a cut aim is held before easing back to the midpoint
     const camDolly = useRef(CAM_POS[2]); // eased dolly distance (adaptive on the leads' spread)
     const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
+    const shotDolly = useRef(0);       // held shot-size offset: + pushes in, - reveals the arena
+    const shotDollyHold = useRef(0);   // preserve the composition through anticipation / reaction
     const camPosBias = useRef<[number, number, number]>([0, 0, 0]);   // transient eye offset (low crit / overhead KO angle), eases back to 0
     const camBiasHold = useRef(0);
     const introLocked = useRef(false); // fires the "lock-in" shake once when the opening charge completes
+    const primaryPresentationTicks = useMemo(() => [...new Set(duel.events
+        .filter((event) => event.type === "windup" || event.type === "cast" || event.type === "ultimate" || event.type === "hit" || event.type === "whiff")
+        .map((event) => event.t))].sort((a, b) => a - b), [duel]);
+    const breatherBeats = useMemo(() => {
+        if ((duel.snapshots[0]?.actors.length ?? 0) !== 2) return [] as number[];
+        const beats: number[] = [];
+        const minimumGap = Math.round(DUEL_TPS * 2.05);
+        for (let i = 1; i < primaryPresentationTicks.length; i++) {
+            const previous = primaryPresentationTicks[i - 1], next = primaryPresentationTicks[i];
+            if (next - previous < minimumGap) continue;
+            const cue = previous + Math.round(DUEL_TPS * 0.62);
+            if (next - cue > Math.round(DUEL_TPS * 0.95)) beats.push(cue);
+        }
+        return beats;
+    }, [duel, primaryPresentationTicks]);
+    const pressureBeats = useMemo(() => {
+        if ((duel.snapshots[0]?.actors.length ?? 0) !== 2) return [] as number[];
+        const beats: number[] = [];
+        const minimumGap = Math.round(DUEL_TPS * 3.25);
+        for (let i = 1; i < primaryPresentationTicks.length; i++) {
+            const previous = primaryPresentationTicks[i - 1], next = primaryPresentationTicks[i];
+            if (next - previous < minimumGap) continue;
+            const cue = Math.round(lerp(previous, next, 0.58));
+            if (cue - previous >= Math.round(DUEL_TPS * 1.15) && next - cue >= Math.round(DUEL_TPS * 1.1)) beats.push(cue);
+        }
+        return beats.slice(0, 5);
+    }, [duel, primaryPresentationTicks]);
+    // Hits and genuinely moving whiffs share the same authored launch/travel
+    // track. The outcome branches only at resolution: a hit gets contact VFX;
+    // a miss keeps the trail, wide camera, empty lane, and recovery without
+    // inventing damage. This closes the last "teleport" hole in melee playback.
+    const attackDashBeats = useMemo(() => duelAttackDashBeats(duel.events, duel.snapshots), [duel]);
+    // Direct the completed deterministic timeline like an edited fight scene:
+    // every fighter gets exactly one identity reveal. Prefer its true signature,
+    // but promote a successful named technique when a short match would otherwise
+    // end before that signature becomes available.
+    const heroCutEventByActor = useMemo(
+        () => duelHeroCutEventIndexes(duel.events, heroMoveById),
+        [duel.events, heroMoveById],
+    );
+    const pressureCount = useRef(0);
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
@@ -2816,15 +3226,131 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // sim). Neutral runs a touch FAST so dead approach time doesn't drag; each
         // hit/cast SAVOR-slows playback and HOLDS it (holdUntil) so the exchange
         // reads like a staged anime beat, then eases back. Hit-stop FREEZES on impact.
-        const BASE_SCALE = 1.32;
-        let dt = delta * timeScale.current;
+        // Cover neutral travel briskly, then spend the saved screen time on the
+        // attack itself. Anime action feels fast because setup/repositioning is
+        // economical while anticipation, contact, and reaction are deliberately
+        // readable—not because every phase runs at one uniformly high speed.
+        // Presentation target: this 1,424-tick showcase should land near 38 s,
+        // not the previous 56.7 s. Neutral geography moves briskly while the
+        // authored tells, contacts and signatures still own readable wall time.
+        const BASE_SCALE = 1.72;
+        // Limit simulation catch-up to one 30 Hz step per rendered frame. A slow
+        // GPU frame now slows the replay gracefully instead of skipping across a
+        // dash or named-move release. This does not alter deterministic combat.
+        const frameDelta = Math.min(delta, 1 / DUEL_TPS);
+        // One scale owns the phrase. The old stack multiplied base speed, dash
+        // speed, arena-VFX slow-mo and savor slow-mo, creating abrupt 1.42x ->
+        // 0.015x -> 0x changes that looked like lag even on a steady frame rate.
+        const authoredDashInFlight = attackDashBeats.some((cue) => clock.current.t >= cue.startTick && clock.current.t < cue.resolveTick);
+        let phraseScale = timeScale.current;
+        if (authoredDashInFlight) phraseScale = Math.min(phraseScale, 1.08);
+        if (majorVfxBusy()) phraseScale = Math.min(phraseScale, 0.92);
+        // Cap the amount of *simulation time* exposed by one render frame. The
+        // previous delta cap was applied before playback scaling, so neutral play
+        // could still jump 1.72 simulation ticks in a single 30 fps frame.
+        const maxTickAdvance = authoredDashInFlight ? 0.78 : majorVfxBusy() ? 0.82 : 1.05;
+        let dt = Math.min(frameDelta * phraseScale, maxTickAdvance / DUEL_TPS);
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
-        if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 0.05);
+        if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 1 - Math.exp(-7.2 * frameDelta));
         // A savor beat: slow to `scale` and hold it for `holdSec` before easing back.
         const savor = (scale: number, holdSec: number) => { timeScale.current = Math.min(timeScale.current, scale); holdUntil.current = Math.max(holdUntil.current, now + holdSec); };
         advanceClock(maxT, dt);
         const cur = Math.floor(clock.current.t);
         if (cur > lastTick.current) {
+            for (const cue of attackDashBeats) {
+                if (cue.startTick <= lastTick.current || cue.startTick > cur) continue;
+                const launchSnap = snaps[Math.min(maxT, cue.startTick)];
+                const contactSnap = snaps[Math.min(maxT, cue.resolveTick)];
+                const attacker = findActor(launchSnap, cue.actorId);
+                const landing = findActor(contactSnap, cue.actorId);
+                const defender = findActor(contactSnap, cue.targetId);
+                if (!attacker || !landing || Math.hypot(landing.x - attacker.x, landing.y - attacker.y) < 0.42) continue;
+                const dashColor = elementColor(elementById[cue.actorId]).base;
+                const style = petHeroMoveStyle({ petName: nameById[cue.actorId], move: cue.move, profile: profileById[cue.actorId] });
+                spawnDash({
+                    actorId: cue.actorId,
+                    fromX: attacker.x,
+                    fromZ: attacker.y,
+                    toX: landing.x,
+                    toZ: landing.y,
+                    impactX: cue.outcome === "hit" && defender ? defender.x : landing.x,
+                    impactZ: cue.outcome === "hit" && defender ? defender.y : landing.y,
+                    color: dashColor,
+                    element: cue.element ?? elementById[cue.actorId],
+                    move: cue.move,
+                    style,
+                    impact: cue.outcome === "hit",
+                    startTick: cue.startTick,
+                    contactTick: cue.resolveTick,
+                });
+                const ap = duelFieldToFloor(attacker.x, attacker.y);
+                const lp = duelFieldToFloor(landing.x, landing.y);
+                const fp = cue.outcome === "hit" && defender ? duelFieldToFloor(defender.x, defender.y) : lp;
+                // Compose from launch to the defender, not merely launch to the
+                // attacker's simulated landing. The latter can stop short of the
+                // model's visual contact point and strand the target at the edge.
+                camAim.current = [(ap.wx + fp.wx) * 0.46, 1.3, CAM_LOOK[2] + (ap.wz + fp.wz) * 0.24];
+                const heroRouteHold = style !== "generic" && /lunar|eclipse|moon|ninetail/i.test(String(cue.move ?? ""));
+                // A portrait card freezes simulation time but not the render
+                // camera's wall clock. Keep a hero route's wide composition alive
+                // through that card so the pet releases into a visible lane rather
+                // than emerging from the cut-in already at contact.
+                const routeHold = heroRouteHold ? 1.72 : 0.66;
+                camAimHold.current = Math.max(camAimHold.current, routeHold);
+                // Keep the entire travel lane readable. A close launch shot made the
+                // attacker cross the lens faster than the camera could settle, which
+                // visually collapsed a real traversal back into a teleport.
+                camPosBias.current = [0, 0.32, 1.28];
+                camBiasHold.current = Math.max(camBiasHold.current, routeHold);
+                shotDolly.current = -2.15;
+                shotDollyHold.current = Math.max(shotDollyHold.current, routeHold);
+            }
+            for (const cue of breatherBeats) {
+                if (cue <= lastTick.current || cue > cur) continue;
+                const breatherSnap = snaps[Math.min(maxT, cue)];
+                const player = breatherSnap?.actors.find((actor) => actor.team === "player" && actor.hp > 0);
+                const enemy = breatherSnap?.actors.find((actor) => actor.team === "enemy" && actor.hp > 0);
+                if (!player || !enemy) continue;
+                const pp = duelFieldToFloor(player.x, player.y);
+                const ep = duelFieldToFloor(enemy.x, enemy.y);
+                // Dead air becomes a deliberate geography beat: reveal both pets,
+                // their new lanes, and the open arena while the stage director owns
+                // the repositioning. No extra attack VFX is invented here.
+                camAim.current = [(pp.wx + ep.wx) * 0.46, 1.62, CAM_LOOK[2] + (pp.wz + ep.wz) * 0.22];
+                camAimHold.current = Math.max(camAimHold.current, 0.82);
+                camPosBias.current = [0, 0.78, 1.2];
+                camBiasHold.current = Math.max(camBiasHold.current, 0.78);
+                shotDolly.current = -1.9;
+                shotDollyHold.current = Math.max(shotDollyHold.current, 0.84);
+            }
+            for (const cue of pressureBeats) {
+                if (cue <= lastTick.current || cue > cur) continue;
+                if (majorVfxBusy()) continue;
+                const pressureSnap = snaps[Math.min(maxT, cue)];
+                const player = pressureSnap?.actors.find((actor) => actor.team === "player" && actor.hp > 0);
+                const enemy = pressureSnap?.actors.find((actor) => actor.team === "enemy" && actor.hp > 0);
+                if (!player || !enemy) continue;
+                spawnPressure({
+                    fromX: player.x,
+                    fromZ: player.y,
+                    toX: enemy.x,
+                    toZ: enemy.y,
+                    leftColor: elementColor(elementById[player.id]).base,
+                    rightColor: elementColor(elementById[enemy.id]).base,
+                    leftElement: elementById[player.id],
+                    rightElement: elementById[enemy.id],
+                });
+                majorVfxUntilWall.current = Math.max(majorVfxUntilWall.current, performance.now() / 1000 + 1.05);
+                pressureCount.current += 1;
+                if (pressureCount.current === 1) onCallout("ELEMENTAL CLASH!");
+                const pp = duelFieldToFloor(player.x, player.y);
+                const ep = duelFieldToFloor(enemy.x, enemy.y);
+                camAim.current = [(pp.wx + ep.wx) * 0.46, 1.28, CAM_LOOK[2] + (pp.wz + ep.wz) * 0.22];
+                camAimHold.current = Math.max(camAimHold.current, 0.58);
+                shotDolly.current = -0.62;
+                shotDollyHold.current = Math.max(shotDollyHold.current, 0.56);
+                shake.current = Math.max(shake.current, 0.26);
+            }
             for (const e of duel.events) {
                 if (e.t <= lastTick.current || e.t > cur) continue;
                 const snapAt = snaps[Math.min(maxT, e.t)];
@@ -2850,82 +3376,162 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             return before - after > 1.15;
                         });
                         const impactHeavy = heavy || dashCombo;
-                        const col = elementColor(e.element).glow;
+                        // World-space combat bodies use the saturated element base.
+                        // The previous pastel `glow` palette was then screen-blended
+                        // again, bleaching every hit toward white beside the textured
+                        // pets and making distinct elements look like the same VFX.
+                        const col = elementColor(e.element).base;
+                        const heroStyle = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
                         const followsUltimate = !!e.move && duel.events.some((u) => u.type === "ultimate" && u.actorId === e.actorId && u.move === e.move && u.t < e.t && e.t - u.t <= Math.round(DUEL_TPS * 2));
-                        if (e.move && !e.signature && arenaScaleMove(e.move) && !followsUltimate) {
-                            if (attacker) spawnSetPiece({ fromX: attacker.x, fromZ: attacker.y, toX: a.x, toZ: a.y, element: e.element, move: e.move });
+                        const authoredDashContact = attackDashBeats.some((cue) => cue.outcome === "hit" && cue.resolveTick === e.t && cue.actorId === e.actorId && cue.targetId === e.targetId);
+                        let setPieceOwnsContact = false;
+                        let setPieceContactDelayMs = 0;
+                        if (attacker && e.move && (followsUltimate || arenaScaleMove(e.move))) {
+                            const setPieceKind = duelSetPieceKind(e.element, e.move);
+                            const timing = duelSetPieceTiming(setPieceKind);
+                            spawnSetPiece({ actorId: attacker.id, targetId: a.id, fromX: attacker.x, fromZ: attacker.y, toX: a.x, toZ: a.y, element: e.element, move: e.move });
+                            occupyMajorVfxLane(timing.durationSec);
+                            setPieceOwnsContact = true;
+                            setPieceContactDelayMs = timing.contactDelayMs;
                         }
-                        spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
-                        spawnImpact({ x: a.x, z: a.y, color: col, big: impactHeavy });
+                        const longFormOwnsContact = setPieceOwnsContact || authoredDashContact || majorVfxBusy();
                         const heading = attacker ? Math.atan2(a.x - attacker.x, a.y - attacker.y) : (e.actorId.startsWith("enemy") ? -Math.PI / 2 : Math.PI / 2);
-                        spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: impactHeavy, heading });
+                        // Named techniques deserve a larger elemental silhouette even
+                        // when their balance damage is modest. This keeps presentation
+                        // weight independent from tuning and prevents special moves
+                        // looking like recolored basic attacks.
+                        const cinematicBurst = impactHeavy || !!e.move;
+                        // Contact is followed by a persistent world-space residue.
+                        // This supplies the missing payoff after the projectile or
+                        // dash disappears: scorched flame tongues, water ripples,
+                        // wind curls, lightning shards, or broken earth remain long
+                        // enough for the defender's recoil to read against them.
                         const heavyKind = e.kind === "crush" || e.kind === "push";
                         const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element combo
-                        // The BURST on contact. A themed status/special move keeps its single
-                        // signature sprite (drain=BLOOD, mark=SHADOW, frost=ICE). A plain /
-                        // elemental MELEE hit plays a per-element choreographed COMBO — a lead
-                        // streak → the element bloom → a trailing accent (+ a crit finisher) —
-                        // so each element's basic attack reads as its own strike. A ranged
-                        // projectile impact keeps the single element bloom (its `cast` already
-                        // telegraphed the move at the caster).
-                        if (fxKey) {
-                            spawnFx({ x: a.x, z: a.y, key: fxKey, scale: impactHeavy ? 2.9 : 1.9, dur: impactHeavy ? 540 : 400 });
-                        } else if (e.ranged) {
-                            spawnFx({ x: a.x, z: a.y, element: e.element, scale: impactHeavy ? 2.9 : 1.9, dur: impactHeavy ? 540 : 400 });
-                        } else {
-                            const arche = classifyMoveChoreo(e.kind, false, e.element);
-                            const ax = a.x, az = a.y;
-                            for (const b of meleeContactFx(e.element, arche, !!e.crit, heavyKind || impactHeavy)) {
-                                const fire = () => spawnFx(b.key ? { x: ax, z: az, key: b.key, scale: b.scale, dur: b.dur } : { x: ax, z: az, element: e.element, scale: b.scale, dur: b.dur });
-                                if (b.at <= 0) fire(); else window.setTimeout(fire, b.at);
+                        // Keep only the authored status glyphs from the legacy sprite
+                        // library. Plain elemental contacts are now fully owned by the
+                        // toon-shaded 3D burst + residue above. Layering the old white
+                        // flipbook combo on top created the large flat orb that hid the
+                        // defender and caused the pet/VFX art mismatch.
+                        // One visual owns contact. Authored dashes and arena-scale
+                        // techniques already include their collision payoff; stacking
+                        // a burst, shockwave, sprite, and residue on that same frame was
+                        // the main source of the choppy "three VFX in a row" rhythm.
+                        if (!longFormOwnsContact) {
+                            if (fxKey) spawnFx({ x: a.x, z: a.y, key: fxKey, scale: impactHeavy ? 2.9 : 1.9, dur: impactHeavy ? 540 : 400 });
+                            else spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: cinematicBurst || heroStyle !== "generic", heading, style: heroStyle });
+                            if (e.crit) {
+                                const aftermath = { x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: cinematicBurst };
+                                scheduleDirectorCue(() => spawnAftermath(aftermath), 180);
                             }
                         }
                         // Weapon TRAIL — the swing itself, at the ATTACKER, per archetype
                         // (pierce stab / slash sweep / slam overhead chop / drain rake).
                         // Melee only — a ranged projectile has no melee swing.
-                        if (!e.ranged) {
+                        if (!e.ranged && !longFormOwnsContact) {
                             const att = findActor(snapAt, e.actorId);
-                            if (att) spawnTrail({ x: att.x, z: att.y, toward: e.actorId.startsWith("enemy") ? -1 : 1, kind: classifyMoveChoreo(e.kind, false, e.element), color: col });
+                            if (att) spawnTrail({
+                                x: att.x,
+                                z: att.y,
+                                toward: e.actorId.startsWith("enemy") ? -1 : 1,
+                                kind: classifyMoveChoreo(e.kind, false, e.element),
+                                color: col,
+                                weight: impactHeavy ? "heavy" : e.move ? "ability" : "basic",
+                                style: heroStyle,
+                            });
                         }
-                        hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0));
-                        shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0));
-                        // Reserve the ground shockwave for blows with actual mass. Basic
-                        // contacts already have a 3D element burst; a ring on every hit
-                        // makes the fight read like UI telegraphs instead of anime action.
-                        if (impactHeavy || e.move) onFlash(col, Math.min(0.34, 0.05 + frac * 0.55) + (e.crit ? 0.1 : 0) + (dashCombo ? 0.06 : 0));
-                        if (impactHeavy || e.signature) spawnShock({ x: a.x, z: a.y, color: col, big: impactHeavy });
-                        if (dashCombo) {
-                            const ax = a.x, az = a.y;
-                            window.setTimeout(() => spawnImpact({ x: ax, z: az, color: "#ffffff", big: false }), 70);
-                        }
+                        const contactFeedback = () => {
+                            // Sound rides the contact frame (immediate, or delayed with a
+                            // set-piece), so the hit/crit lands on the same beat as the
+                            // shake + flash. The whole SFX bank already existed; the 3D
+                            // duel simply never called it.
+                            playPetSfx(e.crit ? "crit" : "hit");
+                            spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
+                            hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0));
+                            shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0));
+                            if (impactHeavy || e.move) {
+                                const contactFlash = new THREE.Color(col).lerp(new THREE.Color("#fff4d2"), 0.26).getStyle();
+                                const contactFrame = Math.min(0.34, 0.1 + frac * 0.62 + (e.crit ? 0.08 : 0) + (dashCombo ? 0.06 : 0));
+                                onFlash(contactFlash, contactFrame);
+                                scheduleDirectorCue(() => onFlash(col, Math.min(0.2, 0.035 + frac * 0.34) + (e.crit ? 0.05 : 0)), 62);
+                            }
+                        };
+                        if (setPieceOwnsContact) scheduleDirectorCue(contactFeedback, setPieceContactDelayMs);
+                        else contactFeedback();
+                        // Reserve the extra ground displacement ring for genuinely
+                        // heavy contacts. Basic hits already have a swing trail and
+                        // elemental contact volume; a third effect on every hit made
+                        // the action stutter visually even when frame time was stable.
+                        if (!longFormOwnsContact && impactHeavy) spawnShock({ x: a.x, z: a.y, color: col, big: true });
                         // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
                         // signature, then a crit/heavy slam, then any named ability, then a basic.
                         const isSig = !!e.signature, isAbility = !!e.move;
-                        if (isSig) savor(0.34, 0.34);
-                        else if (e.crit || heavyKind) savor(0.56, 0.16);
-                        else if (dashCombo) savor(0.62, 0.12);
-                        else if (isAbility || heavy) savor(0.84, 0.07);
+                        if (isSig) savor(0.48, 0.22);
+                        else if (e.crit || heavyKind) savor(0.72, 0.12);
+                        else if (authoredDashContact || dashCombo) savor(0.62, 0.22);
+                        else if (isAbility || heavy) savor(0.98, 0.04);
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
                         zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashCombo ? 2.5 : (isAbility || heavy) ? 1.45 : 0.42);
                         // Camera CUT to whoever got hit — the impact reads on the defender.
                         if (impactHeavy || isAbility) {
                             const cp = duelFieldToFloor(a.x, a.y);
-                            camAim.current = [cp.wx * 0.48, 1.4, CAM_LOOK[2] + cp.wz * 0.34];
-                            camAimHold.current = Math.max(camAimHold.current, 0.3);
-                            camPosBias.current = [cp.wx < 0 ? 1.7 : -1.7, -1.45, -1.35];
-                            camBiasHold.current = Math.max(camBiasHold.current, 0.2);
+                            const ap = attacker ? duelFieldToFloor(attacker.x, attacker.y) : cp;
+                            const pairX = (ap.wx + cp.wx) * 0.5;
+                            const pairZ = (ap.wz + cp.wz) * 0.5;
+                            // Keep both silhouettes in the impact composition. The
+                            // old defender-only cut combined with three independent
+                            // dolly pushes and routinely cropped the attacker.
+                            camAim.current = [lerp(pairX, cp.wx, 0.2) * 0.88, 1.4, CAM_LOOK[2] + lerp(pairZ, cp.wz, 0.2) * 0.46];
+                            camAimHold.current = Math.max(camAimHold.current, impactHeavy ? 0.44 : 0.28);
+                            // Cut across the line of action to the defender, low and
+                            // close. The following stagger event releases to a wider
+                            // reaction shot, producing setup -> contact -> recovery
+                            // instead of one camera continuously following the pair.
+                            const impactSide = cp.wx < 0 ? 1 : -1;
+                            camPosBias.current = [impactSide * (impactHeavy ? 0.82 : 0.64), impactHeavy ? -0.82 : -0.58, impactHeavy ? -0.86 : -0.58];
+                            camBiasHold.current = Math.max(camBiasHold.current, impactHeavy ? 0.36 : 0.2);
+                            shotDolly.current = Math.max(shotDolly.current, impactHeavy ? 1.35 : 0.72);
+                            shotDollyHold.current = Math.max(shotDollyHold.current, impactHeavy ? 0.34 : 0.18);
+                            if (setPieceOwnsContact) {
+                                // Arena-scale VFX need geography, not a defender
+                                // close-up. Hold both caster and target around the
+                                // complete effect silhouette; the contact flash and
+                                // damage number still provide the punch-in read.
+                                camAim.current = [pairX * 0.66, 1.48, CAM_LOOK[2] + pairZ * 0.42];
+                                camAimHold.current = Math.max(camAimHold.current, 0.72);
+                                camPosBias.current = [0, 0.5, 1.25];
+                                camBiasHold.current = Math.max(camBiasHold.current, 0.68);
+                                shotDolly.current = -1.55;
+                                shotDollyHold.current = Math.max(shotDollyHold.current, 0.72);
+                                // Establish the full arena-scale silhouette first,
+                                // then glide into the defender as the set piece lands.
+                                // The old shot stayed wide through contact, so the
+                                // cut-in promised a finisher but its payoff felt tiny.
+                                scheduleDirectorCue(() => {
+                                    camAim.current = [lerp(pairX, cp.wx, 0.34) * 0.9, 1.28, CAM_LOOK[2] + lerp(pairZ, cp.wz, 0.34) * 0.48];
+                                    camAimHold.current = Math.max(camAimHold.current, 0.4);
+                                    camPosBias.current = [impactSide * 0.92, -0.56, -0.72];
+                                    camBiasHold.current = Math.max(camBiasHold.current, 0.38);
+                                    shotDolly.current = 1.26;
+                                    shotDollyHold.current = Math.max(shotDollyHold.current, 0.36);
+                                    zoomKick.current = Math.max(zoomKick.current, 2.35);
+                                }, Math.max(0, setPieceContactDelayMs - 45));
+                            } else if (authoredDashContact || dashCombo) {
+                                // Contact completes the same wide dash composition.
+                                // Do not cut to a tight defender close-up while the
+                                // attacker is still resolving its authored route.
+                                camAim.current = [pairX * 0.9, 1.36, CAM_LOOK[2] + pairZ * 0.46];
+                                camAimHold.current = Math.max(camAimHold.current, 0.58);
+                                camPosBias.current = [0, 0.32, 1.05];
+                                camBiasHold.current = Math.max(camBiasHold.current, 0.54);
+                                shotDolly.current = -1.55;
+                                shotDollyHold.current = Math.max(shotDollyHold.current, 0.58);
+                            }
                         }
                         // A pet's HERO move (its signature, else its strongest jutsu) triggers the
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
-                        const hero = heroMoveById[e.actorId];
-                        if (e.move && !isSig && hero && e.move === hero && now - lastHeroCut.current > 9) {
-                            lastHeroCut.current = now; lastMoveCall.current = now;
-                            hitStop.current = Math.max(hitStop.current, 0.18);
-                            savor(0.46, 0.3); shake.current = Math.max(shake.current, 1.6);
-                            zoomKick.current = Math.max(zoomKick.current, 3.0); onFlash(col, 0.4);
-                            onCutIn(e.actorId, e.move);
-                        } else if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
+                        if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
                             lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
                         }
                         // Combo counter — consecutive hits inside a 1.1s window.
@@ -2938,42 +3544,58 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             onFlash(col, 0.22);
                         }
                         if (e.crit) onCallout("CRITICAL!");
+                        if (e.crit) duelFovKick.current = Math.max(duelFovKick.current, 2);   // small lens snap on crit
+                        if (e.crit) spawnScorch({ x: a.x, z: a.y });   // a crit leaves a scorch on the floor
                         if (e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
-                        // Crit → a couple of trailing sparks read as a multi-hit flurry.
-                        if (e.crit) {
-                            const ax = a.x, az = a.y;
-                            window.setTimeout(() => spawnImpact({ x: ax + 0.45, z: az, color: col, big: false }), 70);
-                            window.setTimeout(() => spawnImpact({ x: ax - 0.35, z: az + 0.25, color: col, big: false }), 150);
-                        }
                     }
                 } else if (e.type === "heal" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
+                        playPetSfx("heal");
                         spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
                         // A real 3D restoration column keeps healing in the same visual
                         // language as the models instead of dropping a flat flipbook on them.
-                        spawnSupport({ x: a.x, z: a.y, color: "#8ff7c5", kind: "heal", actorId: a.id });
+                        if (!majorVfxBusy()) spawnSupport({ x: a.x, z: a.y, color: "#8ff7c5", kind: "heal", actorId: a.id });
                     }
                 } else if (e.type === "shield" && e.targetId) {
                     // A protective 3D dome and orbit rings make a ward readable from the
                     // arena camera without obscuring the pet silhouette.
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
-                        spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
-                        onFlash("#bfe3ff", 0.14);
+                        playPetSfx("shield");
+                        if (!majorVfxBusy()) {
+                            spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
+                            onFlash("#bfe3ff", 0.14);
+                        }
                     }
                 } else if (e.type === "buff" && e.actorId) {
                     // Dedicated Super-Saiyan-style power column. This deliberately
                     // avoids the generic aura/element flipbooks, which looked like
                     // an attack had landed on the pet rather than a self-buff.
                     const c = findActor(snapAt, e.actorId);
-                    if (c) {
+                    if (c) playPetSfx("buff");
+                    if (c && !majorVfxBusy()) {
                         const el = elementById[e.actorId];
-                        const color = elementColor(el).glow;
-                        spawnPowerUp({ x: c.x, z: c.y, color, actorId: c.id });
-                        zoomKick.current = Math.max(zoomKick.current, 0.55);
-                        savor(0.92, 0.04);
-                        onFlash("#fff2a6", 0.09);
+                        // Use the saturated elemental body colour as the aura's
+                        // authored ink. Feeding the pale highlight colour into a
+                        // translucent shell produced the frosted geometric cage
+                        // seen in the preview instead of an elemental power-up.
+                        const color = elementColor(el).base;
+                        const priorCast = [...duel.events].reverse().find((candidate) => candidate.actorId === e.actorId
+                            && candidate.type === "cast" && candidate.move && candidate.t <= e.t
+                            && e.t - candidate.t <= Math.round(DUEL_TPS * 1.1));
+                        const style = petHeroMoveStyle({ petName: nameById[e.actorId], move: priorCast?.move, kind: priorCast?.kind ?? e.kind, profile: profileById[e.actorId] });
+                        spawnPowerUp({ x: c.x, z: c.y, color: style.startsWith("kitsune") ? "#8f62ff" : color, actorId: c.id, style });
+                        const buffPos = duelFieldToFloor(c.x, c.y);
+                        camAim.current = [buffPos.wx * 1.14, 1.32, CAM_LOOK[2] + buffPos.wz * 0.52];
+                        camAimHold.current = Math.max(camAimHold.current, 0.68);
+                        camPosBias.current = [buffPos.wx < 0 ? -0.56 : 0.56, -0.34, -0.28];
+                        camBiasHold.current = Math.max(camBiasHold.current, 0.62);
+                        shotDolly.current = Math.max(shotDolly.current, 0.82);
+                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.62);
+                        zoomKick.current = Math.max(zoomKick.current, 0.92);
+                        savor(1.04, 0.02);
+                        onFlash(color, 0.09);
                     }
                 } else if (e.type === "windup" && e.actorId) {
                     // Element TELL — a charge ring at the attacker a beat before the blow,
@@ -2982,32 +3604,137 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     if (c) {
                         const heavyTell = e.kind !== "buff" && e.kind !== "heal" && e.kind !== "shield" && e.kind !== "barrier" && e.kind !== "absorb" && e.kind !== "haste";
+                        const opensDashRoute = attackDashBeats.some((cue) => cue.startTick === e.t && cue.actorId === e.actorId && cue.move === e.move);
                         spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: heavyTell, mode: "tell" });
-                        if (heavyTell) { savor(0.75, 0.06); }
-                        if (heavyTell) {
+                        if (heavyTell) { savor(0.9, 0.04); }
+                        if (heavyTell && !opensDashRoute) {
                             const p = duelFieldToFloor(c.x, c.y);
-                            camAim.current = [p.wx * 0.48, 1.4, CAM_LOOK[2] + p.wz * 0.34];
-                            camAimHold.current = Math.max(camAimHold.current, 0.24);
-                            camDollyBias.current = Math.max(camDollyBias.current, 0.5);
-                            camPosBias.current = [p.wx < 0 ? -1.15 : 1.15, -0.85, -0.75];
-                            camBiasHold.current = Math.max(camBiasHold.current, 0.16);
+                            camAim.current = [p.wx * 0.66, 1.45, CAM_LOOK[2] + p.wz * 0.42];
+                            camAimHold.current = Math.max(camAimHold.current, 0.4);
+                            // Anticipation shot: favor the attacker's face/silhouette
+                            // from its own side of the axis, then cut across the line
+                            // only when contact lands. This mirrors the reference's
+                            // eye/pose close-up -> committed strike construction.
+                            const attackerSide = p.wx < 0 ? -1 : 1;
+                            camPosBias.current = [attackerSide * 1.25, -0.78, -0.9];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.34);
+                            shotDolly.current = Math.max(shotDolly.current, 1.05);
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.32);
+                        } else if (heavyTell && opensDashRoute) {
+                            // Do not overwrite the dash director's wide lane with
+                            // the ordinary windup close-up on the same tick. That
+                            // close -> wide -> close camera reversal was making
+                            // continuous travel look like three position cuts.
+                            const launch = duelFieldToFloor(c.x, c.y);
+                            const route = attackDashBeats.find((cue) => cue.startTick === e.t && cue.actorId === e.actorId && cue.move === e.move);
+                            const landingActor = route ? findActor(snaps[Math.min(maxT, route.resolveTick)], e.actorId) : null;
+                            const landing = landingActor ? duelFieldToFloor(landingActor.x, landingActor.y) : launch;
+                            camAim.current = [(launch.wx + landing.wx) * 0.46, 1.34, CAM_LOOK[2] + (launch.wz + landing.wz) * 0.23];
+                            camAimHold.current = Math.max(camAimHold.current, 0.66);
+                            camPosBias.current = [0, 0.38, 1.42];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.66);
+                            shotDolly.current = -2.15;
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.66);
                         }
                     }
+                } else if (e.type === "whiff" && e.actorId) {
+                    const eventIndex = duel.events.indexOf(e);
+                    const namedOpener = precedingNamedMove(duel.events, eventIndex);
+                    const attacker = findActor(snapAt, e.actorId);
+                    const target = attacker
+                        ? snapAt.actors.find((candidate) => candidate.hp > 0 && candidate.team !== attacker.team)
+                        : null;
+                    const evaded = duel.events.some((candidate) => candidate.type === "dodge"
+                        && candidate.side !== e.side && candidate.t <= e.t && e.t - candidate.t <= Math.round(DUEL_TPS * 0.8));
+                    if (attacker && target) {
+                        const missX = lerp(attacker.x, target.x, 0.86);
+                        const missZ = lerp(attacker.y, target.y, 0.86);
+                        spawnImpact({ x: missX, z: missZ, color: elementColor(elementById[e.actorId]).base, big: false, mode: "dodge" });
+                        const ap = duelFieldToFloor(attacker.x, attacker.y);
+                        const tp = duelFieldToFloor(target.x, target.y);
+                        camAim.current = [(ap.wx + tp.wx) * 0.46, 1.36, CAM_LOOK[2] + (ap.wz + tp.wz) * 0.22];
+                        camAimHold.current = Math.max(camAimHold.current, 0.42);
+                        // A miss is about the empty lane between two silhouettes.
+                        // Clear any inherited impact close-up and reveal both the
+                        // projectile path and the defender's landing point.
+                        zoomKick.current = Math.min(zoomKick.current, 0.25);
+                        camDollyBias.current = 0;
+                        camPosBias.current = [0, 0.35, 1.35];
+                        camBiasHold.current = Math.max(camBiasHold.current, 0.44);
+                        shotDolly.current = -1.85;
+                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.42);
+                    }
+                    if (namedOpener?.move && now - lastMoveCall.current > 0.35) {
+                        lastMoveCall.current = now;
+                        onMoveCallout(namedOpener.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
+                    }
+                    // The motion and empty contact lane should sell the evade.
+                    // Keep the text as a restrained tactical caption instead of a
+                    // full-screen verdict that hides the actual body performance.
+                    onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver");
+                    savor(0.9, 0.06);
                 } else if (e.type === "dodge" && e.actorId) {
                     // The model performs the vertical hop; short world-space speed
                     // accents make the evade readable without a floor UI reticle.
                     const d = findActor(snapAt, e.actorId);
                     if (d) {
-                        spawnImpact({ x: d.x, z: d.y, color: "#dff9ff", big: false, mode: "dodge" });
-                        const landing = findActor(snaps[Math.min(maxT, e.t + Math.round(DUEL_TPS * 0.4))], e.actorId);
-                        if (landing) window.setTimeout(() => spawnImpact({ x: landing.x, z: landing.y, color: "#b8e8df", big: false, mode: "dodge" }), 300);
+                        playPetSfx("dodge");
+                        spawnDust({ x: d.x, z: d.y });   // foot-dust as the evader lands
+                        const evadeColor = elementColor(elementById[e.actorId]).base;
+                        spawnImpact({ x: d.x, z: d.y, color: evadeColor, big: false, mode: "dodge" });
+                        const dp = duelFieldToFloor(d.x, d.y);
+                        const opponent = snapAt.actors.find((candidate) => candidate.hp > 0 && candidate.team !== d.team);
+                        const op = opponent ? duelFieldToFloor(opponent.x, opponent.y) : dp;
+                        camAim.current = [(dp.wx + op.wx) * 0.46, 1.32, CAM_LOOK[2] + (dp.wz + op.wz) * 0.24];
+                        camAimHold.current = Math.max(camAimHold.current, 0.34);
+                        zoomKick.current = Math.min(zoomKick.current, 0.2);
+                        camDollyBias.current = 0;
+                        camPosBias.current = [0, 0.5, 1.55];
+                        camBiasHold.current = Math.max(camBiasHold.current, 0.3);
+                        shotDolly.current = -2.05; // reveal the launch, empty lane, and landing
+                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.34);
+                        // The authored dodge state already contains a lateral hop.
+                        // Driving another wall-clock route over it made the body pop
+                        // out and back, so the real snapshot path now owns the pet.
                     }
                 } else if (e.type === "maneuver" && e.kind === "move" && e.move && e.actorId) {
                     // A short elemental range-shift: afterimages carry the motion; no
                     // floor ring is needed because this is not an impact.
                     const runner = findActor(snapAt, e.actorId);
                     if (runner) {
+                        const style = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
+                        if (style !== "generic") {
+                            const arrivalTick = Math.min(maxT, e.t + Math.round(DUEL_TPS * 0.52));
+                            const arrival = findActor(snaps[arrivalTick], e.actorId);
+                            if (arrival && Math.hypot(arrival.x - runner.x, arrival.y - runner.y) > 0.35) {
+                                spawnDash({
+                                    actorId: e.actorId,
+                                    fromX: runner.x,
+                                    fromZ: runner.y,
+                                    toX: arrival.x,
+                                    toZ: arrival.y,
+                                    color: elementColor(elementById[e.actorId]).base,
+                                    element: elementById[e.actorId],
+                                    move: e.move,
+                                    style,
+                                    impact: false,
+                                    startTick: e.t,
+                                    contactTick: arrivalTick,
+                                });
+                            }
+                        }
+                        // A normal range shift is locomotion, not an attack. The old
+                        // presentation spawned a second dash for every maneuver and
+                        // overlapped the real pre-hit cue, creating purposeless pops.
                         zoomKick.current = Math.max(zoomKick.current, 0.35);
+                        // Range changes must be seen in a wide composition. Holding
+                        // the previous close-up during a breakaway made purposeful
+                        // movement read as a pet simply wandering off-screen.
+                        shotDolly.current = -1.35;
+                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.3);
+                        camAimHold.current = 0;
+                        camBiasHold.current = 0;
+                        shake.current = Math.max(shake.current, 0.72);
                     }
                     if (now - lastMoveCall.current > 0.4) {
                         lastMoveCall.current = now;
@@ -3021,74 +3748,84 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
                     const supportCast = e.type === "cast" && classifyMoveChoreo(e.kind, true) === "support";
+                    const castHeroStyle = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
                     const powerUpCast = e.type === "cast" && (e.kind === "buff" || e.kind === "haste");
-                    const ultimateGetsCutIn = e.type === "ultimate" && now - lastHeroCut.current > 9;
-                    if (c) {
-                        if (supportCast) {
+                    const majorLaneWasBusy = majorVfxBusy();
+                    const foldedUltimateCast = e.type === "cast" && !!e.move && duel.events.some((ultimate) => ultimate.type === "ultimate" && ultimate.actorId === e.actorId && ultimate.move === e.move && ultimate.t <= e.t && e.t - ultimate.t <= Math.round(DUEL_TPS * 0.65));
+                    const eventIndex = duel.events.indexOf(e);
+                    const moveOutcome = duelMoveOutcome(duel.events, eventIndex);
+                    const plannedHeroCut = heroCutEventByActor[e.actorId] === eventIndex;
+                    const ultimateGetsCutIn = plannedHeroCut || duelHeroCutEligible({
+                        actorId: e.actorId,
+                        eventType: e.type,
+                        move: e.move,
+                        heroMove: heroMoveById[e.actorId],
+                        outcomeKind: moveOutcome.kind,
+                        shownActors: heroCutActors.current,
+                    });
+                    if (c && !foldedUltimateCast) {
+                        if (supportCast && !majorLaneWasBusy) {
                             // Buff/haste own the dedicated golden 3D power column in
                             // their `buff` event. The generic cyan support flipbook made
                             // those moves look like an incoming hit and visually doubled
                             // the effect. Heal/shield support casts keep this soft gather.
-                            if (!powerUpCast) spawnFx({ x: c.x, z: c.y, key: "aura", scale: 1.6, dur: 340 });
-                        } else {
-                            if (e.type === "ultimate") spawnFx({ x: c.x, z: c.y, key: "charge", scale: 2.2, dur: 360 });  // charge-up telegraph
+                            if (!powerUpCast) {
+                                if (castHeroStyle === "kitsune-tail-cast") spawnPowerUp({ x: c.x, z: c.y, color: "#8f62ff", actorId: c.id, style: castHeroStyle });
+                                else spawnImpact({ x: c.x, z: c.y, color: elementColor(el).base, big: false, mode: "tell" });
+                            }
+                        } else if (!majorLaneWasBusy) {
                             const castKey = e.type === "ultimate" ? "" : moveFxKey(e.kind);
                             if (castKey) spawnFx({ x: c.x, z: c.y, key: castKey, scale: 1.5, dur: 320 });
-                            else spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
+                            else spawnImpact({ x: c.x, z: c.y, color: elementColor(el).base, big: e.type === "ultimate", mode: "tell" });
                             if (e.type === "ultimate") {
-                                const ex = c.x, ey = c.y;
-                                window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.4, dur: 540 }), 200);
-                                const target = e.targetId ? findActor(snapAt, e.targetId) : null;
-                                if (target && target.id !== c.id) {
-                                    const spectacle = { fromX: c.x, fromZ: c.y, toX: target.x, toZ: target.y, element: el, move: e.move };
-                                    // The old set piece started underneath the 1.65s
-                                    // portrait overlay and was nearly finished when
-                                    // the player could see the arena again. Let the
-                                    // cut-in supply anticipation, then reveal the
-                                    // full 3D elemental payoff as it fades away.
-                                    window.setTimeout(() => spawnSetPiece(spectacle), ultimateGetsCutIn ? 180 : 90);
-                                }
+                                spawnPowerUp({ x: c.x, z: c.y, color: elementColor(el).base, actorId: e.actorId, style: castHeroStyle });
                             }
                         }
                     }
                     if (e.type === "ultimate") {
                         if (ultimateGetsCutIn) {
-                            // THROTTLED so back-to-back unleashes don't stack cut-ins — only the
-                            // spaced-out ones get the full anime freeze-frame + portrait treatment.
-                            lastHeroCut.current = now;
+                            // Each fighter owns one marquee reveal. The UI queues
+                            // overlapping cards, so an earlier enemy ultimate can no
+                            // longer permanently suppress this actor's showcase beat.
+                            heroCutActors.current.add(e.actorId);
                             shake.current = Math.max(shake.current, 1.8);
                             zoomKick.current = Math.max(zoomKick.current, 3.0);
                             onFlash(elementColor(el).glow, 0.42);
                             hitStop.current = Math.max(hitStop.current, 0.18);
-                            savor(0.4, 0.36);
+                            // Preserve a clean cut -> release -> reaction phrase.
+                            // Without this hold the next simulator event could start
+                            // before the arena-scale payoff cleared the portrait band.
+                            savor(0.14, 0.48);
                             onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
                             if (c) {
                                 const p = duelFieldToFloor(c.x, c.y);
                                 camAim.current = [p.wx * 0.58, 1.35, CAM_LOOK[2] + p.wz * 0.42];
                                 camAimHold.current = Math.max(camAimHold.current, 0.62);
-                                camPosBias.current = [p.wx < 0 ? -1.6 : 1.6, -1.2, -1.4];
+                                camPosBias.current = [p.wx < 0 ? -1.05 : 1.05, -0.82, -0.78];
                                 camBiasHold.current = Math.max(camBiasHold.current, 0.48);
+                                shotDolly.current = Math.max(shotDolly.current, 1.45);
+                                shotDollyHold.current = Math.max(shotDollyHold.current, 0.58);
                             }
                             onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
-                        } else {
+                        } else if (!majorLaneWasBusy) {
                             // A quick REPEAT unleash — lighter beat, no cut-in / heavy shake.
                             shake.current = Math.max(shake.current, 0.6);
                             onFlash(elementColor(el).glow, 0.18);
-                            savor(0.5, 0.14);
+                            savor(0.72, 0.08);
                         }
-                    } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
+                    } else if (e.type === "cast" && e.move && !foldedUltimateCast && now - lastMoveCall.current > 0.4) {
                         const heroC = heroMoveById[e.actorId];
-                        if (heroC && e.move === heroC && now - lastHeroCut.current > 9) {
+                        if (plannedHeroCut || duelHeroCutEligible({ actorId: e.actorId, eventType: e.type, move: e.move, heroMove: heroC, outcomeKind: moveOutcome.kind, shownActors: heroCutActors.current })) {
                             // A ranged / support HERO move → the anime cut-in freeze-frame.
-                            lastHeroCut.current = now; lastMoveCall.current = now;
-                            hitStop.current = Math.max(hitStop.current, 0.16); savor(0.44, 0.3);
+                            heroCutActors.current.add(e.actorId); lastMoveCall.current = now;
+                            hitStop.current = Math.max(hitStop.current, 0.12); savor(0.14, 0.48);
                             shake.current = Math.max(shake.current, 1.4); zoomKick.current = Math.max(zoomKick.current, 2.8);
                             onFlash(elementColor(elementById[e.actorId]).glow, 0.38); onCutIn(e.actorId, e.move);
                         } else {
                             // A lesser named ability — the smaller banner + a short savor beat.
                             lastMoveCall.current = now;
                             onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", supportCast ? "support" : "attack");
-                            savor(supportCast ? 0.92 : 0.82, 0.06);
+                            savor(supportCast ? 1.08 : 1.02, 0.035);
                         }
                     }
                 } else if (e.type === "ko") {
@@ -3098,31 +3835,54 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // actorId, so find the downed fighter from the snapshot (this also fixes
                     // the final KO previously showing no blast / no "is down!" line).
                     const dead = e.actorId ? findActor(snapAt, e.actorId) : (snapAt.actors.find((ac) => ac.hp <= 0) ?? null);
-                    const del = dead ? elementById[dead.id] : null;
                     if (dead) {
-                        spawnImpact({ x: dead.x, z: dead.y, color: elementColor(del).glow, big: true });
-                        spawnShock({ x: dead.x, z: dead.y, color: elementColor(del).glow, big: true });
-                        // Camera holds on the fallen pet as it topples (koPull does the reveal).
-                        const p = duelFieldToFloor(dead.x, dead.y);
-                        camAim.current = [p.wx * 0.5, 1.2, CAM_LOOK[2] + p.wz * 0.4];
-                        camAimHold.current = Math.max(camAimHold.current, 0.7);
+                        // The resolving hit already owns the elemental contact.
+                        // Do not stack the old expanding cylinder/ring on the KO;
+                        // it hid the falling model inside an abstract translucent
+                        // dome and made the finisher appear to land twice.
+                        // Frame the winner and the fallen pet together. The previous
+                        // single-target aim pushed the loser off-screen and made the
+                        // victory pose feel disconnected from the finishing blow.
+                        spawnScorch({ x: dead.x, z: dead.y, big: true });   // the fallen fighter leaves a big scorch
+                        spawnDust({ x: dead.x, z: dead.y });
+                        const fallen = duelFieldToFloor(dead.x, dead.y);
+                        const survivor = snapAt.actors.find((actor) => actor.hp > 0 && actor.id !== dead.id);
+                        const standing = survivor ? duelFieldToFloor(survivor.x, survivor.y) : fallen;
+                        const pairX = (fallen.wx + standing.wx) * 0.5;
+                        const pairZ = (fallen.wz + standing.wz) * 0.5;
+                        camAim.current = [pairX * 0.62, 1.08, CAM_LOOK[2] + pairZ * 0.46];
+                        camAimHold.current = Math.max(camAimHold.current, 1.15);
                     }
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
-                    savor(0.3, 0.9);
+                    savor(0.44, 0.62);
                     koPull.current = 3.4;
+                    duelFovKick.current = Math.max(duelFovKick.current, 3.5);   // stronger lens snap on the finish
+                    shotDolly.current = -2.2;
+                    shotDollyHold.current = Math.max(shotDollyHold.current, 0.82);
                     camPosBias.current[1] = 2.4;
+                    playPetSfx("ko");
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
                     if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is eliminated!`, "ko");
-                } else if (e.type === "whiff" && e.actorId) {
-                    // A MISS — the attacker's blow finds nothing. Say so (was silent before).
-                    const c = findActor(snapAt, e.actorId);
-                    if (c) { onCallout("MISS"); spawnImpact({ x: c.x, z: c.y, color: "#cbd5e1", big: false, mode: "dodge" }); }
                 } else if (e.type === "stagger" && e.actorId) {
                     // A recoil puff where a fighter got knocked out of its wind-up.
                     const c = findActor(snapAt, e.actorId);
-                    if (c) spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
+                    if (c) {
+                        spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
+                        const reaction = duelFieldToFloor(c.x, c.y);
+                        // Let the white contact frame land, then reveal the knockback
+                        // and recovery pose. The small delay is presentation-only and
+                        // matches the reference's impact flash -> reaction cut.
+                        window.setTimeout(() => {
+                            camAim.current = [reaction.wx * 0.58, 1.25, CAM_LOOK[2] + reaction.wz * 0.42];
+                            camAimHold.current = Math.max(camAimHold.current, 0.34);
+                            camPosBias.current = [reaction.wx < 0 ? 1.15 : -1.15, 0.2, 0.85];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.3);
+                            shotDolly.current = -0.7;
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.32);
+                        }, 145);
+                    }
                 }
             }
             // ── Play-by-play momentum (render-only; reads the deterministic
@@ -3159,13 +3919,21 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         const sx = a > 0.01 ? Math.sin(now * 53) * a * 0.1 : 0;
         const sy = a > 0.01 ? Math.sin(now * 61) * a * 0.06 : 0;
         const zk = zoomKick.current; zoomKick.current *= 0.86;
+        duelFovKick.current = duelFovKick.current > 0.01 ? duelFovKick.current * 0.86 : 0;   // decay the shared FOV punch (ResponsiveCamera applies it)
         koPull.current = lerp(koPull.current, 0, 0.025);
         // Live framing target from the fighters still standing (midpoint + x spread).
-        const camSnap = snaps[Math.min(maxT, Math.floor(clock.current.t))];
+        const camTick = Math.max(0, Math.min(maxT, clock.current.t));
+        const camI0 = Math.floor(camTick);
+        const camI1 = Math.min(maxT, camI0 + 1);
+        const camF = camTick - camI0;
+        const camSnap = snaps[camI0];
+        const camNext = snaps[camI1] ?? camSnap;
         let cmx = 0, cmz = 0, cn = 0, xmin = Infinity, xmax = -Infinity, zmin = Infinity, zmax = -Infinity;
+        const terminalFraming = clock.current.t >= maxT - Math.round(DUEL_TPS * 0.45);
         if (camSnap) for (const ac of camSnap.actors) {
-            if (ac.hp <= 0) continue;
-            const p = duelFieldToFloor(ac.x, ac.y);
+            const nextActor = findActor(camNext, ac.id) ?? ac;
+            if (ac.hp <= 0 && nextActor.hp <= 0 && !terminalFraming) continue;
+            const p = duelFieldToFloor(lerp(ac.x, nextActor.x, camF), lerp(ac.y, nextActor.y, camF));
             cmx += p.wx; cmz += p.wz; cn++;
             if (p.wx < xmin) xmin = p.wx;
             if (p.wx > xmax) xmax = p.wx;
@@ -3180,13 +3948,21 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // Neutral look eases to the live midpoint; a cut HOLDS its own aim until camAimHold decays.
         if (camAimHold.current > 0) camAimHold.current = Math.max(0, camAimHold.current - delta);
         else {
-            camAim.current[0] = lerp(camAim.current[0], midX * 0.7, 0.05);
-            camAim.current[1] = lerp(camAim.current[1], DUEL_LOOK_Y, 0.05);
-            camAim.current[2] = lerp(camAim.current[2], CAM_LOOK[2] + midZ * 0.5, 0.05);
+            camAim.current[0] = midX * 0.7;
+            camAim.current[1] = DUEL_LOOK_Y;
+            camAim.current[2] = CAM_LOOK[2] + midZ * 0.5;
         }
+        const lookResponse = camAimHold.current > 0 ? 11.5 : 6.5;
+        const lookAlpha = 1 - Math.exp(-lookResponse * Math.min(delta, 1 / 15));
+        camLook.current[0] = lerp(camLook.current[0], camAim.current[0], lookAlpha);
+        camLook.current[1] = lerp(camLook.current[1], camAim.current[1], lookAlpha);
+        camLook.current[2] = lerp(camLook.current[2], camAim.current[2], lookAlpha);
         // Adaptive dolly: pull back to fit the current spread, eased slowly (a gentle
         // breathing zoom, never jitter). Clamped so it never crops or over-tightens.
-        let dollyTarget = Math.max(11.4, Math.min(14.2, 9.7 + spread * 0.92));
+        // Ordinary exchanges stay close enough to read eyes, paws and recoil.
+        // Wide geography still pulls back, but no longer leaves two small pets in
+        // a mostly empty stadium during every neutral beat.
+        let dollyTarget = Math.max(11.7, Math.min(15.2, 10.0 + spread * 0.8));
         // Opening: pull WIDE for the size-up, then punch in as the pets charge to the face-off,
         // and give a "lock-in" shake the instant they arrive.
         const dollyIntro = clock.current.intro ?? 999;
@@ -3194,6 +3970,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         else if (dollyIntro < 900 && !introLocked.current) { introLocked.current = true; shake.current = Math.max(shake.current, 1.4); }
         camDolly.current = lerp(camDolly.current, dollyTarget, dollyIntro < INTRO_TOTAL ? 0.1 : 0.03);
         const db = camDollyBias.current; camDollyBias.current *= 0.9;
+        if (shotDollyHold.current > 0) shotDollyHold.current = Math.max(0, shotDollyHold.current - delta);
+        else shotDolly.current = lerp(shotDolly.current, 0, 0.075);
+        const heldShotDolly = shotDolly.current;
         // Ease the transient angle bias (crit low / KO overhead) back to neutral so it reads as
         // a deliberate camera MOVE, not a teleport (R4 — angle variety).
         const pb = camPosBias.current;
@@ -3203,16 +3982,32 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // shot. Preserve the camera pitch while pulling the physical camera back;
         // relying on FOV alone produced severe fisheye and still cropped the pets.
         const viewportAspect = size.width / Math.max(1, size.height);
-        const portraitPull = viewportAspect < 0.8 ? (0.8 - viewportAspect) * 14 : 0;
+        const portraitPull = viewportAspect < 0.8 ? (0.8 - viewportAspect) * 27 : 0;
         const portraitCutScale = viewportAspect < 0.8 ? 0.32 : 1;
-        camera.position.set(
-            CAM_POS[0] + midX * 0.1 + sx + pb[0] * portraitCutScale,
-            DUEL_CAMERA_Y + sy + pb[1] * portraitCutScale + portraitPull * 0.95,
-            camDolly.current - (zk + db) * portraitCutScale + koPull.current + pb[2] * portraitCutScale + portraitPull * 0.45,
-        );
-        camera.lookAt(camAim.current[0], camAim.current[1], camAim.current[2]);
+        // A hit can set zoomKick, shotDolly, camDollyBias and a positional Z bias
+        // on the same frame. Treat them as one authored camera move and clamp the
+        // result, otherwise the combined push crops a fighter and the giant VFX.
+        const requestedCinematicZ = -(zk + db + heldShotDolly) + pb[2];
+        const maxPushIn = viewportAspect < 0.8 ? 0.52 : 0.88;
+        const maxPullBack = viewportAspect < 0.8 ? 1.9 : 4.2;
+        const safeCinematicZ = THREE.MathUtils.clamp(requestedCinematicZ, -maxPushIn, maxPullBack);
+        const desiredEye: [number, number, number] = [
+            CAM_POS[0] + midX * 0.24 + pb[0] * portraitCutScale,
+            // Portrait needs horizontal room much more than extra elevation. Pull
+            // mostly backward so both silhouettes and their Html nameplates stay
+            // inside the narrow frame without turning the arena into a fisheye view.
+            DUEL_CAMERA_Y + pb[1] * portraitCutScale + portraitPull * 0.42,
+            camDolly.current + safeCinematicZ * portraitCutScale + koPull.current + portraitPull * 1.38,
+        ];
+        const eyeResponse = (camBiasHold.current > 0 || shotDollyHold.current > 0) ? 10.5 : 6.2;
+        const eyeAlpha = 1 - Math.exp(-eyeResponse * Math.min(delta, 1 / 15));
+        camEye.current[0] = lerp(camEye.current[0], desiredEye[0], eyeAlpha);
+        camEye.current[1] = lerp(camEye.current[1], desiredEye[1], eyeAlpha);
+        camEye.current[2] = lerp(camEye.current[2], desiredEye[2], eyeAlpha);
+        camera.position.set(camEye.current[0] + sx, camEye.current[1] + sy, camEye.current[2]);
+        camera.lookAt(camLook.current[0], camLook.current[1], camLook.current[2]);
         if (!ended.current && clock.current.t >= maxT) {
-            if (!endHold.current) endHold.current = now + 1.05;
+            if (!endHold.current) endHold.current = now + 1.95;
             else if (now >= endHold.current) { ended.current = true; onEnd(); }
         }
     });
@@ -3223,31 +4018,38 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
 function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; color: string; big: boolean; mode?: DuelImpactMode; onDone: () => void }) {
     const root = useRef<THREE.Group>(null);
     const core = useRef<THREE.Mesh>(null);
-    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const coreMat = useRef<THREE.MeshToonMaterial>(null);
     const haloMat = useRef<THREE.MeshBasicMaterial>(null);
     const ringOne = useRef<THREE.MeshBasicMaterial>(null);
     const ringTwo = useRef<THREE.MeshBasicMaterial>(null);
+    const slashMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const start = useRef<number | null>(null);
-    const duration = mode === "tell" ? 0.46 : mode === "dodge" ? 0.3 : big ? 0.46 : 0.34;
+    const duration = mode === "tell" ? 0.46 : mode === "dodge" ? 0.3 : big ? 0.56 : 0.38;
+    const contactCore = useMemo(() => new THREE.Color(color).lerp(new THREE.Color("#fff1b8"), 0.08).getStyle(), [color]);
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
         const rise = 1 - Math.pow(1 - p, 2);
         const fade = 1 - p;
         if (root.current) {
-            const scale = mode === "tell" ? 0.46 + rise * (big ? 0.78 : 0.58) : mode === "dodge" ? 0.28 + rise * 0.48 : 0.34 + rise * (big ? 1.28 : 0.94);
+            const scale = mode === "tell" ? 0.46 + rise * (big ? 1.08 : 0.72) : mode === "dodge" ? 0.28 + rise * 0.52 : 0.34 + rise * (big ? 2.18 : 1.28);
             root.current.scale.setScalar(scale);
             root.current.rotation.y = p * (mode === "dodge" ? -1.35 : 1.9);
         }
         if (core.current) {
             core.current.rotation.x = p * 4.2;
             core.current.rotation.y = p * 5.6;
-            core.current.scale.setScalar(mode === "impact" ? 0.48 + (1 - Math.abs(p - 0.33) * 2) * (big ? 0.52 : 0.34) : 0.42 + rise * 0.2);
+            core.current.scale.setScalar(mode === "impact" ? 0.42 + (1 - Math.abs(p - 0.33) * 2) * (big ? 0.46 : 0.32) : 0.42 + rise * 0.2);
         }
-        if (coreMat.current) coreMat.current.opacity = mode === "impact" ? Math.max(0, (1 - p * 1.42)) * 0.62 : fade * 0.2;
+        if (coreMat.current) coreMat.current.opacity = mode === "impact" ? Math.max(0, (1 - p * 1.42)) * 0.5 : fade * 0.2;
         if (haloMat.current) haloMat.current.opacity = fade * (mode === "impact" ? 0.48 : 0.32);
         if (ringOne.current) ringOne.current.opacity = fade * (mode === "tell" ? 0.36 : 0.3);
         if (ringTwo.current) ringTwo.current.opacity = Math.max(0, fade - 0.16) * (mode === "dodge" ? 0.38 : 0.2);
+        slashMats.current.forEach((material, index) => {
+            if (!material) return;
+            const contact = Math.max(0, 1 - p * (index === 1 ? 2.9 : 2.35));
+            material.opacity = contact * (big ? 0.94 : 0.76) * (index === 2 ? 0.72 : 1);
+        });
         if (p >= 1) onDone();
     });
     const floorOnly = mode !== "impact";
@@ -3268,8 +4070,28 @@ function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; col
                 <>
                     <mesh ref={core} position={[0, 0.12, 0]}>
                         <icosahedronGeometry args={[0.28, 1]} />
-                        <meshBasicMaterial ref={coreMat} color="#fff8df" transparent opacity={0.88} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        <meshToonMaterial ref={coreMat} color={contactCore} emissive={color} emissiveIntensity={0.34} transparent opacity={0.88} depthWrite={false} />
                     </mesh>
+                    {/* Graphic contact frame: three camera-facing saber streaks
+                        form the asymmetric white X seen in strong hand-drawn hits.
+                        It exists for only the first few frames; the colored 3D
+                        element burst then supplies mass and dissipation. */}
+                    <Billboard position={[0, 0.12, 0.05]}>
+                        {[0.7, -0.72, 0.04].map((rotation, index) => (
+                            <mesh key={`contact-slash-${index}`} rotation={[0, 0, rotation]} scale={index === 2 ? [0.76, 1, 1] : [1, 1, 1]}>
+                                <planeGeometry args={[big ? 3.55 : 2.15, big ? 0.15 : 0.095]} />
+                                <meshBasicMaterial
+                                    ref={(material) => { slashMats.current[index] = material; }}
+                                    color={index === 2 ? color : contactCore}
+                                    transparent
+                                    opacity={0.9}
+                                    depthWrite={false}
+                                    toneMapped={false}
+                                    blending={THREE.AdditiveBlending}
+                                />
+                            </mesh>
+                        ))}
+                    </Billboard>
                     <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]}>
                         <torusGeometry args={[0.5, 0.032, 6, 24]} />
                         <meshBasicMaterial ref={haloMat} color={color} transparent opacity={0.7} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
@@ -3280,172 +4102,666 @@ function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; col
     );
 }
 
-/** Element-specific contact volume layered behind the graphic hit frame. The
- * generic white ring sells timing; these solid toon shapes sell WHAT struck:
- * flame tongues, water droplets, wind crescents, lightning splinters, or stone.
- * Normal-blended bodies preserve color and depth instead of bleaching the pet. */
-function DuelElementBurst({ at, kind, color, big, heading, onDone }: { at: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number; onDone: () => void }) {
+/** Element contact rendered as layered, beveled anime brushwork. Every element
+ * has its own silhouette while the shared dark/body/highlight stack matches the
+ * outlined, sculpted pet materials. Rings, spheres, and crystals are secondary. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyDuelElementBurst({ at, kind, color, big, heading, onDone }: { at: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number; onDone: () => void }) {
     const root = useRef<THREE.Group>(null);
-    const pieces = useRef<Array<THREE.Mesh | null>>([]);
-    const materials = useRef<Array<THREE.Material & { opacity: number }>>([]);
+    const pieces = useRef<Array<THREE.Group | null>>([]);
+    const materials = useRef<Array<THREE.MeshToonMaterial | null>>([]);
     const light = useRef<THREE.PointLight>(null);
     const start = useRef<number | null>(null);
-    const layout = useMemo(() => {
-        const pieces = kind === "abyss" ? 0 : big ? 8 : 5;
-        return Array.from({ length: pieces }, (_, i) => {
-        // Continue the attack through the target in a directional fan. The old
-        // full radial crown read as unrelated crystal spikes around the fighter.
-        const a = -0.72 + (i / (pieces - 1)) * 1.44;
-        return { a, radius: 0.34 + (i % 3) * 0.16, lift: 0.06 + (i % 4) * 0.14, size: 0.68 + (i % 3) * 0.13 };
+    const completed = useRef(false);
+    const palette = useMemo(() => duelFxPalette(kind, color), [kind, color]);
+    const specs = useMemo(() => {
+        const count = big ? 4 : 3;
+        return Array.from({ length: count }, (_, i) => {
+            const lane = i - (count - 1) * 0.5;
+            const fireLike = kind === "fire" || kind === "abyss";
+            return {
+                lane,
+                length: (big ? 1.34 : 1.0) * (0.82 + (i % 3) * 0.11),
+                width: (big ? 0.25 : 0.19) * (0.88 + (i % 2) * 0.16),
+                curl: fireLike ? 0.44 + (i % 3) * 0.12 : kind === "water" ? 0.66 + (i % 2) * 0.18 : kind === "wind" ? 0.3 : kind === "earth" ? 0.12 : 0.2,
+                jagged: kind === "lightning" ? 0.2 : kind === "earth" ? 0.075 : 0,
+                lift: 0.34 + (i % 3) * 0.28 + Math.abs(lane) * 0.05,
+                roll: (-0.68 + i * (1.36 / Math.max(1, count - 1))) + (fireLike ? lane * 0.07 : 0),
+                yaw: lane * (kind === "water" ? 0.16 : 0.11),
+            };
         });
     }, [big, kind]);
-    const flamePetals = useMemo(() => kind === "fire" || kind === "abyss"
-        ? layout.map((_, i) => makeFlameRibbonGeometry(
-            0.72 + (i % 3) * 0.15,
-            0.1 + (i % 2) * 0.018,
-            0.2 + (i % 4) * 0.06,
-            (i / layout.length) * Math.PI * 2,
-        ))
-        : [], [kind, layout]);
-    useEffect(() => () => flamePetals.forEach((geometry) => geometry.dispose()), [flamePetals]);
-    const duration = big ? 0.66 : 0.48;
-    const palette = kind === "fire"
-        ? { body: "#ef3f13", accent: "#ffb21c", core: "#fff0a6" }
-        : kind === "water"
-            ? { body: "#0879c9", accent: "#32d5f2", core: "#d8fbff" }
-            : kind === "wind"
-                ? { body: "#14796f", accent: "#61e3c2", core: "#ddfff4" }
-                : kind === "lightning"
-                    ? { body: "#6847d9", accent: "#d8c6ff", core: "#fff8c9" }
-                    : kind === "earth"
-                        ? { body: "#754321", accent: "#d59a42", core: "#ffe0a1" }
-                        : kind === "abyss"
-                            ? { body: "#4b1038", accent: "#ef234f", core: "#ffd0b2" }
-                        : { body: color, accent: "#d8c8ff", core: "#fff7dc" };
-    const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
-        if (!material || materials.current.includes(material)) return;
-        material.userData.baseOpacity = material.opacity;
-        materials.current.push(material);
-    };
+    const geometries = useMemo(() => specs.map((spec) => makeAnimeStrokeGeometry(spec.length, spec.width, spec.curl, spec.jagged)), [specs]);
+    useEffect(() => () => geometries.forEach((geometry) => geometry.dispose()), [geometries]);
+    const duration = big ? 0.82 : 0.62;
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const elapsed = state.clock.elapsedTime - start.current;
         const p = Math.min(1, elapsed / duration);
-        const burst = 1 - Math.pow(1 - Math.min(1, p / 0.42), 3);
-        const fade = p < 0.58 ? 1 : Math.max(0, 1 - (p - 0.58) / 0.42);
+        const open = 1 - Math.pow(1 - Math.min(1, p / 0.34), 3);
+        const settle = Math.sin(Math.PI * Math.min(1, p / 0.72));
+        const fade = p < 0.68 ? 1 : Math.max(0, 1 - (p - 0.68) / 0.32);
         if (root.current) {
-            root.current.scale.setScalar((big ? 1.08 : 0.9) * (0.24 + burst * 0.86));
-            root.current.rotation.y = heading + p * (kind === "wind" ? 0.48 : 0.14);
+            root.current.rotation.y = heading;
+            root.current.scale.setScalar((big ? 0.92 : 0.74) * (0.3 + open * 0.82));
         }
         pieces.current.forEach((piece, i) => {
             if (!piece) return;
-            const spec = layout[i];
-            const travel = burst * (0.5 + (i % 3) * 0.14);
-            piece.position.x = Math.cos(spec.a) * (spec.radius + travel);
-            piece.position.z = Math.sin(spec.a) * (spec.radius + travel);
-            piece.position.y = spec.lift + travel * (kind === "water" ? 0.42 : kind === "earth" ? 0.24 : 0.78);
-            piece.rotation.x += 0.045 + (i % 2) * 0.018;
-            piece.rotation.z += (i % 2 ? -1 : 1) * 0.052;
+            const spec = specs[i];
+            piece.position.set(open * (0.18 + i % 2 * 0.12), spec.lift + settle * (0.12 + i % 3 * 0.05), spec.lane * (big ? 0.25 : 0.19) * open);
+            piece.rotation.set(kind === "water" ? -0.08 : lanePitch(kind, i), spec.yaw, spec.roll);
         });
-        for (const material of materials.current) material.opacity = Number(material.userData.baseOpacity ?? 0.8) * fade;
-        if (light.current) light.current.intensity = fade * (big ? 3.2 : 1.8);
-        if (p >= 1) onDone();
+        materials.current.forEach((material) => {
+            if (material) material.opacity = Number(material.userData.baseOpacity ?? 1) * fade;
+        });
+        if (light.current) light.current.intensity = fade * settle * (big ? 4.2 : 2.3);
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
     });
     return (
-        <group ref={root} position={at} scale={0.01}>
-            {kind !== "abyss" && <mesh scale={big ? 0.42 : 0.3}>
-                <icosahedronGeometry args={[1, 1]} />
-                <meshToonMaterial ref={registerMaterial} color={palette.core} emissive={palette.accent} emissiveIntensity={0.32} transparent opacity={0.82} depthWrite={false} />
-            </mesh>}
-            {/* Offset saber arcs give the burst a drawn anime impact silhouette;
-                they are intentionally partial rather than another flat full ring. */}
-            {[0, 1, 2].map((i) => (
-                <mesh key={`impact-sweep-${i}`} position={kind === "abyss" ? [(i - 1) * 0.18, 0.055 + i * 0.012, (i - 1) * 0.09] : [0, 0.14 + i * 0.08, 0]} rotation={kind === "abyss" ? [-Math.PI / 2, 0, -0.5 + i * 0.1] : [0.34 + i * 0.28, i * 1.92, -0.62 + i * 0.54]}>
-                    <torusGeometry args={[0.58 + i * 0.17, (kind === "abyss" ? 0.06 : 0.045) + (2 - i) * 0.008, 7, 32, Math.PI * (kind === "abyss" ? 0.72 : 0.9 + i * 0.1)]} />
-                    <meshBasicMaterial ref={registerMaterial} color={kind === "abyss" ? (i === 1 ? "#ff6b55" : "#d7193f") : i === 0 ? palette.core : palette.accent} transparent opacity={(kind === "abyss" ? 0.78 : 0.64) - i * 0.1} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
+        <group ref={root} position={[at[0], at[1] + 0.06, at[2]]} scale={0.01}>
+            {specs.map((spec, i) => (
+                <group key={`anime-strike-${i}`} ref={(group) => { pieces.current[i] = group; }}>
+                    <mesh geometry={geometries[i]} position={[0, 0, -0.025]} scale={[1.035, 1.035, 1.06]}>
+                        <meshToonMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.24; materials.current[i * 3] = material; } }} color={palette.dark} transparent opacity={0.24} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={geometries[i]}>
+                        <meshToonMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.94; materials.current[i * 3 + 1] = material; } }} color={i % 3 === 0 ? palette.accent : palette.body} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0.94} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={geometries[i]} position={[spec.length * 0.14, spec.width * 0.08, 0.07]} scale={[0.66, 0.34, 0.7]}>
+                        <meshToonMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.84; materials.current[i * 3 + 2] = material; } }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={0.84} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </group>
+            ))}
+            {kind === "earth" && Array.from({ length: big ? 7 : 4 }, (_, i) => (
+                <mesh key={`earth-chip-${i}`} position={[0.15 + (i % 2) * 0.25, 0.22 + (i % 3) * 0.24, (i - 2) * 0.24]} rotation={[i * 0.7, i * 0.9, i * 0.44]} scale={[0.16, 0.28, 0.18]}>
+                    <dodecahedronGeometry args={[1, 0]} />
+                    <meshToonMaterial color={i % 2 ? palette.body : palette.accent} />
                 </mesh>
             ))}
-            {layout.map((piece, i) => {
+            <Sparkles count={big ? 14 : 8} scale={big ? [3.8, 2.8, 3.4] : [2.6, 1.9, 2.4]} size={big ? 1.8 : 1.35} speed={2.2} opacity={0.4} color={palette.core} noise={1.25} />
+            <pointLight ref={light} color={palette.accent} intensity={0} distance={big ? 7.5 : 4.8} decay={2} />
+        </group>
+    );
+}
+
+function lanePitch(kind: DuelElementBurstKind, index: number): number {
+    if (kind === "water") return -0.08;
+    if (kind === "wind") return (index % 2 ? 1 : -1) * 0.12;
+    if (kind === "earth") return 0.1 + (index % 3) * 0.09;
+    return (index % 2 ? 1 : -1) * 0.06;
+}
+
+/** The consequence after contact. Immediate flashes sell the exact hit frame;
+ * this lower, toon-shaded residue stays underneath the defender's recoil so the
+ * viewer sees that the launched ability actually changed the space it struck. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyDuelElementAftermath({ at, kind, color, big, onDone }: { at: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; onDone: () => void }) {
+    const root = useRef<THREE.Group>(null);
+    const pieces = useRef<Array<THREE.Mesh | null>>([]);
+    const materials = useRef<Array<THREE.Material & { opacity: number }>>([]);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const count = big ? 9 : 6;
+    const flames = useMemo(() => kind === "fire" || kind === "abyss"
+        ? Array.from({ length: count }, (_, i) => makeFlameRibbonGeometry(0.58 + (i % 3) * 0.16, 0.11 + (i % 2) * 0.025, 0.18 + (i % 3) * 0.07, i * 0.83))
+        : [], [kind, count]);
+    useEffect(() => () => flames.forEach((geometry) => geometry.dispose()), [flames]);
+    const palette = kind === "fire"
+        ? { body: "#d93616", accent: "#ff9418", core: "#ffe895", dark: "#45140c" }
+        : kind === "water"
+            ? { body: "#0877bd", accent: "#35cae6", core: "#d8fbff", dark: "#062f5d" }
+            : kind === "wind"
+                ? { body: "#14796f", accent: "#54d8bd", core: "#dcfff5", dark: "#083f43" }
+                : kind === "lightning"
+                    ? { body: "#6244cb", accent: "#c5a9ff", core: "#fff4a8", dark: "#211549" }
+                    : kind === "earth"
+                        ? { body: "#754321", accent: "#d39a45", core: "#ffe0a1", dark: "#301b11" }
+                        : kind === "abyss"
+                            ? { body: "#481036", accent: "#e42250", core: "#ffb092", dark: "#16091f" }
+                            : { body: color, accent: "#bb9cff", core: "#fff1d4", dark: "#241538" };
+    const register = (material: (THREE.Material & { opacity: number }) | null) => {
+        if (!material || materials.current.includes(material)) return;
+        material.userData.baseOpacity = material.opacity;
+        materials.current.push(material);
+    };
+    const duration = big ? 1.48 : 1.08;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / duration);
+        const arrive = 1 - Math.pow(1 - Math.min(1, p / 0.18), 3);
+        const fade = p < 0.58 ? 1 : Math.max(0, 1 - (p - 0.58) / 0.42);
+        if (root.current) {
+            root.current.scale.setScalar((big ? 1.62 : 1.14) * (0.72 + arrive * 0.34));
+            root.current.rotation.y = elapsed * (kind === "wind" ? 0.72 : kind === "water" ? 0.22 : 0.08);
+        }
+        pieces.current.forEach((piece, i) => {
+            if (!piece) return;
+            piece.rotation.y += (kind === "wind" ? 0.045 : 0.014) * (i % 2 ? -1 : 1);
+            piece.position.y = 0.05 + Math.sin(elapsed * (5 + i % 3) + i) * (kind === "water" || kind === "wind" ? 0.045 : 0.018);
+        });
+        for (const material of materials.current) material.opacity = Number(material.userData.baseOpacity ?? 0.6) * fade;
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
+    });
+    return (
+        <group ref={root} position={[at[0], FLOOR_Y + 0.04, at[2]]}>
+            {/* Dark normal-blended footing anchors the saturated toon pieces to the
+                arena instead of making them look like unrelated glowing UI. */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[big ? 1.28 : 0.92, 48]} />
+                <meshBasicMaterial ref={register} color={palette.dark} transparent opacity={0.34} depthWrite={false} blending={THREE.NormalBlending} />
+            </mesh>
+            {[0, 1].map((i) => (
+                <mesh key={`aftermath-ring-${i}`} position={[0, 0.018 + i * 0.012, 0]} rotation={[Math.PI / 2, i * 0.6, 0]} scale={1 + i * 0.28}>
+                    <torusGeometry args={[0.62, i === 0 ? 0.055 : 0.025, 7, 40, Math.PI * (i === 0 ? 1.55 : 1.2)]} />
+                    <meshToonMaterial ref={register} color={i === 0 ? palette.body : palette.core} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={i === 0 ? 0.72 : 0.46} depthWrite={false} />
+                </mesh>
+            ))}
+            {Array.from({ length: count }, (_, i) => {
+                const a = (i / count) * Math.PI * 2 + (i % 2) * 0.18;
+                const radius = 0.42 + (i % 3) * 0.2;
                 const common = {
                     ref: (mesh: THREE.Mesh | null) => { pieces.current[i] = mesh; },
-                    position: [Math.cos(piece.a) * piece.radius, piece.lift, Math.sin(piece.a) * piece.radius] as [number, number, number],
-                    rotation: [0, -piece.a, (i % 2 ? -1 : 1) * 0.34] as [number, number, number],
-                    scale: piece.size,
+                    position: [Math.cos(a) * radius, 0.05, Math.sin(a) * radius] as [number, number, number],
+                    rotation: [0, -a, (i % 2 ? -1 : 1) * 0.22] as [number, number, number],
                 };
                 if (kind === "fire" || kind === "abyss") return (
-                    <mesh key={i} {...common} geometry={flamePetals[i]} rotation={[0, -piece.a, (i % 2 ? -1 : 1) * 0.18]} scale={piece.size * (kind === "abyss" ? 1.08 : 1)}>
-                        <meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={kind === "abyss" ? 0.34 : 0.24} transparent opacity={0.9} depthWrite={false} />
+                    <mesh key={`aftermath-piece-${i}`} {...common} geometry={flames[i]} scale={0.78 + (i % 3) * 0.12}>
+                        <meshToonMaterial ref={register} color={i % 3 === 0 ? palette.accent : palette.body} emissive={palette.accent} emissiveIntensity={0.18} transparent opacity={0.84} depthWrite={false} />
                     </mesh>
                 );
                 if (kind === "water") return (
-                    <mesh key={i} {...common} scale={[piece.size * 0.52, piece.size, piece.size * 0.52]}><sphereGeometry args={[0.28, 10, 7]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.18} transparent opacity={0.82} depthWrite={false} /></mesh>
+                    <mesh key={`aftermath-piece-${i}`} {...common} rotation={[Math.PI / 2, a, 0]} scale={[0.72 + (i % 2) * 0.2, 0.72, 0.42]}>
+                        <torusGeometry args={[0.34, 0.07, 7, 24, Math.PI * 1.25]} />
+                        <meshToonMaterial ref={register} color={i % 3 === 0 ? palette.core : palette.body} emissive={palette.accent} emissiveIntensity={0.14} transparent opacity={0.8} depthWrite={false} />
+                    </mesh>
                 );
                 if (kind === "wind") return (
-                    <mesh key={i} {...common} rotation={[Math.PI / 2, -piece.a, (i % 2 ? -1 : 1) * 0.28]}><torusGeometry args={[0.38, 0.055, 6, 18, Math.PI * 1.18]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0.86} depthWrite={false} /></mesh>
+                    <mesh key={`aftermath-piece-${i}`} {...common} rotation={[Math.PI / 2, a, i * 0.31]} scale={0.72 + (i % 3) * 0.12}>
+                        <torusGeometry args={[0.42, 0.055, 7, 26, Math.PI * 1.1]} />
+                        <meshToonMaterial ref={register} color={i % 3 === 0 ? palette.core : palette.body} emissive={palette.accent} emissiveIntensity={0.14} transparent opacity={0.76} depthWrite={false} />
+                    </mesh>
                 );
                 if (kind === "earth") return (
-                    <mesh key={i} {...common} scale={[piece.size * 0.62, piece.size * 1.18, piece.size * 0.62]}><icosahedronGeometry args={[0.24, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0.94} depthWrite={false} /></mesh>
+                    <mesh key={`aftermath-piece-${i}`} {...common} rotation={[i * 0.47, a, i * 0.31]} scale={[0.24, 0.38 + (i % 3) * 0.09, 0.24]}>
+                        <dodecahedronGeometry args={[1, 0]} />
+                        <meshToonMaterial ref={register} color={i % 3 === 0 ? palette.accent : palette.body} emissive={palette.dark} emissiveIntensity={0.08} transparent opacity={0.92} depthWrite={false} />
+                    </mesh>
                 );
                 return (
-                    <mesh key={i} {...common} scale={[piece.size * 0.2, piece.size * 1.25, piece.size * 0.2]}><octahedronGeometry args={[0.34, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.core} emissiveIntensity={0.32} transparent opacity={0.9} depthWrite={false} /></mesh>
+                    <mesh key={`aftermath-piece-${i}`} {...common} rotation={[i * 0.38, a, i * 0.62]} scale={[0.15, 0.42 + (i % 3) * 0.12, 0.15]}>
+                        <octahedronGeometry args={[1, 0]} />
+                        <meshToonMaterial ref={register} color={i % 3 === 0 ? palette.core : palette.body} emissive={palette.accent} emissiveIntensity={0.24} transparent opacity={0.88} depthWrite={false} />
+                    </mesh>
                 );
             })}
-            <Sparkles count={big ? 22 : 12} scale={[2.8, 2.2, 2.8]} size={1.7} speed={1.55} opacity={0.5} color={palette.core} noise={1.8} />
-            <pointLight ref={light} color={palette.accent} intensity={0} distance={big ? 6 : 4} decay={2} />
+            <Sparkles count={big ? 24 : 13} scale={big ? [3.8, 1.8, 3.8] : [2.8, 1.2, 2.8]} position={[0, 0.58, 0]} size={big ? 2.1 : 1.6} speed={0.9} opacity={0.46} color={palette.core} noise={1.25} />
+        </group>
+    );
+}
+
+type DuelElementVolumePhase = "contact" | "aftermath" | "signature" | "dash";
+
+const ELEMENT_VOLUME_CURVE_CACHE = new Map<string, readonly THREE.TubeGeometry[]>();
+const HERO_MOVE_STROKE_CACHE = new Map<string, readonly THREE.ExtrudeGeometry[]>();
+
+function duelElementCurveCount(kind: DuelElementBurstKind, phase: DuelElementVolumePhase, big: boolean, quality: PetVisualQuality): number {
+    const signature = phase === "signature";
+    const low = quality === "low";
+    const medium = quality === "medium";
+    if (kind === "earth") return 0;
+    if (kind === "water" && !signature) return low ? 2 : big ? 4 : 3;
+    if (low) return signature ? 5 : 2;
+    if (medium) return signature ? 7 : big ? 5 : 3;
+    return signature ? 10 : big ? 7 : 5;
+}
+
+/** Curved, round-section elemental motion. These tubes catch the same arena
+ * lighting as the pet models, so an ability reads as an object occupying the
+ * scene instead of a flat decal composited in front of it. */
+function makeElementVolumeCurve(kind: DuelElementBurstKind, index: number, phase: DuelElementVolumePhase): THREE.TubeGeometry {
+    const signature = phase === "signature";
+    const aftermath = phase === "aftermath";
+    const pointCount = signature ? 18 : 13;
+    const points = Array.from({ length: pointCount }, (_, pointIndex) => {
+        const u = pointIndex / Math.max(1, pointCount - 1);
+        const angle = kind === "water" && !signature ? -0.92 + index * 0.58 : index * 2.17;
+        if (kind === "water") {
+            const reach = (signature ? 2.45 : aftermath ? 0.72 : 0.94) * u;
+            const lift = Math.sin(Math.PI * u) * (signature ? 2.2 : aftermath ? 0.34 : 0.74);
+            return new THREE.Vector3(Math.cos(angle) * reach, lift, Math.sin(angle) * reach);
+        }
+        if (kind === "wind") {
+            const height = signature ? 3.8 : aftermath ? 0.9 : 1.72;
+            const radius = (0.16 + u * (signature ? 1.35 : 0.64)) * (aftermath ? 1.25 : 1);
+            const turn = angle + u * Math.PI * (signature ? 5.4 : 3.2);
+            return new THREE.Vector3(Math.cos(turn) * radius, u * height, Math.sin(turn) * radius);
+        }
+        if (kind === "lightning") {
+            const height = signature ? 4.7 : aftermath ? 1.15 : 2.05;
+            const direction = signature ? 1 - u : u - 0.5;
+            const jag = Math.sin((pointIndex + index * 3) * 2.37) * (signature ? 0.34 : 0.22);
+            const branch = index === 0 ? 0 : u * (0.18 + index * 0.055);
+            return new THREE.Vector3(jag + Math.cos(angle) * branch, direction * height, Math.cos((pointIndex + index) * 1.73) * (signature ? 0.24 : 0.16) + Math.sin(angle) * branch);
+        }
+        if (kind === "arcane") {
+            const radius = (signature ? 1.65 : aftermath ? 0.78 : 0.92) * (0.82 + index % 3 * 0.12);
+            const orbit = u * Math.PI * 1.72 + angle;
+            return new THREE.Vector3(Math.cos(orbit) * radius, Math.sin(orbit) * radius * 0.58, Math.sin(orbit) * radius * 0.76);
+        }
+        // Fire and abyss both rise as tapered, corkscrewing plumes. Abyss is
+        // made visually distinct through its palette, smoke volume and orbiting
+        // embers in the renderer below rather than a separate flat glyph.
+        const height = signature ? 3.45 : aftermath ? 1.05 : 1.82;
+        const radius = (signature ? 0.7 : aftermath ? 0.34 : 0.44) * (1 - u * 0.72);
+        const turn = angle + u * Math.PI * (signature ? 2.7 : 1.8);
+        return new THREE.Vector3(Math.cos(turn) * radius, u * height, Math.sin(turn) * radius);
+    });
+    const radius = phase === "signature" ? 0.075 + (index % 3) * 0.012 : kind === "water" ? phase === "aftermath" ? 0.026 : 0.035 : phase === "aftermath" ? 0.043 : 0.058 + (index % 2) * 0.009;
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), signature ? 52 : 34, radius, 6, false);
+}
+
+function cachedElementVolumeCurves(kind: DuelElementBurstKind, phase: DuelElementVolumePhase, count: number): readonly THREE.TubeGeometry[] {
+    const key = `${kind}:${phase}:${count}`;
+    const cached = ELEMENT_VOLUME_CURVE_CACHE.get(key);
+    if (cached) return cached;
+    const geometries = Object.freeze(Array.from({ length: count }, (_, index) => makeElementVolumeCurve(kind, index, phase)));
+    ELEMENT_VOLUME_CURVE_CACHE.set(key, geometries);
+    return geometries;
+}
+
+function cachedHeroMoveStrokes(style: PetHeroMoveStyle, quality: PetVisualQuality): readonly THREE.ExtrudeGeometry[] {
+    if (style === "generic") return [];
+    const key = `${style}:${quality}`;
+    const cached = HERO_MOVE_STROKE_CACHE.get(key);
+    if (cached) return cached;
+    const water = style.startsWith("selkie") || style === "serpentine-surge";
+    const pounce = style === "kitsune-eclipse-pounce" || style === "selkie-tail-strike" || style === "quadruped-rush";
+    const avian = style === "avian-dive";
+    const heavy = style === "heavy-slam";
+    const biped = style === "biped-combo";
+    const count = quality === "low" ? 2 : quality === "medium" ? 3 : 4;
+    const geometries = Object.freeze(Array.from({ length: count }, (_, index) => makeAnimeStrokeGeometry(
+        (heavy ? 1.58 : avian ? 1.52 : water ? 1.46 : 1.34) * (1 - index * 0.12),
+        (heavy ? 0.3 : pounce ? 0.24 : biped ? 0.215 : 0.19) * (1 - index * 0.08),
+        (avian ? 0.86 : water ? 0.72 : heavy ? 0.6 : 0.5) * (1 - index * 0.13),
+        style === "kitsune-shadow-step" || style === "avian-dive" || style === "serpentine-surge" ? 0.055 : 0,
+    )));
+    HERO_MOVE_STROKE_CACHE.set(key, geometries);
+    return geometries;
+}
+
+function scheduleDuelFxGeometryPrewarm(kinds: readonly DuelElementBurstKind[], quality: PetVisualQualityConfig): () => void {
+    const uniqueKinds = [...new Set(kinds)];
+    const tasks: Array<() => void> = [];
+    for (const kind of uniqueKinds) {
+        for (const phase of ["contact", "aftermath", "dash"] as const) {
+            for (const big of [false, true]) {
+                const count = duelElementCurveCount(kind, phase, big, quality.id);
+                const key = `${kind}:${phase}:${count}`;
+                if (!ELEMENT_VOLUME_CURVE_CACHE.has(key)) tasks.push(() => { cachedElementVolumeCurves(kind, phase, count); });
+            }
+        }
+    }
+    let cancelled = false;
+    let timer = 0;
+    const runOne = () => {
+        if (cancelled) return;
+        tasks.shift()?.();
+        if (tasks.length) timer = window.setTimeout(runOne, 18);
+    };
+    // Spend the otherwise static VS/size-up beat preparing immutable effect
+    // geometry in small slices, instead of compiling it on the contact frame.
+    timer = window.setTimeout(runOne, 80);
+    return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+    };
+}
+
+/** One coherent 3D material language for every live elemental contact. It is
+ * intentionally shape-led: fire rises and curls, water splashes, wind funnels,
+ * lightning branches, earth displaces mass, abyss smolders, and arcane energy
+ * orbits. The effect scales from a quick hit to an arena signature without
+ * falling back to the old beveled brush cards. */
+function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, heroStyle = "generic", delay = 0, onDone }: {
+    at: Vec3;
+    kind: DuelElementBurstKind;
+    color: string;
+    big: boolean;
+    heading?: number;
+    phase: DuelElementVolumePhase;
+    quality: PetVisualQualityConfig;
+    heroStyle?: PetHeroMoveStyle;
+    delay?: number;
+    onDone: () => void;
+}) {
+    const root = useRef<THREE.Group>(null);
+    const core = useRef<THREE.Group>(null);
+    const arenaSeal = useRef<THREE.Group>(null);
+    const motifs = useRef<Array<THREE.Group | null>>([]);
+    const particles = useRef<THREE.InstancedMesh>(null);
+    const materials = useRef<Array<(THREE.Material & { opacity: number }) | null>>([]);
+    const light = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const palette = useMemo(() => duelFxPalette(kind, color), [kind, color]);
+    const signature = phase === "signature";
+    const aftermath = phase === "aftermath";
+    const low = quality.id === "low";
+    const curveCount = duelElementCurveCount(kind, phase, big, quality.id);
+    const heroMove = heroStyle !== "generic";
+    const particleCount = low ? (signature ? 8 : 5) : quality.id === "medium" ? (signature ? 12 : heroMove ? 8 : big ? 9 : 6) : signature ? 18 : heroMove ? 10 : big ? 13 : 9;
+    // Curves are immutable and shared by every repeat of the same move class.
+    // Rebuilding TubeGeometry synchronously on each hit was the largest visible
+    // CPU hitch in effect-heavy exchanges.
+    const curves = useMemo(() => cachedElementVolumeCurves(kind, phase, curveCount), [curveCount, kind, phase]);
+    const heroStrokes = useMemo(() => cachedHeroMoveStrokes(heroStyle, quality.id), [heroStyle, quality.id]);
+    const particleDummy = useMemo(() => new THREE.Object3D(), []);
+    const particleGeometry = useMemo<THREE.BufferGeometry>(() => {
+        if (kind === "water") return new THREE.IcosahedronGeometry(signature ? 0.13 : 0.085, 0);
+        if (kind === "earth") return new THREE.DodecahedronGeometry(signature ? 0.16 : 0.11, 0);
+        if (kind === "lightning") return new THREE.TetrahedronGeometry(signature ? 0.13 : 0.085, 0);
+        if (kind === "abyss") return new THREE.IcosahedronGeometry(signature ? 0.18 : 0.11, 0);
+        return new THREE.OctahedronGeometry(signature ? 0.12 : 0.08, 0);
+    }, [kind, signature]);
+    useEffect(() => () => particleGeometry.dispose(), [particleGeometry]);
+    useEffect(() => {
+        const mesh = particles.current;
+        if (!mesh) return;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        for (let index = 0; index < particleCount; index++) {
+            const isSmoke = kind === "abyss" && index % 3 === 0;
+            const particleColor = isSmoke ? palette.dark : index % 4 === 0 ? palette.core : index % 2 ? palette.accent : palette.body;
+            mesh.setColorAt(index, new THREE.Color(particleColor));
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }, [kind, palette, particleCount]);
+    const duration = signature ? 1.86 : aftermath ? (big ? 1.34 : 1.08) : phase === "dash" ? (heroMove ? 1.02 : 0.9) : heroMove ? 0.96 : big ? 0.9 : 0.64;
+    // Named abilities occupy the missing middle tier: clearly larger than a basic
+    // contact, but still well below an arena-owning tsunami or tornado.
+    const basePhaseScale = signature ? 1.8 : aftermath ? (big ? 1.34 : 1.04) : phase === "dash" ? (big ? 1.34 : 0.86) : big ? 1.56 : 0.98;
+    const phaseScale = basePhaseScale * (heroMove ? phase === "dash" ? 1.34 : 1.42 : 1);
+    const register = (material: (THREE.Material & { opacity: number }) | null, index: number, baseOpacity: number) => {
+        if (!material) return;
+        material.userData.baseOpacity = baseOpacity;
+        materials.current[index] = material;
+    };
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current - delay;
+        if (elapsed < 0) {
+            // Keep the subtree renderable at an effectively invisible scale so
+            // WebGL compiles the materials during anticipation, never on impact.
+            if (root.current) {
+                root.current.visible = true;
+                root.current.scale.setScalar(0.001);
+            }
+            materials.current.forEach((material) => { if (material) material.opacity = 0; });
+            return;
+        }
+        if (root.current) root.current.visible = true;
+        const p = Math.min(1, elapsed / duration);
+        const open = 1 - Math.pow(1 - Math.min(1, p / (signature ? 0.2 : 0.25)), 3);
+        const fadeStart = aftermath ? 0.52 : signature ? 0.76 : 0.62;
+        const fade = p < fadeStart ? 1 : Math.max(0, 1 - (p - fadeStart) / (1 - fadeStart));
+        const impactPulse = 0.92 + Math.sin(Math.min(1, p / 0.3) * Math.PI) * (signature ? 0.12 : 0.18);
+        if (root.current) {
+            // Authored brush accents are staged toward the broadcast camera.
+            // Rotating their thin profile into the world-space travel heading
+            // made them read as tall rectangular slabs from common shot angles.
+            root.current.rotation.y = heroMove ? 0 : heading + (kind === "wind" || kind === "arcane" ? elapsed * (kind === "wind" ? 1.8 : 0.72) : 0);
+            root.current.scale.setScalar(Math.max(0.001, phaseScale * open * impactPulse));
+        }
+        if (core.current) {
+            const corePulse = 0.76 + Math.sin(elapsed * (kind === "lightning" ? 26 : 12)) * 0.08;
+            core.current.scale.setScalar(corePulse * (aftermath ? 0.62 : 1));
+            core.current.rotation.set(elapsed * 0.7, elapsed * 1.4, -elapsed * 0.52);
+        }
+        if (arenaSeal.current) {
+            arenaSeal.current.rotation.y = elapsed * 0.82;
+            const sealPulse = 0.78 + open * 0.22 + Math.sin(elapsed * 8.4) * 0.025;
+            arenaSeal.current.scale.setScalar(Math.max(0.001, sealPulse));
+        }
+        motifs.current.forEach((group, index) => {
+            if (!group) return;
+            const direction = index % 2 ? -1 : 1;
+            group.rotation.y = elapsed * (kind === "wind" ? 3.4 : kind === "arcane" ? 1.45 : 0.42) * direction + index * 0.37;
+            group.scale.setScalar(0.72 + open * 0.28 + Math.sin(elapsed * 7 + index) * 0.035);
+        });
+        const particleMesh = particles.current;
+        if (particleMesh) for (let index = 0; index < particleCount; index++) {
+            const angle = index * 2.399 + heading;
+            const speed = 0.42 + (index % 4) * 0.13;
+            const travel = Math.min(1, p * (signature ? 1.3 : 1.65));
+            const radius = (signature ? 0.58 : 0.32) + travel * speed * (signature ? 2.3 : 1.45);
+            const lift = kind === "earth"
+                ? Math.sin(Math.PI * travel) * (signature ? 1.35 : 0.62)
+                : kind === "water"
+                    ? Math.sin(Math.PI * travel) * (signature ? 2.0 : 0.95)
+                    : travel * (signature ? 2.1 : 0.92);
+            particleDummy.position.set(Math.cos(angle) * radius, (aftermath ? 0.08 : 0.16) + lift, Math.sin(angle) * radius);
+            particleDummy.rotation.set(elapsed * (1.8 + index % 3), angle, elapsed * (2.4 + index % 2));
+            particleDummy.scale.setScalar((0.68 + (index % 3) * 0.16) * fade * (0.5 + open * 0.5));
+            particleDummy.updateMatrix();
+            particleMesh.setMatrixAt(index, particleDummy.matrix);
+        }
+        if (particleMesh) particleMesh.instanceMatrix.needsUpdate = true;
+        materials.current.forEach((material) => {
+            if (material) material.opacity = Number(material.userData.baseOpacity ?? 1) * fade;
+        });
+        if (light.current) light.current.intensity = fade * Math.sin(Math.PI * Math.min(1, p * 1.65)) * (signature ? 6.4 : big ? 3.5 : 2.2);
+        if (p >= 1 && !completed.current) {
+            completed.current = true;
+            onDone();
+        }
+    });
+
+    const curveMaterial = (index: number) => (
+        <meshToonMaterial
+            ref={(material) => register(material, index, aftermath ? 0.62 : heroMove ? (index % 3 === 0 ? 0.68 : 0.52) : index % 3 === 0 ? 0.94 : 0.78)}
+            color={index % 4 === 0 ? palette.core : index % 2 ? palette.accent : palette.body}
+            emissive={palette.accent}
+            emissiveIntensity={signature ? 0.18 : 0.09}
+            transparent
+            opacity={0}
+            depthWrite={false}
+        />
+    );
+    const coreMaterialIndex = curveCount;
+    const particleMaterialOffset = coreMaterialIndex + 2;
+    const coreShape = kind === "water" ? <sphereGeometry args={[0.56, low ? 16 : 24, low ? 10 : 16]} />
+        : kind === "wind" ? <sphereGeometry args={[0.38, low ? 12 : 18, low ? 8 : 12]} />
+            : kind === "earth" ? <dodecahedronGeometry args={[0.66, 0]} />
+                : kind === "lightning" ? <octahedronGeometry args={[0.58, 0]} />
+                    : <icosahedronGeometry args={[0.58, 1]} />;
+    return (
+        <group ref={root} position={at} visible={delay <= 0} scale={0.001}>
+            <group ref={core} position={[0, aftermath ? 0.12 : kind === "lightning" && signature ? 0.42 : 0.36, 0]} scale={0.01}>
+                <mesh scale={kind === "water" ? [1.25, 0.72, 1.05] : kind === "earth" ? [1.1, 0.76, 1.15] : kind === "wind" ? [0.76, 1.45, 0.76] : [1, 1, 1]} castShadow={kind === "earth"}>
+                    {coreShape}
+                    <meshToonMaterial ref={(material) => register(material, coreMaterialIndex, aftermath ? 0.38 : heroMove ? 0.68 : 0.88)} color={palette.body} emissive={palette.accent} emissiveIntensity={signature ? 0.26 : 0.12} transparent opacity={0} depthWrite={kind === "earth"} />
+                </mesh>
+                {!aftermath && kind !== "earth" && (
+                    <mesh scale={kind === "water" ? [0.78, 0.52, 0.72] : [0.62, 0.62, 0.62]}>
+                        {coreShape}
+                        <meshToonMaterial ref={(material) => register(material, coreMaterialIndex + 1, heroMove ? 0.48 : 0.74)} color={palette.core} emissive={palette.accent} emissiveIntensity={0.24} transparent opacity={0} depthWrite={false} />
+                    </mesh>
+                )}
+            </group>
+
+            {curves.map((geometry, index) => (
+                <group key={`element-volume-curve-${index}`} ref={(group) => { motifs.current[index] = group; }} rotation={[0, index * 0.31, kind === "arcane" ? (index % 3 - 1) * 0.64 : 0]}>
+                    <mesh geometry={geometry} position={kind === "lightning" && signature ? [0, 0.02, 0] : [0, aftermath ? 0.04 : -0.18, 0]} renderOrder={34 + index % 2}>
+                        {curveMaterial(index)}
+                    </mesh>
+                </group>
+            ))}
+
+            {kind === "earth" && Array.from({ length: low ? (signature ? 7 : 4) : signature ? 13 : big ? 8 : 6 }, (_, index) => {
+                const angle = index * 2.399;
+                const radius = 0.28 + (index % 4) * (signature ? 0.36 : 0.2);
+                const height = (signature ? 1.55 : aftermath ? 0.52 : 0.9) * (0.75 + (index % 3) * 0.18);
+                return (
+                    <group key={`earth-spire-${index}`} ref={(group) => { motifs.current[index] = group; }} position={[Math.cos(angle) * radius, height * 0.42, Math.sin(angle) * radius]} rotation={[0.08 * (index % 2), -angle, (index % 2 ? -1 : 1) * 0.12]}>
+                        <mesh scale={[0.32 + (index % 2) * 0.08, height, 0.34 + (index % 3) * 0.035]} castShadow>
+                            <dodecahedronGeometry args={[0.62, 0]} />
+                            <meshToonMaterial ref={(material) => register(material, particleMaterialOffset + particleCount + 10 + index, index % 4 === 0 ? 0.96 : 0.86)} color={index % 4 === 0 ? palette.accent : index % 2 ? palette.body : palette.dark} emissive={palette.accent} emissiveIntensity={0.04} transparent opacity={0} />
+                        </mesh>
+                    </group>
+                );
+            })}
+
+            {(kind === "wind" || kind === "arcane" || kind === "abyss") && [0, 1, 2].map((index) => (
+                <group key={`element-orbit-${index}`} ref={(group) => { motifs.current[curveCount + index] = group; }} rotation={[(index - 1) * 0.58, index * 0.92, index * 0.44]}>
+                    <mesh scale={signature ? 1.52 + index * 0.28 : 0.72 + index * 0.18}>
+                        <torusGeometry args={[0.72, kind === "abyss" ? 0.055 : 0.038, 7, low ? 28 : 48, kind === "wind" ? Math.PI * 1.55 : Math.PI * 1.86]} />
+                        <meshToonMaterial ref={(material) => register(material, particleMaterialOffset + particleCount + index, index === 0 ? 0.72 : 0.48)} color={index === 0 ? palette.accent : index === 1 ? palette.body : palette.core} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} />
+                    </mesh>
+                </group>
+            ))}
+
+            {heroStrokes.map((geometry, index) => {
+                const water = kind === "water" || heroStyle.startsWith("selkie");
+                const avian = heroStyle === "avian-dive";
+                const heavy = heroStyle === "heavy-slam";
+                const lateral = heroStyle === "selkie-tail-strike"
+                    || heroStyle === "kitsune-eclipse-pounce"
+                    || heroStyle === "quadruped-rush"
+                    || heroStyle === "biped-combo"
+                    || heavy;
+                return (
+                    <group
+                        key={`hero-move-accent-${index}`}
+                        ref={(group) => { motifs.current[curveCount + 4 + index] = group; }}
+                        position={avian
+                            ? [-0.1 + index * 0.1, 0.28 + index * 0.34, (index - 1) * 0.16]
+                            : lateral
+                                ? [-0.12 + index * 0.12, 0.16 + index * 0.25, (index - 1) * 0.18]
+                                : [-0.18 + index * 0.1, 0.2 + index * 0.22, (index - 1) * 0.2]}
+                        rotation={avian
+                            ? [0.12, -0.14 + index * 0.1, -1.04 + index * 0.18]
+                            : lateral
+                                ? [0.04, -0.08 + index * 0.07, (heavy ? -0.42 : -0.62) + index * 0.34]
+                                : [0.08, -0.16 + index * 0.14, -0.42 + index * 0.3]}
+                    >
+                        <mesh geometry={geometry} scale={[1.62, water ? 1.48 : 1.36, 1.56]}>
+                            <meshToonMaterial
+                                ref={(material) => register(material, particleMaterialOffset + particleCount + 40 + index, index === 0 ? 0.76 : 0.56)}
+                                color={index === 0 ? palette.core : index === 1 ? palette.accent : palette.body}
+                                emissive={palette.accent}
+                                emissiveIntensity={0.16}
+                                transparent
+                                opacity={0}
+                                depthWrite={false}
+                            />
+                        </mesh>
+                    </group>
+                );
+            })}
+
+            <instancedMesh ref={particles} args={[particleGeometry, undefined, particleCount]} frustumCulled={false} renderOrder={35} castShadow={kind === "earth"}>
+                <meshToonMaterial
+                    ref={(material) => register(material, particleMaterialOffset, kind === "abyss" ? 0.7 : 0.86)}
+                    color="#ffffff"
+                    vertexColors
+                    emissive={palette.accent}
+                    emissiveIntensity={kind === "abyss" ? 0.05 : 0.12}
+                    transparent
+                    opacity={0}
+                    depthWrite={kind === "earth"}
+                />
+            </instancedMesh>
+
+            {(signature || big) && (
+                <group ref={arenaSeal} position={[0, 0.018, 0]}>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} scale={signature ? 1 : 0.72} renderOrder={31}>
+                        <ringGeometry args={[0.54, 1.28, low ? 28 : 52]} />
+                        <meshToonMaterial ref={(material) => register(material, particleMaterialOffset + particleCount + 70, signature ? 0.3 : 0.2)} color={palette.dark} emissive={palette.body} emissiveIntensity={0.08} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh rotation={[-Math.PI / 2, 0, Math.PI / 5]} scale={signature ? 1 : 0.72} renderOrder={32}>
+                        <ringGeometry args={[1.42, 1.52, low ? 28 : 52]} />
+                        <meshToonMaterial ref={(material) => register(material, particleMaterialOffset + particleCount + 71, signature ? 0.62 : 0.4)} color={palette.accent} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </group>
+            )}
+
+            {kind === "earth" && (
+                <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={signature ? 1.8 : big ? 1.2 : 0.9}>
+                    <circleGeometry args={[0.82, low ? 18 : 32]} />
+                    <meshToonMaterial ref={(material) => register(material, particleMaterialOffset + particleCount + 5, 0.34)} color={palette.dark} transparent opacity={0} depthWrite={false} />
+                </mesh>
+            )}
+            {quality.dynamicPetLight && <pointLight ref={light} position={[0, signature ? 1.35 : 0.55, 0]} color={palette.accent} intensity={0} distance={signature ? 10.5 : 5.5} decay={2} />}
         </group>
     );
 }
 
 function DuelSupportEffect({ at, color, kind, actorId, duel, clock, onDone }: { at: Vec3; color: string; kind: DuelSupportKind; actorId?: string; duel: DuelResult; clock: { current: DuelClock }; onDone: () => void }) {
     const root = useRef<THREE.Group>(null);
-    const domeMat = useRef<THREE.MeshToonMaterial>(null);
-    const shaftMat = useRef<THREE.MeshBasicMaterial>(null);
-    const detailMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const strokes = useRef<Array<THREE.Mesh | null>>([]);
+    const strokeMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
     const start = useRef<number | null>(null);
-    const duration = kind === "shield" ? 0.78 : 0.66;
+    const duration = kind === "shield" ? 0.84 : 0.76;
+    const strokeCount = kind === "shield" ? 7 : 8;
+    const strokeGeometries = useMemo(() => Array.from({ length: strokeCount }, (_, i) => makeAnimeStrokeGeometry(
+        kind === "shield" ? 0.82 + (i % 3) * 0.08 : 0.72 + (i % 4) * 0.07,
+        kind === "shield" ? 0.18 + (i % 2) * 0.025 : 0.14 + (i % 3) * 0.018,
+        kind === "shield" ? 0.2 + (i % 3) * 0.04 : 0.28 + (i % 2) * 0.05,
+        kind === "shield" ? 0 : 0.006,
+    )), [kind, strokeCount]);
+    const coreColor = useMemo(() => new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.48).getStyle(), [color]);
+    useEffect(() => () => strokeGeometries.forEach((geometry) => geometry.dispose()), [strokeGeometries]);
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
-        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / duration);
         const settle = p < 0.22 ? p / 0.22 : 1;
-        const fade = p < 0.68 ? 1 : Math.max(0, 1 - (p - 0.68) / 0.32);
+        const fade = p < 0.7 ? 1 : Math.max(0, 1 - (p - 0.7) / 0.3);
         if (root.current) {
             const live = liveDuelEffectPosition(duel, clock, actorId);
             if (live) root.current.position.set(live.wx, at[1], live.wz);
-            root.current.rotation.y = p * (kind === "shield" ? 2.5 : -1.8);
-            root.current.scale.setScalar(0.78 + settle * 0.22);
+            root.current.scale.setScalar(0.68 + settle * 0.32);
         }
-        if (domeMat.current) domeMat.current.opacity = fade * 0.18;
-        if (shaftMat.current) shaftMat.current.opacity = fade * 0.32;
-        detailMats.current.forEach((material) => { if (material) material.opacity = fade * 0.52; });
+        strokes.current.forEach((stroke, i) => {
+            if (!stroke) return;
+            const u = i / Math.max(1, strokeCount);
+            if (kind === "shield") {
+                const angle = u * Math.PI * 2 + elapsed * 0.72;
+                const radius = 0.76 + (i % 2) * 0.12;
+                stroke.position.set(Math.cos(angle) * radius, 0.48 + (i % 3) * 0.38, Math.sin(angle) * radius);
+                stroke.rotation.set(-0.08 + Math.sin(angle) * 0.12, 0, 1.06 + (i % 2) * 0.14);
+                const bloom = settle * (0.78 + (i % 3) * 0.08);
+                stroke.scale.setScalar(bloom);
+            } else {
+                const cycle = (p * 1.35 + u) % 1;
+                const angle = u * Math.PI * 2 - elapsed * 0.9;
+                const radius = 0.28 + (i % 3) * 0.13 + cycle * 0.2;
+                stroke.position.set(Math.cos(angle) * radius, 0.16 + cycle * 1.85, Math.sin(angle) * radius);
+                stroke.rotation.set(0.02, 0, 1.12 + Math.sin(angle * 2) * 0.18);
+                stroke.scale.setScalar((0.46 + Math.sin(Math.PI * cycle) * 0.4) * settle);
+            }
+            const material = strokeMats.current[i];
+            if (material) material.opacity = fade * (kind === "shield" ? 0.72 : Math.sin(Math.PI * ((p * 1.35 + u) % 1)) * 0.82);
+        });
         if (p >= 1) onDone();
     });
     return (
         <group ref={root} position={at}>
-            {kind === "shield" ? (
-                <>
-                    <mesh position={[0, 0.86, 0]} scale={[0.96, 1.08, 0.96]}>
-                        <sphereGeometry args={[1, 24, 16]} />
-                        <meshToonMaterial ref={domeMat} color={color} emissive={color} emissiveIntensity={0.42} transparent opacity={0.18} depthWrite={false} side={THREE.DoubleSide} />
-                    </mesh>
-                    {Array.from({ length: 6 }, (_, i) => {
-                        const a = (i / 6) * Math.PI * 2;
-                        return (
-                            <mesh key={`ward-${i}`} position={[Math.cos(a) * 0.82, 0.72 + (i % 2) * 0.34, Math.sin(a) * 0.82]} rotation={[0, -a + Math.PI / 2, 0]} scale={0.42}>
-                                <circleGeometry args={[0.7, 6]} />
-                                <meshBasicMaterial ref={(material) => { detailMats.current[i] = material; }} color={color} transparent opacity={0.48} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
-                            </mesh>
-                        );
-                    })}
-                </>
-            ) : (
-                <>
-                    <mesh position={[0, 1.05, 0]}><cylinderGeometry args={[0.18, 0.58, 2.1, 10, 1, true]} /><meshBasicMaterial ref={shaftMat} color={color} transparent opacity={0.3} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} /></mesh>
-                    {Array.from({ length: 6 }, (_, i) => {
-                        const a = (i / 6) * Math.PI * 2;
-                        return <mesh key={i} position={[Math.cos(a) * 0.48, 0.42 + (i % 3) * 0.44, Math.sin(a) * 0.48]} scale={0.08 + (i % 2) * 0.025}><octahedronGeometry args={[1, 0]} /><meshBasicMaterial ref={(material) => { detailMats.current[i] = material; }} color={i % 2 ? "#c5ffe4" : color} transparent opacity={0.52} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>;
-                    })}
-                </>
-            )}
+            {strokeGeometries.map((geometry, i) => (
+                <mesh key={`${kind}-brush-${i}`} ref={(mesh) => { strokes.current[i] = mesh; }} geometry={geometry} renderOrder={31}>
+                    <meshToonMaterial
+                        ref={(material) => { strokeMats.current[i] = material; }}
+                        color={i % 3 === 0 ? coreColor : color}
+                        emissive={color}
+                        emissiveIntensity={0.14}
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                        side={THREE.DoubleSide}
+                    />
+                </mesh>
+            ))}
         </group>
     );
 }
@@ -3455,57 +4771,129 @@ function DuelSupportEffect({ at, color, kind, actorId, duel, clock, onDone }: { 
  *  SWEEPS, a heavy slam CHOPS overhead, a drain RAKES back. Procedural texture, tinted
  *  by the attacker's element; self-timed; mirrored by `toward` (the attacker's facing).
  *  Render-only — spawned off the deterministic hit stream, never fed back. */
-function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { at: Vec3; toward: number; kind: MoveChoreoKind; color: string; native?: boolean; onDone: () => void }) {
+function DuelMeleeTrail({ at, toward, kind, color, weight = "basic", heroStyle = "generic", native = false, onDone }: {
+    at: Vec3;
+    toward: number;
+    kind: MoveChoreoKind;
+    color: string;
+    weight?: DuelAttackWeight;
+    heroStyle?: PetHeroMoveStyle;
+    native?: boolean;
+    onDone: () => void;
+}) {
     const spec = useMemo(() => meleeTrailSpec(kind), [kind]);
     const tex = useMemo(() => (spec.tex === "streak" ? trailStreakTexture() : projCrescentTexture()), [spec.tex]);
     const mesh = useRef<THREE.Mesh>(null);
     const nativeArc = useRef<THREE.Group>(null);
-    const mat = useRef<THREE.MeshBasicMaterial>(null);
-    const edgeMat = useRef<THREE.MeshBasicMaterial>(null);
+    const followArc = useRef<THREE.Group>(null);
+    const finishArc = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.MeshToonMaterial>(null);
+    const darkMat = useRef<THREE.MeshToonMaterial>(null);
+    const edgeMat = useRef<THREE.MeshToonMaterial>(null);
+    const followMat = useRef<THREE.MeshToonMaterial>(null);
+    const finishMat = useRef<THREE.MeshToonMaterial>(null);
+    const chips = useRef<Array<THREE.Mesh | null>>([]);
+    const chipMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
     const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const scale = weight === "heavy" ? 1.72 : weight === "ability" ? 1.5 : 1.28;
+    const avian = heroStyle === "avian-dive";
+    const serpent = heroStyle === "serpentine-surge";
+    const biped = heroStyle === "biped-combo";
+    const rush = heroStyle === "quadruped-rush" || heroStyle === "kitsune-eclipse-pounce";
+    const heavyProfile = heroStyle === "heavy-slam" || kind === "heavySlam";
+    const dark = useMemo(() => new THREE.Color(color).multiplyScalar(0.28).getStyle(), [color]);
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
-        const p = Math.min(1, (state.clock.elapsedTime - start.current) / (spec.life / 1000));
+        const duration = Math.max(spec.life / 1000, weight === "basic" ? 0.42 : weight === "ability" ? 0.5 : 0.58);
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
         const e = p * p * (3 - 2 * p);   // smoothstep through the swing
-        const grow = 0.7 + 0.5 * Math.sin(Math.PI * Math.min(1, p / 0.7));   // swell, then settle
+        const grow = 0.7 + 0.5 * Math.sin(Math.PI * Math.min(1, p / 0.72));   // swell, then settle
+        const fade = p < 0.14 ? p / 0.14 : Math.max(0, 1 - (p - 0.58) / 0.42);
+        const followP = Math.min(1, Math.max(0, (p - 0.1) / 0.9));
+        const followE = followP * followP * (3 - 2 * followP);
+        const followFade = followP <= 0 ? 0 : followP < 0.14 ? followP / 0.14 : Math.max(0, 1 - (followP - 0.62) / 0.38);
+        const finishP = Math.min(1, Math.max(0, (p - 0.23) / 0.77));
+        const finishE = finishP * finishP * (3 - 2 * finishP);
+        const finishFade = finishP <= 0 ? 0 : finishP < 0.16 ? finishP / 0.16 : Math.max(0, 1 - (finishP - 0.56) / 0.44);
         if (native && nativeArc.current) {
-            // Move every layered blade together. The former implementation only
-            // animated the thick inner torus while its highlight stayed behind,
-            // creating a cheap split-ring artifact during the actual contact frame.
-            nativeArc.current.position.set(0, 0.12 + Math.sin(Math.PI * e) * 0.18, 0);
-            nativeArc.current.rotation.set(0.28 + e * 0.46, (toward < 0 ? -1 : 1) * e * 0.42, lerp(-1.02, 0.96, e));
-            nativeArc.current.scale.setScalar(grow * (kind === "heavySlam" ? 1.3 : 1));
-        } else if (mesh.current) {
-                mesh.current.position.set(lerp(spec.dx0, spec.dx1, e), lerp(spec.dy0, spec.dy1, e), 0);
-                mesh.current.rotation.z = lerp(spec.rot0, spec.rot1, e);
-                mesh.current.scale.set(spec.w * grow, spec.h * grow, 1);
+            // The primary stroke establishes direction; the two delayed strokes
+            // turn even a basic attack into a short species-shaped combination.
+            nativeArc.current.position.set(rush ? e * 0.16 : 0, 0.12 + Math.sin(Math.PI * e) * (avian ? 0.34 : 0.2), 0);
+            nativeArc.current.rotation.set(heavyProfile ? 0.06 : avian ? -0.2 : 0.28 + e * 0.46, serpent ? e * 0.72 : (toward < 0 ? -1 : 1) * e * 0.42, lerp(heavyProfile ? -1.42 : -1.08, heavyProfile ? 0.42 : 1.02, e));
+            nativeArc.current.scale.setScalar(grow * scale * (heavyProfile ? 1.16 : 1));
         }
-        if (mat.current) mat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.9;
-        if (edgeMat.current) edgeMat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.68;
-        if (p >= 1) onDone();
+        if (native && followArc.current) {
+            followArc.current.visible = followP > 0;
+            followArc.current.position.set(rush ? 0.16 + followE * 0.12 : 0, 0.2 + Math.sin(Math.PI * followE) * (avian ? 0.42 : 0.16), serpent ? Math.sin(followE * Math.PI) * 0.18 : 0);
+            followArc.current.rotation.set(avian ? -0.46 : biped ? 0.48 : 0.16, serpent ? followE * 1.65 : biped ? -0.42 : 0.18, lerp(avian ? 0.94 : biped ? 0.78 : -0.72, avian ? -0.9 : biped ? -0.88 : 0.86, followE));
+            followArc.current.scale.setScalar(scale * (0.72 + Math.sin(Math.PI * followE) * 0.2));
+        }
+        if (native && finishArc.current) {
+            finishArc.current.visible = finishP > 0;
+            finishArc.current.position.set(rush ? 0.26 + finishE * 0.16 : 0, 0.05 + Math.sin(Math.PI * finishE) * (heavyProfile ? 0.46 : 0.24), 0);
+            finishArc.current.rotation.set(heavyProfile ? -0.28 : avian ? 0.62 : 0.2, serpent ? -finishE * 1.3 : biped ? 0.55 : -0.2, lerp(heavyProfile ? -1.5 : -0.52, heavyProfile ? 0.18 : 0.72, finishE));
+            finishArc.current.scale.setScalar(scale * (weight === "basic" ? 0.62 : 0.82) * (0.84 + Math.sin(Math.PI * finishE) * 0.16));
+        }
+        if (!native && mesh.current) {
+            mesh.current.position.set(lerp(spec.dx0, spec.dx1, e), lerp(spec.dy0, spec.dy1, e), 0);
+            mesh.current.rotation.z = lerp(spec.rot0, spec.rot1, e);
+            mesh.current.scale.set(spec.w * grow * scale, spec.h * grow * scale, 1);
+        }
+        if (mat.current) mat.current.opacity = fade * 0.94;
+        if (darkMat.current) darkMat.current.opacity = fade * 0.68;
+        if (edgeMat.current) edgeMat.current.opacity = fade * 0.76;
+        if (followMat.current) followMat.current.opacity = followFade * (weight === "basic" ? 0.72 : 0.86);
+        if (finishMat.current) finishMat.current.opacity = finishFade * (weight === "basic" ? 0.62 : 0.82);
+        chips.current.forEach((chip, index) => {
+            if (!chip) return;
+            const angle = index * 2.399 + (toward < 0 ? Math.PI : 0);
+            const travel = Math.max(0, Math.min(1, (p - 0.1 - index * 0.018) / 0.7));
+            const radius = 0.62 + travel * (0.45 + (index % 3) * 0.16);
+            chip.position.set(Math.cos(angle) * radius, 0.34 + Math.sin(Math.PI * travel) * (0.42 + (index % 2) * 0.18), Math.sin(angle) * radius * 0.48);
+            chip.rotation.set(travel * (4.2 + index * 0.3), angle, -travel * (3.6 + index * 0.2));
+            chip.scale.setScalar((0.065 + (index % 3) * 0.014) * scale * (0.72 + Math.sin(Math.PI * travel) * 0.34));
+            if (chipMats.current[index]) chipMats.current[index]!.opacity = fade * Math.max(0.22, 0.78 - index * 0.065);
+        });
+        if (p >= 1 && !completed.current) {
+            completed.current = true;
+            onDone();
+        }
     });
     if (native) return (
         <group position={at} scale={[toward, 1, 1]}>
             <group ref={nativeArc}>
+                <mesh scale={1.08} position={[0, 0, -0.026]}>
+                    <torusGeometry args={[0.86, heavyProfile ? 0.145 : 0.11, 10, 40, Math.PI * (heavyProfile ? 0.82 : 0.96)]} />
+                    <meshToonMaterial ref={darkMat} color={dark} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
                 <mesh ref={mesh}>
-                    <torusGeometry args={[0.78, kind === "heavySlam" ? 0.11 : 0.078, 10, 36, Math.PI * 0.9]} />
-                    <meshBasicMaterial ref={mat} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    <torusGeometry args={[0.86, heavyProfile ? 0.112 : 0.084, 10, 40, Math.PI * (heavyProfile ? 0.82 : 0.96)]} />
+                    <meshToonMaterial ref={mat} color={color} emissive={color} emissiveIntensity={0.16} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
                 </mesh>
-                <mesh position={[0, 0, 0.018]} scale={0.99}>
-                    <torusGeometry args={[0.78, 0.028, 8, 36, Math.PI * 0.9]} />
-                    <meshBasicMaterial ref={edgeMat} color="#fff8df" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                <mesh position={[0, 0, 0.018]} scale={0.985}>
+                    <torusGeometry args={[0.86, 0.027, 8, 40, Math.PI * (heavyProfile ? 0.82 : 0.96)]} />
+                    <meshToonMaterial ref={edgeMat} color="#fff6dc" emissive={color} emissiveIntensity={0.1} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
                 </mesh>
-                <mesh position={[0, 0, -0.025]} scale={1.09}>
-                    <torusGeometry args={[0.78, 0.018, 7, 36, Math.PI * 0.9]} />
-                    <meshBasicMaterial color={color} transparent opacity={0.34} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-                </mesh>
-                {[0, 1, 2].map((i) => (
-                    <mesh key={`blade-chip-${i}`} position={[0.72 - i * 0.16, 0.45 + i * 0.11, (i - 1) * 0.08]} rotation={[i * 0.4, i * 0.7, 0.35]} scale={0.055 + i * 0.012}>
-                        <octahedronGeometry args={[1, 0]} />
-                        <meshBasicMaterial color={i === 0 ? "#fff8df" : color} transparent opacity={0.72 - i * 0.12} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-                    </mesh>
-                ))}
             </group>
+            <group ref={followArc} visible={false}>
+                <mesh>
+                    <torusGeometry args={[0.78, biped || avian ? 0.075 : 0.064, 9, 36, Math.PI * (serpent ? 1.34 : 0.78)]} />
+                    <meshToonMaterial ref={followMat} color={heroStyle.startsWith("selkie") ? "#d8fbff" : color} emissive={color} emissiveIntensity={0.14} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            </group>
+            <group ref={finishArc} visible={false}>
+                <mesh>
+                    <torusGeometry args={[heavyProfile ? 0.98 : 0.7, heavyProfile ? 0.09 : 0.052, 9, 36, Math.PI * (heavyProfile ? 0.72 : 0.66)]} />
+                    <meshToonMaterial ref={finishMat} color="#fff0bd" emissive={color} emissiveIntensity={0.18} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            </group>
+            {Array.from({ length: weight === "basic" ? 4 : 7 }, (_, i) => (
+                    <mesh key={`blade-chip-${i}`} ref={(mesh) => { chips.current[i] = mesh; }} rotation={[i * 0.4, i * 0.7, 0.35]} scale={0.01}>
+                        <octahedronGeometry args={[1, 0]} />
+                        <meshToonMaterial ref={(material) => { chipMats.current[i] = material; }} color={i % 3 === 0 ? "#fff6dc" : color} emissive={color} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} />
+                    </mesh>
+            ))}
         </group>
     );
     return (
@@ -3515,7 +4903,7 @@ function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { a
                 <group scale={[toward, 1, 1]}>
                     <mesh ref={mesh}>
                         <planeGeometry args={[1, 1]} />
-                        <meshBasicMaterial ref={mat} map={tex} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                        <meshToonMaterial ref={mat} map={tex} color={color} emissive={color} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
                     </mesh>
                 </group>
             </Billboard>
@@ -3523,16 +4911,494 @@ function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { a
     );
 }
 
+/** A readable anime dash phrase. A body-height ribbon grows behind the actual
+ * pet, element-shaped speed fins mark its S-curve, and opaque directional
+ * brushwork strikes at arrival. No proxy orb or floor-level arrow leads it. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyDuelDashEffect({ cue, onDone }: { cue: DuelDashCue; onDone: () => void }) {
+    const trailMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const wakeGroups = useRef<Array<THREE.Group | null>>([]);
+    const wakeMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const landingBurst = useRef<THREE.Group>(null);
+    const landingMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const groundRing = useRef<THREE.Mesh>(null);
+    const groundMat = useRef<THREE.MeshToonMaterial>(null);
+    const landingLight = useRef<THREE.PointLight>(null);
+    const finished = useRef(false);
+    const { to, color, impact, duration, travelDuration, kind } = cue;
+    const dx = to[0] - cue.from[0], dz = to[2] - cue.from[2];
+    const angle = Math.atan2(dx, dz);
+    const palette = useMemo(() => duelFxPalette(kind, color), [kind, color]);
+    const ribbonOuter = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.69, impact ? 0.38 : 0.3), [cue, impact]);
+    const ribbonInner = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.705, impact ? 0.23 : 0.18), [cue, impact]);
+    const wakeGeometry = useMemo(() => makeAnimeStrokeGeometry(
+        impact ? 1.42 : 1.08,
+        impact ? 0.24 : 0.19,
+        kind === "water" ? 0.42 : kind === "fire" || kind === "abyss" ? 0.31 : 0.18,
+        kind === "lightning" ? 0.12 : 0,
+    ), [impact, kind]);
+    const impactSpecs = useMemo(() => Array.from({ length: impact ? 5 : 3 }, (_, i) => ({
+        length: (impact ? 1.3 : 0.96) * (0.85 + (i % 3) * 0.12),
+        width: (impact ? 0.25 : 0.19) * (0.88 + (i % 2) * 0.16),
+        curl: kind === "water" ? 0.54 : kind === "fire" || kind === "abyss" ? 0.42 : 0.2,
+        jagged: kind === "lightning" ? 0.17 : kind === "earth" ? 0.06 : 0,
+        roll: -0.78 + i * (1.56 / Math.max(1, (impact ? 5 : 3) - 1)),
+        lift: 0.34 + (i % 3) * 0.25,
+    })), [impact, kind]);
+    const impactGeometries = useMemo(() => impactSpecs.map((spec) => makeAnimeStrokeGeometry(spec.length, spec.width, spec.curl, spec.jagged)), [impactSpecs]);
+    useEffect(() => () => {
+        ribbonOuter.dispose();
+        ribbonInner.dispose();
+        wakeGeometry.dispose();
+        impactGeometries.forEach((geometry) => geometry.dispose());
+    }, [ribbonOuter, ribbonInner, wakeGeometry, impactGeometries]);
+    useFrame(() => {
+        const elapsed = Math.max(0, (performance.now() - cue.createdAt) / 1000);
+        const p = Math.min(1, elapsed / duration);
+        const travelP = Math.min(1, elapsed / travelDuration);
+        const linger = elapsed <= travelDuration ? 1 : Math.max(0, 1 - (elapsed - travelDuration) / Math.max(0.001, duration - travelDuration));
+        const drawCount = Math.max(0, Math.min(36, Math.ceil(travelP * 36))) * 6;
+        ribbonOuter.setDrawRange(0, drawCount);
+        ribbonInner.setDrawRange(0, drawCount);
+        trailMats.current.forEach((material, i) => {
+            if (material) material.opacity = Math.min(1, elapsed / 0.06) * linger * (i === 0 ? 0.28 : 0.58);
+        });
+        wakeGroups.current.forEach((group, i) => {
+            if (!group) return;
+            const wakeP = travelP - 0.055 - i * 0.075;
+            group.visible = wakeP > 0 && wakeP < 1;
+            if (!group.visible) return;
+            const at = dashPathPoint(cue, wakeP, FLOOR_Y + 0.72);
+            const ahead = dashPathPoint(cue, Math.min(1, wakeP + 0.025), FLOOR_Y + 0.72);
+            group.position.set(at[0], at[1] + (i % 2 ? 0.13 : -0.06), at[2]);
+            group.rotation.set(0, Math.atan2(ahead[0] - at[0], ahead[2] - at[2]), (i % 2 ? -1 : 1) * (0.18 + i * 0.06));
+            group.scale.setScalar((impact ? 1 : 0.82) * (1 - i * 0.08));
+            const material = wakeMats.current[i];
+            if (material) material.opacity = linger * (0.9 - i * 0.12);
+        });
+        const landingP = Math.min(1, Math.max(0, (elapsed - travelDuration * 0.82) / Math.max(0.001, duration - travelDuration * 0.82)));
+        const strikeOpen = 1 - Math.pow(1 - Math.min(1, landingP / 0.28), 3);
+        const strikeFade = landingP < 0.54 ? 1 : Math.max(0, 1 - (landingP - 0.54) / 0.46);
+        if (landingBurst.current) {
+            landingBurst.current.visible = landingP > 0;
+            landingBurst.current.scale.setScalar(strikeOpen * (impact ? 1.02 : 0.74));
+            landingBurst.current.rotation.y = angle;
+        }
+        landingMats.current.forEach((material, i) => { if (material) material.opacity = strikeFade * (i % 2 ? 0.96 : 0.38); });
+        if (groundRing.current) groundRing.current.scale.setScalar(0.42 + strikeOpen * (impact ? 1.7 : 1.05));
+        if (groundMat.current) groundMat.current.opacity = strikeFade * (impact ? 0.66 : 0.42);
+        if (landingLight.current) landingLight.current.intensity = strikeFade * Math.sin(Math.PI * landingP) * (impact ? 5.6 : 2.4);
+        if (p >= 1 && !finished.current) { finished.current = true; onDone(); }
+    });
+    return (
+        <group>
+            <mesh geometry={ribbonOuter}>
+                <meshToonMaterial ref={(material) => { trailMats.current[0] = material; }} color={palette.dark} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh geometry={ribbonInner}>
+                <meshToonMaterial ref={(material) => { trailMats.current[1] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.1} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            {Array.from({ length: impact ? 5 : 3 }, (_, i) => (
+                <group key={`dash-wake-${i}`} ref={(group) => { wakeGroups.current[i] = group; }} visible={false}>
+                    <mesh geometry={wakeGeometry} position={[0, 0, -0.035]} scale={[1.12, 1.12, 1.15]}>
+                        <meshToonMaterial color={palette.dark} transparent opacity={0.34} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={wakeGeometry}>
+                        <meshToonMaterial ref={(material) => { wakeMats.current[i] = material; }} color={i % 2 ? palette.accent : palette.body} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </group>
+            ))}
+            <group ref={landingBurst} position={[to[0], FLOOR_Y + 0.08, to[2]]} visible={false} scale={0.01}>
+                {impactSpecs.map((spec, i) => (
+                    <group key={`dash-contact-${i}`} position={[0.08 + (i % 2) * 0.12, spec.lift, (i - (impactSpecs.length - 1) * 0.5) * 0.2]} rotation={[0, (i - 2) * 0.055, spec.roll]}>
+                        <mesh geometry={impactGeometries[i]} position={[0, 0, -0.025]} scale={[1.05, 1.05, 1.08]}>
+                            <meshToonMaterial ref={(material) => { landingMats.current[i * 2] = material; }} color={palette.dark} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                        </mesh>
+                        <mesh geometry={impactGeometries[i]}>
+                            <meshToonMaterial ref={(material) => { landingMats.current[i * 2 + 1] = material; }} color={i % 3 === 0 ? palette.core : i % 2 ? palette.accent : palette.body} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                        </mesh>
+                    </group>
+                ))}
+            </group>
+            <mesh ref={groundRing} position={[to[0], FLOOR_Y + 0.035, to[2]]} rotation={[-Math.PI / 2, 0, angle]} scale={0.01}>
+                <ringGeometry args={[0.52, 0.64, 40]} />
+                <meshToonMaterial ref={groundMat} color={palette.accent} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <pointLight ref={landingLight} position={[to[0], FLOOR_Y + 1.0, to[2]]} color={palette.accent} intensity={0} distance={impact ? 7.5 : 4.5} decay={2} />
+        </group>
+    );
+}
+
+/** Elemental dash renderer used by the 3D duel. The path is still the authored
+ * S-step used by the model, but its wake is now a chain of lit 3D element motes
+ * and its arrival is the same volumetric contact system as every other move. */
+function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; clock: { current: DuelClock }; quality: PetVisualQualityConfig; onDone: () => void }) {
+    const trailMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const wakeMesh = useRef<THREE.InstancedMesh>(null);
+    const wakeMat = useRef<THREE.MeshToonMaterial>(null);
+    const contactGroup = useRef<THREE.Group>(null);
+    const contactMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const completed = useRef(false);
+    const { color, impact, kind, style } = cue;
+    // Every certified 3D profile now receives a full elemental wake and impact
+    // phrase. `generic` remains reserved for an unprofiled 2D fallback.
+    const heroDash = style !== "generic";
+    const palette = useMemo(() => duelFxPalette(kind, color), [kind, color]);
+    const ribbonOuter = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.72, (impact ? 0.32 : 0.22) * (heroDash ? 1.55 : 1)), [cue, impact, heroDash]);
+    const ribbonInner = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.73, (impact ? 0.12 : 0.085) * (heroDash ? 1.6 : 1)), [cue, impact, heroDash]);
+    const ribbonLeft = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.7, (impact ? 0.105 : 0.075) * (heroDash ? 1.35 : 1), impact ? -0.36 : -0.26), [cue, impact, heroDash]);
+    const ribbonRight = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.7, (impact ? 0.105 : 0.075) * (heroDash ? 1.35 : 1), impact ? 0.36 : 0.26), [cue, impact, heroDash]);
+    const contactOuter = useMemo(() => makeDashContactGeometry(cue, heroDash ? 0.2 : 0.14, -0.7), [cue, heroDash]);
+    const contactInner = useMemo(() => makeDashContactGeometry(cue, heroDash ? 0.085 : 0.06, 0.55), [cue, heroDash]);
+    const moteDummy = useMemo(() => new THREE.Object3D(), []);
+    const moteGeometry = useMemo<THREE.BufferGeometry>(() => {
+        if (kind === "fire" || kind === "abyss") return new THREE.ConeGeometry(0.16, 0.68, 7);
+        if (kind === "water") return new THREE.IcosahedronGeometry(0.21, 1);
+        if (kind === "wind") return new THREE.TorusGeometry(0.25, 0.056, 6, 18, Math.PI * 1.55);
+        if (kind === "lightning") return new THREE.TetrahedronGeometry(0.22, 0);
+        if (kind === "earth") return new THREE.DodecahedronGeometry(0.21, 0);
+        return new THREE.OctahedronGeometry(0.22, 0);
+    }, [kind]);
+    useEffect(() => () => {
+        ribbonOuter.dispose();
+        ribbonInner.dispose();
+        ribbonLeft.dispose();
+        ribbonRight.dispose();
+        contactOuter.dispose();
+        contactInner.dispose();
+        moteGeometry.dispose();
+    }, [contactInner, contactOuter, moteGeometry, ribbonInner, ribbonLeft, ribbonOuter, ribbonRight]);
+    const moteCount = quality.id === "low" ? (heroDash ? 9 : 7) : quality.id === "medium" ? (heroDash ? (impact ? 15 : 13) : impact ? 12 : 9) : heroDash ? (impact ? 24 : 20) : impact ? 17 : 12;
+    useEffect(() => {
+        const mesh = wakeMesh.current;
+        if (!mesh) return;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        for (let index = 0; index < moteCount; index++) {
+            mesh.setColorAt(index, new THREE.Color(index % 3 === 0 ? palette.core : index % 2 ? palette.accent : palette.body));
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }, [moteCount, palette]);
+    useFrame(() => {
+        const tick = clock.current.t;
+        const elapsed = Math.max(0, tick - cue.startTick) / DUEL_TPS;
+        const travelP = dashCueTravelProgress(cue, tick);
+        const linger = tick <= cue.contactTick ? 1 : Math.max(0, 1 - (tick - cue.contactTick) / Math.max(1, cue.endTick - cue.contactTick));
+        // Draw a moving tail behind the pet instead of leaving a static beam
+        // across the whole route. The moving head now makes the travel readable.
+        const headSegments = Math.max(0, Math.min(36, Math.ceil(travelP * 36)));
+        const tailSegments = impact ? 18 : 13;
+        const startSegment = Math.max(0, headSegments - tailSegments);
+        ribbonOuter.setDrawRange(startSegment * 6, Math.max(0, headSegments - startSegment) * 6);
+        ribbonInner.setDrawRange(startSegment * 6, Math.max(0, headSegments - startSegment) * 6);
+        ribbonLeft.setDrawRange(startSegment * 6, Math.max(0, headSegments - startSegment) * 6);
+        ribbonRight.setDrawRange(startSegment * 6, Math.max(0, headSegments - startSegment) * 6);
+        trailMats.current.forEach((material, index) => {
+            if (!material) return;
+            const layerOpacity = index === 0
+                ? (heroDash ? 0.42 : 0.24)
+                : index === 1
+                    ? (heroDash ? 0.84 : 0.58)
+                    : (heroDash ? 0.58 : 0.38);
+            material.opacity = Math.min(1, elapsed / 0.055) * linger * layerOpacity;
+        });
+        const wake = wakeMesh.current;
+        if (wake) for (let index = 0; index < moteCount; index++) {
+            const wakeP = travelP - 0.025 - index * (impact ? 0.036 : 0.052);
+            const visible = wakeP > 0.02 && wakeP < 1;
+            if (visible) {
+                const at = dashPathPoint(cue, wakeP, FLOOR_Y + 0.72);
+                const ahead = dashPathPoint(cue, Math.min(1, wakeP + 0.018), FLOOR_Y + 0.72);
+                moteDummy.position.set(at[0], at[1] + Math.sin(index * 2.1) * 0.27, at[2]);
+                moteDummy.rotation.set(index * 0.42, Math.atan2(ahead[0] - at[0], ahead[2] - at[2]), elapsed * (4.2 + index * 0.18));
+                const taper = Math.max(0.18, 1 - index / moteCount * 0.58);
+                const pulse = 0.82 + Math.sin(elapsed * 15 + index) * 0.12;
+                moteDummy.scale.setScalar((impact ? 1.34 : 1.02) * (heroDash ? 1.34 : 1) * taper * pulse);
+            } else {
+                moteDummy.position.set(0, -50, 0);
+                moteDummy.rotation.set(0, 0, 0);
+                moteDummy.scale.setScalar(0.001);
+            }
+            moteDummy.updateMatrix();
+            wake.setMatrixAt(index, moteDummy.matrix);
+        }
+        if (wake) wake.instanceMatrix.needsUpdate = true;
+        if (wakeMat.current) wakeMat.current.opacity = linger * (heroDash ? 0.78 : 0.64);
+        const contactAge = Math.max(0, tick - cue.contactTick);
+        const contactLife = impact && tick >= cue.contactTick && contactAge <= 8;
+        if (contactGroup.current) contactGroup.current.visible = contactLife;
+        if (contactLife) {
+            const contactP = Math.min(1, contactAge / 8);
+            const punch = Math.sin(Math.PI * Math.min(1, contactP * 1.65));
+            contactMats.current.forEach((material, index) => {
+                if (material) material.opacity = (index === 0 ? 0.62 : 0.98) * Math.max(0, 1 - contactP) * (0.72 + punch * 0.28);
+            });
+        }
+        if (tick >= cue.endTick && !completed.current) {
+            completed.current = true;
+            onDone();
+        }
+    });
+    const impactDelay = Math.max(0, cue.contactTick - cue.startTick) / DUEL_TPS;
+    return (
+        <group>
+            <mesh geometry={ribbonOuter} renderOrder={28}>
+                <meshToonMaterial ref={(material) => { trailMats.current[0] = material; }} color={palette.dark} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh geometry={ribbonInner} renderOrder={29}>
+                <meshToonMaterial ref={(material) => { trailMats.current[1] = material; }} color={palette.accent} emissive={palette.body} emissiveIntensity={0.18} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh geometry={ribbonLeft} renderOrder={29}>
+                <meshToonMaterial ref={(material) => { trailMats.current[2] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh geometry={ribbonRight} renderOrder={29}>
+                <meshToonMaterial ref={(material) => { trailMats.current[3] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.1} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <instancedMesh ref={wakeMesh} args={[moteGeometry, undefined, moteCount]} frustumCulled={false} renderOrder={30}>
+                <meshToonMaterial ref={wakeMat} color="#ffffff" vertexColors emissive={palette.accent} emissiveIntensity={0.14} transparent opacity={0} depthWrite={kind === "earth"} />
+            </instancedMesh>
+            <group ref={contactGroup} visible={false}>
+                <mesh geometry={contactOuter} renderOrder={34}>
+                    <meshToonMaterial ref={(material) => { contactMats.current[0] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} />
+                </mesh>
+                <mesh geometry={contactInner} renderOrder={35}>
+                    <meshToonMaterial ref={(material) => { contactMats.current[1] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
+                </mesh>
+            </group>
+            {impact && <DuelElementVolume at={[cue.impactAt[0], FLOOR_Y + 0.08, cue.impactAt[2]]} kind={kind} color={color} big heading={Math.atan2(cue.impactAt[0] - cue.to[0], cue.impactAt[2] - cue.to[2])} phase="dash" quality={quality} heroStyle={style} delay={impactDelay} onDone={() => undefined} />}
+        </group>
+    );
+}
+
+/** A presentation-only elemental exchange used inside genuinely empty replay
+ * pockets. Each pet fires a short, solid-color toon bolt and the two techniques
+ * collide at center. It adds combat intent without inventing damage or changing
+ * the deterministic duel result. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyDuelPressureClash({ from, to, leftColor, rightColor, onDone }: { from: Vec3; to: Vec3; leftColor: string; rightColor: string; onDone: () => void }) {
+    const leftBolt = useRef<THREE.Group>(null);
+    const rightBolt = useRef<THREE.Group>(null);
+    const burst = useRef<THREE.Group>(null);
+    const boltMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const burstMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const arcMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const light = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const duration = 0.92;
+    const midpoint = useMemo<Vec3>(() => [(from[0] + to[0]) * 0.5, FLOOR_Y + 0.86, (from[2] + to[2]) * 0.5], [from, to]);
+    const leftStart = useMemo<Vec3>(() => [from[0], FLOOR_Y + 0.72, from[2]], [from]);
+    const rightStart = useMemo<Vec3>(() => [to[0], FLOOR_Y + 0.72, to[2]], [to]);
+    const leftBody = useMemo(() => new THREE.Color(leftColor).multiplyScalar(0.56).getStyle(), [leftColor]);
+    const rightBody = useMemo(() => new THREE.Color(rightColor).multiplyScalar(0.56).getStyle(), [rightColor]);
+    const coreColor = useMemo(() => new THREE.Color(leftColor).lerp(new THREE.Color(rightColor), 0.5).multiplyScalar(0.72).getStyle(), [leftColor, rightColor]);
+    const dx = to[0] - from[0], dz = to[2] - from[2];
+    const leftHeading = Math.atan2(dx, dz);
+
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
+        const travelP = Math.min(1, p / 0.54);
+        const travel = 1 - Math.pow(1 - travelP, 3);
+        const collisionP = Math.max(0, (p - 0.46) / 0.54);
+        const boltFade = p < 0.48 ? 1 : Math.max(0, 1 - (p - 0.48) / 0.13);
+        const burstRise = 1 - Math.pow(1 - Math.min(1, collisionP * 2.25), 3);
+        const burstFade = collisionP < 0.58 ? 1 : Math.max(0, 1 - (collisionP - 0.58) / 0.42);
+        const placeBolt = (group: THREE.Group | null, origin: Vec3, heading: number, arc: number) => {
+            if (!group) return;
+            group.position.set(
+                lerp(origin[0], midpoint[0], travel),
+                lerp(origin[1], midpoint[1], travel) + Math.sin(Math.PI * travelP) * arc,
+                lerp(origin[2], midpoint[2], travel),
+            );
+            group.rotation.y = heading;
+            group.scale.setScalar(0.56 + Math.sin(Math.PI * travelP) * 0.22);
+        };
+        placeBolt(leftBolt.current, leftStart, leftHeading, 0.38);
+        placeBolt(rightBolt.current, rightStart, leftHeading + Math.PI, -0.12);
+        boltMats.current.forEach((material) => { if (material) material.opacity = boltFade * 0.94; });
+        if (burst.current) {
+            burst.current.scale.setScalar(Math.max(0.001, burstRise * (0.88 + collisionP * 0.42)));
+            burst.current.rotation.y = collisionP * 2.1;
+        }
+        burstMats.current.forEach((material, index) => { if (material) material.opacity = burstFade * (index === 0 ? 0.96 : 0.78); });
+        arcMats.current.forEach((material, index) => { if (material) material.opacity = burstFade * (0.72 - index * 0.11); });
+        if (light.current) light.current.intensity = burstFade * burstRise * 3.4;
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
+    });
+
+    const renderBolt = (side: "left" | "right", body: string, accent: string, ref: React.RefObject<THREE.Group | null>, offset: number) => (
+        <group ref={ref} key={`pressure-${side}`}>
+            <mesh scale={[0.44, 0.54, 0.82]}>
+                <octahedronGeometry args={[1, 0]} />
+                <meshToonMaterial ref={(material) => { boltMats.current[offset] = material; }} color={body} emissive={accent} emissiveIntensity={0.18} transparent opacity={0} depthWrite={false} />
+            </mesh>
+            <mesh scale={[0.29, 0.36, 0.9]}>
+                <octahedronGeometry args={[1, 0]} />
+                <meshToonMaterial ref={(material) => { boltMats.current[offset + 1] = material; }} color={accent} emissive={accent} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} />
+            </mesh>
+            {[-1, 1].map((direction, index) => (
+                <mesh key={`${side}-pressure-fin-${index}`} position={[direction * 0.23, 0, -0.08]} rotation={[Math.PI / 2, direction * 0.28, direction * 0.64]} scale={[0.64, 0.8, 0.64]}>
+                    <torusGeometry args={[0.34, 0.05, 7, 24, Math.PI * 0.88]} />
+                    <meshToonMaterial ref={(material) => { boltMats.current[offset + 2 + index] = material; }} color={index === 0 ? accent : body} emissive={accent} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} />
+                </mesh>
+            ))}
+            {[0, 1].map((index) => (
+                <mesh key={`${side}-pressure-tail-${index}`} position={[0, 0, -0.62 - index * 0.42]} rotation={[Math.PI / 2, 0, 0]} scale={1 - index * 0.24}>
+                    <coneGeometry args={[0.3, 1.15 + index * 0.34, 7, 1, true]} />
+                    <meshToonMaterial ref={(material) => { boltMats.current[offset + index + 4] = material; }} color={index === 0 ? accent : body} emissive={accent} emissiveIntensity={0.1} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
+        </group>
+    );
+
+    return (
+        <group>
+            {renderBolt("left", leftBody, leftColor, leftBolt, 0)}
+            {renderBolt("right", rightBody, rightColor, rightBolt, 6)}
+            <group ref={burst} position={midpoint} scale={0.001}>
+                <mesh scale={[1.12, 0.92, 0.78]}>
+                    <octahedronGeometry args={[0.74, 0]} />
+                    <meshToonMaterial ref={(material) => { burstMats.current[0] = material; }} color={coreColor} emissive={coreColor} emissiveIntensity={0.3} transparent opacity={0} depthWrite={false} />
+                </mesh>
+                {[0, 1].map((index) => (
+                    <mesh key={`pressure-arc-${index}`} rotation={[Math.PI / 2 + index * 0.42, index * 1.24, index * 0.68]} scale={1 + index * 0.32}>
+                        <torusGeometry args={[0.9, 0.085 - index * 0.016, 7, 28, Math.PI * 1.42]} />
+                        <meshToonMaterial ref={(material) => { arcMats.current[index] = material; }} color={index === 0 ? leftColor : rightColor} emissive={index === 0 ? leftColor : rightColor} emissiveIntensity={0.18} transparent opacity={0} depthWrite={false} />
+                    </mesh>
+                ))}
+                {Array.from({ length: 10 }, (_, index) => {
+                    const angle = (index / 10) * Math.PI * 2;
+                    const radius = 0.82 + (index % 3) * 0.18;
+                    return (
+                        <mesh key={`pressure-shard-${index}`} position={[Math.cos(angle) * radius, (index % 4 - 1.5) * 0.23, Math.sin(angle) * radius]} rotation={[angle * 0.4, -angle, (index % 2 ? -1 : 1) * 0.72]} scale={[0.11, 0.38 + (index % 3) * 0.09, 0.11]}>
+                            <octahedronGeometry args={[1, 0]} />
+                            <meshToonMaterial ref={(material) => { burstMats.current[index + 1] = material; }} color={index % 2 === 0 ? leftColor : rightColor} emissive={index % 2 === 0 ? leftColor : rightColor} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} />
+                        </mesh>
+                    );
+                })}
+            </group>
+            <pointLight ref={light} position={midpoint} color={coreColor} intensity={0} distance={6.5} decay={2} />
+        </group>
+    );
+}
+
+function makePressureStreamGeometry(from: Vec3, to: Vec3, side: number, radius: number): THREE.TubeGeometry {
+    const dx = to[0] - from[0], dz = to[2] - from[2];
+    const length = Math.max(0.001, Math.hypot(dx, dz));
+    const sideX = -dz / length, sideZ = dx / length;
+    const points = Array.from({ length: 30 }, (_, index) => {
+        const u = index / 29;
+        const braid = Math.sin(u * Math.PI * 4 + side * 0.8) * Math.sin(Math.PI * u) * 0.13;
+        const bow = Math.sin(Math.PI * u) * side * 0.34;
+        return new THREE.Vector3(
+            lerp(from[0], to[0], u) + sideX * (bow + braid),
+            lerp(from[1], to[1], u) + Math.sin(Math.PI * u) * (0.32 + Math.abs(side) * 0.08),
+            lerp(from[2], to[2], u) + sideZ * (bow + braid),
+        );
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 64, radius, 7, false);
+}
+
+/** Presentation-only neutral exchange rebuilt as two braided 3D energy streams.
+ * The previous octahedron at center was the most obvious surviving “fake icon”
+ * in the fight; this version grows through world space and throws physical
+ * fragments out of its collision volume. */
+function DuelPressureClashV2({ from, to, leftColor, rightColor, leftKind, rightKind, quality, onDone }: { from: Vec3; to: Vec3; leftColor: string; rightColor: string; leftKind: DuelElementBurstKind; rightKind: DuelElementBurstKind; quality: PetVisualQualityConfig; onDone: () => void }) {
+    const streamMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const collision = useRef<THREE.Group>(null);
+    const leftProjectile = useRef<THREE.Group>(null);
+    const rightProjectile = useRef<THREE.Group>(null);
+    const fragments = useRef<Array<THREE.Mesh | null>>([]);
+    const light = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const midpoint = useMemo<Vec3>(() => [(from[0] + to[0]) * 0.5, FLOOR_Y + 0.9, (from[2] + to[2]) * 0.5], [from, to]);
+    const leftStart = useMemo<Vec3>(() => [from[0], FLOOR_Y + 0.72, from[2]], [from]);
+    const rightStart = useMemo<Vec3>(() => [to[0], FLOOR_Y + 0.72, to[2]], [to]);
+    const streams = useMemo(() => [
+        makePressureStreamGeometry(leftStart, midpoint, 1, 0.075),
+        makePressureStreamGeometry(leftStart, midpoint, -0.6, 0.034),
+        makePressureStreamGeometry(rightStart, midpoint, -1, 0.075),
+        makePressureStreamGeometry(rightStart, midpoint, 0.6, 0.034),
+    ], [leftStart, midpoint, rightStart]);
+    useEffect(() => () => streams.forEach((geometry) => geometry.dispose()), [streams]);
+    const coreColor = useMemo(() => new THREE.Color(leftColor).lerp(new THREE.Color(rightColor), 0.5).getStyle(), [leftColor, rightColor]);
+    const leftVisual = useMemo(() => projectileVisual({ element: leftKind, charged: true }), [leftKind]);
+    const rightVisual = useMemo(() => projectileVisual({ element: rightKind, charged: true }), [rightKind]);
+    const leftHeading = Math.atan2(-(midpoint[2] - leftStart[2]), midpoint[0] - leftStart[0]);
+    const rightHeading = Math.atan2(-(midpoint[2] - rightStart[2]), midpoint[0] - rightStart[0]);
+    const fragmentCount = quality.id === "low" ? 6 : 12;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / 1.0);
+        const travel = Math.min(1, p / 0.48);
+        const streamFade = p < 0.52 ? 1 : Math.max(0, 1 - (p - 0.52) / 0.18);
+        streams.forEach((geometry) => geometry.setDrawRange(0, Math.ceil((geometry.index?.count ?? 0) * travel)));
+        streamMats.current.forEach((material, index) => { if (material) material.opacity = streamFade * (index % 2 ? 0.72 : 0.94); });
+        const placeProjectile = (group: THREE.Group | null, origin: Vec3, heading: number, bow: number) => {
+            if (!group) return;
+            group.visible = p < 0.56;
+            group.position.set(lerp(origin[0], midpoint[0], travel), lerp(origin[1], midpoint[1], travel) + Math.sin(Math.PI * travel) * bow, lerp(origin[2], midpoint[2], travel));
+            group.rotation.y = heading;
+            // Keep the physical cores secondary to the painted pressure streams.
+            // The former near-unit spheres read as detached cyan blobs.
+            group.scale.setScalar(0.46 + Math.sin(Math.PI * travel) * 0.14);
+        };
+        placeProjectile(leftProjectile.current, leftStart, leftHeading, 0.28);
+        placeProjectile(rightProjectile.current, rightStart, rightHeading, -0.06);
+        const hitP = Math.max(0, (p - 0.42) / 0.58);
+        const open = 1 - Math.pow(1 - Math.min(1, hitP * 2.2), 3);
+        const fade = hitP < 0.58 ? 1 : Math.max(0, 1 - (hitP - 0.58) / 0.42);
+        if (collision.current) {
+            collision.current.visible = hitP > 0;
+            collision.current.rotation.set(hitP * 0.72, hitP * 2.4, -hitP * 0.48);
+            collision.current.scale.setScalar(Math.max(0.001, open * (0.92 + hitP * 0.46)));
+        }
+        fragments.current.forEach((fragment, index) => {
+            if (!fragment) return;
+            const angle = index * 2.399;
+            fragment.position.set(Math.cos(angle) * hitP * (0.7 + index % 3 * 0.18), Math.sin(Math.PI * hitP) * (0.45 + index % 4 * 0.13), Math.sin(angle) * hitP * (0.7 + index % 3 * 0.18));
+            fragment.rotation.set(hitP * (4 + index), angle, -hitP * (3 + index % 4));
+            fragment.scale.setScalar(fade * (0.08 + index % 3 * 0.025));
+        });
+        if (light.current) light.current.intensity = fade * open * 4.2;
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
+    });
+    return (
+        <group>
+            {streams.map((geometry, index) => (
+                <mesh key={`pressure-stream-${index}`} geometry={geometry} renderOrder={29 + index % 2}>
+                    <meshToonMaterial ref={(material) => { streamMats.current[index] = material; }} color={index < 2 ? (index % 2 ? "#fff3d0" : leftColor) : index % 2 ? "#e7f7ff" : rightColor} emissive={index < 2 ? leftColor : rightColor} emissiveIntensity={0.16} transparent opacity={0} depthWrite={false} />
+                </mesh>
+            ))}
+            <group ref={leftProjectile}><NativeProjectileBody visual={leftVisual} quality={quality} /></group>
+            <group ref={rightProjectile}><NativeProjectileBody visual={rightVisual} quality={quality} /></group>
+            <group ref={collision} position={midpoint} visible={false} scale={0.001}>
+                {Array.from({ length: fragmentCount }, (_, index) => (
+                    <mesh key={`pressure-volume-fragment-${index}`} ref={(mesh) => { fragments.current[index] = mesh; }} scale={0.01}>
+                        <tetrahedronGeometry args={[1, 0]} />
+                        <meshToonMaterial color={index % 2 ? rightColor : leftColor} emissive={coreColor} emissiveIntensity={0.08} />
+                    </mesh>
+                ))}
+            </group>
+            <DuelElementVolume at={midpoint} kind={leftKind} color={leftColor} big={false} heading={leftHeading} phase="contact" quality={quality} delay={0.42} onDone={() => undefined} />
+            <DuelElementVolume at={midpoint} kind={rightKind} color={rightColor} big={false} heading={rightHeading} phase="contact" quality={quality} delay={0.42} onDone={() => undefined} />
+            {quality.dynamicPetLight && <pointLight ref={light} position={midpoint} color={coreColor} intensity={0} distance={7} decay={2} />}
+        </group>
+    );
+}
+
 /** Ground SHOCKWAVE — flat expanding rings on the floor at the impact point that
  *  drive force into the arena; bigger + brighter on heavy/crit blows. */
-function DuelShockwave({ at, color, big, onDone }: { at: Vec3; color: string; big: boolean; onDone: () => void }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyDuelShockwave({ at, color, big, onDone }: { at: Vec3; color: string; big: boolean; onDone: () => void }) {
     const r1 = useRef<THREE.Mesh>(null);
-    const m1 = useRef<THREE.MeshBasicMaterial>(null);
+    const m1 = useRef<THREE.MeshToonMaterial>(null);
     const r2 = useRef<THREE.Mesh>(null);
-    const m2 = useRef<THREE.MeshBasicMaterial>(null);
+    const m2 = useRef<THREE.MeshToonMaterial>(null);
     const start = useRef<number | null>(null);
-    const DUR = big ? 0.5 : 0.36;
-    const maxR = big ? 2.15 : 1.3;
+    const DUR = big ? 0.62 : 0.4;
+    const maxR = big ? 3.05 : 1.55;
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const p = Math.min(1, (state.clock.elapsedTime - start.current) / DUR);
@@ -3546,39 +5412,35 @@ function DuelShockwave({ at, color, big, onDone }: { at: Vec3; color: string; bi
     return (
         <group position={[at[0], 0.05, at[2]]} rotation={[-Math.PI / 2, 0, 0]}>
             <mesh ref={r1}>
-                <ringGeometry args={[0.9, 1.0, 40]} />
-                <meshBasicMaterial ref={m1} color={color} transparent opacity={0.46} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                <torusGeometry args={[0.94, 0.065, 7, 40]} />
+                <meshToonMaterial ref={m1} color={color} emissive={color} emissiveIntensity={0.18} transparent opacity={0.46} depthWrite={false} side={THREE.DoubleSide} />
             </mesh>
             <mesh ref={r2}>
-                <ringGeometry args={[0.91, 0.96, 40]} />
-                <meshBasicMaterial ref={m2} color={color} transparent opacity={0.28} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                <torusGeometry args={[0.94, 0.034, 6, 40]} />
+                <meshToonMaterial ref={m2} color={color} emissive={color} emissiveIntensity={0.1} transparent opacity={0.28} depthWrite={false} side={THREE.DoubleSide} />
             </mesh>
         </group>
     );
 }
 
-/** A restrained 3D anime power-up column. The pet remains readable inside a
- * golden, flame-pointed shell while element-tinted rings and motes stream up.
- * Unlike the old aura flipbook this is world-space geometry, so it wraps the
- * model and reads as a sustained transformation beat instead of an impact. */
-function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: { at: Vec3; color: string; quality: PetVisualQualityConfig; actorId?: string; duel: DuelResult; clock: { current: DuelClock }; onDone: () => void }) {
+/** A restrained 3D anime power-up column. Short faceted flame tongues rise
+ * around the pet while leaving its silhouette readable. Their compact volume
+ * avoids both the old glass cage and edge-on brush cards. */
+function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, heroStyle = "generic", onDone }: { at: Vec3; color: string; quality: PetVisualQualityConfig; actorId?: string; duel: DuelResult; clock: { current: DuelClock }; heroStyle?: PetHeroMoveStyle; onDone: () => void }) {
     const root = useRef<THREE.Group>(null);
-    const petalMeshes = useRef<Array<THREE.Mesh | null>>([]);
-    const petalMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
-    const ringA = useRef<THREE.Mesh>(null);
-    const ringB = useRef<THREE.Mesh>(null);
-    const ringMatA = useRef<THREE.MeshBasicMaterial>(null);
-    const ringMatB = useRef<THREE.MeshBasicMaterial>(null);
+    const floorPulse = useRef<THREE.Group>(null);
+    const floorMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const auraStrokes = useRef<Array<THREE.Mesh | null>>([]);
+    const auraStrokeMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
     const light = useRef<THREE.PointLight>(null);
     const start = useRef<number | null>(null);
-    const auraPetals = useMemo(() => Array.from({ length: 8 }, (_, i) => makeFlameRibbonGeometry(
-        1.72 + (i % 4) * 0.24,
-        0.1 + (i % 3) * 0.018,
-        0.3 + (i % 3) * 0.11,
-        (i / 8) * Math.PI * 2,
-    )), []);
-    useEffect(() => () => auraPetals.forEach((geometry) => geometry.dispose()), [auraPetals]);
-    const duration = 0.92;
+    const kitsuneCast = heroStyle === "kitsune-tail-cast";
+    const duration = kitsuneCast ? 1.24 : 1.14;
+    const auraCount = quality.id === "low" ? 8 : quality.id === "medium" ? 11 : 13;
+    // Keep the body color saturated. A large white mix plus additive blending
+    // turned water and wind buffs into the same frosted-glass cage.
+    const auraCore = useMemo(() => new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.32).getStyle(), [color]);
+    const auraDark = useMemo(() => new THREE.Color(color).multiplyScalar(0.28).getStyle(), [color]);
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const elapsed = state.clock.elapsedTime - start.current;
@@ -3589,207 +5451,81 @@ function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: {
         if (root.current) {
             const live = liveDuelEffectPosition(duel, clock, actorId);
             if (live) root.current.position.set(live.wx, at[1], live.wz);
-            root.current.scale.set(pulse * arrive, arrive * (0.82 + 0.18 * pulse), pulse * arrive);
+            const heroScale = kitsuneCast ? 1.22 : 1;
+            root.current.scale.set(pulse * arrive * heroScale, arrive * (0.82 + 0.18 * pulse) * heroScale, pulse * arrive * heroScale);
         }
-        petalMeshes.current.forEach((mesh, i) => {
-            if (!mesh) return;
-            const flicker = Math.sin(elapsed * (10 + i % 3) + i * 1.31);
-            mesh.scale.y = 0.9 + flicker * 0.1;
-            mesh.scale.x = mesh.scale.z = 1.0 - flicker * 0.045;
-            mesh.rotation.z = flicker * 0.035;
+        if (floorPulse.current) {
+            floorPulse.current.rotation.y = elapsed * 1.12;
+            const floorScale = 0.7 + arrive * 0.38 + Math.sin(elapsed * 11) * 0.025;
+            floorPulse.current.scale.setScalar(Math.max(0.001, floorScale));
+        }
+        floorMats.current.forEach((material, index) => {
+            if (material) material.opacity = fade * arrive * (index === 0 ? 0.28 : 0.66);
         });
-        petalMats.current.forEach((material, i) => { if (material) material.opacity = fade * (i % 3 === 0 ? 0.5 : 0.34); });
-        const liftA = (p * 2.4) % 1;
-        const liftB = (p * 2.4 + 0.5) % 1;
-        if (ringA.current) { ringA.current.position.y = 0.12 + liftA * 2.7; ringA.current.scale.setScalar(1.25 - liftA * 0.62); }
-        if (ringB.current) { ringB.current.position.y = 0.12 + liftB * 2.7; ringB.current.scale.setScalar(1.25 - liftB * 0.62); }
-        if (ringMatA.current) ringMatA.current.opacity = fade * Math.sin(Math.PI * liftA) * 0.36;
-        if (ringMatB.current) ringMatB.current.opacity = fade * Math.sin(Math.PI * liftB) * 0.3;
-        if (light.current) light.current.intensity = fade * arrive * (0.8 + Math.abs(Math.sin(elapsed * 18)) * 0.45);
+        auraStrokes.current.forEach((stroke, index) => {
+            if (!stroke) return;
+            const u = index / Math.max(1, auraCount);
+            const lift = (p * 1.72 + u) % 1;
+            const angle = u * Math.PI * 2 + elapsed * (index % 2 ? -0.62 : 0.52);
+            const radius = 0.54 + (index % 3) * 0.13 + Math.sin(elapsed * 9 + index) * 0.035;
+            stroke.position.set(Math.cos(angle) * radius, 0.2 + lift * 1.82, Math.sin(angle) * radius);
+            stroke.rotation.set(Math.sin(angle) * 0.12, angle, Math.cos(angle) * -0.18);
+            const widthPulse = 0.72 + Math.sin(elapsed * 15 + index * 1.7) * 0.1;
+            stroke.scale.set(widthPulse * (0.94 - lift * 0.2), 0.68 + Math.sin(Math.PI * lift) * 0.78, widthPulse * (0.94 - lift * 0.2));
+            const material = auraStrokeMats.current[index];
+            if (material) material.opacity = fade * (0.28 + Math.sin(Math.PI * lift) * 0.72) * (index % 3 === 0 ? 0.94 : 0.8);
+        });
+        if (light.current) light.current.intensity = fade * arrive * (1.7 + Math.abs(Math.sin(elapsed * 18)) * 0.9);
         if (p >= 1) onDone();
     });
     return (
         <group ref={root} position={[at[0], 0.03, at[2]]} scale={0.01}>
-            {auraPetals.map((geometry, i) => {
-                const a = (i / auraPetals.length) * Math.PI * 2;
-                const radius = i < 2 ? 0.24 : 0.53 + (i % 3) * 0.1;
-                return (
-                    <mesh key={i} ref={(mesh) => { petalMeshes.current[i] = mesh; }} geometry={geometry} position={[Math.cos(a) * radius, 0.02, Math.sin(a) * radius]} rotation={[0, a, 0]}>
-                        <meshToonMaterial ref={(material) => { petalMats.current[i] = material; }} color={i % 3 === 0 ? "#fff4bd" : color} emissive={color} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
-                    </mesh>
-                );
-            })}
-            <mesh ref={ringA} rotation={[Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[1.0, 0.022, 6, 40]} />
-                <meshBasicMaterial ref={ringMatA} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            <mesh ref={ringB} rotation={[Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[0.88, 0.018, 6, 40]} />
-                <meshBasicMaterial ref={ringMatB} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            <Sparkles count={Math.max(6, Math.round(quality.setPieceParticles * 0.42))} scale={[2.3, 3.15, 2.3]} position={[0, 1.52, 0]} size={2.35} speed={1.5} opacity={0.58} color={color} noise={0.5} />
-            {quality.translucentLayers > 1 && <Sparkles count={Math.max(4, Math.round(quality.setPieceParticles * 0.2))} scale={[3.0, 0.38, 3.0]} position={[0, 0.17, 0]} size={1.8} speed={0.48} opacity={0.34} color="#d9a74f" noise={0.65} />}
-            {quality.dynamicPetLight && <pointLight ref={light} color="#ffc94a" intensity={0} distance={4.8} decay={2} position={[0, 1.15, 0]} />}
+            <group ref={floorPulse} position={[0, 0.018, 0]}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={27}>
+                    <ringGeometry args={[0.2, 1.14, quality.id === "low" ? 28 : 48]} />
+                    <meshToonMaterial ref={(material) => { floorMats.current[0] = material; }} color={auraDark} emissive={color} emissiveIntensity={0.05} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+                <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} renderOrder={28}>
+                    <ringGeometry args={[1.27, 1.38, quality.id === "low" ? 28 : 48]} />
+                    <meshToonMaterial ref={(material) => { floorMats.current[1] = material; }} color={auraCore} emissive={color} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            </group>
+            {Array.from({ length: auraCount }, (_, index) => (
+                <mesh key={`power-flame-${index}`} ref={(mesh) => { auraStrokes.current[index] = mesh; }} renderOrder={30}>
+                    <coneGeometry args={[0.27 + (index % 3) * 0.035, 1.08 + (index % 2) * 0.16, 5]} />
+                    <meshToonMaterial
+                        ref={(material) => { auraStrokeMats.current[index] = material; }}
+                        color={index % 3 === 0 ? auraCore : color}
+                        emissive={color}
+                        emissiveIntensity={0.2}
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                    />
+                </mesh>
+            ))}
+            <Sparkles count={Math.max(8, Math.round(quality.setPieceParticles * 0.5))} scale={[2.6, 3.7, 2.6]} position={[0, 1.7, 0]} size={2.5} speed={1.72} opacity={0.66} color={color} noise={0.5} />
+            {quality.translucentLayers > 1 && <Sparkles count={Math.max(4, Math.round(quality.setPieceParticles * 0.2))} scale={[3.0, 0.38, 3.0]} position={[0, 0.17, 0]} size={1.8} speed={0.48} opacity={0.34} color={auraCore} noise={0.65} />}
+            {quality.dynamicPetLight && <pointLight ref={light} color={color} intensity={0} distance={6.4} decay={2} position={[0, 1.25, 0]} />}
         </group>
     );
 }
 
-/** Hand-drawn anime wave silhouette used by the arena-scale Water set piece.
- * The opaque blue body gives it mass while the white contour strokes read as
- * foam; NormalBlending prevents it turning into a washed-out additive slab. */
-function _makeAnimeWaveTexture(): THREE.CanvasTexture {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d")!;
-    const body = ctx.createLinearGradient(0, 60, 0, 510);
-    body.addColorStop(0, "rgba(224,252,255,0.96)");
-    body.addColorStop(0.18, "rgba(76,201,240,0.94)");
-    body.addColorStop(0.62, "rgba(15,120,199,0.88)");
-    body.addColorStop(1, "rgba(4,51,118,0.72)");
-
-    // One broad crest with a curled leading lip and a heavy rolling base.
-    ctx.beginPath();
-    ctx.moveTo(8, 492);
-    ctx.bezierCurveTo(94, 414, 164, 372, 260, 388);
-    ctx.bezierCurveTo(324, 398, 362, 424, 414, 420);
-    ctx.bezierCurveTo(356, 354, 354, 276, 398, 202);
-    ctx.bezierCurveTo(472, 76, 650, 42, 796, 132);
-    ctx.bezierCurveTo(874, 180, 912, 250, 1008, 276);
-    ctx.bezierCurveTo(948, 282, 888, 262, 828, 226);
-    ctx.bezierCurveTo(874, 284, 942, 354, 1018, 448);
-    ctx.lineTo(1024, 512);
-    ctx.lineTo(0, 512);
-    ctx.closePath();
-    ctx.fillStyle = body;
-    ctx.fill();
-
-    // Graphic-novel ink edge under the foam keeps the silhouette crisp.
-    ctx.strokeStyle = "rgba(5,44,104,0.82)";
-    ctx.lineWidth = 20;
-    ctx.lineJoin = "round";
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(238,255,255,0.98)";
-    ctx.lineWidth = 12;
-    ctx.beginPath();
-    ctx.moveTo(401, 205);
-    ctx.bezierCurveTo(479, 78, 651, 52, 793, 139);
-    ctx.bezierCurveTo(866, 184, 910, 247, 997, 272);
-    ctx.stroke();
-
-    // Curved cel-shaded speed bands make the body feel like moving water.
-    ctx.lineCap = "round";
-    for (let i = 0; i < 4; i += 1) {
-        const y = 284 + i * 45;
-        ctx.strokeStyle = i % 2 === 0 ? "rgba(180,245,255,0.68)" : "rgba(7,72,151,0.62)";
-        ctx.lineWidth = i % 2 === 0 ? 9 : 13;
-        ctx.beginPath();
-        ctx.moveTo(158 - i * 20, y + 64);
-        ctx.bezierCurveTo(360, y - 35, 690, y - 40, 925 + i * 18, y + 22);
-        ctx.stroke();
-    }
-
-    // Foam clusters along the curling lip.
-    ctx.fillStyle = "rgba(245,255,255,0.94)";
-    [[424, 186, 20], [455, 151, 15], [491, 127, 19], [540, 104, 13], [586, 94, 18], [638, 99, 12], [689, 112, 17], [736, 132, 12], [784, 161, 16], [831, 194, 11]].forEach(([x, y, r]) => {
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
-    texture.premultiplyAlpha = true;
-    return texture;
-}
-
-/** Saturated cel-animation fire payoff. A jagged red/orange burst supplies the
- * graphic silhouette; tapered yellow tongues keep it reading as flame rather
- * than the pale crystal spikes produced by enlarged transparent cones. */
-function _makeAnimeFlameBurstTexture(): THREE.CanvasTexture {
-    const canvas = document.createElement("canvas");
-    canvas.width = 768;
-    canvas.height = 768;
-    const ctx = canvas.getContext("2d")!;
-    const cx = 384, cy = 420;
-    const star = (spikes: number, inner: number, outer: number, phase: number) => {
-        ctx.beginPath();
-        for (let i = 0; i < spikes * 2; i += 1) {
-            const a = phase + (i / (spikes * 2)) * Math.PI * 2;
-            const r = i % 2 === 0 ? outer * (0.88 + (i % 5) * 0.025) : inner;
-            const x = cx + Math.cos(a) * r;
-            const y = cy + Math.sin(a) * r * 0.82;
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-    };
-
-    const outer = ctx.createRadialGradient(cx, cy, 28, cx, cy, 342);
-    outer.addColorStop(0, "#fffbd1");
-    outer.addColorStop(0.2, "#ffd338");
-    outer.addColorStop(0.58, "#ff6a1a");
-    outer.addColorStop(1, "rgba(175,24,13,0.9)");
-    star(18, 222, 352, -Math.PI / 2);
-    ctx.fillStyle = outer;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(75,12,12,0.88)";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 18;
-    ctx.stroke();
-
-    // A light inner impact star gives the burst a hard anime hit-frame core.
-    star(12, 105, 232, -Math.PI / 2);
-    const core = ctx.createRadialGradient(cx, cy, 12, cx, cy, 230);
-    core.addColorStop(0, "#ffffff");
-    core.addColorStop(0.28, "#fff39a");
-    core.addColorStop(0.72, "#ffb20e");
-    core.addColorStop(1, "rgba(255,82,10,0.8)");
-    ctx.fillStyle = core;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(139,31,8,0.72)";
-    ctx.lineWidth = 10;
-    ctx.stroke();
-
-    // Five asymmetrical flame tongues stretch the silhouette vertically.
-    [-210, -112, 0, 112, 210].forEach((offset, i) => {
-        const baseY = 585 - Math.abs(offset) * 0.16;
-        const tipY = 78 + (i % 2) * 86 + Math.abs(offset) * 0.22;
-        const width = i === 2 ? 92 : 62;
-        ctx.beginPath();
-        ctx.moveTo(cx + offset - width, baseY);
-        ctx.bezierCurveTo(cx + offset - width * 0.75, 430, cx + offset - width * 0.35, tipY + 80, cx + offset + (i % 2 ? 22 : -18), tipY);
-        ctx.bezierCurveTo(cx + offset + width * 0.35, tipY + 104, cx + offset + width, 438, cx + offset + width, baseY);
-        ctx.closePath();
-        const tongue = ctx.createLinearGradient(0, tipY, 0, baseY);
-        tongue.addColorStop(0, "rgba(255,243,120,0.96)");
-        tongue.addColorStop(0.5, "rgba(255,126,16,0.94)");
-        tongue.addColorStop(1, "rgba(195,30,12,0.78)");
-        ctx.fillStyle = tongue;
-        ctx.fill();
-        ctx.strokeStyle = "rgba(94,17,10,0.8)";
-        ctx.lineWidth = 12;
-        ctx.stroke();
-    });
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
-    texture.premultiplyAlpha = true;
-    return texture;
-}
-
-function makeWaveVolumeGeometry(): THREE.BufferGeometry {
+function _makeWaveVolumeGeometry(): THREE.BufferGeometry {
     const sx = 30, sy = 14;
     const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
     for (let iy = 0; iy <= sy; iy++) {
         const v = iy / sy;
         for (let ix = 0; ix <= sx; ix++) {
             const u = ix / sx;
-            const x = (u - 0.5) * 5.4;
-            const crestProfile = u <= 0.68 ? Math.pow(u / 0.68, 0.58) : Math.pow((1 - u) / 0.32, 0.72);
-            const height = 0.62 + 2.48 * crestProfile;
-            const curl = v < 0.7 ? v * 0.2 : 0.14 + ((v - 0.7) / 0.3) * 1.08;
+            const x = (u - 0.5) * 5.2;
+            // A broad shoulder reads as a wall of water. The former single sharp
+            // peak made the mesh look like a triangular shield from the broadcast
+            // camera, especially after it was enlarged.
+            const crestProfile = Math.pow(Math.max(0, Math.sin(Math.PI * u)), 0.48);
+            const curlShoulder = Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, u * 1.18))), 1.8);
+            const height = 1.12 + 1.52 * crestProfile + 0.42 * curlShoulder;
+            const curl = v < 0.62 ? v * 0.18 : 0.11 + ((v - 0.62) / 0.38) * (0.72 + 0.38 * curlShoulder);
             const ripple = Math.sin(u * Math.PI * 7 + v * 3.2) * 0.055 * (0.3 + v);
             positions.push(x, 0.03 + v * height, -0.28 + curl + ripple);
             uvs.push(u, v);
@@ -3807,12 +5543,13 @@ function makeWaveVolumeGeometry(): THREE.BufferGeometry {
     return geometry;
 }
 
-function makeWaveCrestGeometry(): THREE.TubeGeometry {
+function _makeWaveCrestGeometry(): THREE.TubeGeometry {
     const points = Array.from({ length: 13 }, (_, i) => {
         const u = i / 12;
-        const x = (u - 0.5) * 5.4;
-        const crestProfile = u <= 0.68 ? Math.pow(u / 0.68, 0.58) : Math.pow((1 - u) / 0.32, 0.72);
-        return new THREE.Vector3(x, 0.66 + 2.48 * crestProfile, 0.84 + Math.sin(u * Math.PI * 5) * 0.07);
+        const x = (u - 0.5) * 5.2;
+        const crestProfile = Math.pow(Math.max(0, Math.sin(Math.PI * u)), 0.48);
+        const curlShoulder = Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, u * 1.18))), 1.8);
+        return new THREE.Vector3(x, 1.16 + 1.52 * crestProfile + 0.42 * curlShoulder, 0.72 + Math.sin(u * Math.PI * 4) * 0.06);
     });
     return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.115, 7, false);
 }
@@ -3875,22 +5612,121 @@ function makeFlameRibbonGeometry(height: number, radius: number, sway: number, p
     return geometry;
 }
 
-function makeTornadoTube(phase: number): THREE.TubeGeometry {
-    // A compact, widening ribbon rather than a tall wire corkscrew.  The old
-    // six-turn path read as a transparent spring and regularly left the frame.
-    const points = Array.from({ length: 42 }, (_, i) => {
-        const t = i / 41;
-        const a = phase + t * Math.PI * 4.6;
-        const radius = 0.16 + Math.pow(t, 0.76) * 1.22;
-        return new THREE.Vector3(Math.cos(a) * radius, 0.1 + t * 3.55, Math.sin(a) * radius);
+// The tornado mist sheet is deterministic (no args, no RNG); build it once and
+// reuse it across every tornado set-piece instead of rasterizing a fresh 128x256
+// canvas + a GL upload on the exact frame each cyclone spawns.
+let _tornadoMistTexture: THREE.CanvasTexture | null = null;
+function tornadoMistTexture(): THREE.CanvasTexture { return (_tornadoMistTexture ??= makeTornadoMistTexture()); }
+function makeTornadoMistTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128; canvas.height = 256;
+    const ctx = canvas.getContext("2d")!;
+    const fade = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    fade.addColorStop(0, "rgba(218,255,248,0.72)");
+    fade.addColorStop(0.45, "rgba(79,216,191,0.34)");
+    fade.addColorStop(1, "rgba(11,102,100,0.02)");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 0.42;
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = fade;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 7; i++) {
+        ctx.lineWidth = 3 + (i % 3) * 1.5;
+        ctx.beginPath();
+        const y = 20 + i * 35;
+        ctx.moveTo(-16, y + 12);
+        ctx.bezierCurveTo(30, y - 18, 94, y + 28, 145, y - 7);
+        ctx.stroke();
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    return texture;
+}
+
+/** A pressure volume rather than two floor decals: the leading edge is a short
+ * vertical wall with lifted arena debris, while a thin floor rim only anchors
+ * it to the point of contact. */
+function DuelShockwaveV2({ at, color, big, quality, onDone }: { at: Vec3; color: string; big: boolean; quality: PetVisualQualityConfig; onDone: () => void }) {
+    const root = useRef<THREE.Group>(null);
+    const wall = useRef<THREE.Mesh>(null);
+    const wallMat = useRef<THREE.MeshToonMaterial>(null);
+    const rim = useRef<THREE.Mesh>(null);
+    const rimMat = useRef<THREE.MeshToonMaterial>(null);
+    const debris = useRef<Array<THREE.Mesh | null>>([]);
+    const debrisMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const duration = big ? 0.68 : 0.46;
+    const count = quality.id === "low" ? 5 : big ? 12 : 8;
+    const dark = useMemo(() => new THREE.Color(color).multiplyScalar(0.3).getStyle(), [color]);
+    const core = useMemo(() => new THREE.Color(color).lerp(new THREE.Color("#fff0c4"), 0.26).getStyle(), [color]);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
+        const open = 1 - Math.pow(1 - p, 2);
+        const fade = Math.pow(1 - p, 1.25);
+        if (root.current) root.current.rotation.y = p * 0.42;
+        if (wall.current) wall.current.scale.set((0.18 + open * (big ? 3.4 : 1.85)), 0.4 + Math.sin(Math.PI * p) * (big ? 1.2 : 0.72), (0.18 + open * (big ? 3.4 : 1.85)));
+        if (rim.current) rim.current.scale.setScalar(0.2 + open * (big ? 3.15 : 1.72));
+        if (wallMat.current) wallMat.current.opacity = fade * (big ? 0.42 : 0.32);
+        if (rimMat.current) rimMat.current.opacity = fade * 0.56;
+        debris.current.forEach((piece, index) => {
+            if (!piece) return;
+            const angle = index * 2.399;
+            const radius = open * (0.38 + (index % 4) * (big ? 0.42 : 0.24));
+            piece.position.set(Math.cos(angle) * radius, 0.08 + Math.sin(Math.PI * p) * (0.32 + (index % 3) * 0.16), Math.sin(angle) * radius);
+            piece.rotation.set(p * (4 + index), angle, -p * (5 + index % 3));
+            piece.scale.setScalar((big ? 0.16 : 0.105) * fade * (0.74 + index % 3 * 0.16));
+            if (debrisMats.current[index]) debrisMats.current[index]!.opacity = fade * 0.78;
+        });
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
     });
-    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 76, 0.13, 10, false);
+    return (
+        <group ref={root} position={[at[0], FLOOR_Y + 0.035, at[2]]}>
+            <mesh ref={wall} position={[0, 0.2, 0]} scale={0.01} renderOrder={26}>
+                <cylinderGeometry args={[1, 0.84, 0.52, quality.id === "low" ? 24 : 42, 1, true]} />
+                <meshToonMaterial ref={wallMat} color={dark} emissive={color} emissiveIntensity={0.08} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh ref={rim} rotation={[-Math.PI / 2, 0, 0]} scale={0.01} renderOrder={27}>
+                <torusGeometry args={[0.92, big ? 0.055 : 0.042, 7, quality.id === "low" ? 28 : 48]} />
+                <meshToonMaterial ref={rimMat} color={core} emissive={color} emissiveIntensity={0.14} transparent opacity={0} depthWrite={false} />
+            </mesh>
+            {Array.from({ length: count }, (_, index) => (
+                <mesh key={`shock-debris-${index}`} ref={(mesh) => { debris.current[index] = mesh; }} scale={0.01} castShadow>
+                    <dodecahedronGeometry args={[1, 0]} />
+                    <meshToonMaterial ref={(material) => { debrisMats.current[index] = material; }} color={index % 3 === 0 ? core : index % 2 ? color : dark} transparent opacity={0} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
+function makeTornadoTube(phase: number): THREE.TubeGeometry {
+    // A fast, clean tapered spiral. Fewer turns and a thinner cross-section keep
+    // the silhouette readable; the earlier dense spring plus transparent cones
+    // looked like a stack of overlapping primitives from the broadcast camera.
+    const points = Array.from({ length: 34 }, (_, i) => {
+        const t = i / 33;
+        const a = phase + t * Math.PI * 3.25;
+        const radius = 0.12 + Math.pow(t, 0.72) * 1.34;
+        return new THREE.Vector3(Math.cos(a) * radius, 0.08 + t * 3.8, Math.sin(a) * radius);
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 64, 0.062, 8, false);
 }
 
 /** Arena-scale signature spectacle. These are procedural 3D shapes rather than a
  * billboard enlarged until it blurs: Water travels as a cresting wall, Wind owns
  * vertical space as a rotating funnel, and Fire blooms outward in layered flame
  * petals. They remain translucent so the pets stay readable through the effect. */
+// Retained temporarily as a comparison/fallback while the live coliseum uses
+// DuelAnimeSetPiece. Keeping the component name uppercase preserves hook rules.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     kind: DuelSetPieceKind; from: Vec3; to: Vec3; color: string; quality: PetVisualQualityConfig; onDone: () => void;
 }) {
@@ -3902,10 +5738,12 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     const completed = useRef(false);
     const abyssal = kind === "abyssBurst";
     const flameLike = kind === "flameBurst";
-    const waveVolume = useMemo(() => kind === "tidalWave" ? makeWaveVolumeGeometry() : null, [kind]);
-    const waveCrest = useMemo(() => kind === "tidalWave" ? makeWaveCrestGeometry() : null, [kind]);
+    const tornadoMist = useMemo(() => kind === "tornado" ? tornadoMistTexture() : null, [kind]);
     const flamePetalCount = quality.id === "low" ? 6 : quality.id === "medium" ? 7 : 8;
-    const tornadoTubeCount = quality.id === "low" ? 2 : 3;
+    // The full-height helix tubes looked like luminous springs in motion. The
+    // textured volume plus horizontal calligraphic bands below reads as a real
+    // funnel and costs less on mobile, so no vertical tube cage is needed.
+    const tornadoTubeCount = 0;
     const flamePetals = useMemo(() => flameLike
         ? Array.from({ length: flamePetalCount }, (_, i) => makeFlameRibbonGeometry(
             1.28 + (i % 4) * 0.24,
@@ -3914,19 +5752,28 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
             (i / flamePetalCount) * Math.PI * 2,
         ))
         : [], [flameLike, flamePetalCount]);
+    const waveTongues = useMemo(() => kind === "tidalWave"
+        ? Array.from({ length: quality.id === "low" ? 4 : 6 }, (_, i) => makeFlameRibbonGeometry(
+            0.9 + (i % 3) * 0.18,
+            0.14 + (i % 2) * 0.018,
+            0.3 + (i % 3) * 0.08,
+            0.7 + i * 0.86,
+        ))
+        : [], [kind, quality.id]);
     const tornadoTubes = useMemo(() => kind === "tornado"
         ? Array.from({ length: tornadoTubeCount }, (_, i) => (i / tornadoTubeCount) * Math.PI * 2).map(makeTornadoTube)
         : [], [kind, tornadoTubeCount]);
     useEffect(() => () => {
-        waveVolume?.dispose(); waveCrest?.dispose();
+        tornadoMist?.dispose();
         flamePetals.forEach((geometry) => geometry.dispose());
+        waveTongues.forEach((geometry) => geometry.dispose());
         tornadoTubes.forEach((geometry) => geometry.dispose());
-    }, [waveVolume, waveCrest, flamePetals, tornadoTubes]);
+    }, [tornadoMist, flamePetals, waveTongues, tornadoTubes]);
     const dx = to[0] - from[0], dz = to[2] - from[2];
     const angle = Math.atan2(dx, dz);
     // The cut-in supplies the anticipation; the set piece itself arrives fast,
     // then holds its full arena silhouette for the payoff instead of drifting in.
-    const duration = kind === "tornado" ? 2.4 : kind === "tidalWave" ? 2.45 : flameLike || abyssal ? 2.3 : kind === "lightningStorm" ? 2.15 : kind === "earthBurst" ? 2.25 : 2.05;
+    const duration = kind === "tornado" ? 1.55 : kind === "tidalWave" ? 1.62 : flameLike || abyssal ? 1.5 : kind === "lightningStorm" ? 1.45 : kind === "earthBurst" ? 1.5 : 1.4;
     const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
         if (!material || materials.current.includes(material)) return;
         material.userData.baseOpacity = material.opacity;
@@ -3944,8 +5791,11 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                 // cut-in so speed never costs the player the actual water payoff.
                 const travel = 1 - Math.pow(1 - Math.min(1, p / 0.3), 2);
                 g.position.set(lerp(from[0], to[0], travel), 0.15, lerp(from[2], to[2], travel));
-                g.rotation.y = angle;
-                g.scale.set(0.72 + p * 0.32, 0.68 + Math.sin(Math.PI * p) * 0.34, 0.82 + p * 0.18);
+                // Keep the advancing crest readable from the broadcast camera.
+                // A fully heading-aligned wall turns edge-on during horizontal
+                // attacks and reads as a flat polygon instead of water volume.
+                g.rotation.y = angle * 0.24;
+                g.scale.set(0.9 + p * 0.34, 0.9 + Math.sin(Math.PI * p) * 0.38, 1.04 + p * 0.22);
             } else {
                 g.position.set(to[0], 0.08, to[2]);
                 // Only a tornado should continuously spin. Rotating every signature
@@ -3955,7 +5805,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                 // The previous sine swell collapsed back to half-size while the
                 // cut-in was still clearing, which made the actual payoff look tiny.
                 const grow = 1 - Math.pow(1 - Math.min(1, p / 0.22), 3);
-                const fullScale = flameLike || abyssal ? 1.08 : kind === "tornado" ? 1.16 : kind === "lightningStorm" ? 1.28 : kind === "earthBurst" ? 1.18 : 1.25;
+                const fullScale = flameLike || abyssal ? 1.88 : kind === "tornado" ? 1.72 : kind === "lightningStorm" ? 1.86 : kind === "earthBurst" ? 1.78 : 1.7;
                 const settle = p < 0.82 ? 1 : 1 - Math.min(1, (p - 0.82) / 0.18) * 0.16;
                 g.scale.setScalar((0.45 + grow * (fullScale - 0.45)) * settle);
             }
@@ -3969,6 +5819,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
             });
         }
         if (flameLight.current) flameLight.current.intensity = fade * ((abyssal ? 3.2 : 5) + Math.abs(Math.sin(state.clock.elapsedTime * 11)) * (abyssal ? 1.4 : 3));
+        if (tornadoMist) tornadoMist.offset.set(p * 0.42, -p * 1.4);
         for (const material of materials.current) material.opacity = Number(material.userData.baseOpacity ?? 0.5) * fade;
         if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
     });
@@ -3979,44 +5830,50 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                 : kind === "lightningStorm" ? "#9b7cff"
                     : kind === "earthBurst" ? "#c88b43" : color;
     const mat = (opacity: number, white = false) => (
-        <meshBasicMaterial ref={registerMaterial} color={white ? "#effcff" : setPieceColor} transparent opacity={opacity} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        <meshToonMaterial ref={registerMaterial} color={white ? "#effcff" : setPieceColor} emissive={setPieceColor} emissiveIntensity={white ? 0.16 : 0.1} transparent opacity={Math.min(0.92, opacity * 1.75)} depthWrite={false} side={THREE.DoubleSide} />
     );
     return (
         <group ref={root}>
             {kind === "tidalWave" && (
                 <group>
-                    {/* A travelling surge, arranged down the attack lane.  A broad
-                        wall is almost always viewed head-on by the combat camera and
-                        collapses into a blue blob; overlapping rolling volumes keep
-                        readable depth, curl and foam from either side of the arena. */}
-                    {Array.from({ length: 7 }, (_, i) => {
-                        const u = i / 6;
-                        const z = -1.9 + i * 0.59;
-                        const swell = Math.sin(u * Math.PI);
+                    {/* Tapered water tongues ride the outer curl instead of standing
+                        in a row. This gives the signature a hand-drawn breaking-wave
+                        silhouette without a translucent backplate or shield fan. */}
+                    {waveTongues.map((geometry, i) => {
+                        const u = i / Math.max(1, waveTongues.length - 1);
+                        const a = 0.08 + u * Math.PI * 1.02;
+                        const x = Math.cos(a) * 1.5 - 0.08;
+                        const y = 0.5 + Math.sin(a) * 1.28;
                         return (
-                            <group key={`water-roll-${i}`} position={[Math.sin(i * 1.7) * 0.09, 0, z]}>
-                                <mesh position={[0, 0.38 + swell * 0.34, 0]} scale={[0.82 + swell * 0.34, 0.58 + swell * 0.46, 1.08 + swell * 0.2]}>
-                                    <sphereGeometry args={[0.82, 24, 16]} />
-                                    <meshToonMaterial ref={registerMaterial} color={i < 2 ? "#075f9f" : "#0788c4"} emissive="#043b72" emissiveIntensity={0.12} />
-                                </mesh>
-                                {i % 2 === 1 && (
-                                    <mesh position={[-0.12 + (i % 3) * 0.1, 0.82 + swell * 0.48, 0.08]} rotation={[0.2, i * 0.75, -0.16 + u * 0.3]} scale={[0.38 + swell * 0.17, 0.12 + swell * 0.06, 0.24]}>
-                                        <sphereGeometry args={[1, 16, 10]} />
-                                        <meshToonMaterial ref={registerMaterial} color="#c9f8fb" emissive="#56bdd3" emissiveIntensity={0.1} transparent opacity={0.88} depthWrite={false} />
-                                    </mesh>
-                                )}
-                            </group>
+                            <mesh key={`wave-tongue-${i}`} geometry={geometry} position={[x, y, 0.42 + (i % 2) * 0.12]} rotation={[0.08, -0.38 + i * 0.14, a - 1.42]} scale={0.68 + (i % 3) * 0.09}>
+                                <meshToonMaterial ref={registerMaterial} color={i % 3 === 0 ? "#9ce9ef" : i % 2 ? "#1598bf" : "#36c1d2"} emissive="#087ca6" emissiveIntensity={0.12} transparent opacity={0.88} depthWrite={false} />
+                            </mesh>
                         );
                     })}
-                    {/* The leading breaker curls toward the target. */}
-                    {[0, 1].map((i) => (
-                        <mesh key={`breaker-curl-${i}`} position={[0, 0.9 + i * 0.24, 1.32 + i * 0.06]} rotation={[0, 0, -0.12 - i * 0.13]} scale={[1.25 - i * 0.2, 1, 0.78]}>
-                            <torusGeometry args={[0.68 + i * 0.1, 0.075 - i * 0.012, 9, 42, Math.PI * (1.22 - i * 0.1)]} />
-                            <meshToonMaterial ref={registerMaterial} color={i === 0 ? "#b9f3f6" : "#3bc2da"} emissive="#238eb1" emissiveIntensity={0.12} transparent opacity={0.76 - i * 0.1} depthWrite={false} />
-                        </mesh>
-                    ))}
-                    {/* Forward spray breaks the otherwise smooth silhouette. */}
-                    {Array.from({ length: 11 }, (_, i) => {
+                    {/* Thick partial toruses form a real 3D curl. The previous
+                        filled surface was technically a crest but read as a flat
+                        blue card whenever its heading crossed the camera axis. */}
+                    <mesh position={[-0.05, 0.5, -0.15]} rotation={[0.06, 0, -0.18]} scale={[1.26, 1.06, 0.76]}>
+                        <torusGeometry args={[1.45, 0.54, 14, 52, Math.PI * 1.28]} />
+                        <meshToonMaterial ref={registerMaterial} color="#043a62" emissive="#02243f" emissiveIntensity={0.06} transparent opacity={0.9} depthWrite={false} />
+                    </mesh>
+                    <mesh position={[-0.05, 0.5, -0.1]} rotation={[0.06, 0, -0.18]} scale={[1.18, 1.0, 0.72]}>
+                        <torusGeometry args={[1.45, 0.46, 14, 52, Math.PI * 1.28]} />
+                        <meshToonMaterial ref={registerMaterial} color="#087fb8" emissive="#043a67" emissiveIntensity={0.16} transparent opacity={0.9} depthWrite={false} />
+                    </mesh>
+                    <mesh position={[-0.02, 0.54, -0.06]} rotation={[0.06, 0, -0.18]} scale={[1.2, 1.02, 0.74]}>
+                        <torusGeometry args={[1.46, 0.13, 10, 54, Math.PI * 1.28]} />
+                        <meshToonMaterial ref={registerMaterial} color="#e8ffff" emissive="#59cfe4" emissiveIntensity={0.22} transparent opacity={0.95} depthWrite={false} />
+                    </mesh>
+                    <mesh position={[-0.55, 0.28, 0.34]} rotation={[0.16, 0.22, -0.5]} scale={[0.72, 0.68, 0.54]}>
+                        <torusGeometry args={[1.18, 0.28, 12, 44, Math.PI * 1.1]} />
+                        <meshToonMaterial ref={registerMaterial} color="#25b9d6" emissive="#075b89" emissiveIntensity={0.16} transparent opacity={0.82} depthWrite={false} />
+                    </mesh>
+                    <mesh position={[0.72, 0.22, 0.18]} rotation={[0.08, -0.18, 0.45]} scale={[0.55, 0.48, 0.42]}>
+                        <torusGeometry args={[1.08, 0.2, 10, 40, Math.PI]} />
+                        <meshToonMaterial ref={registerMaterial} color="#57d6e7" emissive="#087ba8" emissiveIntensity={0.18} transparent opacity={0.78} depthWrite={false} />
+                    </mesh>
+                    {Array.from({ length: 9 }, (_, i) => {
                         const a = -1.15 + i * 0.23;
                         const r = 0.72 + (i % 4) * 0.18;
                         return (
@@ -4030,24 +5887,22 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                         <ringGeometry args={[0.75, 2.3, 48]} />
                         <meshBasicMaterial ref={registerMaterial} color="#0876ae" transparent opacity={0.24} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
                     </mesh>
-                    <Sparkles count={quality.setPieceParticles} position={[0, 1.1, 0.15]} scale={[2.6, 2.2, 5.4]} size={2.5} speed={1.25} opacity={0.46} color="#c8f8ff" noise={1.6} />
+                    <Sparkles count={Math.max(8, Math.round(quality.setPieceParticles * 0.7))} position={[0, 1.25, 0.2]} scale={[3.2, 2.8, 3.8]} size={2.1} speed={1.55} opacity={0.42} color="#d8fbff" noise={1.35} />
                 </group>
             )}
             {kind === "tornado" && (
                 <group>
-                    {/* Layered toon volumes supply the funnel's mass. Spirals are
-                        accents now, rather than the entire effect silhouette. */}
-                    <mesh position={[0, 1.92, 0]}>
-                        <coneGeometry args={[1.62, 3.84, 28, 5, false]} />
-                        <meshToonMaterial ref={registerMaterial} color="#2ba99a" emissive="#0b4e4c" emissiveIntensity={0.12} transparent opacity={0.42} depthWrite={false} side={THREE.DoubleSide} />
-                    </mesh>
-                    <mesh position={[0, 1.75, 0]} scale={[0.72, 1, 0.72]}>
-                        <coneGeometry args={[1.34, 3.5, 24, 4, false]} />
-                        <meshToonMaterial ref={registerMaterial} color="#0b5c63" emissive="#062f3b" emissiveIntensity={0.14} transparent opacity={0.52} depthWrite={false} side={THREE.DoubleSide} />
-                    </mesh>
-                    <mesh position={[0, 1.48, 0]} scale={[0.42, 1, 0.42]}>
-                        <coneGeometry args={[1.08, 2.96, 20, 4, false]} />
-                        <meshToonMaterial ref={registerMaterial} color="#082f45" emissive="#041c2d" emissiveIntensity={0.1} transparent opacity={0.68} depthWrite={false} />
+                    {/* A broad, softly textured funnel gives the move real volume;
+                        the thinner toon spirals are highlights, not the whole effect. */}
+                    {tornadoMist && (
+                        <mesh position={[0, 1.92, 0]} rotation={[0, 0, Math.PI]}>
+                            <coneGeometry args={[1.5, 3.82, 48, 4, true]} />
+                            <meshBasicMaterial ref={registerMaterial} map={tornadoMist} color="#55cdbd" transparent opacity={0.4} depthWrite={false} toneMapped={false} blending={THREE.NormalBlending} side={THREE.DoubleSide} />
+                        </mesh>
+                    )}
+                    <mesh position={[0, 1.62, 0]} rotation={[0, 0, Math.PI]} scale={[0.72, 0.84, 0.72]}>
+                        <coneGeometry args={[1.5, 3.82, 40, 3, true]} />
+                        <meshBasicMaterial ref={registerMaterial} color="#168a84" transparent opacity={0.2} depthWrite={false} toneMapped={false} blending={THREE.NormalBlending} side={THREE.DoubleSide} />
                     </mesh>
                     {tornadoTubes.map((geometry, i) => (
                         <mesh key={i} geometry={geometry}>
@@ -4057,31 +5912,20 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                                 emissive={i === 0 ? "#58d8c5" : "#0b514f"}
                                 emissiveIntensity={i === 0 ? 0.24 : 0.12}
                                 transparent
-                                opacity={i === 0 ? 0.84 : 0.68}
+                                opacity={i === 0 ? 0.94 : 0.82}
                                 depthWrite={false}
                             />
                         </mesh>
                     ))}
-                    {Array.from({ length: 6 }, (_, i) => (
-                        <mesh key={`vortex-band-${i}`} position={[0, 0.35 + i * 0.59, 0]} rotation={[Math.PI / 2, i * 0.83, 0]} scale={[1, 0.82 + (i % 2) * 0.12, 1]}>
-                            <torusGeometry args={[0.34 + i * 0.2, 0.105 + i * 0.011, 9, 40, Math.PI * (1.22 + (i % 3) * 0.18)]} />
-                            <meshToonMaterial ref={registerMaterial} color={i > 2 ? "#b9f5e9" : "#38bda9"} emissive="#17665f" emissiveIntensity={0.14} transparent opacity={0.78 - i * 0.055} depthWrite={false} />
+                    {Array.from({ length: 5 }, (_, i) => (
+                        <mesh key={`vortex-band-${i}`} position={[0, 0.42 + i * 0.78, 0]} rotation={[Math.PI / 2, i * 1.08, i % 2 ? 0.16 : -0.12]} scale={[1, 0.76 + (i % 2) * 0.12, 1]}>
+                            <torusGeometry args={[0.4 + i * 0.27, 0.055 + i * 0.007, 8, 40, Math.PI * (0.92 + (i % 2) * 0.18)]} />
+                            <meshToonMaterial ref={registerMaterial} color={i > 1 ? "#c8fff2" : "#38bda9"} emissive="#17665f" emissiveIntensity={0.16} transparent opacity={0.9 - i * 0.08} depthWrite={false} />
                         </mesh>
                     ))}
-                    {Array.from({ length: 13 }, (_, i) => {
-                        const u = i / 12;
-                        const a = i * 2.17;
-                        const r = 0.24 + u * 1.18;
-                        return (
-                            <mesh key={`wind-mass-${i}`} position={[Math.cos(a) * r, 0.28 + u * 3.08, Math.sin(a) * r]} rotation={[u * 0.4, a, 0]} scale={[0.5 + u * 0.5, 0.2 + u * 0.22, 0.32 + u * 0.32]}>
-                                <sphereGeometry args={[1, 16, 10]} />
-                                <meshToonMaterial ref={registerMaterial} color={i % 3 === 0 ? "#d7fbf2" : i % 3 === 1 ? "#55cdb9" : "#168379"} emissive="#0d5b58" emissiveIntensity={0.1} transparent opacity={0.66} depthWrite={false} />
-                            </mesh>
-                        );
-                    })}
                     {Array.from({ length: 9 }, (_, i) => {
                         const a = (i / 9) * Math.PI * 2;
-                        const r = 0.75 + (i % 3) * 0.48;
+                        const r = 0.9 + (i % 3) * 0.58;
                         return (
                             <mesh key={`debris-${i}`} position={[Math.cos(a) * r, 0.35 + (i % 4) * 0.58, Math.sin(a) * r]} scale={0.1 + (i % 3) * 0.045}>
                                 <dodecahedronGeometry args={[1, 0]} />
@@ -4089,7 +5933,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                             </mesh>
                         );
                     })}
-                    <Sparkles count={quality.setPieceParticles} scale={[4.4, 5.5, 4.4]} position={[0, 2.25, 0]} size={2.4} speed={1.35} opacity={0.38} color="#b9f5e7" noise={2.3} />
+                    <Sparkles count={Math.max(12, quality.setPieceParticles)} scale={[4.8, 5.4, 4.8]} position={[0, 2.15, 0]} size={2.45} speed={1.9} opacity={0.42} color="#d7fff4" noise={2.0} />
                 </group>
             )}
             {flameLike && (
@@ -4242,6 +6086,683 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     );
 }
 
+const _TSUNAMI_VERTEX = `
+varying vec2 vUv;
+uniform float uTime;
+uniform float uBuild;
+void main() {
+    vUv = uv;
+    vec3 p = position;
+    float crest = smoothstep(0.48, 1.0, uv.y);
+    float curl = crest * crest * (0.58 + 0.18 * sin(uv.x * 8.0 + uTime * 4.2));
+    p.z += curl * uBuild;
+    p.x += sin(uv.y * 7.0 + uTime * 3.0) * 0.08 * crest;
+    p.y += sin(uv.x * 10.0 - uTime * 3.4) * 0.13 * (0.25 + crest);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+
+const _TSUNAMI_FRAGMENT = `
+varying vec2 vUv;
+uniform float uTime;
+uniform float uOpacity;
+uniform vec3 uDeep;
+uniform vec3 uWater;
+uniform vec3 uFoam;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+    vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0)), f.x), f.y);
+}
+void main() {
+    float edge = smoothstep(0.0, 0.07, vUv.x) * smoothstep(0.0, 0.07, 1.0 - vUv.x);
+    float flow = sin(vUv.x * 18.0 - uTime * 5.2 + noise(vUv * 9.0) * 3.0) * 0.5 + 0.5;
+    float foamLine = 0.91 + noise(vec2(vUv.x * 12.0, uTime * 1.8)) * 0.045;
+    float foam = smoothstep(foamLine - 0.025, foamLine + 0.035, vUv.y);
+    foam += smoothstep(0.7, 0.98, vUv.y) * smoothstep(0.84, 1.0, flow) * 0.24;
+    vec3 body = mix(uDeep, uWater, min(0.72, vUv.y * 0.5 + flow * 0.12));
+    vec3 color = mix(body, uFoam, clamp(foam, 0.0, 0.84));
+    float floorFade = smoothstep(0.0, 0.16, vUv.y);
+    float alpha = edge * floorFade * uOpacity * (0.74 + foam * 0.24);
+    gl_FragColor = vec4(color, alpha);
+}`;
+
+const TORNADO_VERTEX = `
+varying vec2 vUv;
+varying float vTwist;
+uniform float uTime;
+uniform float uPhase;
+void main() {
+    vUv = uv;
+    vec3 p = position;
+    float sway = (0.06 + uv.y * 0.22);
+    p.x += sin(uv.y * 12.0 + uTime * 4.8 + uPhase) * sway;
+    p.z += cos(uv.y * 10.0 + uTime * 4.1 + uPhase) * sway;
+    vTwist = atan(p.z, p.x) + uv.y * 11.0 - uTime * 7.2 + uPhase;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+
+const TORNADO_FRAGMENT = `
+varying vec2 vUv;
+varying float vTwist;
+uniform float uOpacity;
+uniform vec3 uDark;
+uniform vec3 uWind;
+uniform vec3 uCore;
+void main() {
+    float strand = sin(vTwist * 3.2 + vUv.y * 31.0) * 0.5 + 0.5;
+    float fine = sin(vTwist * 7.0 - vUv.y * 53.0) * 0.5 + 0.5;
+    float bands = smoothstep(0.33, 0.83, strand) + smoothstep(0.68, 0.98, fine) * 0.48;
+    float taperFade = smoothstep(0.0, 0.08, vUv.y) * smoothstep(0.0, 0.09, 1.0 - vUv.y);
+    vec3 color = mix(uDark, uWind, vUv.y * 0.65 + bands * 0.2);
+    color = mix(color, uCore, smoothstep(0.96, 1.34, bands));
+    gl_FragColor = vec4(color, clamp(bands, 0.0, 1.0) * taperFade * uOpacity);
+}`;
+
+/** Thin flow lines sit on the water shell and make its direction readable.
+ * They are accents only—the old large-radius tubes became separate rainbow-like
+ * arches and made the attack feel assembled instead of like one body of water. */
+function _makeTsunamiFlowLineGeometry(index: number, count: number): THREE.TubeGeometry {
+    const layer = count <= 1 ? 0 : index / (count - 1);
+    const width = 5.35 - layer * 0.34;
+    const points = Array.from({ length: 29 }, (_, pointIndex) => {
+        const u = pointIndex / 28;
+        const envelope = Math.pow(Math.max(0, Math.sin(u * Math.PI)), 0.5);
+        const scallop = Math.sin(u * Math.PI * (3 + index)) * 0.035 * envelope;
+        const v = 0.34 + layer * 0.4;
+        const curl = Math.max(0, (v - 0.62) / 0.38);
+        return new THREE.Vector3(
+            (u - 0.5) * width,
+            0.1 + envelope * (v < 0.62 ? (v / 0.62) * 2.72 : 2.72 - Math.sin(curl * Math.PI * 0.5) * 0.56) + scallop,
+            -0.42 + v * 0.52 + envelope * Math.sin(curl * Math.PI * 0.5) * 1.05 + 0.58,
+        );
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 72, 0.035 + layer * 0.012, 6, false);
+}
+
+/** Vertical C-shaped ribs reveal the overhanging lip even in the high broadcast
+ * camera. They sit inside the translucent shell, so they read as moving currents
+ * rather than a wireframe laid over the effect. */
+function _makeTsunamiCurlRibGeometry(index: number, count: number): THREE.TubeGeometry {
+    const across = count <= 1 ? 0 : index / (count - 1);
+    const x = lerp(-2.62, 2.62, across);
+    const edge = Math.sin(across * Math.PI);
+    const localHeight = 1.12 + edge * 1.82 + Math.sin(across * Math.PI * 5) * 0.08;
+    const points = Array.from({ length: 24 }, (_, pointIndex) => {
+        const v = pointIndex / 23;
+        const curlPhase = Math.max(0, (v - 0.6) / 0.4);
+        const y = v < 0.6
+            ? 0.08 + (v / 0.6) * localHeight * 0.9
+            : localHeight * 0.9 - Math.sin(curlPhase * Math.PI * 0.5) * (0.52 + edge * 0.18);
+        const z = -0.28 + v * 0.28 + Math.sin(curlPhase * Math.PI * 0.5) * (0.72 + edge * 0.48);
+        return new THREE.Vector3(x, y, z);
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.045 + edge * 0.018, 6, false);
+}
+
+function _makeTsunamiVolumeGeometry(width: number, height: number, depth: number, xSegments: number, ySegments: number): THREE.BufferGeometry {
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    const row = xSegments + 1;
+    for (let side = 0; side < 2; side++) {
+        const sideOffset = side * row * (ySegments + 1);
+        for (let y = 0; y <= ySegments; y++) {
+            const v = y / ySegments;
+            for (let x = 0; x <= xSegments; x++) {
+                const u = x / xSegments;
+                const px = (u - 0.5) * width;
+                // A broad vertical rectangle still reads like a billboard even if
+                // it technically has depth. Taper the height and thickness down at
+                // both shoulders, then curl the upper third forward so the outline
+                // reads as a breaking mass of water from every broadcast angle.
+                const envelope = 0.25 + Math.pow(Math.sin(u * Math.PI), 0.48) * 0.75 + Math.sin(u * Math.PI * 5) * 0.045;
+                const curlPhase = Math.max(0, (v - 0.62) / 0.38);
+                const topBreak = Math.sin(u * Math.PI * 5.0) * 0.1 * envelope;
+                const localHeight = 0.38 + (height - 0.38) * envelope + topBreak;
+                const belly = Math.sin(v * Math.PI);
+                // Rise as a solid swell, then fold the upper third forward and
+                // slightly downward. This hooked cross-section is what makes the
+                // silhouette read as a breaking tsunami instead of a blue card.
+                const rise = v < 0.62
+                    ? (v / 0.62) * localHeight * 0.87
+                    : localHeight * 0.87 - Math.sin(curlPhase * Math.PI * 0.5) * (0.48 + envelope * 0.24);
+                const curl = -0.46 + v * 0.48 - belly * 0.08 + Math.sin(curlPhase * Math.PI * 0.5) * (0.5 + envelope * 0.92);
+                const thickness = 0.12 + depth * (0.18 + envelope * 0.82) * (0.38 + belly * 0.62);
+                positions.push(px, Math.max(0.02, rise), curl + (side === 0 ? -thickness : thickness) * 0.5);
+                uvs.push(u, v);
+            }
+        }
+        for (let y = 0; y < ySegments; y++) {
+            for (let x = 0; x < xSegments; x++) {
+                const a = sideOffset + y * row + x;
+                const b = a + 1;
+                const c = a + row;
+                const d = c + 1;
+                if (side === 0) indices.push(a, c, b, b, c, d);
+                else indices.push(a, b, c, b, d, c);
+            }
+        }
+    }
+    const backOffset = row * (ySegments + 1);
+    for (let x = 0; x < xSegments; x++) {
+        const frontBottom = x;
+        const backBottom = backOffset + x;
+        const frontTop = ySegments * row + x;
+        const backTop = backOffset + ySegments * row + x;
+        indices.push(frontBottom, frontBottom + 1, backBottom, frontBottom + 1, backBottom + 1, backBottom);
+        indices.push(frontTop, backTop, frontTop + 1, frontTop + 1, backTop, backTop + 1);
+    }
+    for (let y = 0; y < ySegments; y++) {
+        const frontLeft = y * row;
+        const backLeft = backOffset + y * row;
+        const frontRight = y * row + xSegments;
+        const backRight = backOffset + y * row + xSegments;
+        indices.push(frontLeft, backLeft, frontLeft + row, frontLeft + row, backLeft, backLeft + row);
+        indices.push(frontRight, frontRight + row, backRight, frontRight + row, backRight + row, backRight);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+function makeTornadoRibbonGeometry(index: number): THREE.TubeGeometry {
+    const turns = 2.1 + index * 0.24;
+    const points = Array.from({ length: 38 }, (_, i) => {
+        const u = i / 37;
+        const radius = 0.22 + Math.pow(u, 0.82) * (1.15 + index * 0.08);
+        const a = u * Math.PI * 2 * turns + index * 1.7;
+        return new THREE.Vector3(Math.cos(a) * radius, u * 3.5, Math.sin(a) * radius);
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 72, 0.022 + index * 0.004, 5, false);
+}
+
+function DuelTsunamiSetPiece({ from, to, color, quality, onDone }: {
+    from: Vec3; to: Vec3; color: string; quality: PetVisualQualityConfig; onDone: () => void;
+}) {
+    const { camera } = useThree();
+    const root = useRef<THREE.Group>(null);
+    const curlMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const sheetMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const wash = useRef<THREE.MeshToonMaterial>(null);
+    const washMesh = useRef<THREE.Mesh>(null);
+    const crest = useRef<THREE.Group>(null);
+    const trailingSwells = useRef<THREE.Group>(null);
+    const spray = useRef<Array<THREE.Mesh | null>>([]);
+    const start = useRef<number | null>(null);
+    const complete = useRef(false);
+    const palette = useMemo(() => duelFxPalette("water", color), [color]);
+    // The former translucent heightfield and polyhedral foam read as a glass
+    // dome full of white rocks. These opaque extruded brush masses share the
+    // same dark/body/highlight hierarchy as the pet models and produce one clean
+    // breaking-wave silhouette from the broadcast camera.
+    const waveSheets = useMemo(() => [
+        makeAnimeStrokeGeometry(5.2, 0.88, 1.55),
+        makeAnimeStrokeGeometry(4.55, 0.48, 1.36),
+        makeAnimeStrokeGeometry(3.75, 0.2, 1.16),
+    ], []);
+    useEffect(() => () => waveSheets.forEach((geometry) => geometry.dispose()), [waveSheets]);
+    const sprayCount = quality.id === "low" ? 12 : quality.id === "medium" ? 20 : 28;
+    const spraySpecs = useMemo(() => Array.from({ length: sprayCount }, (_, i) => ({
+        x: -2.75 + (i / Math.max(1, sprayCount - 1)) * 5.5,
+        lift: 0.28 + (i % 5) * 0.09,
+        drift: ((i % 3) - 1) * 0.18,
+        phase: (i * 0.173) % 1,
+        size: 0.035 + (i % 4) * 0.012,
+    })), [sprayCount]);
+    const distance = Math.hypot(to[0] - from[0], to[2] - from[2]);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / 1.95);
+        const build = Math.min(1, p / 0.2);
+        // The crest reaches contact in ~0.56 s, matching the director's delayed
+        // damage number/flash. The former 1.31 s crossing made the HP change look
+        // unrelated to the wave even though the simulator had already resolved it.
+        const travel = 1 - Math.pow(1 - Math.min(1, p / 0.29), 3);
+        const fade = p < 0.76 ? 1 : Math.max(0, 1 - (p - 0.76) / 0.24);
+        const foamFade = p < 0.84 ? 1 : Math.max(0, 1 - (p - 0.84) / 0.16);
+        const breakupP = Math.max(0, Math.min(1, (p - 0.58) / 0.42));
+        const breakup = 1 - (1 - breakupP) * (1 - breakupP);
+        if (root.current) {
+            const overshoot = distance > 0.001 ? 0.52 / distance : 0;
+            root.current.position.set(lerp(from[0], to[0] + (to[0] - from[0]) * overshoot, travel), FLOOR_Y + 0.02, lerp(from[2], to[2] + (to[2] - from[2]) * overshoot, travel));
+            // Keep the broad silhouette readable to the broadcast camera. The
+            // geometry itself owns the forward curl and thickness; its root still
+            // travels along the true combat lane toward the target.
+            const laneAngle = Math.atan2(to[0] - from[0], to[2] - from[2]);
+            const cameraAngle = Math.atan2(camera.position.x - root.current.position.x, camera.position.z - root.current.position.z);
+            // Bias toward the lane so the overhanging C-profile is visible, while
+            // retaining enough broadcast-facing width to read as a wall of water.
+            root.current.rotation.y = laneAngle * 0.74 + cameraAngle * 0.26;
+            const volume = 0.72 + build * 0.38;
+            root.current.scale.set(volume * (1 + breakup * 0.18), (0.2 + build * 0.8) * (1 - breakup * 0.28), volume * (1 + breakup * 0.3));
+        }
+        if (crest.current) {
+            crest.current.position.set(0.48, 1.02 - breakup * 0.72, 0.32 + breakup * 0.9);
+            crest.current.rotation.set(0.08 + breakup * 0.16, 0, -0.64 - breakup * 0.38);
+            crest.current.scale.set(1 + breakup * 0.22, 1 - breakup * 0.52, 1 + breakup * 0.14);
+        }
+        if (trailingSwells.current) {
+            trailingSwells.current.position.set(-breakup * 0.46, -breakup * 0.18, breakup * 0.5);
+            trailingSwells.current.scale.set(1 + breakup * 0.28, 1 - breakup * 0.36, 1 + breakup * 0.2);
+        }
+        curlMats.current.forEach((material, index) => {
+            if (material) material.opacity = fade * (index === 0 ? 0.24 : index === 1 ? 0.92 : index === 2 ? 0.96 : index === 3 ? 0.78 : 0.9);
+        });
+        sheetMats.current.forEach((material, index) => {
+            if (material) material.opacity = fade * (index === 0 ? 0.96 : index === 1 ? 0.9 : 0.82);
+        });
+        if (wash.current) wash.current.opacity = foamFade * (0.22 + breakup * 0.12);
+        if (washMesh.current) washMesh.current.scale.set(1 + breakup * 0.72, 1.45 + breakup * 0.86, 1);
+        spray.current.forEach((drop, i) => {
+            if (!drop) return;
+            const spec = spraySpecs[i];
+            const cycle = (p * 2.7 + spec.phase) % 1;
+            const u = i / Math.max(1, spraySpecs.length - 1);
+            const envelope = Math.pow(Math.max(0, Math.sin(u * Math.PI)), 0.5);
+            const side = Math.sign(spec.x) || (i % 2 ? 1 : -1);
+            drop.position.set(spec.x + spec.drift * cycle + side * breakup * 0.62, 0.5 + envelope * 2.75 + Math.sin(cycle * Math.PI) * spec.lift - cycle * 0.22 - breakup * 0.72, 0.5 + envelope * 0.72 + cycle * 0.54 + breakup * 0.9);
+            drop.scale.setScalar(spec.size * (0.5 + build) * foamFade * (1 + breakup * 0.7));
+        });
+        if (p >= 1 && !complete.current) { complete.current = true; onDone(); }
+    });
+    return (
+        <group ref={root}>
+            <group position={[-0.25, 0.12, -0.18]} rotation={[0.02, -0.04, -0.08]}>
+                {waveSheets.map((geometry, index) => (
+                    <mesh
+                        key={`tidal-solid-sheet-${index}`}
+                        geometry={geometry}
+                        position={[index * 0.22, index * 0.12, index * 0.2]}
+                        scale={[1 - index * 0.1, 1 - index * 0.08, 1.35 + index * 0.22]}
+                        renderOrder={32 + index}
+                        castShadow={quality.modelShadows && index === 0}
+                    >
+                        <meshToonMaterial
+                            ref={(material) => { sheetMats.current[index] = material; }}
+                            color={index === 0 ? palette.dark : index === 1 ? palette.body : palette.core}
+                            emissive={index === 2 ? palette.accent : palette.dark}
+                            emissiveIntensity={index === 2 ? 0.12 : 0.035}
+                            transparent
+                            opacity={index === 0 ? 0.96 : index === 1 ? 0.9 : 0.82}
+                            depthWrite={index === 0}
+                            side={THREE.DoubleSide}
+                        />
+                    </mesh>
+                ))}
+            </group>
+            {/* The crest is an asymmetric forward hook, not a centered arch. Its
+                diagonal break gives the effect a direction and keeps the target
+                readable through the hollow during the damage frame. */}
+            <group ref={crest} position={[0.48, 1.02, 0.32]} rotation={[0.08, 0, -0.64]}>
+                <mesh scale={[1.46, 1.02, 0.86]} renderOrder={34} castShadow={quality.modelShadows}>
+                    <torusGeometry args={[1.28, 0.42, quality.id === "low" ? 9 : 13, quality.id === "low" ? 34 : 52, Math.PI * 0.94]} />
+                    <meshToonMaterial ref={(material) => { curlMats.current[1] = material; }} color={palette.body} emissive={palette.dark} emissiveIntensity={0.08} transparent opacity={0.92} depthWrite side={THREE.DoubleSide} />
+                </mesh>
+                <mesh position={[0.03, 0.04, 0.13]} scale={[1.42, 0.98, 0.8]} renderOrder={36}>
+                    <torusGeometry args={[1.28, 0.085, quality.id === "low" ? 7 : 10, quality.id === "low" ? 36 : 54, Math.PI * 0.94]} />
+                    <meshToonMaterial ref={(material) => { curlMats.current[2] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.18} transparent opacity={0.96} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            </group>
+            {/* Lower trailing swells make this a moving body of water rather than
+                one upright shield-shaped curl. They remain offset behind the lip
+                along the local travel axis, so the target stays readable. */}
+            <group ref={trailingSwells}>
+                <mesh position={[-1.18, 0.27, -0.68]} rotation={[0.12, 0.08, -0.42]} scale={[0.9, 0.48, 0.72]} renderOrder={31}>
+                    <torusGeometry args={[1.18, 0.3, quality.id === "low" ? 9 : 12, quality.id === "low" ? 32 : 46, Math.PI * 1.02]} />
+                    <meshToonMaterial ref={(material) => { curlMats.current[3] = material; }} color={palette.body} emissive={palette.dark} emissiveIntensity={0.06} transparent opacity={0.78} depthWrite side={THREE.DoubleSide} />
+                </mesh>
+                <mesh position={[-1.14, 0.31, -0.56]} rotation={[0.12, 0.08, -0.42]} scale={[0.86, 0.44, 0.68]} renderOrder={34}>
+                    <torusGeometry args={[1.18, 0.075, quality.id === "low" ? 7 : 10, quality.id === "low" ? 34 : 48, Math.PI * 1.02]} />
+                    <meshToonMaterial ref={(material) => { curlMats.current[4] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.16} transparent opacity={0.9} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            </group>
+            <mesh ref={washMesh} position={[0, 0.045, -0.35]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.0, 1.45, 1]} renderOrder={30}>
+                <circleGeometry args={[2.35, quality.id === "low" ? 24 : 48]} />
+                <meshToonMaterial ref={wash} color={palette.dark} emissive={palette.accent} emissiveIntensity={0.045} transparent opacity={0.16} depthWrite={false} />
+            </mesh>
+            {spraySpecs.map((spec, i) => (
+                <mesh key={`wave-spray-${i}`} ref={(mesh) => { spray.current[i] = mesh; }} position={[spec.x, 3.25, 0.25]} renderOrder={34}>
+                    <icosahedronGeometry args={[1, 0]} />
+                    <meshToonMaterial color={i % 3 === 0 ? palette.core : palette.accent} transparent opacity={0.78} depthWrite={false} />
+                </mesh>
+            ))}
+            {quality.dynamicPetLight && <pointLight position={[0, 2.0, 0.6]} color={palette.accent} intensity={2.7} distance={8} decay={2} />}
+        </group>
+    );
+}
+
+function DuelTornadoSetPiece({ to, targetId, duel, clock, color, quality, onDone }: {
+    to: Vec3; targetId?: string; duel: DuelResult; clock: { current: DuelClock }; color: string; quality: PetVisualQualityConfig; onDone: () => void;
+}) {
+    const root = useRef<THREE.Group>(null);
+    const shells = useRef<Array<THREE.Mesh | null>>([]);
+    const materials = useRef<Array<THREE.ShaderMaterial | null>>([]);
+    const ribbons = useRef<Array<THREE.Mesh | null>>([]);
+    const debris = useRef<Array<THREE.Mesh | null>>([]);
+    const start = useRef<number | null>(null);
+    const complete = useRef(false);
+    const palette = useMemo(() => duelFxPalette("wind", color), [color]);
+    const ribbonCount = quality.id === "low" ? 3 : quality.id === "medium" ? 4 : 5;
+    const ribbonGeometries = useMemo(() => Array.from({ length: ribbonCount }, (_, i) => makeTornadoRibbonGeometry(i)), [ribbonCount]);
+    useEffect(() => () => ribbonGeometries.forEach((geometry) => geometry.dispose()), [ribbonGeometries]);
+    const debrisCount = quality.id === "low" ? 8 : quality.id === "medium" ? 12 : 16;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / 2.05);
+        const build = 1 - Math.pow(1 - Math.min(1, p / 0.22), 3);
+        const fade = p < 0.8 ? 1 : Math.max(0, 1 - (p - 0.8) / 0.2);
+        if (root.current) {
+            // A trapping funnel belongs to the defender for its full readable
+            // beat. If it remains at the release mark while both pets reposition,
+            // the caster can cross that point and make the move read as self-cast.
+            const liveTarget = liveDuelEffectPosition(duel, clock, targetId);
+            root.current.position.set(liveTarget?.wx ?? to[0], FLOOR_Y + 0.035, liveTarget?.wz ?? to[2]);
+            root.current.scale.setScalar((0.24 + build * 0.86) * fade);
+        }
+        shells.current.forEach((shell, i) => {
+            if (shell) shell.rotation.y = elapsed * (i % 2 ? -2.6 : 3.2) + i * 1.2;
+        });
+        materials.current.forEach((material, i) => {
+            if (!material) return;
+            material.uniforms.uTime.value = elapsed;
+            material.uniforms.uOpacity.value = fade * (i === 1 ? 0.62 : 0.82);
+        });
+        ribbons.current.forEach((ribbon, i) => {
+            if (!ribbon) return;
+            ribbon.rotation.y = elapsed * (2.8 + i * 0.4) * (i % 2 ? -1 : 1);
+            const pulse = 0.86 + Math.sin(elapsed * 8 + i) * 0.08;
+            ribbon.scale.set(pulse, 1, pulse);
+            const material = ribbon.material as THREE.MeshToonMaterial;
+            material.opacity = fade * (0.36 + (i % 2) * 0.08);
+        });
+        debris.current.forEach((piece, i) => {
+            if (!piece) return;
+            const u = (elapsed * (0.62 + (i % 4) * 0.08) + i / debrisCount) % 1;
+            const radius = 0.45 + u * 1.15;
+            const a = elapsed * 5.4 + i * 2.13;
+            piece.position.set(Math.cos(a) * radius, 0.12 + u * 1.35, Math.sin(a) * radius);
+            piece.rotation.set(a * 0.6, a, -a * 0.4);
+            piece.scale.setScalar((0.055 + (i % 3) * 0.018) * fade);
+        });
+        if (p >= 1 && !complete.current) { complete.current = true; onDone(); }
+    });
+    const tornadoUniforms = (phase: number, opacity: number) => ({
+        uTime: { value: 0 }, uPhase: { value: phase }, uOpacity: { value: opacity },
+        uDark: { value: new THREE.Color(palette.dark) }, uWind: { value: new THREE.Color(palette.body) }, uCore: { value: new THREE.Color(palette.accent) },
+    });
+    return (
+        <group ref={root}>
+            {[0, 1, 2].map((i) => (
+                <mesh key={`funnel-shell-${i}`} ref={(mesh) => { shells.current[i] = mesh; }} position={[0, 1.78, 0]} scale={[1 + i * 0.13, 1 - i * 0.025, 1 + i * 0.13]} renderOrder={30 + i}>
+                    <cylinderGeometry args={[1.58, 0.16, 3.55, quality.id === "low" ? 24 : 42, quality.id === "low" ? 12 : 24, true]} />
+                    <shaderMaterial ref={(material) => { materials.current[i] = material; }} vertexShader={TORNADO_VERTEX} fragmentShader={TORNADO_FRAGMENT} uniforms={tornadoUniforms(i * 2.17, i === 1 ? 0.62 : 0.82)} transparent depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
+            {ribbonGeometries.map((geometry, i) => (
+                <mesh key={`funnel-ribbon-${i}`} ref={(mesh) => { ribbons.current[i] = mesh; }} geometry={geometry} position={[0, 0.05, 0]} renderOrder={34}>
+                    <meshToonMaterial color={i % 2 ? palette.body : palette.accent} emissive={palette.dark} emissiveIntensity={0.06} transparent opacity={0.42} depthWrite={false} />
+                </mesh>
+            ))}
+            {Array.from({ length: debrisCount }, (_, i) => (
+                <mesh key={`funnel-debris-${i}`} ref={(mesh) => { debris.current[i] = mesh; }} castShadow>
+                    <dodecahedronGeometry args={[1, 0]} />
+                    <meshToonMaterial color={i % 3 === 0 ? "#d9c49a" : i % 2 ? "#726657" : palette.dark} />
+                </mesh>
+            ))}
+            <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.22, 1.72, quality.id === "low" ? 24 : 48]} />
+                <meshToonMaterial color={palette.dark} transparent opacity={0.32} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            {quality.dynamicPetLight && <pointLight position={[0, 1.8, 0]} color={palette.accent} intensity={3.1} distance={7} decay={2} />}
+        </group>
+    );
+}
+
+function DuelLunarSetPiece({ to, targetId, duel, clock, quality, onDone }: {
+    to: Vec3; targetId?: string; duel: DuelResult; clock: { current: DuelClock }; quality: PetVisualQualityConfig; onDone: () => void;
+}) {
+    const root = useRef<THREE.Group>(null);
+    const eclipse = useRef<THREE.Mesh>(null);
+    const corona = useRef<THREE.Mesh>(null);
+    const halo = useRef<THREE.Group>(null);
+    const arenaSeal = useRef<THREE.Group>(null);
+    const light = useRef<THREE.PointLight>(null);
+    const slashes = useRef<Array<THREE.Mesh | null>>([]);
+    const shards = useRef<Array<THREE.Mesh | null>>([]);
+    const start = useRef<number | null>(null);
+    const complete = useRef(false);
+    const slashCount = quality.id === "low" ? 5 : quality.id === "medium" ? 7 : 8;
+    const shardCount = quality.id === "low" ? 10 : quality.id === "medium" ? 16 : 22;
+    const moonGeometry = useMemo(() => makeAnimeStrokeGeometry(3, 0.42, 1.08), []);
+    const moonAccentGeometry = useMemo(() => makeAnimeStrokeGeometry(2.52, 0.11, 0.88), []);
+    const slashGeometries = useMemo(() => Array.from({ length: slashCount }, (_, index) => makeAnimeStrokeGeometry(
+        2.7 + (index % 3) * 0.34,
+        0.2 + (index % 2) * 0.045,
+        0.48 + (index % 3) * 0.1,
+    )), [slashCount]);
+    useEffect(() => () => {
+        moonGeometry.dispose();
+        moonAccentGeometry.dispose();
+        slashGeometries.forEach((geometry) => geometry.dispose());
+    }, [moonAccentGeometry, moonGeometry, slashGeometries]);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / 1.86);
+        const build = 1 - Math.pow(1 - Math.min(1, p / 0.18), 3);
+        const strike = Math.min(1, Math.max(0, (p - 0.1) / 0.26));
+        const fade = p < 0.72 ? 1 : Math.max(0, 1 - (p - 0.72) / 0.28);
+        const liveTarget = liveDuelEffectPosition(duel, clock, targetId);
+        if (root.current) {
+            root.current.position.set(liveTarget?.wx ?? to[0], FLOOR_Y + 0.04, liveTarget?.wz ?? to[2]);
+            root.current.scale.setScalar((0.12 + build * 0.96) * fade);
+            root.current.rotation.y = 0;
+        }
+        if (eclipse.current) {
+            const pulse = 0.94 + Math.sin(elapsed * 10) * 0.035;
+            eclipse.current.scale.setScalar(pulse);
+        }
+        if (corona.current) {
+            corona.current.rotation.z = 0.23 + Math.sin(elapsed * 2.4) * 0.08;
+            corona.current.scale.setScalar(0.9 + Math.sin(elapsed * 8) * 0.045);
+        }
+        if (halo.current) {
+            halo.current.rotation.z = elapsed * -0.72;
+            const haloPulse = 0.84 + build * 0.16 + Math.sin(elapsed * 9) * 0.025;
+            halo.current.scale.set(haloPulse, haloPulse * 1.08, haloPulse * 0.88);
+        }
+        if (arenaSeal.current) {
+            arenaSeal.current.rotation.y = elapsed * 0.62;
+            arenaSeal.current.scale.setScalar(0.74 + build * 0.26);
+        }
+        slashes.current.forEach((slash, index) => {
+            if (!slash) return;
+            const lane = index % 4 - 1.5;
+            const opposingBundle = index >= Math.ceil(slashCount / 2);
+            const localPhase = strike * 2.05 - index * 0.24;
+            const stagger = localPhase > 0 && localPhase < 1 ? Math.sin(Math.PI * localPhase) : 0;
+            slash.position.set(lane * 0.42, 0.44 + (index % 4) * 0.43, (opposingBundle ? -0.14 : 0.16) + stagger * 0.18);
+            slash.rotation.set(0.04, lane * 0.08, (opposingBundle ? -0.64 : 0.64) + lane * 0.08);
+            slash.scale.setScalar(Math.max(0.001, stagger * (0.78 + (index % 2) * 0.07)));
+            (slash.material as THREE.MeshToonMaterial).opacity = fade * stagger * (index % 3 === 0 ? 0.86 : 0.74);
+        });
+        shards.current.forEach((shard, index) => {
+            if (!shard) return;
+            const u = index / Math.max(1, shardCount);
+            const angle = elapsed * (1.8 + (index % 3) * 0.24) + u * Math.PI * 2;
+            const radius = 1.5 + (index % 4) * 0.17;
+            shard.position.set(Math.cos(angle) * radius, 0.3 + (index % 6) * 0.4 + Math.sin(angle * 1.4) * 0.18, Math.sin(angle) * radius);
+            shard.rotation.set(angle, -angle * 0.7, angle * 0.4);
+            shard.scale.setScalar((0.085 + (index % 3) * 0.022) * fade);
+        });
+        if (light.current) light.current.intensity = fade * Math.sin(Math.PI * Math.min(1, p * 1.6)) * 5.8;
+        if (p >= 1 && !complete.current) { complete.current = true; onDone(); }
+    });
+    return (
+        <group ref={root}>
+            <group ref={arenaSeal} position={[0, 0.018, 0]}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={31}>
+                    <ringGeometry args={[0.58, 2.08, quality.id === "low" ? 32 : 60]} />
+                    <meshToonMaterial color="#261744" emissive="#6344bd" emissiveIntensity={0.12} transparent opacity={0.26} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+                <mesh rotation={[-Math.PI / 2, 0, Math.PI / 4]} renderOrder={32}>
+                    <ringGeometry args={[2.22, 2.34, quality.id === "low" ? 32 : 60]} />
+                    <meshToonMaterial color="#c5adff" emissive="#9d7cff" emissiveIntensity={0.28} transparent opacity={0.68} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            </group>
+            <group ref={halo} position={[0, 2.08, -0.44]} rotation={[0.08, -0.12, 0]} scale={[1, 1.08, 0.88]}>
+                <mesh renderOrder={33}>
+                    <torusGeometry args={[1.52, 0.115, quality.id === "low" ? 6 : 10, quality.id === "low" ? 32 : 56]} />
+                    <meshToonMaterial color="#6c49cc" emissive="#4f2ba8" emissiveIntensity={0.22} transparent opacity={0.82} depthWrite={false} />
+                </mesh>
+                <mesh renderOrder={34}>
+                    <torusGeometry args={[1.29, 0.035, 6, quality.id === "low" ? 28 : 48]} />
+                    <meshToonMaterial color="#f1e9ff" emissive="#b79bff" emissiveIntensity={0.38} transparent opacity={0.9} depthWrite={false} />
+                </mesh>
+            </group>
+            {/* Layered brush crescents anchor the move without the floating
+                black sphere that made the old eclipse read as placeholder art. */}
+            <mesh ref={eclipse} geometry={moonGeometry} position={[-0.08, 2.7, -0.4]} rotation={[0.06, -0.16, 0.2]} scale={0.62} renderOrder={35}>
+                <meshToonMaterial color="#7350d2" emissive="#452492" emissiveIntensity={0.2} transparent opacity={0.96} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh ref={corona} geometry={moonAccentGeometry} position={[-0.02, 2.74, -0.42]} rotation={[0.06, -0.16, 0.23]} scale={0.57} renderOrder={36}>
+                <meshToonMaterial color="#f2e9ff" emissive="#a27cff" emissiveIntensity={0.34} transparent opacity={0.9} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            {Array.from({ length: slashCount }, (_, index) => (
+                <mesh key={`lunar-tail-${index}`} ref={(mesh) => { slashes.current[index] = mesh; }} geometry={slashGeometries[index]} renderOrder={36}>
+                    <meshToonMaterial color={index % 3 === 0 ? "#f4eaff" : index % 2 ? "#b99bff" : "#8259ef"} emissive="#7044df" emissiveIntensity={0.18} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
+            {Array.from({ length: shardCount }, (_, index) => (
+                <mesh key={`lunar-shard-${index}`} ref={(mesh) => { shards.current[index] = mesh; }} renderOrder={37}>
+                    <octahedronGeometry args={[1, 0]} />
+                    <meshToonMaterial color={index % 3 === 0 ? "#efe4ff" : "#9d7cff"} emissive="#6f44d8" emissiveIntensity={0.26} />
+                </mesh>
+            ))}
+            {quality.dynamicPetLight && <pointLight ref={light} position={[0, 1.6, 0.2]} color="#9d7cff" intensity={0} distance={11} decay={2} />}
+        </group>
+    );
+}
+
+function DuelSignatureSetPiece(props: { kind: DuelSetPieceKind; from: Vec3; to: Vec3; targetId?: string; duel: DuelResult; clock: { current: DuelClock }; color: string; quality: PetVisualQualityConfig; onDone: () => void }) {
+    if (props.kind === "tidalWave") return <DuelTsunamiSetPiece from={props.from} to={props.to} color={props.color} quality={props.quality} onDone={props.onDone} />;
+    if (props.kind === "tornado") return <DuelTornadoSetPiece to={props.to} targetId={props.targetId} duel={props.duel} clock={props.clock} color={props.color} quality={props.quality} onDone={props.onDone} />;
+    if (props.kind === "lunarBurst") return <DuelLunarSetPiece to={props.to} targetId={props.targetId} duel={props.duel} clock={props.clock} quality={props.quality} onDone={props.onDone} />;
+    const kind: DuelElementBurstKind = props.kind === "flameBurst" ? "fire"
+        : props.kind === "abyssBurst" ? "abyss"
+            : props.kind === "lightningStorm" ? "lightning"
+                : props.kind === "earthBurst" ? "earth"
+                    : "arcane";
+    const heading = Math.atan2(props.to[0] - props.from[0], props.to[2] - props.from[2]);
+    return <DuelElementVolume at={[props.to[0], FLOOR_Y + 0.06, props.to[2]]} kind={kind} color={props.color} big heading={heading} phase="signature" quality={props.quality} onDone={props.onDone} />;
+}
+
+/** Studio-style signature renderer used by the live coliseum. Fire, earth,
+ * lightning and abyss retain the cel-shaded impact language; water and wind are
+ * routed to dedicated animated volumes above because their silhouettes must read
+ * unmistakably as a tsunami and a tornado. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyDuelAnimeSetPiece({ kind, from, to, color, quality, onDone }: {
+    kind: DuelSetPieceKind; from: Vec3; to: Vec3; color: string; quality: PetVisualQualityConfig; onDone: () => void;
+}) {
+    const root = useRef<THREE.Group>(null);
+    const strokes = useRef<Array<THREE.Group | null>>([]);
+    const materials = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const light = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const fxKind: DuelElementBurstKind = kind === "tidalWave" ? "water"
+        : kind === "tornado" ? "wind"
+            : kind === "flameBurst" ? "fire"
+                : kind === "abyssBurst" ? "abyss"
+                    : kind === "lightningStorm" ? "lightning"
+                        : kind === "earthBurst" ? "earth" : "arcane";
+    const palette = useMemo(() => duelFxPalette(fxKind, color), [fxKind, color]);
+    const count = quality.id === "low" ? 5 : quality.id === "medium" ? 7 : 8;
+    const specs = useMemo(() => Array.from({ length: count }, (_, i) => {
+        const u = i / Math.max(1, count - 1);
+        if (fxKind === "water") {
+            const a = -0.18 + u * Math.PI * 1.12;
+            return { x: Math.cos(a) * 1.22 - 0.18, y: 0.32 + Math.sin(a) * 1.3, z: (i % 2) * 0.15, pitch: 0.02, yaw: -0.12 + i * 0.035, roll: a - 1.48, length: 1.52 + (i % 3) * 0.18, width: 0.25 + (i % 2) * 0.04, curl: 0.64 + (i % 3) * 0.1, jagged: 0 };
+        }
+        if (fxKind === "wind") {
+            const a = i * 1.38;
+            const radius = 0.28 + u * 0.82;
+            return { x: Math.cos(a) * radius, y: 0.28 + u * 3.0, z: Math.sin(a) * radius, pitch: Math.PI / 2, yaw: a, roll: i % 2 ? 0.12 : -0.12, length: 1.45 + u * 1.72, width: 0.21 + u * 0.11, curl: 0.3 + u * 0.16, jagged: 0 };
+        }
+        if (fxKind === "lightning") {
+            return { x: (i % 2 ? 0.26 : -0.26) + (i > count * 0.6 ? 0.24 : 0), y: 0.18 + u * 3.5, z: ((i % 3) - 1) * 0.17, pitch: 0, yaw: (i % 3 - 1) * 0.14, roll: i % 2 ? -0.72 : 0.72, length: 1.25 + (i % 3) * 0.24, width: 0.22, curl: 0.12, jagged: 0.24 };
+        }
+        if (fxKind === "earth") {
+            const a = -1.08 + u * 2.16;
+            return { x: Math.cos(a) * (0.45 + u * 0.75), y: 0.08 + (i % 3) * 0.15, z: Math.sin(a) * (0.45 + u * 0.75), pitch: 0.12, yaw: -a, roll: -0.52 + u * 1.04, length: 1.25 + (i % 3) * 0.22, width: 0.38 + (i % 2) * 0.08, curl: 0.1, jagged: 0.09 };
+        }
+        const lane = i - (count - 1) * 0.5;
+        const flame = fxKind === "fire";
+        return { x: flame ? Math.sin(i * 1.7) * (0.34 + u * 0.5) : 0.06 + (i % 2) * 0.16, y: 0.08 + (i % 3) * 0.18, z: flame ? Math.cos(i * 1.7) * (0.34 + u * 0.5) : lane * 0.22, pitch: 0, yaw: flame ? i * 1.7 : lane * 0.06, roll: flame ? 0.88 + (i % 3) * 0.28 : -0.76 + u * 1.52, length: 1.58 + (i % 3) * 0.28, width: 0.34 + (i % 2) * 0.07, curl: flame ? 0.56 + (i % 3) * 0.13 : fxKind === "abyss" ? 0.36 : 0.28, jagged: 0 };
+    }), [count, fxKind]);
+    const geometries = useMemo(() => specs.map((spec) => makeAnimeStrokeGeometry(spec.length, spec.width, spec.curl, spec.jagged)), [specs]);
+    useEffect(() => () => geometries.forEach((geometry) => geometry.dispose()), [geometries]);
+    const dx = to[0] - from[0], dz = to[2] - from[2];
+    const heading = Math.atan2(dx, dz);
+    const duration = fxKind === "water" ? 1.58 : fxKind === "wind" ? 1.5 : 1.42;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / duration);
+        const arrive = 1 - Math.pow(1 - Math.min(1, p / 0.22), 3);
+        const fade = p < 0.78 ? 1 : Math.max(0, 1 - (p - 0.78) / 0.22);
+        const travel = fxKind === "water" ? 1 - Math.pow(1 - Math.min(1, p / 0.34), 2) : 1;
+        if (root.current) {
+            root.current.position.set(lerp(from[0], to[0], travel), FLOOR_Y + 0.06, lerp(from[2], to[2], travel));
+            // A crest still travels down the attack lane, but presents at a
+            // three-quarter broadcast angle. Fully aligning a broad wave to the
+            // lane turns it edge-on and reads as a vertical board.
+            root.current.rotation.y = fxKind === "wind" ? heading + p * Math.PI * 2.4 : fxKind === "water" ? heading * 0.2 : heading;
+            root.current.scale.setScalar((0.24 + arrive * 1.04) * (fxKind === "wind" ? 1.06 : fxKind === "water" ? 0.8 : 1));
+        }
+        strokes.current.forEach((stroke, i) => {
+            if (!stroke) return;
+            const spec = specs[i];
+            const stagger = Math.max(0, Math.min(1, arrive * 1.35 - i * 0.035));
+            stroke.position.set(spec.x * stagger, spec.y * stagger, spec.z * stagger);
+            stroke.rotation.set(spec.pitch, spec.yaw + (fxKind === "wind" ? p * 0.9 : 0), spec.roll);
+            stroke.scale.setScalar(0.35 + stagger * 0.75);
+        });
+        materials.current.forEach((material) => { if (material) material.opacity = Number(material.userData.baseOpacity ?? 1) * fade; });
+        if (light.current) light.current.intensity = fade * Math.sin(Math.PI * Math.min(1, p * 1.35)) * 5.2;
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
+    });
+    return (
+        <group ref={root}>
+            {specs.map((spec, i) => (
+                <group key={`signature-brush-${i}`} ref={(group) => { strokes.current[i] = group; }}>
+                    <mesh geometry={geometries[i]} position={[0, 0, -0.05]} scale={[1.07, 1.07, 1.12]} castShadow={fxKind === "earth"}>
+                        <meshToonMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.8; materials.current[i * 3] = material; } }} color={palette.dark} transparent opacity={0.8} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={geometries[i]} castShadow={fxKind === "earth"}>
+                        <meshToonMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.96; materials.current[i * 3 + 1] = material; } }} color={i % 3 === 0 ? palette.accent : palette.body} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0.96} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={geometries[i]} position={[spec.length * 0.13, spec.width * 0.08, 0.075]} scale={[0.64, 0.3, 0.7]}>
+                        <meshToonMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.84; materials.current[i * 3 + 2] = material; } }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.11} transparent opacity={0.84} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </group>
+            ))}
+            {fxKind === "earth" && Array.from({ length: quality.id === "low" ? 6 : 10 }, (_, i) => {
+                const a = (i / 10) * Math.PI * 2;
+                return <mesh key={`signature-rock-${i}`} position={[Math.cos(a) * (0.65 + i % 3 * 0.25), 0.24 + i % 4 * 0.24, Math.sin(a) * (0.65 + i % 3 * 0.25)]} rotation={[i * 0.7, i * 0.4, i * 0.9]} scale={0.14 + i % 3 * 0.045} castShadow><dodecahedronGeometry args={[1, 0]} /><meshToonMaterial color={i % 2 ? palette.body : palette.accent} /></mesh>;
+            })}
+            <Sparkles count={Math.max(8, Math.round(quality.setPieceParticles * 0.48))} position={[0, fxKind === "wind" ? 1.8 : 1.0, 0]} scale={fxKind === "wind" ? [3.6, 4.2, 3.6] : [3.8, 3.1, 3.8]} size={1.8} speed={1.5} opacity={0.34} color={palette.core} noise={1.4} />
+            {quality.dynamicPetLight && <pointLight ref={light} position={[0, 1.3, 0]} color={palette.accent} intensity={0} distance={8} decay={2} />}
+        </group>
+    );
+}
+
 function DuelAiDebugHud({ duel, clock, nameById }: { duel: DuelResult; clock: { current: DuelClock }; nameById: Record<string, string> }) {
     const [tick, setTick] = useState(0);
     useEffect(() => {
@@ -4293,6 +6814,13 @@ export type PetColiseumDuelProps = {
 
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
+    // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
+    // into [min,max] — exactly what the static preset rendered) and let
+    // PerformanceMonitor drop it toward the floor under sustained load, restoring
+    // with headroom. This can only ever render FEWER pixels than before, never
+    // more, so it relieves fill-rate pressure without changing the resting look.
+    const dprBase = useMemo(() => Math.min(Math.max(quality.dpr[0], typeof window !== "undefined" ? window.devicePixelRatio : 1), quality.dpr[1]), [quality]);
+    const [dpr, setDpr] = useState(dprBase);
     const perfQa = useMemo(() => new URLSearchParams(window.location.search).get("petPerf") === "1", []);
     const mobileQa = useMemo(() => new URLSearchParams(window.location.search).get("mobileqa") === "1", []);
     const duel = useMemo(
@@ -4317,6 +6845,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
+    useEffect(() => scheduleDuelFxGeometryPrewarm(
+        roster.map((fighter) => duelElementBurstKind(fighter.pet.element)),
+        quality,
+    ), [quality, roster]);
 
     const clock = useRef<DuelClock>({ t: Math.max(0, initialTick), playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
     const seqRef = useRef(0);
@@ -4325,22 +6857,34 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
-    const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number }>>([]);
+    const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number; style: PetHeroMoveStyle }>>([]);
+    const [aftermathFx, setAftermathFx] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean }>>([]);
     const [supportFx, setSupportFx] = useState<Array<{ id: number; pos: Vec3; color: string; kind: DuelSupportKind; actorId?: string }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
-    const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
+    const [cutInQueue, setCutInQueue] = useState<Array<{ id: number; pet: Pet; side: "player" | "enemy"; move: string }>>([]);
+    const cutIn = cutInQueue[0] ?? null;
     const [shocks, setShocks] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
-    const [powerUps, setPowerUps] = useState<Array<{ id: number; pos: Vec3; color: string; actorId?: string }>>([]);
-    const [trails, setTrails] = useState<Array<{ id: number; pos: Vec3; toward: number; kind: MoveChoreoKind; color: string }>>([]);
-    const [setPieces, setSetPieces] = useState<Array<{ id: number; from: Vec3; to: Vec3; color: string; kind: DuelSetPieceKind }>>([]);
+    const [powerUps, setPowerUps] = useState<Array<{ id: number; pos: Vec3; color: string; actorId?: string; style: PetHeroMoveStyle }>>([]);
+    const [trails, setTrails] = useState<Array<{ id: number; pos: Vec3; toward: number; kind: MoveChoreoKind; color: string; weight: DuelAttackWeight; style: PetHeroMoveStyle }>>([]);
+    const [dashFx, setDashFx] = useState<DuelDashCue[]>([]);
+    const [pressureFx, setPressureFx] = useState<DuelPressureCue[]>([]);
+    const [setPieces, setSetPieces] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId?: string; color: string; kind: DuelSetPieceKind }>>([]);
+    const [dusts, setDusts] = useState<Array<{ id: number; at: Vec3 }>>([]);   // transient foot-dust on dodge landings / KO impact
+    const [scorches, setScorches] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks — the arena remembers the fight
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
     const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone } | null>(null);  // tiered move ID
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
+    useEffect(() => {
+        if (!cutIn) return;
+        const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), 1020);
+        return () => window.clearTimeout(timer);
+    }, [cutIn]);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
+    const profileById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, petCombatModel(r.pet)?.profile])) as Record<string, PetCombatModelProfile | undefined>, [roster]);
     const ultById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate"])) as Record<string, string>, [roster]);
     // Each pet's HERO move — its signature jutsu if flagged, else its strongest by power —
     // the move that earns the anime freeze-frame CUT-IN, so every fight gets epic moments
@@ -4361,7 +6905,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         // Clear the VS splash first, then let the gather play in the clear while the
         // simulation remains paused for the full opening.
         const splashT = window.setTimeout(() => setIntro(false), INTRO_SPLASH_END * 1000);
-        const fightT = window.setTimeout(() => { clock.current.playing = true; setPaused(false); }, INTRO_TOTAL * 1000);
+        const fightT = window.setTimeout(() => {
+            clock.current.intro = INTRO_TOTAL;
+            clock.current.playing = true;
+            setPaused(false);
+        }, INTRO_TOTAL * 1000);
         return () => { window.clearTimeout(splashT); window.clearTimeout(fightT); };
     }, [runId]);
 
@@ -4370,24 +6918,33 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setNumbers((arr) => [...arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }]);
+        setNumbers((arr) => [...arr.slice(-3), { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }]);
         window.setTimeout(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
     };
     const spawnImpact = (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => {
-        const id = seqRef.current++;
-        const fp = duelFieldToFloor(n.x, n.z);
         const mode = n.mode ?? "impact";
-        setImpacts((arr) => [...arr, { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }]);
-    };
-    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number }) => {
+        // In the 3D presentation, ordinary contacts are fully owned by the
+        // element brush burst and dash-arrival renderer. Keeping the legacy
+        // graphic impact on top reintroduced pale rings and visual clutter.
+        if (freeRoam3d && mode === "impact") return;
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setElementBursts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0 }]);
+        setImpacts((arr) => [...arr.slice(-2), { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }]);
+    };
+    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number; style?: PetHeroMoveStyle }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setElementBursts((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0, style: n.style ?? "generic" }]);
+    };
+    const spawnAftermath = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setAftermathFx(() => [{ id, pos: [fp.wx, FLOOR_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big }]);
     };
     const spawnSupport = (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setSupportFx((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + 0.035, fp.wz], color: n.color, kind: n.kind, actorId: n.actorId }]);
+        setSupportFx((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FLOOR_Y + 0.035, fp.wz], color: n.color, kind: n.kind, actorId: n.actorId }]);
     };
     // Element-distinct ability VFX — an explicit fx-folder `key` (the tactical-arena
     // assets: kaboom/explosion/vortex/spark/bighit) when given, else the plain
@@ -4407,29 +6964,111 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const spawnShock = (n: { x: number; z: number; color: string; big: boolean }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setShocks((arr) => [...arr, { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
+        setShocks((arr) => [...arr.slice(-1), { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
     };
-    const spawnPowerUp = (n: { x: number; z: number; color: string; actorId?: string }) => {
+    const spawnDust = (n: { x: number; z: number }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setPowerUps((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y, fp.wz], color: n.color, actorId: n.actorId }]);
+        setDusts((arr) => [...arr.slice(-4), { id, at: [fp.wx, FLOOR_Y + 0.02, fp.wz] as Vec3 }]);
+    };
+    const spawnScorch = (n: { x: number; z: number; big?: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        // Flat on the 3D floor with the renderer's own decal convention (rotate to XZ,
+        // just above FLOOR_Y, no depth write); keep only the last 8 so a long fight
+        // does not tile the whole arena.
+        setScorches((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + 0.025, fp.wz] as Vec3, w: n.big ? 2.3 : 1.55 }].slice(-8));
+    };
+    const spawnPowerUp = (n: { x: number; z: number; color: string; actorId?: string; style?: PetHeroMoveStyle }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setPowerUps((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FLOOR_Y, fp.wz], color: n.color, actorId: n.actorId, style: n.style ?? "generic" }]);
     };
     // Swept melee weapon trail at the ATTACKER (mid-body), per choreography archetype.
-    const spawnTrail = (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string }) => {
+    const spawnTrail = (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string; weight: DuelAttackWeight; style: PetHeroMoveStyle }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setTrails((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.42, fp.wz], toward: n.toward, kind: n.kind, color: n.color }]);
+        setTrails((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.42, fp.wz], toward: n.toward, kind: n.kind, color: n.color, weight: n.weight, style: n.style }]);
     };
-    const spawnSetPiece = (n: { fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => {
+    const spawnDash = (n: { actorId?: string; fromX: number; fromZ: number; toX: number; toZ: number; impactX?: number; impactZ?: number; color: string; element?: string | null; move?: string; style?: PetHeroMoveStyle; impact: boolean; startTick?: number; contactTick?: number }) => {
         const id = seqRef.current++;
         const from = duelFieldToFloor(n.fromX, n.fromZ);
         const to = duelFieldToFloor(n.toX, n.toZ);
-        setSetPieces((arr) => [...arr, {
+        const impact = duelFieldToFloor(n.impactX ?? n.toX, n.impactZ ?? n.toZ);
+        const travelDuration = n.impact ? 0.48 : 0.42;
+        const duration = n.impact ? 1.04 : 0.82;
+        const startTick = n.startTick ?? clock.current.t;
+        const contactTick = Math.max(startTick + 1, n.contactTick ?? startTick + Math.round(DUEL_TPS * 0.5));
+        const endTick = contactTick + Math.round(DUEL_TPS * (n.impact ? 1.15 : 0.8));
+        // Alternate the authored lane per cue/actor. This is deterministic visual
+        // choreography, not navigation: the pet still starts and lands at the
+        // simulator's exact positions, but cuts across an S-shaped attack lane.
+        const side = ((id + (n.actorId?.length ?? 0)) & 1) === 0 ? 1 : -1;
+        const kind = duelElementBurstKind(n.element, n.move);
+        const lunarMove = /lunar|eclipse|moon|ninetail|kitsune/i.test(String(n.move ?? ""));
+        const cue: DuelDashCue = {
+            id,
+            actorId: n.actorId,
+            from: [from.wx, FLOOR_Y, from.wz],
+            to: [to.wx, FLOOR_Y, to.wz],
+            impactAt: [impact.wx, FLOOR_Y, impact.wz],
+            color: lunarMove ? "#9d7cff" : n.color,
+            kind,
+            move: n.move,
+            style: n.style ?? "generic",
+            impact: n.impact,
+            createdAt: performance.now(),
+            duration,
+            travelDuration,
+            startTick,
+            contactTick,
+            endTick,
+            bend: side * (n.impact ? 0.56 : 0.42) * (n.style && n.style !== "generic" ? 1.32 : 1),
+            weave: -side * (n.impact ? 0.24 : 0.18) * (n.style && n.style !== "generic" ? 1.38 : 1),
+        };
+        // At most one authored route can own a fighter. Overlapping cues were
+        // the direct cause of the dash popping between two paths.
+        setDashFx((arr) => [...arr.filter((existing) => !n.actorId || existing.actorId !== n.actorId), cue]);
+    };
+    const spawnPressure = (n: { fromX: number; fromZ: number; toX: number; toZ: number; leftColor: string; rightColor: string; leftElement?: string | null; rightElement?: string | null }) => {
+        const id = seqRef.current++;
+        const from = duelFieldToFloor(n.fromX, n.fromZ);
+        const to = duelFieldToFloor(n.toX, n.toZ);
+        setPressureFx(() => [{
             id,
             from: [from.wx, FLOOR_Y, from.wz],
             to: [to.wx, FLOOR_Y, to.wz],
-            color: elementColor(n.element).glow,
-            kind: duelSetPieceKind(n.element, n.move),
+            leftColor: n.leftColor,
+            rightColor: n.rightColor,
+            leftKind: duelElementBurstKind(n.leftElement),
+            rightKind: duelElementBurstKind(n.rightElement),
+        }]);
+    };
+    const spawnSetPiece = (n: { actorId?: string; targetId?: string; fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => {
+        const id = seqRef.current++;
+        // Signature releases are deliberately delayed until their portrait/charge
+        // anticipation clears. Resolve both combatants at RELEASE time instead of
+        // replaying the coordinates captured 1.1-1.4 seconds earlier. At the faster
+        // presentation clock that stale point could already be occupied by the
+        // caster, making a hostile tornado look like a self-cast.
+        const snapshot = duel.snapshots[Math.min(duel.snapshots.length - 1, Math.max(0, Math.floor(clock.current.t)))];
+        const actor = n.actorId ? snapshot?.actors.find((candidate) => candidate.id === n.actorId && candidate.hp > 0) : null;
+        let target = n.targetId && n.targetId !== n.actorId
+            ? snapshot?.actors.find((candidate) => candidate.id === n.targetId && candidate.hp > 0)
+            : null;
+        if (!target && actor) {
+            target = snapshot?.actors.find((candidate) => candidate.hp > 0 && candidate.team !== actor.team) ?? null;
+        }
+        const from = actor ? duelFieldToFloor(actor.x, actor.y) : duelFieldToFloor(n.fromX, n.fromZ);
+        const to = target ? duelFieldToFloor(target.x, target.y) : duelFieldToFloor(n.toX, n.toZ);
+        const kind = duelSetPieceKind(n.element, n.move);
+        setSetPieces(() => [{
+            id,
+            from: [from.wx, FLOOR_Y, from.wz],
+            to: [to.wx, FLOOR_Y, to.wz],
+            targetId: target?.id ?? n.targetId,
+            color: kind === "lunarBurst" ? "#9d7cff" : elementColor(n.element).base,
+            kind,
         }]);
     };
     // Full-screen element flash / big "CRITICAL!/FINISH!" callout / combo-counter pop.
@@ -4445,20 +7084,34 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerCutIn = (actorId: string, move: string) => {
         const r = roster.find((x) => x.id === actorId); if (!r) return;
         const id = seqRef.current++;
-        setCutIn({ id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") });
-        window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 900);
+        setCutInQueue((queue) => [...queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") }]);
     };
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the still size-up / power-gather clock.
-        if (!clock.current.playing) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
+        if (!clock.current.playing || cutIn) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
         clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setSupportFx([]); setFxList([]); setCutIn(null); setShocks([]); setPowerUps([]); setTrails([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
+    const finishDuel = () => {
+        // The result is its own shot. A late hero cut-in, dash ribbon, or pressure
+        // volume must never remain layered over the winner/loser composition.
+        setEnded(true);
+        setCutInQueue([]);
+        setCallout(null);
+        setCombo(null);
+        setAnnounce(null);
+        setMoveCallout(null);
+        setPowerUps([]);
+        setTrails([]);
+        setDashFx([]);
+        setPressureFx([]);
+        setSetPieces([]);
+    };
+    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setDusts([]); setScorches([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
-        <div data-testid="pet-duel-root" style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: 200, width: mobileQa ? 390 : "100vw", height: mobileQa ? "min(844px,100vh)" : "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
+        <div data-testid="pet-duel-root" className={mobileQa ? "pet-duel-mobile-qa" : undefined} style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: 200, width: mobileQa ? 390 : "100vw", height: mobileQa ? "min(844px,100vh)" : "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
             <style>{`
                 @keyframes petDuelFlash { 0% { opacity: 0; } 14% { opacity: var(--fp, 0.4); } 100% { opacity: 0; } }
                 @keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
@@ -4471,44 +7124,83 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
                 @keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petSignatureCue { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); } 20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
+                @keyframes petHeroMotif { 0% { opacity: 0; transform: scale(1.65) rotate(-22deg); } 24% { opacity: .2; transform: scale(.94) rotate(4deg); } 100% { opacity: .08; transform: scale(1.08) rotate(0deg); } }
+                .pet-duel-hero-cutin { z-index: 16; padding-inline: clamp(22px,8vw,120px); gap: clamp(20px,4vw,64px); background: linear-gradient(100deg,rgba(2,6,23,0.08) 0%,rgba(2,6,23,0.94) 20%,rgba(8,12,28,0.96) 78%,rgba(2,6,23,0.08) 100%); }
+                .pet-duel-hero-cutin .pet-cutin-motif { position: absolute; z-index: 1; top: 50%; translate: 0 -50%; color: var(--hero-glow); font: 900 clamp(180px,34vw,470px)/.72 Georgia,serif; text-shadow: 0 0 36px var(--hero-glow); opacity: .08; animation: petHeroMotif 920ms cubic-bezier(.16,.84,.24,1) both; pointer-events: none; }
+                .pet-duel-hero-cutin.player .pet-cutin-motif { left: 3%; }
+                .pet-duel-hero-cutin.enemy .pet-cutin-motif { right: 3%; }
+                .pet-duel-hero-cutin .pet-cutin-portrait { position: relative; z-index: 2; filter: drop-shadow(0 14px 20px rgba(0,0,0,.68)); }
+                .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar { width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); overflow: visible; }
+                .pet-duel-hero-cutin .pet-cutin-portrait > img { display: block; width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); object-fit: contain; }
+                .pet-duel-hero-cutin .pet-cutin-text { position: relative; z-index: 2; max-width: min(52vw,760px); gap: 8px; }
+                .pet-duel-hero-cutin .pet-cutin-pet { font-size: clamp(12px,1.5vw,19px); color: var(--hero-glow); text-shadow: 0 0 16px var(--hero-glow); }
+                .pet-duel-hero-cutin .pet-cutin-move { font-size: clamp(30px,5.4vw,68px); white-space: normal; text-wrap: balance; text-shadow: 0 0 18px var(--hero-glow),0 5px 14px #000; }
+                .pet-duel-hero-cutin .pet-cutin-kicker { color: #fff4c7; font: 900 clamp(10px,1.1vw,14px)/1 var(--font-display); letter-spacing: .24em; text-transform: uppercase; }
+                .pet-duel-mobile-qa .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; }
+                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait > img { width: 145px; height: 145px; }
+                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; }
+                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; }
+                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
-            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={quality.dpr} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || ended ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
+                {/* Adaptive DPR: drop to the tier floor under sustained load, restore with
+                    headroom; flipflops pins to the floor rather than oscillate. */}
+                <PerformanceMonitor onDecline={() => setDpr(quality.dpr[0])} onIncline={() => setDpr(dprBase)} flipflops={3} onFallback={() => setDpr(quality.dpr[0])} />
                 <Arena floor={floor} backdrop={backdrop} big />
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
                 <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />
                 {roster.map((r) => (
-                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} />
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} />
                 ))}
                 {Array.from({ length: 8 }).map((_, i) => (
-                    <DuelProjectile key={i} index={i} duel={duel} clock={clock} native={freeRoam3d} />
+                    <DuelProjectile key={i} index={i} duel={duel} clock={clock} quality={quality} native={freeRoam3d} />
                 ))}
                 {impacts.map((im) => (
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} mode={im.mode} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
                 {elementBursts.map((burst) => (
-                    <DuelElementBurst key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} heading={burst.heading} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
+                    <DuelElementVolume key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} heading={burst.heading} phase="contact" quality={quality} heroStyle={burst.style} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
+                ))}
+                {aftermathFx.map((fx) => (
+                    <DuelElementVolume key={fx.id} at={fx.pos} kind={fx.kind} color={fx.color} big={fx.big} phase="aftermath" quality={quality} onDone={() => setAftermathFx((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
                 {supportFx.map((fx) => (
                     <DuelSupportEffect key={fx.id} at={fx.pos} color={fx.color} kind={fx.kind} actorId={fx.actorId} duel={duel} clock={clock} onDone={() => setSupportFx((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
                 {shocks.map((s) => (
-                    <DuelShockwave key={s.id} at={s.pos} color={s.color} big={s.big} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
+                    <DuelShockwaveV2 key={s.id} at={s.pos} color={s.color} big={s.big} quality={quality} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
+                ))}
+                {/* Accumulating scorch marks (crit/KO) + transient foot-dust — the floor remembers the fight. */}
+                {scorches.map((s) => (
+                    <mesh key={s.id} position={s.pos} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-2}>
+                        <planeGeometry args={[s.w, s.w]} />
+                        <meshBasicMaterial map={shadowTexture()} color="#241a12" transparent opacity={0.5} depthWrite={false} toneMapped={false} />
+                    </mesh>
+                ))}
+                {dusts.map((d) => (
+                    <DustPuff key={d.id} at={d.at} onDone={() => setDusts((p) => p.filter((x) => x.id !== d.id))} />
                 ))}
                 {powerUps.map((power) => (
-                    <DuelPowerUpAura key={power.id} at={power.pos} color={power.color} quality={quality} actorId={power.actorId} duel={duel} clock={clock} onDone={() => setPowerUps((p) => p.filter((x) => x.id !== power.id))} />
+                    <DuelPowerUpAura key={power.id} at={power.pos} color={power.color} quality={quality} actorId={power.actorId} duel={duel} clock={clock} heroStyle={power.style} onDone={() => setPowerUps((p) => p.filter((x) => x.id !== power.id))} />
                 ))}
                 {trails.map((tr) => (
-                    <DuelMeleeTrail key={tr.id} at={tr.pos} toward={tr.toward} kind={tr.kind} color={tr.color} native={freeRoam3d} onDone={() => setTrails((p) => p.filter((x) => x.id !== tr.id))} />
+                    <DuelMeleeTrail key={tr.id} at={tr.pos} toward={tr.toward} kind={tr.kind} color={tr.color} weight={tr.weight} heroStyle={tr.style} native={freeRoam3d} onDone={() => setTrails((p) => p.filter((x) => x.id !== tr.id))} />
+                ))}
+                {dashFx.map((dash) => (
+                    <DuelDashEffectV2 key={dash.id} cue={dash} clock={clock} quality={quality} onDone={() => setDashFx((p) => p.filter((x) => x.id !== dash.id))} />
+                ))}
+                {pressureFx.map((pressure) => (
+                    <DuelPressureClashV2 key={pressure.id} from={pressure.from} to={pressure.to} leftColor={pressure.leftColor} rightColor={pressure.rightColor} leftKind={pressure.leftKind} rightKind={pressure.rightKind} quality={quality} onDone={() => setPressureFx((p) => p.filter((x) => x.id !== pressure.id))} />
                 ))}
                 {setPieces.map((piece) => (
-                    <DuelElementSetPiece key={piece.id} kind={piece.kind} from={piece.from} to={piece.to} color={piece.color} quality={quality} onDone={() => setSetPieces((p) => p.filter((x) => x.id !== piece.id))} />
+                    <DuelSignatureSetPiece key={piece.id} kind={piece.kind} from={piece.from} to={piece.to} targetId={piece.targetId} duel={duel} clock={clock} color={piece.color} quality={quality} onDone={() => setSetPieces((p) => p.filter((x) => x.id !== piece.id))} />
                 ))}
                 {fxList.map((fx) => (
                     <FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
@@ -4518,7 +7210,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
                 <BloomFx />
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
@@ -4541,17 +7233,26 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {cutIn && (() => {
                 const isEnemy = cutIn.side === "enemy";
                 const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
+                const cutPoseId = posedId(cutIn.pet.id);
+                const lunarHero = /kitsune|eclipse/i.test(cutIn.pet.name);
+                const tidalHero = /selkie|tidal/i.test(cutIn.pet.name);
+                const heroMotif = lunarHero ? "☾" : tidalHero ? "≋" : "✦";
+                const heroKicker = lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : "Anime Break";
                 return (
-                    <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 16 }}>
-                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}2e, transparent 46%), linear-gradient(${isEnemy ? 250 : 110}deg, transparent 34%, ${elementBase}24 50%, transparent 66%)`, animation: "petSignatureFocus 900ms ease-out forwards" }} />
-                        {/* BIG portrait slamming in from the pet's side */}
-                        {/* radial GLOW behind the portrait so the hero shot pops off the dark scene */}
-                        {/* BIG portrait hero shot — well inside the arena (clear of the side panels) */}
-                        {/* pet name + big move name — CENTERED in a safe zone so it never runs under
-                            the side panels / off-frame, and wraps when the move name is long. */}
-                        <div style={{ position: "absolute", left: "50%", top: "9%", maxWidth: "76vw", padding: "5px 16px", borderRadius: 999, border: `1px solid ${elementGlow}`, background: "rgba(5,8,18,0.78)", boxShadow: `0 0 24px ${elementGlow}55`, color: "#fff", textAlign: "center", whiteSpace: "nowrap", animation: "petSignatureCue 900ms ease-out forwards" }}>
-                            <span style={{ color: elementGlow, font: "800 11px var(--font-display)", letterSpacing: "0.14em", textTransform: "uppercase" }}>{cutIn.pet.name}</span>
-                            <span style={{ marginLeft: 9, font: "900 clamp(14px,2vw,22px) var(--font-display)", textShadow: `0 0 14px ${elementGlow}` }}>{cutIn.move}</span>
+                    <div className={`pet-cutin pet-duel-hero-cutin ${cutIn.side}`} key={`cutin-${cutIn.id}`} style={{ ["--hero-glow" as string]: elementGlow, boxShadow: `inset 0 0 90px ${elementBase}55` } as React.CSSProperties}>
+                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}42, transparent 44%)`, mixBlendMode: "screen" }} />
+                        <span className="pet-cutin-motif" aria-hidden="true">{heroMotif}</span>
+                        <div className="pet-cutin-portrait">
+                            {cutPoseId ? (
+                                <img src={poseUrl(cutPoseId, "cast")} alt={cutIn.pet.name} style={{ transform: isEnemy ? "scaleX(-1)" : undefined }} />
+                            ) : (
+                                <PetBattleAvatar pet={cutIn.pet} side={cutIn.side} active sharedImages={sharedImages} visualState="rangedCast" />
+                            )}
+                        </div>
+                        <div className="pet-cutin-text">
+                            <span className="pet-cutin-kicker">{heroKicker}</span>
+                            <span className="pet-cutin-pet">{cutIn.pet.name}</span>
+                            <span className="pet-cutin-move">{cutIn.move}!</span>
                         </div>
                     </div>
                 );
@@ -4597,6 +7298,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     left: "50%",
                     top: "9%",
                     transform: "translateX(-50%)",
+                    maxWidth: mobileQa ? "calc(100% - 24px)" : "84%",
+                    boxSizing: "border-box",
+                    textAlign: "center",
                     pointerEvents: "none",
                     padding: "4px 13px",
                     borderRadius: 999,
@@ -4607,7 +7311,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     font: tactical ? "800 clamp(12px,1.6vw,18px)/1 var(--font-display)" : "900 clamp(13px,2vw,21px)/1 var(--font-display)",
                     letterSpacing: tactical ? "0.08em" : "0.04em",
                     textShadow: "0 2px 10px #000",
-                    whiteSpace: "nowrap",
+                    whiteSpace: mobileQa ? "normal" : "nowrap",
                     animation: tactical ? "petDuelTacticalMove 1000ms ease-out forwards" : "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards",
                     zIndex: 12,
                 }}>{moveCallout.tone === "support" ? "POWER UP · " : moveCallout.tone === "maneuver" ? "SHIFT · " : ""}{moveCallout.text}</div>;
@@ -4615,7 +7319,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
             {announce && !ended && !cutIn && !callout && !moveCallout && (
-                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
+                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", width: mobileQa ? "calc(100% - 24px)" : "max-content", maxWidth: "84%", boxSizing: "border-box", textAlign: "center", pointerEvents: "none", padding: mobileQa ? "7px 12px" : "7px 22px", borderRadius: mobileQa ? 18 : 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: mobileQa ? "800 14px/1.2 var(--font-display)" : "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: mobileQa ? "normal" : "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
             {debugAi && <DuelAiDebugHud duel={duel} clock={clock} nameById={nameById} />}

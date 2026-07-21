@@ -29,6 +29,7 @@ const _first_save_baseline_js_1 = require("./_first-save-baseline.js");
 const _stat_entitlement_js_1 = require("./_stat-entitlement.js");
 const _forge_js_1 = require("../bloodlines/_forge.js");
 const formulas_js_1 = require("../combat-core/formulas.js");
+const _entitlements_js_1 = require("../_entitlements.js");
 // Non-owner reads use an explicit ALLOWLIST at BOTH the root and character
 // level (see buildPublicSaveDTO). A blacklist is not the boundary anymore: the
 // old projection spread the entire top-level save into the response and only
@@ -309,6 +310,10 @@ const STRICT_SERVER_LEDGER_CHARACTER_FIELDS = [
 const ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS = [
     'bankRyo', 'rankedRating', 'petRankedRating',
     'professionXp', 'professionRank', 'serverSettlementReceipts',
+    // Patreon subscriber flag — written ONLY by the signature-verified webhook /
+    // OAuth callback (api/patreon/*). Forcing it from the stored record here
+    // means a client save can never set or forge it (self-granting perks).
+    'patreon',
 ];
 const SERVER_PAYOUT_CHARACTER_FIELDS = [
     'lastBankInterestAt', 'lastLoginRewardDate', 'loginStreak',
@@ -1084,12 +1089,19 @@ function sanitizeCharacterSave(incoming, existing) {
             char[ratingField] = inV > exV ? exV : inV;
         }
     }
-    // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered
-    // client could POST a save with 6+ pets. Server truncates so we don't
-    // silently lose the extras on next reload (which is what the old load-
-    // time .slice(0, 5) did). Preserve the active pet if it's in the cut.
-    const PET_CAP = 5;
+    // Pet roster cap: a tampered client could POST a save with more pets than
+    // allowed. Server truncates so we don't silently lose extras on next reload.
+    // Preserve the active pet if it's in the cut. Subscriber-aware (Patreon
+    // perk): 3 for the base tier, 5 for subscribers. `char.patreon` is forced
+    // from stored later in this pipeline, but it is already the stored value on
+    // an autosave (the client can't set it), so reading it here is safe.
+    //
+    // NON-DESTRUCTIVE downgrade: never truncate BELOW the already-stored roster,
+    // so a lapsed subscriber (or a legacy larger roster) keeps every pet — the
+    // cap only prevents GROWING past it. A legit base-tier roster is <=3, so a
+    // tampered save still can't grow the roster past 3.
     const existingPets = Array.isArray(exChar.pets) ? exChar.pets : [];
+    const PET_CAP = Math.max((0, _entitlements_js_1.maxPets)(char), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
     const submittedPets = Array.isArray(char.pets) ? char.pets : [];
     const PET_IDENTITY_FIELDS = [
@@ -1226,7 +1238,12 @@ function sanitizeCharacterSave(incoming, existing) {
             const id = typeof row?.itemId === 'string' ? row.itemId : '';
             return Math.max(0, Math.floor(Number(row?.count) || 0)) > (storedCounts.get(id) ?? 0);
         });
-        if (addedInventory.length === 1 && !unownedStackClaim) {
+        // The single-item carve-out lets a legacy client-side pickup persist one
+        // net-new item per save, but NEVER a server-owned id (crates, keys, war
+        // caches, hunt materials) — those are minted only by their own
+        // server-authoritative endpoints, so a hand-crafted save can spend them
+        // but not conjure them.
+        if (addedInventory.length === 1 && !unownedStackClaim && !(0, _entitlement_guard_js_1.isServerOwnedItemId)(addedInventory[0])) {
             char.inventory = [...char.inventory, addedInventory[0]];
         }
     }
@@ -1877,6 +1894,35 @@ function sanitizeCharacterSave(incoming, existing) {
     }
     const finalChar = isFirstSave ? (0, _first_save_baseline_js_1.applyCanonicalFirstSave)(char) : char;
     enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);
+    // ── Patreon subscriber perk caps (authoritative) ──────────────────────────
+    // Runs AFTER the ledger boundary, so finalChar.patreon is the stored,
+    // un-forgeable flag and these caps are the final word regardless of
+    // STRICT_RAW_SAVE_LEDGER. The base tier is intentionally lower than the
+    // subscriber tier (see api/_entitlements.ts):
+    //   • jutsu loadout: 12 (base) / 15 (subscriber). The legacy 16th slot is a
+    //     separate additive field and is unaffected.
+    //   • custom avatar: subscribers only. A non-subscriber may keep an already-
+    //     stored avatar (grandfathered) or switch to a preset, but a NEW custom
+    //     value is reverted to the stored one (avatarImage is otherwise
+    //     unvalidated on write).
+    // (Pet roster is capped above via PET_CAP = maxPets(char).)
+    {
+        const fc = finalChar;
+        if (Array.isArray(fc.equippedJutsuIds)) {
+            const cap = (0, _entitlements_js_1.maxLoadout)(fc);
+            fc.equippedJutsuIds = [...new Set(fc.equippedJutsuIds.filter((id) => typeof id === 'string' && id.length > 0))].slice(0, cap);
+        }
+        if (!(0, _entitlements_js_1.isPatreonSubscriber)(fc)) {
+            const incomingAvatar = fc.avatarImage;
+            const storedAvatar = exChar.avatarImage;
+            if (typeof incomingAvatar === 'string' && !(0, _entitlements_js_1.isPresetAvatar)(incomingAvatar) && incomingAvatar !== storedAvatar) {
+                if (typeof storedAvatar === 'string')
+                    fc.avatarImage = storedAvatar;
+                else
+                    delete fc.avatarImage;
+            }
+        }
+    }
     const out = { ...incoming, character: finalChar };
     // Stat training is server-created and server-cleared. A generic autosave
     // cannot forge, replace, or replay the top-level session descriptor.

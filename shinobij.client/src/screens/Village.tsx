@@ -8,6 +8,7 @@ import { DayNightSky } from "../components/DayNightSky";
 import { JourneyGuide } from "../components/JourneyGuide";
 import { preloadScreen } from "../lib/screen-preload";
 import { VILLAGE_FACILITIES } from "../lib/facility-presentation";
+import { facilityThumb } from "../lib/facility-thumbs";
 import type { CSSProperties } from "react";
 
 // Ambience tuned to each village's painted scene: snow over Frostfang, drifting
@@ -54,12 +55,9 @@ export function Village({ character, setScreen }: { character: Character; setScr
                         aria-label={`Enter ${location.name}`}
                     >
                         <span className="stormveil-map-icon-frame">
-                            <img className="stormveil-map-icon" src={location.thumbnail} alt="" draggable={false} />
+                            <img className="stormveil-map-icon" src={facilityThumb(characterVillage, location.id)} alt="" draggable={false} />
                         </span>
-                        <span className="stormveil-map-copy">
-                            <span>{location.eyebrow}</span>
-                            <strong>{location.name}</strong>
-                        </span>
+                        <strong className="stormveil-map-label">{location.name}</strong>
                     </button>
                 ))}
             </div>
