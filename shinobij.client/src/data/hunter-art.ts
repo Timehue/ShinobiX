@@ -14,6 +14,12 @@ import moonSerpent from "../assets/hunter/beasts/hunt-ai-moon-serpent.webp";
 import ancientBeast from "../assets/hunter/beasts/hunt-ai-ancient-chakra-beast.webp";
 import worldstormDragon from "../assets/hunter/beasts/hunt-ai-worldstorm-dragon.webp";
 
+// ── Apex Contract beasts (Hunter Rank 5 weekly capstone) ────────────────────
+import apexEmberDrake from "../assets/hunter/beasts/apex-ai-ember-drake.webp";
+import apexMoonSerpent from "../assets/hunter/beasts/apex-ai-moon-serpent.webp";
+import apexAncientBeast from "../assets/hunter/beasts/apex-ai-ancient-chakra-beast.webp";
+import apexWorldstorm from "../assets/hunter/beasts/apex-ai-worldstorm-dragon.webp";
+
 // ── Material icons (key = item id) ──────────────────────────────────────────
 import mTornHide from "../assets/hunter/materials/hunt-torn-hide.webp";
 import mWildFeather from "../assets/hunter/materials/hunt-wild-feather.webp";
@@ -42,6 +48,12 @@ import rank5 from "../assets/hunter/ranks/hunter-rank-5.webp";
 import guildBoard from "../assets/hunter/hunter-guild-board.webp";
 export const HUNTER_GUILD_BACKDROP = guildBoard;
 
+// ── Apex Contract banner ────────────────────────────────────────────────────
+// Deliberately text-free so it works as a backdrop behind the live contract
+// copy (beast name, week, purse) rather than baking any of it into the art.
+import apexBanner from "../assets/hunter/apex-banner.webp";
+export const APEX_CONTRACT_BANNER = apexBanner;
+
 const BEAST_PORTRAITS: Record<string, string> = {
     "hunt-ai-wild-boar": boar,
     "hunt-ai-forest-hawk": hawk,
@@ -53,6 +65,13 @@ const BEAST_PORTRAITS: Record<string, string> = {
     "hunt-ai-moon-serpent": moonSerpent,
     "hunt-ai-ancient-chakra-beast": ancientBeast,
     "hunt-ai-worldstorm-dragon": worldstormDragon,
+    // Apex beasts have their OWN art — a normal hunt and its Apex must not wear
+    // the same face. beastPortrait() still falls back to the base beast below,
+    // as a net for any future apex id added before its portrait exists.
+    "apex-ai-ember-drake": apexEmberDrake,
+    "apex-ai-moon-serpent": apexMoonSerpent,
+    "apex-ai-ancient-chakra-beast": apexAncientBeast,
+    "apex-ai-worldstorm-dragon": apexWorldstorm,
 };
 
 const HUNT_MATERIAL_ICONS: Record<string, string> = {
@@ -74,9 +93,24 @@ const HUNT_MATERIAL_ICONS: Record<string, string> = {
 
 const HUNTER_RANK_BADGES: readonly string[] = [rank0, rank1, rank2, rank3, rank4, rank5];
 
-/** Portrait for a hunt beast by its AI profile id (undefined → caller falls back to emoji). */
+/**
+ * Portrait for a hunt beast by its AI profile id (undefined → caller falls back
+ * to emoji).
+ *
+ * Apex Contract beasts carry a DISTINCT id (`apex-ai-<beast>`) so an Apex kill
+ * can never stamp a normal hunt's receipt — which also means they miss this
+ * lookup and would fight as an emoji, the exact bug the bundled portraits exist
+ * to prevent. Fall back to the base beast's art so an Apex is never artless,
+ * even if it never gets portraits of its own.
+ */
 export function beastPortrait(aiProfileId?: string): string | undefined {
-    return aiProfileId ? BEAST_PORTRAITS[aiProfileId] : undefined;
+    if (!aiProfileId) return undefined;
+    const direct = BEAST_PORTRAITS[aiProfileId];
+    if (direct) return direct;
+    if (aiProfileId.startsWith("apex-ai-")) {
+        return BEAST_PORTRAITS[`hunt-ai-${aiProfileId.slice("apex-ai-".length)}`];
+    }
+    return undefined;
 }
 /** Icon for a hunt drop material by item id. */
 export function huntMaterialIcon(itemId?: string): string | undefined {

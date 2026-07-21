@@ -41,9 +41,23 @@ export function huntTrailSector(
     const requiredTracks = huntRequiredTracks(mission);
     const stage = Math.max(0, Math.min(requiredTracks - 1, Math.floor(progress)));
 
-    if (stage === 0 || stage >= requiredTracks - 1) return target;
+    // Only the FINAL stage is the beast's ground. Earlier stages used to include
+    // stage 0, which made the trail run target -> elsewhere -> target: the player
+    // started on the destination, got yanked away to a hashed sector, then pulled
+    // back. It read as arbitrary teleporting rather than a hunt.
+    if (stage >= requiredTracks - 1) return target;
 
+    // Walk the trail INWARD. `trailCandidates` is sorted nearest-first, so band 0
+    // is the closest ring and the last band the farthest. Stage 0 draws from the
+    // farthest band and each track closes one band, so the sign genuinely leads
+    // toward the target instead of bouncing around the biome.
     const candidates = trailCandidates(target);
+    const approachStages = Math.max(1, requiredTracks - 1);
+    const bandSize = Math.max(1, Math.ceil(candidates.length / approachStages));
+    const bandFromTarget = approachStages - 1 - stage;
+    const start = Math.min(Math.max(0, candidates.length - 1), bandFromTarget * bandSize);
+    const band = candidates.slice(start, Math.min(candidates.length, start + bandSize));
+    const pool = band.length > 0 ? band : candidates;
     const seed = hashString(`${mission.id}:${hunterName.toLowerCase()}:${stage}:${target}`);
-    return candidates[seed % candidates.length] ?? target;
+    return pool[seed % pool.length] ?? target;
 }

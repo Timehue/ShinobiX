@@ -895,7 +895,10 @@ export function sanitizeCharacterSave(
     // flows. Generic saves may mirror them but cannot mint achievement or combat
     // entitlement by increasing them.
     if (!isFirstSave) {
-        for (const field of ['auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'element', 'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus', 'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions', 'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount', 'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed', 'redeemedWandererQuests', 'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns', 'villageUpgrades'] as const) {
+        // 'apexWeekClaimed' is the ONLY thing stopping a Hunter-Rank-5 player from
+        // re-claiming the 8,000-ryo Apex purse every save: claim-mission stamps it
+        // with the settled ISO week, so a client-writable copy could just be reset.
+        for (const field of ['auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'apexWeekClaimed', 'element', 'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus', 'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions', 'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount', 'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed', 'redeemedWandererQuests', 'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns', 'villageUpgrades'] as const) {
             if (exChar[field] !== undefined) char[field] = exChar[field];
             else delete char[field];
         }
