@@ -578,6 +578,10 @@ export type Character = {
     claimedVillageAgendaDate?: string;
     claimedMapControlDate?: string;
     hunterRank?: number;
+    // ISO week key ("2026-W30") of the last settled Apex Contract. SERVER-OWNED
+    // (api/save/[name].ts entitlement guard) — it is the only thing gating the
+    // weekly Apex purse, so a client-writable copy could be reset to re-claim.
+    apexWeekClaimed?: string;
     weeklyBossKills?: Record<string, string>;
     claimedWarCrateIds?: string[];
     elderFocus?: "war" | "trade" | "training";

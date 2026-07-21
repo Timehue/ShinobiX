@@ -5043,9 +5043,9 @@ export default function App() {
         // dying or fleeing the beast. Flush the completion to the server NOW: it
         // lives only in the client missionProgress map, so a save-conflict refetch
         // before the 3–15s autosave would revert it below required and hide Claim.
+        // No hunt-kill POST here — record-progress rejects that kind ('combat-proof-required'); api/missions/report-ai-fight is the real receipt producer.
         if ((missionProgress[mission.id] ?? 0) >= required - 1) {
             flushSaveRef.current = true;
-            recordBuiltInMissionProgress(mission.id, "hunt-kill");
         }
         setMissionProgress((current) =>
             (current[mission.id] ?? 0) >= required - 1

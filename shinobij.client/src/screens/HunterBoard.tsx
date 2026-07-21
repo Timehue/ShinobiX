@@ -11,7 +11,18 @@ import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
-import { beastPortrait, huntMaterialIcon, hunterRankBadge, HUNTER_GUILD_BACKDROP } from "../data/hunter-art";
+import { beastPortrait, huntMaterialIcon, hunterRankBadge, HUNTER_GUILD_BACKDROP, APEX_CONTRACT_BANNER } from "../data/hunter-art";
+import { clearHuntQuality } from "../lib/hunt-run-state";
+import {
+    APEX_FATE_SHARDS,
+    APEX_RYO,
+    APEX_XP,
+    apexBeastForWeek,
+    apexClaimedThisWeek,
+    canTakeApex,
+    isoWeekKey,
+} from "../lib/apex-contract";
+import "./HunterBoard.apex.css";
 import { gainXp } from "../App";
 import { rankUpHunterServer } from "../lib/hunter-rank-api";
 import { countItem } from "../lib/inventory";
@@ -25,6 +36,10 @@ export function HunterBoard({
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
+    // Was declared in the prop type but never destructured — a leftover from an
+    // older "fight straight from the board" path. The Apex Contract is exactly
+    // that, so it finally has a use.
+    setPendingAiProfileId,
     setScreen,
 }: {
     character: Character;
@@ -69,6 +84,9 @@ export function HunterBoard({
         // Reset tracking to 0 on accept — never inherit a stale value left in the
         // shared map, which would make the contract instantly (falsely) claimable.
         setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
+        // Same reasoning for Hunt Quality: a re-accepted contract starts neutral,
+        // never inheriting the tracking decisions of a previous run.
+        clearHuntQuality(mission.id);
         alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
     }
 
@@ -92,6 +110,7 @@ export function HunterBoard({
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
+            clearHuntQuality(mission.id);
             alert(`${mission.name} complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
@@ -101,9 +120,53 @@ export function HunterBoard({
                 // desynced client stops showing a dead Claim button on a done contract.
                 setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
                 setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
+            } else if (result.reason === "missing-hunt-kill-receipt" || result.reason === "missing-server-evidence") {
+                // Self-heal a stale-claim trap. The client marks the hunt complete
+                // as soon as Arena reports a win locally, but the server-side kill
+                // receipt is written by report-ai-fight — which can 409 (expired or
+                // already-spent fight token). That left local progress at `required`,
+                // so activeHuntTrails dropped the trail and the beast became
+                // unhuntable while the Claim button stayed dead forever.
+                // Rolling back to required-1 relights the trail at the target sector
+                // so the player can re-fight the beast and re-earn the receipt.
+                setMissionProgress((prev) => ({
+                    ...prev,
+                    [mission.id]: Math.max(0, (mission.exploreCount ?? 1) - 1),
+                }));
             }
             return alert(claimReasonMessage(result.reason, result));
         }
+    }
+
+    // ── Apex Contract ───────────────────────────────────────────────────────
+    const apexWeek = isoWeekKey(new Date());
+
+    /** Straight to the fight: the Apex is already found, there is no trail. */
+    function faceApex() {
+        if (!requireServerSettlement("fieldHuntMissions")) return;
+        if (!canTakeApex(character)) return;
+        // apex-ai-* profiles are real builtins (lib/combat-ai.ts), so the Arena
+        // resolves them by id with no registration step.
+        setPendingAiProfileId(apexBeastForWeek(apexWeek).apexAiId);
+        setScreen("arena");
+    }
+
+    /**
+     * The purse is claimed separately from the kill. The server holds the kill
+     * receipt (written by report-ai-fight on a verified win), so the client
+     * never has to track whether the beast is down — it asks, and a friendly
+     * reason comes back if it isn't.
+     */
+    async function claimApex() {
+        if (!requireServerSettlement("fieldHuntMissions")) return;
+        const result = await postClaimMission(character.name, "apex", "apex-weekly");
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.applied === true) {
+            updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+            alert(`Apex Contract complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
+            return;
+        }
+        if (result.applied === false) alert(claimReasonMessage(result.reason, result));
     }
 
     const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
@@ -151,6 +214,45 @@ export function HunterBoard({
                     </button>
                 )}
             </div>
+
+            {/* Apex Contract — the Rank 5 capstone. Hidden entirely below max
+                rank so it reads as something to climb toward, not a locked row. */}
+            {canTakeApex(character) && (() => {
+                const beast = apexBeastForWeek(apexWeek);
+                const claimed = apexClaimedThisWeek(character, apexWeek);
+                const portrait = beastPortrait(beast.apexAiId);
+                return (
+                    <div
+                        className={`apex-contract${claimed ? " is-claimed" : ""}`}
+                        style={{ backgroundImage: `linear-gradient(100deg, rgba(20,10,4,.90) 0%, rgba(20,10,4,.62) 45%, rgba(10,12,20,.90) 100%), url(${APEX_CONTRACT_BANNER})` }}
+                    >
+                        {portrait && <img src={portrait} alt="" className="apex-portrait" />}
+                        <div className="apex-body">
+                            <span className="apex-kicker">Apex Contract · {apexWeek}</span>
+                            <h3 className="apex-name">{beast.name}</h3>
+                            <p className="apex-sub">
+                                Level {beast.level}. One hunter, one beast, once a week — the Guild
+                                pays the purse to whoever walks back.
+                            </p>
+                            <span className="apex-purse">
+                                {APEX_RYO.toLocaleString()} ryo · {APEX_FATE_SHARDS} Fate Shards · {APEX_XP.toLocaleString()} XP
+                            </span>
+                        </div>
+                        <div className="apex-actions">
+                            {claimed
+                                ? <span className="apex-done">Claimed this week</span>
+                                : <>
+                                    <button type="button" className="apex-fight" onClick={faceApex}>
+                                        Face the Apex
+                                    </button>
+                                    <button type="button" className="apex-claim" onClick={claimApex}>
+                                        Claim Purse
+                                    </button>
+                                </>}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {missionRanks.map((rank) => {
                 const minRank = HUNT_MIN_RANK[rank] ?? 0;
