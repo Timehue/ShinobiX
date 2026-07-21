@@ -108,7 +108,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-packrat",          name: "Packrat",           desc: "Carry 100+ items in your inventory.",           category: "Wealth",     icon: "🎒", hidden: true, check: c => totalItemCount(c) >= 100 },
     { id: "secret-loadout-full",     name: "Full Arsenal",      desc: "Equip all 15 jutsu slots simultaneously.",      category: "Combat",     icon: "📿", hidden: true, check: c => (c.equippedJutsuIds?.length ?? 0) >= 15 },
     { id: "secret-monthly-50",       name: "Monthly Reaper",    desc: "Earn 50 PvP kills in a single month.",          category: "PvP",        icon: "🌑", hidden: true, check: c => (c.monthlyPvpKills ?? 0) >= 50 },
-    { id: "secret-hunter-5",         name: "Bounty Hunter",     desc: "Reach hunter rank 5.",                          category: "Trials",     icon: "🏹", hidden: true, check: c => (c.hunterRank ?? 0) >= 5 },
+    { id: "secret-hunter-5",         name: "Chakra Beast Warden", desc: "Reach the highest Hunter Rank.",              category: "Trials",     icon: "🏹", hidden: true, check: c => (c.hunterRank ?? 0) >= 5 },
     { id: "secret-titled",           name: "Self-Named",        desc: "Earn the right to set a custom title.",         category: "Progression",icon: "📛", hidden: true, check: c => !!c.customTitle },
     { id: "secret-story-titled",     name: "The Storied",       desc: "Earn a title through the main story.",          category: "Progression",icon: "📖", hidden: true, check: c => !!c.storyTitle },
     { id: "secret-bestiary-50",      name: "Bestiary",          desc: "Defeat 50 unique AI opponents.",                category: "Combat",     icon: "🐉", hidden: true, check: c => (c.defeatedAiIds?.length ?? 0) >= 50 },
@@ -146,6 +146,7 @@ export const TITLE_ACHIEVEMENT_IDS: ReadonlySet<string> = new Set<string>([
     "aura-300", "raid-250", "tournament-3", "tower-25", "pet-100", "clan-founder",
     "spire-5", "spire-10", "spire-15", "spire-20",
     "secret-bestiary-200", "secret-elements-3", "secret-weekly-bosses-5", "secret-war-vet-50",
+    "secret-hunter-5",
 ]);
 
 /** The wearable title an achievement confers, or null if it grants none. */

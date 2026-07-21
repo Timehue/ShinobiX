@@ -148,6 +148,11 @@ export function claimReasonMessage(reason: string, result?: Extract<ClaimMission
         case "already-claimed": return "You've already claimed this.";
         case "already-claimed-today": return "You've already claimed this today. Resets at midnight UTC.";
         case "no-save": return "Could not load your save. Try again.";
+        // Server self-heals the stale durable claim flag when this fires (the
+        // mission's single-use authority token expired or predates the token gate);
+        // the card flips back to "Begin Mission" so you can re-fight to re-earn it.
+        // Mirror the exact string from api/_release-flags.ts.
+        case "server_authoritative_combat_required": return "This mission's claim window has passed. Win the battle again to re-earn the reward.";
         default: return "Could not claim this mission right now. Try again.";
     }
 }

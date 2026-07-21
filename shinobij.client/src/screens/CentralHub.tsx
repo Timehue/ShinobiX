@@ -27,6 +27,7 @@ import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
 import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { HUNTER_RANKUP } from "../constants/hunter";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
 import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
@@ -641,8 +642,15 @@ export function CentralHub({
     // Burn materials cheapest-first until costPts is paid. Returns a new
     // Character with the consumed materials removed from BOTH stores (hunt drops
     // live in inventory[], relics in itemStacks); does not mutate state.
+    // Rank-up materials (HUNTER_RANKUP) burn LAST so crafting doesn't cannibalize
+    // Hunter rank-up progress — mirrors the server (api/craft/_forge.ts).
     function consumeCraftPoints(costPts: number): Character {
-        const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
+        const protectedIds = new Set(HUNTER_RANKUP.map((r) => r.itemId));
+        const cheapestFirst = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
+        const ordered = [
+            ...cheapestFirst.filter(([id]) => !protectedIds.has(id)),
+            ...cheapestFirst.filter(([id]) => protectedIds.has(id)),
+        ];
         let next = character;
         let remaining = costPts;
         for (const [id, pts] of ordered) {
