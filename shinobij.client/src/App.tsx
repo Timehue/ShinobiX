@@ -2103,7 +2103,7 @@ export default function App() {
         prevRaidKindRef.current = raidBattleKind;
         if (prev === raidBattleKind) return;
         if (raidBattleKind !== "raidAi") return;
-        if (!character || character.profession !== "vanguard") return;
+        if (!character) return; // all professions mint — fetch raidCount needs the same proof
         void (async () => {
             try {
                 const r = await fetch("/api/missions/raid-start", {
@@ -5069,24 +5069,24 @@ export default function App() {
                 const next = { ...current };
                 matchingMissions.forEach((mission) => {
                     const key = missionRaidProgressKey(mission.id);
-                    recordBuiltInMissionProgress(mission.id, "field-raid");
                     next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
                 });
                 return next;
             });
         }
 
-        // Vanguard daily raid-mission progress — every successful raid (human
-        // OR AI defender) counts. Server endpoint is rate-limited so a retry
-        // can't double-count.
+        // One report, two systems: Vanguard daily raid-mission progress and the
+        // built-in fetch-* raidCount (which has no other server witness —
+        // record-progress refuses combat kinds). Every successful raid (human OR
+        // AI defender) counts; the endpoint is rate-limited so a retry can't
+        // double-count.
         //
         // PvP raid: pass `battleId` so the server cross-validates the win
         // against the actual PvpSession record.
-        // AI raid: pass `raidToken` minted by /api/missions/raid-start when
-        // the raid began (held in activeRaidTokenRef). The server consumes
-        // the token atomically, so each minted token grants at most one
-        // mission credit.
-        if (character?.profession === "vanguard") {
+        // AI raid: pass `raidToken` minted by /api/missions/raid-start when the
+        // raid began (held in activeRaidTokenRef). The server consumes the token
+        // atomically, so each minted token grants at most one mission credit.
+        if (character && (character.profession === "vanguard" || matchingMissions.length > 0)) {
             const requestBody: { playerName: string; battleId?: string; raidToken?: string } = { playerName: character.name };
             if (battleId) {
                 requestBody.battleId = battleId;
