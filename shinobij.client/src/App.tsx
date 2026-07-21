@@ -2061,9 +2061,9 @@ export default function App() {
             nodeId: active.nodeId,
             kind: active.kind,
         }).then((started) => {
-            if (!cancelled) setHollowGateAuthoritativeFight({ ...active, session: started.session });
-        }).catch(() => {
-            if (!cancelled) pushHollowGateLog("The active encounter could not be resumed. Retry from the shrine.");
+            if (!cancelled) setHollowGateAuthoritativeFight({ ...active, runId: started.runId, session: started.session }); // adopt the server runId: combat-start remakes the board (new runId) after the 30-min TTL, so the old one 404s every action/settle
+        }).catch((error) => {
+            if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
         return () => { cancelled = true; };
     }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGateAuthoritativeFight]);
