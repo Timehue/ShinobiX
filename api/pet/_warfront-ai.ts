@@ -7,11 +7,10 @@ import { SERVER_ARENA_PETS } from './_arena-ai.js';
  *
  * The client (shinobij.client/src/screens/PetArena.tsx "Start vs AI") builds the
  * red team by cycling `genericPetArenaOpponents` to the player's pet count. Those
- * pets carry the SAME final (trait-applied) stats as SERVER_ARENA_PETS — the only
- * field SERVER_ARENA_PETS omits is `element` (the pet-duel path that shares that
- * table doesn't need it). The Warfront sim reads exactly hp/attack/defense/speed/
- * element + role (derivePetRole(id,name,element,rarity)), so re-attaching the
- * element here reproduces the client's red team field-for-field.
+ * pets carry the SAME final (trait-applied) stats AND element as SERVER_ARENA_PETS.
+ * The Warfront sim reads exactly hp/attack/defense/speed/element + role
+ * (derivePetRole(id,name,element,rarity)); we still set the element explicitly
+ * below so the Warfront red team is self-documenting and drift-proof.
  *
  * The pool ORDER and ELEMENTS below MUST match pet-arena-opponents.ts. The
  * warfront-parity test (scripts/warfront-parity.test.ts) asserts a byte-identical
