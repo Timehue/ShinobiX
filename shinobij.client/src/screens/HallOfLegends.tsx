@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
     GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiGauntlet, GiVortex,
-    GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiTwoCoins, GiHealing, GiColiseum,
+    GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiHealing, GiColiseum,
     GiShield, GiCrown, GiPunchBlast, GiCastle,
 } from "react-icons/gi";
 const HOL_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -19,8 +19,6 @@ import {
 } from "../App";
 import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from "../lib/world-state";
 import { WORLD_STATE_API } from "../constants/game";
-import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
-import { bountyBackerLabel, formatBountyAge, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
 import { fetchHallOfLegends, fetchAnnouncements, fetchEras, isLegacyEnabled, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
@@ -37,7 +35,7 @@ type WeeklyBossLb = {
 };
 
 export 
-function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
+function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
     // Deep-link support: the Daily Briefing's "World news" teaser (and any
     // other surface) can land the player on a specific tab via a one-shot
     // sessionStorage hint — previously a mythic headline opened the Ranked
@@ -143,29 +141,6 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         }
         return () => { alive = false; };
     }, [tab]);
-    const [bounties, setBounties] = useState<BountyEntry[] | null>(null);
-    const [bountyTarget, setBountyTarget] = useState("");
-    const [bountyAmount, setBountyAmount] = useState(5000);
-    useEffect(() => {
-        if (tab !== "bounties") return;
-        let alive = true;
-        fetchBountyBoard().then(list => { if (alive) setBounties(list); });
-        return () => { alive = false; };
-    }, [tab]);
-    async function submitBounty() {
-        const target = bountyTarget.trim();
-        if (!target) return alert("Choose a player to put a bounty on.");
-        if (target.toLowerCase() === character.name.toLowerCase()) return alert("You can't bounty yourself.");
-        if (bountyAmount < 1000) return alert("Minimum bounty is 1,000 ryo.");
-        if ((character.ryo ?? 0) < bountyAmount) return alert("You don't have enough ryo.");
-        const res = await placeBounty(character.name, target, bountyAmount);
-        if (!res.ok) return alert(res.error || "Could not place the bounty.");
-        updateCharacter((prev) => prev ? ({ ...prev, ryo: res.balances?.ryo ?? prev.ryo }) : prev);
-        if (res.bounties) setBounties(res.bounties);
-        setBountyTarget("");
-        alert(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);
-    }
-
     const all = playerRoster.length > 0
         ? playerRoster.map(p => p.character)
         : [character];
@@ -234,7 +209,6 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GiOgre /> },
         { id: "tournament",  label: "Tournament",    icon: <GiTrophy /> },
         { id: "professions", label: "Professions",   icon: <GiAnvil /> },
-        { id: "bounties",    label: "Bounties",      icon: <GiTwoCoins /> },
         ...(isLegacyEnabled() ? [
             { id: "legends" as const, label: "Legends",    icon: <GiCrown /> },
             { id: "news" as const,    label: "World News", icon: <GiCastle /> },
@@ -569,38 +543,6 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         <p className="hint" style={{ marginTop: 8, fontSize: "0.78rem" }}>
                             Profession XP keeps accruing past Rank 10 — no more rank rewards, but the leaderboard stays competitive.
                         </p>
-                    </>
-                )}
-                {tab === "bounties" && (
-                    <>
-                        <p className="hol-board-label"><GiTwoCoins style={HOL_ICON} />Active Bounties — defeat the target in a duel to claim the pool</p>
-                        <div className="summary-box" style={{ marginBottom: 10 }}>
-                            <p className="hint">Stake ryo on a player's head; whoever beats them in a duel claims it. Your ryo: {(character.ryo ?? 0).toLocaleString()}.</p>
-                            <input list="bounty-target-options" value={bountyTarget} onChange={e => setBountyTarget(e.target.value)} placeholder="Player name" />
-                            <datalist id="bounty-target-options">{playerRoster.filter(p => p.name.toLowerCase() !== character.name.toLowerCase()).map(p => <option key={p.name} value={p.name} />)}</datalist>
-                            <input type="number" min={1000} step={1000} value={bountyAmount} onChange={e => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
-                            <div className="menu"><button onClick={() => void submitBounty()}>Place Bounty</button></div>
-                        </div>
-                        <div className="hol-bounty-note">
-                            Claimed bounty hunter history is not public yet, so this board shows active contracts only.
-                        </div>
-                        {bounties === null
-                            ? <p className="hol-empty">Checking the bounty ledger...</p>
-                            : bounties.length === 0
-                            ? <p className="hol-empty">No active bounties are posted.</p>
-                            : sortBountiesByAmount(bounties).map((b, i) => {
-                                const isMe = b.target.toLowerCase() === me.toLowerCase();
-                                return (
-                                    <div className={`hol-bounty-row ${isMe ? "hol-row-me" : ""}`} key={b.target}>
-                                        <span className="hol-rank-num">{i + 1 <= 3 ? ["#1", "#2", "#3"][i] : `#${i + 1}`}</span>
-                                        <div className="hol-bounty-main">
-                                            <strong>{b.target}</strong>
-                                            <small>{bountyBackerLabel(b)} / updated {formatBountyAge(b.updatedAt)}</small>
-                                        </div>
-                                        <span className="hol-bounty-amount">{formatReputationNumber(b.amount)} ryo</span>
-                                    </div>
-                                );
-                            })}
                     </>
                 )}
                 {tab === "legends" && (
