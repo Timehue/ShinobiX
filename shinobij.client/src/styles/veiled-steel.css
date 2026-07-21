@@ -1666,35 +1666,37 @@ body.coach-banner-open .coach-guide-actions .location-button {
 .screen-facility :where(.clan-tabs,.town-tabs,.cc-tabs)>button:is(.active,[aria-pressed="true"]) {
   border-color:var(--facility-accent); background:#17202b; color:#fff;
 }
+/* Village destinations render as an app-style icon + label: the full square
+   emblem in a rounded tile with the facility name centered underneath. No card
+   box or district eyebrow — the accent lives as a thin ring on the icon. */
 .facility-tile {
-  position:absolute; transform:translate(-50%,-50%); z-index:4; display:grid;
-  width:clamp(104px,7.2vw,126px); padding:0; overflow:hidden; cursor:pointer;
-  border:1px solid var(--facility-accent); border-radius:9px; background:rgba(5,9,15,.94);
+  position:absolute; transform:translate(-50%,-50%); z-index:4;
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  width:max-content; max-width:112px; padding:0; border:0; background:transparent; cursor:pointer;
 }
 .facility-tile:is(:hover,:focus-visible) {
-  z-index:8; transform:translate(-50%,-50%) scale(1.055);
+  z-index:8; transform:translate(-50%,-50%) scale(1.08);
 }
-.stormveil-map-icon-frame { display:block; width:100%; height:64px; overflow:hidden; }
-.stormveil-map-copy { display:flex; min-width:0; flex-direction:column; align-items:flex-start; padding:5px 7px 6px; }
-.stormveil-map-copy>span,
-.facility-tile strong {
-  width:100%; overflow:hidden; text-align:left; text-overflow:ellipsis; white-space:nowrap;
+.stormveil-map-icon-frame {
+  display:block; width:clamp(60px,4.7vw,76px); height:clamp(60px,4.7vw,76px);
+  overflow:hidden; border-radius:16px;
+  border:1px solid color-mix(in srgb, var(--facility-accent) 60%, rgba(255,255,255,.22));
+  box-shadow:0 5px 16px rgba(0,0,0,.5), inset 0 0 0 1px rgba(0,0,0,.35);
 }
-.stormveil-map-copy>span {
-  color:var(--facility-accent); font-size:7px; font-weight:800;
-  letter-spacing:.1em; text-transform:uppercase;
-}
-.facility-tile strong {
-  padding:0; border:0; background:transparent; color:#f5f2e8; font:650 10px/1.2 var(--font-display);
+.stormveil-map-label {
+  max-width:108px; color:#f7f4ea; text-align:center;
+  font:650 11px/1.15 var(--font-display); letter-spacing:.02em;
+  text-shadow:0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7);
 }
 @media (max-width:979px) {
-  .app-shell.screen-village .stormveil-map { gap:8px!important; }
+  .app-shell.screen-village .stormveil-map { gap:10px 8px!important; }
   .facility-tile {
     position:relative!important; left:auto!important; top:auto!important; transform:none!important; z-index:2!important;
-    flex:1 1 calc(50% - 8px)!important; width:auto!important; min-width:132px!important; max-width:calc(50% - 4px)!important;
+    flex:0 0 auto!important; width:auto!important; max-width:100px!important;
   }
-  .facility-tile .stormveil-map-icon-frame { height:clamp(66px,17vw,86px); }
-  .facility-tile strong { font-size:11px; }
+  .facility-tile:is(:hover,:focus-visible) { transform:scale(1.06)!important; }
+  .facility-tile .stormveil-map-icon-frame { width:clamp(64px,18vw,86px); height:clamp(64px,18vw,86px); }
+  .facility-tile .stormveil-map-label { font-size:11px; }
 }
 @media (min-width: 1500px) {
   body.coach-banner-open .onboarding-coach-banner.coach-guide {
