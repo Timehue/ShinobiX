@@ -61,6 +61,8 @@ import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "
 import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
+import { beastPortrait } from "../data/hunter-art";
+import { stampWandererFightResult } from "../lib/wanderer-fight";
 import { relevelBuiltinAi } from "../lib/combat-ai";
 import { getAllItems, getItemById } from "../lib/items";
 import { countItem, removeItem } from "../lib/inventory";
@@ -639,6 +641,11 @@ export function Arena({
         || (opponentCharacter ? (sharedImages['avatar:' + opponentCharacter.name.toLowerCase()] ?? '') : '')
         || pendingAiProfile?.image
         || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
+        // Hunt beasts carry no `image` (makeBuiltinAi never sets one), so without
+        // this they fell through to `icon` and the player fought an emoji after
+        // seeing a painted portrait on the contract board. Sits BELOW the shared
+        // 'ai:' lookup so an admin upload still overrides the bundled art.
+        || beastPortrait(pendingAiProfile?.id)
         || pendingAiProfile?.icon
         || "EN";
     // PvE difficulty curve — scale standard PvE AI enemy stats AND max HP by the
@@ -780,9 +787,18 @@ export function Arena({
     }, [battleStarted, battleEnded, opponentCharacter, character.name, pendingAiProfile?.id, aiLevel, pendingStoryBattle, raidBattleKind, exploreAmbushActive, missionBattleActive]);
     // Battle-end sting — a victory chime on a win, a KO thud on a loss/flee.
     // Routes through the pet SFX engine's master mute, so it's silent by default.
+    //
+    // Also stamps the AUTHORITATIVE outcome onto any pending wanderer/ambush/
+    // hunt-pack record. lib/wanderer-fight.ts was written for exactly this and
+    // was never called from anywhere, so resolveWandererFight always fell back
+    // to its `totalAiKills` delta heuristic — which, per that module's own note,
+    // "made real ambush WINS resolve as losses" (the count syncs asynchronously
+    // and a save-conflict refetch can clobber it). No-op for every battle with
+    // no pending record.
     useEffect(() => {
         if (battleResult === "win") playPetSfx("victory");
         else if (battleResult === "loss" || battleResult === "fled") playPetSfx("ko");
+        if (battleResult) stampWandererFightResult(battleResult);
     }, [battleResult]);
     // In-flight guard for the weekly-boss "Log Damage & Return" button. The handler
     // (onWeeklyBossLogDamage) fires a logFight POST and navigates away, so a fast

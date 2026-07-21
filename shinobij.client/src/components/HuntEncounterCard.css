@@ -1,0 +1,286 @@
+/* Hunt encounter card — the tracking decision and the beast breaking cover.
+   Portaled to <body> so the fixed side rails never paint over it; matches the
+   IncomingChallengeModal / GameAlert dark-and-gold aesthetic. */
+
+.he-backdrop {
+    position: fixed;
+    inset: 0;
+    /* Level with the other centre-screen modals: above right-menu (999999) and
+       left-profile (10000); GameAlert (1000001) still stacks on top. */
+    z-index: 1000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(ellipse at center, rgba(2, 6, 23, 0.74), rgba(2, 6, 23, 0.94));
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: he-fade 160ms ease-out;
+    overflow-y: auto;
+}
+
+@keyframes he-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.he-card {
+    position: relative;
+    width: 100%;
+    max-width: 460px;
+    margin: auto;
+    padding: 22px 24px 20px;
+    border-radius: 16px;
+    color: var(--slate-200);
+    background: linear-gradient(160deg, #0b1224 0%, #131e3a 55%, #0b1224 100%);
+    border: 2px solid rgba(250, 204, 21, 0.7);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.65),
+        0 0 0 1px rgba(250, 204, 21, 0.18) inset,
+        0 0 34px rgba(250, 204, 21, 0.20);
+    animation: he-rise 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The confrontation card takes its accent from how the fight will open. */
+.he-card--cornered {
+    border-color: rgba(52, 211, 153, 0.75);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.65),
+        0 0 0 1px rgba(52, 211, 153, 0.18) inset,
+        0 0 34px rgba(16, 185, 129, 0.28);
+}
+
+.he-card--enraged {
+    border-color: rgba(248, 113, 113, 0.8);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.65),
+        0 0 0 1px rgba(248, 113, 113, 0.20) inset,
+        0 0 34px rgba(239, 68, 68, 0.32);
+}
+
+@keyframes he-rise {
+    from { opacity: 0; transform: translateY(14px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.he-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.he-portrait {
+    width: 84px;
+    height: 84px;
+    flex: none;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(250, 204, 21, 0.08);
+    border: 2px solid rgba(250, 204, 21, 0.55);
+    box-shadow: 0 0 18px rgba(250, 204, 21, 0.20);
+}
+
+.he-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.he-portrait-icon {
+    font-size: 40px;
+    line-height: 1;
+}
+
+.he-ident { min-width: 0; }
+
+.he-kicker {
+    color: var(--gold-400);
+    font-weight: 800;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+}
+
+.he-card--cornered .he-kicker { color: #6ee7b7; }
+.he-card--enraged .he-kicker { color: #fca5a5; }
+
+.he-name {
+    margin: 4px 0 3px;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    color: var(--gold-300);
+}
+
+.he-meta {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.he-rank { font-weight: 700; color: var(--slate-200); }
+.he-dot { opacity: 0.6; }
+
+.he-prose {
+    margin: 16px 0 0;
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+
+.he-contract {
+    margin: 12px 0 0;
+    padding-left: 12px;
+    border-left: 3px solid rgba(250, 204, 21, 0.4);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.he-opening {
+    margin-top: 16px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-align: center;
+    background: rgba(148, 163, 184, 0.10);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.he-opening--cornered {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(52, 211, 153, 0.55);
+    color: #a7f3d0;
+}
+
+.he-opening--enraged {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(248, 113, 113, 0.55);
+    color: #fecaca;
+}
+
+.he-trail {
+    margin-top: 14px;
+    font-size: 0.74rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 700;
+}
+
+.he-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.he-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--slate-200);
+    background: rgba(148, 163, 184, 0.07);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+}
+
+.he-choice:hover {
+    border-color: rgba(250, 204, 21, 0.7);
+    background: rgba(250, 204, 21, 0.08);
+    transform: translateY(-1px);
+}
+
+.he-choice-label {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--gold-300);
+}
+
+.he-choice-detail {
+    font-size: 0.83rem;
+    line-height: 1.45;
+    color: var(--text-dim);
+}
+
+.he-choice-risk {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fca5a5;
+}
+
+.he-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 18px;
+}
+
+.he-engage,
+.he-back {
+    padding: 11px 24px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.88rem;
+    transition: filter 120ms ease, transform 80ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.he-engage {
+    background: linear-gradient(180deg, #f87171 0%, #b91c1c 100%);
+    color: #fff1f2;
+    border: 1px solid rgba(248, 113, 113, 0.9);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 16px rgba(239, 68, 68, 0.45);
+}
+
+.he-engage:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+.he-back {
+    background: rgba(148, 163, 184, 0.10);
+    color: var(--slate-200);
+    border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.he-back:hover { border-color: rgba(250, 204, 21, 0.6); color: var(--gold-300); }
+
+.he-back--wide {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 9px 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .he-backdrop,
+    .he-card { animation: none; }
+}
+
+@media (max-width: 480px) {
+    .he-backdrop { padding: 14px; }
+    .he-card { max-width: 100%; padding: 18px 16px 16px; }
+    .he-head { gap: 11px; }
+    .he-portrait { width: 66px; height: 66px; }
+    .he-portrait-icon { font-size: 32px; }
+    .he-name { font-size: 1.06rem; }
+    .he-prose { font-size: 0.9rem; }
+    .he-actions { flex-direction: column; }
+    .he-engage, .he-back { width: 100%; }
+}

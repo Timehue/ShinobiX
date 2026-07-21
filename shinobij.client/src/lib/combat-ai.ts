@@ -413,6 +413,18 @@ export const builtinAis: CreatorAi[] = [
     makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🐍", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 9000, "control", true),
     makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "👺", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 12000, "boss", true),
     makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐲", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 12500, "boss", true),
+    // -- Apex Contract beasts (Hunter Rank 5 weekly capstone) -----------------
+    // Registered as real builtins so the Arena resolves them by id with no
+    // runtime registration — which also keeps the Apex entry point out of
+    // App.tsx, whose line budget is at its ratchet.
+    // hpFloorExempt (final arg) is MANDATORY: these HP pools sit below the L85+
+    // curve, and without it makeBuiltinAi/normalizeAiProfile silently raise them
+    // into the ~11k-18k grind band. Numbers are parity-tested against
+    // APEX_ROSTER in lib/apex-contract.ts — change both or the test fails.
+    makeBuiltinAi("apex-ai-ember-drake", "Ember Drake, Ash-Crowned", "🐉", 85, "Volcano Territory", aiJutsuLoadout("boss"), 165, 11200, "boss", true),
+    makeBuiltinAi("apex-ai-moon-serpent", "Moon Serpent, Tide-Eater", "🐍", 88, "Shadow Territory", aiJutsuLoadout("boss"), 173, 11600, "boss", true),
+    makeBuiltinAi("apex-ai-ancient-chakra-beast", "The Ancient, Unbound", "👺", 100, "Central Wilderness", aiJutsuLoadout("boss"), 220, 12000, "boss", true),
+    makeBuiltinAi("apex-ai-worldstorm-dragon", "Worldstorm, Sky-Breaker", "🐲", 100, "Central Wilderness", aiJutsuLoadout("boss"), 235, 12500, "boss", true),
     // -- Hollow Gate Shrine boss ---------------------------------------------
     // The Hollow Gate Warden is the deepest seal of the shrine. It is flagged
     // isBossAi so the shrine boss-tile picker selects it, and is built at a high

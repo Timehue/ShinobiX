@@ -1,0 +1,134 @@
+/* Apex Contract banner — the Hunter Rank 5 capstone at the top of the board.
+   Reads as an event rather than another contract row: wider, warmer, and the
+   only card on the board with a live glow. */
+
+.apex-contract {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin: 0 0 18px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    /* backgroundImage (the claw-scored board art + its scrim) is set inline in
+       HunterBoard so the asset URL stays content-hashed by Vite. */
+    background-color: #140a04;
+    background-size: cover;
+    background-position: center;
+    border: 2px solid rgba(251, 146, 60, 0.7);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 0 26px rgba(249, 115, 22, 0.22) inset;
+    animation: apex-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes apex-pulse {
+    0%, 100% { border-color: rgba(251, 146, 60, 0.55); }
+    50%      { border-color: rgba(253, 186, 116, 0.95); }
+}
+
+/* A settled week goes quiet — no glow competing for attention. */
+.apex-contract.is-claimed {
+    animation: none;
+    border-color: rgba(148, 163, 184, 0.4);
+    filter: saturate(0.35) brightness(0.8);
+}
+
+.apex-portrait {
+    width: 96px;
+    height: 96px;
+    flex: none;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 2px solid rgba(251, 146, 60, 0.6);
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+}
+
+.apex-body { min-width: 0; flex: 1; }
+
+.apex-kicker {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #fdba74;
+}
+
+.apex-name {
+    margin: 5px 0 6px;
+    font-size: 1.24rem;
+    line-height: 1.2;
+    color: #fed7aa;
+}
+
+.apex-sub {
+    margin: 0 0 8px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--text-dim);
+}
+
+.apex-purse {
+    display: inline-block;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fde68a;
+    background: rgba(250, 204, 21, 0.12);
+    border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+.apex-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: none;
+}
+
+.apex-fight,
+.apex-claim {
+    padding: 10px 20px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.84rem;
+    white-space: nowrap;
+    transition: filter 120ms ease, transform 80ms ease, border-color 120ms ease;
+}
+
+.apex-fight {
+    background: linear-gradient(180deg, #fb923c 0%, #c2410c 100%);
+    color: #fff7ed;
+    border: 1px solid rgba(251, 146, 60, 0.9);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 16px rgba(249, 115, 22, 0.45);
+}
+
+.apex-fight:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+.apex-claim {
+    background: rgba(250, 204, 21, 0.10);
+    color: #fde68a;
+    border: 1px solid rgba(250, 204, 21, 0.5);
+}
+
+.apex-claim:hover { border-color: rgba(250, 204, 21, 0.9); }
+
+.apex-done {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .apex-contract { animation: none; }
+}
+
+@media (max-width: 640px) {
+    .apex-contract { flex-wrap: wrap; gap: 12px; padding: 14px; }
+    .apex-portrait { width: 64px; height: 64px; }
+    .apex-name { font-size: 1.08rem; }
+    .apex-actions { flex-direction: row; width: 100%; }
+    .apex-fight, .apex-claim { flex: 1; padding: 10px 8px; font-size: 0.78rem; }
+}

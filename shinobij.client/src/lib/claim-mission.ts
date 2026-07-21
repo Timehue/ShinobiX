@@ -18,7 +18,7 @@ import { markMissionCompleted, markHuntCompleted } from "./character-progress";
 import { currentMonthKey } from "./utils";
 import type { Character, CurrencyRewards } from "../types/character";
 
-export type MissionType = "combat" | "field" | "hunt" | "academy-trial" | "academy-checklist";
+export type MissionType = "combat" | "field" | "hunt" | "apex" | "academy-trial" | "academy-checklist";
 
 export type ClaimReward = {
     xpBoosted: number;        // base after the town-hall boost; pass to gainXp
@@ -132,7 +132,10 @@ export function claimReasonMessage(reason: string, result?: Extract<ClaimMission
         case "not-queued": return "Win this mission's battle first.";
         case "missing-progress-receipt":
         case "incomplete-progress-receipt": return "Finish this mission's required field progress first.";
-        case "missing-hunt-kill-receipt": return "Track and defeat this hunt target first.";
+        // Both are recoverable: HunterBoard rolls tracking back to required-1 when
+        // these fire, so the trail relights and the beast can be re-fought.
+        case "missing-hunt-kill-receipt": return "The server never recorded this kill. The trail is hot again — hunt the beast once more to re-earn the contract.";
+        case "missing-server-evidence": return "Some of this hunt's tracking wasn't recorded by the server. The trail is hot again — track and kill the beast once more.";
         case "level": return "You don't meet the level requirement.";
         case "level-too-low": return result?.requiredLevel ? `Unlocks at Level ${result.requiredLevel}.` : "You don't meet this mission's level requirement.";
         case "rank-too-low": return "You don't meet this mission's rank requirement.";
