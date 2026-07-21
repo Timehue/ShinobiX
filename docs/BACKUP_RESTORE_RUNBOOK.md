@@ -6,8 +6,10 @@ Before launch, also create an independent application-data export:
 
 ```powershell
 $env:DATABASE_URL = '<production pooler URL>'
-$env:KV_PROXY_URL = 'https://theravensark.com/api/kv'
-$env:KV_PROXY_TOKEN = '<production overlay read token>'
+# Leave KV_PROXY_URL / KV_PROXY_TOKEN UNSET. Since the cPanel retirement (2026-07-17),
+# save:* / shared:images* / shared:imgfields* live in the Supabase base store and are
+# captured from DATABASE_URL directly. Setting KV_PROXY_URL points the export at the
+# retired cPanel proxy (theravensark.com) and fails.
 node scripts/kv-backup.mjs export --out backups/prelaunch-YYYYMMDD.shinobix-backup.json.gz
 ```
 
@@ -28,8 +30,10 @@ To capture a fresh source, restore it, verify it, and emit redacted drill eviden
 
 ```powershell
 $env:DATABASE_URL = '<production pooler URL>'
-$env:KV_PROXY_URL = 'https://theravensark.com/api/kv'
-$env:KV_PROXY_TOKEN = '<production overlay read token>'
+# Leave KV_PROXY_URL / KV_PROXY_TOKEN UNSET. Since the cPanel retirement (2026-07-17),
+# save:* / shared:images* / shared:imgfields* live in the Supabase base store and are
+# captured from DATABASE_URL directly. Setting KV_PROXY_URL points the export at the
+# retired cPanel proxy (theravensark.com) and fails.
 $env:TARGET_DATABASE_URL = '<empty isolated target pooler URL>'
 $env:ALLOW_ISOLATED_RESTORE = '1'
 npm run drill:restore -- --out backups/launch-week-YYYYMMDD.shinobix-backup.json.gz --evidence-out release-audit/evidence/backup-restore-YYYYMMDD.json
