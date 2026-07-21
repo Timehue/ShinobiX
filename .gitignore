@@ -391,7 +391,7 @@ upstash-backup-*.json
 .vercel
 
 
-# Phusion Passenger restart file (created by .cpanel.yml deploy script)
+# Local scratch / working dir (was the Phusion Passenger restart dir; cPanel retired)
 tmp/
 
 # Headless asset-generator review output (scripts/gen-asset.mjs) — eyeball

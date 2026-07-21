@@ -56,7 +56,9 @@ Frontend (run inside `shinobij.client/`):
   helpers in `src/lib/`, types in `src/types/`. `authFetch.ts` wraps
   authenticated API calls; `fingerprint.ts` produces the `x-client-fp` header.
 - **Storage** — Supabase Postgres via `@supabase/supabase-js` (and `pg`). Schema in
-  `supabase-schema.sql`; migration notes in `SUPABASE_MIGRATION.md`. The legacy
+  `supabase-schema.sql`; historical migration notes in
+  `docs/archive/SUPABASE_MIGRATION.md` (rollback section references retired
+  Upstash/Vercel architecture — not a current plan). The legacy
   Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
   `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
   **cPanel disk overlay RETIRED 2026-07-17:** `save:*`, `shared:images*`,
@@ -93,7 +95,9 @@ in-process daily snapshot cron.
   registration in `server.ts` remain as dormant, harmless code, but nothing
   serves the committed `dist/` anymore. **Do not commit `dist/`** — it is served
   by no one, and a source rebuild churns ~600 files on line-endings alone.
-  `CPANEL_SETUP.md` / `Passengerfile.json` / `.cpanel.yml` are historical.
+  The cPanel deploy scaffolding (`CPANEL_SETUP.md`, `Passengerfile.json`,
+  `.cpanel.yml`, `startup.cjs`) has been removed; `app.js` is kept only as a
+  local-run entry point (`npm start`/`npm run dev`).
 
 (Vercel was the original target and is retired. Do not add `vercel.json`,
 Vercel routes, builds, env, cron, or runtime settings back to this repo. If a

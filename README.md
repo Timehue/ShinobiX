@@ -71,7 +71,7 @@ and [Feature Flag Release Matrix](FEATURE_FLAG_RELEASE_MATRIX.md).
 
 - Backend: Node 22, Express 5, TypeScript, Supabase/Postgres, Socket.IO.
 - Client: Vite, React 19, TypeScript, Three.js, React Three Fiber.
-- Operations: cPanel/Railway deployment notes, health checks, release flags,
+- Operations: Railway deployment notes, health checks, release flags,
   audit logs, Sentry integration, and build-size checks.
 - Testing: Node test runner plus TypeScript/tsx tests across API modules,
   combat engines, economy, PvP, missions, pets, towers, village systems, and
