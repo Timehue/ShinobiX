@@ -116,6 +116,11 @@ export type TowerSession = {
     groundEffects?: TowerGroundEffect[];
     /** wall-clock when the current human's turn began (co-op AFK countdown) */
     turnStartedAt?: number;
+    /** sealed encounter weather (combat missions): ±element outgoing-damage term + strip display */
+    weather?: { positiveElement?: string; negativeElement?: string };
+    /** the player's sealed active pet, summonable onto the field once via {type:'summon'};
+     *  server-consumed on use, so its presence is what enables the Pet action */
+    pendingCompanion?: { petId: string; name: string; hp: number; damage: number };
     // ── Endless Spire (sealed at entry; present only on ascension runs) ──────────
     ascensionTier?: number;
     spireBossId?: string;
@@ -148,6 +153,7 @@ export type TowerActionInput =
     | { type: 'heal' }
     | { type: 'cleanse' }
     | { type: 'clear'; targetId: string }
+    | { type: 'summon' }
     | { type: 'wait' };
 
 /** The host's client-computed combat extras the SAVE doesn't persist (pvpItems + the

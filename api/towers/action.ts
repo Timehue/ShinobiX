@@ -70,6 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : type === 'heal' ? { actorId: actor.id, type: 'heal' }
                 : type === 'cleanse' ? { actorId: actor.id, type: 'cleanse' }
                 : type === 'clear' ? { actorId: actor.id, type: 'clear', targetId: String(body.targetId ?? '') }
+                : type === 'summon' ? { actorId: actor.id, type: 'summon' }
                 : { actorId: actor.id, type: 'wait' };
 
             const result = applyAction(session, floor, action, rng);
