@@ -1,0 +1,66 @@
+/*
+ * Mission Arena Fight — a thin skin layer over the shared Arena combat CSS.
+ *
+ * MissionArenaFight reuses the full `arena-fullscreen pvp-battle-layout` combat
+ * chrome (the same classes the PvE Arena renders), so 99% of its look comes for
+ * free. The only deltas are here:
+ *
+ * 1. The Arena portals its player dossier into the xl/lg left sidebar
+ *    (#battle-hud-portal) and CSS then hides the in-grid copy. This screen does
+ *    NOT portal — it renders BOTH dossiers in-grid — so we must (a) un-hide the
+ *    first-child dossier and (b) keep the layout 3-column on wide viewports.
+ * 2. A couple of tiny helpers (targeting hint + plain log lines) this screen adds.
+ *
+ * Everything is scoped to `.mission-arena-fight` so no other battle screen is
+ * touched. The extra class also raises specificity above the base viewport rules.
+ *
+ * The component renders into a body portal (like the game's other full-screen
+ * overlays) so it sits ABOVE the app nav/sidebar instead of inside the narrower
+ * center column — giving the fight the full viewport the way the Arena does when
+ * it hides the chrome. Fixed + inset:0 + a high z-index does the covering.
+ */
+
+.arena-fullscreen.mission-arena-fight {
+    position: fixed;
+    inset: 0;
+    z-index: 1000000;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+}
+
+/* Wide viewports: show the in-grid player dossier (we don't portal it) and keep
+   all three columns — player dossier | board | enemy dossier. */
+html[data-vp="xl"] .arena-fullscreen.mission-arena-fight .combat-layout > .combat-side-hud:first-child,
+html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout > .combat-side-hud:first-child {
+    display: flex !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen.mission-arena-fight .combat-layout,
+html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
+    grid-template-columns: minmax(140px, 210px) minmax(0, 1fr) minmax(140px, 210px) !important;
+}
+
+/* Armed-action hint line, sits between the board tabs and the action bar. */
+.mission-arena-fight .combat-targeting-hint {
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--gold, #f0c674);
+    padding: 4px 8px;
+    margin: 2px 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+/* Plain battle-log lines (this screen shows the raw server log, newest first). */
+.mission-arena-fight .combat-log-line {
+    margin: 0 0 4px;
+    padding: 3px 6px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: var(--slate-200, #d6dbe6);
+    border-left: 2px solid rgba(148, 163, 184, 0.4);
+    background: rgba(15, 23, 42, 0.35);
+    border-radius: 0 4px 4px 0;
+}

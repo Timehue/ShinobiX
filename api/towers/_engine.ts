@@ -22,6 +22,12 @@
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu } from '../combat-adapters/clanBossAdapter.js';
+import { weatherMultiplier } from '../combat-core/formulas.js';
+import {
+    COMPANION_ACTOR_ID, COMPANION_MAX_DAMAGE_FRAC, COMPANION_RANGE, companionActor, companionGearDamageMult,
+    companionHealOnSummonPct, companionMoveDamage, companionObeys, companionOwnerLifestealPct,
+    isCompanionActor, pickCompanionMove, type CompanionMove,
+} from './_companion.js';
 import { directDamageBaseFormula } from '../combat-core/formulas.js';
 import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
@@ -71,6 +77,7 @@ export type TowerAction =
     | { actorId: string; type: 'heal'; token?: string }
     | { actorId: string; type: 'cleanse'; token?: string }
     | { actorId: string; type: 'clear'; targetId: string; token?: string }
+    | { actorId: string; type: 'summon'; token?: string }
     | { actorId: string; type: 'wait'; token?: string };
 
 export type ActionResult = { applied: boolean; reason?: string };
@@ -829,6 +836,17 @@ function writeBackFighter(a: TowerActor, f: PvpFighter): void {
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
     const selfCast = actor.id === target.id;
+    // A summoned companion (pet) hits for the Arena's FLAT petCombatDamage figure,
+    // capped at a fraction of the target's max HP — never the shinobi stat formula.
+    // Deterministic (no rng), so a settle-recompute reproduces it exactly.
+    if (!selfCast && isCompanionActor(actor)) {
+        const flat = Math.max(1, Math.floor(Number(actor.character.companionDamage ?? 0)));
+        const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
+        const dealt = Math.min(flat, cap);
+        target.hp = Math.max(0, target.hp - dealt);
+        session.log.push(`${actor.name} strikes ${target.name} for ${dealt}.`);
+        return;
+    }
     const sf = actorToFighter(actor);
     const res = resolveTowerPlayerJutsu({
         session,
@@ -981,6 +999,15 @@ function applyDisplacement(session: TowerSession, attacker: TowerActor, target: 
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
 // (chakra/stamina) + cooldown bookkeeping is the caller's job (it differs per action).
+// Sealed-weather term (combat missions): +5% matching-element / −2% opposed-element
+// on the attacker's OUTGOING jutsu, mirroring the Arena's weather rule. session.weather
+// is absent for every other tower/spire/clan-boss run → ×1, byte-identical.
+function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
+    const w = session.weather;
+    if (!w) return 1;
+    return weatherMultiplier(String(jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
+}
+
 function resolveHit(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor,
     jutsu: JutsuLike, cost: number,
@@ -1000,6 +1027,7 @@ function resolveHit(
         * shrineAttackMult(session, actor)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
         * ascensionDmgMult * incomingDebuffMult
+        * weatherMult(session, jutsu)
     );
     const verb = jutsu.id === 'basic-attack' ? 'attacks'
         : jutsu.id === 'weapon' ? `strikes with ${jutsu.name ?? 'a weapon'}`
@@ -1101,7 +1129,29 @@ function refreshAp(session: TowerSession): void {
     }
     session.actionsThisTurn = 0;
 }
+// A summoned companion only holds the field for COMPANION_FIELD_ROUNDS rounds (the
+// Arena's PET_FIELD_TURNS). Ticked at the top of each round — BEFORE the queue is
+// rebuilt — so an expired or KO'd pet is off the board rather than queued for a turn.
+// No-op (and no allocation) for the runs that never summon one.
+function expireCompanions(session: TowerSession): void {
+    if (!session.actors.some(isCompanionActor)) return;
+    for (const a of session.actors) {
+        if (!isCompanionActor(a) || a.hp <= 0) continue;
+        // Tick the pet's own PetJutsu cooldowns (keyed by move name) once per round.
+        const cds = (a.cooldowns ?? {}) as Record<string, number>;
+        for (const k of Object.keys(cds)) cds[k] = Math.max(0, Number(cds[k] ?? 0) - 1);
+        const left = Math.floor(Number(a.character.companionRoundsLeft ?? 0)) - 1;
+        a.character.companionRoundsLeft = left;
+        if (left <= 0) {
+            a.hp = 0;
+            session.log.push(`${a.name} returns to its scroll.`);
+        }
+    }
+    session.actors = session.actors.filter(a => !(isCompanionActor(a) && a.hp <= 0));
+}
+
 export function startRound(session: TowerSession): void {
+    expireCompanions(session);
     rebuildTurnQueue(session);
     session.activeIndex = 0;
     refreshAp(session);
@@ -1152,9 +1202,17 @@ function objectiveFailed(session: TowerSession, floor: TowerFloor): boolean {
     }
     return false;
 }
+/** A summoned companion (pet) never holds the run open: the squad is wiped once every
+ *  REAL fighter is down, even if a temporary pet is still standing. Deliberately scoped
+ *  to the wipe-check — isSideAlive keeps its plain meaning for the enemy/npc checks, and
+ *  livingOnSide still queues + targets the pet like any other on-field unit. */
+function squadFightersAlive(session: TowerSession): boolean {
+    return session.actors.some(a => a.side === 'squad' && a.hp > 0 && !isCompanionActor(a));
+}
+
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
     if (session.status !== 'active') return;
-    if (!isSideAlive(session, 'squad')) {
+    if (!squadFightersAlive(session)) {
         session.status = 'done'; session.winner = 'enemy';
         session.objectiveState.failed = true;
         session.log.push('Squad wiped — floor failed.');
@@ -1201,6 +1259,32 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     if (actor.hp <= 0) return { applied: false, reason: 'down' };
 
     if (action.type === 'wait') return { applied: true };
+
+    // Summon the sealed companion (pet) beside the caller. Free (no AP / no action
+    // charge), once per fight — matching the Arena's summon button. The pet is
+    // spliced in directly AFTER the summoner so the order reads You → Pet → Enemy
+    // like the Arena, instead of rebuilding the queue mid-turn.
+    if (action.type === 'summon') {
+        if (isCompanionActor(actor)) return { applied: false, reason: 'companion-cannot-summon' };
+        const seal = session.pendingCompanion;
+        if (!seal) return { applied: false, reason: 'no-companion' };
+        if (session.actors.some(a => a.id === COMPANION_ACTOR_ID)) return { applied: false, reason: 'already-summoned' };
+        const spot = towerNeighbors(actor.pos, session.map.width, session.map.height)
+            .find(t => !isTileBlocked(session, t));
+        if (spot === undefined) return { applied: false, reason: 'no-space' };
+        session.actors.push(companionActor(seal, spot));
+        session.pendingCompanion = undefined;
+        session.turnQueue.splice(session.activeIndex + 1, 0, COMPANION_ACTOR_ID);
+        session.log.push(`${actor.name} summons ${seal.name}!`);
+        // PVE-gear perk: some collars heal the summoner as the pet lands.
+        const healPct = companionHealOnSummonPct(seal.pveGearId);
+        if (healPct > 0 && actor.hp > 0) {
+            const heal = Math.max(1, Math.floor(actor.maxHp * (healPct / 100)));
+            actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+            session.log.push(`${seal.name}'s bond restores ${heal} HP to ${actor.name}.`);
+        }
+        return { applied: true };
+    }
 
     if (action.type === 'move') {
         if (!canAct(session, MOVE_AP)) return { applied: false, reason: 'cannot-act' };
@@ -1808,6 +1892,12 @@ export function runTowerFloor(session: TowerSession, floor: TowerFloor, rng: () 
     while (session.status === 'active' && guard++ < GUARD) {
         const actor = activeActor(session);
         if (!actor || actor.hp <= 0 || actor.side === 'npc') { endTurn(session, floor); continue; }
+        // A summoned pet runs its own PetJutsu turn, not the generic action AI.
+        if (isCompanionActor(actor)) {
+            runCompanionTurn(session, floor, actor, rng);
+            if (session.status === 'active') endTurn(session, floor);
+            continue;
+        }
         let safety = 0;
         while (session.status === 'active' && safety++ <= MAX_ACTIONS) {
             const action = pickAiAction(session, actor, rng);
@@ -1824,6 +1914,171 @@ export function runTowerFloor(session: TowerSession, floor: TowerFloor, rng: () 
 // Live-mode driver: advance AI actors' turns until it is a HUMAN's turn (ai === false) or
 // the floor resolves. Used by api/towers/action.ts after a human submits a turn-ending
 // action, so the human only ever sees their own turns. Deterministic (seeded rng).
+// ─── Summoned companion turn ─────────────────────────────────────────────────
+// The pet does NOT go through pickAiAction/applyAction: its kit is PetJutsu kinds
+// (heal/shield/dot/stun/…), not TowerActions. This runs its whole turn instead,
+// mirroring the Arena's petTakeAction — self-support when hurt, else its best
+// offensive move, else close the distance — and folding each PetJutsu kind onto
+// the tower's own status primitives so ticking/cleanse/HUD all work for free.
+// Fully deterministic: the only roll is obedience, off the engine's seeded rng.
+function companionSelfBuffMult(actor: TowerActor): number {
+    const inc = (actor.statuses ?? [])
+        .filter(s => s.name === 'Increase Damage Given')
+        .reduce((a, s) => a + Number((s as { percent?: number }).percent ?? 0), 0);
+    return 1 + Math.min(60, inc) / 100;
+}
+
+/** The pet's owner — the real (non-companion) squad fighter it was summoned by. */
+function companionOwner(session: TowerSession): TowerActor | undefined {
+    return session.actors.find(a => a.side === 'squad' && !isCompanionActor(a));
+}
+
+/** Apply the pet's damage for this move: flat base × kind scale, lifted by the pet's
+ *  own buffs and its equipped PVE gear (summon-damage / execute / avenger), then
+ *  capped at a fraction of the target's max HP. Gear lifesteal heals the OWNER.
+ *  Returns damage dealt. */
+function companionDealDamage(session: TowerSession, actor: TowerActor, target: TowerActor, move: CompanionMove | null): number {
+    const base = Number(actor.character.companionDamage ?? 0);
+    const owner = companionOwner(session);
+    const gearId = String(actor.character.companionPveGear ?? '');
+    const enemyHpPct = target.maxHp > 0 ? (target.hp / target.maxHp) * 100 : 100;
+    const ownerHpPct = owner && owner.maxHp > 0 ? (owner.hp / owner.maxHp) * 100 : 100;
+    const raw = companionMoveDamage(base, move)
+        * companionSelfBuffMult(actor)
+        * companionGearDamageMult(gearId, enemyHpPct, ownerHpPct);
+    if (raw <= 0) return 0;
+    const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
+    const dealt = Math.max(0, Math.min(Math.floor(raw), cap));
+    target.hp = Math.max(0, target.hp - dealt);
+    // Loyal Hunter-style gear bleeds part of the pet's damage back to its owner.
+    const lifestealPct = companionOwnerLifestealPct(gearId);
+    if (dealt > 0 && lifestealPct > 0 && owner && owner.hp > 0) {
+        const heal = Math.max(1, Math.floor(dealt * (lifestealPct / 100)));
+        owner.hp = Math.min(owner.maxHp, owner.hp + heal);
+        session.log.push(`${owner.name} draws ${heal} HP from ${actor.name}'s strike.`);
+    }
+    return dealt;
+}
+
+function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: TowerActor, rng: () => number): void {
+    const c = actor.character;
+    if (!companionObeys(Number(c.companionHappiness ?? 0), c.companionLoyal === true, rng())) {
+        session.log.push(`${actor.name} ignores your command and holds its position.`);
+        return;
+    }
+    // The pet takes a PLAYER-SHAPED turn: the same 100 AP budget the engine hands
+    // every actor, 40 AP per strike/cast and 30 AP per step, capped at MAX_ACTIONS —
+    // so it chains a couple of actions per turn exactly like any other fighter
+    // rather than getting one scripted move.
+    let ap = Math.max(0, Number(session.activeAp ?? 0));
+    let acted = 0;
+    while (acted < MAX_ACTIONS && session.status === 'active' && actor.hp > 0) {
+        const target = nearestOpponent(session, actor);
+        if (!target) break;
+        const moves = (Array.isArray(c.companionMoves) ? c.companionMoves : []) as CompanionMove[];
+        const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
+        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac);
+        const selfCast = !!move && companionMoveDamage(1, move) === 0;
+        // Out of reach for anything offensive → spend a step closing the distance.
+        if (!selfCast && hexDistance(actor.pos, target.pos, session.map.width) > COMPANION_RANGE) {
+            if (ap < MOVE_AP) break;
+            const step = nextStepToward(session, actor.pos, target.pos, actor.id);
+            if (step === actor.pos || isTileBlocked(session, step, actor.id)) break;
+            actor.pos = step; ap -= MOVE_AP; acted++;
+            session.log.push(`${actor.name} closes in on ${target.name}.`);
+            continue;
+        }
+        if (ap < BASIC_ATTACK_AP) break;
+        companionCast(session, floor, actor, target, move);
+        ap -= BASIC_ATTACK_AP; acted++;
+    }
+    session.activeAp = ap;
+}
+
+/** One companion action — a strike, an offensive cast, or a self-support move. */
+function companionCast(
+    session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor, move: CompanionMove | null,
+): void {
+    if (move) actor.cooldowns = { ...(actor.cooldowns ?? {}), [move.name]: Math.max(1, move.cooldown) };
+    const rounds = move?.rounds ?? 2;
+    const kind = move?.kind ?? 'damage';
+    const label = move ? ` uses ${move.name}` : ' strikes';
+
+    // Pure-support kinds never damage; everything else lands its scaled hit first.
+    switch (kind) {
+        case 'heal': {
+            const heal = Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
+            actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+            session.log.push(`${actor.name}${label} and recovers ${heal} HP.`);
+            return;
+        }
+        case 'shield': case 'barrier': {
+            const amt = Math.max(1, Math.floor(actor.maxHp * 0.2));
+            actor.shield = Math.max(0, Number(actor.shield ?? 0)) + amt;
+            session.log.push(`${actor.name}${label} and raises a ${amt} HP shield.`);
+            return;
+        }
+        case 'buff': case 'haste': {
+            addTowerStatus(actor, { name: 'Increase Damage Given', rounds, percent: 25, kind: 'positive' } as never);
+            session.log.push(`${actor.name}${label} and steels itself (+25% damage).`);
+            return;
+        }
+        case 'absorb': {
+            addTowerStatus(actor, { name: 'Absorb', rounds, percent: 30, kind: 'positive' } as never);
+            session.log.push(`${actor.name}${label} and hardens.`);
+            return;
+        }
+        case 'taunt': {
+            addTowerStatus(actor, { name: 'Decrease Damage Taken', rounds, percent: 25, kind: 'positive' } as never);
+            session.log.push(`${actor.name}${label} and braces (−25% damage taken).`);
+            return;
+        }
+        case 'move': {
+            const step = nextStepToward(session, actor.pos, target.pos, actor.id);
+            if (step !== actor.pos && !isTileBlocked(session, step, actor.id)) actor.pos = step;
+            session.log.push(`${actor.name}${label} and repositions.`);
+            return;
+        }
+        default: break;
+    }
+
+    const dealt = companionDealDamage(session, actor, target, move);
+    session.log.push(`${actor.name}${label} → ${target.name} for ${dealt}.`);
+    switch (kind) {
+        case 'stun': case 'freeze': case 'movelock':
+            addTowerStatus(target, { name: 'Stun', rounds: 1, kind: 'negative' } as never); break;
+        case 'wound':
+            addTowerStatus(target, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' } as never); break;
+        case 'dot': case 'burn':
+            addTowerStatus(target, { name: 'Poison', rounds, percent: 8, kind: 'negative' } as never);
+            if (kind === 'burn') addTowerStatus(target, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' } as never);
+            break;
+        case 'crush':
+            addTowerStatus(target, { name: 'Decrease Damage Given', rounds, percent: 25, kind: 'negative' } as never); break;
+        case 'confuse': case 'debuff': case 'slow':
+            addTowerStatus(target, { name: 'Decrease Damage Given', rounds, percent: kind === 'confuse' ? 40 : 25, kind: 'negative' } as never); break;
+        case 'mark':
+            // The Arena's bespoke "Mark" is consumed by its own damage path; the
+            // tower's equivalent is the shared incoming-damage amp.
+            addTowerStatus(target, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' } as never); break;
+        case 'lifesteal':
+            if (dealt > 0) actor.hp = Math.min(actor.maxHp, actor.hp + Math.max(1, Math.floor(dealt * 0.5)));
+            break;
+        case 'push':
+            pushAwayFrom(session, target, actor.pos, 1); break;
+        case 'pull': {
+            const step = nextStepToward(session, target.pos, actor.pos, target.id);
+            if (step !== target.pos && !isTileBlocked(session, step, target.id)) target.pos = step;
+            break;
+        }
+        default: break;
+    }
+    // The pet can land the killing blow, so the phase ladder + win-check must run
+    // here (it never passes through resolveHit's bookkeeping).
+    tickBossPhases(session);
+    checkTowerWinner(session, floor);
+}
+
 export function runAiUntilHuman(session: TowerSession, floor: TowerFloor, rng: () => number): void {
     if (session.turnQueue.length === 0) startRound(session);
     const GUARD = (MAX_ROUNDS + 2) * (session.actors.length + 2) * (MAX_ACTIONS + 2) + 256;
@@ -1833,6 +2088,12 @@ export function runAiUntilHuman(session: TowerSession, floor: TowerFloor, rng: (
         const actor = activeActor(session);
         if (actor && actor.ai === false && actor.hp > 0) { stoppedAtHuman = true; break; } // a live human's turn — stop
         if (!actor || actor.hp <= 0 || actor.side === 'npc') { endTurn(session, floor); continue; }
+        // A summoned pet runs its own PetJutsu turn, not the generic action AI.
+        if (isCompanionActor(actor)) {
+            runCompanionTurn(session, floor, actor, rng);
+            if (session.status === 'active') endTurn(session, floor);
+            continue;
+        }
         let safety = 0;
         while (session.status === 'active' && safety++ <= MAX_ACTIONS) {
             const a = pickAiAction(session, actor, rng);

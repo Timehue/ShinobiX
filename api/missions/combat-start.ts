@@ -15,8 +15,10 @@ import {
     buildAuthoritativeSoloEncounter,
     dynamicBossFloor,
     missionEnemyTemplate,
+    missionEnvironment,
 } from '../_authoritative-pve.js';
 import { writeSession } from '../towers/_tower-store.js';
+import { sealCompanionFromSave } from '../towers/_companion.js';
 
 /** Start a sealed, server-resolved combat mission. Body: { playerName, missionId, hostLoadout? }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -45,12 +47,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runId = `mission-${randomUUID().replace(/-/g, '')}`;
         const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
         const now = Date.now();
+        // Themed battlefield: biome drives the board art + the +10% school terrain
+        // buff; the optional weather adds the ±element damage term. Both sealed here.
+        const env = missionEnvironment(mission.key);
         const floor = dynamicBossFloor({
             id: 9_100 + Math.max(0, ['combat-e-drill', 'combat-d-errand', 'combat-c-patrol', 'combat-b-escort', 'combat-a-hunt', 'combat-s-crisis'].indexOf(mission.key)),
             name: mission.key,
             bossAiId: mission.aiProfileId,
             objective: 'defeat-boss',
             roundBudget: 24,
+            biome: env.biome,
         });
         const session = buildAuthoritativeSoloEncounter({
             playerName,
@@ -63,6 +69,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             towerId: 'combat-mission',
             hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
         });
+        // Seal the weather (if any) so the engine's wMult junction reads it; absent
+        // for clear-weather missions, so those fights stay at the neutral ×1 term.
+        if (env.weather) session.weather = env.weather;
+        // Seal the player's ACTIVE pet so it can be summoned onto the field once
+        // (the 'summon' action). Server-sealed from the save — the client never
+        // supplies the pet's HP/damage, and the seal is consumed on use.
+        const companion = sealCompanionFromSave(char);
+        if (companion) session.pendingCompanion = companion;
         const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
         await writeSession(session);
         await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
