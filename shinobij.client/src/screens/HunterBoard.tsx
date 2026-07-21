@@ -3,15 +3,15 @@ import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
-import { DAILY_HUNT_LIMIT } from "../constants/game";
 import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NAMES, HUNT_MIN_RANK, type MissionRank } from "../constants/hunter";
 import { rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
-import { dailyHuntsCompleted, hasDailyHuntSlot } from "../lib/character-progress";
+import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
+import { beastPortrait, huntMaterialIcon, hunterRankBadge, HUNTER_GUILD_BACKDROP } from "../data/hunter-art";
 import { gainXp } from "../App";
 import { rankUpHunterServer } from "../lib/hunter-rank-api";
 import { countItem } from "../lib/inventory";
@@ -38,6 +38,7 @@ export function HunterBoard({
     setScreen: (s: Screen) => void;
 }) {
     const hunterRank = character.hunterRank ?? 0;
+    const huntCap = dailyHuntCap(character);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
 
     function invCount(itemId: string) {
@@ -79,7 +80,7 @@ export function HunterBoard({
         if (!requireServerSettlement("fieldHuntMissions")) return;
         const progress = missionProgress[mission.id] ?? 0;
         if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
-        if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${DAILY_HUNT_LIMIT}/${DAILY_HUNT_LIMIT}). Resets at midnight UTC.`);
+        if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${huntCap}/${huntCap}). Resets at midnight UTC.`);
 
         // Server-authoritative for built-in hunts (audit M-1): the server resolves
         // the reward from its trusted catalog, enforces the daily hunt cap, and
@@ -108,26 +109,35 @@ export function HunterBoard({
     const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
 
     return (
-        <div className="hunter-board">
+        <div className="hunter-board" style={{
+            backgroundImage: `linear-gradient(rgba(10,12,20,.86), rgba(10,12,20,.95)), url(${HUNTER_GUILD_BACKDROP})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center top",
+            backgroundAttachment: "fixed",
+        }}>
             <div className="hunter-board-header">
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>← Central</button>
                 <h2>🎯 Hunter Guild — Contract Board</h2>
                 <span
                     className="hunter-daily-chip"
-                    style={{ marginLeft: "auto", fontWeight: 600, color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "#ef4444" : "#fcd34d" }}
+                    style={{ marginLeft: "auto", fontWeight: 600, color: dailyHuntsCompleted(character) >= huntCap ? "#ef4444" : "#fcd34d" }}
                 >
-                    🎯 Hunts today: {dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}
+                    🎯 Hunts today: {dailyHuntsCompleted(character)}/{huntCap}
                 </span>
             </div>
 
             <div className="hunter-rank-banner">
+                <img src={hunterRankBadge(hunterRank)} alt={HUNTER_RANK_LABELS[hunterRank]} className="hunter-rank-emblem" style={{ width: 64, height: 64, flexShrink: 0, filter: "drop-shadow(0 2px 6px rgba(0,0,0,.45))" }} />
                 <div className="hunter-rank-info">
                     <span className="hunter-rank-badge" style={{ background: HUNTER_RANK_COLORS[hunterRank] }}>
                         {HUNTER_RANK_LABELS[hunterRank]}
                     </span>
-                    <span className="hunter-rank-sub">
+                    <span className="hunter-rank-sub" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {hunterRank < HUNTER_RANKUP.length
-                            ? `Rank Up: Turn in ${HUNTER_RANKUP[hunterRank].qty}x ${HUNT_MATERIAL_NAMES[HUNTER_RANKUP[hunterRank].itemId]} (you have ${invCount(HUNTER_RANKUP[hunterRank].itemId)})`
+                            ? <>
+                                {huntMaterialIcon(HUNTER_RANKUP[hunterRank].itemId) && <img src={huntMaterialIcon(HUNTER_RANKUP[hunterRank].itemId)} alt="" style={{ width: 22, height: 22, flexShrink: 0 }} />}
+                                <span>{`Rank Up: Turn in ${HUNTER_RANKUP[hunterRank].qty}× ${HUNT_MATERIAL_NAMES[HUNTER_RANKUP[hunterRank].itemId]} (you have ${invCount(HUNTER_RANKUP[hunterRank].itemId)})`}</span>
+                            </>
                             : "Maximum Hunter Rank achieved."}
                     </span>
                 </div>
@@ -162,12 +172,25 @@ export function HunterBoard({
                                     return (
                                         <div key={mission.id} className="hunt-contract-card">
                                             <div className="hunt-contract-top">
-                                                <span className="hunt-beast-icon">{beastAi?.icon ?? "🐾"}</span>
+                                                {beastPortrait(mission.aiProfileId)
+                                                    ? <img className="hunt-beast-portrait" src={beastPortrait(mission.aiProfileId)} alt={beastAi?.name ?? mission.name} style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 10, flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.4)" }} />
+                                                    : <span className="hunt-beast-icon">{beastAi?.icon ?? "🐾"}</span>}
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>
                                                     <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
                                                     <small>{rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards, character)}</small>
-                                                    {mission.itemRewards && <small className="hunt-drops">Drops: {mission.itemRewards.map((id) => starterItems.find((i) => i.id === id)?.name ?? id).join(", ")}</small>}
+                                                    {mission.itemRewards && (
+                                                        <div className="hunt-drops" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
+                                                            <span style={{ opacity: .7, fontSize: 11 }}>Drops:</span>
+                                                            {[...new Set(mission.itemRewards)].map((id) => {
+                                                                const name = starterItems.find((i) => i.id === id)?.name ?? id;
+                                                                const icon = huntMaterialIcon(id);
+                                                                return icon
+                                                                    ? <img key={id} src={icon} alt={name} title={name} style={{ width: 24, height: 24 }} />
+                                                                    : <span key={id} style={{ fontSize: 11 }}>{name}</span>;
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <p className="hunt-description">{mission.description}</p>

@@ -150,7 +150,19 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "combat", mission.key);
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (result.applied === false) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false) {
+            // Stale-flag trap: the server self-heals by clearing its durable pending
+            // flag and returning this reason (the authority token expired / predates
+            // the token gate). Mirror the clear so the card flips back to "Begin
+            // Mission" now, instead of waiting for a save refetch — then re-fighting
+            // re-mints the token and pays out.
+            if (result.reason === "server_authoritative_combat_required") {
+                updateCharacter((prev) => (prev
+                    ? { ...prev, pendingCombatMissionClaims: (prev.pendingCombatMissionClaims ?? []).filter((k) => k !== mission.key) }
+                    : prev));
+            }
+            return alert(claimReasonMessage(result.reason));
+        }
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         alert(`${mission.name} complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
     }

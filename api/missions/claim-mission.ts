@@ -127,6 +127,28 @@ export function applyClaimedMissionState(
     return updated;
 }
 
+// Self-heal for the stale combat-claim trap. A high-rank combat mission (C/B/A/S)
+// can only be claimed with the single-use authority token minted from a completed
+// server-bound fight (see queue-combat-claim). That token has a 6h TTL; the durable
+// pendingCombatMissionClaims flag written alongside it does NOT expire. So a win
+// claimed after the window — or one queued before the token gate existed (e.g.
+// before the cPanel→Postgres cutover) — leaves the flag set with no token behind it.
+// The mission card renders ONLY "Claim Reward" while that flag is set, so the player
+// can never re-fight to re-mint the token: the claim fails forever with the opaque
+// server_authoritative_combat_required reason. Dropping the stale key flips the card
+// back to "Begin Mission" so a fresh win can re-mint the token and pay out. No-op
+// (returns the same reference) when the key isn't present.
+export function clearStalePendingCombatClaim(
+    char: Record<string, unknown>,
+    missionKey: string,
+): { char: Record<string, unknown>; cleared: boolean } {
+    const pending = Array.isArray(char.pendingCombatMissionClaims)
+        ? (char.pendingCombatMissionClaims as unknown[]).map(String)
+        : [];
+    if (!pending.includes(missionKey)) return { char, cleared: false };
+    return { char: { ...char, pendingCombatMissionClaims: pending.filter((k) => k !== missionKey) }, cleared: true };
+}
+
 function eligibilityFailure(check: MissionEligibilityResult): Extract<ClaimOutcome, { applied: false }> {
     const body = missionEligibilityFailureBody(check);
     return {
@@ -197,6 +219,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let academyTrialClaimed = false;
             let academyChecklistClaimed = false;
             let progressReceiptKeyToClear: string | null = null;
+            // Hunter Rank yield perk (server-authoritative — hunterRank is a sanitizer-
+            // protected entitlement): +5% hunt xp/ryo per rank (0→+25% at Warden).
+            // Progression speed only, never combat power. Applied to hunts alone.
+            let huntRankBonusPct = 0;
 
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
@@ -216,6 +242,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const hasToken = !!tokenRecord;
                 const legacyClientAllowed = clientTrustedCombatMissionRewardAllowed(def);
                 if (!combatMissionClaimAuthorityAllowed(def, tokenRecord)) {
+                    // No valid authority token for a mission that requires one — it
+                    // expired (6h TTL) or predates the token gate (e.g. a win queued
+                    // before the cPanel→Postgres cutover). Self-heal the permanent
+                    // trap: drop the stale durable flag under the save lock so the card
+                    // flips back to "Begin Mission" and a re-fight can re-mint the
+                    // token. The client mirrors this + shows a re-fight message.
+                    const heal = clearStalePendingCombatClaim(char, def.key);
+                    if (heal.cleared) {
+                        const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char });
+                        await kv.set(saveKey, mergePreservingImages(healed, record));
+                    }
                     return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
                 }
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
@@ -268,6 +305,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
+                huntRankBonusPct = Math.max(0, Math.min(5, Math.floor(Number(char.hunterRank ?? 0)))) * 5;
             } else if (missionType === 'academy-trial') {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed) return { applied: false, reason: 'already-claimed' };
@@ -290,8 +328,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // without an external pre-reservation that could strand a reward.
 
             // ── Compute server-authoritative amounts ────────────────────────
-            const xpBoosted = boostAmount(baseXp, bonusPct);
-            const ryoBoosted = boostAmount(baseRyo, bonusPct);
+            // huntRankBonusPct is 0 for every non-hunt claim, so this only lifts hunts.
+            const xpBoosted = boostAmount(baseXp, bonusPct + huntRankBonusPct);
+            const ryoBoosted = boostAmount(baseRyo, bonusPct + huntRankBonusPct);
             const staminaBoosted = baseStamina > 0 ? boostAmount(baseStamina, bonusPct) : 0;
 
             // ── Apply onto the saved character ──────────────────────────────

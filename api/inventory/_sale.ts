@@ -15,6 +15,18 @@ const MAX_STACK = 9999;
 const EQUIPMENT_KEYS = new Set(['aura', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head', 'item', 'item1', 'item2', 'item3', 'thrown', 'potion', 'weapon', 'armor', 'accessory']);
 const SELLABLE_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'gloves', 'thrown', 'item', 'aura']);
 
+// Hunt drop materials are cost:0 (deliberately un-buyable) but should still be
+// worth something so they aren't dead clutter. A rarity-tiered ryo value, keyed by
+// id, gives every drop a purpose and finally makes rarity read as rarity. Roughly
+// tracks each material's forge craft-point worth (~×10). Keep in sync with the
+// client mirror in shinobij.client/src/screens/Inventory.tsx (huntMaterialSellRyo).
+export const HUNT_MATERIAL_SELL_RYO: Record<string, number> = {
+    'hunt-torn-hide': 12, 'hunt-wild-feather': 12, 'hunt-small-fang': 12, 'hunt-cracked-horn': 12,
+    'hunt-beast-meat': 15, 'hunt-frost-pelt': 40, 'hunt-shadow-claw': 40, 'hunt-wolf-fang': 55,
+    'hunt-ash-scale': 80, 'hunt-ember-scale': 180, 'hunt-shadow-pelt': 220,
+    'hunt-ancient-beast-core': 450, 'hunt-titan-bone': 450, 'hunt-legendary-material': 600,
+};
+
 function whole(raw: unknown): number | null {
     return typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;
 }
@@ -26,7 +38,15 @@ function normalizeSlot(slot: string): string {
     return slot;
 }
 
+/** Ryo a single unit of this item sells for. Hunt materials use the rarity-tiered
+ *  table (they're cost:0); everything else is the standard half-cost. */
+function unitSaleValue(item: SettlementItem): number {
+    if (item.cost <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
+    return Math.floor(item.cost / 2);
+}
+
 export function isSellableItem(item: SettlementItem): boolean {
+    if (item.id in HUNT_MATERIAL_SELL_RYO) return true;
     return item.cost > 0 && (item.armorQuality != null || SELLABLE_SLOTS.has(normalizeSlot(item.slot)));
 }
 
@@ -64,7 +84,7 @@ export function applyInventorySale(
     const ryo = whole(character.ryo);
     if (ryo === null) return { ok: false, status: 409, error: 'Stored ryo balance is invalid. Contact support.' };
     const quantity = source === 'equipped' ? 1 : requested;
-    const unitValue = Math.floor(item.cost / 2);
+    const unitValue = unitSaleValue(item);
     const saleRyo = unitValue * quantity;
     if (unitValue <= 0 || !Number.isSafeInteger(saleRyo) || !Number.isSafeInteger(ryo + saleRyo)) {
         return { ok: false, status: 409, error: 'Sale value is invalid.' };

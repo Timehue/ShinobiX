@@ -79,8 +79,15 @@ export function dailyHuntsCompleted(character: Character) {
     return character.lastHuntReset === currentDateKey() ? character.dailyHuntsCompleted ?? 0 : 0;
 }
 
+// Hunter Rank QoL perk: base cap + 1 hunt/day per rank (20 → 25 at Warden).
+// Mirror of api/missions/_mission-catalog.ts dailyHuntCap. Display + gate use this
+// so the shown cap matches what the server enforces.
+export function dailyHuntCap(character: Character) {
+    return DAILY_HUNT_LIMIT + Math.max(0, Math.min(5, Math.floor(character.hunterRank ?? 0)));
+}
+
 export function hasDailyHuntSlot(character: Character) {
-    return dailyHuntsCompleted(character) < DAILY_HUNT_LIMIT;
+    return dailyHuntsCompleted(character) < dailyHuntCap(character);
 }
 
 export function markHuntCompleted(character: Character): Character {

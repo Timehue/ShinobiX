@@ -282,6 +282,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                     durationMinutes: minutes,
                     expType,
                     petLevel: selectedPet.level,
+                    // Lets the server free THIS pet if its lease can't be settled (a
+                    // tokenless/legacy lease that would otherwise wedge it "busy").
+                    petId: selectedPet.id,
                     // Single-use token minted at launch; the server requires it
                     // (and that the run has fully elapsed) before paying out.
                     expeditionToken: selectedPet.expedition?.token,

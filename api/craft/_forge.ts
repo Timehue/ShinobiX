@@ -1,4 +1,10 @@
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
+import { HUNTER_RANK_REQUIREMENTS } from '../hunter/_rank-up.js';
+
+// Materials the Hunter Guild consumes to rank up. Derived from the rank-up table
+// so it can NEVER drift when those turn-ins change. consumeCraftPoints spares these
+// until last, so crafting a supply doesn't silently cannibalize rank-up progress.
+const RANK_UP_PROTECTED = new Set<string>(HUNTER_RANK_REQUIREMENTS.map((r) => r.itemId));
 
 export const CRAFT_POINTS: Record<string, number> = {
     'hunt-torn-hide': 3, 'hunt-wild-feather': 3, 'hunt-small-fang': 3, 'hunt-cracked-horn': 3,
@@ -75,7 +81,15 @@ export function craftPointTotal(character: Record<string, unknown>): number {
 export function consumeCraftPoints(character: Record<string, unknown>, pointsRaw: number): Record<string, unknown> | null {
     const required = count(pointsRaw); if (craftPointTotal(character) < required) return null;
     let next = character; let remaining = required;
-    for (const [id, points] of Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1])) {
+    // Burn NORMAL fodder cheapest-first, then dip into rank-up-designated materials
+    // only if the fodder can't cover the cost — so a routine craft never silently
+    // eats a player's Hunter rank-up stock while any other material would do.
+    const cheapestFirst = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
+    const ordered = [
+        ...cheapestFirst.filter(([id]) => !RANK_UP_PROTECTED.has(id)),
+        ...cheapestFirst.filter(([id]) => RANK_UP_PROTECTED.has(id)),
+    ];
+    for (const [id, points] of ordered) {
         while (remaining > 0 && countOwned(next, id) > 0) { next = removeOwned(next, id, 1); remaining -= points; }
     }
     return next;

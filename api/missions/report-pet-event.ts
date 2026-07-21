@@ -71,6 +71,32 @@ function petTamerExpeditionMultFromRank(rank: number, profession: unknown): numb
     return 1 + (10 + r * 1.5) / 100;
 }
 
+/** Free a pet whose expedition lease can't be settled — a legacy lease whose seal
+ *  can't be reconstructed (no `serverSeal`, non-Tamer, non-maxed) or a tokenless
+ *  pre-feature lease. Such an expedition can never legitimately pay out, so we clear
+ *  it at ZERO reward (nothing about the unverifiable run is trusted) rather than let
+ *  the pet stay wedged "busy" forever — a stuck lease blocks BOTH new expeditions
+ *  and training. `expedition: undefined` (not `delete`) so the JSON autosave +
+ *  mergePreservingImages don't resurrect it, matching settleServerPetExpedition.
+ *  Matches by the exact lease token, else by petId; returns whether anything changed. */
+export function clearStuckExpeditionLease(
+    char: Record<string, unknown>,
+    match: { token?: string; petId?: string },
+): { pets: Array<Record<string, unknown>>; cleared: boolean } {
+    const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+    let cleared = false;
+    const next = pets.map((pet) => {
+        const exp = pet && typeof pet.expedition === 'object' && pet.expedition ? pet.expedition as Record<string, unknown> : null;
+        if (!exp) return pet;
+        const byToken = !!match.token && exp.token === match.token;
+        const byId = !!match.petId && String(pet.id ?? '') === match.petId;
+        if (!byToken && !byId) return pet;
+        cleared = true;
+        return { ...pet, expedition: undefined };
+    });
+    return { pets: next, cleared };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -107,6 +133,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Cheap pre-lock peek; the authoritative read happens under the lock below.
         const saveKey = `save:${playerName}`;
+        const bodyPetId = String(body.petId ?? '').slice(0, 64);
+        // Free an unsettleable expedition lease (legacy null-seal / tokenless) at zero
+        // reward so the pet isn't wedged busy forever. Returns the (possibly updated)
+        // character + version for the client to mirror. No-op write when nothing matches
+        // (e.g. a normal double-claim after the lease was already cleared).
+        const selfHealStuckExpedition = (match: { token?: string; petId?: string }) =>
+            withKvLock<{ character: Record<string, unknown> | null; saveVersion: number }>(saveKey, async () => {
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = record?.character as Record<string, unknown> | undefined;
+                if (!record || !char) return { character: null, saveVersion: 0 };
+                const { pets, cleared } = clearStuckExpeditionLease(char, match);
+                if (!cleared) return { character: char, saveVersion: Number(record._saveVersion ?? 0) };
+                const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: { ...char, pets } });
+                await kv.set(saveKey, mergePreservingImages(updated, record));
+                return { character: updated.character as Record<string, unknown>, saveVersion: Number(updated._saveVersion ?? 0) };
+            }, { failClosed: true });
         const preCheck = await kv.get<Record<string, unknown>>(saveKey);
         const preChar = preCheck?.character as Record<string, unknown> | undefined;
         const isTamer = preChar?.profession === 'petTamer';
@@ -144,8 +186,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const tokRaw: string | undefined = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
             if (!tok) {
-                const current = await kv.get<Record<string, unknown>>(saveKey);
-                return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
+                const healed = await selfHealStuckExpedition({ petId: bodyPetId });
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD, character: healed.character, _saveVersion: healed.saveVersion });
             }
             const tokenKey = `pet-exp-token:${playerName}:${tok}`;
             let tokenData = await kv.get<PetExpeditionSeal>(tokenKey);
@@ -157,8 +199,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 tokenData = petExpeditionSealForToken(current?.character, tok, playerName);
             }
             if (!tokenData || tokenData.playerName.toLowerCase() !== playerName.toLowerCase()) {
-                const current = await kv.get<Record<string, unknown>>(saveKey);
-                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
+                const healed = await selfHealStuckExpedition({ token: tok, petId: bodyPetId });
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD, character: healed.character, _saveVersion: healed.saveVersion });
             }
             // Must have actually elapsed (60s grace for clock/latency skew).
             if (Date.now() < Number(tokenData.endsAt ?? 0) - 60_000) {
