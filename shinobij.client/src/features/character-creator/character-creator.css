@@ -517,6 +517,26 @@
     font-weight: 800;
 }
 
+.cc-legal-consent {
+    margin: 22px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    color: #9fb0c8;
+    font-size: 12.5px;
+    line-height: 1.55;
+}
+
+.cc-legal-consent a {
+    color: var(--gold-300);
+    font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.cc-legal-consent a:hover {
+    color: #fff7d6;
+}
+
 .cc-actions {
     display: flex;
     flex-wrap: wrap;

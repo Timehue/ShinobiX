@@ -19,6 +19,11 @@ export type PetCombatModelConfig = {
 const MODEL_URL_OVERRIDES: Readonly<Record<string, string>> = {
     "starter-fire-r": "/pet-models/ember-wolf-rigged.gltf",
     "starter-fire-l": "/pet-models/ember-wolf-rigged.gltf",
+    // Rebuilt from a seal-specific three-quarter reference. The first rare-water
+    // reconstruction inherited the source sprite's upright mascot silhouette and
+    // read as a round dolphin/blob in battle; this candidate has a full horizontal
+    // torso, separate front/rear flippers and a readable tail.
+    "starter-water-r": "/pet-models/starter-water-r.glb?v=20260719-selkie-final",
     // The evolved Earth reconstruction contains a source planter fused into
     // the animal surface, so a safe topology trim cannot remove it without
     // taking the legs with it. Use the clean approved Earth guardian base at a
@@ -54,12 +59,13 @@ export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity"
     if (!profile) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
     const isFireRig = visualId.startsWith("starter-fire");
+    const isRareWaterSelkie = visualId === "starter-water-r";
     return {
         visualId,
         url: overrideUrl ?? `/pet-models/${visualId}.glb`,
         profile,
-        targetHeight: isFireRig ? (visualId.endsWith("-l") ? 3.55 : 3.3) : visualId.endsWith("-l") ? 2.6 : 2.35,
-        fit: isFireRig || profile === "serpentine" ? "longest" : "height",
+        targetHeight: isFireRig ? (visualId.endsWith("-l") ? 3.55 : 3.3) : isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35,
+        fit: isRareWaterSelkie ? "height" : isFireRig || profile === "serpentine" ? "longest" : "height",
         yawOffset: 0,
         outlineScale: isFireRig ? 1.018 : 1.026,
     };

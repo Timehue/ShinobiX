@@ -56,6 +56,7 @@ const img_js_1 = __importDefault(require("./api/img.js"));
 const player_auth_js_1 = __importDefault(require("./api/player-auth.js"));
 const admin_auth_js_1 = __importDefault(require("./api/admin-auth.js"));
 const players_js_1 = __importDefault(require("./api/admin/players.js"));
+const grant_subscription_js_1 = __importDefault(require("./api/admin/grant-subscription.js"));
 const player_index_health_js_1 = __importDefault(require("./api/admin/player-index-health.js"));
 const server_reset_js_1 = __importDefault(require("./api/admin/server-reset.js"));
 const ranked_season_js_1 = __importDefault(require("./api/admin/ranked-season.js"));
@@ -139,6 +140,7 @@ const mastery_js_1 = __importDefault(require("./api/profession/mastery.js"));
 const purchase_js_1 = __importDefault(require("./api/shop/purchase.js"));
 const sell_js_2 = __importDefault(require("./api/shop/sell.js"));
 const settle_js_4 = __importDefault(require("./api/story/settle.js"));
+const boss_start_js_1 = __importDefault(require("./api/story/boss-start.js"));
 const jutsu_ryo_js_1 = __importDefault(require("./api/training/jutsu-ryo.js"));
 const elder_focus_js_1 = __importDefault(require("./api/village/elder-focus.js"));
 const hollow_gate_unlock_js_1 = __importDefault(require("./api/village/hollow-gate-unlock.js"));
@@ -210,6 +212,10 @@ const claim_mission_js_1 = __importDefault(require("./api/missions/claim-mission
 const queue_combat_claim_js_1 = __importDefault(require("./api/missions/queue-combat-claim.js"));
 const combat_start_js_2 = __importDefault(require("./api/missions/combat-start.js"));
 const record_progress_js_1 = __importDefault(require("./api/missions/record-progress.js"));
+const oauth_start_js_1 = __importDefault(require("./api/patreon/oauth-start.js"));
+const oauth_callback_js_1 = __importDefault(require("./api/patreon/oauth-callback.js"));
+const webhook_js_1 = __importDefault(require("./api/patreon/webhook.js"));
+const status_js_1 = __importDefault(require("./api/patreon/status.js"));
 const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
 const rift_quest_js_1 = __importDefault(require("./api/sector/rift-quest.js"));
@@ -431,7 +437,19 @@ app.use((_req, res, next) => {
 const jsonBig = express_1.default.json({ limit: '50mb' });
 const jsonSave = express_1.default.json({ limit: '1mb' });
 const jsonDefault = express_1.default.json({ limit: '5mb' });
+// The Patreon webhook must verify an HMAC-MD5 over the EXACT raw request body,
+// so this parser stashes the raw Buffer on req.rawBody. The capture runs ONLY
+// for that one path — every other request skips it. See api/patreon/webhook.ts.
+const jsonWebhook = express_1.default.json({
+    limit: '512kb',
+    verify: (req, _res, buf) => { req.rawBody = buf; },
+});
+function isPatreonWebhookPath(path) {
+    return path === '/patreon/webhook' || path === '/api/patreon/webhook';
+}
 app.use((req, res, next) => {
+    if (isPatreonWebhookPath(req.path))
+        return jsonWebhook(req, res, next);
     switch ((0, _body_limits_js_1.classifyBodyLimit)(req.path)) {
         case 'big': return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
@@ -573,6 +591,9 @@ function route(path, handler) {
                 headers: req.headers,
                 method: req.method,
                 body: req.body,
+                // Raw body for signature-verifying webhooks (Patreon). Only set
+                // by the dedicated webhook parser above; undefined otherwise.
+                rawBody: req.rawBody,
             };
             await handler(augmented, res);
         }
@@ -847,6 +868,7 @@ route('/player-auth', player_auth_js_1.default);
 route('/admin-auth', admin_auth_js_1.default);
 // Admin
 route('/admin/players', players_js_1.default);
+route('/admin/grant-subscription', grant_subscription_js_1.default);
 route('/admin/player-index-health', player_index_health_js_1.default);
 route('/admin/server-reset', server_reset_js_1.default);
 route('/admin/ranked-season', ranked_season_js_1.default);
@@ -1064,6 +1086,13 @@ route('/missions/claim-mission', claim_mission_js_1.default);
 route('/missions/queue-combat-claim', queue_combat_claim_js_1.default);
 route('/missions/combat-start', combat_start_js_2.default);
 route('/missions/record-progress', record_progress_js_1.default);
+// Patreon — OAuth account-link + membership webhook + subscriber status.
+// Perks are gated on the server-owned character.patreon flag, written ONLY by
+// the signature-verified webhook / OAuth callback (api/patreon/_patreon.ts).
+route('/patreon/oauth-start', oauth_start_js_1.default);
+route('/patreon/oauth-callback', oauth_callback_js_1.default);
+route('/patreon/webhook', webhook_js_1.default);
+route('/patreon/status', status_js_1.default);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift', wanderer_gift_js_1.default);
 route('/sector/wanderer-quest', wanderer_quest_js_1.default);
@@ -1162,6 +1191,7 @@ route('/profession/mastery', mastery_js_1.default);
 route('/shop/purchase', purchase_js_1.default);
 route('/shop/sell', sell_js_2.default);
 route('/story/settle', settle_js_4.default);
+route('/story/boss-start', boss_start_js_1.default);
 route('/training/jutsu-ryo', jutsu_ryo_js_1.default);
 route('/village/elder-focus', elder_focus_js_1.default);
 route('/village/hollow-gate-unlock', hollow_gate_unlock_js_1.default);

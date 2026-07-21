@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, type CSSProperties } from "react";
+import { ReportControl } from "../components/ReportControl";
 import "../styles/profile-skin.css";
 import type { Character, ServerPlayerSummary, PlayerRecord } from "../types/character";
 import type { SavedBloodline, Jutsu } from "../types/combat";
@@ -185,6 +186,7 @@ export function UserView({
                             className={`profile-action-btn${isFollowed ? " following" : ""}`}
                             onClick={() => void toggleFollow()}
                         >{isFollowed ? "★ Following" : "☆ Follow"}</button>
+                        <ReportControl targetType="player" targetName={viewingName} context="profile" style={{ alignSelf: "center", marginLeft: 2 }} />
                     </div>
                 )}
 

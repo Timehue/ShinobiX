@@ -44,6 +44,17 @@ const RECOIL_TICKS = Math.round(DUEL_TPS * 0.34);
 const DODGE_TICKS = Math.round(DUEL_TPS * 0.44);
 const RECOVERY_TICKS = Math.round(DUEL_TPS * 0.3);
 const WINDUP_LOOKAHEAD = Math.round(DUEL_TPS * 1.35);
+// Melee travel begins well before contact. At the old 0.25-0.30 s lead, even a
+// continuous route crossed the screen in too few rendered poses and therefore
+// read as a teleport. Contact timing and combat truth remain unchanged.
+const MELEE_DASH_LEAD = Math.round(DUEL_TPS * 0.44);
+const MELEE_FALLBACK_LEAD = Math.round(DUEL_TPS * 0.4);
+// At 30 simulation ticks per second this is still a very fast anime burst, but
+// it remains a visible crossing rather than covering half the arena in one frame.
+// Leave enough authored samples for feet, turns and elemental wakes to read at
+// 30 fps. Long routes begin earlier; their contact tick and combat truth stay
+// unchanged.
+const MAX_STAGE_STEP = 0.64;
 const EPS = 1 / 256;
 
 // Marks deliberately vary both range and depth.  Keeping each team on a stable
@@ -111,26 +122,105 @@ function addState(track: Track, start: number, end: number, state: DuelState, pr
     track.states.push({ start: Math.max(0, start), end: Math.max(start, end), state, priority });
 }
 
-function addMove(track: Track, start: number, end: number, to: Point, state: DuelState, priority: number) {
-    const safeStart = Math.max(0, Math.round(start));
-    const safeEnd = Math.max(safeStart + 1, Math.round(end));
-    const from = trackPosition(track, safeStart);
-    const target = keepOnFloor(to);
-    // A later authored beat wins. Trim an older overlapping segment so two
-    // movement decisions never blend into a jittery change of mind.
+function pointOnSegment(segment: MotionSegment, tick: number): Point {
+    const p = ease((tick - segment.start) / Math.max(1, segment.end - segment.start));
+    return {
+        x: segment.from.x + (segment.to.x - segment.from.x) * p,
+        y: segment.from.y + (segment.to.y - segment.from.y) * p,
+    };
+}
+
+/**
+ * Motion segments are a single edit list, not animation layers. Keeping them
+ * disjoint is important: trackPosition deliberately evaluates one segment at a
+ * time, so an overlap would make the actor jump between unrelated `from` marks.
+ * Re-link every segment after an edit so gaps hold the preceding destination and
+ * the next move always launches from the pet's visible position.
+ */
+function normalizeTrack(track: Track) {
+    track.segments.sort((a, b) => a.start - b.start || b.priority - a.priority);
+    let point = copyPoint(track.start);
+    let previousEnd = -1;
     for (const segment of track.segments) {
-        if (segment.end > safeStart && segment.start < safeStart && segment.priority <= priority) {
-            const p = ease((safeStart - segment.start) / Math.max(1, segment.end - segment.start));
-            segment.to = {
-                x: segment.from.x + (segment.to.x - segment.from.x) * p,
-                y: segment.from.y + (segment.to.y - segment.from.y) * p,
-            };
-            segment.end = safeStart;
+        if (segment.start < previousEnd) {
+            throw new Error(`Overlapping stage motion for ${track.id} at tick ${segment.start}`);
         }
+        segment.from = copyPoint(point);
+        point = copyPoint(segment.to);
+        previousEnd = segment.end;
     }
-    track.segments = track.segments.filter((segment) => segment.end <= safeStart || segment.start >= safeEnd || segment.priority > priority);
+}
+
+/**
+ * A later high-priority beat can re-link an earlier segment from a new launch
+ * mark. Its original duration then may no longer be long enough for the new
+ * distance, even though addMove validated it when it was first authored. Run a
+ * final reachability pass after the complete event list is known so those late
+ * edits cannot reintroduce a one-tick snap.
+ */
+function capFinalTrackVelocity(track: Track) {
+    normalizeTrack(track);
+    let point = copyPoint(track.start);
+    for (const segment of track.segments) {
+        segment.from = copyPoint(point);
+        const ticks = Math.max(1, segment.end - segment.start);
+        const routeDistance = distance(segment.from, segment.to);
+        const reachableDistance = ticks * MAX_STAGE_STEP / 1.6;
+        if (routeDistance > reachableDistance) {
+            const direction = norm(segment.to.x - segment.from.x, segment.to.y - segment.from.y);
+            segment.to = keepOnFloor({
+                x: segment.from.x + direction.x * reachableDistance,
+                y: segment.from.y + direction.y * reachableDistance,
+            });
+        }
+        point = copyPoint(segment.to);
+    }
+}
+
+function addMove(track: Track, start: number, end: number, to: Point, state: DuelState, priority: number) {
+    const requestedStart = Math.max(0, Math.round(start));
+    const safeEnd = Math.max(requestedStart + 1, Math.round(end));
+    const target = keepOnFloor(to);
+    let safeStart = requestedStart;
+    // Smoothstep peaks at 1.5x its average velocity. Pull a long traversal's
+    // launch earlier (never its contact later) until the fastest authored tick is
+    // within the visible burst-speed budget. Re-evaluate because an earlier tick
+    // can sit on a different stage mark.
+    for (let pass = 0; pass < 3; pass++) {
+        const launch = trackPosition(track, safeStart);
+        const minimumTicks = Math.ceil(distance(launch, target) * 1.6 / MAX_STAGE_STEP);
+        const expandedStart = Math.max(0, Math.min(requestedStart, safeEnd - Math.max(1, minimumTicks)));
+        if (expandedStart === safeStart) break;
+        safeStart = expandedStart;
+    }
+    const from = trackPosition(track, safeStart);
+    const overlaps = track.segments.filter((segment) => segment.end > safeStart && segment.start < safeEnd);
+    // A planted dodge/contact route owns its time window. Quiet geography beats
+    // are optional and must never be layered underneath a higher-priority move.
+    if (overlaps.some((segment) => segment.priority > priority)) return;
+
+    const retained: MotionSegment[] = [];
+    for (const segment of track.segments) {
+        if (segment.end <= safeStart || segment.start >= safeEnd) {
+            retained.push(segment);
+            continue;
+        }
+        // Preserve the already-visible portion of a route that is interrupted by
+        // a more important beat. Its endpoint is exactly the new route's launch
+        // point, which makes the handoff continuous on the interruption tick.
+        if (segment.start < safeStart) {
+            retained.push({
+                ...segment,
+                end: safeStart,
+                to: pointOnSegment(segment, safeStart),
+            });
+        }
+        // Do not resume the discarded tail after the authored beat. Resuming an
+        // obsolete destination is what made pets reverse or snap after contact.
+    }
+    track.segments = retained;
     track.segments.push({ start: safeStart, end: safeEnd, from, to: target, state, priority });
-    track.segments.sort((a, b) => a.start - b.start || a.priority - b.priority);
+    normalizeTrack(track);
     addState(track, safeStart, safeEnd, state, priority);
 }
 
@@ -138,6 +228,26 @@ function nextMark(track: Track, salt = 0): Point {
     const marks = track.team === "player" ? PLAYER_MARKS : ENEMY_MARKS;
     track.markIndex = (track.markIndex + 1 + salt) % marks.length;
     return copyPoint(marks[track.markIndex]);
+}
+
+function breakawayMark(track: Track, from: Point, threat: Point): Point {
+    const marks = track.team === "player" ? PLAYER_MARKS : ENEMY_MARKS;
+    let selectedIndex = track.markIndex;
+    let selectedScore = -Infinity;
+    for (let index = 0; index < marks.length; index++) {
+        const mark = marks[index];
+        // Distance from the opponent is the dominant read; a smaller travel term
+        // favors a decisive retreat over a tiny local shuffle. Avoid selecting the
+        // current mark again even when it happens to be the geometric maximum.
+        const travel = distance(from, mark);
+        const score = distance(mark, threat) * 1.5 + travel * 0.24 + (index === track.markIndex ? -2.5 : 0);
+        if (score > selectedScore) {
+            selectedScore = score;
+            selectedIndex = index;
+        }
+    }
+    track.markIndex = selectedIndex;
+    return copyPoint(marks[selectedIndex]);
 }
 
 function recoilPoint(from: Point, awayFrom: Point, side: number): Point {
@@ -219,7 +329,7 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
             addState(foe, event.t, Math.max(event.t + 4, resolveTick - 5), "idle", 18);
             if (resolve?.type === "hit" && !resolve.ranged) {
                 const targetAtResolve = trackPosition(foe, resolveTick);
-                addMove(actor, resolveTick - Math.round(DUEL_TPS * 0.3), resolveTick, contactPoint(actorAt, targetAtResolve, 2.45), "dash", 52);
+                addMove(actor, resolveTick - MELEE_DASH_LEAD, resolveTick, contactPoint(actorAt, targetAtResolve, 2.45), "dash", 52);
             }
             return;
         }
@@ -227,7 +337,7 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
         if (event.type === "cast" && (event.kind === "buff" || event.kind === "haste" || event.kind === "heal" || event.kind === "barrier")) {
             // Setup is a distance break: sprint out, turn, then power up.  The
             // rival explicitly does not follow the retreating caster.
-            const disengage = nextMark(actor, 1);
+            const disengage = breakawayMark(actor, actorAt, foeAt);
             addMove(actor, event.t - MOVE_TICKS, event.t - 3, disengage, "dash", 38);
             addState(actor, event.t - 3, event.t + Math.round(DUEL_TPS * 0.55), "windup", 48);
             addState(foe, event.t - MOVE_TICKS, event.t + Math.round(DUEL_TPS * 0.45), "idle", 28);
@@ -244,7 +354,7 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
             const hitActor = trackPosition(actor, event.t);
             const hitFoe = trackPosition(foe, event.t);
             if (!event.ranged && distance(hitActor, hitFoe) > 2.7) {
-                addMove(actor, event.t - Math.round(DUEL_TPS * 0.25), event.t, contactPoint(hitActor, hitFoe, 2.35), "dash", 55);
+                addMove(actor, event.t - MELEE_FALLBACK_LEAD, event.t, contactPoint(hitActor, hitFoe, 2.35), "dash", 55);
             }
             addState(actor, event.t - 2, event.t + 4, "strike", 80);
             addState(actor, event.t + 5, event.t + 5 + RECOVERY_TICKS, "recover", 74);
@@ -283,23 +393,33 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
         if (event.type === "ko") addState(actor, event.t, result.ticks + 1, "dead", 100);
     });
 
-    // Give long quiet stretches purposeful single-actor lane changes.  These are
-    // sparse establishing beats, not continuous orbiting; they also prevent a
-    // defensive matchup from becoming two static models waiting on cooldowns.
+    // Give quiet stretches a short read -> burst -> plant phrase. One fighter
+    // shows intent, crosses to a new lane, and settles while the rival holds the
+    // eyeline. This fills cooldown air without inventing attacks or returning to
+    // constant two-agent circling.
     let previousPrimary = 0;
     let initiative = ids.player;
     for (const event of result.events.filter((candidate) => candidate.type === "windup" || candidate.type === "cast" || candidate.type === "hit" || candidate.type === "whiff")) {
         const gap = event.t - previousPrimary;
-        if (gap > DUEL_TPS * 2.1) {
+        if (gap > DUEL_TPS * 1.25) {
             const mover = tracks.get(initiative)!;
-            const start = previousPrimary + Math.round(DUEL_TPS * 0.7);
-            const end = Math.min(event.t - Math.round(DUEL_TPS * 0.45), start + MOVE_TICKS);
-            if (end > start + 3) addMove(mover, start, end, nextMark(mover), "idle", 14);
+            const watcher = opponent(initiative);
+            const start = previousPrimary + Math.round(DUEL_TPS * 0.4);
+            const end = Math.min(event.t - Math.round(DUEL_TPS * 0.3), start + Math.round(DUEL_TPS * 0.42));
+            if (end > start + 3) {
+                addState(mover, start - Math.round(DUEL_TPS * 0.16), start - 1, "windup", 17);
+                // Locomotion is inferred from segment velocity; the simulation
+                // state union intentionally has no separate `run` state.
+                addMove(mover, start, end, nextMark(mover), "idle", 16);
+                addState(mover, end, Math.min(event.t - 1, end + Math.round(DUEL_TPS * 0.18)), "idle", 16);
+                addState(watcher, start - 2, end + 2, "idle", 15);
+            }
             initiative = initiative === ids.player ? ids.enemy : ids.player;
         }
         previousPrimary = event.t;
     }
 
+    for (const track of tracks.values()) capFinalTrackVelocity(track);
     return tracks;
 }
 

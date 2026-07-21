@@ -8,6 +8,9 @@ const facilities = [
   "stat-training", "jutsu-training", "world-map", "pet-yard", "card-hall",
 ] as const;
 
+// Facility card icons are painted per village (lib/facility-thumbs.ts globs these).
+const thumbVillages = ["frostfang", "stormveil", "ashen-leaf", "moonshadow"] as const;
+
 const presentationSource = readFileSync(new URL("./facility-presentation.ts", import.meta.url), "utf8");
 const studioSource = readFileSync(new URL("./studio-screen-presentation.ts", import.meta.url), "utf8");
 const villageSource = readFileSync(new URL("../screens/Village.tsx", import.meta.url), "utf8");
@@ -17,7 +20,9 @@ test("every Village destination has a coherent facility art contract", () => {
   assert.equal((presentationSource.match(/:\s*facility\(/g) ?? []).length, facilities.length);
   for (const id of facilities) {
     assert.ok(presentationSource.includes(id.includes("-") ? `"${id}": facility` : `${id}: facility`), `missing ${id} presentation`);
-    assert.ok(existsSync(new URL(`../assets/facilities/thumbs/${id}.webp`, import.meta.url)), `missing ${id} thumbnail`);
+    for (const village of thumbVillages) {
+      assert.ok(existsSync(new URL(`../assets/facilities/thumbs/${village}/${id}.webp`, import.meta.url)), `missing ${village}/${id} thumbnail`);
+    }
   }
 });
 
