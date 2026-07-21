@@ -174,6 +174,34 @@ export function weeklyBossEnemyTemplate(profile: Record<string, unknown> | null 
     };
 }
 
+// Per-mission battlefield theme: the biome drives the board art AND the shared
+// +10% school-vs-biome terrain buff (already wired in the resolver); the optional
+// weather adds the ±element outgoing-damage term via the engine's wMult junction.
+// Themed to each mission's home (Ember Duelist → volcano, Frost Sealer → snow, …).
+// Both apply symmetrically to player and foe, exactly like the Arena's terrain.
+const MISSION_BIOME: Record<string, TowerFloor['biome']> = {
+    'combat-e-drill': 'central',
+    'combat-d-errand': 'forest',
+    'combat-c-patrol': 'volcano',
+    'combat-b-escort': 'snow',
+    'combat-a-hunt': 'shadow',
+    'combat-s-crisis': 'central',
+};
+const MISSION_WEATHER: Record<string, { positiveElement: string; negativeElement: string }> = {
+    'combat-d-errand': { positiveElement: 'Wind', negativeElement: 'Lightning' },
+    'combat-c-patrol': { positiveElement: 'Fire', negativeElement: 'Water' },
+    'combat-b-escort': { positiveElement: 'Water', negativeElement: 'Fire' },
+    'combat-a-hunt': { positiveElement: 'Lightning', negativeElement: 'Earth' },
+    // e-drill (training grounds) and s-crisis (central arena) stay clear.
+};
+
+export function missionEnvironment(missionKey: string): {
+    biome: TowerFloor['biome'];
+    weather?: { positiveElement: string; negativeElement: string };
+} {
+    return { biome: MISSION_BIOME[missionKey] ?? 'central', weather: MISSION_WEATHER[missionKey] };
+}
+
 export function dynamicBossFloor(params: {
     id: number;
     name: string;

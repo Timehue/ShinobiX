@@ -138,6 +138,25 @@ export type TowerSession = {
      */
     encounterFloor?: TowerFloor;
 
+    /**
+     * Sealed weather for the encounter (combat missions). Adds the Arena's
+     * weather term (+5% matching-element / −2% opposed-element outgoing damage)
+     * via the engine's wMult junction. Optional + minted with the session, never
+     * client-accepted; absent for every other tower/spire/clan-boss run, so those
+     * paths read ×1 (weatherMultiplier) and stay byte-identical.
+     */
+    weather?: { positiveElement?: string; negativeElement?: string };
+
+    /**
+     * Sealed companion — the player's ACTIVE pet, mintable onto the field once per
+     * fight via the 'summon' action (combat missions). Server-sealed at start and
+     * consumed (set undefined) on summon, so the client can neither forge the pet's
+     * numbers nor summon twice. Absent for every other tower/spire/clan-boss run.
+     * (Type-only import — erased at runtime, so the _companion ↔ _tower-session
+     * cycle costs nothing.)
+     */
+    pendingCompanion?: import('./_companion.js').CompanionSeal;
+
     // ── Endless Spire — sealed ascension state (Wave 1) ──────────────────────────
     // All optional; every engine read defaults (?? ...) so story/legacy sessions are
     // byte-identical. Sealed ONCE at spire entry (before the first writeSession), then
