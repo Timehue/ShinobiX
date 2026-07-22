@@ -45,3 +45,31 @@ test("story reckoning claim authority survives cache expiry and abandon is wired
     assert.match(endpoint, /activeStoryReckoningSeal: nextSeal/);
     assert.match(client, /abandonStoryReckoning\(character\.name\)/);
 });
+
+test("client reckoning data and server catalog agree, with real drop items (no drift)", async () => {
+    const { storyReckonings } = await import("../../shinobij.client/src/data/story-reckonings.js");
+    const { eventItemIds } = await import("../../shinobij.client/src/data/event-items.js");
+    // Every client-offered arc has a server def that agrees on gates, task, and reward,
+    // and its drop keepsake is a real event item (or turn-in could never succeed).
+    for (const arc of storyReckonings) {
+        const def = STORY_RECKONINGS[arc.id];
+        assert.ok(def, `server catalog is missing ${arc.id}`);
+        assert.equal(def.village, arc.village, `${arc.id} village`);
+        assert.equal(def.levelReq, arc.levelReq, `${arc.id} levelReq`);
+        assert.equal(def.ownProgress, arc.ownProgress, `${arc.id} ownProgress`);
+        assert.equal(def.completionTrait, arc.completionTrait, `${arc.id} completionTrait`);
+        assert.equal(def.metric, arc.task.metric, `${arc.id} metric`);
+        assert.equal(def.target, arc.task.target, `${arc.id} target`);
+        assert.equal(def.dropItemId, arc.task.dropItemId, `${arc.id} dropItemId`);
+        assert.equal(def.weight, arc.reward.weight, `${arc.id} weight`);
+        assert.equal(def.fateShards, arc.reward.fateShards ?? 0, `${arc.id} fateShards`);
+        assert.equal(def.title, arc.reward.title, `${arc.id} title`);
+        assert.equal(Boolean(def.crossVillage), Boolean(arc.crossVillage), `${arc.id} crossVillage`);
+        assert.ok(eventItemIds.has(arc.task.dropItemId), `${arc.id} drop ${arc.task.dropItemId} is not a known event item`);
+    }
+    // No server def without a matching client arc.
+    const clientIds = new Set(storyReckonings.map((a: { id: string }) => a.id));
+    for (const id of Object.keys(STORY_RECKONINGS)) {
+        assert.ok(clientIds.has(id), `server catalog has an orphan ${id} with no client arc`);
+    }
+});
