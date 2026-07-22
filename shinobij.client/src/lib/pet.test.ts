@@ -5,6 +5,7 @@ import {
     TACTICAL_ARENA_PET_REQUIREMENT,
     availablePetBattleCount,
     canEnterTacticalArena,
+    resolveAvailablePetBattlePair,
 } from "./pet";
 
 const pet = (id: string, expeditionEndsAt?: number) => ({
@@ -25,5 +26,19 @@ describe("pet battle mode eligibility", () => {
         const roster = [pet("a"), pet("b"), pet("c"), pet("away", future)];
         assert.equal(availablePetBattleCount(roster), 3);
         assert.equal(canEnterTacticalArena(roster), false);
+    });
+
+    it("resolves an exact pair of distinct available pets", () => {
+        const roster = [pet("lead"), pet("reserve")];
+        assert.deepEqual(resolveAvailablePetBattlePair(roster, ["reserve", "lead"]), [roster[1], roster[0]]);
+    });
+
+    it("rejects malformed or unavailable pet pairs", () => {
+        const roster = [pet("lead"), pet("reserve"), pet("third"), pet("away", Date.now() + 60_000)];
+        assert.equal(resolveAvailablePetBattlePair(roster, ["lead"]), null);
+        assert.equal(resolveAvailablePetBattlePair(roster, ["lead", "reserve", "third"]), null);
+        assert.equal(resolveAvailablePetBattlePair(roster, ["lead", "lead"]), null);
+        assert.equal(resolveAvailablePetBattlePair(roster, ["lead", "missing"]), null);
+        assert.equal(resolveAvailablePetBattlePair(roster, ["lead", "away"]), null);
     });
 });

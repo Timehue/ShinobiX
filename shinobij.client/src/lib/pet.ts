@@ -83,6 +83,14 @@ export function canEnterTacticalArena(pets: Pet[]): boolean {
     return availablePetBattleCount(pets) >= TACTICAL_ARENA_PET_REQUIREMENT;
 }
 
+export function resolveAvailablePetBattlePair(pets: Pet[], ids: readonly string[]): [Pet, Pet] | null {
+    const [firstId, secondId] = ids;
+    if (ids.length !== 2 || !firstId || !secondId || firstId === secondId) return null;
+    const first = pets.find((pet) => pet.id === firstId && !isPetOnExpedition(pet));
+    const second = pets.find((pet) => pet.id === secondId && !isPetOnExpedition(pet));
+    return first && second ? [first, second] : null;
+}
+
 // Extract the numeric "variant" suffix from a pet ID like
 // "wolf-2" or "wolf-2-mythic" → returns 2. Used by the renderer to pick
 // which sprite variant to show so multiple instances of the same template
