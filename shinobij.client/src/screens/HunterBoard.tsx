@@ -13,6 +13,8 @@ import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
 import { beastPortrait, huntMaterialIcon, hunterRankBadge, HUNTER_GUILD_BACKDROP, APEX_CONTRACT_BANNER } from "../data/hunter-art";
 import { clearHuntQuality } from "../lib/hunt-run-state";
+import { huntTrailSector } from "../lib/hunt-trail";
+import { setSectorReopen } from "../lib/sector-return";
 import {
     APEX_FATE_SHARDS,
     APEX_RYO,
@@ -87,7 +89,11 @@ export function HunterBoard({
         // Same reasoning for Hunt Quality: a re-accepted contract starts neutral,
         // never inheriting the tracking decisions of a previous run.
         clearHuntQuality(mission.id);
-        alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
+        // First lead sits where the world-map paw marker starts (the trail roams
+        // inward toward targetSector), so point the player there, not at the beast's
+        // final ground.
+        const firstLead = huntTrailSector(mission, 0, character.name);
+        alert(`${mission.name} accepted. Your first lead is in Sector ${firstLead} — head there and use Hunt to pick up the trail, then follow the paw marker to the beast.`);
     }
 
     function materialNames(itemIds: string[]): string[] {
@@ -120,22 +126,44 @@ export function HunterBoard({
                 // desynced client stops showing a dead Claim button on a done contract.
                 setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
                 setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-            } else if (result.reason === "missing-hunt-kill-receipt" || result.reason === "missing-server-evidence") {
-                // Self-heal a stale-claim trap. The client marks the hunt complete
-                // as soon as Arena reports a win locally, but the server-side kill
-                // receipt is written by report-ai-fight — which can 409 (expired or
-                // already-spent fight token). That left local progress at `required`,
-                // so activeHuntTrails dropped the trail and the beast became
-                // unhuntable while the Claim button stayed dead forever.
-                // Rolling back to required-1 relights the trail at the target sector
-                // so the player can re-fight the beast and re-earn the receipt.
+                return alert(claimReasonMessage(result.reason, result));
+            }
+            if (
+                result.reason === "missing-hunt-kill-receipt" ||
+                result.reason === "missing-progress-receipt" ||
+                result.reason === "missing-server-evidence"
+            ) {
+                // Self-heal the stale-claim trap. The hunt reward is gated on the
+                // server-verified kill (report-ai-fight). If that receipt never
+                // landed — the fight token 409'd, or its POST was dropped — local
+                // progress still hit `required`, so activeHuntTrails dropped the
+                // trail and the Claim button stayed dead forever. Rolling back to
+                // required-1 relights the trail on the beast's ground so the player
+                // can re-fight it and re-earn the kill receipt. (missing-server-
+                // evidence can no longer fire for hunts on a current server, but a
+                // rolling deploy might still return it, so we heal it here too.)
                 setMissionProgress((prev) => ({
                     ...prev,
                     [mission.id]: Math.max(0, (mission.exploreCount ?? 1) - 1),
                 }));
+                return alert("The Guild hasn't logged your kill for this contract yet. The trail is hot again — return to the beast's ground and bring it down once more to claim.");
             }
             return alert(claimReasonMessage(result.reason, result));
         }
+    }
+
+    /**
+     * Drop an accepted contract. Purely local: accepted ids and tracking progress
+     * both live in the save, so removing them here and letting the autosave persist
+     * is acceptHunt in reverse — no reward, no server call. Gives the player an exit
+     * from a contract they no longer want (or a rare receipt desync the self-heal
+     * above didn't catch).
+     */
+    function abandonHunt(mission: CreatorMission) {
+        if (!confirm(`Abandon "${mission.name}"? You'll lose your tracking progress on this contract.`)) return;
+        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
+        clearHuntQuality(mission.id);
     }
 
     // ── Apex Contract ───────────────────────────────────────────────────────
@@ -270,6 +298,12 @@ export function HunterBoard({
                                     const accepted = acceptedMissionIds.includes(mission.id);
                                     const progress = missionProgress[mission.id] ?? 0;
                                     const complete = progress >= mission.exploreCount;
+                                    // The trail roams inward toward the beast, so the current lead is
+                                    // NOT the final targetSector until the last track. Point "Go To
+                                    // Sector" at the same sector the world-map paw marker sits on
+                                    // (huntTrailSector), not the destination — otherwise the button
+                                    // sends the player to an empty sector with no active trail.
+                                    const leadSector = huntTrailSector(mission, progress, character.name);
                                     const beastAi = creatorAis.find((a) => a.id === mission.aiProfileId);
                                     return (
                                         <div key={mission.id} className="hunt-contract-card">
@@ -307,9 +341,13 @@ export function HunterBoard({
                                             <div className="menu">
                                                 {!accepted
                                                     ? <button onClick={() => acceptHunt(mission)}>Accept Hunt</button>
-                                                    : complete
-                                                        ? <button onClick={() => claimHunt(mission)}>Claim Reward</button>
-                                                        : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>
+                                                    : <>
+                                                        {complete
+                                                            ? <button onClick={() => claimHunt(mission)}>Claim Reward</button>
+                                                            : <button onClick={() => { setSectorReopen(leadSector); setScreen("worldMap"); }}>Go To Sector {leadSector}</button>
+                                                        }
+                                                        <button className="danger-button" onClick={() => abandonHunt(mission)}>Give Up</button>
+                                                    </>
                                                 }
                                             </div>
                                         </div>
