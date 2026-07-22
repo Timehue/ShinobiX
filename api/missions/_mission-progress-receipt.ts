@@ -231,7 +231,14 @@ export function applyMissionProgressEvent(
         next.raidCount = Math.min(opts.raidTarget, next.raidCount + 1);
     } else if (opts.kind === 'hunt-track') {
         next.exploreCount = Math.min(Math.max(0, opts.exploreTarget - 1), next.exploreCount + 1);
-    } else if (opts.kind === 'hunt-kill' && next.exploreCount >= Math.max(0, opts.exploreTarget - 1)) {
+    } else if (opts.kind === 'hunt-kill') {
+        // A server-verified kill (report-ai-fight, sealed opponentId) is the whole
+        // proof of a hunt. It completes the receipt on its own rather than waiting
+        // on the optimistic hunt-track pings to have all landed — those pings are
+        // fire-and-forget, so a single dropped one used to leave the contract
+        // permanently unclaimable. The kill is only ever recorded against an
+        // ACCEPTED hunt whose beast matches the sealed fight token, so this stays
+        // cheat-proof: no kill, no payout.
         next.exploreCount = opts.exploreTarget;
         next.huntKill = true;
     }
@@ -251,12 +258,22 @@ export function validateMissionProgressReceipt(
     if (!receipt) return { ok: false, reason: 'missing-progress-receipt' };
     if (receipt.playerName.toLowerCase() !== expected.playerName.toLowerCase()) return { ok: false, reason: 'wrong-progress-receipt-player' };
     if (receipt.missionId !== expected.missionId || receipt.missionType !== expected.missionType) return { ok: false, reason: 'wrong-progress-receipt-mission' };
+    // Hunt: the server-verified kill is the entire proof. Tracking pings are
+    // optimistic UI now and no longer gate the claim — a single dropped
+    // fire-and-forget ping used to brick the contract with no recovery. The kill
+    // receipt is only ever written by report-ai-fight for an ACCEPTED hunt whose
+    // beast matches the sealed fight token, so requiring it keeps the reward gated
+    // on a real, server-witnessed kill.
+    if (expected.missionType === 'hunt') {
+        return receipt.huntKill ? { ok: true } : { ok: false, reason: 'missing-hunt-kill-receipt' };
+    }
+    // Field: still requires explore + raid evidence, each self-authorized (travel)
+    // or combat-validated (raid) server-side — a forged local counter carries no
+    // matching evidence ids and fails the evidence-count floor below.
     const exploreTarget = Math.max(0, Math.floor(Number(expected.mission.exploreCount ?? 0)));
     const raidTarget = Math.max(0, Math.floor(Number(expected.mission.raidCount ?? 0)));
     if (receipt.exploreCount < exploreTarget) return { ok: false, reason: 'incomplete-progress-receipt' };
-    if (expected.missionType === 'field' && receipt.raidCount < raidTarget) return { ok: false, reason: 'incomplete-progress-receipt' };
-    if (expected.missionType === 'hunt' && !receipt.huntKill) return { ok: false, reason: 'missing-hunt-kill-receipt' };
-    const evidenceTarget = expected.missionType === 'field' ? exploreTarget + raidTarget : exploreTarget;
-    if (receipt.evidenceIds.length < evidenceTarget) return { ok: false, reason: 'missing-server-evidence' };
+    if (receipt.raidCount < raidTarget) return { ok: false, reason: 'incomplete-progress-receipt' };
+    if (receipt.evidenceIds.length < exploreTarget + raidTarget) return { ok: false, reason: 'missing-server-evidence' };
     return { ok: true };
 }
