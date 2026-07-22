@@ -1,6 +1,6 @@
 # Tactical Pet Arena Mode — build plan
 
-A new pet game mode: **Deathmatch + Capture-Objective**, first team to **10 points**,
+A new pet game mode: **Deathmatch + Capture-Objective**, first team to **5 points**,
 2v2 or 4v4, built on the existing continuous-duel tech (30 Hz deterministic sim,
 walkability mask, diorama stage renderer).
 
@@ -12,7 +12,7 @@ walkability mask, diorama stage renderer).
 2. **`pet-arena-sim.test.ts`** — determinism, scoring, lives, objective lifecycle,
    role behaviour.
 3. **Renderer** — a new `PetArenaMatch` reusing the diorama stage + standees +
-   FX, plus arena UI: scoreboard (to 10), the scroll object, team bases, per-pet
+   FX, plus arena UI: scoreboard (to 5), the scroll object, team bases, per-pet
    lives + role badge, carrier glow, respawn timers.
 4. **Harness** — `?arena=1` (+`?arena4=1` for 4v4) in `petvfx.tsx`.
 
@@ -29,9 +29,9 @@ Roles drive: stat weighting, ability pool, target priority, positioning, objecti
 
 ## Match rules (from the handoff)
 
-- **Win:** first to 10 points (also: enemy team fully eliminated; else time cap → higher score).
-- **Score:** defeat enemy = +1; capture+return scroll = +2.
-- **Lives:** 3 per pet. Death → enemy +1, −1 life, respawn at base after 5 s, full HP/energy. 0 lives → eliminated.
+- **Win:** first to 5 points (also: enemy team fully eliminated; else time cap → higher score).
+- **Score:** capture+return scroll = +1; defeating an enemy does NOT score (it removes them for a respawn window). Shipped constant: `WIN_SCORE = 5` in `shinobij.client/src/lib/pet-arena-sim.ts`.
+- **Lives:** 3 per pet. Death → −1 life (no score), respawn at base after ~7 s, full HP/energy. 0 lives → eliminated.
 - **Scroll:** spawns center (fixed) at 0:45; respawns 60 s after capture/reset; 2 s channel to pick up;
   carry to **own base** to score +2; carrier −15% speed, no dash/mobility; drops on death;
   dropped 10 s then resets to center.

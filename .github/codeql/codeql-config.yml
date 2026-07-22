@@ -1,0 +1,26 @@
+# CodeQL analysis config (advanced setup).
+#
+# WHY THIS EXISTS: GitHub *default* setup cannot filter paths, so every offline
+# dev/asset-generation script under scripts/ and shinobij.client/scripts/ tripped
+# the JS taint queries (js/request-forgery, js/file-access-to-http,
+# js/user-controlled-bypass, js/path-injection) on the developer's OWN CLI flags,
+# env vars, and FAL_KEY. Those scripts are never imported by the server or client
+# bundle and never run at request time. Roughly 70% of this repo's ~215 dismissed
+# alerts came from exactly these two directories. Excluding them here ends the
+# recurring triage tax WITHOUT weakening coverage of shipped code (api/, server.ts,
+# shinobij.client/src/**). See docs/SECURITY_PROGRAM.md.
+#
+# Keep `queries: security-extended` in lockstep with the retired default setup,
+# which ran the "extended" suite — do not downgrade to the default suite here.
+name: "ShinobiX CodeQL config"
+
+queries:
+  - uses: security-extended
+
+# Paths are relative to the repo root. A bare directory matches everything under
+# it. Only OFFLINE developer tooling is excluded — never api/, server.ts, or the
+# client source. If a NEW dev-only script dir appears and floods alerts, add it
+# here rather than dismissing its alerts one by one.
+paths-ignore:
+  - scripts
+  - shinobij.client/scripts
