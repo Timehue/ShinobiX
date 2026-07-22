@@ -575,7 +575,7 @@ export function resolveEquippedLoadout(
 ): unknown[] | null {
     const rawIds = saveCharacter.equippedJutsuIds;
     if (!Array.isArray(rawIds) || rawIds.length === 0) return null;
-    const equippedIds = rawIds.filter((id): id is string => typeof id === 'string');
+    const equippedIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string'))];
     if (equippedIds.length === 0) return null;
     // Non-catalog sources, lowest priority first so later sources overwrite:
     //   client body (weakest) → save's bloodlines + creator jutsu (authoritative).

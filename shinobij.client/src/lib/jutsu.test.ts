@@ -7,7 +7,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { normalizeJutsu } from "./jutsu";
+import { normalizeJutsu, orderEquippedJutsus } from "./jutsu";
 
 const make = (effectPower: number, tagName: string, ap = 60) =>
     normalizeJutsu({ id: "j", name: "J", type: "Ninjutsu", ap, effectPower, tags: [{ name: tagName, percent: 0 }] });
@@ -45,5 +45,24 @@ describe("normalizeJutsu — Bloodline combat visual choice", () => {
         assert.equal(utility.visualEffect, undefined);
         assert.equal(selfCast.visualEffect, undefined);
         assert.equal(invalid.visualEffect, undefined);
+    });
+});
+
+describe("orderEquippedJutsus - Profile loadout order reaches combat", () => {
+    const catalog = [
+        normalizeJutsu({ id: "catalog-first", name: "Catalog First", type: "Ninjutsu" }),
+        normalizeJutsu({ id: "catalog-second", name: "Catalog Second", type: "Taijutsu" }),
+        normalizeJutsu({ id: "custom-third", name: "Custom Third", type: "Genjutsu" }),
+    ];
+
+    it("uses equipped slot order instead of catalog order", () => {
+        const ordered = orderEquippedJutsus(catalog, ["custom-third", "catalog-first", "catalog-second"]);
+        assert.deepEqual(ordered.map((jutsu) => jutsu.id), ["custom-third", "catalog-first", "catalog-second"]);
+    });
+
+    it("drops stale and duplicate ids without mutating the catalog", () => {
+        const ordered = orderEquippedJutsus(catalog, ["catalog-second", "missing", "catalog-second", "catalog-first"]);
+        assert.deepEqual(ordered.map((jutsu) => jutsu.id), ["catalog-second", "catalog-first"]);
+        assert.deepEqual(catalog.map((jutsu) => jutsu.id), ["catalog-first", "catalog-second", "custom-third"]);
     });
 });

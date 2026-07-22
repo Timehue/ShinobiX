@@ -26,6 +26,31 @@ const sanitizeCompatible = (
     existing: Record<string, unknown> | null,
 ) => withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing));
 
+describe('jutsu loadout persistence', () => {
+    const learnedIds = Array.from({ length: 15 }, (_, index) => `trained-${index + 1}`);
+    const slotOrder = [...learnedIds].reverse();
+    const storedSave = (subscriberActive: boolean) => wrap({
+        patreon: { active: subscriberActive },
+        jutsuMastery: learnedIds.map((jutsuId) => ({ jutsuId, level: 1, xp: 0 })),
+        equippedJutsuIds: [],
+    });
+    const incomingSave = wrap({
+        // Deliberately forged true; the stored entitlement remains authoritative.
+        patreon: true,
+        equippedJutsuIds: [...slotOrder, slotOrder[0]],
+    });
+
+    it('preserves slot order while enforcing the base 12-slot cap', () => {
+        const out = sanitizeCompatible(incomingSave, storedSave(false)).character as Record<string, unknown>;
+        assert.deepEqual(out.equippedJutsuIds, slotOrder.slice(0, 12));
+    });
+
+    it('preserves all 15 ordered slots for a stored subscriber entitlement', () => {
+        const out = sanitizeCompatible(incomingSave, storedSave(true)).character as Record<string, unknown>;
+        assert.deepEqual(out.equippedJutsuIds, slotOrder);
+    });
+});
+
 describe('raw save server-ledger boundary', () => {
     it('pins every audited economic/progression field to the stored value', () => {
         const stored = {

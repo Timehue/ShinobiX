@@ -716,7 +716,7 @@ export function Arena({
         ? allJutsus.filter((jutsu) => pendingAiProfile.jutsuIds.includes(jutsu.id))
         : opponentCharacter
             ? [
-                ...getAllJutsus(savedBloodlines, creatorJutsus, opponentCharacter).filter((jutsu) => opponentCharacter.equippedJutsuIds.includes(jutsu.id)),
+                ...getPvpJutsuLoadout(savedBloodlines, creatorJutsus, opponentCharacter),
                 ...(opponentLegacySignature ? [opponentLegacySignature] : []),
             ]
             : [];
