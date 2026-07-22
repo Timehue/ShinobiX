@@ -1,55 +1,57 @@
-/*
- * Shinobi Journey service worker — DELIBERATELY NARROW SCOPE.
- *
- * Caches ONLY content-hashed build assets (/assets/<name>-<hash>.<ext>),
- * cache-first. A hashed filename's content can never change, so cache-first
- * cannot serve a wrong version: a new deploy references NEW filenames, which
- * miss this cache and fetch from the network like normal.
- *
- * It NEVER intercepts:
- *   • navigations / index.html — the chunk map must always come from the
- *     network (a SW-served stale chunk map is the classic post-deploy
- *     white-screen, the exact bug class this game has been bitten by);
- *   • /api/* — server-authoritative, and /api/img has its own edge caching;
- *   • fixed-name media (music/, sector-map/, badges/, …) — those names get
- *     overwritten in place by art updates, so HTTP cache rules own them.
- *
- * Why it exists at all: mobile browsers evict the HTTP cache aggressively, so
- * returning players re-download the multi-hundred-KB bundles. CacheStorage is
- * far more durable, making warm loads near-instant even days later. As a
- * bonus, a player holding a STALE index.html right after a deploy can still
- * load the old (now-deleted-from-origin) chunks from this cache instead of
- * white-screening on a 404.
- *
- * Rollback: ship a new sw.js that deletes caches and unregisters — never just
- * remove the file (browsers keep running the last-fetched worker).
- */
+/* Narrow SW: hashed assets are cache-first; same-origin images use a bounded
+ * last-known-good cache. HTML and non-image API requests are never intercepted. */
 
-const CACHE = 'sj-hashed-assets-v1';
-// Same hashed-output signature server.ts uses for its immutable-cache rule:
-// an exactly-8-char base64url token after the final hyphen.
+const ASSET_CACHE = 'sj-hashed-assets-v1';
+const IMAGE_CACHE = 'sj-game-images-v1';
+// Same 8-character hashed-output signature used by server.ts.
 const HASHED_ASSET_RE = /^\/assets\/[^/]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/;
-// FIFO cap so years of deploys can't grow the cache without bound. ~220 covers
-// the full current chunk set (~120 files) plus one prior deploy generation.
-const MAX_ENTRIES = 220;
+const MAX_ASSET_ENTRIES = 220;
+const MAX_IMAGE_ENTRIES = 400;
 
 self.addEventListener('install', () => {
-    // No precache — nothing to wait for; activate immediately.
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const names = await caches.keys();
-        await Promise.all(names.filter((name) => name !== CACHE).map((name) => caches.delete(name)));
+        const current = new Set([ASSET_CACHE, IMAGE_CACHE]);
+        await Promise.all(names.filter((name) => name.startsWith('sj-') && !current.has(name)).map((name) => caches.delete(name)));
         await self.clients.claim();
     })());
 });
 
-async function trimCache(cache) {
+async function trimCache(cache, maxEntries) {
     const keys = await cache.keys();
-    const excess = keys.length - MAX_ENTRIES;
+    const excess = keys.length - maxEntries;
     for (let i = 0; i < excess; i += 1) await cache.delete(keys[i]);
+}
+
+function withoutRetryParam(rawUrl) {
+    const url = new URL(rawUrl);
+    url.searchParams.delete('__img_retry');
+    return url.href;
+}
+
+function isCacheableImageResponse(response) {
+    // Reject accidental SPA HTML/JSON and explicitly private responses.
+    if (response.type === 'opaque') return true;
+    if (!response.ok) return false;
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    const cacheControl = (response.headers.get('cache-control') || '').toLowerCase();
+    return contentType.startsWith('image/') && !/\b(?:no-store|private)\b/.test(cacheControl);
+}
+
+async function cacheSuccessfulImage(cache, cacheKey, request) {
+    const response = await fetch(request);
+    if (isCacheableImageResponse(response)) {
+        const copy = response.clone();
+        await cache.put(cacheKey, copy);
+        await trimCache(cache, MAX_IMAGE_ENTRIES);
+    } else if (response.status === 404 || response.status === 410) {
+        await cache.delete(cacheKey);
+    }
+    return response;
 }
 
 self.addEventListener('fetch', (event) => {
@@ -57,17 +59,36 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
-    if (!HASHED_ASSET_RE.test(url.pathname)) return; // fall through to the network untouched
+    if (HASHED_ASSET_RE.test(url.pathname)) {
+        event.respondWith((async () => {
+            const cache = await caches.open(ASSET_CACHE);
+            const cacheKey = withoutRetryParam(url.href);
+            const cached = await cache.match(cacheKey);
+            if (cached) return cached;
+            const response = await fetch(request);
+            if (response.ok) {
+                const copy = response.clone();
+                event.waitUntil(cache.put(cacheKey, copy).then(() => trimCache(cache, MAX_ASSET_ENTRIES)).catch(() => undefined));
+            }
+            return response;
+        })());
+        return;
+    }
+
+    // Paint last-known-good art immediately, then refresh it in the background.
+    if (request.destination !== 'image') return;
     event.respondWith((async () => {
-        const cache = await caches.open(CACHE);
-        const cached = await cache.match(request);
-        if (cached) return cached;
+        const cache = await caches.open(IMAGE_CACHE);
+        const cacheKey = withoutRetryParam(url.href);
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+            event.waitUntil(cacheSuccessfulImage(cache, cacheKey, request).catch(() => undefined));
+            return cached;
+        }
         const response = await fetch(request);
-        if (response.ok) {
-            // Clone before the body is consumed; trim + put are fire-and-forget
-            // so a storage error can never break the actual response.
+        if (isCacheableImageResponse(response)) {
             const copy = response.clone();
-            event.waitUntil(cache.put(request, copy).then(() => trimCache(cache)).catch(() => undefined));
+            event.waitUntil(cache.put(cacheKey, copy).then(() => trimCache(cache, MAX_IMAGE_ENTRIES)).catch(() => undefined));
         }
         return response;
     })());

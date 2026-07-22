@@ -288,14 +288,20 @@
 }
 .arena-fullscreen .combat-jutsu-name {
     font-family: var(--font-display) !important;
-    color: #f4e6c4;
+    color: #fff7ed !important;
     letter-spacing: 0.06em;
     text-shadow: 0 1px 2px #000, 0 0 8px rgba(0,0,0,0.9);
+    background: rgba(3, 7, 18, 0.92);
+    border-radius: 3px;
+    padding: 2px 3px;
 }
 .arena-fullscreen .combat-jutsu-info {
     font-family: 'Inter', system-ui, sans-serif;
     letter-spacing: 0.08em;
-    color: rgba(196,162,90,0.85) !important;
+    color: #fde68a !important;
+    background: rgba(3, 7, 18, 0.92);
+    border-radius: 3px;
+    padding: 2px 3px;
 }
 
 .arena-fullscreen .battle-hud-sidebar .hud-bar {
@@ -495,6 +501,16 @@
     outline: none !important;
     box-shadow: none !important;
     filter: none !important;
+}
+
+/* The blue reachable wash is intentionally suppressed on occupied cells above;
+   replace it with a distinct ring whenever the enemy is in basic melee range. */
+.arena-fullscreen .hex-tile.hex-enemy.basic-attack-ready-tile:not(.jutsu-target-tile) {
+    outline: 3px solid #fbbf24 !important;
+    box-shadow:
+        inset 0 0 22px rgba(127, 29, 29, 0.7),
+        0 0 18px rgba(251, 191, 36, 0.9) !important;
+    filter: brightness(1.16) !important;
 }
 
 /* Dash / Move-jutsu landing-tile highlight — green to distinguish from the
@@ -965,10 +981,19 @@
 
 .arena-fullscreen .combat-jutsu-detail-popover,
 .arena-fullscreen .combat-item-detail-popover {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    z-index: 100010 !important;
+    width: min(560px, calc(100vw - 24px)) !important;
+    max-height: min(78dvh, 680px) !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+    transform: translate(-50%, -50%) !important;
     background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
     border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
     border-radius: 6px !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+    box-shadow: 0 0 0 100vmax rgba(2, 6, 23, 0.78), 0 18px 50px rgba(0,0,0,0.85) !important;
     color: #e8edf5 !important;
 }
 .arena-fullscreen .combat-jutsu-detail-header {

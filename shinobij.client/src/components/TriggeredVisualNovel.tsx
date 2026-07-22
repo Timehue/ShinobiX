@@ -69,6 +69,8 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const playerTraits = character.storyTraits ?? [];
     const pageChoices = page.choices?.filter((c) => !!c.text && isChoiceAvailable(c, playerTraits));
     const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
+    const choicePointKey = isAtChoicePoint ? `${event.id}:${pageIndex}:${lineIndex}` : "";
+    const [armedChoiceKey, setArmedChoiceKey] = useState("");
     const [showFinale, setShowFinale] = useState(false);
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number; battle?: VnChoice["battle"] } | null>(null);
     // React state updates are intentionally asynchronous. Without a synchronous
@@ -81,6 +83,15 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     useEffect(() => {
         actionLocked.current = false;
     }, [event.id, pageIndex, lineIndex, pendingChoice, showFinale]);
+    // A rapid "Next, Next, Next" sequence used to land on a choice as soon as
+    // it replaced the Next button, selecting whichever option occupied that
+    // screen position. Give deliberate choices a short arm delay instead.
+    useEffect(() => {
+        if (!choicePointKey) return;
+        const id = window.setTimeout(() => setArmedChoiceKey(choicePointKey), 650);
+        return () => window.clearTimeout(id);
+    }, [choicePointKey]);
+    const choicesArmed = !!choicePointKey && armedChoiceKey === choicePointKey;
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
     // Rift VNs (lib/hollow-rifts): the wandering giver's report and the
@@ -101,10 +112,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
     const isSageEvent = event.id === "legacy-sage-offer";
-    function previousLine() { if (!canBack || !beginAction()) return; if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
-    function nextLine() { if (isAtChoicePoint || !beginAction()) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
+    function previousLine() { if (!canBack || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
+    function nextLine() { if (isAtChoicePoint || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
     function chooseOption(choice: VnChoice) {
-        if (!beginAction()) return;
+        if (!choicesArmed || !beginAction()) return;
         // Record the trait this choice grants (additive, deduped) before doing
         // anything else, so it persists even when the choice leads to a battle.
         onChoice?.(choice);
@@ -261,10 +272,17 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ) : isAtChoicePoint ? (
                             <div className="vn-choices">
                                 {pageChoices!.map((choice, i) => (
-                                    <button key={i} className="vn-choice-btn" onClick={() => chooseOption(choice)}>
+                                    <button
+                                        key={i}
+                                        className="vn-choice-btn"
+                                        disabled={!choicesArmed}
+                                        title={!choicesArmed ? "Choices unlock in a moment to prevent an accidental selection" : undefined}
+                                        onClick={() => chooseOption(choice)}
+                                    >
                                         {applyVnTextVars(choice.text, textVars)}
                                     </button>
                                 ))}
+                                {!choicesArmed && <span className="hint">Choices unlock in a moment&hellip;</span>}
                             </div>
                         ) : (
                             <div className="vn-controls">

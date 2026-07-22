@@ -458,6 +458,32 @@ describe('_makeRemoteKv transport resilience', () => {
         await assert.rejects(kv().set('save:clan-x', { a: 1 }, { nx: true }), /HTTP 502/);
         assert.equal(calls.length, 1); // single attempt only
     });
+
+    it('filtered hkeys requires a proxy capability acknowledgement during rolling deploys', async () => {
+        let sentBody = '';
+        globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+            sentBody = String(init?.body ?? '');
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({ fields: ['good'], nonEmptyStringsApplied: true }),
+                text: async () => '',
+            };
+        }) as unknown as typeof fetch;
+        assert.deepEqual(await kv().hkeys('shared:imgfields:event', { nonEmptyStrings: true }), ['good']);
+        assert.equal(JSON.parse(sentBody).options.nonEmptyStrings, true);
+
+        globalThis.fetch = (async () => ({
+            ok: true,
+            status: 200,
+            json: async () => ({ fields: ['good', 'empty'] }),
+            text: async () => '',
+        })) as unknown as typeof fetch;
+        await assert.rejects(
+            kv().hkeys('shared:imgfields:event', { nonEmptyStrings: true }),
+            /does not support filtered hkeys/,
+        );
+    });
 });
 
 // Regression (2026-07-09): disk-overlay hset/hdel are read-modify-write over a
@@ -490,6 +516,13 @@ describe('_makeDiskKv concurrent RMW', () => {
             (i % 2 ? a : b).hset('shared:imgfields:pet', { [`pet:${i}`]: 'x' }),
         ));
         assert.equal((await a.hkeys('shared:imgfields:pet')).length, 10);
+    });
+
+    it('filtered hkeys excludes empty/non-string tombstones without changing normal hash semantics', async () => {
+        const kv = _makeDiskKv(root);
+        await kv.hset('shared:imgfields:event-filter', { good: 'data:image/png;base64,AAAA', empty: '', number: 1 });
+        assert.deepEqual((await kv.hkeys('shared:imgfields:event-filter')).sort(), ['empty', 'good', 'number']);
+        assert.deepEqual(await kv.hkeys('shared:imgfields:event-filter', { nonEmptyStrings: true }), ['good']);
     });
 
     it('concurrent hset + hdel settle to the exact expected field set', async () => {
