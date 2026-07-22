@@ -164,6 +164,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({
             sectorMates,
+            // Server-authoritative world position (lease-gated in online-store, so it
+            // can't be teleported past the anti-cheat) + whether a travel lease is in
+            // flight. The client reconciles its own currentSector to this each beat
+            // (lib/sector-reconcile), so a desync — a remote raid/event backdrop
+            // sector, the travel mask, any future drift — self-heals and co-located
+            // players never go invisible. `traveling` makes the client hold during
+            // the arrival-settle window so a real trip is never bounced.
+            sector: stored.sector,
+            traveling: (stored.travelingUntil ?? 0) > now,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
             pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,

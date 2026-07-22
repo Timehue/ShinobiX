@@ -155,7 +155,16 @@ import { readFileSync } from "node:fs";
 // → 8,441 (net −10: retired the VillageLoreScreen route + StarterPetSelect
 // overlay wiring in favor of the single IntroCinematic overlay mount — the
 // spirit-fox intro cinematic + companion gift live in features/intro-cinematic/.)
-const MAX_LINES = 8_446;
+// → 8,459 (+13 mandatory heartbeat WIRING for the self-healing world-position
+// reconcile: the lib import (+1) and the reconcile block in the heartbeat response
+// handler (+12, incl. its 8-line rationale + the world-map screen gate) that snaps
+// currentSector to the server's authoritative (lease-gated) sector whenever they
+// drift, so co-located players can never go invisible after a desync. The DECISION
+// logic + tests live in lib/sector-reconcile.ts; only the App-local setCurrentSector
+// call site — which reads the live heartbeat response + currentSectorRef /
+// isTraveling / pendingTravel / screenRef — must live here, exactly like the other
+// heartbeat delivery wiring above.)
+const MAX_LINES = 8_459;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
