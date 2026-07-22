@@ -1,3 +1,4 @@
+import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName, clanBareSlug, clanRecordKey } from '../../_utils.js';
@@ -288,7 +289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             claimed: claimed.includes(missionKey) ? claimed : [...claimed, missionKey],
         });
     } catch (err) {
-        console.error('[clan/mission/claim]', err);
+        console.error('[clan/mission/claim]', safeLogValue(err));
         if (isEconomicReceiptStorageError(err)) {
             return res.status(503).json({ error: 'Could not reserve the clan mission reward. Please retry.' });
         }

@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -51,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await kv.set(key, { ...run, chosenAugmentId: augmentId }, { ex: RUN_TTL_SEC });
         return res.status(200).json({ ok: true, chosenAugmentId: augmentId });
     } catch (err) {
-        console.error('[hollow-gate/choose-augment]', err);
+        console.error('[hollow-gate/choose-augment]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

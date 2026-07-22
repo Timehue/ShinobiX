@@ -1,3 +1,4 @@
+import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { safeName, cors, clanRecordKey } from '../../_utils.js';
@@ -52,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await offerEscort(clanName, playerName);
         return res.status(200).json({ ok: true, clanName, petTamer: playerName, expiresInSeconds: 60 * 60 });
     } catch (err) {
-        console.error('[clan/pet-escort/offer]', err);
+        console.error('[clan/pet-escort/offer]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

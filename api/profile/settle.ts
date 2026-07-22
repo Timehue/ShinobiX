@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayer } from '../_auth.js';
 import { recordEconomyTxn } from '../_economy.js';
@@ -56,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: out._saveVersion,
         });
     } catch (error) {
-        console.error('[profile/settle]', error);
+        console.error('[profile/settle]', safeLogValue(error));
         return res.status(503).json({ error: 'Could not update your profile. Please retry.' });
     }
 }
