@@ -6,6 +6,9 @@ export type StoryReckoningSeal = { id: string; stage: "task" | "return"; baselin
 export interface StoryReckoningDef {
     id: string;
     village: string;
+    /** Stands at ANY village's outskirts once the player has reached ownProgress
+     *  (gated on progress/level, not storyVillage). `village` is placeholder only. */
+    crossVillage?: boolean;
     levelReq: number;
     ownProgress: number;
     completionTrait: string;
@@ -44,6 +47,98 @@ export const STORY_RECKONINGS: Record<string, StoryReckoningDef> = {
         fateShards: 0,
         title: "Ridge-Walker",
     },
+    "story-reckoning-toma-cinders": {
+        id: "story-reckoning-toma-cinders",
+        village: "Ashen Leaf Village",
+        levelReq: 30,
+        ownProgress: 3,
+        completionTrait: "alr-toma-cinders-read",
+        metric: "totalTilesExplored",
+        target: 12,
+        dropItemId: "event-reed-tally",
+        weight: 4,
+        fateShards: 0,
+        title: "Name-Keeper",
+    },
+    "story-reckoning-mori-working-copy": {
+        id: "story-reckoning-mori-working-copy",
+        village: "Ashen Leaf Village",
+        levelReq: 58,
+        ownProgress: 5,
+        completionTrait: "alr-mori-copy-set",
+        metric: "totalAiKills",
+        target: 1,
+        dropItemId: "event-struck-nameplate",
+        weight: 6,
+        fateShards: 1,
+        title: "Ash-Witness",
+    },
+    "story-reckoning-sova-true-roll": {
+        id: "story-reckoning-sova-true-roll",
+        village: "Frostfang Village",
+        levelReq: 42,
+        ownProgress: 4,
+        completionTrait: "ffr-sova-roll-bound",
+        metric: "totalTilesExplored",
+        target: 12,
+        dropItemId: "event-true-roll-page",
+        weight: 5,
+        fateShards: 0,
+        title: "Roll-Reader",
+    },
+    "story-reckoning-yura-exemption": {
+        id: "story-reckoning-yura-exemption",
+        village: "Frostfang Village",
+        levelReq: 58,
+        ownProgress: 5,
+        completionTrait: "ffr-yura-token-returned",
+        metric: "totalAiKills",
+        target: 1,
+        dropItemId: "event-struck-warmth-token",
+        weight: 6,
+        fateShards: 1,
+        title: "Oath-Witness",
+    },
+    "story-reckoning-nyx-ledger": {
+        id: "story-reckoning-nyx-ledger",
+        village: "Moonshadow Village",
+        levelReq: 30,
+        ownProgress: 3,
+        completionTrait: "msr-nyx-ledger-open",
+        metric: "totalTilesExplored",
+        target: 12,
+        dropItemId: "event-unsworn-page",
+        weight: 4,
+        fateShards: 0,
+        title: "Buyer-Namer",
+    },
+    "story-reckoning-iro-sealed-shelf": {
+        id: "story-reckoning-iro-sealed-shelf",
+        village: "Moonshadow Village",
+        levelReq: 58,
+        ownProgress: 5,
+        completionTrait: "msr-iro-shelf-unsealed",
+        metric: "totalAiKills",
+        target: 1,
+        dropItemId: "event-sealed-file",
+        weight: 6,
+        fateShards: 1,
+        title: "Shelf-Breaker",
+    },
+    "story-reckoning-harrow-unbought": {
+        id: "story-reckoning-harrow-unbought",
+        village: "Stormveil Village",
+        crossVillage: true,
+        levelReq: 65,
+        ownProgress: 9,
+        completionTrait: "hr-harrow-contract-closed",
+        metric: "totalAiKills",
+        target: 1,
+        dropItemId: "event-forged-die",
+        weight: 7,
+        fateShards: 2,
+        title: "The Unbought",
+    },
 };
 
 const clampLevel = (n: unknown) => Math.max(1, Math.min(100, Math.floor(Number(n) || 0) || 1));
@@ -78,8 +173,9 @@ export function storyReckoningEligible(
     const traits = Array.isArray(char.storyTraits) ? (char.storyTraits as unknown[]).map(String) : [];
     if (traits.includes(def.completionTrait)) return false;
     if ((Number(char.level) || 0) < def.levelReq) return false;
-    if (char.storyVillage !== def.village) return false;
-    return (Number(char.storyProgress) || 0) >= def.ownProgress;
+    if ((Number(char.storyProgress) || 0) < def.ownProgress) return false;
+    // Cross-village figures ignore storyVillage; own-village arcs require the match.
+    return def.crossVillage === true || char.storyVillage === def.village;
 }
 
 export function ownedItemCount(char: { inventory?: unknown; itemStacks?: unknown }, itemId: string): number {
