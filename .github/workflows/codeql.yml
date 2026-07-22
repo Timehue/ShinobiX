@@ -14,10 +14,12 @@
 # │ not a coverage gap — default setup keeps scanning main meanwhile).         │
 # └────────────────────────────────────────────────────────────────────────────┘
 #
-# Mirrors what default setup ran: languages actions + javascript-typescript +
-# python, the "extended" query suite (see ./.github/codeql/codeql-config.yml),
-# weekly schedule. The ONLY behavioural change is paths-ignore in that config —
-# it drops the offline dev-script noise. Action major tags (checkout@v7) match
+# Mirrors what default setup ran: languages actions + javascript-typescript,
+# the "extended" query suite (see ./.github/codeql/codeql-config.yml), weekly
+# schedule. (Python is dropped from the matrix — see the note by `matrix.include`
+# below; the repo has no in-scope Python to analyse.) The main behavioural change
+# is paths-ignore in that config, dropping the offline dev-script noise. Action
+# major tags (checkout@v7) match
 # .github/workflows/ci.yml; codeql-action stays on its current major (v3).
 name: CodeQL
 
@@ -52,8 +54,11 @@ jobs:
             build-mode: none
           - language: actions
             build-mode: none
-          - language: python
-            build-mode: none
+          # NOTE: no `python` entry. The repo's only .py file is the offline dev
+          # helper scripts/_story-pdf-build.py, which paths-ignore excludes — so a
+          # python analysis finds zero in-scope source and fails fatally ("no
+          # source code seen"). There is no production Python to scan. If real
+          # Python is ever added OUTSIDE scripts/, re-add `- language: python`.
     steps:
       - name: Checkout
         uses: actions/checkout@v7
