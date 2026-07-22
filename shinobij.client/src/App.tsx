@@ -65,7 +65,7 @@ import {
     jutsuEffectInfo,
     jutsuDisplayAtLevel,
 } from "./lib/jutsu-effects";
-import { normalizeJutsu } from "./lib/jutsu";
+import { normalizeJutsu, orderEquippedJutsus } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
     starterBloodlineOffense,
@@ -1422,8 +1422,7 @@ export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: J
 }
 
 export function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character: Character) {
-    return getAllJutsus(savedBloodlines, creatorJutsus, character)
-        .filter((jutsu) => character.equippedJutsuIds.includes(jutsu.id));
+    return orderEquippedJutsus(getAllJutsus(savedBloodlines, creatorJutsus, character), character.equippedJutsuIds);
 }
 
 export function stringifyServerSavePayload(payload: unknown) {
