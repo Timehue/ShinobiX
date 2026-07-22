@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -175,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (err instanceof LockContendedError) {
             return res.status(503).json({ error: 'Could not update the rift — please retry.' });
         }
-        console.error('[sector/rift-quest]', err);
+        console.error('[sector/rift-quest]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

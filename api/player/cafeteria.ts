@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!out.ok) return res.status(out.status).json({ error: out.error });
         return res.status(200).json({ ok: true, meal, character: out.character, _saveVersion: out._saveVersion });
     } catch (err) {
-        console.error('[player/cafeteria]', err);
+        console.error('[player/cafeteria]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

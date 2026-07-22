@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
@@ -155,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {
-        console.error('[village/claim-war-crate]', err);
+        console.error('[village/claim-war-crate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

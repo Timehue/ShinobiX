@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -45,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: outcome._saveVersion,
         });
     } catch (error) {
-        console.error('[war/claim-reward]', error);
+        console.error('[war/claim-reward]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

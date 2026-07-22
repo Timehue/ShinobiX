@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js'; import { authedPlayerOrAdmin } from '../_auth.js'; import { enforceRateLimitKv } from '../_ratelimit.js'; import { kv } from '../_storage.js'; import { cors, safeName } from '../_utils.js'; import { mutatePlayerSave } from '../save/_mutate-player-save.js'; import { purchaseVillageUpgrade } from './_upgrade.js';
 const slug = (v: unknown) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -6,5 +7,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' }); if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your upgrade.' }); if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-upgrade', 20, 60_000, identity.name))) return;
         const result = await mutatePlayerSave(playerName, async ({ character }) => { const state = await kv.get<{ seatedKage?: string }>(`game:village-state:${slug(character.village)}`); if (!identity.admin && safeName(state?.seatedKage ?? '') !== playerName) return { ok: false as const, status: 403, error: 'Only the seated Kage can upgrade village structures.' }; const out = purchaseVillageUpgrade(character, body.key); if (!out.ok) return { ok: false as const, status: 409, error: out.reason }; return { ok: true as const, character: out.character, value: { cost: out.cost, level: out.level } }; });
         if (!result.ok) return res.status(result.status).json({ error: result.error }); return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
-    } catch (error) { console.error('[village/upgrade]', error); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) { console.error('[village/upgrade]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }
