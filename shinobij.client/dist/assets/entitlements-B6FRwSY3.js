@@ -1,1 +1,0 @@
-function e(e){let t=e?.patreon;return!(!t||t.active!==!0||typeof t.expiresAt==`number`&&t.expiresAt>0&&Date.now()>=t.expiresAt)}function t(t){return e(t)?15:12}function n(t){return e(t)?5:3}function r(t){return e(t)?2:1}function i(t){return e(t)}export{r as a,n as i,e as n,t as r,i as t};

@@ -1,0 +1,71 @@
+# CodeQL — ADVANCED setup (replaces GitHub default setup).
+#
+# ┌─ CUTOVER (one-time, REQUIRED) ────────────────────────────────────────────┐
+# │ GitHub refuses to ingest an advanced-setup run while default setup is      │
+# │ still enabled ("analyses from advanced configurations cannot be processed  │
+# │ when the default setup is enabled"). Before/at the moment this lands on    │
+# │ main, disable default setup ONCE:                                          │
+# │                                                                            │
+# │   gh api -X PATCH repos/:owner/:repo/code-scanning/default-setup \         │
+# │     -f state=not-configured                                                │
+# │                                                                            │
+# │ Fully reversible — re-enable with -f state=configured to fall back.        │
+# │ Until then this workflow will run but its upload is rejected (a red check, │
+# │ not a coverage gap — default setup keeps scanning main meanwhile).         │
+# └────────────────────────────────────────────────────────────────────────────┘
+#
+# Mirrors what default setup ran: languages actions + javascript-typescript +
+# python, the "extended" query suite (see ./.github/codeql/codeql-config.yml),
+# weekly schedule. The ONLY behavioural change is paths-ignore in that config —
+# it drops the offline dev-script noise. Action major tags (checkout@v7) match
+# .github/workflows/ci.yml; codeql-action stays on its current major (v3).
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 05:31 UTC — matches default setup's weekly cadence.
+    - cron: '31 5 * * 1'
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      # Only this job needs elevated scope; the rest of the repo's Actions run
+      # read-only (ci.yml pins contents: read at the top level).
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: actions
+            build-mode: none
+          - language: python
+            build-mode: none
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
