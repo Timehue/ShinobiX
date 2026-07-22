@@ -640,12 +640,15 @@ export function Arena({
     const opponentAvatar = opponentCharacter?.avatarImage
         || (opponentCharacter ? (sharedImages['avatar:' + opponentCharacter.name.toLowerCase()] ?? '') : '')
         || pendingAiProfile?.image
-        || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
-        // Hunt beasts carry no `image` (makeBuiltinAi never sets one), so without
-        // this they fell through to `icon` and the player fought an emoji after
-        // seeing a painted portrait on the contract board. Sits BELOW the shared
-        // 'ai:' lookup so an admin upload still overrides the bundled art.
+        // Bundled hunt/apex beast art wins over an admin 'ai:' upload. beastPortrait
+        // only resolves hunt-ai-* / apex-ai-* ids, so every OTHER AI still falls
+        // through to its shared-image override below, unchanged — this ordering only
+        // affects the shipped beasts. It sits ABOVE the shared lookup because a stale
+        // admin upload (e.g. a "hunter with a hawk" mistaken for the Forest Hawk) was
+        // overriding the correct painted portrait in the fight. The contract board
+        // already shows the bundled art, so the battle should match it.
         || beastPortrait(pendingAiProfile?.id)
+        || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
         || pendingAiProfile?.icon
         || "EN";
     // PvE difficulty curve — scale standard PvE AI enemy stats AND max HP by the

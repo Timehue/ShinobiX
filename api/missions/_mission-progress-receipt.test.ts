@@ -36,9 +36,9 @@ describe('_mission-progress-receipt', () => {
                 exploreTarget, raidTarget: 0, evidenceId: `track-${i}-aaaaaaaaaaaaaaaa`,
             });
         }
-        // Tracking caps at target-1, so it's not claimable until the kill lands.
+        // Tracking alone never completes a hunt — the verified kill is the proof.
         assert.equal(receipt!.exploreCount, exploreTarget - 1);
-        assert.equal(reasonOf(validateMissionProgressReceipt(receipt, expected)), 'incomplete-progress-receipt');
+        assert.equal(reasonOf(validateMissionProgressReceipt(receipt, expected)), 'missing-hunt-kill-receipt');
         // The kill: sealed-opponent win via report-ai-fight.
         receipt = applyMissionProgressEvent(receipt, {
             playerName: 'Rill', missionId: 'hunt-frost-wolf', missionType: 'hunt', kind: 'hunt-kill',
@@ -100,7 +100,7 @@ describe('_mission-progress-receipt', () => {
             missionId: 'hunt-boar',
             missionType: 'hunt',
             mission: { exploreCount: 3 },
-        })), 'incomplete-progress-receipt');
+        })), 'missing-hunt-kill-receipt');
 
         receipt = applyMissionProgressEvent(receipt, {
             playerName: 'Player',
@@ -123,6 +123,30 @@ describe('_mission-progress-receipt', () => {
         assert.deepEqual(validateMissionProgressReceipt(receipt, {
             playerName: 'Player',
             missionId: 'hunt-boar',
+            missionType: 'hunt',
+            mission: { exploreCount: 3 },
+        }), { ok: true });
+    });
+
+    it('a verified kill completes a hunt even when every tracking ping was dropped', () => {
+        // The failure this guards: hunt-track pings are fire-and-forget, so a flaky
+        // network can leave the receipt with zero tracking evidence while the client
+        // shows a full bar. The server-verified kill (sealed opponentId, accepted
+        // hunt) must still make the contract claimable on its own — otherwise the
+        // hunt bricks permanently with no way to re-earn the dropped tracks.
+        const receipt = applyMissionProgressEvent(null, {
+            playerName: 'Player',
+            missionId: 'hunt-forest-hawk',
+            missionType: 'hunt',
+            kind: 'hunt-kill',
+            exploreTarget: 3,
+            raidTarget: 0,
+            evidenceId: 'huntkill_foresthawktoken1234567',
+        });
+        assert.equal(receipt.huntKill, true);
+        assert.deepEqual(validateMissionProgressReceipt(receipt, {
+            playerName: 'Player',
+            missionId: 'hunt-forest-hawk',
             missionType: 'hunt',
             mission: { exploreCount: 3 },
         }), { ok: true });
