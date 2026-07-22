@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayer } from '../_auth.js';
 import { recordEconomyTxn } from '../_economy.js';
@@ -43,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })));
         return res.status(200).json({ ok: true, rewards: out.value, character: out.character, _saveVersion: out._saveVersion });
     } catch (error) {
-        console.error('[inventory/open-war-crate]', error);
+        console.error('[inventory/open-war-crate]', safeLogValue(error));
         return res.status(503).json({ error: 'Could not open the war crate. Nothing was changed; please retry.' });
     }
 }

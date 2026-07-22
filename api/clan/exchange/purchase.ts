@@ -1,3 +1,4 @@
+import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
@@ -181,7 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reveal: purchase.result.reveal,
         });
     } catch (err) {
-        console.error('[clan/exchange/purchase]', err);
+        console.error('[clan/exchange/purchase]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayer } from '../_auth.js';
 import { recordEconomyTxn } from '../_economy.js';
@@ -56,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json({ ok: true, settlement: out.value, character: out.character, _saveVersion: out._saveVersion });
     } catch (error) {
-        console.error('[inventory/sell]', error);
+        console.error('[inventory/sell]', safeLogValue(error));
         return res.status(503).json({ error: 'Could not sell the item. Nothing was changed; please retry.' });
     }
 }

@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -84,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(result);
     } catch (err) {
-        console.error('[village/war-win-condition]', err);
+        console.error('[village/war-win-condition]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

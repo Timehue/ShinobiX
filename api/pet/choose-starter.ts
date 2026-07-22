@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -25,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         return res.status(200).json({ ok: true, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
-        console.error('[pet/choose-starter]', error);
+        console.error('[pet/choose-starter]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

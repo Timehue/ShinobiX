@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -21,5 +22,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
-    } catch (error) { console.error('[dungeon/run]', error); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) { console.error('[dungeon/run]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }
