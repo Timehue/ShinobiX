@@ -93,29 +93,30 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
     // ── Clan Boss (api/clan-boss) — a tough party-of-3 boss. Its HP is OVERRIDDEN at
     // assault time to the clan's shared pool (min(pool, cap)), so these hp values are
     // only a fallback; the stats below drive how hard it HITS (assaults normally end
-    // in a wipe having chipped the boss). Reuse the existing boss sprites. Stats sit
+    // in a wipe having chipped the boss). Dedicated visual keys keep combat art aligned
+    // with the weekly boss card. Stats sit
     // at the level-80 boss ceiling (a stat-cap parity test pins this).
     // Clan bosses are GAUNTLET-tuned like the story bosses (armor + a signature AOE nuke) so a
     // single geared party can't one-shot the capped assault chunk — assaults chip a portion and
     // usually wipe, the way the weekly clan raid intends. HP is still overridden to the assault cap.
     'clan-boss-oni': {
-        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'ravager', boss: true, armorRawDR: 0.26,
+        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'clan-boss-oni', boss: true, armorRawDR: 0.26,
         stats: { taijutsuOffense: 2450, taijutsuDefense: 1250, strength: 720, speed: 380 },
         jutsu: [{ id: 'oni-cleaver', name: 'Oni Cleaver', type: 'Taijutsu', ap: 60, range: 3, effectPower: 62, method: 'AOE_BURST' }],
     },
     'clan-boss-leviathan': {
-        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 12000, visual: 'sovereign', boss: true, armorRawDR: 0.26,
+        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 12000, visual: 'clan-boss-leviathan', boss: true, armorRawDR: 0.26,
         stats: { ninjutsuOffense: 2250, ninjutsuDefense: 1250, willpower: 620, speed: 380 },
         jutsu: [{ id: 'leviathan-surge', name: 'Abyssal Surge', type: 'Ninjutsu', element: 'Water', ap: 60, range: 3, effectPower: 54, method: 'AOE_BURST' }],
     },
     'clan-boss-kage': {
-        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 12000, visual: 'revenant', boss: true, armorRawDR: 0.16,
+        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 12000, visual: 'clan-boss-kage', boss: true, armorRawDR: 0.16,
         stats: { genjutsuOffense: 1850, genjutsuDefense: 1200, willpower: 580, intelligence: 440 },
         jutsu: [{ id: 'kage-eclipse', name: 'Hollow Eclipse', type: 'Genjutsu', ap: 60, range: 3, effectPower: 46, method: 'AOE_BURST' }],
     },
     'clan-boss-golem': {
         // bulwark tank: highest armor, a bit less offense; the whole clan chips it over the week.
-        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'warden', boss: true, armorRawDR: 0.32,
+        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'clan-boss-golem', boss: true, armorRawDR: 0.32,
         stats: { taijutsuOffense: 2050, taijutsuDefense: 1550, strength: 720, speed: 240 },
         jutsu: [{ id: 'golem-quake', name: 'Seismic Quake', type: 'Taijutsu', ap: 60, range: 3, effectPower: 48, method: 'AOE_BURST' }],
     },

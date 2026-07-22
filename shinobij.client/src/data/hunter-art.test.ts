@@ -99,6 +99,10 @@ describe("hunter-art beast portraits", () => {
         );
     });
 
+    it("unwraps Endless Tower clone ids before the beast portrait lookup", () => {
+        assert.match(hunterArtSource, /canonicalBeastPortraitId\(aiProfileId\)/);
+    });
+
     it("ships an Apex banner for the contract card", () => {
         assert.match(hunterArtSource, /export const APEX_CONTRACT_BANNER/);
         const rel = importedAssetPaths().get("apexBanner");

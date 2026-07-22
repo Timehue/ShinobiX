@@ -20,6 +20,7 @@ import { adoptSaveVersion } from "./lib/save-version";
 import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
+import { resolveDungeonWardenPortrait, storyRoadBattlePortrait } from "./lib/ai-fight-art";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
@@ -5502,12 +5503,7 @@ export default function App() {
         const armorRawDR = aiRawDamageReductionForLevel(level, toughness);
         const dungeonLoadoutId: AiLoadoutId = level === 100 ? "boss" : level === 75 ? "control" : "defender";
         const aiProfileId = `temp-dungeon-ai-${level}-${Date.now()}`;
-        // Admin-uploaded warden portrait wins if present, falling back to the
-        // event's static avatar/scene art. Key shape mirrors the rest of the
-        // event-asset overlay system used by the Visual Novel editor.
-        const wardenImage = sharedImages[`event:${activeDungeonEvent.id}:warden`]
-            || activeDungeonEvent.avatarImage
-            || activeDungeonEvent.image;
+        const wardenImage = resolveDungeonWardenPortrait(activeDungeonEvent, sharedImages);
         setTemporaryStoryAi({
             id: aiProfileId,
             name: level === 100 ? "Abyssal Dungeon Warden" : level === 75 ? "Sealed Dungeon Warden" : "Dungeon Warden",
@@ -5753,7 +5749,7 @@ export default function App() {
                 id: aiProfileId,
                 name: battle.bossName || event.name,
                 icon: battle.bossIcon || event.icon || "AI",
-                image: event.avatarImage || event.image,
+                image: storyRoadBattlePortrait(battle.bossName) || event.avatarImage,
                 level,
                 village: event.village || "AI",
                 hp: Math.max(battle.bossHp || 0, aiHpForLevel(level, toughness)),
