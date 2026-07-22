@@ -23,6 +23,7 @@ import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
+import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { presenceCharacter, peerIsTraveling } from "./lib/presence-character";
 import { noteServerTime } from "./lib/server-clock";
 import {
@@ -2594,7 +2595,7 @@ export default function App() {
                     signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean; serverNow?: number } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean; serverNow?: number; sector?: number; traveling?: boolean } = await res.json();
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
                 if (data.forceReload) {
@@ -2634,6 +2635,18 @@ export default function App() {
                 if (data.sectorMates && currentSectorRef.current === presenceBody.sector) {
                     pushLiveSectorPlayers(data.sectorMates, presenceBody.sector);
                 }
+                // Self-heal any drift between our currentSector and the server's
+                // authoritative (lease-gated, anti-cheat-safe) world position, so
+                // presence/visibility always agree and a desync — a remote raid/event
+                // backdrop sector, or any future drift — can never strand a player
+                // invisible in their sector. Only on the world map: a battle screen
+                // keeps its own backdrop sector, and every other screen sits in the
+                // safe zone. Heals on RETURN from such a fight. A real trip is never
+                // bounced (see lib/sector-reconcile).
+                const reconcileSector = screenRef.current === "worldMap"
+                    ? worldSectorReconcileTarget({ serverSector: data.sector, serverTraveling: data.traveling, sentSector: presenceBody.sector, currentSector: currentSectorRef.current, clientTraveling: isTraveling || !!pendingTravel })
+                    : null;
+                if (reconcileSector != null) setCurrentSector(reconcileSector);
                 // Roster feeds non-urgent social screens (search/spar/pet arena), never
                 // combat (which re-hydrates from save:<name>). Throttle the ingest — the
                 // per-beat path normalizes up to 100 characters + re-renders all of App,
