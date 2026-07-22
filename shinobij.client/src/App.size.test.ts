@@ -164,7 +164,11 @@ import { readFileSync } from "node:fs";
 // call site — which reads the live heartbeat response + currentSectorRef /
 // isTraveling / pendingTravel / screenRef — must live here, exactly like the other
 // heartbeat delivery wiring above.)
-const MAX_LINES = 8_459;
+// → 8,441 (net −18: extracted the clan-war "tilecards" fallback-deck build +
+// pre-join into lib/clan-war-tilecards-join.ts. This also drains the entry chunk —
+// the tile-card catalog + card-clash deck math (~50 KB) now load on demand with
+// the helper instead of eagerly from App. See scripts/check-build-size.mjs.)
+const MAX_LINES = 8_441;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
