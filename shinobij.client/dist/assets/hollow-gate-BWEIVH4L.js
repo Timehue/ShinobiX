@@ -1,1 +1,0 @@
-var e=`/assets/hollow-gate-Bk8yejKa.webp`;export{e as t};

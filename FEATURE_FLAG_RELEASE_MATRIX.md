@@ -11,9 +11,9 @@ Date: July 7, 2026
 | Battle Towers | Enable with warning | Playable advanced PvE. | Medium | Mobile fight and refresh/resume smoke. |
 | Endless Tower | Enable with warning | Repeatable PvE goal. | Medium | Monitor reward pacing and long sessions. |
 | Clan Hall | Enable with warning | Useful social loop. | Medium | Admin support for clan disputes. |
-| Clan Boss | Feature-flagged/admin monitored | Existing backend comments indicate `ENABLE_CLAN_BOSS` gating. | High | Storage/reward receipt review and staff coverage. |
+| Clan Boss | Enabled by default/admin monitored | `server.ts` force-sets `ENABLE_CLAN_BOSS=1` unless `DISABLE_CLAN_BOSS=1`. | High | Storage/reward receipt review and staff coverage; `DISABLE_CLAN_BOSS=1` kill switch ready. |
 | Weekly Boss | Gate rewards | Client damage remains disabled by default. | High | Server-authoritative damage settlement; `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE=1` only after staging. |
-| Village War Map | Soft-launch/staffed | High-impact world/economy system. | High | Admin runbook and reward audit. |
+| Village War Map | Enabled by default/staffed | High-impact world/economy system; `server.ts` force-sets `ENABLE_VILLAGE_WAR=1` unless `DISABLE_VILLAGE_WAR=1`. | High | Admin runbook and reward audit; `DISABLE_VILLAGE_WAR=1` kill switch ready. |
 | Sector Wars | Soft-launch/staffed | Territory, terrain, mercenaries, and supply affect live world. | High | Low-population balance review and receipt monitoring. |
 | Card Clash | Soft-launch | Contained side mode. | Medium | Stuck-match monitoring and mobile check. |
 | Pet Arena | Enable with warning | Good side content. | Medium | Rating/pacing telemetry. |

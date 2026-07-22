@@ -1,1 +1,0 @@
-var e=`/assets/coliseum-bg-6COjE3Sb.webp`;export{e as t};
