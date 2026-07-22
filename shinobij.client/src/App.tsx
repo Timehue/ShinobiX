@@ -55,7 +55,7 @@ import {
     addInventoryItems,
 } from "./lib/items";
 import { removeItem, countItem, ownsItem, normalizeInventory } from "./lib/inventory";
-import { getAllTileCards, type TileCard } from "./data/tile-cards";
+import type { TileCard } from "./data/tile-cards";
 import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
@@ -163,7 +163,6 @@ const ShinobiCouncilHall = lazyWithRetry(() => import("./screens/ShinobiCouncilH
 const CardClashDuel = lazyWithRetry(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
 const CardHall = lazyWithRetry(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
 const GuidesLibrary = lazyWithRetry(() => import("./components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
-import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDeck } from "./lib/card-clash";
 const DungeonEncounter = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonEncounter })));
 const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonPetBattle })));
 import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
@@ -2346,33 +2345,16 @@ export default function App() {
                 break;
             case "tilecards": {
                 // PvP Shinobi Card Clash duel — server-managed session, auto-join
-                // with a legal 12-card FALLBACK deck (the player's saved Card Hall
-                // deck if valid, else an auto-built one). The duel screen lets them
-                // customise during the 30s picking phase; on timeout the fallback
-                // is promoted. Both clients race to join; the server is idempotent.
-                const allCards = getAllTileCards([]);
-                const clash = allCards.map(deriveCardClashCard);
-                const byId = Object.fromEntries(clash.map(c => [c.id, c]));
-                const saved = character.cardClashDeck ?? [];
-                const deckIds = validateClashDeck(saved, byId).valid
-                    ? saved
-                    : buildPlayableDeck(character.tileCards ?? [], byId, clash);
-                const deckPayload = deckIds.map(id => {
-                    const c = byId[id];
-                    const ability = c.abilityType === "ongoingElementBoostHere" ? "none" : c.abilityType;
-                    return { id: c.id, element: c.element, rarity: c.rarity, cost: c.cost, power: c.power, ability };
-                });
-                void fetch("/api/clan/war/tilecards", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        action: "join",
-                        warId: inferredWarId,
-                        challengeId: ch.id,
-                        defaultDeck: deckPayload,
-                    }),
-                }).catch(() => { /* the duel screen polls + retries */ });
+                // with a legal 12-card FALLBACK deck. The duel screen lets the player
+                // customise during the 30s picking phase; both clients race to join
+                // (server idempotent). The fallback-deck build + pre-join lives in a
+                // lazy helper so the card-clash math + tile catalog (~50 KB) stay off
+                // the entry chunk. Fire-and-forget: the duel screen polls + retries.
                 setScreen("tilecardsDuel");
+                const char = character;
+                void import("./lib/clan-war-tilecards-join")
+                    .then(m => m.joinClanWarTileCards(char, inferredWarId, ch.id))
+                    .catch(() => { /* the duel screen polls + retries */ });
                 break;
             }
         }

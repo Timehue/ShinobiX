@@ -1,10 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character } from "../types/character";
 import type { TowerSession } from "../lib/towers-api";
-import { BattleTowerFight } from "../screens/BattleTowerFight";
+import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { startStoryBossCombat, settleStoryBossCombat, type StoryBossSettleResult } from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
+
+// BattleTowerFight is the full sealed-combat screen (~76 KB minified). Every other
+// importer of it is a lazy screen; this host is the one exception — App mounts it
+// eagerly so its request-bus listener is always live — so a static import here
+// dragged the whole combat screen onto the boot-critical entry chunk. Code-split
+// it: the host stays eager and light (just the bus listener), and the heavy screen
+// loads only when a story boss fight actually starts. The chunk is warmed on the
+// fight request (below), in parallel with the start-combat network call, so it is
+// resident by the time the session opens — no visible load gap.
+const BattleTowerFight = lazyWithRetry(() => import("../screens/BattleTowerFight").then((m) => ({ default: m.BattleTowerFight })));
 
 /*
  * The single host for sealed story-boss fights (api/story/boss-start), mounted
@@ -33,6 +43,9 @@ export function StoryBossFightHost({
         return onStoryBossFightRequest((theme) => {
             if (startingRef.current) return;
             startingRef.current = true;
+            // Warm the code-split combat chunk alongside the start-combat network
+            // round-trip so BattleTowerFight is ready the moment the session opens.
+            void import("../screens/BattleTowerFight");
             startStoryBossCombat({ playerName, bossName: theme.bossName })
                 .then((started) => setFight({ theme, runId: started.runId, session: started.session }))
                 .catch((error) => alert(error instanceof Error ? error.message : "The story battle could not start."))
@@ -56,15 +69,17 @@ export function StoryBossFightHost({
 
     return createPortal(
         <div className="story-fight-portal">
-            <BattleTowerFight
-                character={character}
-                runId={fight.runId}
-                initialSession={fight.session}
-                sharedImages={sharedImages}
-                settleFn={settle}
-                storyTheme={fight.theme}
-                onExit={closeFight}
-            />
+            <Suspense fallback={null}>
+                <BattleTowerFight
+                    character={character}
+                    runId={fight.runId}
+                    initialSession={fight.session}
+                    sharedImages={sharedImages}
+                    settleFn={settle}
+                    storyTheme={fight.theme}
+                    onExit={closeFight}
+                />
+            </Suspense>
             {result && (
                 <div className="story-fight-complete" role="dialog" aria-label="Chapter complete">
                     <div className="story-fight-complete-card">

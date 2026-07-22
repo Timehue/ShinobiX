@@ -34,7 +34,17 @@ const TOTAL_JS_CSS_FAIL_BYTES = 6_600_000;
 // on Linux CI). Raised to 675,000 to restore a small reliable margin. This is a
 // budget-lifecycle bump, not regression-papering: the RIGHT next step is to
 // drain the entry chunk (lazy-load eager data) and lower this again.
-const ENTRY_JS_FAIL_BYTES = 675_000;
+// 2026-07-22 (drain, as promised above): 675,000 → 640,000. Three eager modules
+// were code-split OFF the entry chunk: (1) BattleTowerFight (~76 KB) — the sealed
+// combat screen was dragged in by StoryBossFightHost (the one eager importer;
+// every other importer was already lazy), now lazy-loaded inside the host, which
+// stays eager only for its light request-bus listener; (2)+(3) the tile-card
+// catalog + card-clash deck math (~50 KB) — needed only by the clan-war
+// "tilecards" launch, moved into a lazy lib/clan-war-tilecards-join helper. Entry
+// fell 644.3 KB → 558.6 KB (571,995 B measured on Windows). 640,000 leaves ~11.9%
+// headroom — far above the ~1 KB cross-platform variance that motivated the bump,
+// yet 35 KB below the old ceiling. Lower again when the next drain lands.
+const ENTRY_JS_FAIL_BYTES = 640_000;
 const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 385_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
