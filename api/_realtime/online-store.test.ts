@@ -43,6 +43,54 @@ test('server-issued travel changes sector only after its arrival deadline', () =
     assert.deepEqual(store.listSector(2).map((p) => p.name), ['rill']);
 });
 
+test('travel OUT of the safe zone survives origin-0 heartbeats during the mask', () => {
+    // Regression (the "can't see players in the same sector" outage): a player in
+    // the village (sector 0) travels to a wild sector. The client keeps reporting
+    // sector 0 — its ORIGIN — for the whole 3s travel mask, because currentSector
+    // only flips to the destination on arrival. Those origin-0 beats must NOT be
+    // treated as a safe-zone exit that wipes the outbound lease, or the arrival
+    // beat has no lease to settle and the player is stranded at 0 forever,
+    // invisible to their real sector and to everyone standing in it.
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 0, character: null });          // standing in the village
+    assert.ok(store.startTravel('rill', 5, at() + 3_000));               // depart for wild sector 5
+    advance(1_000);
+    const midTravel = store.upsert({ name: 'rill', sector: 0, character: null }); // mask beat: still 0
+    assert.equal(midTravel.sector, 0, 'still at the origin during the mask');
+    assert.equal(midTravel.travelDestinationSector, 5, 'outbound lease is NOT wiped by the origin-0 beat');
+    advance(2_100);
+    const arrived = store.upsert({ name: 'rill', sector: 5, character: null }); // arrival beat
+    assert.equal(arrived.sector, 5, 'arrives in the destination sector, visible to its peers');
+    assert.deepEqual(store.listSector(5).map((p) => p.name), ['rill']);
+    assert.equal(store.listSector(0).length, 0);
+});
+
+test('a stale origin-0 beat on the arrival boundary does not bounce the player home', () => {
+    // Harder variant: the beat carrying the client's stale origin (0) lands at the
+    // EXACT moment the lease matures. The store settles the trip to the destination
+    // on that beat, so honoring the 0 would immediately bounce the just-arrived
+    // player back to the safe zone and strand them. The lease-authoritative guard
+    // must keep them at the destination.
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 0, character: null });
+    assert.ok(store.startTravel('rill', 7, at() + 3_000));
+    advance(3_000); // now === arrivalAt: the lease matures on this beat
+    const arrived = store.upsert({ name: 'rill', sector: 0, character: null }); // still reporting origin 0
+    assert.equal(arrived.sector, 7, 'settled destination wins over the stale origin-0 beat');
+    assert.deepEqual(store.listSector(7).map((p) => p.name), ['rill']);
+    assert.equal(store.listSector(0).length, 0);
+});
+
+test('a genuine safe-zone return (no active lease) still snaps to sector 0', () => {
+    // The guard above must not weaken the normal safe-zone exit: a player standing
+    // in a wild sector who walks back to the village (no outbound lease) still
+    // moves to sector 0 on the next beat.
+    const { store } = makeStore();
+    store.upsert({ name: 'rill', sector: 5, character: null });
+    const home = store.upsert({ name: 'rill', sector: 0, character: null });
+    assert.equal(home.sector, 0, 'safe-zone exit still works without a lease');
+});
+
 test('validated edge travel reconciles a stale presence origin sector', () => {
     let now = 1_000;
     const store = new MemoryOnlineStateStore({ now: () => now });
