@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin, bodyNameMatchesAuth } from '../_auth.js';
@@ -74,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: result._saveVersion,
         });
     } catch (error) {
-        console.error('[weapon/forge-elemental-core]', error);
+        console.error('[weapon/forge-elemental-core]', safeLogValue(error));
         return res.status(500).json({ error: 'Elemental Core could not be forged.' });
     }
 }

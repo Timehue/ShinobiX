@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
@@ -62,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             trait: reward.trait,
         });
     } catch (err) {
-        console.error('[missions/ai-fight-start]', err);
+        console.error('[missions/ai-fight-start]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }
