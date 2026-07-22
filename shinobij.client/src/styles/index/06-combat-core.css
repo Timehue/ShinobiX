@@ -186,6 +186,7 @@
     }
 
 .combat-avatar {
+    position: relative;
     width: 90%;
     aspect-ratio: 1;
     margin: 0 0 12px;
@@ -197,6 +198,23 @@
     border: 3px solid #020617;
     box-shadow: 0 0 18px rgba(103,232,249,.45);
     overflow: hidden;
+}
+
+.combat-avatar-fallback {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: grid;
+    place-items: center;
+    color: #fef3c7;
+    font-size: .34em;
+    font-weight: 900;
+    background: radial-gradient(circle, #334155, #0f172a);
+}
+
+.combat-avatar img {
+    position: relative;
+    z-index: 1;
 }
 
 .resource-line {

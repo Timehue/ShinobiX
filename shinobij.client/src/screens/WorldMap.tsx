@@ -4224,7 +4224,10 @@ export function WorldMap({
         <div className="card">
             {wmZoom.active ? (
                 <div className="wm-topbar">
-                    <BackToVillageButton onClick={() => setScreen("village")} />
+                    <BackToVillageButton
+                        onClick={() => currentSector >= 1 && currentSector <= 60 ? setSelectedSector(currentSector) : setScreen("village")}
+                        label={currentSector >= 1 && currentSector <= 60 ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                    />
                     <div className="wm-zoom-controls">
                         <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
                         <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
@@ -4232,7 +4235,10 @@ export function WorldMap({
                     </div>
                 </div>
             ) : (
-                <BackToVillageButton onClick={() => setScreen("village")} />
+                <BackToVillageButton
+                    onClick={() => currentSector >= 1 && currentSector <= 60 ? setSelectedSector(currentSector) : setScreen("village")}
+                    label={currentSector >= 1 && currentSector <= 60 ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                />
             )}
             {hollowGateMenu && (
                 <div onClick={() => setHollowGateMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
@@ -4323,11 +4329,14 @@ export function WorldMap({
                             + (sector.id === weeklyBossSector ? " atlas-sector-weekly-boss" : "")
                             + (huntTrail ? " atlas-sector-hunt-trail" : "")
                             + (sectorShrine ? " atlas-sector-shrine" : "")
+                            + (currentSector === sector.id ? " atlas-sector-current" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
-                        title={sectorTitle}
+                        title={currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle}
+                        aria-label={currentSector === sector.id ? `You are here, Sector ${sector.id}` : `Travel to Sector ${sector.id}`}
                     >
+                        {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                         {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
@@ -4377,16 +4386,17 @@ export function WorldMap({
                 {locations.map((location) => (
                         <button
                             key={location.name}
-                            className={"atlas-landmark atlas-" + location.type}
+                            className={"atlas-landmark atlas-" + location.type + (currentSector === 0 && location.name === character.village ? " atlas-current-location" : "")}
                             style={{
                                 left: location.x + "%",
                                 top: location.y + "%",
                             }}
                             onClick={() => enterLandmark(location)}
-                            title={location.name}
-                            aria-label={`Enter ${location.name}`}
+                            title={currentSector === 0 && location.name === character.village ? `You are here | ${location.name}` : location.name}
+                            aria-label={currentSector === 0 && location.name === character.village ? `You are here, ${location.name}` : `Enter ${location.name}`}
                             data-landmark-art="true"
                         >
+                            {currentSector === 0 && location.name === character.village && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                             <img className="atlas-landmark-art" src={location.art} alt="" draggable={false} />
                         </button>
                 ))}

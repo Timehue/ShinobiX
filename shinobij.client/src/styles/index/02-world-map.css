@@ -470,6 +470,36 @@
         box-shadow: 0 2px 0 #7f1d1d, 0 0 16px rgba(250,204,21,.75);
     }
 
+/* Persistent player-position marker. A labelled cyan ring remains distinct from
+   gold hunt trails and orange weekly-boss pulses, so the atlas answers "where am
+   I?" without relying on the sector number being remembered. */
+.atlas-sector-current,
+.atlas-current-location {
+    outline: 4px solid #67e8f9 !important;
+    outline-offset: 4px !important;
+    z-index: 24 !important;
+    box-shadow: 0 0 0 7px rgba(8, 145, 178, 0.3), 0 0 26px rgba(103, 232, 249, 0.95) !important;
+}
+
+.atlas-you-label {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    z-index: 30;
+    padding: 2px 6px;
+    border: 1px solid #a5f3fc;
+    border-radius: 999px;
+    background: rgba(8, 47, 73, 0.96);
+    color: #ecfeff;
+    font-size: 9px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: .08em;
+    text-shadow: none;
+    pointer-events: none;
+}
+
 .atlas-sector-deaths-gate {
     width: 36px;
     height: 36px;

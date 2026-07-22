@@ -2757,6 +2757,12 @@ export default function App() {
         if (processingChallengeIds.includes(challenge.id)) return;
 
         if (challenge.arenaMatch) { // Tactical Arena PvP — route to PetArena's responder team picker
+            const arenaSize = challenge.arenaSize === 2 ? 2 : 4;
+            const availablePets = character.pets.filter((pet) => !isPetOnExpedition(pet)).length;
+            if (availablePets < arenaSize) {
+                alert(`This ${arenaSize}v${arenaSize} challenge needs ${arenaSize} available pets. You currently have ${availablePets}; pets on expeditions do not count.`);
+                return;
+            }
             dismissChallengeLocally(challenge.id);
             void clearChallengeOnServer(challenge);
             setPendingArenaResponse(challenge);
@@ -2778,13 +2784,22 @@ export default function App() {
         // also need the challenger's reserve pet (sent as challengerPetIds).
         const wantsParty = challenge.petParty === true && Array.isArray(challenge.challengerPetIds);
         const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+        if (wantsParty) {
+            const requestedIds = challenge.challengerPetIds!.slice(0, 2);
+            const requestedPets = requestedIds
+                .map((id) => challenge.challenger.pets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
+                .filter((pet): pet is Pet => Boolean(pet));
+            if (myAvailable.length < 2 || requestedIds.length !== 2 || new Set(requestedIds).size !== 2 || requestedPets.length !== 2) {
+                alert("A 2v2 pet battle needs two available pets on each team. This challenge cannot start as 1v1 instead.");
+                return;
+            }
+        }
         let myParty: [Pet, Pet] | null = null;
         let challengerParty: [Pet, Pet] | null = null;
         if (wantsParty && myAvailable.length >= 2) {
             const [chId1, chId2] = challenge.challengerPetIds!;
-            const ch1 = challenge.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
-            const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
-                ?? challenge.challenger.pets.find(p => p.id !== ch1.id);
+            const ch1 = challenge.challenger.pets.find(p => p.id === chId1 && !isPetOnExpedition(p))!;
+            const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id && !isPetOnExpedition(p));
             if (ch1 && ch2) {
                 const selectedChallengerParty = [ch1, ch2] as [Pet, Pet];
                 challengerParty = selectedChallengerParty;
@@ -4264,7 +4279,7 @@ export default function App() {
                 if (urlMode) {
                     // Manifest mode: fetch just the id list and map each to a
                     // per-image URL. The actual bytes load lazily via <img src>.
-                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1&cb=${cb}`);
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1&cb=${cb}`, { signal: AbortSignal.timeout(12_000) });
                     if (!r.ok) continue;
                     const ids = await r.json() as unknown;
                     if (!Array.isArray(ids)) continue;
@@ -4273,7 +4288,7 @@ export default function App() {
                         if (typeof id === 'string') entries[id] = `/api/img?id=${encodeURIComponent(id)}`;
                     }
                 } else {
-                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&cb=${cb}`);
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&cb=${cb}`, { signal: AbortSignal.timeout(12_000) });
                     if (!r.ok) continue;
                     const data = await r.json() as unknown;
                     if (!data || typeof data !== 'object') continue;
@@ -4294,6 +4309,7 @@ export default function App() {
             } catch { /* network error — retry */ }
         }
         // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
+        window.setTimeout(() => { if (!loadedCatsRef.current.has(cat)) void loadCategory(cat); }, 10_000);
     }
 
     // Warm only shell-critical avatar metadata at login/restore. Route-specific

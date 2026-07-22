@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
-import { isPetOnExpedition, petDisplayName } from "../lib/pet";
+import {
+    TACTICAL_ARENA_PET_REQUIREMENT,
+    canEnterTacticalArena,
+    isPetOnExpedition,
+    petDisplayName,
+} from "../lib/pet";
 import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -62,7 +67,11 @@ const summaryChips = (pets: PetLite[]) => (
 );
 
 export function PetLadder({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
-    const [mode, setMode] = useState<Mode>(() => (sessionStorage.getItem("petLadder.mode") === "tactical" ? "tactical" : "coliseum"));
+    const [mode, setMode] = useState<Mode>(() => (
+        sessionStorage.getItem("petLadder.mode") === "tactical" && canEnterTacticalArena(character.pets)
+            ? "tactical"
+            : "coliseum"
+    ));
     const [view, setView] = useState<LadderView | null>(null);
     const [err, setErr] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -75,6 +84,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     const available = useMemo(() => character.pets.filter((p) => !isPetOnExpedition(p)), [character.pets]);
+    const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
 
     const refresh = useCallback(async () => {
         const id = ++refreshId.current;
@@ -87,6 +97,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     }, [name, mode]);
 
     const selectMode = (nextMode: Mode) => {
+        if (nextMode === "tactical" && !tacticalUnlocked) return;
         if (nextMode === mode) return;
         refreshId.current += 1;
         setView(null); setErr(null); setMode(nextMode);
@@ -155,8 +166,11 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             <div className="pl-tabs">
                 {(["coliseum", "tactical"] as Mode[]).map((m) => (
                     <button key={m} className={`pl-tab${mode === m ? " is-active" : ""}`}
+                        disabled={m === "tactical" && !tacticalUnlocked}
+                        title={m === "tactical" && !tacticalUnlocked ? `Locked: ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                         onClick={() => selectMode(m)}>
                         {MODE_ICON[m]} {MODE_LABEL[m]}
+                        {m === "tactical" && !tacticalUnlocked ? ` · Locked ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT}` : ""}
                     </button>
                 ))}
             </div>

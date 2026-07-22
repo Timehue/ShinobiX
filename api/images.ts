@@ -350,10 +350,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // doesn't know the op yet (rolling deploy), fall back to the
                     // old full read. null = both attempts failed (NOT empty).
                     const keysOf = async (key: string): Promise<string[] | null> => {
-                        try { return await kv.hkeys(key); } catch { /* old proxy / transient */ }
+                        try { return await kv.hkeys(key, { nonEmptyStrings: true }); } catch { /* old proxy / transient */ }
                         try {
                             const all = await kv.hgetall<Record<string, string>>(key);
-                            return all && typeof all === 'object' ? Object.keys(all) : [];
+                            return all && typeof all === 'object'
+                                ? Object.entries(all)
+                                    .filter(([, value]) => typeof value === 'string' && value.length > 0)
+                                    .map(([id]) => id)
+                                : [];
                         } catch { return null; }
                     };
                     const [hashKeys, blobKeys, leaderKeys] = await Promise.all([

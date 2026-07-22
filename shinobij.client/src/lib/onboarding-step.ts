@@ -20,6 +20,22 @@ export type OnboardingStep = NonNullable<Character["onboardingStep"]>;
 // The canonical steps the rest of the app routes on — legacy aliases removed.
 export type CanonicalOnboardingStep = Exclude<OnboardingStep, "spar" | "tour" | "storyUnlocked">;
 
+// New characters receive two complementary starter items (the Rustfang Kunai
+// and Shinobi Vest). The Academy inventory beat should teach the full loadout,
+// not advance after the first click and pull the player into the spar while the
+// second item is still sitting in the backpack.
+export const ACADEMY_STARTER_GEAR_TARGET = 2;
+export const ACADEMY_STARTER_GEAR_IDS = ["rustfang-kunai", "shinobi-vest"] as const;
+
+export function academyEquippedItemCount(equipment: Record<string, string | undefined> | null | undefined): number {
+    const equippedItemIds = new Set(Object.values(equipment ?? {}).filter((itemId): itemId is string => Boolean(itemId)));
+    return ACADEMY_STARTER_GEAR_IDS.filter((itemId) => equippedItemIds.has(itemId)).length;
+}
+
+export function hasAcademyStarterGearEquipped(equipment: Record<string, string | undefined> | null | undefined): boolean {
+    return academyEquippedItemCount(equipment) >= ACADEMY_STARTER_GEAR_TARGET;
+}
+
 export function normalizeOnboardingStep(
     step: Character["onboardingStep"] | null | "",
 ): CanonicalOnboardingStep {

@@ -272,7 +272,24 @@ const pgKv = {
         return pgKv.get<T>(key);
     },
 
-    async hkeys(key: string): Promise<string[]> {
+    async hkeys(key: string, options?: { nonEmptyStrings?: boolean }): Promise<string[]> {
+        // Image manifests opt into a value predicate so legacy empty-string
+        // tombstones never become broken image URLs. Ordinary hash callers keep
+        // normal Redis-style hkeys semantics.
+        if (options?.nonEmptyStrings) {
+            const { rows } = await getPool().query<{ k: string }>(
+                `SELECT field.key AS k FROM public.kv_store
+                 CROSS JOIN LATERAL jsonb_each(
+                     CASE WHEN jsonb_typeof(kv_store.value) = 'object' THEN kv_store.value ELSE '{}'::jsonb END
+                 ) AS field(key, value)
+                 WHERE kv_store.key = $1 AND (expires_at IS NULL OR expires_at > now())
+                   AND jsonb_typeof(kv_store.value) = 'object'
+                   AND jsonb_typeof(field.value) = 'string'
+                   AND field.value <> '""'::jsonb`,
+                [key],
+            );
+            return rows.map((r) => r.k);
+        }
         // Extract field names IN SQL — never ships the (multi-MB) value itself.
         // jsonb_object_keys errors on non-objects, so guard on jsonb_typeof.
         const { rows } = await getPool().query<{ k: string }>(
@@ -530,12 +547,15 @@ const supabaseKv = {
         return supabaseKv.get<T>(key);
     },
 
-    async hkeys(key: string): Promise<string[]> {
+    async hkeys(key: string, options?: { nonEmptyStrings?: boolean }): Promise<string[]> {
         // REST backend has no keys-only projection — fall back to a full read.
         // Acceptable: the huge shared-image hashes route to the disk overlay,
         // never to this backend; base-store hashes are small.
         const all = await supabaseKv.hgetall<Record<string, unknown>>(key);
-        return all && typeof all === 'object' ? Object.keys(all) : [];
+        if (!all || typeof all !== 'object') return [];
+        return options?.nonEmptyStrings
+            ? Object.entries(all).filter(([, value]) => typeof value === 'string' && value.length > 0).map(([field]) => field)
+            : Object.keys(all);
     },
 
     async hset(key: string, fields: Record<string, unknown>): Promise<number> {
@@ -784,7 +804,7 @@ export interface KvLike {
      * a few KB. Returns [] for a missing/empty/non-object value; THROWS on
      * transport failure (callers distinguish "empty" from "unavailable").
      */
-    hkeys(key: string): Promise<string[]>;
+    hkeys(key: string, options?: { nonEmptyStrings?: boolean }): Promise<string[]>;
     hset(key: string, fields: Record<string, unknown>): Promise<number>;
     hdel(key: string, ...fields: string[]): Promise<number>;
 }
@@ -861,10 +881,13 @@ export function _makeMemoryKv(): KvLike {
             const entry = liveEntry(key);
             return entry ? clone(entry.value as T) : null;
         },
-        async hkeys(key) {
+        async hkeys(key, options) {
             const entry = liveEntry(key);
             if (!entry || !entry.value || typeof entry.value !== 'object' || Array.isArray(entry.value)) return [];
-            return Object.keys(entry.value as Record<string, unknown>);
+            const value = entry.value as Record<string, unknown>;
+            return options?.nonEmptyStrings
+                ? Object.entries(value).filter(([, fieldValue]) => typeof fieldValue === 'string' && fieldValue.length > 0).map(([field]) => field)
+                : Object.keys(value);
         },
         async hset(key, fields) {
             const entry = liveEntry(key);
@@ -963,10 +986,13 @@ export function _makeDiskKv(root: string): KvLike {
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
             return this.get<T>(key);
         },
-        async hkeys(key: string): Promise<string[]> {
+        async hkeys(key: string, options?: { nonEmptyStrings?: boolean }): Promise<string[]> {
             // Local disk read — fast even for big blobs; only the names leave.
             const all = await this.get<Record<string, unknown>>(key);
-            return all && typeof all === 'object' ? Object.keys(all) : [];
+            if (!all || typeof all !== 'object') return [];
+            return options?.nonEmptyStrings
+                ? Object.entries(all).filter(([, value]) => typeof value === 'string' && value.length > 0).map(([field]) => field)
+                : Object.keys(all);
         },
         async hset(key, fields) {
             // Serialized RMW — see _withDiskKeyLock. Unserialized, concurrent
@@ -1130,10 +1156,17 @@ export function _makeRemoteKv(
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
             return (await call<{ value: T | null }>('get', { key })).value;
         },
-        async hkeys(key: string): Promise<string[]> {
+        async hkeys(key: string, options?: { nonEmptyStrings?: boolean }): Promise<string[]> {
             // Proxy-side key extraction — the whole point: the multi-MB image
             // hash stays on the cPanel box; only the id list crosses the wire.
-            return (await call<{ fields: string[] }>('hkeys', { key })).fields;
+            const result = await call<{ fields: string[]; nonEmptyStringsApplied?: boolean }>('hkeys', { key, options });
+            // During a rolling deploy an older proxy ignores the new option.
+            // Fail explicitly so the image manifest can use its correct (but
+            // temporarily heavier) hgetall fallback instead of leaking tombstones.
+            if (options?.nonEmptyStrings && result.nonEmptyStringsApplied !== true) {
+                throw new Error('Remote KV proxy does not support filtered hkeys yet.');
+            }
+            return result.fields;
         },
         async hset(key, fields) {
             return (await call<{ count: number }>('hset', { key, fields })).count;
@@ -1234,8 +1267,8 @@ export function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
             if (_routesToSnapshotBase(key)) return snapshotGet<T>(key);
             return _routesToDisk(key) ? diskGet<T>(key) : base.hgetall<T>(key);
         },
-        async hkeys(key: string): Promise<string[]> {
-            return _routesToDisk(key) ? disk.hkeys(key) : base.hkeys(key);
+        async hkeys(key: string, options?: { nonEmptyStrings?: boolean }): Promise<string[]> {
+            return _routesToDisk(key) ? disk.hkeys(key, options) : base.hkeys(key, options);
         },
         async hset(key, fields) {
             return _routesToDisk(key) ? disk.hset(key, fields) : base.hset(key, fields);
