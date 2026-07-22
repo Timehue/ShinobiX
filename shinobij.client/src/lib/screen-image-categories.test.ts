@@ -18,6 +18,7 @@ test("image-heavy routes load every category their first paint consumes", () => 
     expectCategories("battleTowers", ["jutsu", "item"]);
     expectCategories("weeklyBoss", ["ai"]);
     expectCategories("dungeon", ["shrine", "item", "event", "pet"]);
+    expectCategories("hollowGateShrine", ["shrine", "item", "avatar", "ai", "jutsu"]);
     expectCategories("hollowGateTiles", ["card", "shrine"]);
     expectCategories("userView", ["avatar", "pet"]);
 });

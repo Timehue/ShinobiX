@@ -15,6 +15,7 @@ import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting } from "../lib/story-sfx";
 import { tagMatchesName } from "../lib/tags";
 import { equipSlotForItem } from "../lib/equipment";
+import { resolveTowerEnemyPortrait, type TowerEnemySpriteKey } from "../lib/ai-fight-art";
 import { gameConfirm } from "../components/GameAlert";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
@@ -32,6 +33,10 @@ import ravagerSprite from "../assets/towers/enemies/ravager.webp";
 import geninSprite from "../assets/towers/enemies/genin.webp";
 import revenantSprite from "../assets/towers/enemies/revenant.webp";
 import sovereignSprite from "../assets/towers/enemies/sovereign.webp";
+import clanBossOni from "../assets/clan-boss/clan-boss-oni.webp";
+import clanBossLeviathan from "../assets/clan-boss/clan-boss-leviathan.webp";
+import clanBossKage from "../assets/clan-boss/clan-boss-kage.webp";
+import clanBossGolem from "../assets/clan-boss/clan-boss-golem.webp";
 import objectFont from "../assets/towers/objects/font.webp";
 import objectShrine from "../assets/towers/objects/shrine.webp";
 import hazardGeyser from "../assets/towers/hazards/geyser.webp";
@@ -79,10 +84,12 @@ const BOSS_ORB = 78;     // bosses render larger
 
 // Enemy sprite-key → painted portrait (keyed by character.visual), with an emoji
 // fallback for anything unmapped. Players/allies use their actual avatarImage.
-const ENEMY_SPRITE: Record<string, string> = {
+const ENEMY_SPRITE: Record<TowerEnemySpriteKey, string> = {
     bandit: banditSprite, archer: archerSprite, blocker: blockerSprite, brute: bruteSprite,
     acolyte: acolyteSprite, warden: wardenSprite, ravager: ravagerSprite, genin: geninSprite,
     revenant: revenantSprite, sovereign: sovereignSprite,
+    "clan-boss-oni": clanBossOni, "clan-boss-leviathan": clanBossLeviathan,
+    "clan-boss-kage": clanBossKage, "clan-boss-golem": clanBossGolem,
 };
 // Painted elemental-pylon sprites, by element (drawn on the flower centre).
 const PYLON_SPRITE: Record<string, string> = {
@@ -598,9 +605,7 @@ export function BattleTowerFight({
         const sealed = a.character?.avatarImage;
         if (typeof sealed === "string" && sealed) return sealed;
         const visual = String(a.character?.visual ?? "");
-        // Painted sprite first; else published AI art (story bosses, mission
-        // bosses, and creator AIs share the `ai:<id>` shared-image key space).
-        return ENEMY_SPRITE[visual] ?? sharedImages?.[`ai:${visual}`] ?? null;
+        return resolveTowerEnemyPortrait(visual, ENEMY_SPRITE, sharedImages);
     }
     function emojiFor(a: TowerActor): string {
         if (a.side === "squad") return "🥷";
