@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -124,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await kv.del(aiFightTokenKey(playerName, token)).catch(() => undefined);
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
-        console.error('[story/settle]', err);
+        console.error('[story/settle]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

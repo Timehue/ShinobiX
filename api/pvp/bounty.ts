@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -286,7 +287,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        console.error('[pvp/bounty]', err);
+        console.error('[pvp/bounty]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

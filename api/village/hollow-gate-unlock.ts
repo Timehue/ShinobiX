@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
@@ -71,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!out.ok) return res.status(out.status).json({ error: out.error });
         return res.status(200).json({ ok: true, character: out.character, _saveVersion: out._saveVersion, hollowGateUnlockedUntil: out.until, cost: COST });
     } catch (error) {
-        console.error('[village/hollow-gate-unlock]', error);
+        console.error('[village/hollow-gate-unlock]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

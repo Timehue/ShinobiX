@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -43,5 +44,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         if (!result) return res.status(429).json({ error: 'locked-door-limit' });
         return res.status(200).json({ ok: true, ...result });
-    } catch (error) { console.error('[hollow-gate/locked-door]', error); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) { console.error('[hollow-gate/locked-door]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

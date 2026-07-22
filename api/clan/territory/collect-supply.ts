@@ -1,3 +1,4 @@
+import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName, clanBareSlug, clanRecordKey } from '../../_utils.js';
@@ -206,7 +207,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (txId && txState && txState !== 'complete') {
             await failEconomyTx(txId, err).catch(() => undefined);
         }
-        console.error('[clan/territory/collect-supply]', err);
+        console.error('[clan/territory/collect-supply]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

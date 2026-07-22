@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -191,7 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         }, { failClosed: true, ttlSec: 30 });
     } catch (err) {
-        console.error('[hollow-gate/settle]', err);
+        console.error('[hollow-gate/settle]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -166,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted, balances: result.balances, _saveVersion: result.saveVersion });
     } catch (err) {
-        console.error('[village/claim-map-control]', err);
+        console.error('[village/claim-map-control]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }
