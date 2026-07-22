@@ -1,3 +1,4 @@
+import { safeLogValue } from '../../_safe-log.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -59,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ ok: true, message: msg, messages });
     } catch (err) {
-        console.error('[clan/chat/send]', err);
+        console.error('[clan/chat/send]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

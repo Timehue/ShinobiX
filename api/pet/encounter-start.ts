@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -23,5 +24,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const token = randomUUID().replace(/-/g, '');
         await kv.set(`pet-encounter:${playerName}:${token}`, { playerName, pet, mintedAt: Date.now() }, { ex: 20 * 60 });
         return res.status(200).json({ ok: true, token, pet });
-    } catch (error) { console.error('[pet/encounter-start]', error); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) { console.error('[pet/encounter-start]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

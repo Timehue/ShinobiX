@@ -1,3 +1,4 @@
+import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors } from '../../_utils.js';
@@ -127,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ ok: true, treasury: result.treasury, upgrades: result.upgrades, level: result.level });
     } catch (err) {
-        console.error('[clan/upgrade/purchase]', err);
+        console.error('[clan/upgrade/purchase]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
@@ -133,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
-        console.error('[jutsu/speedup]', err);
+        console.error('[jutsu/speedup]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

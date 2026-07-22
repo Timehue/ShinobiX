@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
@@ -190,7 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
-        console.error('[missions/report-ai-fight]', err);
+        console.error('[missions/report-ai-fight]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

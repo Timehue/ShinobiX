@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayer } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -57,11 +58,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 _saveVersion: out._saveVersion,
             });
         } catch (err) {
-            console.error('[bank/transfer] locked mutation failed', err);
+            console.error('[bank/transfer] locked mutation failed', safeLogValue(err));
             return res.status(503).json({ error: 'Could not update your bank account. Please retry.' });
         }
     } catch (err) {
-        console.error('[bank/transfer]', err);
+        console.error('[bank/transfer]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }
