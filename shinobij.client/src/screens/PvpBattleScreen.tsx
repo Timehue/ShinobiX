@@ -1783,7 +1783,8 @@ export function PvpBattleScreen({
                                                         disabled={submitting || onCooldown || myAp < (j.ap ?? 40)}
                                                     >
                                                         <span className="combat-jutsu-thumb">
-                                                            {j.image ? <img src={j.image} alt={j.name} /> : <strong>{fallbackIcon(j)}</strong>}
+                                                            <strong className="combat-jutsu-fallback-icon">{fallbackIcon(j)}</strong>
+                                                            {j.image && <img src={j.image} alt={j.name} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{j.name}</span>
                                                         <span className="combat-jutsu-info">{j.ap} AP | R{j.range} | CD {myCooldowns[j.id] ?? 0}</span>

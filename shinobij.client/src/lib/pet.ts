@@ -73,6 +73,16 @@ export function pickArenaTeam(pets: Pet[], size: number): Pet[] {
         .slice(0, Math.max(1, size));
 }
 
+export const TACTICAL_ARENA_PET_REQUIREMENT = 4;
+
+export function availablePetBattleCount(pets: Pet[]): number {
+    return pets.filter((pet) => !isPetOnExpedition(pet)).length;
+}
+
+export function canEnterTacticalArena(pets: Pet[]): boolean {
+    return availablePetBattleCount(pets) >= TACTICAL_ARENA_PET_REQUIREMENT;
+}
+
 // Extract the numeric "variant" suffix from a pet ID like
 // "wolf-2" or "wolf-2-mythic" → returns 2. Used by the renderer to pick
 // which sprite variant to show so multiple instances of the same template
