@@ -110,7 +110,13 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const key = canon(entry.name);
         const now = this.now();
         const prev = this.players.get(key);
+        const preSettleSector = prev?.sector;
         if (prev) this.settleMaturedTravel(key, prev, now);
+        // True when THIS beat is the one whose matured lease just advanced the
+        // player to their destination (settleMaturedTravel moved prev.sector). On
+        // that arrival beat the client can still be reporting its stale origin, so
+        // its sector must not be trusted — see the lease-authoritative guard below.
+        const justSettledTravel = prev !== undefined && preSettleSector !== prev.sector;
         let sector = entry.sector;
         let travelingUntil = prev?.travelingUntil;
         let travelDestinationSector = prev?.travelDestinationSector;
@@ -120,7 +126,27 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             // change must either be a safe-zone exit (sector 0) or the matured
             // destination of a lease minted by /player/travel.
             sector = prev.sector;
-            if (entry.sector === 0) {
+            // While a travel lease is authoritative — still in flight, OR matured
+            // on this very beat — the client's reported sector is NOT trusted for a
+            // sector change. For the whole 3s travel mask the client keeps
+            // reporting its ORIGIN (currentSector only flips to the destination
+            // when the mask ends), and for a village departure that origin is
+            // sector 0. Honored, that 0 would look like a safe-zone exit and wipe
+            // the outbound lease (mid-flight) or bounce the just-arrived player
+            // straight back out of their destination (on the arrival beat) — either
+            // way stranding them at 0, invisible to their real sector and everyone
+            // in it (the outage this guards). So keep prev.sector: the origin while
+            // travelling, the settled destination once matured. Destination-0
+            // leases never exist (/player/travel rejects them), so this can only
+            // ever suppress a stale origin, never a legitimate move.
+            const travelingOut = travelDestinationSector !== undefined
+                && travelingUntil !== undefined
+                && now < travelingUntil;
+            if (justSettledTravel || travelingOut) {
+                // Lease authoritative — keep sector = prev.sector and leave the
+                // lease fields as-is (intact while travelling; already cleared by
+                // settleMaturedTravel on the arrival beat).
+            } else if (entry.sector === 0) {
                 if (travelingUntil !== undefined || travelDestinationSector !== undefined) this.settledTravelKeys.add(key);
                 sector = 0;
                 travelingUntil = undefined;
