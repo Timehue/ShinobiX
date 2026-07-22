@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -166,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown festival action.' });
     } catch (err) {
-        console.error('[festival/sunscar]', err);
+        console.error('[festival/sunscar]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

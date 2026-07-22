@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
@@ -2479,7 +2480,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(resetSignalKey, 1, { ex: 300 });
             return res.status(200).end();
         } catch (err) {
-            console.error('[save POST]', err);
+            console.error('[save POST]', safeLogValue(err));
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }
@@ -2529,7 +2530,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ]);
             return res.status(200).json({ ok: true });
         } catch (err) {
-            console.error('[save DELETE]', err);
+            console.error('[save DELETE]', safeLogValue(err));
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }

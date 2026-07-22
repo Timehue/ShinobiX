@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -35,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: result._saveVersion,
         });
     } catch (err) {
-        console.error('[village/open-war-crate]', err);
+        console.error('[village/open-war-crate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

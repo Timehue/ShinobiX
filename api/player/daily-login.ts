@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -115,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await bumpLegacyStats(playerName, { villageTenureDays: 1 }, { characterForBootstrap: legacyCharacter });
                 await reconcileLegacyStatsFromSave(playerName, legacyCharacter);
             })().catch((err) => {
-                console.error('[player/daily-login] legacy tracking failed', err);
+                console.error('[player/daily-login] legacy tracking failed', safeLogValue(err));
             });
         }
 
@@ -130,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: out.saveVersion,
         });
     } catch (err) {
-        console.error('[player/daily-login]', err);
+        console.error('[player/daily-login]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

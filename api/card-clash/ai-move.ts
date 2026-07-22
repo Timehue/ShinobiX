@@ -1,3 +1,4 @@
+import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -163,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(out.status).json(out.body);
     } catch (err) {
-        console.error('[card-clash/ai-move]', err);
+        console.error('[card-clash/ai-move]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }
