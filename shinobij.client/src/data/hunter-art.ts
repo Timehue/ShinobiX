@@ -1,6 +1,7 @@
 // Bundled Hunter Guild art — generated via scripts/gen-asset.mjs (OpenAI gpt-image-1),
 // committed under src/assets/hunter/. Explicit imports (matching war-ui-images.ts) so
 // Vite content-hashes each asset and serves it as a static file, not JSON-in-state.
+import { canonicalBeastPortraitId } from "../lib/ai-fight-art";
 
 // ── Beast portraits (key = hunt AI profile id) ──────────────────────────────
 import boar from "../assets/hunter/beasts/hunt-ai-wild-boar.webp";
@@ -105,10 +106,11 @@ const HUNTER_RANK_BADGES: readonly string[] = [rank0, rank1, rank2, rank3, rank4
  */
 export function beastPortrait(aiProfileId?: string): string | undefined {
     if (!aiProfileId) return undefined;
-    const direct = BEAST_PORTRAITS[aiProfileId];
+    const canonicalId = canonicalBeastPortraitId(aiProfileId);
+    const direct = BEAST_PORTRAITS[canonicalId];
     if (direct) return direct;
-    if (aiProfileId.startsWith("apex-ai-")) {
-        return BEAST_PORTRAITS[`hunt-ai-${aiProfileId.slice("apex-ai-".length)}`];
+    if (canonicalId.startsWith("apex-ai-")) {
+        return BEAST_PORTRAITS[`hunt-ai-${canonicalId.slice("apex-ai-".length)}`];
     }
     return undefined;
 }

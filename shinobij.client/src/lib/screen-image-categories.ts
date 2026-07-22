@@ -28,7 +28,7 @@ export function imageCategoriesForScreen(screen: Screen): readonly ScreenImageCa
         case "arena": case "battleArena": case "arenaDistrict": return ["avatar", "jutsu", "ai", "pet", "item"];
         case "bloodlineMaker": return ["bloodline", "jutsu"];
         case "storyHall": case "storyBoss": case "logbook": return ["event", "ai"];
-        case "hollowGateShrine": return ["shrine", "item", "avatar"];
+        case "hollowGateShrine": return ["shrine", "item", "avatar", "ai", "jutsu"];
         case "dungeon": return ["shrine", "item", "event", "pet"];
         case "centralHub": return ["bloodline", "item", "jutsu"];
         case "userView": return ["avatar", "pet"];
