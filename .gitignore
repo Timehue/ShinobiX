@@ -391,7 +391,7 @@ upstash-backup-*.json
 .vercel
 
 
-# Phusion Passenger restart file (created by .cpanel.yml deploy script)
+# Local scratch / working dir (was the Phusion Passenger restart dir; cPanel retired)
 tmp/
 
 # Headless asset-generator review output (scripts/gen-asset.mjs) — eyeball
@@ -445,3 +445,13 @@ presence-load-evidence*.json
 disposable-concurrency*.json
 concurrency-load-evidence*.json
 /release-audit/evidence/
+
+# ── Build output — NEVER commit ───────────────────────────────────────────
+# Railway self-builds from source on every push to main (Dockerfile runs
+# `npm run build`), and .dockerignore excludes both trees from the image
+# context. cPanel — the only host that ever served a committed dist/ — was
+# retired 2026-07-17, so these are served by no one. They were also ~728 MB of
+# binary duplicated from public/ (the same pet .glb models committed twice),
+# and every local rebuild churned them on line-endings alone.
+dist/
+shinobij.client/dist/
