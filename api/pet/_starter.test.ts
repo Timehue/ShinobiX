@@ -38,6 +38,18 @@ describe('starter pet entitlement', () => {
             assert.equal(result.character.starterPetClaimed, true);
         }
     });
+    it('repairs a cinematic save race that advanced before the starter grant committed', () => {
+        const result = chooseStarterPet({ onboardingStep: 'companionIntro', pets: [], starterPetClaimed: false }, FIRE);
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            const pets = result.character.pets as Array<Record<string, unknown>>;
+            assert.equal(pets.length, 1);
+            assert.equal(pets[0]?.id, 'starter-fire');
+            assert.equal(result.character.activePetId, 'starter-fire');
+            assert.equal(result.character.onboardingStep, 'companionIntro');
+            assert.equal(result.character.starterPetClaimed, true);
+        }
+    });
     it('rejects replay and out-of-sequence claims', () => {
         assert.equal(chooseStarterPet({ onboardingStep: 'training', pets: [] }, FIRE).ok, false);
         assert.equal(chooseStarterPet({ onboardingStep: 'starter', pets: [{}] }, FIRE).ok, false);

@@ -7626,7 +7626,7 @@ export default function App() {
                                     activePetId: prev.activePetId ?? granted.id,
                                     onboardingStep: prev.onboardingStep === "companionIntro" ? "training" : "companionIntro",
                                 };
-                                if (priorStep === "academyIntro" && !already) {
+                                if ((priorStep === "academyIntro" || priorStep === "starter") && !already) {
                                     // Pet ownership is a server entitlement. The generic save
                                     // route intentionally cannot add a new pet under the strict
                                     // ledger, so commit the canonical starter through its
