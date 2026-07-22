@@ -313,9 +313,7 @@ import {
     getCharacterElements,
 } from "./lib/elements";
 
-import {
-    isPetOnExpedition,
-} from "./lib/pet";
+import { isPetOnExpedition, resolveAvailablePetBattlePair } from "./lib/pet";
 import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
 import { stopBattleMusic } from "./lib/pet-music";
 
@@ -2777,46 +2775,34 @@ export default function App() {
             return;
         }
 
-        // ── 2v2 party path ─────────────────────────────────────────────
-        // If the challenger flagged petParty, we auto-pick our top two
-        // available pets (highest level, not on expedition) so the player
-        // doesn't have to scramble through a picker mid-notification. We
-        // also need the challenger's reserve pet (sent as challengerPetIds).
+        // Keep 2v2 challenges in their requested mode: unavailable teams are
+        // rejected instead of silently falling back to a 1v1 battle.
         const wantsParty = challenge.petParty === true && Array.isArray(challenge.challengerPetIds);
         const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
-        if (wantsParty) {
-            const requestedIds = challenge.challengerPetIds!.slice(0, 2);
-            const requestedPets = requestedIds
-                .map((id) => challenge.challenger.pets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
-                .filter((pet): pet is Pet => Boolean(pet));
-            if (myAvailable.length < 2 || requestedIds.length !== 2 || new Set(requestedIds).size !== 2 || requestedPets.length !== 2) {
-                alert("A 2v2 pet battle needs two available pets on each team. This challenge cannot start as 1v1 instead.");
-                return;
-            }
+        const requestedChallengerParty = wantsParty
+            ? resolveAvailablePetBattlePair(challenge.challenger.pets, challenge.challengerPetIds!)
+            : null;
+        if (wantsParty && (myAvailable.length < 2 || !requestedChallengerParty)) {
+            alert("A 2v2 pet battle needs two available pets on each team. This challenge cannot start as 1v1 instead.");
+            return;
         }
         let myParty: [Pet, Pet] | null = null;
         let challengerParty: [Pet, Pet] | null = null;
-        if (wantsParty && myAvailable.length >= 2) {
-            const [chId1, chId2] = challenge.challengerPetIds!;
-            const ch1 = challenge.challenger.pets.find(p => p.id === chId1 && !isPetOnExpedition(p))!;
-            const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id && !isPetOnExpedition(p));
-            if (ch1 && ch2) {
-                const selectedChallengerParty = [ch1, ch2] as [Pet, Pet];
-                challengerParty = selectedChallengerParty;
-                // Smart 2v2 picker: given the challenger's locked-in lead+reserve,
-                // pick MY lead+reserve to maximize summed matchup score (stat
-                // ratio × element edge × trait counter penalty). Falls back to
-                // top-2-by-level if the picker can't decide (shouldn't happen
-                // with 2+ available pets).
-                const smart = await import("./lib/pet-battle-sim")
-                    .then(({ pickBestPartyOrder }) => pickBestPartyOrder(myAvailable, selectedChallengerParty))
-                    .catch((): [Pet, Pet] | null => null);
-                if (smart) {
-                    myParty = smart;
-                } else {
-                    const sortedByLvl = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
-                    myParty = [sortedByLvl[0], sortedByLvl[1]] as [Pet, Pet];
-                }
+        if (wantsParty && requestedChallengerParty) {
+            challengerParty = requestedChallengerParty;
+            // Smart 2v2 picker: given the challenger's locked-in lead+reserve,
+            // pick MY lead+reserve to maximize summed matchup score (stat
+            // ratio × element edge × trait counter penalty). Falls back to
+            // top-2-by-level if the picker can't decide (shouldn't happen
+            // with 2+ available pets).
+            const smart = await import("./lib/pet-battle-sim")
+                .then(({ pickBestPartyOrder }) => pickBestPartyOrder(myAvailable, requestedChallengerParty))
+                .catch((): [Pet, Pet] | null => null);
+            if (smart) {
+                myParty = smart;
+            } else {
+                const sortedByLvl = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+                myParty = [sortedByLvl[0], sortedByLvl[1]] as [Pet, Pet];
             }
         }
         const doParty = !!(wantsParty && myParty && challengerParty);
