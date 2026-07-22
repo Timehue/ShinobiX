@@ -10,7 +10,14 @@ import { petFramePace, pickBestPartyOrder, scorePetMatchup, type PetPartyBattleR
 import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
+import {
+    TACTICAL_ARENA_PET_REQUIREMENT,
+    availablePetBattleCount,
+    canEnterTacticalArena,
+    isPetOnExpedition,
+    petDisplayName,
+    pickArenaTeam,
+} from "../lib/pet";
 import { derivePetRole, ROLE_META, ROLE_BEATS, type PetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { ELEMENT_ICON } from "../lib/element-icons";
@@ -390,10 +397,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const name = toName.trim();
         if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
         if (name.toLowerCase() === character.name.toLowerCase()) { setArenaChallengeMsg("You can't challenge yourself."); return; }
-        if (teamIds.length < 1) { setArenaChallengeMsg("Pick at least one pet for your team."); return; }
+        if (teamIds.length < size) { setArenaChallengeMsg(`A ${size}v${size} match requires ${size} available pets.`); return; }
         const targetRecord = allServerPlayers.find((p) => p.name.toLowerCase() === name.toLowerCase());
-        if (targetRecord?.character && targetRecord.character.pets.length === 0) {
-            setArenaChallengeMsg(`${name} has no pets available for an arena match.`);
+        if (targetRecord?.character && availablePetBattleCount(targetRecord.character.pets) < size) {
+            setArenaChallengeMsg(`${name} needs ${size} available pets for a ${size}v${size} arena match.`);
             return;
         }
         const challenge: DuelChallenge = {
@@ -433,9 +440,17 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // back (image-stripped) on the accepted notice and launch the same match the
     // challenger will — blue resolved from their snapshot, red = my picks.
     async function respondToArenaChallenge(challenge: DuelChallenge, teamIds: string[]) {
-        const myTeam = character.pets.filter((p) => teamIds.includes(p.id));
-        const blue = resolveChallengerTeam(challenge);
-        if (!myTeam.length || !blue.length) { onArenaResponseHandled?.(); return; }
+        const size = arenaSizeOf(challenge);
+        const myTeam = teamIds.slice(0, size)
+            .map((id) => character.pets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
+            .filter((pet): pet is Pet => Boolean(pet));
+        const blue = resolveChallengerTeam(challenge)
+            .filter((pet) => !isPetOnExpedition(pet))
+            .slice(0, size);
+        if (new Set(myTeam.map((pet) => pet.id)).size !== size || new Set(blue.map((pet) => pet.id)).size !== size) {
+            setArenaChallengeMsg(`This ${size}v${size} challenge needs ${size} available pets on each team. It was not started.`);
+            return;
+        }
         try {
             await fetch('/api/player/challenge', {
                 method: 'POST',
@@ -946,6 +961,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // (both sides hold identical embedded teams + seed) behind the countdown.
     useEffect(() => {
         if (!pendingArenaMatch) return;
+        const size = pendingArenaMatch.size;
+        const blueIds = new Set(pendingArenaMatch.blue.map((pet) => pet.id));
+        const redIds = new Set(pendingArenaMatch.red.map((pet) => pet.id));
+        if (blueIds.size !== size || redIds.size !== size || pendingArenaMatch.blue.length < size || pendingArenaMatch.red.length < size) {
+            setArenaChallengeMsg(`This ${size}v${size} match was missing a full team and could not start.`);
+            onPendingArenaMatchStarted?.();
+            return;
+        }
         startArenaMatch(pendingArenaMatch.blue, pendingArenaMatch.red, pendingArenaMatch.seed);
         onPendingArenaMatchStarted?.();
     }, [pendingArenaMatch?.seed]);
@@ -974,6 +997,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Hollow Gate (and other forced duels) skip the view tabs — those land
     // straight in a battle and shouldn't expose the Tactical Arena switch.
     const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
+    const availableArenaPetCount = availablePetBattleCount(character.pets);
+    const tacticalArenaUnlocked = canEnterTacticalArena(character.pets);
 
     // Render one pet as a visual pick-card (portrait + role badge + level/element).
     // Shared by the cinematic battle view's pickers below — replaces the bare
@@ -1059,9 +1084,20 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     <button type="button" className={arenaView === "battle" ? "active" : ""} onClick={() => setArenaView("battle")}>
                         ⚔️ Pet Coliseum
                     </button>
-                    <button type="button" className={arenaView === "tactical" ? "active" : ""} onClick={() => setArenaView("tactical")}>
+                    <button
+                        type="button"
+                        className={arenaView === "tactical" ? "active" : ""}
+                        disabled={!tacticalArenaUnlocked}
+                        title={!tacticalArenaUnlocked ? `Locked: ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
+                        onClick={() => setArenaView("tactical")}
+                    >
                         🏟️ Tactical Pet Arena
                     </button>
+                    {!tacticalArenaUnlocked && (
+                        <span className="hint" style={{ alignSelf: "center", color: "var(--gold-2)", fontSize: "0.75rem" }}>
+                            Locked: {availableArenaPetCount}/{TACTICAL_ARENA_PET_REQUIREMENT} pets
+                        </span>
+                    )}
                     <button type="button" className={arenaView === "gauntlet" ? "active" : ""} onClick={() => setArenaView("gauntlet")}>
                         🗡️ Pet Gauntlet
                     </button>
@@ -1076,17 +1112,30 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId && !isPetOnExpedition(p)) ?? c.challenger.pets.find(p => !isPetOnExpedition(p));
                             // Party path: auto-pick our top 2 available pets by
                             // level + reconstruct challenger's pair from the IDs
-                            // they sent. Fall back to 1v1 if either side can't
-                            // field two pets.
+                            // they sent. Both complete teams are required; this
+                            // path never silently downgrades 2v2 to 1v1.
                             const wantsParty = c.petParty === true && Array.isArray(c.challengerPetIds);
                             const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+                            if (!selectedPet || !challengerPet) {
+                                setPetChallengeMsg("Both players need an available pet before this battle can start.");
+                                return;
+                            }
+                            if (wantsParty) {
+                                const requestedIds = c.challengerPetIds!.slice(0, 2);
+                                const requestedPets = requestedIds
+                                    .map((id) => c.challenger.pets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
+                                    .filter((pet): pet is Pet => Boolean(pet));
+                                if (myAvailable.length < 2 || requestedIds.length !== 2 || new Set(requestedIds).size !== 2 || requestedPets.length !== 2) {
+                                    setPetChallengeMsg("A 2v2 battle needs two available pets on each team. This challenge was not started.");
+                                    return;
+                                }
+                            }
                             let myParty: [Pet, Pet] | null = null;
                             let chParty: [Pet, Pet] | null = null;
                             if (wantsParty && myAvailable.length >= 2 && challengerPet) {
                                 const [chId1, chId2] = c.challengerPetIds!;
-                                const ch1 = c.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
-                                const ch2 = c.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
-                                    ?? c.challenger.pets.find(p => p.id !== ch1.id);
+                                const ch1 = c.challenger.pets.find(p => p.id === chId1 && !isPetOnExpedition(p))!;
+                                const ch2 = c.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id && !isPetOnExpedition(p));
                                 if (ch1 && ch2) {
                                     chParty = [ch1, ch2] as [Pet, Pet];
                                     // Smart matchup picker — see acceptPetChallengeGlobal
@@ -1133,7 +1182,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     } : {}),
                                 });
                             }
-                        }}>{c.petParty ? "✅ Accept & Fight (2v2)" : "✅ Accept & Fight"}</button>
+                        }}
+                            disabled={availableArenaPetCount < (c.petParty ? 2 : 1)}
+                            title={availableArenaPetCount < (c.petParty ? 2 : 1) ? `Locked: ${availableArenaPetCount}/${c.petParty ? 2 : 1} available pets` : undefined}
+                        >{availableArenaPetCount < (c.petParty ? 2 : 1) ? `Locked: ${availableArenaPetCount}/${c.petParty ? 2 : 1} pets` : c.petParty ? "✅ Accept & Fight (2v2)" : "✅ Accept & Fight"}</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
@@ -1509,11 +1561,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 <div style={{ display: "grid", gap: "0.6rem" }}>
                                     <strong>⚔️ {pendingArenaResponse.fromName} challenged you to a {size === 4 ? "4v4" : "2v2"}!</strong>
                                     <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets, then accept — the match begins after a short countdown.</p>
-                                    {available.length < 1
-                                        ? <p className="hint" style={{ color: "var(--gold-2)" }}>You have no pets available (all on expeditions?).</p>
+                                    {available.length < size
+                                        ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
                                         : <div className="pet-pick-panel">{pickGrid(respondPicks, setRespondPicks, size)}</div>}
                                     <div className="menu">
-                                        <button disabled={respondPicks.length < 1} style={{ background: "#16a34a" }}
+                                        <button disabled={respondPicks.length !== size || available.length < size} style={{ background: "#16a34a" }}
                                             onClick={() => void respondToArenaChallenge(pendingArenaResponse, respondPicks)}>
                                             Accept &amp; Start ({respondPicks.length}/{size})
                                         </button>
@@ -1526,7 +1578,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         // ── Single screen: council preference + team grid + actions ───
                         // (Warfront is always 4v4 — the old 2v2 size toggle retired with
                         // the capture-scroll mode.)
-                        const canStart = tacticalPicks.length >= 1;
+                        const canStart = available.length >= tacticalSize && tacticalPicks.length === tacticalSize;
                         return (
                             <div style={{ display: "grid", gap: "0.7rem" }}>
                                 <div className="pet-arena-tactical-top">
@@ -1570,8 +1622,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                         <div>
                                             <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — tap to add / remove</label>
                                             <div style={{ marginTop: 6 }}>
-                                                {available.length < 1
-                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>You have no pets available (all on expeditions?).</p>
+                                                {available.length < tacticalSize
+                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; pets on expeditions do not count.</p>
                                                     : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
                                             </div>
                                         </div>

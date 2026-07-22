@@ -69,7 +69,14 @@ import { countItem, removeItem } from "../lib/inventory";
 import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useBoardScale } from "../lib/use-board-scale";
-import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
+import {
+    TACTICAL_ARENA_PET_REQUIREMENT,
+    availablePetBattleCount,
+    isPetOnExpedition,
+    petCombatDamage,
+    petDisplayName,
+    petHappiness,
+} from "../lib/pet";
 import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
@@ -994,6 +1001,18 @@ export function Arena({
     // A summoned pet is a live on-field actor while it has HP and phases left.
     const isPetAlive = Boolean(summonedPet) && petHp > 0 && petTurnsRemaining > 0;
     const canSummonPet = Boolean(!opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
+    const activeBattlePetCanSummon = Boolean(
+        activeBattlePet &&
+        !isPetOnExpedition(activeBattlePet) &&
+        (activeBattlePet.unlockedForPve || activeBattlePet.level >= 50),
+    );
+    const activeBattlePetSummonNote = !activeBattlePet
+        ? "Choose an active pet in the Pet Yard"
+        : isPetOnExpedition(activeBattlePet)
+            ? `${petDisplayName(activeBattlePet)} is on an expedition`
+            : !activeBattlePet.unlockedForPve && activeBattlePet.level < 50
+                ? `Unlocks at pet level 50 (currently ${activeBattlePet.level})`
+                : `Summon ${petDisplayName(activeBattlePet)}`;
 
     function weatherDamageMultiplier(jutsu: Jutsu) {
         if (rankedBattleActive) return 1;
@@ -1342,16 +1361,17 @@ export function Arena({
 
     async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0, party = false) {
         const isPetMode = mode === "clanWarPet" || mode === "rankedPet";
-        if (isPetMode && !character.pets.length) {
-            alert("You need a pet before sending a pet battle challenge.");
+        const availablePetCount = availablePetBattleCount(character.pets);
+        if (isPetMode && availablePetCount < 1) {
+            alert("You need a pet that is not on an expedition before sending a pet battle challenge.");
             return;
         }
-        if (party && character.pets.filter((p) => !isPetOnExpedition(p)).length < 2) {
+        if (party && availablePetCount < 2) {
             alert("A 2v2 pet battle needs two pets not away on an expedition.");
             return;
         }
         const knownPetTarget = isPetMode ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase()) : undefined;
-        if (isPetMode && knownPetTarget && knownPetTarget.character.pets.length === 0) {
+        if (isPetMode && knownPetTarget && availablePetBattleCount(knownPetTarget.character.pets) < (party ? 2 : 1)) {
             alert(`${opponent.name} does not have a pet available for battle.`);
             return;
         }
@@ -1365,8 +1385,8 @@ export function Arena({
         const petBattleSeed = isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined;
         // 2v2 party: field my two best available (not-on-expedition) pets, lead
         // first. The responder auto-picks their own best two on accept
-        // (acceptPetChallengeGlobal); if either side can't field two, the accept
-        // path cleanly downgrades to a 1v1.
+        // (acceptPetChallengeGlobal). The accept path enforces both full teams;
+        // a requested 2v2 never silently changes into a different mode.
         const partyPetIds: [string, string] | null = (party && isPetMode && challengePet)
             ? (() => {
                 const reserve = character.pets
@@ -2849,6 +2869,7 @@ export function Arena({
 
     function basicHeal() {
         setPendingTargetJutsuId("");
+        if (playerHp >= character.maxHp) return setLog("You are already at full HP. Save your AP and chakra for another action.");
         if ((cooldowns.basicHeal ?? 0) > 0) return setLog(`Basic Heal cooldown: ${cooldowns.basicHeal} rounds.`);
         if (character.chakra < 10) return setLog("Basic Heal needs 10 chakra.");
         if (!spendAp(60, "basicHeal")) return;
@@ -5058,7 +5079,8 @@ export function Arena({
                 const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
                 const isPendingJutsuTarget =
                     ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu) && !isSelfCastJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
-                    i === enemyPos;
+                    i === enemyPos &&
+                    (activeJutsuRangeTiles.has(i) || activeWeaponRangeTiles.has(i));
                 // Self-cast jutsu: light up the caster's OWN tile as the click target,
                 // so the arm-then-click-self flow reads the same as enemy targeting.
                 const isSelfTargetTile = pendingTargetJutsu != null && isSelfCastJutsu(pendingTargetJutsu) && i === playerPos;
@@ -5081,6 +5103,18 @@ export function Arena({
                     i !== playerPos &&
                     i !== enemyPos &&
                     !isBarrierTile;
+                // Basic Move uses the same green landing cue as movement jutsu.
+                // Previously selecting Move changed only the log text, leaving a
+                // new player to guess which cells the hex-grid rules considered
+                // adjacent.
+                const isBasicMoveLandingTile = selectedActionId === "move" &&
+                    distance(playerPos, i) === 1 &&
+                    i !== enemyPos &&
+                    !isBarrierTile;
+                // Mark an adjacent enemy's occupied square so "in melee range" is
+                // readable from the board, not something the player must infer by
+                // clicking Attack and watching whether it fails.
+                const isBasicAttackReadyTile = i === enemyPos && distance(playerPos, enemyPos) <= 1;
 
                 return (
                     <button
@@ -5097,7 +5131,8 @@ export function Arena({
                             } ${isSelfTargetTile ? "jutsu-target-tile jutsu-self-target-tile" : ""
                             } ${isGroundTargetTile ? "ground-target-tile" : ""
                             } ${groundEffectClass
-                            } ${isMoveLandingTile ? "dash-target-tile" : ""
+                            } ${(isMoveLandingTile || isBasicMoveLandingTile) ? "dash-target-tile" : ""
+                            } ${isBasicAttackReadyTile ? "basic-attack-ready-tile" : ""
                             }`}
                         style={{
                             left: `${x}px`,
@@ -5118,9 +5153,10 @@ export function Arena({
                 );
             })
         )
-    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, activeMoveAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
+    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, selectedActionId, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, activeMoveAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
+        const availablePetCount = availablePetBattleCount(character.pets);
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
@@ -5135,7 +5171,6 @@ export function Arena({
             const incomingPetSpars = incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints);
             // Pet-battle modes gate on how many pets you can actually field (not on
             // expedition): 1v1 needs 1 (everyone starts with a pet), 2v2 needs 2.
-            const availablePetCount = character.pets.filter((p) => !isPetOnExpedition(p)).length;
             return (
                 <div className="card arena-lobby">
                     <BackToVillageButton onClick={() => setScreen("village")} />
@@ -5188,7 +5223,11 @@ export function Arena({
                                                 <p>Level {player.level} | {player.village} | {player.specialty}</p>
                                                 <div className="menu">
                                                     <button onClick={() => challengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar Challenge</button>
-                                                    <button onClick={() => challengePlayer(player, "clanWarPet", 0)}><GiPawPrint aria-hidden="true" /> Pet Battle (1v1)</button>
+                                                    <button
+                                                        disabled={availablePetCount < 1}
+                                                        title={availablePetCount < 1 ? "You need one available pet" : undefined}
+                                                        onClick={() => challengePlayer(player, "clanWarPet", 0)}
+                                                    ><GiPawPrint aria-hidden="true" /> Pet Battle (1v1)</button>
                                                     <button
                                                         disabled={availablePetCount < 2}
                                                         title={availablePetCount < 2 ? "Raise a second pet (not on an expedition) to unlock 2v2" : undefined}
@@ -5219,7 +5258,12 @@ export function Arena({
                             <section className="summary-box">
                                 <h3><GiPawPrint style={ARENA_ICON} />Pet Spar</h3>
                                 <p className="hint">Head to the Casual Pet Coliseum for a friendly pet duel against AI or a challenged player — no ladder rating on the line.</p>
-                                <button onClick={() => setScreen("petArena")}><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
+                                <button
+                                    disabled={availablePetCount < 1}
+                                    title={availablePetCount < 1 ? "You need one pet that is not on an expedition" : undefined}
+                                    onClick={() => setScreen("petArena")}
+                                ><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
+                                {availablePetCount < 1 && <p className="hint" style={{ color: "var(--gold-2)" }}>Locked: you need one available pet. Pets currently on expeditions cannot battle.</p>}
                                 {incomingPetSpars.map((challenge) => (
                                     <div className="summary-box" key={challenge.id}>
                                         <strong>{challenge.fromName}</strong> wants a pet battle!
@@ -5259,7 +5303,12 @@ export function Arena({
                     <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
                     <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
                     <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
-                    <button className={activeArenaTab === "petBattles" ? "active" : ""} onClick={() => setActiveArenaTab("petBattles")}><GiPawPrint style={ARENA_ICON} />Pet Battles</button>
+                    <button
+                        className={activeArenaTab === "petBattles" ? "active" : ""}
+                        disabled={!character.pets.some((pet) => !isPetOnExpedition(pet))}
+                        title={!character.pets.some((pet) => !isPetOnExpedition(pet)) ? "You need one available pet" : undefined}
+                        onClick={() => setActiveArenaTab("petBattles")}
+                    ><GiPawPrint style={ARENA_ICON} />Pet Battles</button>
                 </div>
 
                 {activeArenaTab === "clanWar" && (
@@ -5406,20 +5455,27 @@ export function Arena({
                         <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you. Casual pet sparring lives in the Village Battle Arena.</p>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                             {[
-                                { mode: "coliseum" as const, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Coliseum", sub: "1v1 ranked ladder" },
-                                { mode: "tactical" as const, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Tactical", sub: "4v4 ranked ladder" },
-                            ].map((c) => (
-                                <button key={c.mode} type="button"
-                                    onClick={() => { sessionStorage.setItem("petLadder.mode", c.mode); setScreen("petLadder"); }}
-                                    style={{ position: "relative", padding: 0, border: "1px solid rgba(244,196,81,.3)", borderRadius: 14, overflow: "hidden", cursor: "pointer", textAlign: "left", height: 132, background: "#11141f" }}>
-                                    <img src={c.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .85 }} />
-                                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,18,.05), rgba(8,10,18,.85))" }} />
-                                    <div style={{ position: "absolute", left: 14, right: 14, bottom: 12 }}>
-                                        <div style={{ fontSize: 19, fontWeight: 800, color: "#f7d98a", textShadow: "0 2px 8px #000" }}>{c.emoji} {c.title}</div>
-                                        <div style={{ fontSize: 12.5, color: "rgba(231,237,247,.9)", textShadow: "0 1px 5px #000" }}>{c.sub} · climb the global rankings</div>
-                                    </div>
-                                </button>
-                            ))}
+                                { mode: "coliseum" as const, requirement: 1, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Coliseum", sub: "1v1 ranked ladder" },
+                                { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Tactical", sub: "4v4 ranked ladder" },
+                            ].map((c) => {
+                                const locked = availablePetCount < c.requirement;
+                                return (
+                                    <button key={c.mode} type="button"
+                                        disabled={locked}
+                                        title={locked ? `Locked: ${availablePetCount}/${c.requirement} available pets` : undefined}
+                                        onClick={() => { sessionStorage.setItem("petLadder.mode", c.mode); setScreen("petLadder"); }}
+                                        style={{ position: "relative", padding: 0, border: "1px solid rgba(244,196,81,.3)", borderRadius: 14, overflow: "hidden", cursor: locked ? "not-allowed" : "pointer", textAlign: "left", height: 132, background: "#11141f" }}>
+                                        <img src={c.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: locked ? .32 : .85, filter: locked ? "grayscale(.75)" : undefined }} />
+                                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,18,.05), rgba(8,10,18,.85))" }} />
+                                        <div style={{ position: "absolute", left: 14, right: 14, bottom: 12 }}>
+                                            <div style={{ fontSize: 19, fontWeight: 800, color: "#f7d98a", textShadow: "0 2px 8px #000" }}>{c.emoji} {c.title}</div>
+                                            <div style={{ fontSize: 12.5, color: "rgba(231,237,247,.9)", textShadow: "0 1px 5px #000" }}>
+                                                {locked ? `Locked · ${availablePetCount}/${c.requirement} available pets` : `${c.sub} · climb the global rankings`}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </section>
                 )}
@@ -5771,7 +5827,8 @@ export function Arena({
                                         // stable key keeps the same DOM node, so CSS transitions a position
                                         // change but never the initial mount.
                                         <div key={isEnemy ? "enemy-orb" : "player-orb"} className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}`} style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                            <img className="tiny-map-avatar" src={imgSrc} alt={altText} />
+                                            <span className="avatar-orb-fallback" aria-hidden="true">{altText.slice(0, 2).toUpperCase()}</span>
+                                            <img className="tiny-map-avatar" src={imgSrc} alt={altText} fetchPriority="high" />
                                         </div>
                                     );
                                 };
@@ -5791,9 +5848,8 @@ export function Arena({
                                     const petImg = petCardImage(pet, sharedImages);
                                     return (
                                         <div key="pet-actor-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
-                                            {petImg
-                                                ? <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                                : <span style={{ fontSize: ORB * 0.5 }}><GiPawPrint aria-hidden="true" /></span>}
+                                            <span className="avatar-orb-fallback" style={{ fontSize: ORB * 0.5 }} aria-hidden="true"><GiPawPrint /></span>
+                                            {petImg && <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} fetchPriority="high" />}
                                             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
                                         </div>
                                     );
@@ -5886,13 +5942,21 @@ export function Arena({
                             live (it also skips the enemy-turn delay). */}
                         <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><span>Attack</span><small>40 AP | 10 SP</small></button>
                         <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
-                        <button onClick={basicHeal} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}><span>Heal</span><small>60 AP | 10 CP | CD {cooldowns.basicHeal ?? 0}</small></button>
+                        <button
+                            onClick={basicHeal}
+                            title={playerHp >= character.maxHp ? "You are already at full HP" : "Restore 10% HP"}
+                            disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || playerHp >= character.maxHp || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}
+                        ><span>Heal</span><small>{playerHp >= character.maxHp ? "Full HP - not needed" : `60 AP | 10 CP | CD ${cooldowns.basicHeal ?? 0}`}</small></button>
                         <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
                         {canSummonPet && (
-                            <button onClick={summonActivePet} disabled={!activeBattlePet || Boolean(summonedPet) || petSummonedThisFight || activeActor !== "player"}>
+                            <button
+                                onClick={summonActivePet}
+                                disabled={!activeBattlePetCanSummon || Boolean(summonedPet) || petSummonedThisFight || activeActor !== "player"}
+                                title={activeBattlePetSummonNote}
+                            >
                                 <span>Pet</span>
-                                <small>{summonedPet ? `${petDisplayName(summonedPet)} fighting` : petSummonedThisFight ? "Pet already used" : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
+                                <small>{summonedPet ? `${petDisplayName(summonedPet)} fighting` : petSummonedThisFight ? "Pet already used" : activeBattlePetSummonNote}</small>
                             </button>
                         )}
                         <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 50%</small></button>
@@ -5943,11 +6007,8 @@ export function Arena({
                                                     }}
                                                 >
                                                     <span className="combat-jutsu-thumb">
-                                                        {image ? (
-                                                            <img src={image} alt={jutsu.name} />
-                                                        ) : (
-                                                            <strong><FallbackIcon size={22} aria-hidden="true" /></strong>
-                                                        )}
+                                                        <strong className="combat-jutsu-fallback-icon"><FallbackIcon size={22} aria-hidden="true" /></strong>
+                                                        {image && <img src={image} alt={jutsu.name} />}
                                                     </span>
 
                                                     <span className="combat-jutsu-name">{jutsu.name}</span>
@@ -6015,11 +6076,8 @@ export function Arena({
                                                     }}
                                                 >
                                                     <span className="combat-jutsu-thumb combat-item-thumb">
-                                                        {item.image ? (
-                                                            <img src={item.image} alt={item.name} />
-                                                        ) : (
-                                                            <strong><ItemIcon size={22} aria-hidden="true" /></strong>
-                                                        )}
+                                                        <strong className="combat-jutsu-fallback-icon"><ItemIcon size={22} aria-hidden="true" /></strong>
+                                                        {item.image && <img src={item.image} alt={item.name} />}
                                                     </span>
                                                     <span className="combat-jutsu-name">{item.name}</span>
                                                     <span className="combat-jutsu-info">{equipmentSlotLabel(item.slot)} | {actionText}</span>

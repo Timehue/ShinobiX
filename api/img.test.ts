@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { decodeImageDataUrl, perImageKey } from './img.js';
+import { decodeImageDataUrl, legacyImageValue, perImageKey } from './img.js';
 
 describe('decodeImageDataUrl', () => {
     it('decodes a base64 png data URL to mime + buffer', () => {
@@ -36,5 +36,24 @@ describe('perImageKey', () => {
     it('namespaces the id under the shared disk-routed prefix', () => {
         assert.equal(perImageKey('jutsu:fireball'), 'shared:img:jutsu:fireball');
         assert.equal(perImageKey('avatar:rill'), 'shared:img:avatar:rill');
+    });
+});
+
+describe('legacyImageValue', () => {
+    it('finds pre-category leader portraits in the legacy misc hash', () => {
+        assert.equal(
+            legacyImageValue('leader:konoha:kage', null, null, { 'leader:konoha:kage': 'data:image/png;base64,AAAA' }),
+            'data:image/png;base64,AAAA',
+        );
+    });
+
+    it('keeps current category storage authoritative and never borrows misc for non-leaders', () => {
+        assert.equal(legacyImageValue('leader:konoha:kage', { 'leader:konoha:kage': 'new' }, null, { 'leader:konoha:kage': 'old' }), 'new');
+        assert.equal(legacyImageValue('event:boss', null, null, { 'event:boss': 'wrong bucket' }), null);
+    });
+
+    it('treats empty legacy values as missing', () => {
+        assert.equal(legacyImageValue('leader:konoha:kage', null, null, { 'leader:konoha:kage': '' }), null);
+        assert.equal(legacyImageValue('leader:konoha:kage', { 'leader:konoha:kage': '' }, { 'leader:konoha:kage': 'old blob' }), 'old blob');
     });
 });

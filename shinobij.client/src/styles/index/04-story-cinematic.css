@@ -266,6 +266,14 @@
         border-color: var(--gold-400);
     }
 
+    .vn-choice-btn:disabled,
+    .vn-choice-btn:disabled:hover {
+        opacity: .55;
+        cursor: wait;
+        background: rgba(2,6,23,.82);
+        border-color: rgba(250,204,21,.28);
+    }
+
 .vn-conclusion {
     margin-top: 14px;
     padding: 12px 16px;

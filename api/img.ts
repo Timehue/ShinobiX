@@ -21,6 +21,23 @@ import { categoryFromId } from './images.js';
 // One image == one key. `id` is already "<cat>:<key>", so the full key is
 // e.g. shared:img:jutsu:fireball.
 export const perImageKey = (id: string) => `shared:img:${id}`;
+const IMAGE_READ_TIMEOUT = Symbol('image-read-timeout');
+
+export function legacyImageValue(
+    id: string,
+    hash: Record<string, string> | null,
+    blob: Record<string, string> | null,
+    legacyMisc: Record<string, string> | null = null,
+): string | null {
+    const candidates = [hash?.[id], blob?.[id], id.startsWith('leader:') ? legacyMisc?.[id] : undefined];
+    return candidates.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
+}
+
+function temporaryImageFailure(res: VercelResponse) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Retry-After', '1');
+    return res.status(503).end();
+}
 
 // Per-process guard: bulk-migrate each category's legacy blob into per-image
 // keys at most once per instance, so a burst of first-views can't re-fire the
@@ -59,22 +76,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cat = categoryFromId(id);
 
     // Per-call timeout so one slow KV read can't hang the function.
-    const withTimeout = <T>(p: Promise<T | null>, ms = 18_000): Promise<T | null> =>
-        Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+    const withTimeout = <T>(p: Promise<T | null>, ms = 8_000): Promise<T | null | typeof IMAGE_READ_TIMEOUT> =>
+        Promise.race([p, new Promise<typeof IMAGE_READ_TIMEOUT>((resolve) => setTimeout(() => resolve(IMAGE_READ_TIMEOUT), ms))]);
 
     try {
         // 1. Fast path: the per-image key (one small read).
-        let raw = await withTimeout(kv.get<string>(perImageKey(id)));
+        const direct = await withTimeout(kv.get<string>(perImageKey(id)));
+        if (direct === IMAGE_READ_TIMEOUT) return temporaryImageFailure(res);
+        let raw = direct;
 
         // 2. Fallback: the legacy per-category hash/blob (pre-migration). On a
         //    hit, lazily copy into per-image keys so subsequent reads are cheap.
         //    Best-effort + async — never block the response on a migration write.
         if (!raw) {
-            const [hash, blob] = await Promise.all([
+            const [hashResult, blobResult, miscResult] = await Promise.all([
                 withTimeout(kv.hgetall<Record<string, string>>(legacyHashKey(cat))),
                 withTimeout(kv.get<Record<string, string>>(legacyBlobKey(cat))),
+                cat === 'leader'
+                    ? withTimeout(kv.hgetall<Record<string, string>>(legacyHashKey('misc')))
+                    : Promise.resolve(null),
             ]);
-            raw = (hash && hash[id]) || (blob && blob[id]) || null;
+            const legacyTimedOut = hashResult === IMAGE_READ_TIMEOUT
+                || blobResult === IMAGE_READ_TIMEOUT
+                || miscResult === IMAGE_READ_TIMEOUT;
+            const hash = hashResult === IMAGE_READ_TIMEOUT ? null : hashResult;
+            const blob = blobResult === IMAGE_READ_TIMEOUT ? null : blobResult;
+            const misc = miscResult === IMAGE_READ_TIMEOUT ? null : miscResult;
+            raw = legacyImageValue(id, hash, blob, misc);
+            if (!raw && legacyTimedOut) return temporaryImageFailure(res);
             if (raw) {
                 // Always migrate the served image (guarantees it converges).
                 void kv.set(perImageKey(id), raw).catch(() => undefined);
@@ -84,7 +113,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // per category. Fire-and-forget; failures self-heal per-image.
                 if (!_bulkMigratedCats.has(cat)) {
                     _bulkMigratedCats.add(cat);
-                    const merged: Record<string, string> = { ...(blob ?? {}), ...(hash ?? {}) };
+                    const legacyLeaders = cat === 'leader'
+                        ? Object.fromEntries(Object.entries(misc ?? {}).filter(([key]) => key.startsWith('leader:')))
+                        : {};
+                    const merged: Record<string, string> = { ...legacyLeaders, ...(blob ?? {}), ...(hash ?? {}) };
                     void Promise.allSettled(
                         Object.entries(merged)
                             .filter(([k, v]) => k !== id && typeof v === 'string' && v.length > 0)
@@ -121,7 +153,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).send(decoded.buf);
     } catch (err) {
         console.error('[img]', err);
-        res.setHeader('Cache-Control', 'no-store');
-        return res.status(404).end();
+        return temporaryImageFailure(res);
     }
 }

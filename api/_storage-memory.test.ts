@@ -19,6 +19,8 @@ describe('isolated QA memory KV', () => {
         assert.equal(await kv.hset('registry', { one: 1, two: 2 }), 2);
         assert.equal(await kv.hset('registry', { two: 22, three: 3 }), 1);
         assert.deepEqual((await kv.hkeys('registry')).sort(), ['one', 'three', 'two']);
+        await kv.hset('image-registry', { good: 'data:image/png;base64,AAAA', empty: '', number: 1 });
+        assert.deepEqual(await kv.hkeys('image-registry', { nonEmptyStrings: true }), ['good']);
         assert.equal(await kv.hdel('registry', 'one', 'missing'), 1);
         assert.deepEqual(await kv.hgetall('registry'), { two: 22, three: 3 });
     });

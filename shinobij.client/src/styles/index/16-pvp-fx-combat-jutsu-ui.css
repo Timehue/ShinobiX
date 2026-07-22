@@ -207,6 +207,7 @@
 }
 
 .combat-jutsu-thumb {
+    position: relative !important;
     width: 100% !important;
     height: 64px !important;
     display: grid !important;
@@ -214,6 +215,24 @@
     border-radius: 4px !important;
     overflow: hidden !important;
     background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.55), transparent 24%), linear-gradient(135deg, var(--slate-900), #312e81, #7c2d12) !important;
+}
+
+/* Keep a real icon behind remote/generated thumbnail art. The global image
+   guard hides a failed <img>; this fallback is then already in place instead
+   of leaving an empty ability card. */
+.combat-jutsu-fallback-icon {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    color: #fff7ed !important;
+    background: radial-gradient(circle at 50% 35%, #7c2d12, #172554 72%) !important;
+}
+
+.combat-jutsu-thumb > img {
+    position: relative !important;
+    z-index: 1 !important;
 }
 
     .combat-jutsu-thumb img {

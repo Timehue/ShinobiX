@@ -128,7 +128,10 @@ export function CombatSideHud({
 
             <div className="combat-avatar">
                 {isImageAvatar(avatar) ? (
-                    <img src={avatar} alt={name} />
+                    <>
+                        <span className="combat-avatar-fallback" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span>
+                        <img src={avatar} alt={name} fetchPriority="high" />
+                    </>
                 ) : (
                     avatar
                 )}

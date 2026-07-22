@@ -36,6 +36,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     const [now, setNow] = useState(() => Date.now());
     const [busy, setBusy] = useState(false);
     const busyRef = useRef(false);
+    const autoCheckoutStartedRef = useRef(false);
 
     // Arriving at the hospital means a KO (or a normal visit). Either way, drop
     // any pending "return to the sector you were exploring" latch (set before an
@@ -130,8 +131,11 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     // Free check-out after timer expires. Server still owns the discharge
     // decision (validator will reject if timer hasn't actually expired), so
     // we route through the same endpoint with paySkip=false.
-    async function freeCheckout() {
-        if (busyRef.current) return;
+    async function freeCheckout(automatic = false) {
+        if (busyRef.current) {
+            if (automatic) autoCheckoutStartedRef.current = false;
+            return;
+        }
         busyRef.current = true;
         setBusy(true);
         try {
@@ -147,17 +151,30 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     applyDischargeAndLeave(0);
                     return;
                 }
-                alert(data.error ?? 'Failed to check out.');
+                if (automatic) autoCheckoutStartedRef.current = false;
+                else alert(data.error ?? 'Failed to check out.');
                 return;
             }
             applyDischargeAndLeave(0);
         } catch {
-            alert('Network error — check-out failed.');
+            if (automatic) autoCheckoutStartedRef.current = false;
+            else alert('Network error — check-out failed.');
         } finally {
             busyRef.current = false;
             setBusy(false);
         }
     }
+
+    // Waiting out the admission timer should release the player automatically;
+    // the free button below remains as a fallback if the request ever fails.
+    useEffect(() => {
+        if (!freeCheckoutReady || isHealer || autoCheckoutStartedRef.current) return;
+        autoCheckoutStartedRef.current = true;
+        void freeCheckout(true);
+        // `now` intentionally provides a once-per-second retry opportunity after
+        // a transient network/server failure resets autoCheckoutStartedRef.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [freeCheckoutReady, isHealer, now]);
 
     async function topUp() {
         if (busyRef.current) return;
@@ -223,15 +240,15 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     above, so the wait-out-the-timer check-out is non-Healer only. */}
                 {!isHealer && (freeCheckoutReady ? (
                     <button
-                        onClick={freeCheckout}
+                        onClick={() => void freeCheckout(false)}
                         disabled={busy}
                         style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "var(--blue-400)", width: "100%", animation: "pulse 1.5s infinite", opacity: busy ? 0.5 : 1 }}
                     >
-                        {busy ? "…" : "🚪 Check Out (Free — time served)"}
+                        {busy ? "Checking out automatically…" : "🚪 Check Out Now (Free)"}
                     </button>
                 ) : (
                     <p className="hint" style={{ textAlign: "center" }}>
-                        Free check-out unlocks in <strong style={{ color: "var(--gold-400)" }}>{remaining}s</strong>
+                        Automatic free check-out in <strong style={{ color: "var(--gold-400)" }}>{remaining}s</strong>
                     </p>
                 ))}
                 {character.ryo < dischargeCost && !freeCheckoutReady && (

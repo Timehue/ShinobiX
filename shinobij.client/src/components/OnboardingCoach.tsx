@@ -11,7 +11,7 @@
  *   training      -> start first stat training; advances when activeTraining set
  *   jutsu         -> train a jutsu; advances when jutsuMastery grows
  *   jutsuLoadout  -> equip that jutsu; advances when equippedJutsuIds grows
- *   inventory     -> equip starter gear; advances when any equipment slot is filled
+ *   inventory     -> equip both starter gear pieces; advances when both are worn
  *   academySpar   -> first spar; the win advances to "cafeteria"
  *   cafeteria     -> "you've been hurt, heal yourself"; advances at full HP
  *   firstMission  -> claim first mission; advances when academyTrialClaimed
@@ -36,7 +36,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
-import { normalizeOnboardingStep, type CanonicalOnboardingStep } from "../lib/onboarding-step";
+import {
+    ACADEMY_STARTER_GEAR_TARGET,
+    academyEquippedItemCount,
+    hasAcademyStarterGearEquipped,
+    normalizeOnboardingStep,
+    type CanonicalOnboardingStep,
+} from "../lib/onboarding-step";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
@@ -104,10 +110,6 @@ function hasTrainedStarterJutsu(character: Character): boolean {
 
 function hasStarterLoadoutComplete(character: Character): boolean {
     return (character.equippedJutsuIds?.length ?? 0) >= 4;
-}
-
-function equippedItemCount(character: Character): number {
-    return Object.values(character.equipment ?? {}).filter(Boolean).length;
 }
 
 export function OnboardingCoach({
@@ -190,8 +192,8 @@ export function OnboardingCoach({
             equipmentBaselineRef.current = null;
             return;
         }
-        const equipped = equippedItemCount(character);
-        if (equipped > 0) {
+        const equipped = academyEquippedItemCount(character.equipment);
+        if (hasAcademyStarterGearEquipped(character.equipment)) {
             updateCharacter({ ...character, onboardingStep: "academySpar" });
             return;
         }
@@ -199,7 +201,7 @@ export function OnboardingCoach({
             equipmentBaselineRef.current = equipped;
             return;
         }
-        if (equipped > equipmentBaselineRef.current) {
+        if (equipped > equipmentBaselineRef.current && equipped >= ACADEMY_STARTER_GEAR_TARGET) {
             updateCharacter({ ...character, onboardingStep: "academySpar" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -274,8 +276,13 @@ export function OnboardingCoach({
             case "training": return "Let's grow stronger together! Start your first stat training — pick any stat and any timer.";
             case "jutsu": return "Now train one more jutsu. Pick an untrained jutsu and use the free Level 1 unlock.";
             case "jutsuLoadout": return "Put that trained jutsu in your loadout from your Profile so it appears in battle.";
-            case "inventory": return "Equip a starter item from your Inventory. Your kunai or vest will help in the spar.";
-            case "cafeteria": return "Oh no, you've been hurt! Heal yourself in the Cafeteria before we move on.";
+            case "inventory": {
+                const equipped = academyEquippedItemCount(character.equipment);
+                return `Equip both starter items from your Inventory (${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)}/${ACADEMY_STARTER_GEAR_TARGET}). Put on the Rustfang Kunai and Shinobi Vest before the spar.`;
+            }
+            case "cafeteria": return character.hp >= character.maxHp
+                ? "You finished the spar at full HP, so there is nothing to heal. We can move on."
+                : "The spar cost you HP. Recover in the Cafeteria before we move on.";
             case "firstMission": return "Claim your one-time Academy Trial reward at the Mission Hall.";
             case "logbook": return "Open your Logbook to see our Academy goals.";
             case "sectorReturn": return visitedSector

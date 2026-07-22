@@ -737,8 +737,9 @@ export function Profile({
                     <span className={`stat-points-badge ${character.unspentStats === 0 ? "stat-points-empty" : ""}`}>
                         {character.unspentStats} point{character.unspentStats !== 1 ? "s" : ""} available
                     </span>
-                    <button type="button" onClick={respecStats} disabled={profileMutationBusy} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Respec — 50 🔮</button>
+                    <button type="button" onClick={respecStats} disabled={profileMutationBusy} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Reallocate Stats — 50 🔮</button>
                 </div>
+                <p className="hint">Spend available points below. Changed your mind? <strong>Reallocate Stats</strong> resets all 12 stats to base and refunds every earned point—your training progress is not lost.</p>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 
                 <div className="stat-group-list">

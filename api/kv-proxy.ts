@@ -12,7 +12,7 @@
  *   /api/kv/mget   { keys: string[] }            → { values }
  *   /api/kv/hset   { key, fields }               → { count }
  *   /api/kv/hdel   { key, fields: string[] }     → { count }
- *   /api/kv/hkeys  { key }                       → { fields: string[] }
+ *   /api/kv/hkeys  { key, options? }             → { fields: string[], nonEmptyStringsApplied? }
  */
 
 import type { VercelRequest, VercelResponse } from './_vercel.js';
@@ -148,8 +148,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'hkeys': {
                 // Keys-only projection: the multi-MB image hashes stay on this
                 // box; only the field-name list crosses the wire to the caller.
-                const fields = await _diskKvForProxy.hkeys(String(body.key));
-                res.status(200).json({ fields });
+                const nonEmptyStrings = !!(
+                    body.options
+                    && typeof body.options === 'object'
+                    && (body.options as Record<string, unknown>).nonEmptyStrings === true
+                );
+                const fields = await _diskKvForProxy.hkeys(
+                    String(body.key),
+                    nonEmptyStrings ? { nonEmptyStrings: true } : undefined,
+                );
+                res.status(200).json({ fields, nonEmptyStringsApplied: nonEmptyStrings || undefined });
                 return;
             }
             default:
