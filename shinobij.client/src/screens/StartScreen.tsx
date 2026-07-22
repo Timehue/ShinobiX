@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useRef, useState, type ReactNode } from "react";
 import { type Character } from "../App";
 import { villages } from "../data/sectors";
 import { GameIcon } from "../components/icons/GameIcon";
@@ -64,17 +64,7 @@ function IconEyeOff() {
 
 type StartView = "main" | "create" | "login" | "leaderboard" | "guides" | `legal:${LegalPageSlug}`;
 
-type RosterEntry = {
-    name: string;
-    level: number;
-    village: string;
-    specialty: string;
-    online: boolean;
-    character?: Partial<Character>;
-};
-
 // ── Landing feature showcase ─────────────────────────────────────────────
-type LiveStats = { online: number };
 
 // public/ scenes referenced by URL (Vite copies public/ to the site root).
 const PVP_IMG = "/deathsgate-arena.webp";
@@ -391,27 +381,10 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
 }) {
     const rootRef = useRef<HTMLDivElement>(null);
     const featuresRef = useRef<HTMLElement>(null);
-    const [stats, setStats] = useState<LiveStats | null>(null);
     // A session-restore failure pre-fills the login name → open on Log In;
     // a fresh visitor lands on Create Account. Lifted here so the hero / band
     // CTAs can jump straight into the create flow.
     const year = new Date().getFullYear();
-
-    // Live roster snapshot for the "online now" chip. Best-effort: if it fails
-    // or the world is empty we simply omit the live chip — never fabricate a
-    // number. Same public endpoint the Hall of Legends already uses.
-    useEffect(() => {
-        let cancelled = false;
-        fetch("/api/player/roster")
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data: { players?: RosterEntry[] } | null) => {
-                if (cancelled || !data) return;
-                const players = Array.isArray(data.players) ? data.players : [];
-                setStats({ online: players.filter((p) => p.online).length });
-            })
-            .catch(() => { /* offline / cold server — omit the live chip */ });
-        return () => { cancelled = true; };
-    }, []);
 
     // Hide the mobile sticky CTA whenever the auth panel is itself on screen, so
     // the bar never covers the create/login form's own submit button.
@@ -449,12 +422,6 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         </p>
 
                         <div className="landing-stat-chips">
-                            {stats && stats.online > 0 && (
-                                <span className="landing-stat-chip landing-stat-chip--live">
-                                    <i className="landing-live-dot" aria-hidden="true" />
-                                    {stats.online.toLocaleString()} online now
-                                </span>
-                            )}
                             <span className="landing-stat-chip">{villages.length} Rival Villages</span>
                             <span className="landing-stat-chip">Jutsu Combat</span>
                             <span className="landing-stat-chip">Browser Play</span>
