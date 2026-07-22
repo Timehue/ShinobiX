@@ -27,14 +27,18 @@ export function storyReckoningEligible(character: Character, quest: StoryReckoni
     const traits = character.storyTraits ?? [];
     if (traits.includes(quest.completionTrait)) return false;
     if ((character.level ?? 0) < quest.levelReq) return false;
-    return character.storyVillage === quest.village && (character.storyProgress ?? 0) >= quest.ownProgress;
+    if ((character.storyProgress ?? 0) < quest.ownProgress) return false;
+    // A cross-village figure (Kite Harrow) stands at ANY village's outskirts once
+    // the player has reached the required progress; own-village arcs additionally
+    // require the player to be on that village's story.
+    return quest.crossVillage === true || character.storyVillage === quest.village;
 }
 
 export function visibleStoryReckonings(character: Character, sector: number): Wanderer[] {
     const village = villageForOutskirtsSector(sector);
     if (!village) return [];
     return storyReckonings
-        .filter((quest) => quest.village === village && storyReckoningEligible(character, quest))
+        .filter((quest) => (quest.crossVillage === true || quest.village === village) && storyReckoningEligible(character, quest))
         .map((quest) => synthStoryReckoningWanderer(quest, sector));
 }
 
