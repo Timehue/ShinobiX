@@ -5622,7 +5622,7 @@ export function Arena({
                     portalTarget
                 ) : null;
             })()}
-            <div className="combat-layout">
+            <div className={`combat-layout${showRookieCombatTip ? " has-rookie-tip" : ""}`}>
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={character.name}

@@ -1203,6 +1203,13 @@ html:has(.arena-fullscreen) .sector-banner-panel {
         overflow: hidden;
     }
 
+    /* Rookie Explore/mission fights add the First Fight Plan as a real grid
+       child. Give it its own row so it cannot shift the terrain strip into the
+       battlefield row and collapse the actual hex board to a thin sliver. */
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-main-area {
+        grid-template-rows: auto auto auto minmax(300px, 1fr) auto minmax(120px, 0.22fr) minmax(96px, 0.18fr);
+    }
+
     .arena-fullscreen.pvp-battle-layout .arena-top-panel {
         display: none !important;
     }
@@ -1954,6 +1961,27 @@ html:has(.arena-fullscreen) .sector-banner-panel {
         grid-template-rows: auto auto minmax(232px, 42dvh) auto auto minmax(96px, 1fr) !important;
     }
 
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip {
+        grid-template-rows: auto auto auto minmax(232px, 42dvh) auto auto minmax(96px, 1fr) !important;
+    }
+
+    /* Mobile flattens .combat-main-area with display:contents and pins every
+       battle band to an explicit outer-grid row. Shift those bands together
+       when the rookie tip is present so the new row is real, not an implicit
+       overflow row below the controls. */
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .rookie-combat-tip {
+        grid-column: 1 / -1 !important;
+        grid-row: 2 !important;
+        margin: 0 !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .twp-strip { grid-row: 3 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .hex-battlefield { grid-row: 4 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .battle-tabbar { grid-row: 5 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .shinobi-command-bar { grid-row: 6 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-jutsu-bar { grid-row: 7 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-text-log { grid-row: 6 / span 2 !important; }
+
     /* The board fills its row instead of forcing a 260px content minimum —
        the row's minmax governs, so short phones can compress it. */
     .arena-fullscreen.pvp-battle-layout .hex-battlefield {
@@ -1998,6 +2026,10 @@ html:has(.arena-fullscreen) .sector-banner-panel {
     .arena-fullscreen.pvp-battle-layout .combat-layout {
         grid-template-rows: auto auto minmax(196px, 36dvh) auto auto minmax(88px, 1fr) !important;
         gap: 4px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip {
+        grid-template-rows: auto auto auto minmax(196px, 36dvh) auto auto minmax(88px, 1fr) !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud,

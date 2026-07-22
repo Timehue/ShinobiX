@@ -31,7 +31,10 @@ export function chooseStarterPet(character: Record<string, unknown>, rawPet: unk
     const pets = Array.isArray(character.pets) ? character.pets : [];
     if (pets.length > 0 || character.starterPetClaimed === true) return { ok: false as const, reason: 'starter-already-chosen' as const };
     const onboardingStep = character.onboardingStep;
-    if (onboardingStep !== 'starter' && onboardingStep !== 'academyIntro') {
+    // The generic autosave can persist the cinematic's companionIntro step a
+    // moment before this entitlement request commits. With no pets and no
+    // prior claim, that is the same in-progress starter selection—not a replay.
+    if (onboardingStep !== 'starter' && onboardingStep !== 'academyIntro' && onboardingStep !== 'companionIntro') {
         return { ok: false as const, reason: 'starter-not-available' as const };
     }
     const pet = validateStarterPet(rawPet);
@@ -44,7 +47,7 @@ export function chooseStarterPet(character: Record<string, unknown>, rawPet: unk
             activePetId: pet.id,
             // The current cinematic has a companion-introduction pass after
             // the summon. The legacy picker still advances straight to training.
-            onboardingStep: onboardingStep === 'academyIntro' ? 'companionIntro' : 'training',
+            onboardingStep: onboardingStep === 'starter' ? 'training' : 'companionIntro',
             starterPetClaimed: true,
         },
     };
