@@ -74,6 +74,24 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
     };
 }
 
+/**
+ * Resolve an equipped id list against a jutsu catalog without losing the slot
+ * order the player chose in Profile. Unknown/stale ids are ignored and a
+ * duplicated save id can never produce a duplicated combat action.
+ */
+export function orderEquippedJutsus(jutsus: readonly Jutsu[], equippedIds: readonly string[]): Jutsu[] {
+    const byId = new Map(jutsus.map((jutsu) => [jutsu.id, jutsu]));
+    const seen = new Set<string>();
+    const ordered: Jutsu[] = [];
+    for (const id of equippedIds) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const jutsu = byId.get(id);
+        if (jutsu) ordered.push(jutsu);
+    }
+    return ordered;
+}
+
 export function makeJutsu(id: string, name: string, type: JutsuType, ap: number, range: number, effectPower: number, cooldown: number, chakraCost: number, staminaCost: number, tags: JutsuTag[], element: JutsuElement = "Fire"): Jutsu {
     return normalizeJutsu({ id, name, type, element, ap, range, effectPower, cooldown, currentCooldown: 0, chakraCost, staminaCost, tags });
 }

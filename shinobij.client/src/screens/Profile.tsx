@@ -6,15 +6,13 @@ import type { Character } from "../types/character";
 import { GameIcon } from "../components/icons/GameIcon";
 const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
-import type { JutsuType } from "../types/core";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
 import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { PatreonLink } from "../components/PatreonLink";
 import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
-import { JutsuDropdownList } from "../components/JutsuDropdownList";
-import { JutsuEffectCards } from "../components/JutsuEffectCards";
+import { JutsuLoadoutPanel } from "../components/JutsuLoadoutPanel";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { ShinobiIdentityCard } from "../components/ShinobiIdentityCard";
@@ -26,11 +24,9 @@ import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { allocatedStatPoints, capStat, xpNeeded } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
-import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
-import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
@@ -158,11 +154,6 @@ export function Profile({
     const TITLE_COST = 10;
     const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>('overview');
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
-    // Display-only lens for jutsu effect descriptions — names a discipline so
-    // damage tags read e.g. "Taijutsu damage given". Defaults to the player's
-    // bloodline/specialty discipline. Purely cosmetic — does not touch stats.
-    const [tagLensDiscipline, setTagLensDiscipline] = useState<JutsuType>(() => playerLensDiscipline(character));
-
     async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
         const result = await settleProfileAction(character.name, action);
         if (!result.ok) {
@@ -319,18 +310,24 @@ export function Profile({
         });
     }
 
-    function toggleJutsu(id: string) {
-        const equipped = character.equippedJutsuIds.includes(id);
-        const mastery = getJutsuMastery(character, id);
+    function unequipJutsu(id: string) {
+        if (!character.equippedJutsuIds.includes(id)) return;
+        updateCharacter({
+            ...character,
+            equippedJutsuIds: character.equippedJutsuIds.filter((jutsuId) => jutsuId !== id),
+        });
+    }
 
-        if (equipped) {
-            updateCharacter({
-                ...character,
-                equippedJutsuIds: character.equippedJutsuIds.filter((j) => j !== id),
-            });
+    function placeJutsuInLoadout(id: string, slotIndex = character.equippedJutsuIds.length) {
+        const equippedIndex = character.equippedJutsuIds.indexOf(id);
+        if (equippedIndex >= 0) {
+            const ids = character.equippedJutsuIds.filter((jutsuId) => jutsuId !== id);
+            ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
+            updateCharacter({ ...character, equippedJutsuIds: ids });
             return;
         }
 
+        const mastery = getJutsuMastery(character, id);
         if (mastery.level < 1) {
             alert("Train this jutsu to level 1 before equipping it.");
             return;
@@ -350,26 +347,15 @@ export function Profile({
             return;
         }
 
+        const ids = [...character.equippedJutsuIds];
+        ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
         updateCharacter({
             ...character,
-            equippedJutsuIds: [...character.equippedJutsuIds, id],
+            equippedJutsuIds: ids,
             jutsuMastery: character.jutsuMastery.some((m) => m.jutsuId === id)
                 ? character.jutsuMastery
                 : [...character.jutsuMastery, { jutsuId: id, level: 1, xp: 0 }],
         });
-    }
-
-    // Nudge an equipped jutsu one slot left (-1) or right (+1) in the loadout
-    // order. The order persists in equippedJutsuIds and drives the combat
-    // action-bar order, so this lets players arrange their slots.
-    function moveEquippedJutsu(id: string, dir: -1 | 1) {
-        const ids = [...character.equippedJutsuIds];
-        const from = ids.indexOf(id);
-        if (from < 0) return;
-        const to = from + dir;
-        if (to < 0 || to >= ids.length) return;
-        [ids[from], ids[to]] = [ids[to], ids[from]];
-        updateCharacter({ ...character, equippedJutsuIds: ids });
     }
 
     const statGroups: Array<{ title: string; description: string; stats: Array<keyof Stats> }> = [
@@ -773,103 +759,29 @@ export function Profile({
 
             {/* ── Jutsu tab ────────────────────────────── */}
             <div className={mobileTab !== 'jutsu' ? 'profile-tab-hidden' : ''}>
-            <section className="profile-build-panel">
-                <div className="stat-header">
-                    <h2>Jutsu Loadout: {character.equippedJutsuIds.length}/{maxLoadout(character)}</h2>
-                    <button
-                        className="danger-button"
-                        onClick={() => updateCharacter({ ...character, equippedJutsuIds: [] })}
-                        disabled={character.equippedJutsuIds.length === 0}
-                    >
-                        Unequip All
-                    </button>
-                </div>
-                {/* The dedicated Legacy signature slot — derived from the server-owned
-                    character.legacy at Stage 3 (Bound), outside the 15, always equipped.
-                    Mastery is the Legacy stage ×10, so it deepens with the Legacy. */}
-                {(() => {
-                    const signature = legacySignatureFor(character);
-                    if (!signature) return null;
-                    const mastery = getJutsuMastery(character, signature.id);
-                    const display = jutsuDisplayAtLevel(signature, mastery.level);
+            {(() => {
+                const learnedAnyJutsus = allJutsus.filter((jutsu) => getJutsuMastery(character, jutsu.id).level >= 1);
+                const learnedJutsus = learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
+                if (learnedJutsus.length === 0) {
                     return (
-                        <div className="legacy-signature-slot" style={{ border: "1px solid #a78bfa55", background: "#a78bfa12", borderRadius: 8, padding: "8px 10px", margin: "8px 0" }}>
-                            <h4 style={{ margin: "0 0 4px", color: "#c4b5fd", fontSize: "0.82rem" }}>◆ Legacy Signature — always equipped, does not use a loadout slot</h4>
-                            <p style={{ margin: "2px 0" }}><strong>{signature.name}</strong>{signature.bloodlineRank ? ` · ${signature.bloodlineRank}` : ""} · Mastery {mastery.level}/50 <span className="hint">(grows with your Legacy stage)</span></p>
-                            <p style={{ margin: "2px 0" }}>{signature.type} | {signature.ap} AP | R{signature.range} | EP {display.effectPower} | Cooldown {signature.cooldown}</p>
-                            <p style={{ margin: "2px 0" }}>Tags: {display.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                            <p className="hint" style={{ margin: "2px 0" }}>{signature.description}</p>
-                        </div>
+                        <section className="profile-build-panel jutsu-workbench-empty">
+                            <h2>Jutsu Loadout</h2>
+                            <p className="hint">{learnedAnyJutsus.length
+                                ? "Your learned jutsu are locked behind elements you do not currently have."
+                                : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>
+                        </section>
                     );
-                })()}
-                <div className="jutsu-lens-row" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "4px 0 10px" }}>
-                    <label htmlFor="jutsu-lens-discipline" style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Read effects as:</label>
-                    <select
-                        id="jutsu-lens-discipline"
-                        value={tagLensDiscipline}
-                        onChange={(e) => setTagLensDiscipline(e.target.value as JutsuType)}
-                    >
-                        {(["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu"] as JutsuType[]).map((d) => (
-                            <option key={d} value={d}>{d}</option>
-                        ))}
-                    </select>
-                    <span className="hint" style={{ fontSize: "0.74rem" }}>Display only — labels damage effects with this discipline. Does not change your stats.</span>
-                </div>
-                {(() => {
-                    const learnedAnyJutsus = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1);
-                    const learnedJutsus = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1 && canEquipElementJutsu(character, j, savedBloodlines));
-                    if (learnedJutsus.length === 0) {
-                        return <p className="hint">{learnedAnyJutsus.length ? "Your learned jutsu are locked behind elements you do not currently have." : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>;
-                    }
-                    // Order by equippedJutsuIds (the saved loadout order) — not allJutsus
-                    // order — so the reorder arrows visibly move slots and the grid mirrors
-                    // the in-battle action-bar order.
-                    const equippedJutsus = character.equippedJutsuIds
-                        .map((id) => learnedJutsus.find((j) => j.id === id))
-                        .filter((j): j is Jutsu => Boolean(j));
-                    const availableJutsus = learnedJutsus.filter((j) => !character.equippedJutsuIds.includes(j.id));
-                    const jutsuDetails = (jutsu: Jutsu) => {
-                        const mastery = getJutsuMastery(character, jutsu.id);
-                        const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
-                        return (
-                            <>
-                                <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
-                                {(() => { const t = jutsuTargetingLabel(jutsu); return <p><strong style={{ color: "#c084fc" }}>🎯 Targeting: {t.short}</strong> — {t.detail}</p>; })()}
-                                <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                                <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
-                                <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
-                            </>
-                        );
-                    };
-                    return (
-                        <>
-                            {equippedJutsus.length > 0 && (
-                                <>
-                                    <h4 style={{ margin: "8px 0 4px", color: "#86efac", fontSize: "0.82rem" }}>✅ Equipped ({equippedJutsus.length})</h4>
-                                    <JutsuDropdownList
-                                        jutsus={equippedJutsus}
-                                        label="Equipped Jutsu"
-                                        renderDetails={jutsuDetails}
-                                        renderActions={(jutsu) => <button className="danger-button" onClick={() => toggleJutsu(jutsu.id)}>Unequip</button>}
-                                        onReorder={moveEquippedJutsu}
-                                    />
-                                </>
-                            )}
-                            {availableJutsus.length > 0 && (
-                                <>
-                                    <h4 style={{ margin: "10px 0 4px", color: "#94a3b8", fontSize: "0.82rem" }}>📚 Not Equipped ({availableJutsus.length})</h4>
-                                    <JutsuDropdownList
-                                        jutsus={availableJutsus}
-                                        label="Available Jutsu"
-                                        renderDetails={jutsuDetails}
-                                        renderActions={(jutsu) => <button onClick={() => toggleJutsu(jutsu.id)}>Equip</button>}
-                                    />
-                                </>
-                            )}
-                        </>
-                    );
-                })()}
-            </section>
+                }
+                return (
+                    <JutsuLoadoutPanel
+                        character={character}
+                        learnedJutsus={learnedJutsus}
+                        onPlaceJutsu={placeJutsuInLoadout}
+                        onUnequip={unequipJutsu}
+                        onUnequipAll={() => updateCharacter({ ...character, equippedJutsuIds: [] })}
+                    />
+                );
+            })()}
             </div>{/* end jutsu tab */}
 
             {/* ── Achievements tab ─────────────────────── */}
