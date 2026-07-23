@@ -25,7 +25,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // board and card-dossier chunks; the complete product graph measures 6,627,372 B.
 // The new ceiling leaves only 12,628 B of build variance. Startup remains well
 // below its independent raw/gzip gates, which stay unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_640_000;
+// 2026-07-23: 6.64 -> 6.67 MB. Player-controlled pet combat adds the live/lockstep
+// duel controllers, the command deck, standing orders and the ladder queue; the
+// complete product graph measures 6,652,399 B. All of it is OFF the entry path --
+// the initial graph actually IMPROVED to 1.30 MB raw / 336.5 KB gzip (from 1.43 MB
+// / 367 KB) because the warfront replay is now lazy in PetLadder too. The startup
+// gates that govern load time are unchanged and pass with room to spare; this
+// ceiling only tracks total shipped product code.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_670_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
