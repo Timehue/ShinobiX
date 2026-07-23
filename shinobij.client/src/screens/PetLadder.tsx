@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
@@ -13,7 +13,8 @@ import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { petPvpGearById, petConsumableById } from "../data/pet-config";
 import { PetColiseumDuel } from "../components/PetColiseum";
-import { PetWarfrontMatch } from "../components/PetWarfrontMatch";
+// three/r3f-heavy: its own chunk, loaded only when a tactical replay opens.
+const PetWarfrontMatch = lazy(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type WfStance, type WfDoctrine } from "../lib/pet-ladder-setup";
 import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { PetDuelLiveHost } from "../components/PetDuelLiveHost";
@@ -171,7 +172,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         // The tactical ladder resolves on the WARFRONT (the lane war people play),
         // with the War Council on auto for both sides because neither player is
         // present. Replaying anything else would show a different fight.
-        return <PetWarfrontMatch
+        return <Suspense fallback={<div className="pl-empty">Loading the warfront…</div>}><PetWarfrontMatch
             blue={blue} red={red} seed={r.seed}
             autoBuy="balanced"
             stance={r.blueStance ?? "balanced"}
@@ -179,7 +180,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             opponentStance={r.redStance ?? "balanced"}
             opponentDoctrine={r.redDoctrine ?? "vanguard"}
             onExit={exitCinematic}
-        />;
+        /></Suspense>;
     }
 
     const you = view?.you;
