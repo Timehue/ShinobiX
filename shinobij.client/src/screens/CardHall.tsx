@@ -1,494 +1,653 @@
-/*
- * CardHall — the "Card Hall" screen that hosts Shinobi Card Clash, the standalone
- * Marvel-Snap-style 3-location card game that replaces the old Shinobi Tiles
- * free-play duel. Four tabs: Collection, Deck Builder, Play vs AI, Rules.
- *
- * This component OWNS the match state (CardClashMatchState in useState) and the
- * working deck. All board interaction flows back here through callbacks which
- * call the pure engine in lib/card-clash.ts and produce new immutable states —
- * children never mutate match state directly.
- *
- * Reuses the existing 150-card TileCard catalog (and admin/creator overrides)
- * via getAllTileCards; card art comes from each card's `image`. Rewards/stats
- * persist on the Character through the normal save (additive fields).
- */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
-import "../styles/card-clash-skin.css";
 import type { Character } from "../types/character";
-import { CARD_CLASH_BOARD_BG } from "../lib/card-clash-art";
-import { getAllTileCards, type TileCard } from "../data/tile-cards";
-import { SceneAmbience } from "../components/SceneAmbience";
+import type { TileCard } from "../data/tile-cards";
+import "../styles/chronicle-duel.css";
 import {
-    toClashCards,
-    indexClashCards,
-    validateDeck,
-    buildPlayableDeck,
-    CARD_CLASH_DECK_SIZE,
-    type CardClashCard,
-    type CardClashMatchState,
-    type CardClashResult,
-    type CardClashRewardSummary,
-} from "../lib/card-clash";
-import {
-    startCardClashAiMatch,
-    cardClashAiMove,
-    hydrateServerMatch,
-    toDeckPayload,
-    type CardClashAiMoveResult,
-} from "../lib/card-clash-ai";
-import { CardClashCollection } from "../components/CardClashCollection";
-import { CardClashDeckBuilder } from "../components/CardClashDeckBuilder";
-import { CardClashBoard } from "../components/CardClashBoard";
+  CHRONICLE_DECEMBER_2003_FORMAT,
+  CHRONICLE_ELEMENTS,
+  CHRONICLE_ROOM_TITLE,
+  CHRONICLE_RULES_VERSION,
+  MAIN_DECK_SIZE,
+  MAX_COPIES_PER_CARD,
+  buildChronicleDeck,
+  canAddChronicleCard,
+  chronicleAiAction,
+  deckLimitForCard,
+  displayCardsById,
+  getChronicleCard,
+  ownedChronicleCounts,
+  startChronicleAi,
+  validateOwnedChronicleDeck,
+  type ChronicleAiResult,
+  type ChronicleAiDifficulty,
+  type ChronicleDisplayCard,
+} from "../lib/chronicle-duel";
+import { getAllTileCards } from "../data/tile-cards";
+import { ChronicleCardView } from "../components/ChronicleCardView";
+import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
 
 type Tab = "collection" | "deck" | "play" | "pvp" | "rules";
+type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
 
 export function CardHall({
-    character,
-    updateCharacter,
-    creatorCards,
-    onBack,
-    autoStart = false,
-    onAutoStartConsumed,
-    onStartFreePlay,
+  character,
+  updateCharacter,
+  creatorCards,
+  onBack,
+  autoStart = false,
+  onAutoStartConsumed,
+  onStartFreePlay,
+  sharedImages = {},
 }: {
-    character: Character;
-    updateCharacter: (c: Character) => void;
-    creatorCards: TileCard[];
-    onBack: () => void;
-    // When a sector "gambler" wanderer deals the player in, drop straight into a
-    // match instead of the menu. Falls back to the deck tab if no valid deck.
-    autoStart?: boolean;
-    onAutoStartConsumed?: () => void;
-    // Provided by App: stash the minted matchId + route to the live PvP duel screen.
-    // Absent → the Free-Play PvP tab is hidden (e.g. embedded contexts).
-    onStartFreePlay?: (matchId: string) => void;
+  character: Character;
+  updateCharacter: (character: Character) => void;
+  creatorCards: TileCard[];
+  onBack: () => void;
+  autoStart?: boolean;
+  onAutoStartConsumed?: () => void;
+  onStartFreePlay?: (matchId: string) => void;
+  sharedImages?: Record<string, string>;
 }) {
-    const allCards = useMemo(() => getAllTileCards(creatorCards), [creatorCards]);
-    const clashCards = useMemo(() => toClashCards(allCards), [allCards]);
-    const clashById = useMemo(() => indexClashCards(clashCards), [clashCards]);
+  const sourceCards = useMemo(
+    () => getAllTileCards(creatorCards),
+    [creatorCards],
+  );
+  const cardsById = useMemo(() => displayCardsById(sourceCards), [sourceCards]);
+  const ownedCounts = useMemo(
+    () => ownedChronicleCounts(character.tileCards ?? []),
+    [character.tileCards],
+  );
+  const ownedIds = useMemo(() => [...ownedCounts.keys()], [ownedCounts]);
+  const ownedCards = useMemo(
+    () => ownedIds.flatMap((id) => (cardsById[id] ? [cardsById[id]] : [])),
+    [ownedIds, cardsById],
+  );
+  const savedDeck = useMemo(
+    () => character.cardClashDeck ?? [],
+    [character.cardClashDeck],
+  );
+  const savedValid = useMemo(
+    () => validateOwnedChronicleDeck(savedDeck, ownedCounts).valid,
+    [savedDeck, ownedCounts],
+  );
+  const migratedDeck = useMemo(
+    () => buildChronicleDeck(savedDeck, character.tileCards ?? []),
+    [savedDeck, character.tileCards],
+  );
+  const [deck, setDeck] = useState<string[]>(() =>
+    savedValid ? [...savedDeck] : migratedDeck,
+  );
+  const [tab, setTab] = useState<Tab>(autoStart ? "play" : "collection");
+  const [showTutorial, setShowTutorial] = useState(
+    () =>
+      Number(character.cardClashTutorialVersion ?? 0) < CHRONICLE_RULES_VERSION,
+  );
+  const [matchId, setMatchId] = useState<string | null>(null);
+  const [duel, setDuel] = useState<AiDuelState | null>(null);
+  const [aiDifficulty, setAiDifficulty] =
+    useState<ChronicleAiDifficulty>("medium");
+  const [reward, setReward] = useState<ChronicleAiResult["reward"]>();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const autoStarted = useRef(false);
+  const deckDirty = JSON.stringify(deck) !== JSON.stringify(savedDeck);
+  const deckCheck = useMemo(
+    () => validateOwnedChronicleDeck(deck, ownedCounts),
+    [deck, ownedCounts],
+  );
 
-    const ownedCards = useMemo(() => {
-        const seen = new Set<string>();
-        const out: CardClashCard[] = [];
-        for (const id of character.tileCards ?? []) {
-            if (seen.has(id)) continue;
-            seen.add(id);
-            const c = clashById[id];
-            if (c) out.push(c);
-        }
-        return out;
-    }, [character.tileCards, clashById]);
-
-    const [tab, setTab] = useState<Tab>("play");
-    const [deckIds, setDeckIds] = useState<string[]>(() => character.cardClashDeck ?? []);
-    const [match, setMatch] = useState<CardClashMatchState | null>(null);
-    const [reward, setReward] = useState<CardClashRewardSummary | null>(null);
-    const [aiMatchId, setAiMatchId] = useState<string | null>(null);
-    const [startingMatch, setStartingMatch] = useState(false);
-    // Re-entrancy guard: each move round-trips to the server (which resolves it
-    // authoritatively), so block a second move until the current one returns —
-    // a ref (not state) so the guard is synchronous against rapid double-taps.
-    const busyRef = useRef(false);
-    const [showTutorial, setShowTutorial] = useState<boolean>(() => !character.cardClashTutorialSeen);
-
-    // ── Free-play PvP matchmaking queue ──────────────────────────────────────
-    // Open queue → on pairing the server mints a matchId; we stash it + route to
-    // the live duel screen (CardClashFreePlay) via onStartFreePlay. Unranked: the
-    // server pays nothing, so no farming incentive. Stale entries auto-evict (60s).
-    const [pvpQueuing, setPvpQueuing] = useState(false);
-    const [pvpQueueSize, setPvpQueueSize] = useState(0);
-    const [pvpError, setPvpError] = useState<string | null>(null);
-    const cardClashOwned = (character.tileCards ?? []).length;
-
-    async function cardQueuePost(action: "join" | "leave" | "poll") {
-        try {
-            const r = await fetch("/api/card-clash/queue", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: character.name, action }),
-            });
-            return r.ok ? await r.json() : null;
-        } catch { return null; }
-    }
-    async function startQueue() {
-        setPvpError(null);
-        const res = await cardQueuePost("join");
-        if (!res) { setPvpError("Could not join the queue — try again."); return; }
-        setPvpQueueSize(res.queueSize ?? 1);
-        setPvpQueuing(true);
-    }
-    async function cancelQueue() {
-        setPvpQueuing(false);
-        await cardQueuePost("leave");
-    }
-
-    useEffect(() => {
-        if (!pvpQueuing) return;
-        let alive = true;
-        const tick = async () => {
-            const res = await cardQueuePost("poll");
-            if (!alive || !res) return;
-            if (res.match?.matchId) {
-                setPvpQueuing(false);
-                onStartFreePlay?.(res.match.matchId);
-            } else {
-                setPvpQueueSize(res.queueSize ?? 0);
-            }
-        };
-        const id = setInterval(() => { void tick(); }, 2500);
-        void tick();
-        return () => { alive = false; clearInterval(id); };
-        // cardQueuePost/onStartFreePlay are stable enough; re-run only on toggle.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pvpQueuing]);
-
-    const savedDeck = useMemo(() => character.cardClashDeck ?? [], [character.cardClashDeck]);
-    const savedDeckValid = useMemo(() => validateDeck(savedDeck, clashById).valid, [savedDeck, clashById]);
-    const deckDirty = useMemo(
-        () => JSON.stringify(deckIds) !== JSON.stringify(savedDeck),
-        [deckIds, savedDeck],
+  async function begin(
+    deckIds = savedValid ? savedDeck : migratedDeck,
+    difficulty = aiDifficulty,
+  ) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setReward(undefined);
+    const result = await startChronicleAi(
+      character.name,
+      deckIds,
+      difficulty,
     );
-
-    function saveDeck() {
-        updateCharacter({ ...character, cardClashDeck: deckIds });
+    setBusy(false);
+    if (!result.ok || !result.matchId || !result.session) {
+      setError(result.error ?? "Could not start the duel.");
+      return;
     }
+    setMatchId(result.matchId);
+    setDuel(result.session);
+    setTab("play");
+  }
 
-    function closeTutorial() {
-        setShowTutorial(false);
-        if (!character.cardClashTutorialSeen) updateCharacter({ ...character, cardClashTutorialSeen: true });
+  useEffect(() => {
+    if (!autoStart || autoStarted.current) return;
+    autoStarted.current = true;
+    void begin(migratedDeck).finally(() => onAutoStartConsumed?.());
+    // one-shot wanderer entry
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
+  async function act(intent: Parameters<typeof chronicleAiAction>[1]) {
+    if (!matchId || busy) return;
+    setBusy(true);
+    setError("");
+    const result = await chronicleAiAction(matchId, intent);
+    setBusy(false);
+    if (!result.ok || !result.session) {
+      setError(result.error ?? "That action was not legal.");
+      return;
     }
+    setDuel(result.session);
+    if (result.reward) setReward(result.reward);
+    if (result.character) updateCharacter(result.character);
+  }
 
-    // A short-lived nudge shown when we deal a player in on a starter deck.
-    const [starterToast, setStarterToast] = useState(false);
+  function closeTutorial() {
+    setShowTutorial(false);
+    if (
+      Number(character.cardClashTutorialVersion ?? 0) < CHRONICLE_RULES_VERSION
+    )
+      updateCharacter({
+        ...character,
+        cardClashTutorialVersion: CHRONICLE_RULES_VERSION,
+        cardClashTutorialSeen: true,
+      });
+  }
 
-    async function beginMatch(deck: string[]): Promise<boolean> {
-        if (startingMatch || busyRef.current) return false;
-        setStartingMatch(true);
-        const start = await startCardClashAiMatch(character.name, toDeckPayload(deck, clashById), character.level);
-        setStartingMatch(false);
-        if (!start.ok || !start.matchId || !start.session) {
-            alert(start.error ?? "Could not start a Card Clash match.");
-            return false;
-        }
-        setAiMatchId(start.matchId);
-        setReward(null);
-        setMatch(hydrateServerMatch(start.session, clashById));
-        return true;
-    }
-    async function startMatch() {
-        // Manual "Play" button: bounce to the deck builder if there's no valid deck.
-        if (!savedDeckValid) { setTab("deck"); return; }
-        await beginMatch(savedDeck);
-    }
+  return (
+    <main className="chronicle-shell">
+      <header className="chronicle-header">
+        <button onClick={onBack}>Back</button>
+        <h1>
+          Shinobi Chronicle Duel
+          <small>
+            {CHRONICLE_ROOM_TITLE} · Rules Version {CHRONICLE_RULES_VERSION}
+          </small>
+        </h1>
+        <span className="chronicle-header__spacer" />
+        <span>
+          {character.cardClashWins ?? 0}W · {character.cardClashLosses ?? 0}L ·{" "}
+          {character.cardClashDraws ?? 0}D
+        </span>
+        <button
+          onClick={() => setShowTutorial(true)}
+          aria-label="Open duel tutorial"
+        >
+          How to play
+        </button>
+      </header>
+      <nav className="chronicle-tabs" aria-label="Card Hall sections">
+        {(
+          [
+            "collection",
+            "deck",
+            "play",
+            ...(onStartFreePlay ? ["pvp" as const] : []),
+            "rules",
+          ] as Tab[]
+        ).map((item) => (
+          <button
+            key={item}
+            aria-selected={tab === item}
+            onClick={() => setTab(item)}
+          >
+            {item === "pvp"
+              ? "Free-Play PvP"
+              : item[0].toUpperCase() + item.slice(1)}
+          </button>
+        ))}
+      </nav>
 
-    // Wanderer "deal me in" → drop straight into a match. If the player has no valid
-    // deck yet, deal them in on a legal STARTER deck (built from their cards, padded
-    // from the catalog) and toast them to build their own — never bounce to a menu.
-    async function autoStartMatch() {
-        setTab("play");
-        if (savedDeckValid) {
-            await beginMatch(savedDeck);
-        } else {
-            const started = await beginMatch(buildPlayableDeck(character.tileCards ?? [], clashById, clashCards));
-            if (started) {
-                setStarterToast(true);
-                window.setTimeout(() => setStarterToast(false), 7000);
-            }
-        }
-        onAutoStartConsumed?.();
-    }
-    // Intentional one-shot: when the gambler wanderer deals the player in, start a
-    // match on mount. The state writes are deliberate (and consumed immediately),
-    // so the set-state-in-effect guard doesn't apply here.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    useEffect(() => {
-        if (autoStart) void autoStartMatch();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [autoStart]);
-    /* eslint-enable react-hooks/set-state-in-effect */
-
-    // The match is over on the server: it already settled the reward from the
-    // server-computed winner (folded into the terminal move's response). Mirror
-    // the credited amounts + reward banner; the client never asserts an outcome.
-    function finalizeFromServer(r: CardClashAiMoveResult) {
-        const winner = (r.session?.winner ?? "draw") as CardClashResult;
-        if (r.reward) {
-            const ryo = r.reward.ryo ?? 0;
-            const baseRyo = r.reward.dailyBonus ? Math.max(0, ryo - 250) : ryo;
-            if (r.character) updateCharacter(r.character);
-            setReward({ result: winner, ryo, baseRyo, dailyBonus: Boolean(r.reward.dailyBonus) });
-        } else {
-            setReward({ result: winner, ryo: 0, baseRyo: 0, dailyBonus: false });
-        }
-        setAiMatchId(null);
-    }
-
-    async function handlePlayCard(handIndex: number, locationIndex: number) {
-        if (!match || !aiMatchId || busyRef.current || match.status !== "playing") return;
-        busyRef.current = true;
-        const r = await cardClashAiMove(aiMatchId, "play", { handIndex, locationIndex });
-        busyRef.current = false;
-        // An illegal play (e.g. not enough Chakra) leaves the board untouched.
-        if (r.ok && r.session) setMatch(hydrateServerMatch(r.session, clashById));
-    }
-
-    async function handleEndTurn() {
-        if (!match || !aiMatchId || busyRef.current || match.status !== "playing") return;
-        busyRef.current = true;
-        const r = await cardClashAiMove(aiMatchId, "end-turn");
-        busyRef.current = false;
-        if (!r.ok || !r.session) { alert(r.error ?? "That move could not be resolved."); return; }
-        setMatch(hydrateServerMatch(r.session, clashById));
-        if (r.session.status === "done") finalizeFromServer(r);
-    }
-
-    async function handleRetreat() {
-        if (!match || !aiMatchId || busyRef.current || match.status !== "playing") return;
-        busyRef.current = true;
-        const r = await cardClashAiMove(aiMatchId, "retreat");
-        busyRef.current = false;
-        if (!r.ok || !r.session) { alert(r.error ?? "Could not retreat."); return; }
-        setMatch(hydrateServerMatch(r.session, clashById));
-        if (r.session.status === "done") finalizeFromServer(r);
-    }
-
-    const record = `${character.cardClashWins ?? 0}W · ${character.cardClashLosses ?? 0}L · ${character.cardClashDraws ?? 0}D`;
-
-    return (
-        <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}>
-            <SceneAmbience className="amb-under" biome="shadow" />
-
-            {starterToast && (
-                <div
-                    role="status"
-                    onClick={() => setStarterToast(false)}
-                    style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 9999, maxWidth: 460, padding: "10px 16px", borderRadius: 10, background: "linear-gradient(var(--slate-800),var(--slate-900))", border: "1px solid #a78bfa", color: "var(--slate-200)", boxShadow: "0 6px 24px rgba(0,0,0,0.45)", fontSize: ".85rem", lineHeight: 1.35, cursor: "pointer", textAlign: "center" }}
-                >
-                    🃏 You're playing a <strong>starter deck</strong>. Build your own in the <strong>Deck Builder</strong> for a real edge. <span style={{ opacity: 0.7 }}>(tap to dismiss)</span>
-                </div>
-            )}
-
-            <div className="cc-header">
-                <button className="cc-btn ghost" onClick={onBack}>← Back</button>
-                <div className="cc-title">
-                    <b>Shinobi Card Clash</b>
-                    <span>Card Hall</span>
-                </div>
-                <span className="cc-header-spacer" />
-                <div className="cc-record">
-                    <span>{record}</span>
-                    <span className="cc-ryo">◈ {character.ryo.toLocaleString()}</span>
-                    <button className="cc-btn ghost" style={{ padding: "6px 10px" }} title="How to play" onClick={() => setShowTutorial(true)}>?</button>
-                </div>
-            </div>
-
-            <div className="cc-tabs">
-                <button className={`cc-tab ${tab === "collection" ? "active" : ""}`} onClick={() => setTab("collection")}>Collection</button>
-                <button className={`cc-tab ${tab === "deck" ? "active" : ""}`} onClick={() => setTab("deck")}>Deck Builder</button>
-                <button className={`cc-tab ${tab === "play" ? "active" : ""}`} onClick={() => setTab("play")}>Play vs AI</button>
-                {onStartFreePlay && <button className={`cc-tab ${tab === "pvp" ? "active" : ""}`} onClick={() => setTab("pvp")}>Free-Play PvP</button>}
-                <button className={`cc-tab ${tab === "rules" ? "active" : ""}`} onClick={() => setTab("rules")}>Rules</button>
-            </div>
-
-            <div className="cc-body">
-                {tab === "collection" && <CardClashCollection ownedCards={ownedCards} />}
-
-                {tab === "deck" && (
-                    <CardClashDeckBuilder
-                        ownedCards={ownedCards}
-                        cardsById={clashById}
-                        deckIds={deckIds}
-                        setDeckIds={setDeckIds}
-                        onSave={saveDeck}
-                        dirty={deckDirty}
-                    />
-                )}
-
-                {tab === "play" && (
-                    <PlayTab
-                        match={match}
-                        reward={reward}
-                        startingMatch={startingMatch}
-                        savedDeckValid={savedDeckValid}
-                        savedDeckCount={savedDeck.length}
-                        ownedCount={ownedCards.length}
-                        onStart={startMatch}
-                        onGoToDeck={() => setTab("deck")}
-                        onPlayCard={handlePlayCard}
-                        onEndTurn={handleEndTurn}
-                        onRetreat={handleRetreat}
-                        onPlayAgain={startMatch}
-                        onExitMatch={() => { setMatch(null); setReward(null); setAiMatchId(null); }}
-                    />
-                )}
-
-                {tab === "rules" && <RulesTab />}
-
-                {tab === "pvp" && (
-                    <div className="cc-pvp-tab">
-                        <h3 style={{ marginTop: 0 }}>Free-Play PvP</h3>
-                        <p className="hint">Queue to duel another shinobi live. Free-play is <strong>unranked</strong> — no rewards, no penalties, just bragging rights. Your saved deck is used (an auto-built one if you have none).</p>
-                        {pvpError && <p className="hint" style={{ color: "var(--red-400)" }}>{pvpError}</p>}
-                        {!pvpQueuing ? (
-                            <button className="cc-btn primary" onClick={startQueue} disabled={cardClashOwned === 0}>
-                                {cardClashOwned === 0 ? "Collect cards first" : "⚔ Find a Match"}
-                            </button>
-                        ) : (
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                                <span>🔍 Searching for an opponent{pvpQueueSize > 1 ? ` … (${pvpQueueSize} queued)` : "…"}</span>
-                                <button className="cc-btn ghost" onClick={cancelQueue}>Cancel</button>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {showTutorial && <CardClashTutorial onClose={closeTutorial} />}
-        </div>
-    );
-}
-
-// ── Play tab ─────────────────────────────────────────────────────────────────
-
-function PlayTab({
-    match, reward, savedDeckValid, savedDeckCount, ownedCount,
-    startingMatch,
-    onStart, onGoToDeck, onPlayCard, onEndTurn, onRetreat, onPlayAgain, onExitMatch,
-}: {
-    match: CardClashMatchState | null;
-    reward: CardClashRewardSummary | null;
-    startingMatch: boolean;
-    savedDeckValid: boolean;
-    savedDeckCount: number;
-    ownedCount: number;
-    onStart: () => void;
-    onGoToDeck: () => void;
-    onPlayCard: (h: number, l: number) => void;
-    onEndTurn: () => void;
-    onRetreat: () => void;
-    onPlayAgain: () => void;
-    onExitMatch: () => void;
-}) {
-    // Finished match → result + reward banner.
-    if (match && match.status === "complete" && reward) {
-        const cls = reward.result === "player" ? "win" : reward.result === "opponent" ? "lose" : "draw";
-        const heading = reward.result === "player" ? "🏆 Victory!" : reward.result === "opponent" ? "💀 Defeat" : "🤝 Draw";
-        return (
-            <div>
-                <div className={`cc-result ${cls}`}>
-                    <h2>{heading}</h2>
-                    <div className="cc-reward">
-                        You earned <span className="gold">◈ {reward.ryo.toLocaleString()} ryo</span>
-                        {reward.dailyBonus && <span className="cc-muted"> (incl. first-win-of-day bonus!)</span>}
-                    </div>
-                    <div className="cc-controls" style={{ justifyContent: "center" }}>
-                        <button className="cc-btn primary" onClick={onPlayAgain}>Play Again</button>
-                        <button className="cc-btn ghost" onClick={onExitMatch}>Back to Hall</button>
-                    </div>
-                </div>
-                <CardClashBoard match={match} onPlayCard={onPlayCard} onEndTurn={onEndTurn} onRetreat={onRetreat} />
-            </div>
-        );
-    }
-
-    if (match && match.status === "complete" && !reward) {
-        return (
-            <div>
-                <div className="cc-result draw">
-                    <h2>Finishing…</h2>
-                    <div className="cc-reward">Confirming the match with the server.</div>
-                </div>
-                <CardClashBoard match={match} onPlayCard={onPlayCard} onEndTurn={onEndTurn} onRetreat={onRetreat} />
-            </div>
-        );
-    }
-
-    // Active match.
-    if (match) {
-        return <CardClashBoard match={match} onPlayCard={onPlayCard} onEndTurn={onEndTurn} onRetreat={onRetreat} />;
-    }
-
-    // No deck yet.
-    if (!savedDeckValid) {
-        return (
-            <div className="cc-empty-note">
-                {ownedCount < CARD_CLASH_DECK_SIZE ? (
-                    <>
-                        You need at least <b>{CARD_CLASH_DECK_SIZE} cards</b> to play. Open Card Packs in the Shop or Grand
-                        Marketplace, then build your deck.
-                    </>
+      {tab === "collection" ? <Collection cards={ownedCards} /> : null}
+      {tab === "deck" ? (
+        <DeckBuilder
+          cards={ownedCards}
+          cardsById={cardsById}
+          owned={ownedCounts}
+          deck={deck}
+          setDeck={setDeck}
+          validation={deckCheck}
+          dirty={deckDirty}
+          onSave={() =>
+            updateCharacter({ ...character, cardClashDeck: [...deck] })
+          }
+          onMigrate={() => setDeck([...migratedDeck])}
+        />
+      ) : null}
+      {tab === "play" ? (
+        duel ? (
+          <div>
+            {duel.status === "complete" ? (
+              <div
+                className="chronicle-panel"
+                style={{ marginBottom: 12, textAlign: "center" }}
+              >
+                <h2>
+                  {duel.winner === duel.viewerSide
+                    ? "Victory"
+                    : duel.winner === "draw"
+                      ? "Duel Cancelled"
+                      : "Defeat"}
+                </h2>
+                {reward ? (
+                  <p>
+                    {reward.ryo.toLocaleString()} ryo credited
+                    {reward.dailyBonus
+                      ? " including the daily victory bonus"
+                      : ""}
+                    .
+                  </p>
                 ) : (
-                    <>
-                        You need a saved <b>{CARD_CLASH_DECK_SIZE}-card deck</b> to play.
-                        {savedDeckCount > 0 && <> Your saved deck has {savedDeckCount} cards.</>}
-                        <div style={{ marginTop: 12 }}>
-                            <button className="cc-btn primary" onClick={onGoToDeck}>Open Deck Builder</button>
-                        </div>
-                    </>
+                  <p>The authoritative result is final.</p>
                 )}
-            </div>
-        );
-    }
-
-    // Ready to play.
-    return (
-        <div className="cc-section-card" style={{ textAlign: "center", padding: 28 }}>
-            <h2 style={{ marginTop: 0 }}>⚔️ Ready to Clash</h2>
-            <p className="cc-muted" style={{ maxWidth: 460, margin: "0 auto 16px" }}>
-                Face an AI shinobi across 3 random locations over 6 turns. Win the most locations to claim the match —
-                and your first win each day pays a bonus.
-            </p>
-            <div className="cc-controls" style={{ justifyContent: "center" }}>
-                <button className="cc-btn gold" style={{ fontSize: 16, padding: "12px 28px" }} onClick={onStart} disabled={startingMatch}>
-                    {startingMatch ? "Starting..." : "Start Match"}
+                <button
+                  onClick={() => {
+                    setDuel(null);
+                    setMatchId(null);
+                    setReward(undefined);
+                  }}
+                >
+                  Return to Hall
                 </button>
-                <button className="cc-btn ghost" onClick={onGoToDeck} disabled={startingMatch}>Edit Deck</button>
-            </div>
-        </div>
-    );
+                <button
+                  onClick={() => void begin()}
+                  disabled={busy}
+                  style={{ marginLeft: 8 }}
+                >
+                  Duel Again
+                </button>
+              </div>
+            ) : null}
+            <ChronicleDuelBoard
+              state={duel}
+              cardsById={cardsById}
+              playerAvatar={
+                character.avatarImage ||
+                sharedImages[`avatar:${character.name.toLowerCase()}`]
+              }
+              opponentAvatar={
+                sharedImages[
+                  `avatar:${duel[duel.viewerSide === "p1" ? "p2" : "p1"].name.toLowerCase()}`
+                ]
+              }
+              busy={busy}
+              error={error}
+              onAction={(intent) => void act(intent)}
+            />
+          </div>
+        ) : (
+          <div className="chronicle-panel" style={{ textAlign: "center" }}>
+            <h2>{CHRONICLE_ROOM_TITLE}</h2>
+            <p>
+              A Dark Crisis-era Shinobi format using the November 17, 2003
+              Limited List structure, six declared turn phases and the
+              historical first-turn draw rule.
+            </p>
+            {!savedValid ? (
+              <p>
+                Your saved deck uses retired rules. The server can deal a fixed
+                starter deck, or you can review and save the migrated 40-card
+                list in Deck Builder.
+              </p>
+            ) : null}
+            <label className="chronicle-toolbar">
+              <strong>AI difficulty</strong>
+              <select
+                value={aiDifficulty}
+                onChange={(event) =>
+                  setAiDifficulty(event.target.value as ChronicleAiDifficulty)
+                }
+                disabled={busy}
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </label>
+            {error ? <div className="chronicle-error">{error}</div> : null}
+            <button onClick={() => void begin()} disabled={busy}>
+              {busy ? "Preparing duel…" : "Start Duel vs AI"}
+            </button>
+            <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
+              Review Deck
+            </button>
+          </div>
+        )
+      ) : null}
+      {tab === "pvp" ? (
+        <FreePlayQueue character={character} onStart={onStartFreePlay} />
+      ) : null}
+      {tab === "rules" ? <Rules /> : null}
+      {showTutorial ? <CardClashTutorial onClose={closeTutorial} /> : null}
+    </main>
+  );
 }
 
-// ── Rules tab ────────────────────────────────────────────────────────────────
-
-function RulesTab() {
-    return (
-        <div className="cc-section-card cc-rules">
-            <p className="lead">Shinobi Card Clash is a 6-turn battle for control of 3 locations. Win 2 of the 3 to win the match.</p>
-
-            <h3>The Goal</h3>
-            <p>At the end of Turn 6, the side with more total Power at a location wins it. Win 2 of 3 locations to win the
-                match. If it's 1–1 with one tied location, the higher total board Power wins; a full tie is a draw.</p>
-
-            <h3>Chakra</h3>
-            <ul>
-                <li>Turn 1 = 1 Chakra, Turn 2 = 2 … up to Turn 6 = 6 Chakra.</li>
-                <li>Each card costs Chakra to play. Unused Chakra does not carry over.</li>
-            </ul>
-
-            <h3>Cards & Hand</h3>
-            <ul>
-                <li>You open with 3 cards and draw 1 at the start of each new turn (max hand of 7).</li>
-                <li>Each location holds up to 4 of your cards (and 4 of the opponent's).</li>
-                <li>Cards have a Cost and Power derived from your collection, plus a Role and often an On-Reveal ability.</li>
-            </ul>
-
-            <h3>Locations</h3>
-            <p>Three random locations are drawn each match. Many give a Power bonus to certain cards — Fire cards, Common
-                cards, low-cost cards, and so on. Use them to your advantage.</p>
-
-            <h3>Deck Building</h3>
-            <ul>
-                <li>A deck is exactly <b>{CARD_CLASH_DECK_SIZE}</b> cards.</li>
-                <li>Common / Rare: up to 2 copies each. Epic / Legendary: 1 copy each.</li>
-                <li>At most 2 Legendary cards per deck.</li>
-            </ul>
-
-            <h3>Rewards</h3>
-            <ul>
-                <li>Win: 50 ryo · Draw: 15 ryo · Loss: 5 ryo.</li>
-                <li>Your first win each day earns a bonus 250 ryo.</li>
-            </ul>
+function Collection({ cards }: { cards: ChronicleDisplayCard[] }) {
+  const [cardClass, setCardClass] = useState("all");
+  const [rarity, setRarity] = useState("all");
+  const [monsterTier, setMonsterTier] = useState("all");
+  const [element, setElement] = useState("all");
+  const [inspected, setInspected] = useState<ChronicleDisplayCard | null>(null);
+  useEffect(() => {
+    if (!inspected) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setInspected(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [inspected]);
+  const shown = cards.filter(
+    (card) =>
+      (cardClass === "all" || card.cardClass === cardClass) &&
+      (rarity === "all" || card.rarity === rarity) &&
+      (monsterTier === "all" ||
+        (card.cardClass === "monster" && card.powerTier === monsterTier)) &&
+      (element === "all" ||
+        (card.cardClass === "monster" && card.element === element)),
+  );
+  return (
+    <section className="chronicle-panel">
+      <div className="chronicle-toolbar">
+        <strong>{shown.length} cards</strong>
+        <label>
+          Class{" "}
+          <select
+            value={cardClass}
+            onChange={(event) => setCardClass(event.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="monster">Monster</option>
+            <option value="magic">Magic</option>
+            <option value="trap">Trap</option>
+          </select>
+        </label>
+        <label>
+          Element{" "}
+          <select
+            value={element}
+            onChange={(event) => setElement(event.target.value)}
+          >
+            <option value="all">All</option>
+            {CHRONICLE_ELEMENTS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Monster tier{" "}
+          <select
+            value={monsterTier}
+            onChange={(event) => setMonsterTier(event.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="weak">Low</option>
+            <option value="standard">Medium</option>
+            <option value="elite">High / one Tribute</option>
+            <option value="boss">Boss / two Tribute</option>
+            <option value="mythic">Mythic</option>
+          </select>
+        </label>
+        <label>
+          Rarity{" "}
+          <select
+            value={rarity}
+            onChange={(event) => setRarity(event.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="common">Common</option>
+            <option value="rare">Rare</option>
+            <option value="epic">Epic</option>
+            <option value="legendary">Legendary</option>
+            <option value="mythic">Mythic</option>
+          </select>
+        </label>
+      </div>
+      <div className="chronicle-collection">
+        {shown.map((card) => (
+          <button
+            className="chronicle-card-inspect-trigger"
+            key={card.id}
+            type="button"
+            aria-label={`Inspect ${card.name}`}
+            onClick={() => setInspected(card)}
+          >
+            <ChronicleCardView card={card} />
+          </button>
+        ))}
+      </div>
+      {inspected ? (
+        <div className="chronicle-card-inspector" role="presentation">
+          <section
+            className="chronicle-card-inspector__dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${inspected.name} card details`}
+          >
+            <button
+              className="chronicle-card-inspector__close"
+              type="button"
+              autoFocus
+              onClick={() => setInspected(null)}
+            >
+              Close
+            </button>
+            <ChronicleCardView card={inspected} />
+          </section>
         </div>
-    );
+      ) : null}
+    </section>
+  );
+}
+
+function DeckBuilder({
+  cards,
+  cardsById,
+  owned,
+  deck,
+  setDeck,
+  validation,
+  dirty,
+  onSave,
+  onMigrate,
+}: {
+  cards: ChronicleDisplayCard[];
+  cardsById: Record<string, ChronicleDisplayCard>;
+  owned: ReadonlyMap<string, number>;
+  deck: string[];
+  setDeck: (deck: string[]) => void;
+  validation: { valid: boolean; errors: string[] };
+  dirty: boolean;
+  onSave: () => void;
+  onMigrate: () => void;
+}) {
+  const groups = Object.entries(
+    Object.fromEntries(
+      [...new Set(deck)].map((id) => [
+        id,
+        deck.filter((entry) => entry === id).length,
+      ]),
+    ),
+  );
+  const counts = {
+    monster: deck.filter((id) => getChronicleCard(id)?.cardClass === "monster")
+      .length,
+    magic: deck.filter((id) => getChronicleCard(id)?.cardClass === "magic")
+      .length,
+    trap: deck.filter((id) => getChronicleCard(id)?.cardClass === "trap")
+      .length,
+  };
+  return (
+    <section className="chronicle-panel chronicle-deck">
+      <div>
+        <div className="chronicle-toolbar">
+          <strong>Your cards</strong>
+          <span>
+            Select up to {MAX_COPIES_PER_CARD} copies; iconic advanced cards
+            show their lower limit on the frame.
+          </span>
+        </div>
+        <div className="chronicle-collection">
+          {cards.map((card) => (
+            <ChronicleCardView
+              key={card.id}
+              card={card}
+              compact
+              disabled={
+                deck.filter((id) => id === card.id).length >=
+                  Math.min(
+                    deckLimitForCard(card.id),
+                    owned.get(card.id) ?? 0,
+                  ) || deck.length >= MAIN_DECK_SIZE
+              }
+              onClick={() => {
+                const error = canAddChronicleCard(deck, card.id, owned);
+                if (!error) setDeck([...deck, card.id]);
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <aside className="chronicle-deck__list">
+        <h2>
+          {deck.length}/{MAIN_DECK_SIZE}
+        </h2>
+        <p>
+          {counts.monster} Monsters · {counts.magic} Magic · {counts.trap} Traps
+        </p>
+        {groups.map(([id, count]) => (
+          <div className="chronicle-deck__row" key={id}>
+            <span>{cardsById[id]?.name ?? id}</span>
+            <b>×{count}</b>
+            <button
+              aria-label={`Remove one ${cardsById[id]?.name ?? id}`}
+              onClick={() => {
+                const index = deck.indexOf(id);
+                setDeck([...deck.slice(0, index), ...deck.slice(index + 1)]);
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {!validation.valid ? (
+          <div className="chronicle-error">{validation.errors.join(" ")}</div>
+        ) : null}
+        <button onClick={onSave} disabled={!validation.valid || !dirty}>
+          Save Deck
+        </button>
+        <button onClick={onMigrate}>Restore Migrated Deck</button>
+        <button onClick={() => setDeck([])}>Clear</button>
+      </aside>
+    </section>
+  );
+}
+
+function FreePlayQueue({
+  character,
+  onStart,
+}: {
+  character: Character;
+  onStart?: (matchId: string) => void;
+}) {
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState("");
+  const [pageVisible, setPageVisible] = useState(
+    () => typeof document === "undefined" || document.visibilityState === "visible",
+  );
+  useEffect(() => {
+    const syncVisibility = () =>
+      setPageVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", syncVisibility);
+  }, []);
+  useEffect(() => {
+    if (!searching || !pageVisible) return;
+    let alive = true;
+    const poll = async () => {
+      const response = await fetch("/api/card-clash/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: character.name, action: "poll" }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (alive && body.match?.matchId) {
+        setSearching(false);
+        onStart?.(body.match.matchId);
+      }
+    };
+    const timer = window.setInterval(() => void poll(), 2500);
+    void poll();
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [searching, pageVisible, character.name, onStart]);
+  async function join() {
+    setError("");
+    const response = await fetch("/api/card-clash/queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: character.name, action: "join" }),
+    });
+    if (!response.ok) {
+      setError("Could not join the duel queue.");
+      return;
+    }
+    setSearching(true);
+  }
+  return (
+    <section className="chronicle-panel">
+      <h2>{CHRONICLE_ROOM_TITLE}</h2>
+      <p>
+        Unranked Free-Play PvP with the Dark Crisis-era room rules. No rewards
+        and no rating changes. Hidden hands, Deck order, face-down Monsters and
+        set Traps remain server-private.
+      </p>
+      {error ? <div className="chronicle-error">{error}</div> : null}
+      <button onClick={() => void join()} disabled={searching}>
+        {searching ? "Searching…" : "Find a Duel"}
+      </button>
+    </section>
+  );
+}
+
+function Rules() {
+  return (
+    <section className="chronicle-panel chronicle-rules">
+      <h2>{CHRONICLE_ROOM_TITLE}</h2>
+      <p>
+        U.S. December 2003 rules through{" "}
+        {CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet}, translated into Shinobi
+        cards. Start with 8,000 Health Points, a 40-card Deck and five cards.
+      </p>
+      <p>
+        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. The first player draws on
+        turn one but cannot Battle; skipping Battle also skips Main 2. You get
+        one Normal Summon or Set.
+      </p>
+      <p>
+        <strong>Monsters:</strong> Levels 1–4 need no Tribute, 5–6 need one and
+        7–8 need two. Sets enter face-down Defense and may Flip Summon later.
+        Attack uses ATK; Defense uses DEF; direct attacks require an empty field.
+      </p>
+      <p>
+        <strong>Elements:</strong> Fire beats Wind, then Lightning, Earth, Water
+        and Fire again. Advantage adds +200 to the used ATK or DEF. Neutral is
+        the default table. Field Magic replaces that wheel with its printed
+        +300/−200 modifier; replacing the Field card replaces the modifier, so
+        field advantages never stack.
+      </p>
+      <p>
+        <strong>Support:</strong> Set Traps wait one turn and allow one matching
+        response—no chains. Most cards allow three copies; printed LIMIT 1/2
+        exceptions and the number of copies you own are server-enforced. Lose
+        at zero Health Points, on an empty Deck draw, or by forfeit.
+      </p>
+    </section>
+  );
 }

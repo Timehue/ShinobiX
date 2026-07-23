@@ -8,56 +8,212 @@
  */
 
 export function ClanWarManual({ onClose }: { onClose: () => void }) {
-    return (
-        <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.9rem", lineHeight: 1.55 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Clan War — Quick Guide</strong>
-                <button type="button" onClick={onClose} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "var(--danger)", color: "var(--red-300)", fontSize: "0.75rem" }}>✕ Close</button>
-            </div>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>Goal:</strong> drop the enemy clan's HP to <strong>0</strong>. Both clans start at <strong>1,000 HP</strong>. All damage comes from completed challenges — no open-world fighting.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>1. Declare war.</strong> Your clan's <em>Founder, Leader, or Officer</em> opens this tab, picks an enemy clan, and clicks <em>Declare</em>. One war per clan; 7-day cooldown between the same two clans.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>2. Send a challenge.</strong> Pick a mode and click <em>Send</em>. The enemy clan sees the mode but not your name — challenges are anonymous until accepted. Each player can have up to <strong>2 challenges in flight</strong>. Cancel any time to free a slot.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 0, border: "1px solid var(--slate-700)", borderRadius: 6, overflow: "hidden", margin: "0 0 0.6rem", fontSize: "0.82rem" }}>
-                <div style={{ background: "var(--slate-800)", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Mode</div>
-                <div style={{ background: "var(--slate-800)", padding: "0.35rem 0.6rem", fontWeight: 700, color: "var(--red-400)", textAlign: "right" }}>Win damage</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>⚔ 1v1 PvP</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--red-400)" }}>−30 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}>⚔⚔ 2v2 PvP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)", textAlign: "right", color: "var(--red-400)" }}>−60 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>🐾 Pet 1v1</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--red-400)" }}>−20 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}>🐾🐾 Pet 2v2</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)", textAlign: "right", color: "var(--red-400)" }}>−40 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>🃏 Card Clash</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--red-400)" }}>−10 HP</div>
-            </div>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>3. 2v2 needs 2 players per side.</strong> Both sending and accepting use a quick queue: one player opens the slot, a clanmate joins as partner, and the match goes live. Anyone can leave the queue before it fills.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>4. Accept = play.</strong> When the defender accepts, <em>both clients are auto-pulled into the battle</em>. PvP / Pet / Card Clash screens open on their own. Fight, and the server records the result — no buttons to click after the win.
-            </p>
-            <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", background: "#0a1a2a", border: "1px solid var(--blue-400)", borderRadius: 6, padding: "0.5rem 0.7rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>🃏 Card Clash duels:</strong> after accept you get <strong>30 seconds</strong> to lock in a <strong>12-card deck</strong> (your saved Card Hall deck is pre-filled). Then it's <strong>Shinobi Card Clash</strong>: 3 random locations, 6 turns, and chakra that ramps each turn. Both duelists secretly commit their plays each turn, then reveal at once. Win <strong>2 of the 3 locations</strong> to take the duel — winner gets credited.
-            </p>
-            <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}>
-                ⏳ <strong>Don't ghost.</strong> Pending challenges expire after <strong>1 hour</strong> if the defender does nothing — each expired challenge takes <strong>−5 HP</strong> off the defender's clan.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "var(--blue-400)" }}>5. Winning.</strong> First clan to drive the enemy to 0 HP wins. Each side gets an MVP (most wins).
-            </p>
-            <p style={{ margin: 0 }}>
-                <strong style={{ color: "var(--blue-400)" }}>Rewards (auto-claimed):</strong>
-                <br />• <strong>Winning clan:</strong> 1× Legendary War Crate per member.
-                <br />• <strong>MVP each side:</strong> +10,000 ryo, +50 Honor Seals (or 6 Bone Charms + 4 Fate Shards for non-Vanguards), +2 Fate Shards.
-                <br />• <strong>Losing-side participants:</strong> consolation ryo + seals/charms if you contributed.
-            </p>
+  return (
+    <div
+      style={{
+        background: "#0b1220",
+        border: "1px solid var(--slate-700)",
+        borderRadius: 8,
+        padding: "1rem",
+        marginBottom: "1rem",
+        fontSize: "0.9rem",
+        lineHeight: 1.55,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
+        <strong style={{ color: "#fde047", fontSize: "1rem" }}>
+          📜 Clan War — Quick Guide
+        </strong>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            padding: "0.15rem 0.5rem",
+            background: "#7f1d1d",
+            borderColor: "var(--danger)",
+            color: "var(--red-300)",
+            fontSize: "0.75rem",
+          }}
+        >
+          ✕ Close
+        </button>
+      </div>
+      <p style={{ margin: "0 0 0.6rem" }}>
+        <strong style={{ color: "var(--blue-400)" }}>Goal:</strong> drop the
+        enemy clan's HP to <strong>0</strong>. Both clans start at{" "}
+        <strong>1,000 HP</strong>. All damage comes from completed challenges —
+        no open-world fighting.
+      </p>
+      <p style={{ margin: "0 0 0.6rem" }}>
+        <strong style={{ color: "var(--blue-400)" }}>1. Declare war.</strong>{" "}
+        Your clan's <em>Founder, Leader, or Officer</em> opens this tab, picks
+        an enemy clan, and clicks <em>Declare</em>. One war per clan; 7-day
+        cooldown between the same two clans.
+      </p>
+      <p style={{ margin: "0 0 0.6rem" }}>
+        <strong style={{ color: "var(--blue-400)" }}>
+          2. Send a challenge.
+        </strong>{" "}
+        Pick a mode and click <em>Send</em>. The enemy clan sees the mode but
+        not your name — challenges are anonymous until accepted. Each player can
+        have up to <strong>2 challenges in flight</strong>. Cancel any time to
+        free a slot.
+      </p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.8fr 1fr",
+          gap: 0,
+          border: "1px solid var(--slate-700)",
+          borderRadius: 6,
+          overflow: "hidden",
+          margin: "0 0 0.6rem",
+          fontSize: "0.82rem",
+        }}
+      >
+        <div
+          style={{
+            background: "var(--slate-800)",
+            padding: "0.35rem 0.6rem",
+            fontWeight: 700,
+            color: "#fde047",
+          }}
+        >
+          Mode
         </div>
-    );
+        <div
+          style={{
+            background: "var(--slate-800)",
+            padding: "0.35rem 0.6rem",
+            fontWeight: 700,
+            color: "var(--red-400)",
+            textAlign: "right",
+          }}
+        >
+          Win damage
+        </div>
+        <div style={{ padding: "0.3rem 0.6rem" }}>⚔ 1v1 PvP</div>
+        <div
+          style={{
+            padding: "0.3rem 0.6rem",
+            textAlign: "right",
+            color: "var(--red-400)",
+          }}
+        >
+          −30 HP
+        </div>
+        <div
+          style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}
+        >
+          ⚔⚔ 2v2 PvP
+        </div>
+        <div
+          style={{
+            padding: "0.3rem 0.6rem",
+            background: "var(--slate-900)",
+            textAlign: "right",
+            color: "var(--red-400)",
+          }}
+        >
+          −60 HP
+        </div>
+        <div style={{ padding: "0.3rem 0.6rem" }}>🐾 Pet 1v1</div>
+        <div
+          style={{
+            padding: "0.3rem 0.6rem",
+            textAlign: "right",
+            color: "var(--red-400)",
+          }}
+        >
+          −20 HP
+        </div>
+        <div
+          style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}
+        >
+          🐾🐾 Pet 2v2
+        </div>
+        <div
+          style={{
+            padding: "0.3rem 0.6rem",
+            background: "var(--slate-900)",
+            textAlign: "right",
+            color: "var(--red-400)",
+          }}
+        >
+          −40 HP
+        </div>
+        <div style={{ padding: "0.3rem 0.6rem" }}>Chronicle Duel</div>
+        <div
+          style={{
+            padding: "0.3rem 0.6rem",
+            textAlign: "right",
+            color: "var(--red-400)",
+          }}
+        >
+          −10 HP
+        </div>
+      </div>
+      <p style={{ margin: "0 0 0.6rem" }}>
+        <strong style={{ color: "var(--blue-400)" }}>
+          3. 2v2 needs 2 players per side.
+        </strong>{" "}
+        Both sending and accepting use a quick queue: one player opens the slot,
+        a clanmate joins as partner, and the match goes live. Anyone can leave
+        the queue before it fills.
+      </p>
+      <p style={{ margin: "0 0 0.6rem" }}>
+        <strong style={{ color: "var(--blue-400)" }}>4. Accept = play.</strong>{" "}
+        When the defender accepts,{" "}
+        <em>both clients are auto-pulled into the battle</em>. PvP, Pet or
+        Chronicle Duel screens open on their own. Fight, and the server records
+        the result.
+      </p>
+      <p
+        style={{
+          margin: "0 0 0.6rem",
+          fontSize: "0.85rem",
+          background: "#0a1a2a",
+          border: "1px solid var(--blue-400)",
+          borderRadius: 6,
+          padding: "0.5rem 0.7rem",
+        }}
+      >
+        <strong style={{ color: "var(--blue-400)" }}>Chronicle Duels:</strong>{" "}
+        bring a legal <strong>40-card Main Deck</strong>. Both duelists begin at{" "}
+        <strong>8,000 Health Points</strong> and alternate server-validated
+        actions through Main, Battle and End phases. Monster, Magic and Trap
+        Zones use the same rules as the Card Hall; the server credits the winner
+        once.
+      </p>
+      <p
+        style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}
+      >
+        ⏳ <strong>Don't ghost.</strong> Pending challenges expire after{" "}
+        <strong>1 hour</strong> if the defender does nothing — each expired
+        challenge takes <strong>−5 HP</strong> off the defender's clan.
+      </p>
+      <p style={{ margin: "0 0 0.6rem" }}>
+        <strong style={{ color: "var(--blue-400)" }}>5. Winning.</strong> First
+        clan to drive the enemy to 0 HP wins. Each side gets an MVP (most wins).
+      </p>
+      <p style={{ margin: 0 }}>
+        <strong style={{ color: "var(--blue-400)" }}>
+          Rewards (auto-claimed):
+        </strong>
+        <br />• <strong>Winning clan:</strong> 1× Legendary War Crate per
+        member.
+        <br />• <strong>MVP each side:</strong> +10,000 ryo, +50 Honor Seals (or
+        6 Bone Charms + 4 Fate Shards for non-Vanguards), +2 Fate Shards.
+        <br />• <strong>Losing-side participants:</strong> consolation ryo +
+        seals/charms if you contributed.
+      </p>
+    </div>
+  );
 }

@@ -456,7 +456,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
     return (
         <div className="card" style={{ marginTop: "1rem" }}>
             <h2>🃏 Card Packs</h2>
-            <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for Shinobi Card Clash at the Card Hall.</p>
+            <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for Shinobi Chronicle Duel at the Card Hall.</p>
             <p style={{ marginBottom: "0.8rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
             {currency === "ryo" && (
                 <button onClick={() => void openPack("standard", 250)} disabled={packBusy || character.ryo < packCost(250)}>
