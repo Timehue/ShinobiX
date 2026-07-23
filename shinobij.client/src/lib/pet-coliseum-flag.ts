@@ -136,10 +136,15 @@ export function setPetDuelEngineEnabled(on: boolean): void {
  *
  * RANKED / ladder / sector-war are NOT affected — they stay on pet-duel-sim.ts
  * (plantedMotion=false, server-mirrored + parity-tested) until this engine is
- * balance-signed-off and promoted (its own future step). This flag only swaps the
- * client-authoritative CASUAL path, whose reward is server-capped + keyed only off the
- * win/loss string, so the swap is reward-safe. Instant rollback: set to "0". DEFAULT ON
- * (the game is in testing). Per-device: localStorage.setItem("petColiseumCinematic.v1","1"|"0").
+ * balance-signed-off and promoted (its own future step).
+ *
+ * STALE — this flag is VESTIGIAL: nothing reads petColiseumCinematicEnabled() any
+ * more, the cinematic engine is the casual coliseum unconditionally, and setting
+ * it to "0" is NOT a rollback. Its old claim that the casual reward is "keyed only
+ * off the win/loss string, so the swap is reward-safe" is also no longer true: as
+ * of the §9.6 input-log replay the server resolves the casual PvE reward on this
+ * very engine, so the client's win/loss string is not what pays out.
+ * Per-device: localStorage.setItem("petColiseumCinematic.v1","1"|"0").
  */
 const CINEMATIC_KEY = "petColiseumCinematic.v1";
 
@@ -194,6 +199,41 @@ export function petArena3dEnabled(): boolean {
 
 export function setPetArena3dEnabled(on: boolean): void {
     try { localStorage.setItem(ARENA_3D_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
+/*
+ * PLAYER CONTROL for the Pet Coliseum (docs/pet-coliseum-player-control-plan.md).
+ * When ON, a casual coliseum duel runs LIVE — the deterministic sim is stepped a
+ * beat ahead of playback instead of being resolved up front — and the player gets
+ * a command deck: order a move, set a stance, and spend the Bond meter on a
+ * Bond Break signature. Not commanding anything reproduces the AI fight exactly,
+ * and an in-fight "Auto" toggle hands the pet back to its brain at any time.
+ *
+ * Applies ONLY to casual PvE (Pet Arena 1v1 + 2v2 vs AI). That path is no longer
+ * client-authoritative: since the §9.6 fix the client posts its INPUT LOG and
+ * api/pet/battle-result.ts replays the seeded sim server-side to derive the
+ * outcome, so the reported win/loss is ignored. Turning this flag OFF stays safe —
+ * a watch-only duel posts no log, and an empty log replays as exactly the
+ * uncommanded AI fight. Ranked, the
+ * pet ladder, sector war, clan war and every replay screen keep the precomputed
+ * one-shot path (runPetDuelCinematic), so no competitive outcome can shift and
+ * there is no client/server desync. DEFAULT ON — the game is in testing and the
+ * whole point of the feature is that players stop watching and start playing.
+ * Instant rollback: localStorage.setItem("petPlayerControl.v1","0") returns the
+ * mode to the shipped watch-only duel. Per-device persisted.
+ */
+const PLAYER_CONTROL_KEY = "petPlayerControl.v1";
+
+export function petPlayerControlEnabled(): boolean {
+    try {
+        const v = localStorage.getItem(PLAYER_CONTROL_KEY);
+        if (v === "0") return false;   // explicit kill-switch → watch-only duel
+        return true;                   // DEFAULT ON
+    } catch { return false; }          // no localStorage (tests/Node) → the pure precomputed path
+}
+
+export function setPetPlayerControlEnabled(on: boolean): void {
+    try { localStorage.setItem(PLAYER_CONTROL_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
 
 const ARENA_V2_KEY = "petArenaV2.v1";

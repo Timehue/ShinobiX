@@ -6,6 +6,8 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { runPetDuel, runPetPartyDuel } from '../_pet-sim/pet-duel-sim.js';
+import { replayCasualPetDuel } from './_duel-replay.js';
+import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { SERVER_ARENA_PETS } from './_arena-ai.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
@@ -79,9 +81,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
         const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
         const revive = isAiOpponent && masteryHasCapstone(myChar?.profession, myChar?.masterySpec, 'alpha-bond');
-        const result = mode === '2v2'
-            ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
-            : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
+        // A PvE fight is the only one the player can COMMAND — PetArena gates
+        // player control on a built-in AI opponent, because a casual-vs-player or
+        // clan-war duel must stay precomputed so both clients derive the same
+        // fight. So it is also the only one whose reward can come from replaying
+        // the player's inputs. Seal everything that replay needs; the client
+        // restates none of it when it reports the result.
+        const sealedParams: SealedDuelParams | null = isAiOpponent ? {
+            mode,
+            seed,
+            damageMult,
+            hpMult,
+            revive,
+            // Must match the client's controlled-duel construction exactly: items
+            // ON, and accuracy PINNED rather than read from the per-device
+            // petAccuracy.v1 flag (CONTROLLED_DUEL_ACCURACY in pet-duel-live.ts).
+            // Either one disagreeing resolves a different fight.
+            applyItems: true,
+            accuracy: true,
+            terrain: null,
+        } : null;
+
+        // Baseline outcome, used when the report carries no input log — the flag
+        // is off, an older client, or the player just watched. For a PvE fight
+        // this now runs the CINEMATIC engine the coliseum actually renders (an
+        // empty log reproduces the uncommanded AI fight exactly), so the sealed
+        // value finally agrees with the fight on screen instead of coming from
+        // the retired pet-duel-sim engine. Non-PvE casual duels are untouched.
+        const result = sealedParams
+            ? replayCasualPetDuel(playerPets, opponentPets, sealedParams, []).outcome
+            : mode === '2v2'
+                ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
+                : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
 
         const token = randomUUID().replace(/-/g, '');
         await kv.set(`pet:battle-token:${playerName}:${token}`, {
@@ -92,6 +123,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             mode,
             createdAt: Date.now(),
             playerPetIds,
+            // Needed to rebuild the same opponent at report time. AI pets come
+            // from the server's own roster, so these ids are not player input in
+            // any meaningful sense — but they are re-resolved, never trusted.
+            opponentPetIds,
+            sealedParams,
             authoritativeOutcome: result,
         }, { ex: TOKEN_TTL_SECONDS });
 
