@@ -6864,6 +6864,9 @@ export type PetColiseumDuelProps = {
     /** Fired once, with the settled DuelResult, when a live duel finishes. The
      *  mounting screen owns reward posting, exactly as it does for `result`. */
     onOutcome?: (result: DuelResult) => void;
+    /** Two-player (lockstep) duels only: report playback progress upstream so the
+     *  shared watermark can advance. Omitted for single-player fights. */
+    onProgress?: (playbackTick: number) => void;
     sharedImages?: Record<string, string>;
     /** Dev-harness scrub point for deterministic VFX screenshots. Live callers omit it. */
     initialTick?: number;
@@ -6871,7 +6874,11 @@ export type PetColiseumDuelProps = {
     onExit: () => void;
 };
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
+/** A lockstep session reports when it is waiting on its opponent. Single-player
+ *  duels never stall, so the absence of the field reads as "not waiting". */
+const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).stalled === true;
+
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
     // into [min,max] — exactly what the static preset rendered) and let
@@ -6900,6 +6907,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // recomputes against the new timeline exactly as it would for a finished fight.
     const [liveView, setLiveView] = useState<DuelResult | null>(() => live ? live.advance(Math.max(0, initialTick)) : null);
     const [deckTick, setDeckTick] = useState(0);
+    // Lockstep only: playback has caught up to the shared watermark and is waiting
+    // on the opponent. Surfaced rather than hidden — a silent freeze reads as a
+    // crash, and the player needs to know it is the connection, not the game.
+    const [waitingOnPeer, setWaitingOnPeer] = useState(false);
     // The tick a Bond Break was spent on — the meter counts events after it.
     const [bondSpentAt, setBondSpentAt] = useState(-1);
     // Optimistic echo of the most recent command, so a tap lights its button on the
@@ -7251,9 +7262,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             const next = live.advance(tick);
             setLiveView((prev) => (prev === next ? prev : next));
             setDeckTick(tick);
+            // Two-player duels report playback upstream (throttled inside) — the
+            // shared watermark is min(both players' progress), so a client that
+            // stops reporting freezes its opponent as well as itself.
+            if (onProgress) onProgress(tick);
+            setWaitingOnPeer(isStalledDuel(live));
         }, 66);
         return () => window.clearInterval(timer);
-    }, [live]);
+    }, [live, onProgress]);
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
@@ -7469,6 +7485,24 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             )}
 
             {debugAi && <DuelAiDebugHud duel={duel} clock={clock} nameById={nameById} />}
+
+            {/* Lockstep stall — the shared watermark has caught up to playback and
+                the opponent's client owes us its next progress report. Shown
+                rather than swallowed: an unexplained freeze mid-fight reads as a
+                crash, and this tells the player it is the connection. */}
+            {waitingOnPeer && !ended && !cutIn && (
+                <div style={{
+                    position: "absolute", left: "50%", top: "34%", transform: "translateX(-50%)",
+                    zIndex: 15, pointerEvents: "none", textAlign: "center",
+                    padding: "8px 18px", borderRadius: 999,
+                    background: "rgba(8,11,22,0.82)", border: "1px solid rgba(148,163,184,0.5)",
+                    color: "#cbd5e1", font: "800 13px/1.2 var(--font-display), Inter, system-ui, sans-serif",
+                    letterSpacing: "0.06em", textTransform: "uppercase",
+                    boxShadow: "0 6px 22px rgba(0,0,0,0.5)",
+                }}>
+                    Waiting for opponent…
+                </div>
+            )}
 
             {/* The player's controls. Hidden during the VS intro, a cut-in and the
                 result screen so they never compete with an authored beat — and once

@@ -5308,7 +5308,7 @@ export function Arena({
                         disabled={!character.pets.some((pet) => !isPetOnExpedition(pet))}
                         title={!character.pets.some((pet) => !isPetOnExpedition(pet)) ? "You need one available pet" : undefined}
                         onClick={() => setActiveArenaTab("petBattles")}
-                    ><GiPawPrint style={ARENA_ICON} />Pet Battles</button>
+                    ><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</button>
                 </div>
 
                 {activeArenaTab === "clanWar" && (
@@ -5451,7 +5451,7 @@ export function Arena({
 
                 {activeArenaTab === "petBattles" && (
                     <section className="summary-box">
-                        <h3><GiPawPrint style={ARENA_ICON} />Pet Battles</h3>
+                        <h3><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</h3>
                         <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you. Casual pet sparring lives in the Village Battle Arena.</p>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                             {[

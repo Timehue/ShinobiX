@@ -6,10 +6,11 @@ import type { Pet } from "../types/pet";
 import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
-import { petFramePace, pickBestPartyOrder, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
+import { petFramePace, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
+import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import {
@@ -172,6 +173,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
+    // Live PvP duels (lockstep) are owned end-to-end by PetDuelLiveHost; this
+    // screen only asks it to send a challenge and reports the settled result.
+    const liveDuelRef = useRef<PetDuelLiveHandle>(null);
     // 2v2 party mode — works for both AI and PvP battles. AI auto-picks a
     // random second opponent from the AI pool. PvP attaches both pet IDs to
     // the duel challenge so the target's client knows to run the party variant
@@ -255,7 +259,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         return () => onBattleActiveChange?.(false);
     }, [arenaMatch, arenaCountdown, onBattleActiveChange]);
 
-    async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
+    function sendDirectPetChallenge(toName: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
         if (targetRecord?.character && targetRecord.character.pets.length === 0) {
             setPetChallengeMsg(`${toName} does not have a pet available for battle.`);
@@ -283,47 +287,17 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             );
         }
         setBattleReady(false);
-        const challenge: DuelChallenge = {
-            id: makeId(),
-            fromName: character.name,
+        // LIVE PvP (docs/pet-coliseum-player-control-plan.md §10). Player-versus-
+        // player pet duels are lockstep and require both people present, so the
+        // challenge goes over the realtime socket instead of being queued as a
+        // DuelChallenge. There is deliberately no async fallback: if the target is
+        // not connected the server refuses and says so.
+        const liveErr = liveDuelRef.current?.challenge(
             toName,
-            challenger: character,
-            challengerPetId: doParty ? selectedPet.id : fromPetId,
-            petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
-            createdAt: Date.now(),
-            mode: "clanWarPet",
-            ...(doParty && reserveCandidate ? {
-                petParty: true,
-                challengerPetIds: [selectedPet.id, reserveCandidate.id] as [string, string],
-            } : {}),
-        };
-        try {
-            const res = await fetch('/api/player/challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetName: toName, challenge }),
-            });
-            if (!res.ok) {
-                // The server returns a specific reason for every reject: a 409
-                // block (target traveling / in battle / engaged), or a 403
-                // Academy protection (sub-Genin targets — a fresh Lv 1 can't be
-                // challenged until Genin). Surface that message instead of a
-                // blanket "could not reach", which made a deliberate block look
-                // like a typo or a connectivity failure.
-                const data = await res.json().catch(() => ({} as { error?: string }));
-                setPetChallengeMsg(`❌ ${data?.error ?? `Could not reach ${toName}. Check the name and try again.`}`);
-                return;
-            }
-            // Drop our prior pending outgoing challenge (server just superseded
-            // it) and keep this fresh one.
-            setDuelChallenges([
-                ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
-                challenge,
-            ]);
-            setPetChallengeMsg(`✅ Pet challenge sent to ${toName}! They'll see it shortly.`);
-        } catch {
-            setPetChallengeMsg(`❌ Network error sending challenge.`);
-        }
+            doParty ? "2v2" : "1v1",
+        ) ?? "Live duels need a realtime connection — reconnect and try again.";
+        setPetChallengeMsg(liveErr ?? `Challenge sent to ${toName}. Waiting for them to accept…`);
+        return;
     }
 
     // Build the role-assigned slots + start the 5s pre-roll, evening both teams
@@ -1165,104 +1139,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             )}
 
-            {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && !c.arenaMatch && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
-                <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid var(--green-400)", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span>{c.petParty ? "🐾🐾" : "🐾"} <strong>{c.fromName}</strong> challenged you to a {c.petParty ? "2v2 pet battle" : "pet battle"}!</span>
-                    <div className="menu" style={{ marginLeft: "auto" }}>
-                        <button onClick={() => {
-                            const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId && !isPetOnExpedition(p)) ?? c.challenger.pets.find(p => !isPetOnExpedition(p));
-                            // Party path: auto-pick our top 2 available pets by
-                            // level + reconstruct challenger's pair from the IDs
-                            // they sent. Both complete teams are required; this
-                            // path never silently downgrades 2v2 to 1v1.
-                            const wantsParty = c.petParty === true && Array.isArray(c.challengerPetIds);
-                            const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
-                            if (!selectedPet || !challengerPet) {
-                                setPetChallengeMsg("Both players need an available pet before this battle can start.");
-                                return;
-                            }
-                            if (wantsParty) {
-                                const requestedIds = c.challengerPetIds!.slice(0, 2);
-                                const requestedPets = requestedIds
-                                    .map((id) => c.challenger.pets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
-                                    .filter((pet): pet is Pet => Boolean(pet));
-                                if (myAvailable.length < 2 || requestedIds.length !== 2 || new Set(requestedIds).size !== 2 || requestedPets.length !== 2) {
-                                    setPetChallengeMsg("A 2v2 battle needs two available pets on each team. This challenge was not started.");
-                                    return;
-                                }
-                            }
-                            let myParty: [Pet, Pet] | null = null;
-                            let chParty: [Pet, Pet] | null = null;
-                            if (wantsParty && myAvailable.length >= 2 && challengerPet) {
-                                const [chId1, chId2] = c.challengerPetIds!;
-                                const ch1 = c.challenger.pets.find(p => p.id === chId1 && !isPetOnExpedition(p))!;
-                                const ch2 = c.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id && !isPetOnExpedition(p));
-                                if (ch1 && ch2) {
-                                    chParty = [ch1, ch2] as [Pet, Pet];
-                                    // Smart matchup picker — see acceptPetChallengeGlobal
-                                    // for the rationale. Falls back to top-2-by-level
-                                    // if pickBestPartyOrder can't decide.
-                                    const smart = pickBestPartyOrder(myAvailable, chParty);
-                                    if (smart) {
-                                        myParty = smart;
-                                    } else {
-                                        const sorted = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
-                                        myParty = [sorted[0], sorted[1]] as [Pet, Pet];
-                                    }
-                                }
-                            }
-                            const doParty = !!(wantsParty && myParty && chParty);
-                            setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
-                            fetch('/api/player/challenge', {
-                                method: 'DELETE',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.toName, fromName: c.fromName, challengeId: c.id }),
-                            }).catch(() => {});
-                            fetch('/api/player/challenge', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.fromName, challenge: {
-                                    ...c, accepted: true,
-                                    fromName: character.name, toName: c.fromName,
-                                    responderPetId: selectedPet?.id, responderPet: selectedPet,
-                                    ...(doParty && myParty ? {
-                                        petParty: true,
-                                        responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
-                                        responderParty: myParty,
-                                    } : {}),
-                                } }),
-                            }).catch(() => {});
-                            if (challengerPet) {
-                                startBattle({
-                                    owner: c.fromName,
-                                    pet: challengerPet,
-                                    battleSeed: c.petBattleSeed,
-                                    ...(doParty && chParty && myParty ? {
-                                        opponentParty: chParty,
-                                        challengerParty: myParty,
-                                    } : {}),
-                                });
-                            }
-                        }}
-                            disabled={availableArenaPetCount < (c.petParty ? 2 : 1)}
-                            title={availableArenaPetCount < (c.petParty ? 2 : 1) ? `Locked: ${availableArenaPetCount}/${c.petParty ? 2 : 1} available pets` : undefined}
-                        >{availableArenaPetCount < (c.petParty ? 2 : 1) ? `Locked: ${availableArenaPetCount}/${c.petParty ? 2 : 1} pets` : c.petParty ? "✅ Accept & Fight (2v2)" : "✅ Accept & Fight"}</button>
-                        <button className="danger-button" onClick={() => {
-                            setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
-                            fetch('/api/player/challenge', {
-                                method: 'DELETE',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.toName, fromName: c.fromName, challengeId: c.id }),
-                            }).catch(() => {});
-                            fetch('/api/player/challenge', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, declined: true, fromName: character.name, toName: c.fromName } }),
-                            }).catch(() => {});
-                        }}>Decline</button>
-                    </div>
-                </div>
-            ))}
+            {/* The async "accept a pet challenge" banner is GONE with the sender that fed
+                it: PvP pet duels are live-only now (plan §10), so an invite arrives over
+                the realtime socket and is answered by PetDuelLiveHost. Keeping this half
+                would leave a button that starts a precomputed PvP fight — exactly the
+                thing live-only exists to prevent. */}
 
             {arenaView === "gauntlet" && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Gauntlet…</div>}>
@@ -1350,7 +1231,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                                     <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                                                         <strong>{p.name}</strong>
                                                         <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "🟢 Online" : "⚫ Offline"}</span>
-                                                        <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>⚔️ Challenge</button>
+                                                        <button onClick={() => sendDirectPetChallenge(p.name)}>⚔️ Challenge</button>
                                                     </div>
                                                 ))}
                                                 {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
@@ -1360,7 +1241,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     return (
                                         <>
                                             <p className="hint">No account found for "{opponentSearch.trim()}".</p>
-                                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>⚔️ Challenge "{opponentSearch.trim()}"</button>
+                                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim())}>⚔️ Challenge "{opponentSearch.trim()}"</button>
                                             {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
@@ -1461,6 +1342,22 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     ))}
                 </div>
             )}
+
+            {/* Live PvP: the invite prompt, the "waiting to be accepted" notice and
+                the fight itself all live here. Renders nothing when idle. */}
+            <PetDuelLiveHost
+                ref={liveDuelRef}
+                myPets={[selectedPet, partyMode ? character.pets.find((p) => p.id === reservePetId) : null].filter((p): p is Pet => !!p)}
+                onError={(message) => setPetChallengeMsg(`❌ ${message}`)}
+                onOutcome={(outcome, opponent) => {
+                    setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
+                    setPetChallengeMsg(outcome === "win" ? `✅ You beat ${opponent}!` : outcome === "draw" ? `Draw with ${opponent}.` : `${opponent} won that one.`);
+                    // Clan-war pet battles still record through the existing helper;
+                    // it no-ops when this fight was not part of one.
+                    onClanWarBattleEnd?.(outcome === "draw" ? "draw" : outcome === "win", opponent);
+                }}
+                sharedImages={sharedImages}
+            />
 
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>

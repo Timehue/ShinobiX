@@ -1,12 +1,15 @@
 /* eslint-disable react-hooks/purity */
-import { useState, lazy, Suspense } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { CardClashDuel } from "./CardClashDuel";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type TileCard } from "../data/tile-cards";
 import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
-import { runPetDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { type DuelResult } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
+import { createLiveDuel, type LiveDuel } from "../lib/pet-duel-live";
+import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
@@ -155,10 +158,19 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
         speed: Math.max(90, Math.floor(basePet.speed * 1.6)),
         trait: basePet.trait ?? "Battleborn",
     }));
-    // Continuous duel engine (the old round engine is retired): the precomputed
-    // duel that PetColiseumDuel plays full-screen.
-    const [duelBattle, setDuelBattle] = useState<{ result: DuelResult; playerPet: Pet; enemyPet: Pet; seed: number; id: number } | null>(null);
+    // The Rare Beast Seal is a PLAYER-CONTROLLED duel
+    // (docs/pet-coliseum-player-control-plan.md): the fight runs live behind the
+    // command deck, so its outcome is not known until the player has played it.
+    // Hollow Gate is pure client-side PvE with no server re-sim, so it can command
+    // freely. Flag off → the precomputed cinematic duel, watched as before.
+    const [duelBattle, setDuelBattle] = useState<{
+        result: DuelResult | null; live: LiveDuel | null;
+        playerPet: Pet; enemyPet: Pet; seed: number; id: number;
+    } | null>(null);
     const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight React key (state, not ref → no render-time ref read)
+    // A ref, not state: onExit fires in the same tick as onOutcome (an exit-forfeit
+    // settles then leaves), so a state write would still be stale when it reads it.
+    const duelOutcome = useRef<"win" | "loss" | "draw" | null>(null);
     function startBattle() {
         primePetSfx(); // unlock the audio context inside the click gesture
         startBattleMusic(); // rotate to a fresh battle track
@@ -166,12 +178,15 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
         const seed = Date.now();
         const nextDuelId = duelNonce + 1;
-        // Continuous duel engine (the old round engine is retired). Hollow Gate is
-        // pure client-side PvE (no server re-sim), so the casual planted-face-off
-        // motion is ON (last arg true); intervening optional args keep their defaults.
-        const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character), false, undefined, undefined, true);
+        duelOutcome.current = null;
+        const dmg = petTamerPveMultiplier(character), hp = petPveHpMult(character), revive = petAlphaBond(character);
+        const controlled = petPlayerControlEnabled();
         setDuelNonce(nextDuelId);
-        setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet, seed, id: nextDuelId });
+        setDuelBattle({
+            result: controlled ? null : runPetDuelCinematic(selectedPet, enemyPet, seed, dmg, hp, revive, true, undefined, null),
+            live: controlled ? createLiveDuel(selectedPet, enemyPet, seed, dmg, hp, revive, true, undefined, null) : null,
+            playerPet: selectedPet, enemyPet, seed, id: nextDuelId,
+        });
     }
     if (!selectedPet) {
         return (
@@ -211,8 +226,10 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
         );
     }
     // duelBattle is set (the !duelBattle gate above returned the pre-battle card).
-    // The continuous duel plays the precomputed fight full-screen; exiting after a
-    // win advances the seal (onWin), otherwise leaves the dungeon.
+    // Exiting after a win advances the seal (onWin), otherwise it leaves the
+    // dungeon. A commanded fight has no result until it is played, so the branch
+    // reads the settled outcome the renderer hands back — and an exit-forfeit
+    // reports a loss, so quitting a losing seal can never advance it.
     return (
         <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
             <PetColiseumDuel
@@ -220,10 +237,12 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
                 playerPet={duelBattle.playerPet}
                 enemyPet={duelBattle.enemyPet}
                 seed={duelBattle.seed}
-                result={duelBattle.result}
+                result={duelBattle.result ?? undefined}
+                live={duelBattle.live ?? undefined}
+                onOutcome={(r) => { duelOutcome.current = r.result; }}
                 sharedImages={sharedImages}
                 onFightAgain={() => startBattle()}
-                onExit={duelBattle.result.result === "win" ? onWin : onLeave}
+                onExit={() => ((duelOutcome.current ?? duelBattle.result?.result) === "win" ? onWin() : onLeave())}
             />
         </Suspense>
     );

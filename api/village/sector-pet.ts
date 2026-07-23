@@ -10,7 +10,7 @@ import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import { applyContestBattleByWinner, findSectorWarBattleReceipt, recordSectorWarBattleOutcome, sectorWarKey } from '../_sector-war.js';
 import { loadSectorWar, saveSectorWar } from '../_sector-war-store.js';
 import { captureSectorForVillage } from '../world-state.js';
-import { runPetDuelCinematic } from '../_pet-sim/pet-duel-cinematic.js';
+import { runDoctrineDuel, parseDoctrine } from '../_pet-sim/pet-duel-doctrine.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 
@@ -174,7 +174,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
             const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            const duel = runPetDuelCinematic(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
+            // A GARRISON IS BRIEFED, NOT ABANDONED (plan §11). Neither owner is
+            // present for a sector clash — the holder left their pet to hold
+            // ground, and the challenger's pet arrived while they travelled — so
+            // BOTH fight to their own standing orders. That keeps the exchange
+            // symmetric: contesting a sector is a contest of two plans, not a
+            // commanded pet beating an unattended one.
+            const duel = runDoctrineDuel(
+                existing.p1.pet, pet, seed,
+                parseDoctrine((existing.p1.pet as { doctrine?: unknown }).doctrine),
+                parseDoctrine((pet as { doctrine?: unknown }).doctrine),
+                { applyItems: false, accuracy: false, terrain },
+            );
             const winner: 'p1' | 'p2' | 'draw' = duel.winner === 'player' ? 'p1' : duel.winner === 'enemy' ? 'p2' : 'draw';
             const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, updatedAt: now };
             await applyPetOutcomeToContest(session);

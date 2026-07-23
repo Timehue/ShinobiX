@@ -39,6 +39,7 @@ import {
     stepCinematicDuel, finishCinematicDuel, applyDuelCommand,
 } from '../_pet-sim/pet-duel-cinematic.js';
 import { bondCharge, BOND_FULL } from '../_pet-sim/pet-bond-meter.js';
+import { applyDoctrineTick, type PetDoctrine } from '../_pet-sim/pet-duel-doctrine.js';
 import type { DuelCommand } from '../_pet-sim/pet-duel-cinematic.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
@@ -197,4 +198,105 @@ export function replayCasualPetDuel(
     }
 
     return { outcome: finishCinematicDuel(sim).result as PetDuelOutcome, applied, rateLimited, rejected };
+}
+
+// ── Two-player (lockstep) replay ───────────────────────────────────────────────
+
+/** Which side an actor belongs to. The engine seats the challenger's pets as the
+ *  "player" team and the opponent's as "enemy", so this is a prefix test — the
+ *  same one the socket layer uses to reject commanding the pet you are fighting. */
+const actorSide = (actorId: string): 'p1' | 'p2' => (actorId.startsWith('player-') ? 'p1' : 'p2');
+
+export interface LockstepReplayResult extends DuelReplayResult {
+    /** 'p1' = the challenger, 'p2' = the opponent, null = a draw. */
+    winner: 'p1' | 'p2' | null;
+}
+
+/** A side that went silent mid-fight, and the standing orders its pets fell back
+ *  to. `from` is the server-computed hand-over tick that BOTH clients were told,
+ *  so replaying with it reproduces the fight they actually watched. */
+export interface LockstepAutonomy {
+    actorIds: readonly string[];
+    doctrine: PetDoctrine;
+    from: number;
+}
+
+/**
+ * Replay a LIVE two-player duel from the merged, server-sequenced input log and
+ * derive the winner (docs/pet-coliseum-player-control-plan.md §10.6).
+ *
+ * Differences from the casual replay above, all of them because BOTH pets are
+ * commanded here rather than one:
+ *
+ *   • both sides are marked controlled, so an `enemy-*` order takes effect;
+ *   • each side's Bond meter is tracked SEPARATELY — one player spending their
+ *     Break must not reset the other's;
+ *   • the rate cap is per side, so a flooding client cannot starve its opponent
+ *     out of the shared budget.
+ *
+ * The log this consumes is the server's own `session.inputs`, already validated
+ * for ownership and watermark at accept time, so this is the second line of
+ * defence rather than the first.
+ */
+export function replayLockstepPetDuel(
+    playerPets: Pet[],
+    opponentPets: Pet[],
+    params: SealedDuelParams,
+    log: readonly DuelInputLogEntry[],
+    /** Sides whose player dropped. Omitted when both played it out. */
+    autonomy: readonly LockstepAutonomy[] = [],
+): LockstepReplayResult {
+    const { mode, seed, applyItems, accuracy, terrain } = params;
+    const sim = mode === '2v2'
+        ? createLivePartyCinematicDuel(
+            playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null,
+            seed, 1, 1, false, applyItems, accuracy, false,
+        )
+        : createLiveCinematicDuel(
+            playerPets[0], opponentPets[0], seed, 1, 1, false, applyItems, accuracy, terrain, false,
+        );
+    // PvP has no PvE multipliers — both sides fight on their own stats — and BOTH
+    // sides take orders, which the single-commander constructors do not set up.
+    for (const f of sim.fighters) f.controlled = true;
+
+    let i = 0;
+    let applied = 0;
+    let rateLimited = 0;
+    let rejected = 0;
+    const recent: Record<'p1' | 'p2', number[]> = { p1: [], p2: [] };
+    const bondSpentAt: Record<'p1' | 'p2', number> = { p1: -1, p2: -1 };
+    const count: Record<'p1' | 'p2', number> = { p1: 0, p2: 0 };
+    // Standing orders for a dropped side, evaluated with the IDENTICAL pure
+    // function both clients ran. Its Bond spends are tracked per actor, exactly as
+    // the client tracks them, so the meter gates the same way on both.
+    const doctrineBond = new Map<string, number>();
+
+    for (let guard = 0; guard < MAX_REPLAY_TICKS; guard++) {
+        applied += applyDoctrineTick(sim, autonomy, doctrineBond);
+        while (i < log.length && log[i].t <= sim.t) {
+            const { t, cmd } = log[i++];
+            const side = actorSide(cmd.actorId);
+            const window = recent[side];
+            while (window.length && window[0] <= t - DUEL_TPS) window.shift();
+            if (window.length >= MAX_COMMANDS_PER_SECOND || count[side] >= MAX_INPUT_LOG) {
+                rateLimited++;
+                continue;
+            }
+            if (cmd.kind === 'break' && bondCharge(sim.events, cmd.actorId, t, bondSpentAt[side]) < BOND_FULL) {
+                rejected++;
+                continue;
+            }
+            if (!applyDuelCommand(sim, cmd)) { rejected++; continue; }
+            if (cmd.kind === 'break') bondSpentAt[side] = t - 1;
+            window.push(t);
+            count[side]++;
+            applied++;
+        }
+        if (!stepCinematicDuel(sim)) break;
+    }
+
+    const final = finishCinematicDuel(sim);
+    // `result` is from the "player" team's perspective, i.e. the challenger's.
+    const winner = final.result === 'win' ? 'p1' : final.result === 'loss' ? 'p2' : null;
+    return { outcome: final.result as PetDuelOutcome, winner, applied, rateLimited, rejected };
 }

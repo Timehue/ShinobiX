@@ -1,3 +1,4 @@
+import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
@@ -2754,6 +2755,8 @@ export default function App() {
         if (!character) return;
         if (processingChallengeIds.includes(challenge.id)) return;
 
+        // PvP pet duels are live-only (plan §10) — retire a pre-deploy challenge.
+        if (retireStalePetDuel(challenge, duelChallenges, setDuelChallenges)) return;
         if (challenge.arenaMatch) { // Tactical Arena PvP — route to PetArena's responder team picker
             const arenaSize = challenge.arenaSize === 2 ? 2 : 4;
             const availablePets = character.pets.filter((pet) => !isPetOnExpedition(pet)).length;

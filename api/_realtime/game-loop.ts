@@ -12,9 +12,21 @@
 import { onlineStore } from './online-store.js';
 import type { OnlinePlayer } from './types.js';
 import { materializeSleeperCamps } from './sleeper-camps.js';
+import { sweepSessions, type PetDuelSession, type DuelSide } from './pet-duel-session.js';
 
 let _timer: ReturnType<typeof setInterval> | null = null;
 let _onSweep: ((removedPlayers: OnlinePlayer[]) => void) | null = null;
+let _onDuelDrop: ((session: PetDuelSession, dropped: DuelSide[]) => void) | null = null;
+
+/**
+ * Register a callback for players who go silent mid-duel. The socket layer uses
+ * it to tell the survivor their opponent dropped and to push the freshly
+ * unblocked watermark — without it, a dropped peer would leave the other player
+ * stalled forever against a watermark that can no longer advance.
+ */
+export function setOnDuelDrop(cb: ((session: PetDuelSession, dropped: DuelSide[]) => void) | null): void {
+    _onDuelDrop = cb;
+}
 
 /**
  * Register a callback invoked with the canonical names dropped by each sweep
@@ -42,6 +54,13 @@ export function startGameLoop(): void {
                 } catch (err) {
                     console.error('[game-loop] onSweep listener error:', (err as Error).message);
                 }
+            }
+            // Live PvP pet duels: lapse unaccepted invites and drop players who
+            // stopped reporting, so a survivor's watermark starts moving again.
+            try {
+                sweepSessions(Date.now(), (session, dropped) => _onDuelDrop?.(session, dropped));
+            } catch (err) {
+                console.error('[game-loop] pet-duel sweep error:', (err as Error).message);
             }
             // (battle-room / sector-room / pet-room ticks land here in later steps)
         } catch (err) {

@@ -123,9 +123,21 @@ const bond = read("lib/pet-bond-meter.ts")
     .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
 write("pet-bond-meter.ts", "lib/pet-bond-meter.ts", bond);
 
+// 10. pet-duel-doctrine.ts → pet-duel-doctrine.ts. A sector-war garrison and a
+//     dropped lockstep player both fight to STANDING ORDERS rather than bare AI,
+//     and those orders are issued by an evaluator running inside the fight. The
+//     server has to run the identical evaluator when it replays, or its verdict
+//     would diverge from the fight both clients actually watched.
+const doctrine = read("lib/pet-duel-doctrine.ts")
+    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
+    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"')
+    .replace(/from "\.\/pet-duel-cinematic"/g, 'from "./pet-duel-cinematic.js"')
+    .replace(/from "\.\/pet-bond-meter"/g, 'from "./pet-bond-meter.js"');
+write("pet-duel-doctrine.ts", "lib/pet-duel-doctrine.ts", doctrine);
+
 // Sanity: no client-only import paths may survive into the server copy.
 const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts"]) {
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }

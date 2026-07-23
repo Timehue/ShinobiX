@@ -117,6 +117,14 @@ export type Pet = {
     // Equip-slot loadout (Collar / PVP / PVE / Consumable). See PetLoadout.
     // Undefined until the player equips something.
     loadout?: PetLoadout;
+    // DEFENSE DOCTRINE — the standing orders this pet follows when its owner is
+    // not commanding it: a sector-war garrison, or a live duel whose player
+    // dropped. Shape is { stance, priority[], breakAt } — see
+    // lib/pet-duel-doctrine.ts, whose parseDoctrine() degrades anything malformed
+    // to a no-op, so an old save or a hand-edited one simply fights as before.
+    // Additive and optional: undefined means "no standing orders", which is
+    // exactly the pre-doctrine behaviour. See docs/pet-coliseum-player-control-plan.md §11.
+    doctrine?: { stance: number; priority: number[]; breakAt: "ready" | "foeBloodied" | "finisher" | "never" };
     // Optional elemental affinity. Drives the Pet Arena type-effectiveness
     // matchup: Fire > Wind > Lightning > Earth > Water > Fire. Pets without
     // an element (or with "None") fight neutral against everything.
