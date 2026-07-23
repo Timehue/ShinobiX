@@ -30,6 +30,15 @@
 interface CacheEntry { value: unknown; expiresAt: number; }
 const _readCache = new Map<string, CacheEntry>();
 
+// Hard ceiling on distinct cached keys. On Railway the process is long-lived, so
+// without a cap the Map grows for the life of the process — one entry per distinct
+// key ever read (every `save:<player>`, `img-owner:<id>`, etc.), and expired
+// entries are only reclaimed if that *same* key is read again. A key written once
+// and never re-read would leak forever. We bound it as an LRU: Map preserves
+// insertion order, so the oldest (least-recently-used) key is always the first one
+// the iterator yields, and re-inserting on access moves an entry to the newest slot.
+const _CACHE_MAX_ENTRIES = 5000;
+
 // These prefixes change too rapidly to benefit from caching.
 const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:'];
 
@@ -48,12 +57,25 @@ function _cacheRead<T>(key: string): T | undefined {
     const entry = _readCache.get(key);
     if (!entry) return undefined;
     if (Date.now() > entry.expiresAt) { _readCache.delete(key); return undefined; }
+    // Mark as most-recently-used so a hot key is never the first eviction target.
+    _readCache.delete(key);
+    _readCache.set(key, entry);
     return entry.value as T;
 }
 
 function _cacheWrite(key: string, value: unknown): void {
     if (!_shouldCache(key)) return;
+    // Delete-then-set moves an existing key to the newest LRU slot.
+    _readCache.delete(key);
     _readCache.set(key, { value, expiresAt: Date.now() + _cacheTtlMs(key) });
+    // Evict the least-recently-used entries once over the ceiling. The oldest key is
+    // the first one the iterator yields; deleting it is O(1). Old expired entries sit
+    // near the front, so they get reclaimed first in the natural course of eviction.
+    while (_readCache.size > _CACHE_MAX_ENTRIES) {
+        const oldest = _readCache.keys().next().value;
+        if (oldest === undefined) break;
+        _readCache.delete(oldest);
+    }
 }
 
 function _cacheInvalidate(...keys: string[]): void {
