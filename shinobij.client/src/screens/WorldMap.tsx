@@ -134,7 +134,7 @@ import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
-import { fetchBountyBoard, startBountyHunter, claimBountyHunterKill, type BountyEntry } from "../lib/pvp-bounty";
+import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyEnabled, isLegacyServerLive, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
@@ -1222,18 +1222,13 @@ export function WorldMap({
             return;
         }
         if (p.mode === "bountyHunter") {
-            if (won) {
-                setTimeout(() => alert(`You survived ${p.hunterName ?? "the bounty hunter"}. The bounty remains on the board.`), 40);
-            } else if (p.hunterId) {
-                void claimBountyHunterKill(character.name, p.hunterId, p.hunterName ?? "Contract Hunter").then((claim) => {
-                    if (claim) {
-                        setBountyBoard(prev => prev.filter(b => b.target.trim().toLowerCase() !== claim.target.trim().toLowerCase()));
-                        setTimeout(() => alert(`${p.hunterName ?? "The bounty hunter"} collected the contract. ${claim.amount.toLocaleString()} ryo leaves the bounty board.`), 40);
-                    } else {
-                        setTimeout(() => alert(`${p.hunterName ?? "The bounty hunter"} put you down, but the bounty could not be settled.`), 40);
-                    }
-                });
-            }
+            // Win or lose, the bounty stays on the board. An AI hunter is a threat
+            // and a warning, never a payout — a contract this size only settles
+            // when a real shinobi beats you in a verified duel. (Letting an AI
+            // kill clear the bounty was the self-clear exploit.)
+            setTimeout(() => alert(won
+                ? `You survived ${p.hunterName ?? "the bounty hunter"}. The bounty on your head still stands.`
+                : `${p.hunterName ?? "The bounty hunter"} put you down — but they can't cash a contract this size. The bounty on your head still stands; only a real shinobi can collect it.`), 40);
             return;
         }
         if (p.mode === "single") {

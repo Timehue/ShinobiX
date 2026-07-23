@@ -199,7 +199,7 @@ export async function patchBattleSettlement(
 // of the fight that outlives the 15-min session TTL, for support, tag/status
 // disputes, and post-battle review — WITHOUT bloating the frequently-streamed
 // live session payload. These live under their own `receipt:action:` keys, which
-// are NOT in the kv_store anon-SELECT allowlist (pvp:/cw-tilecards:/challenges:),
+// are NOT in the kv_store anon-SELECT allowlist (pvp: only),
 // so they are service-role-only by RLS — no anon direct reads.
 //
 // Storage (all RECEIPT_TTL_SEC, same 90-day window as the battle receipt):

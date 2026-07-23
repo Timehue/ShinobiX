@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
@@ -120,6 +120,12 @@ export function MissionArenaFight({
     const [busy, setBusy] = useState(false);
     const [reject, setReject] = useState<string | null>(null);
     const settledRef = useRef(false);
+    // Settlement of a WON run is what actually mints the durable server-side
+    // claim token (api/missions/queue-combat-claim). Until it lands, the Mission
+    // Hall has nothing to claim — so the result banner must not tell the player
+    // the reward is waiting, and must not offer a clean exit, while it is still
+    // in flight or has failed. See the retry loop below.
+    const [settleState, setSettleState] = useState<"idle" | "pending" | "settled" | "failed">("idle");
 
     const me = character.name;
     const meSlug = me.toLowerCase();
@@ -166,12 +172,32 @@ export function MissionArenaFight({
 
     // Auto-settle the win (queue the claim). Losses/draws pay nothing — the run
     // just resolves and the player exits back to the Mission Hall.
+    //
+    // This call is load-bearing: it is the ONLY thing that mints the durable
+    // claim token the Mission Hall's "Claim Reward" needs. Swallowing its error
+    // used to leave the player looking at "Return to the Mission Hall to claim
+    // your reward" with no reward queued anywhere. Retry a few times with
+    // backoff, then surface the failure and keep a manual retry available.
+    const runSettle = useCallback(async () => {
+        setSettleState("pending");
+        for (let attempt = 0; attempt < 4; attempt++) {
+            try {
+                await settleFn(runId, me);
+                setSettleState("settled");
+                return;
+            } catch {
+                if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
+            }
+        }
+        setSettleState("failed");
+    }, [runId, me, settleFn]);
+
     useEffect(() => {
         if (session.status === "done" && session.winner === "squad" && !settledRef.current) {
             settledRef.current = true;
-            void settleFn(runId, me).catch(() => {});
+            void runSettle();
         }
-    }, [session.status, session.winner, runId, me, settleFn]);
+    }, [session.status, session.winner, runSettle]);
 
     // ── Loadout: jutsu + equipped weapons/consumables from the sealed fighter ──
     // Plain derivations (the React Compiler auto-memoizes the component); the
@@ -664,11 +690,17 @@ export function MissionArenaFight({
                     <div className="card battle-ended-card">
                         <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : "Defeat"}</h2>
                         <p>
-                            {won
-                                ? `${missionName ?? "Mission"} cleared. Return to the Mission Hall to claim your reward.`
-                                : "The mission failed. No reward was earned — you can try again from the Mission Hall."}
+                            {!won
+                                ? "The mission failed. No reward was earned — you can try again from the Mission Hall."
+                                : settleState === "settled"
+                                    ? `${missionName ?? "Mission"} cleared. Return to the Mission Hall to claim your reward.`
+                                    : settleState === "failed"
+                                        ? `${missionName ?? "Mission"} cleared, but the reward could not be registered with the server. Retry before leaving — otherwise there will be nothing to claim.`
+                                        : `${missionName ?? "Mission"} cleared. Registering your reward…`}
                         </p>
-                        <button className="start-primary-btn" onClick={onExit}>Return to Mission Hall</button>
+                        {won && settleState === "failed"
+                            ? <button className="start-primary-btn" onClick={() => { void runSettle(); }}>Retry</button>
+                            : <button className="start-primary-btn" disabled={won && settleState === "pending"} onClick={onExit}>Return to Mission Hall</button>}
                     </div>
                 </div>
             )}

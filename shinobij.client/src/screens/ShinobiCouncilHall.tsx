@@ -273,7 +273,9 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
 // parent only needs to mount it.
 // ── Clan-war PvP tile-card duel screen ──────────────────────────────
 // Server-managed Triple-Triad-style 3x3 duel. Both players' decks +
-// the board live in cw-tilecards:<challengeId> on the server. This
+// the board live in cw-tilecards:<challengeId> on the server (service-role
+// only — NOT anon-readable; the raw row holds both hands and every
+// face-down card, so only the handler's per-viewer projection ships). This
 // component polls /api/clan/war/tilecards?action=state every 1.5s,
 // renders the board + the current player's hand, submits placements
 // via action=move, and detects game-end. The server applies HP damage

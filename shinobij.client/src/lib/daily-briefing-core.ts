@@ -122,8 +122,14 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
     }
 
     if (i.hasMissionSlot && !i.hospitalized) {
+        // `recommendedMissionName` comes from the builtin HUNT catalog, which is
+        // accepted at the Hunter Board ("hunting") — not the Mission Hall. Naming
+        // a hunt and then routing to Missions sent players somewhere the mission
+        // they were just told to run does not exist. Route by what we named.
         const m = i.recommendedMissionName;
-        out.push({ id: "mission", icon: "📜", title: m ? `Recommended: ${m}` : "Run a mission", detail: `You've done ${i.missionsDone}/${i.missionCap} missions today — there's XP and ryo waiting.`, cta: "Go to Missions", screen: "missions" });
+        out.push(m
+            ? { id: "mission", icon: "📜", title: `Recommended: ${m}`, detail: `You've done ${i.missionsDone}/${i.missionCap} missions today — there's XP and ryo waiting.`, cta: "Go to the Hunter Board", screen: "hunting" }
+            : { id: "mission", icon: "📜", title: "Run a mission", detail: `You've done ${i.missionsDone}/${i.missionCap} missions today — there's XP and ryo waiting.`, cta: "Go to Missions", screen: "missions" });
     }
 
     if (i.jutsuTrainingIdle && i.hasJutsu) {

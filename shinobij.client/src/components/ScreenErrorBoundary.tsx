@@ -43,9 +43,12 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                 <div style={{ fontSize: 30, marginBottom: 8 }} aria-hidden>忍</div>
                 <h2 style={{ fontSize: 18, color: "#facc15", margin: "0 0 6px" }}>{chunk ? "A new version is available" : "This screen hit a snag"}</h2>
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: "#94a3b8", margin: "0 0 18px" }}>
+                    {/* Never claim progress is saved — this boundary has no idea
+                        whether the last autosave landed, and saying so has talked
+                        players into reloading away unsaved state. */}
                     {chunk
-                        ? "The game was updated while you were playing. Reload to get the latest version — your progress is saved."
-                        : "Something went wrong drawing this view. Use the menu to go somewhere else, or reload — your progress is saved."}
+                        ? "The game was updated while you were playing. Reload to get the latest version. Anything since your last autosave may not have been stored."
+                        : "Something went wrong drawing this view. Try the menu first — going to another screen keeps this session (and any unsaved progress) alive. Reloading may lose changes since the last autosave."}
                 </p>
                 <RecoveryActions />
                 <button

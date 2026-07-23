@@ -3,10 +3,19 @@
 
 const ASSET_CACHE = 'sj-hashed-assets-v1';
 const IMAGE_CACHE = 'sj-game-images-v1';
+const MODEL_CACHE = 'sj-3d-models-v1';
 // Same 8-character hashed-output signature used by server.ts.
 const HASHED_ASSET_RE = /^\/assets\/[^/]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/;
+// 3D model payloads. `request.destination` is '' for these (they're fetched as
+// array buffers by the GLTF loader), so neither branch below ever saw them and
+// every pet model re-downloaded on each visit. They carry a ?v= revision in the
+// URL (ROSTER_MODEL_ASSET_REVISION), so cache-first on the full href is safe —
+// a re-certified model changes the key. Individual GLBs are large, so the entry
+// cap is deliberately small: a session only meets a handful of pets.
+const MODEL_ASSET_RE = /\.(?:glb|gltf|bin|ktx2|basis)$/i;
 const MAX_ASSET_ENTRIES = 220;
 const MAX_IMAGE_ENTRIES = 400;
+const MAX_MODEL_ENTRIES = 24;
 
 self.addEventListener('install', () => {
     self.skipWaiting();
@@ -15,7 +24,7 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const names = await caches.keys();
-        const current = new Set([ASSET_CACHE, IMAGE_CACHE]);
+        const current = new Set([ASSET_CACHE, IMAGE_CACHE, MODEL_CACHE]);
         await Promise.all(names.filter((name) => name.startsWith('sj-') && !current.has(name)).map((name) => caches.delete(name)));
         await self.clients.claim();
     })());
@@ -69,6 +78,23 @@ self.addEventListener('fetch', (event) => {
             if (response.ok) {
                 const copy = response.clone();
                 event.waitUntil(cache.put(cacheKey, copy).then(() => trimCache(cache, MAX_ASSET_ENTRIES)).catch(() => undefined));
+            }
+            return response;
+        })());
+        return;
+    }
+
+    // 3D models: cache-first on the revision-stamped URL. Storage quota failures
+    // are non-fatal — the response is still returned, it just isn't cached.
+    if (MODEL_ASSET_RE.test(url.pathname)) {
+        event.respondWith((async () => {
+            const cache = await caches.open(MODEL_CACHE);
+            const cached = await cache.match(url.href);
+            if (cached) return cached;
+            const response = await fetch(request);
+            if (response.ok) {
+                const copy = response.clone();
+                event.waitUntil(cache.put(url.href, copy).then(() => trimCache(cache, MAX_MODEL_ENTRIES)).catch(() => undefined));
             }
             return response;
         })());
