@@ -9,6 +9,8 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { petFramePace, pickBestPartyOrder, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
+import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
+import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
@@ -493,7 +495,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // ON), this holds the precomputed DuelResult + combatants for PetColiseumDuel
     // to play. null → the old round engine / PetColiseum path renders instead.
     const [duelBattle, setDuelBattle] = useState<{
-        result: DuelResult; playerPet: Pet; enemyPet: Pet;
+        // Exactly one of `result` / `live` is set: a precomputed timeline to watch,
+        // or a live player-controlled fight that reports its outcome via onOutcome.
+        result: DuelResult | null; live?: LiveDuel | null; onOutcome?: (result: DuelResult) => void;
+        playerPet: Pet; enemyPet: Pet;
         playerReservePet?: Pet; enemyReservePet?: Pet; seed: number;
         id: number; // per-fight nonce → React key so "Fight again" remounts the player
     } | null>(null);
@@ -668,55 +673,73 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // when the flag is on; else the previous planted engine. Items ON in the
             // Cinematic engine everywhere now (uniform with ranked/ladder/sector) — equipped
             // gear/consumables matter (applyItems true). PvE mults stay pveOpp/pvpParty-gated.
-            const duel = runPetPartyDuelCinematic(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character), true);
-            const partyOutcome: "win" | "loss" | "draw" = duel.result;
-            setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
+            // PLAYER CONTROL: PvE teamfights run live and commanded; a clan-war /
+            // PvP party fight stays precomputed so both clients derive the same fight.
+            const partyControlled = !pvpParty && petPlayerControlEnabled();
+            const partyDmgMult = pvpParty ? 1 : petTamerPveMultiplier(character);
+            const partyHpMult = pvpParty ? 1 : petPveHpMult(character);
+            const partyRevive = pvpParty ? false : petAlphaBond(character);
+            const livePartyDuel = partyControlled
+                ? createLivePartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, true)
+                : null;
+            const duel = partyControlled
+                ? null
+                : runPetPartyDuelCinematic(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, true);
+            const settleParty = (partyOutcome: "win" | "loss" | "draw") => {
+                setResult(partyOutcome === "win" ? "Victory" : partyOutcome === "draw" ? "Draw" : "Defeat");
+                // Clan-war auto-report (pet 2v2): if this party battle was
+                // launched from a clan-war pet2v2 challenge, post the outcome
+                // to /api/clan/war/report so both clients converge on the
+                // same result. autoReportClanWarBattleResult no-ops when no
+                // clan-war stash is in sessionStorage AND the opponent name
+                // doesn't match the challenge — safe for every party battle.
+                if (onClanWarBattleEnd) {
+                    onClanWarBattleEnd(partyOutcome === "draw" ? "draw" : partyOutcome === "win", opponent.owner);
+                }
+                // Award ryo once per match won — keeps the existing server cap
+                // intact (each call is rate-limited and counts toward daily cap).
+                // Pass battleSeed + match-index so the server can dedup a
+                // refresh-replay (same seed → same reportKey → no double-claim).
+                // The teamfight engine reports a single `${seed}:2v2` key (its own
+                // keyspace) so it never collides with the old best-of-3 match keys.
+                //
+                // Tier-2 security fix made reportKey REQUIRED for wins. The
+                // static genericPetArenaOpponents array doesn't have battleSeed,
+                // and the roster-opponent constructor doesn't stamp one either.
+                // Without a fallback, every AI-arena and roster-opponent win
+                // was rejected with 400 (silent — wrapped in try/catch). Stamp
+                // a click-stable fallback so honest wins still pay out. Refresh-
+                // replay dedup is weakened for unseeded opponents, but the
+                // server's 5s/12-per-min/100-per-day caps still bound damage.
+                void (async () => {
+                    try {
+                        const battleToken = await battleTokenPromise;
+                        const r = await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                playerName: character.name,
+                                outcome: partyOutcome,
+                                opponentLevel: opponent.pet.level,
+                                reportKey,
+                                battleToken,
+                                inputLog: livePartyDuel?.inputLog(),
+                            }),
+                        });
+                        if (r.ok) {
+                            const data = await r.json() as { character?: Character };
+                            if (data.character) updateCharacter(data.character);
+                        }
+                    } catch { /* the server save remains authoritative */ }
+                })();
+            };
+            setDuelBattle({
+                result: duel, live: livePartyDuel, onOutcome: (r) => settleParty(r.result),
+                playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve,
+                seed, id: nextDuelId,
+            });
             setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
-            setResult(partyOutcome === "win" ? "Victory" : partyOutcome === "draw" ? "Draw" : "Defeat");
-            // Clan-war auto-report (pet 2v2): if this party battle was
-            // launched from a clan-war pet2v2 challenge, post the outcome
-            // to /api/clan/war/report so both clients converge on the
-            // same result. autoReportClanWarBattleResult no-ops when no
-            // clan-war stash is in sessionStorage AND the opponent name
-            // doesn't match the challenge — safe for every party battle.
-            if (onClanWarBattleEnd) {
-                onClanWarBattleEnd(partyOutcome === "draw" ? "draw" : partyOutcome === "win", opponent.owner);
-            }
-            // Award ryo once per match won — keeps the existing server cap
-            // intact (each call is rate-limited and counts toward daily cap).
-            // Pass battleSeed + match-index so the server can dedup a
-            // refresh-replay (same seed → same reportKey → no double-claim).
-            // The teamfight engine reports a single `${seed}:2v2` key (its own
-            // keyspace) so it never collides with the old best-of-3 match keys.
-            //
-            // Tier-2 security fix made reportKey REQUIRED for wins. The
-            // static genericPetArenaOpponents array doesn't have battleSeed,
-            // and the roster-opponent constructor doesn't stamp one either.
-            // Without a fallback, every AI-arena and roster-opponent win
-            // was rejected with 400 (silent — wrapped in try/catch). Stamp
-            // a click-stable fallback so honest wins still pay out. Refresh-
-            // replay dedup is weakened for unseeded opponents, but the
-            // server's 5s/12-per-min/100-per-day caps still bound damage.
-            void (async () => {
-                try {
-                    const battleToken = await battleTokenPromise;
-                    const r = await fetch("/api/pet/battle-result", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            playerName: character.name,
-                            outcome: partyOutcome,
-                            opponentLevel: opponent.pet.level,
-                            reportKey,
-                            battleToken,
-                        }),
-                    });
-                    if (r.ok) {
-                        const data = await r.json() as { character?: Character };
-                        if (data.character) updateCharacter(data.character);
-                    }
-                } catch { /* the server save remains authoritative */ }
-            })();
+            if (duel) settleParty(duel.result);
             return;
         }
 
@@ -830,125 +853,163 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const pveOpp = isGenericPetOpponent(opponent.pet);
         // Continuous duel engine (the old round engine is retired).
         // plantedMotion (LAST arg) = the casual cinematic planted face-off, ON for EVERY
-        // non-ranked 1v1 here (AI, casual-vs-player, clan-war): each is resolved on THIS
-        // client and the server trusts the reported outcome (no pet-duel re-sim anywhere —
-        // api/pet/battle-result + clan-war report), and plantedMotion is deterministic so a
-        // two-client clan/casual fight still agrees. Ranked (returns above) + the
+        // non-ranked 1v1 here (AI, casual-vs-player, clan-war), and plantedMotion is
+        // deterministic so a two-client clan/casual fight still agrees.
+        // NOTE: "the server trusts the reported outcome" is NO LONGER true for the PvE
+        // path — api/pet/battle-result.ts re-derives it by replaying this fight's input
+        // log (plan §9.6). Casual-vs-player and clan-war 1v1 are still client-resolved.
+        // Ranked (returns above) + the
         // Cinematic engine everywhere now (uniform with ranked/ladder/sector). PvE mastery
         // mults stay pveOpp-gated (only a built-in AI fight earns the bonus).
-        const duel = runPetDuelCinematic(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false, true, undefined, null);
-        const outcome: "win" | "loss" | "draw" = duel.result;
+        //
+        // PLAYER CONTROL (docs/pet-coliseum-player-control-plan.md): against a
+        // built-in AI opponent the fight runs LIVE and the player commands it, so
+        // the outcome is not known until they have actually played it. Everything
+        // else — a casual-vs-player or clan-war 1v1, where BOTH clients must derive
+        // the same fight from the seed — keeps the precomputed one-shot resolve.
+        const controlled = pveOpp && petPlayerControlEnabled();
+        const dmgMult = pveOpp ? petTamerPveMultiplier(character) : 1;
+        const hpMult = pveOpp ? petPveHpMult(character) : 1;
+        const revive = pveOpp ? petAlphaBond(character) : false;
+        const liveDuel = controlled
+            ? createLiveDuel(selectedPet, opponent.pet, seed1v1, dmgMult, hpMult, revive, true, undefined, null)
+            : null;
+        const duel = controlled
+            ? null
+            : runPetDuelCinematic(selectedPet, opponent.pet, seed1v1, dmgMult, hpMult, revive, true, undefined, null);
         const logs: string[] = [];
-        setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
-        setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
-        setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
-        // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
-        // for non-clan-war battles since the helper no-ops without a
-        // sessionStorage stash + opponent-name match.
-        if (onClanWarBattleEnd) {
-            onClanWarBattleEnd(outcome === "draw" ? "draw" : outcome === "win", opponent.owner);
-        }
-        if (outcome === "win") {
-            // Pet Arena rewards are server-validated: we POST the win and the
-            // server applies ryo + increments totalPetWins / dailyPetWins
-            // under a per-player lock + 5s rate-limit + daily cap. Client no
-            // longer touches ryo or counters directly here.
-            void (async () => {
-                try {
-                    // reportKey: seed-based when we have a battleSeed (refresh-
-                    // replay dedupes server-side). When the opponent has no
-                    // battleSeed (the static genericPetArenaOpponents AI list,
-                    // or any roster opponent lacking a stamp), fall back to a
-                    // click-stable key so the server doesn't 400 — Tier-2
-                    // security fix made reportKey REQUIRED for wins. The
-                    // server's daily cap + rate limits still bound damage.
-                    const battleToken = await battleTokenPromise1v1;
-                    const r = await fetch("/api/pet/battle-result", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            playerName: character.name,
-                            outcome: "win",
-                            opponentLevel: opponent.pet.level,
-                            reportKey: reportKey1v1,
-                            battleToken,
-                        }),
-                    });
-                    if (r.ok) {
-                        const data = await r.json() as { character?: Character; reward?: number; balances?: { ryo: number }; totalPetWins?: number; dailyPetWins?: number; capped?: boolean };
-                        // Functional updater: this write lands AFTER the await, so a
-                        // concurrent regen/heartbeat setState could otherwise be
-                        // clobbered. ryo is a RELATIVE credit read off `prev`; the
-                        // server-authoritative totals fall back to a +1 off `prev`.
-                        updateCharacter((prev) => prev ? ({
-                            ...(data.character ?? prev),
-                            ryo: data.balances?.ryo ?? prev.ryo,
-                            totalPetWins: data.totalPetWins ?? prev.totalPetWins,
-                            dailyPetWins: data.dailyPetWins ?? prev.dailyPetWins,
-                            // Preserve the consumable-clear from before the battle —
-                            // re-spreading the stale `character` would restore it.
-                            pets: clearConsumablePets([selectedPet.id]),
-                        }) : prev);
-                        if (data.capped) {
-                            setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
+        // Settlement is identical either way; only WHEN it runs differs. A live duel
+        // settles from PetColiseumDuel's onOutcome once the fight actually ends.
+        const settle1v1 = (outcome: "win" | "loss" | "draw") => {
+            setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
+            // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
+            // for non-clan-war battles since the helper no-ops without a
+            // sessionStorage stash + opponent-name match.
+            if (onClanWarBattleEnd) {
+                onClanWarBattleEnd(outcome === "draw" ? "draw" : outcome === "win", opponent.owner);
+            }
+            if (outcome === "win") {
+                // Pet Arena rewards are server-validated: we POST the win and the
+                // server applies ryo + increments totalPetWins / dailyPetWins
+                // under a per-player lock + 5s rate-limit + daily cap. Client no
+                // longer touches ryo or counters directly here.
+                void (async () => {
+                    try {
+                        // reportKey: seed-based when we have a battleSeed (refresh-
+                        // replay dedupes server-side). When the opponent has no
+                        // battleSeed (the static genericPetArenaOpponents AI list,
+                        // or any roster opponent lacking a stamp), fall back to a
+                        // click-stable key so the server doesn't 400 — Tier-2
+                        // security fix made reportKey REQUIRED for wins. The
+                        // server's daily cap + rate limits still bound damage.
+                        const battleToken = await battleTokenPromise1v1;
+                        const r = await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                playerName: character.name,
+                                outcome: "win",
+                                opponentLevel: opponent.pet.level,
+                                reportKey: reportKey1v1,
+                                battleToken,
+                                // The commands this player issued, stamped with the tick
+                                // each landed on. The server replays the seeded sim with
+                                // them and derives the outcome itself — `outcome` above is
+                                // no longer what it pays from (plan §9.6). Undefined for a
+                                // watch-only duel, which JSON.stringify simply omits.
+                                inputLog: liveDuel?.inputLog(),
+                            }),
+                        });
+                        if (r.ok) {
+                            const data = await r.json() as { character?: Character; reward?: number; balances?: { ryo: number }; totalPetWins?: number; dailyPetWins?: number; capped?: boolean };
+                            // Functional updater: this write lands AFTER the await, so a
+                            // concurrent regen/heartbeat setState could otherwise be
+                            // clobbered. ryo is a RELATIVE credit read off `prev`; the
+                            // server-authoritative totals fall back to a +1 off `prev`.
+                            updateCharacter((prev) => prev ? ({
+                                ...(data.character ?? prev),
+                                ryo: data.balances?.ryo ?? prev.ryo,
+                                totalPetWins: data.totalPetWins ?? prev.totalPetWins,
+                                dailyPetWins: data.dailyPetWins ?? prev.dailyPetWins,
+                                // Preserve the consumable-clear from before the battle —
+                                // re-spreading the stale `character` would restore it.
+                                pets: clearConsumablePets([selectedPet.id]),
+                            }) : prev);
+                            if (data.capped) {
+                                setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
+                            }
+                        } else {
+                            updateCharacter((prev) => prev ? ({ ...prev, pets: clearConsumablePets([selectedPet.id]) }) : prev);
                         }
-                    } else {
+                    } catch {
+                        // Network error: consume the battle item locally, but never mint
+                        // wallet or leaderboard progress without the server receipt.
                         updateCharacter((prev) => prev ? ({ ...prev, pets: clearConsumablePets([selectedPet.id]) }) : prev);
                     }
-                } catch {
-                    // Network error: consume the battle item locally, but never mint
-                    // wallet or leaderboard progress without the server receipt.
-                    updateCharacter((prev) => prev ? ({ ...prev, pets: clearConsumablePets([selectedPet.id]) }) : prev);
-                }
-            })();
-            // Old point-based clan war pet-battle credit removed — the new
-            // server-managed Clan War system handles pet battles via the
-            // onClanWarBattleEnd auto-report path above. The pendingClanPetBattle
-            // helper is still cleared below for backwards compatibility with
-            // saves that have the legacy breadcrumb.
-        } else {
-            // Losses and draws must also redeem the server replay token so the
-            // token cannot be reused and one-use pet consumables settle durably.
-            void (async () => {
-                try {
-                    const battleToken = await battleTokenPromise1v1;
-                    const r = await fetch("/api/pet/battle-result", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            playerName: character.name,
-                            outcome,
-                            opponentLevel: opponent.pet.level,
-                            reportKey: reportKey1v1,
-                            battleToken,
-                        }),
-                    });
-                    if (r.ok) {
-                        const data = await r.json() as { character?: Character };
-                        if (data.character) updateCharacter({
-                            ...data.character,
-                            hp: opponent.owner === "Hollow Gate"
-                                ? Math.max(1, data.character.hp - Math.max(1, Math.floor(data.character.maxHp * 0.20)))
-                                : data.character.hp,
+                })();
+                // Old point-based clan war pet-battle credit removed — the new
+                // server-managed Clan War system handles pet battles via the
+                // onClanWarBattleEnd auto-report path above. The pendingClanPetBattle
+                // helper is still cleared below for backwards compatibility with
+                // saves that have the legacy breadcrumb.
+            } else {
+                // Losses and draws must also redeem the server replay token so the
+                // token cannot be reused and one-use pet consumables settle durably.
+                void (async () => {
+                    try {
+                        const battleToken = await battleTokenPromise1v1;
+                        const r = await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                playerName: character.name,
+                                outcome,
+                                opponentLevel: opponent.pet.level,
+                                reportKey: reportKey1v1,
+                                battleToken,
+                                inputLog: liveDuel?.inputLog(),
+                            }),
                         });
-                    }
-                } catch { /* the server save remains authoritative */ }
-            })();
-            if (opponent.owner === "Hollow Gate") {
-            // Pet duel lost inside the Hollow Gate Shrine — trainer takes
-            // 20% maxHp damage as residual chakra burns through the seal.
-            // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
-            // Player still returns to the shrine via the exit button's
-            // returnScreen; not hospitalized, not run-ending.
-            const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
-            const nextHp = Math.max(1, character.hp - dmg);
-            // Preserve the consumable-clear from before the battle — re-spreading
-            // the stale `character` would restore the spent consumable.
-            updateCharacter({ ...character, hp: nextHp, pets: clearConsumablePets([selectedPet.id]) });
-            setBattleLog([...logs, `${character.name} took ${dmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
+                        if (r.ok) {
+                            const data = await r.json() as { character?: Character };
+                            if (data.character) updateCharacter({
+                                ...data.character,
+                                hp: opponent.owner === "Hollow Gate"
+                                    ? Math.max(1, data.character.hp - Math.max(1, Math.floor(data.character.maxHp * 0.20)))
+                                    : data.character.hp,
+                            });
+                        }
+                    } catch { /* the server save remains authoritative */ }
+                })();
+                if (opponent.owner === "Hollow Gate") {
+                // Pet duel lost inside the Hollow Gate Shrine — trainer takes
+                // 20% maxHp damage as residual chakra burns through the seal.
+                // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
+                // Player still returns to the shrine via the exit button's
+                // returnScreen; not hospitalized, not run-ending.
+                // Functional updater: a player-controlled duel settles up to a minute
+                // after it started, so the captured `character` is long stale by now —
+                // read maxHp off `prev` or a regen/heartbeat tick gets clobbered.
+                updateCharacter((prev) => {
+                    if (!prev) return prev;
+                    const hit = Math.max(1, Math.floor(prev.maxHp * 0.20));
+                    return { ...prev, hp: Math.max(1, prev.hp - hit), pets: clearConsumablePets([selectedPet.id]) };
+                });
+                // maxHp does not change mid-duel, so the captured value is safe for the
+                // player-facing number even though the HP subtraction above is not.
+                const shownDmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+                setBattleLog([...logs, `${character.name} took ${shownDmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
+                }
             }
-        }
-        if (pendingClanPetBattle) savePendingClanPetBattle(null);
+            if (pendingClanPetBattle) savePendingClanPetBattle(null);
+        };
+        setDuelBattle({
+            result: duel, live: liveDuel, onOutcome: (r) => settle1v1(r.result),
+            playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId,
+        });
+        setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
+        // Watch-only duels are already decided, so settle immediately as before.
+        if (duel) settle1v1(duel.result);
     }
 
     useEffect(() => {
@@ -1417,7 +1478,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             playerReservePet={duelBattle.playerReservePet}
                             enemyReservePet={duelBattle.enemyReservePet}
                             seed={duelBattle.seed}
-                            result={duelBattle.result}
+                            result={duelBattle.result ?? undefined}
+                            live={duelBattle.live ?? undefined}
+                            onOutcome={duelBattle.onOutcome}
                             sharedImages={sharedImages}
                             onFightAgain={() => startBattle(battleOpponent ?? undefined)}
                             onExit={() => {

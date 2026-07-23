@@ -7,6 +7,9 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { runPetDuel } from '../_pet-sim/pet-duel-sim.js';
+import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
+import type { SealedDuelParams } from './_duel-replay.js';
+import { SERVER_ARENA_PETS } from './_arena-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 // Pet Arena reward recorder. Non-ranked wins require a short-lived start token
@@ -96,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!ranked && !identity.admin) {
             if (!battleToken) return res.status(400).json({ error: 'A valid pet battle start token is required.' });
             const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
-            const tokenData = await kv.get<{ playerName?: string; reportKey?: string; opponentLevel?: number; playerPetIds?: string[]; authoritativeOutcome?: 'win' | 'loss' | 'draw' }>(tokenKey);
+            const tokenData = await kv.get<{ playerName?: string; reportKey?: string; opponentLevel?: number; playerPetIds?: string[]; opponentPetIds?: string[]; sealedParams?: SealedDuelParams | null; authoritativeOutcome?: 'win' | 'loss' | 'draw' }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(200).json({ ok: true, reward: 0, reason: 'invalid-or-spent-pet-battle-token' });
             }
@@ -106,7 +109,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (tokenData.authoritativeOutcome !== 'win' && tokenData.authoritativeOutcome !== 'loss' && tokenData.authoritativeOutcome !== 'draw') {
                 return res.status(409).json({ error: 'Pet battle token lacks an authoritative outcome.' });
             }
+            // ── The outcome is the SERVER's, never the client's ───────────────
+            // Baseline: the value sealed at battle-start. When the token carries
+            // sealed sim params (a PvE fight — the only kind the player can
+            // command) and the report includes the input log, the server REPLAYS
+            // the seeded cinematic sim with those inputs and uses what IT derives.
+            // Either way `body.outcome` is discarded: the client is trusted to say
+            // which buttons it pressed, never what pressing them accomplished.
+            //
+            // This is what closes plan §9.6 — before it, the reward came from an
+            // AI-vs-AI simulation on a DIFFERENT engine than the one the player
+            // watched, so outplaying the AI could still be scored a loss.
             outcome = tokenData.authoritativeOutcome;
+            const sealedParams = tokenData.sealedParams ?? null;
+            if (sealedParams) {
+                const inputLog = parseDuelInputLog((body as Record<string, unknown>).inputLog);
+                // A malformed log is NOT a payout: fall back to the sealed
+                // baseline, which is the uncommanded fight. Never better than the
+                // behaviour this replaced.
+                if (inputLog) {
+                    const meSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                    const meChar = meSave?.character as Record<string, unknown> | undefined;
+                    const storedPets = Array.isArray(meChar?.pets) ? meChar.pets as Array<Record<string, unknown>> : [];
+                    // Re-resolved from the save and the server's own AI roster —
+                    // the token carries ids, never combat stats.
+                    const replayPlayerPets = (Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [])
+                        .map((id) => storedPets.find((pet) => String(pet?.id ?? '') === id))
+                        .filter(Boolean) as unknown as Pet[];
+                    const replayOpponentPets = (Array.isArray(tokenData.opponentPetIds) ? tokenData.opponentPetIds : [])
+                        .map((id) => SERVER_ARENA_PETS[id])
+                        .filter(Boolean) as Pet[];
+                    if (replayPlayerPets.length && replayOpponentPets.length) {
+                        try {
+                            outcome = replayCasualPetDuel(replayPlayerPets, replayOpponentPets, sealedParams, inputLog).outcome;
+                        } catch (replayErr) {
+                            // Keep the sealed baseline rather than paying blind.
+                            console.error('[pet/battle-result] input-log replay failed', replayErr);
+                        }
+                    }
+                }
+            }
             opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
             sealedOpponentLevel = opponentLevelRaw;
             casualBattleTokenKey = tokenKey;

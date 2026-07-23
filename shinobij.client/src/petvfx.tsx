@@ -15,6 +15,7 @@ import { PetWarfrontMatch } from "./components/PetWarfrontMatch";
 import { WF_THEMES, type WfTheme } from "./lib/pet-warfront-map";
 import type { WfBuyPolicy, WfStance } from "./lib/pet-warfront-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "./lib/pet-duel-cinematic";
+import { createLiveDuel, createLivePartyDuel } from "./lib/pet-duel-live";
 import { PetBoardArena } from "./components/PetBoardArena";
 import { PetGauntlet } from "./components/PetGauntlet";
 import { runPetGridBattle } from "./lib/pet-board-sim";
@@ -75,6 +76,10 @@ function Harness() {
     // ?cine=1 — play the NEW cinematic engine (pet-duel-cinematic.ts) through the
     // same renderer (precompute the result + pass it in).
     const cineMode = PARAMS.get("cine") === "1";
+    // ?control=1 — the PLAYER-CONTROLLED duel (docs/pet-coliseum-player-control-plan.md):
+    // the fight runs live behind the command deck instead of being precomputed.
+    // This is the manual QA route for orders, stance, Auto and Bond Break.
+    const controlMode = PARAMS.get("control") === "1";
     // ?model3d=1 — force a pair of evolved starters with approved GLB combat art.
     // This is the deterministic visual-QA route for the live 3D Coliseum path.
     const modelQaMode = PARAMS.get("modelqa") === "1";
@@ -229,17 +234,30 @@ function Harness() {
 
     const frame = frames[i];
     const restart = () => { setI(0); setPlaying(true); };
+    const liveDuel = useMemo(() => {
+        if (!controlMode) return undefined;
+        return partyMode
+            ? createLivePartyDuel(duelPlayer, duelPlayerRes, duelEnemy, duelEnemyRes, seed, 1, 1, false, true, undefined)
+            : createLiveDuel(duelPlayer, duelEnemy, seed, 1, 1, false, true, undefined, null);
+    }, [controlMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
     const cineResult = useMemo(() => {
-        if (!cineMode) return undefined;
+        if (!cineMode || controlMode) return undefined;
         return partyMode
             ? runPetPartyDuelCinematic(duelPlayer, duelPlayerRes, duelEnemy, duelEnemyRes, seed, 1, 1, false, true, undefined, DEBUG_AI)
             : runPetDuelCinematic(duelPlayer, duelEnemy, seed, 1, 1, false, true, undefined, null, DEBUG_AI);
-    }, [cineMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
+    }, [cineMode, controlMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
     useEffect(() => {
         // Dev-only deterministic QA hook: lets the browser harness locate exact
         // maneuver/signature ticks without adding scrub controls to production UI.
         (window as unknown as { __petDuelResult?: unknown }).__petDuelResult = cineResult;
     }, [cineResult]);
+    useEffect(() => {
+        // Same idea for the player-controlled duel: exposes the live controller so
+        // the browser QA loop can advance playback and issue orders without needing
+        // a compositing WebGL frame (the render loop is throttled when the pane is
+        // hidden, which would otherwise freeze the fight).
+        (window as unknown as { __petLiveDuel?: unknown }).__petLiveDuel = liveDuel;
+    }, [liveDuel]);
 
     const btn: React.CSSProperties = { padding: "6px 12px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 6, cursor: "pointer", font: "600 12px Inter, sans-serif" };
     if (modelQaMode) return <PetModelQa />;
@@ -250,7 +268,7 @@ function Harness() {
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
             {cineResult && <output hidden data-testid="pet-duel-qa" data-events={JSON.stringify(cineResult.events)} />}
             <output hidden data-testid="pet-atlas-remount-qa" data-remounts={qaRemounts} />
-            {(duelMode || cineMode) && qaFightMounted && (
+            {(duelMode || cineMode || controlMode) && qaFightMounted && (
                 <PetColiseumDuel
                     playerPet={duelPlayer}
                     enemyPet={duelEnemy}
@@ -258,6 +276,7 @@ function Harness() {
                     enemyReservePet={partyMode ? duelEnemyRes : undefined}
                     seed={seed}
                     result={cineResult}
+                    live={liveDuel}
                     initialTick={START_DUEL_TICK}
                     sharedImages={harnessShared}
                     onFightAgain={restart}
