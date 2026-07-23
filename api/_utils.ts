@@ -255,4 +255,8 @@ export function cors(
     // no ACAO header is emitted. Browser blocks the request.
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-admin-token, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
+    // Kept in sync with the mirrored CORS middleware in server.ts. Exposes the
+    // sliding session-token refresh header so a cross-origin client (vite dev
+    // server) can read it; without it those sessions would still hit the 24h wall.
+    res.setHeader('Access-Control-Expose-Headers', 'x-player-token-refresh');
 }
