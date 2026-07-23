@@ -2716,7 +2716,7 @@ export function AdminPanel({
                                                         <select value={choice.battle?.encounterType ?? "ai"} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), encounterType: e.target.value as "ai" | "pet" | "tiles" } } : c) })}>
                                                             <option value="ai">AI Fight</option>
                                                             <option value="pet">Pet Battle</option>
-                                                            <option value="tiles">Shinobi Card Clash</option>
+                                                            <option value="tiles">Legacy Card Archive</option>
                                                         </select>
                                                         <label>Difficulty</label>
                                                         <select value={choice.battle?.difficulty ?? "normal"} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), difficulty: e.target.value as "easy" | "normal" | "hard" | "impossible" } } : c) })}>
@@ -4359,7 +4359,7 @@ export function AdminPanel({
                 <div className="admin-subpanel">
                     <div className="admin-panel-heading">
                         <h3>Card Editor</h3>
-                        <p>Create and edit Shinobi Card Clash cards. Changes persist across sessions.</p>
+                        <p>Maintain archived tile-card source content. The live Chronicle catalog is versioned in code.</p>
                     </div>
 
                     <section className="summary-box">

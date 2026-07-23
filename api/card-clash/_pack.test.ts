@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+import { deckLimitForCard } from '../../shared/chronicle-duel.js';
 import { applyCardPackOpen, cardPackCost, cardPackDiscountPercent } from './_pack.js';
 
 test('standard pack mirrors the village, elder, clan, and doctrine discount and grants five canonical cards', () => {
@@ -53,4 +54,36 @@ test('pack opening fails closed for invalid type, insufficient balance, and coll
     );
     const capped = applyCardPackOpen({ ryo: 999, tileCards: Array(1200).fill('tc-01') }, 'standard', () => 0);
     assert.deepEqual(capped, { ok: false, status: 409, error: 'Card collection is capped at 1200.' });
+});
+
+test('packs prefer useful second and third deck copies and protect completed tiers', () => {
+    const standardPool = Object.entries(BUILTIN_CLASH)
+        .filter(([, card]) => ['common', 'rare'].includes(card.rarity))
+        .map(([id]) => id);
+    const cappedId = standardPool[0];
+    const opened = applyCardPackOpen(
+        { ryo: 999, tileCards: [cappedId, cappedId, cappedId] },
+        'standard',
+        () => 0,
+    );
+    assert.equal(opened.ok, true);
+    if (!opened.ok) return;
+    assert.notEqual(opened.cards[0], cappedId);
+
+    const legendaryPool = Object.entries(BUILTIN_CLASH)
+        .filter(([, card]) => card.rarity === 'legendary')
+        .map(([id]) => id);
+    const completedLegendaryTier = legendaryPool.flatMap((id) =>
+        Array(deckLimitForCard(id)).fill(id),
+    );
+    const protectedOpen = applyCardPackOpen(
+        { fateShards: 999, tileCards: completedLegendaryTier },
+        'legendary',
+        () => 0,
+    );
+    assert.deepEqual(protectedOpen, {
+        ok: false,
+        status: 409,
+        error: 'This pack tier cannot provide another playable card. No currency was spent.',
+    });
 });
