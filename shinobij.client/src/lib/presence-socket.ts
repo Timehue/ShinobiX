@@ -189,6 +189,28 @@ export function disconnectRealtime(): void {
     statusHandlers.forEach((h) => h(false));
 }
 
+/**
+ * Send an arbitrary event on the SHARED realtime connection.
+ *
+ * Live pet duels (lib/pet-duel-transport.ts) ride this socket rather than open a
+ * second one: the handshake is already authenticated with the same token → password
+ * → ban path as every HTTP route, and a duel that outlived a presence reconnect
+ * would desynchronise anyway. Returns false when realtime is unavailable, which
+ * is the caller's cue to fall back — PvP duels are live-only, so "no socket"
+ * means "cannot duel", not "duel offline".
+ */
+export function emitRealtime(event: string, payload?: unknown): boolean {
+    if (!socket || !socket.connected) return false;
+    socket.emit(event, payload);
+    return true;
+}
+
+/** Subscribe to an arbitrary server event on the shared connection. */
+export function onRealtime(event: string, fn: (payload: unknown) => void): () => void {
+    socket?.on(event, fn);
+    return () => { socket?.off(event, fn); };
+}
+
 export function onSector(fn: SectorHandler): () => void {
     sectorHandlers.add(fn);
     return () => { sectorHandlers.delete(fn); };

@@ -11,7 +11,7 @@ import {
     petsForMode, DAILY_CHALLENGES, AI_SEED_COUNT, CLIMB_BAND,
     chooseOwnedLadderPets, ladderRoles, petLite,
     buildOffer, canChallenge, applyChallenge, projectLadder,
-    resolveColiseum, resolveTactical, isAiId, aiIndexOf,
+    resolveColiseum, resolveTactical, isAiId, aiIndexOf, parseStance, parseDoctrineChoice,
     aiColiseumDefense, aiTacticalDefense, AI_COLISEUM, AI_TACTICAL,
 } from './_core.js';
 
@@ -87,6 +87,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rank: myIdx >= 0 ? myIdx + 1 : null,
                 hasDefense: !!myDef,
                 defense: myDef ? myDef.pets.map(petLite) : null,
+                // The rest of the tactical setup, so the screen can show what is
+                // actually stored rather than resetting the pickers to defaults.
+                stance: myDef?.stance,
+                doctrine: myDef?.doctrine,
                 challengesLeft: Math.max(0, DAILY_CHALLENGES - usedToday),
                 band: CLIMB_BAND,
             },
@@ -124,7 +128,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!pets) return res.status(400).json({ error: count === 1 ? 'Pick a pet you own.' : `Pick ${count} pets you own.` });
             const displayName = String(save?.character?.name ?? me).slice(0, 40);
             const village = typeof save?.character?.village === 'string' ? save!.character!.village : undefined;
-            const def: DefenseDoc = { slug: me, name: displayName, village, mode, pets, roles: ladderRoles(pets), updatedAt: now };
+            // Tactical carries the full pre-match setup: team + opening formation +
+            // team doctrine. Coliseum has neither concept, so they are simply absent.
+            const def: DefenseDoc = {
+                slug: me, name: displayName, village, mode, pets, roles: ladderRoles(pets),
+                ...(mode === 'tactical' ? {
+                    stance: parseStance((body as { stance?: unknown }).stance),
+                    doctrine: parseDoctrineChoice((body as { doctrine?: unknown }).doctrine),
+                } : {}),
+                updatedAt: now,
+            };
             await kv.set(defKey(mode, me), def);
             // Keep the public list summary fresh if I'm already ranked.
             await withKvLock(orderKey(mode), async () => {
@@ -132,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const i = order.findIndex((e) => e.slug === me);
                 if (i >= 0) { order[i] = { ...order[i], name: displayName, village, summary: pets.map(petLite), updatedAt: now }; await kv.set(orderKey(mode), order); }
             });
-            return res.status(200).json({ ok: true, defense: pets.map(petLite) });
+            return res.status(200).json({ ok: true, defense: pets.map(petLite), stance: def.stance, doctrine: def.doctrine });
         }
 
         // ── Build the 3-opponent offer (close-above humans + AI fill) ──────────
@@ -213,7 +226,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Sealed replay for the client cinematic (deterministic from seed + rosters).
             const replay = mode === 'tactical'
-                ? { kind: 'tactical' as const, seed, blue: myDef.pets.map((p, i) => ({ pet: p, role: myDef.roles[i] })), red: targetDef.pets.map((p, i) => ({ pet: p, role: targetDef!.roles[i] })) }
+                ? {
+                    kind: 'tactical' as const, seed,
+                    blue: myDef.pets.map((p, i) => ({ pet: p, role: myDef.roles[i] })),
+                    red: targetDef.pets.map((p, i) => ({ pet: p, role: targetDef!.roles[i] })),
+                    // Without these the client would replay a DIFFERENT match than the
+                    // one the server just scored, and the banner would contradict the rank.
+                    blueStance: parseStance(myDef.stance), redStance: parseStance(targetDef.stance),
+                    blueDoctrine: parseDoctrineChoice(myDef.doctrine), redDoctrine: parseDoctrineChoice(targetDef.doctrine),
+                }
                 : { kind: 'coliseum' as const, seed, player: myDef.pets[0], enemy: targetDef.pets[0] };
 
             return res.status(200).json({ won, mode, targetId, rank, challengesLeft: Math.max(0, DAILY_CHALLENGES - used), replay });

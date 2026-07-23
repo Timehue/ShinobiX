@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/purity */
+import { PetDoctrineEditor } from "../components/PetDoctrineEditor";
 import { useState, useEffect, useRef } from "react";
 import { serverNow } from "../lib/server-clock";
 import { maxPets } from "../lib/entitlements";
@@ -1111,6 +1112,23 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 ) : (
                                     <p>No trait discovered.</p>
                                 )}
+                            </section>
+
+                            {/* Standing orders — what this pet does while holding a
+                                sector or if the connection drops mid-duel. */}
+                            <section className="pet-doctrine-panel">
+                                <PetDoctrineEditor
+                                    pet={selectedPet}
+                                    onChange={(doctrine) => {
+                                        // Local + persisted through the normal save path. Purely a
+                                        // plan: it grants no stats, so there is nothing for the
+                                        // server to validate beyond the shape parseDoctrine enforces.
+                                        updateCharacter((prev) => prev ? ({
+                                            ...prev,
+                                            pets: prev.pets.map((p) => p.id === selectedPet.id ? { ...p, doctrine } : p),
+                                        }) : prev);
+                                    }}
+                                />
                             </section>
 
                             <section className="pet-jutsu-panel">
