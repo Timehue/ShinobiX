@@ -22,7 +22,7 @@ const HINTS: Partial<Record<Screen, string>> = {
     pets: "Pet Yard - manage companions, expeditions, and your active pet. Deep pet battles can wait until you know your main loop.",
     professions: "Professions - choose a long-term role once it unlocks. The choice shapes rewards, not your basic combat controls.",
     shop: "Shop - buy gear and consumables with ryo. Early armor and a backup item are worth more than hoarding cash.",
-    shinobiTiles: "Card Hall - a beta side mode. Treat it as variety after your training, missions, and Logbook are moving.",
+    shinobiTiles: "Card Hall - build a 40-card Chronicle deck, learn the phase flow against AI, or queue for free-play PvP.",
     townHall: "Town Hall - village upgrades improve services and rewards. War controls are advanced beta systems.",
     training: "Training Grounds - start a timed stat session whenever idle. Training keeps working while you play elsewhere.",
     worldMap: "World Map - explore sectors for missions, encounters, pets, and materials. Return to the village before pushing too far.",
