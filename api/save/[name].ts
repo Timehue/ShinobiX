@@ -30,6 +30,11 @@ import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
 import { maxLoadout, maxPets, isPatreonSubscriber, isPresetAvatar } from '../_entitlements.js';
+import {
+    CHRONICLE_RULES_VERSION,
+    countChronicleCardsWithStarter,
+    validateDeckIds,
+} from '../../shared/chronicle-duel.js';
 
 // Non-owner reads use an explicit ALLOWLIST at BOTH the root and character
 // level (see buildPublicSaveDTO). A blacklist is not the boundary anymore: the
@@ -985,7 +990,7 @@ export function sanitizeCharacterSave(
         // achievements but never decreased through legitimate play.
         totalStatsTrained: 0,
         totalMissionsCompleted: 0,
-        // Shinobi Card Clash lifetime tallies — feed quest metrics (e.g. the
+        // Shinobi Chronicle Duel lifetime tallies — feed quest metrics (e.g. the
         // Card Hall progression). Client-incremented per duel, so without a
         // per-save clamp a tampered save could jump these 0 → 999K to
         // auto-complete a "win N card games" quest. A single save can only
@@ -1532,6 +1537,36 @@ export function sanitizeCharacterSave(
     }
     const entitledTileCards = preserveEntitledStringArray(char.tileCards, exChar.tileCards, () => true);
     if (entitledTileCards) char.tileCards = entitledTileCards;
+
+    // A stale deck is preserved until the player explicitly saves a legal
+    // current-rules replacement. Forged, malformed or unowned submissions can
+    // never overwrite the last valid deck.
+    if ('cardClashDeck' in char) {
+        const requestedDeck = Array.isArray(char.cardClashDeck)
+            ? char.cardClashDeck.filter((id): id is string => typeof id === 'string')
+            : [];
+        const ownedCards = countChronicleCardsWithStarter(
+            Array.isArray(char.tileCards)
+                ? char.tileCards.filter((id): id is string => typeof id === 'string')
+                : [],
+        );
+        if (validateDeckIds(requestedDeck, ownedCards).valid) {
+            char.cardClashDeck = requestedDeck;
+        } else if (Array.isArray(exChar.cardClashDeck)) {
+            char.cardClashDeck = structuredClone(exChar.cardClashDeck);
+        } else {
+            delete char.cardClashDeck;
+        }
+    }
+    if ('cardClashTutorialVersion' in char) {
+        char.cardClashTutorialVersion = Math.max(
+            0,
+            Math.min(
+                CHRONICLE_RULES_VERSION,
+                Math.floor(Number(char.cardClashTutorialVersion) || 0),
+            ),
+        );
+    }
 
     // ─── battleHistory caps ───────────────────────────────────────────────────
     // Display-only "recent fights" reflection log (Profile → Battles). Carries no
