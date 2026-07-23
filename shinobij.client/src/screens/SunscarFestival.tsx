@@ -31,7 +31,7 @@ export function SunscarFestival({
         "Kael the Sand Dealer watches you from beneath a gold mask."
     );
 
-    // -- Card Duel state — Miraa plays Chronicle Duel as the wager's theatre --
+    // -- Card Showdown state — Miraa plays Chronicle Showdown as the wager's theatre --
     // The stake is escrowed server-side at "bet" (miraa-start → duelToken); the
     // ryo outcome is server-rolled at settle (reportMiraaWager), never decided by
     // the client card result. The match is the show; the fates decide the purse.
@@ -125,7 +125,7 @@ export function SunscarFestival({
         }
     }
 
-    // -- Chronicle Duel wager vs Miraa ---------------------------------------
+    // -- Chronicle Showdown wager vs Miraa ---------------------------------------
     if (duelPhase === "bet") {
         return (
             <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
@@ -237,7 +237,7 @@ export function SunscarFestival({
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
                         "The cards remember every shinobi who has sat across from me. Most don't return."
                     </p>
-                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Duel</strong> and wager on the fates. Win, and the pot doubles.</p>
+                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Showdown</strong> and wager on the fates. Win, and the pot doubles.</p>
                     <button onClick={() => setDuelPhase("bet")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
                 </section>
 

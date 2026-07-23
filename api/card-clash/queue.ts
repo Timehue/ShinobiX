@@ -7,7 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { randomUUID } from 'node:crypto';
 
 /*
- * /api/card-clash/queue — open matchmaking for free-play Chronicle Duel PvP.
+ * /api/card-clash/queue — open matchmaking for free-play Chronicle Showdown PvP.
  *
  * Forked from api/pvp/pet-ranked-queue.ts: join/leave/poll against a shared queue
  * blob under withKvLock. Whoever polls first and finds an opponent mints a shared
@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
  * /api/card-clash/match handler reads to authorise the two joiners. Both players
  * then join /api/card-clash/match with the minted matchId.
  *
- * Chronicle Duel has no rating, so pairing is by LEVEL proximity (band widens with
+ * Chronicle Showdown has no rating, so pairing is by LEVEL proximity (band widens with
  * wait time, falls back to anyone). Free-play is UNRANKED with NO currency reward
  * — the match handler pays nothing, so there is no win-trading incentive here.
  *

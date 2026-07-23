@@ -5307,7 +5307,7 @@ export function Arena({
                             {/* ── Card Battle Spar ───────────────────────────────── */}
                             <section className="summary-box">
                                 <h3><GiRollingDices style={ARENA_ICON} />Card Battle Spar</h3>
-                                <p className="hint">Play Shinobi Chronicle Duel against the AI or a live free-play opponent at the Card Hall.</p>
+                                <p className="hint">Play Shinobi Chronicle Showdown against the AI or a live free-play opponent at the Card Hall.</p>
                                 <button onClick={() => setScreen("shinobiTiles")}><GiRollingDices style={ARENA_ICON} />Open Card Hall</button>
                             </section>
                         </>

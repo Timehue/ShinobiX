@@ -106,7 +106,7 @@ button.chronicle-card {
   box-sizing: border-box;
   position: relative;
   display: grid;
-  grid-template-rows: 46px 22px minmax(0, 1fr) 86px 29px 14px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
   width: 252px;
   aspect-ratio: 5 / 7;
   overflow: hidden;
@@ -197,34 +197,48 @@ button.chronicle-card {
   border-radius: 7px;
 }
 .chronicle-card__header {
-  z-index: 2;
+  z-index: 3;
+  grid-row: 1;
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: center;
   min-width: 0;
-  min-height: 46px;
-  margin: 1px 1px 0;
-  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 74%, #dbe7f0);
-  border-bottom: 4px solid var(--chronicle-frame);
+  min-height: 44px;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 66%, transparent);
+  border-bottom: 2px solid var(--chronicle-frame);
+  border-radius: 5px 5px 0 0;
   background:
-    linear-gradient(100deg, rgba(38, 48, 58, 0.96), rgba(6, 11, 17, 0.98) 76%),
+    linear-gradient(
+      100deg,
+      rgba(20, 27, 34, 0.82),
+      rgba(4, 8, 12, 0.9) 78%
+    ),
     var(--chronicle-frame);
-  padding: 6px 8px 5px;
+  padding: 5px 8px 5px;
   box-shadow:
-    inset 0 0 14px rgba(255, 255, 255, 0.055),
-    0 2px 7px rgba(0, 0, 0, 0.6);
+    inset 0 0 14px rgba(255, 255, 255, 0.05),
+    0 2px 10px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
 }
 .chronicle-card__class {
+  grid-row: 1;
   grid-column: 1;
-  color: color-mix(in srgb, var(--chronicle-frame) 78%, #fff);
+  align-self: end;
+  color: color-mix(in srgb, var(--chronicle-frame) 82%, #fff);
   font-size: 0.5rem;
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.19em;
+  text-shadow: 0 1px 2px #000;
 }
 .chronicle-card__name {
   display: -webkit-box;
+  grid-row: 2;
   grid-column: 1;
+  align-self: center;
   min-width: 0;
   color: #f8f3e8;
   font:
@@ -251,11 +265,12 @@ button.chronicle-card {
   position: relative;
   grid-column: 2;
   grid-row: 1 / span 2;
+  align-self: center;
   display: grid;
   place-items: center;
   width: 41px;
   height: 41px;
-  margin-left: 7px;
+  margin-left: 0;
   clip-path: polygon(25% 4%, 75% 4%, 98% 50%, 75% 96%, 25% 96%, 2% 50%);
   background: linear-gradient(
     145deg,
@@ -291,18 +306,28 @@ button.chronicle-card {
   --chronicle-element: var(--chronicle-frame);
 }
 .chronicle-card__discipline {
-  z-index: 2;
+  z-index: 3;
+  grid-row: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 5px;
-  min-height: 22px;
-  padding: 3px 6px 2px;
-  color: #d1d9e1;
+  min-height: 20px;
+  margin: 0;
+  border-left: 1px solid color-mix(in srgb, var(--chronicle-frame) 44%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--chronicle-frame) 44%, transparent);
+  background: linear-gradient(
+    180deg,
+    rgba(4, 8, 12, 0.86),
+    rgba(4, 8, 12, 0.52)
+  );
+  padding: 3px 8px 3px;
+  color: #e6ecf3;
   font-size: 0.5rem;
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px #000;
 }
 .chronicle-card__level-marks {
   display: flex;
@@ -333,31 +358,49 @@ button.chronicle-card {
   letter-spacing: 0.07em;
 }
 .chronicle-card__art-frame {
-  position: relative;
-  z-index: 2;
-  min-height: 0;
-  margin: 0 4px;
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  margin: 0;
   overflow: hidden;
-  border: 3px solid #020405;
-  outline: 2px solid color-mix(in srgb, var(--chronicle-frame) 62%, #83909c);
+  border: 0;
+  border-radius: 8px;
   background:
     radial-gradient(
-      circle,
-      color-mix(in srgb, var(--chronicle-frame) 24%, transparent),
+      circle at 50% 34%,
+      color-mix(in srgb, var(--chronicle-frame) 22%, transparent),
       transparent 62%
     ),
     #060b10;
-  box-shadow:
-    inset 0 0 18px #000,
-    0 3px 9px #000;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+/* Readability scrim: darken the top (name/level) and bottom (stats/footer)
+   bands so overlaid text stays legible over any illustration, while leaving
+   the illustration's focal center fully visible. */
+.chronicle-card__art-frame::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(2, 6, 10, 0.66) 0%,
+    rgba(2, 6, 10, 0.16) 15%,
+    transparent 30%,
+    transparent 48%,
+    rgba(2, 6, 10, 0.55) 68%,
+    rgba(2, 6, 10, 0.9) 100%
+  );
 }
 .chronicle-card__art {
-  position: relative;
+  position: absolute;
   z-index: 1;
+  inset: 0;
   width: 100%;
-  min-height: 0;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 26%;
   background: #060b10;
 }
 .chronicle-card__art-frame.emblem-art {
@@ -393,47 +436,37 @@ button.chronicle-card {
 }
 .chronicle-card__art-mark {
   position: absolute;
-  inset: 50% auto auto 50%;
+  z-index: 0;
+  inset: 42% auto auto 50%;
   transform: translate(-50%, -50%);
-  color: color-mix(in srgb, var(--chronicle-frame) 35%, transparent);
+  color: color-mix(in srgb, var(--chronicle-frame) 32%, transparent);
   font:
-    900 1.4rem/1 Georgia,
+    900 1.8rem/1 Georgia,
     serif;
   letter-spacing: 0.08em;
 }
 .chronicle-card__art-seal {
-  position: absolute;
-  z-index: 2;
-  right: 6px;
-  bottom: 6px;
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  clip-path: polygon(50% 0, 92% 24%, 92% 76%, 50% 100%, 8% 76%, 8% 24%);
-  background: color-mix(in srgb, var(--chronicle-frame) 82%, #091016);
-  color: #fff;
-  font:
-    900 0.58rem/1 ui-monospace,
-    monospace;
-  filter: drop-shadow(0 2px 3px #000);
+  display: none;
 }
 .chronicle-card__dossier {
-  z-index: 2;
+  z-index: 3;
+  grid-row: 4;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 86px;
-  margin: 5px 2px 0;
-  border: 2px solid color-mix(in srgb, var(--chronicle-frame) 54%, #536272);
+  min-height: 0;
+  margin: 0 2px;
+  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 60%, #536272);
+  border-radius: 4px;
   background: linear-gradient(
     155deg,
-    rgba(240, 238, 224, 0.98),
-    rgba(190, 199, 198, 0.97)
+    rgba(243, 240, 227, 0.97),
+    rgba(203, 210, 207, 0.96)
   );
-  padding: 6px 7px;
+  padding: 5px 7px;
   color: #111820;
-  box-shadow: inset 0 0 0 2px rgba(16, 23, 29, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(16, 23, 29, 0.14),
+    0 3px 12px rgba(0, 0, 0, 0.55);
 }
 .chronicle-card__line {
   display: flex;
@@ -458,27 +491,35 @@ button.chronicle-card {
 }
 .chronicle-card__text {
   display: -webkit-box;
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   overflow: hidden;
   color: #16212a;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 0.64rem;
-  line-height: 1.2;
-  -webkit-line-clamp: 5;
+  font-size: 0.63rem;
+  line-height: 1.22;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 .chronicle-card__stats {
-  z-index: 2;
+  z-index: 3;
+  grid-row: 5;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 9px;
-  min-height: 29px;
-  border-top: 1px solid
-    color-mix(in srgb, var(--chronicle-frame) 48%, transparent);
-  padding: 4px 6px 1px;
+  min-height: 26px;
+  margin: 2px 2px 0;
+  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 40%, transparent);
+  border-radius: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 11, 17, 0.62),
+    rgba(3, 7, 11, 0.86)
+  );
+  padding: 4px 8px;
   color: #f5efe4;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px #000;
 }
 .chronicle-card__stats span {
   display: flex;
@@ -503,15 +544,23 @@ button.chronicle-card {
   transform: rotate(18deg);
 }
 .chronicle-card__support-kind {
-  z-index: 2;
+  z-index: 3;
+  grid-row: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 5px;
-  min-height: 29px;
-  border-top: 1px solid
-    color-mix(in srgb, var(--chronicle-frame) 48%, transparent);
-  padding: 3px 6px 1px;
+  min-height: 26px;
+  margin: 2px 2px 0;
+  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 40%, transparent);
+  border-radius: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 11, 17, 0.62),
+    rgba(3, 7, 11, 0.86)
+  );
+  padding: 3px 8px;
+  text-shadow: 0 1px 2px #000;
 }
 .chronicle-card__support-kind b {
   color: color-mix(in srgb, var(--chronicle-frame) 74%, #fff);
@@ -526,18 +575,19 @@ button.chronicle-card {
   text-overflow: ellipsis;
 }
 .chronicle-card__footer {
-  z-index: 2;
+  z-index: 3;
+  grid-row: 6;
   display: flex;
   justify-content: space-between;
   gap: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.13);
-  padding: 3px 4px 0;
-  color: #8d99a5;
+  padding: 3px 6px 1px;
+  color: #b3bdc8;
   font:
     700 0.42rem/1.1 ui-monospace,
     monospace;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px #000;
 }
 .chronicle-card__id {
   color: #667585;
@@ -1448,8 +1498,9 @@ button.chronicle-card {
   box-shadow: 0 30px 100px rgba(0, 0, 0, 0.78);
 }
 .chronicle-card-inspector__dialog .chronicle-card {
-  grid-template-rows: 66px 34px minmax(0, 1fr) 164px 42px 20px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
   width: min(420px, 86vw);
+  aspect-ratio: 5 / 7;
   padding: 15px;
   border-width: 4px;
 }
@@ -1876,7 +1927,7 @@ button.chronicle-card {
     padding: 48px 10px 24px;
   }
   .chronicle-card-inspector__dialog .chronicle-card {
-    grid-template-rows: 66px 34px minmax(0, 1fr) 196px 42px 20px;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
     min-height: 520px;
   }
   .chronicle-header {

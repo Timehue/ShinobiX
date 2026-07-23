@@ -30,7 +30,7 @@ function num(v: unknown): number {
  * Server-side Sunscar settlement. Every payout is decided here — the client is
  * never trusted for a ryo outcome:
  *   - `dice`  — fully rolled + paid server-side (fixed cost, daily cap).
- *   - `miraa` — a wager on server-authoritative Shinobi Chronicle Duel whose outcome the
+ *   - `miraa` — a wager on server-authoritative Shinobi Chronicle Showdown whose outcome the
  *     client owns and cannot be verified cheaply. Settled via the mint-token
  *     escrow pattern: `miraa-start` debits the stake and seals `bet` into a
  *     single-use token; `miraa-report` consumes the token and SERVER-ROLLS the

@@ -15,7 +15,7 @@ export function CardClashTutorial({ onClose }: { onClose: () => void }) {
       className="chronicle-tutorial-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Shinobi Chronicle Duel tutorial"
+      aria-label="Shinobi Chronicle Showdown tutorial"
       onClick={onClose}
     >
       <div
@@ -33,7 +33,7 @@ export function CardClashTutorial({ onClose }: { onClose: () => void }) {
             through Draw, Standby, Main 1, Battle, Main 2 and End.
           </p>
           <p>
-            Summon or Set once per turn. Set Traps wait one turn and allow one
+            Summon or Set once per turn. Set Snares wait one turn and allow one
             matching response.
           </p>
           <p>
