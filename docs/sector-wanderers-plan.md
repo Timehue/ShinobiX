@@ -175,7 +175,7 @@ That single lesson drives two decisions below (subtle tell; scripted dialogue).
 | Session-verified, idempotent settlement | outcome checked against session; NX claim key | `api/pvp/claim-rewards.ts:120-130` |
 | Server-authoritative quest claim | mission catalog + claim path | `api/missions/claim-mission.ts`, `api/missions/_mission-catalog.ts` |
 | **Deterministic, server-re-runnable pet duel** | `runPetDuel`/`runPetPartyDuel` (seeded LCG, quantized, byte-identical) + token/settle | `shinobij.client/src/lib/pet-duel-sim.ts`, `api/pet/ranked-start.ts`, `api/pet/battle-result.ts` |
-| **Card-game engine + match record/settle** | client engine + the server-authoritative clan-war port | `shinobij.client/src/lib/card-clash.ts`, `api/clan/war/_card-clash-engine.ts`, `data/tile-cards.ts` |
+| **Card-game engine + match record/settle** | shared server-authoritative Chronicle rules + thin client projection | `shared/chronicle-duel.ts`, `api/card-clash/*`, `shinobij.client/src/lib/chronicle-duel.ts` |
 | Dialogue / visual-novel encounter UI | `CreatorEvent` (`eventKind: "visualNovel"`) | `App.tsx` (CreatorEvent type), `WorldMap.tsx:1351` |
 
 A Wanderer is, in effect: *a `CreatorAi` given a player-style avatar + name, placed
@@ -370,10 +370,10 @@ Server safety (reuse `pet/ranked-start` → `pet/battle-result`, the verified pa
 - **Casual PvE only** — it never touches the pet ranked rating (`petRankedRating`).
 - Stakes: high (server-validated). Start reward-on-win; an ante is a safe later add.
 
-### 4.6 Shinobi Card Clash challenge (Phase 5c)
+### 4.6 Shinobi Chronicle Duel challenge (Phase 5c)
 
 A gambler/strategist Wanderer deals you in. Flow: accept → a **Card Clash** match
-against a **fixed Wanderer deck** (`lib/card-clash.ts`, Card Hall UI).
+against a **fixed Chronicle deck** (`shared/chronicle-duel.ts`, Card Hall UI).
 
 Server safety (the card outcome is **not** server-verifiable — hands are secret, the
 engine is non-deterministic):
