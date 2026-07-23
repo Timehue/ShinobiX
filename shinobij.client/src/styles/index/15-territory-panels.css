@@ -708,6 +708,16 @@
     overflow-wrap: anywhere;
 }
 
+/* The one-line stand-in for the Territory card on an unclaimed, uncontested
+   sector — see WorldMap `territoryIsLive`. Quiet by design: it explains why the
+   meters are absent without competing with the actions below it. Scoped to the
+   command panel because the generic `.map-instance .sector-command-panel p`
+   above already claims every paragraph in here and would otherwise win. */
+.map-instance .sector-command-panel .sector-territory-idle-note {
+    margin: 0 !important;
+    color: var(--slate-400) !important;
+}
+
 .sector-rebuild-note {
     padding: var(--sp-2) !important;
     border: 1px solid rgba(250, 204, 21, 0.36) !important;
