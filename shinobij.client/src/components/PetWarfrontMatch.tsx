@@ -2199,6 +2199,12 @@ export type PetWarfrontMatchProps = {
      * every War Council when the council is interactive. */
     stance?: WfStance;
     doctrine?: WfDoctrine;
+    /** The OPPONENT's formation/doctrine. Needed whenever this component is
+     *  replaying a match someone else resolved (a ranked ladder defense fights
+     *  with its own setup) — leaving them at the defaults would replay a
+     *  different fight than the one that was scored. */
+    opponentStance?: WfStance;
+    opponentDoctrine?: WfDoctrine;
     /** Enables the 🎲 New-match button (vs-AI / harness). Leave off for shared
      * co-op/PvP replays, where both clients must stay on the agreed seed. */
     allowReseed?: boolean;
@@ -2206,7 +2212,7 @@ export type PetWarfrontMatchProps = {
     onResult?: (result: WarfrontResult) => void;
 };
 
-export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", stance = "balanced", doctrine = "none", allowReseed = false, onExit, onResult }: PetWarfrontMatchProps) {
+export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, onExit, onResult }: PetWarfrontMatchProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     // Restart machinery: bumping `run` rebuilds the sim from scratch (same seed
     // → identical match); `seedBump` rolls a fresh deterministic seed.
@@ -2226,11 +2232,11 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // The interactive chunked sim: round 1 (0→30 s) is computed at mount so the
     // stage always has snapshots; later rounds advance at each boundary.
     const ctl = useMemo(() => {
-        const c = startWarfrontMatch(blue, red, effectiveSeed, { bluePolicy: autoBuy, redPolicy: "balanced", theme, blueStance: stance, blueDoctrine: doctrine });
+        const c = startWarfrontMatch(blue, red, effectiveSeed, { bluePolicy: autoBuy, redPolicy: "balanced", theme, blueStance: stance, blueDoctrine: doctrine, redStance: opponentStance, redDoctrine: opponentDoctrine });
         c.advanceRoundPartial(WARFRONT_TPS * 8);   // seed ~8s of runway; the pump streams the rest
         return c;
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
-    }, [blue, red, effectiveSeed, autoBuy, theme, stance, run]);
+    }, [blue, red, effectiveSeed, autoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
     const result = ctl.result;
     const clock = useRef<{ t: number; playing: boolean; slow: number }>({ t: 0, playing: true, slow: 0 });
     const shake = useRef(0);
