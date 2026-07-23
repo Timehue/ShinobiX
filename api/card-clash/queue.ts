@@ -1,4 +1,3 @@
-import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -8,7 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { randomUUID } from 'node:crypto';
 
 /*
- * /api/card-clash/queue — open matchmaking for FREE-PLAY Shinobi Card Clash PvP.
+ * /api/card-clash/queue — open matchmaking for free-play Chronicle Duel PvP.
  *
  * Forked from api/pvp/pet-ranked-queue.ts: join/leave/poll against a shared queue
  * blob under withKvLock. Whoever polls first and finds an opponent mints a shared
@@ -17,19 +16,24 @@ import { randomUUID } from 'node:crypto';
  * /api/card-clash/match handler reads to authorise the two joiners. Both players
  * then join /api/card-clash/match with the minted matchId.
  *
- * Card Clash has no rating, so pairing is by LEVEL proximity (band widens with
+ * Chronicle Duel has no rating, so pairing is by LEVEL proximity (band widens with
  * wait time, falls back to anyone). Free-play is UNRANKED with NO currency reward
  * — the match handler pays nothing, so there is no win-trading incentive here.
  *
  * Body: { name, action: 'join' | 'leave' | 'poll' }
  */
 
-type QueueEntry = { name: string; level: number; joinedAt: number };
+type QueueEntry = {
+    name: string;
+    level: number;
+    joinedAt: number;
+    lastSeen: number;
+};
 
 const QUEUE_KEY = 'card-clash:queue';
 const KV_TTL_SECONDS = 2 * 60 * 60;
 const STALE_MS = 60 * 1000;             // entries older than this must re-queue
-const MATCH_TTL_SECONDS = 45;           // per-player pairing record (poll handoff)
+const MATCH_TTL_SECONDS = 5 * 60;       // per-player pairing record (poll handoff)
 const PAIR_TTL_SECONDS = 5 * 60;        // shared match-auth record (join window)
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
 const pairKey = (matchId: string) => `cc-pair:${matchId}`;
@@ -37,18 +41,13 @@ const pairKey = (matchId: string) => `cc-pair:${matchId}`;
 // sparse queue eventually pairs anyone, but the first pass prefers same-level.
 const LEVEL_BAND_BASE = 10;
 const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000;
+const MATCH_ANYONE_AFTER_MS = 45_000;
+const activeQueue = (queue: QueueEntry[], now = Date.now()) =>
+    queue.filter(e => now - (e.lastSeen ?? e.joinedAt) < STALE_MS);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-
-    if (req.method === 'GET') {
-        const name = typeof req.query.name === 'string' ? safeName(req.query.name) : '';
-        const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
-        const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
-        res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json({ inQueue: active.some(e => e.name === name), queueSize: active.length });
-    }
 
     if (req.method === 'POST') {
         try {
@@ -77,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(QUEUE_KEY, async () => {
                 const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
-                const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
+                const active = activeQueue(queue);
                 const slug = safeName(name);
 
                 if (action === 'leave') {
@@ -91,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if (action === 'join') {
                     const filtered = active.filter(e => e.name !== slug);
-                    filtered.push({ name: slug, level: serverLevel, joinedAt: Date.now() });
+                    const now = Date.now();
+                    filtered.push({ name: slug, level: serverLevel, joinedAt: now, lastSeen: now });
                     await Promise.all([
                         kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
                         kv.del(matchKey(slug)),   // clear any stale prior pairing
@@ -110,15 +110,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                     const others = active.filter(e => e.name !== me.name);
                     if (others.length === 0) {
-                        const refreshed = active.map(e => e.name === me.name ? { ...e, joinedAt: Date.now() } : e);
+                        const refreshed = active.map(e => e.name === me.name ? { ...e, lastSeen: Date.now() } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
                     }
 
                     const waitMs = Math.max(0, Date.now() - me.joinedAt);
-                    const band = LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
+                    const band = LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS) * 15;
                     const inBand = others.filter(e => Math.abs(e.level - me.level) <= band);
-                    const candidates = inBand.length > 0 ? inBand : others;
+                    const candidates = inBand.length > 0
+                        ? inBand
+                        : waitMs >= MATCH_ANYONE_AFTER_MS
+                            ? others
+                            : [];
+                    if (candidates.length === 0) {
+                        const refreshed = active.map(e => e.name === me.name ? { ...e, lastSeen: Date.now() } : e);
+                        await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
+                        return {
+                            status: 200,
+                            body: { inQueue: true, queueSize: active.length, match: null, searchBand: band },
+                        };
+                    }
                     candidates.sort((a, b) => Math.abs(a.level - me.level) - Math.abs(b.level - me.level));
                     const opponent = candidates[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
@@ -145,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             return res.status(out.status).json(out.body);
         } catch (err) {
-            console.error('[card-clash/queue]', safeLogValue(err));
+            console.error('[card-clash/queue]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }

@@ -45,7 +45,7 @@ This pass did not rewrite every combat surface. It shipped the safest server-sid
 | Ranked PvP | `api/pvp/ranked-queue.ts`, `api/ranked-season.ts`, `api/_ranked-match-token.ts`, `api/cron/_ranked-season.ts` | Matchmaking/reward/rating wrappers | Yes | Yes | No | Uses PvP session/move engine; rating settlement is server-side | High |
 | Legacy/player stats | `api/legacy/*`, `api/_legacy-pvp.ts`, `api/_legacy-core.ts` | Legacy stat/evaluation tracking | Combat-adjacent | No direct combat parity | No | Reads or reports combat outcomes; does not resolve main combat | Low |
 | Pet battles | `api/pet/*`, `api/pet-ladder/*`, `api/_pet-sim/*`, `shinobij.client/src/lib/pet-*`, `shinobij.client/src/screens/PetArena.tsx`, `shinobij.client/src/components/PetColiseum.tsx` | Pet battle/autobattler | No | No | Yes | Separate pet combat engines, excluded by request | Excluded |
-| Card battles | `api/card-clash/*`, `api/clan/war/_card-clash-engine.ts`, `shinobij.client/src/lib/card-clash*`, `shinobij.client/src/screens/CardClashDuel.tsx`, `shinobij.client/src/screens/CardClashFreePlay.tsx`, `shinobij.client/src/screens/SectorWarCardBattle.tsx` | Card combat | No | No | Yes | Separate card engine, excluded by request | Excluded |
+| Card battles | `shared/chronicle-duel.ts`, `api/card-clash/*`, `shinobij.client/src/lib/chronicle-duel.ts`, `shinobij.client/src/screens/CardClashDuel.tsx`, `shinobij.client/src/screens/CardClashFreePlay.tsx`, `shinobij.client/src/screens/SectorWarCardBattle.tsx` | Chronicle card combat | No | No | Yes | Separate server-authoritative card engine, excluded by request | Excluded |
 
 ## 2. PvP Truth Source Summary
 
@@ -201,12 +201,12 @@ These were discovered but intentionally excluded per the request:
   - `shinobij.client/src/components/PetGauntlet.tsx`
 - Card battle:
   - `api/card-clash/*`
-  - `api/clan/war/_card-clash-engine.ts`
-  - `shinobij.client/src/lib/card-clash*`
+  - `shared/chronicle-duel.ts`
+  - `shinobij.client/src/lib/chronicle-duel.ts`
   - `shinobij.client/src/screens/CardClashDuel.tsx`
   - `shinobij.client/src/screens/CardClashFreePlay.tsx`
   - `shinobij.client/src/screens/SectorWarCardBattle.tsx`
-  - `shinobij.client/src/components/CardClashBoard.tsx`
+  - `shinobij.client/src/components/ChronicleDuelBoard.tsx`
 
 ## Manual Test Checklist
 
