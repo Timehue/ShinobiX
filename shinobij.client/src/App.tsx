@@ -1949,7 +1949,7 @@ export default function App() {
     // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged
     // into the arena's AI list only (never into the saved creatorAis).
     const [wandererAis, setWandererAis] = useState<CreatorAi[]>([]);
-    // Set when a sector "gambler" wanderer deals the player into Card Clash.
+    // Set when a sector gambler deals the player into Chronicle Duel.
     const [cardAutoStart, setCardAutoStart] = useState(false);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     // Lifted "fight in progress" flags (fed by Arena/PetArena onBattleActiveChange)
@@ -2342,17 +2342,9 @@ export default function App() {
                 setScreen("petArena");
                 break;
             case "tilecards": {
-                // PvP Shinobi Card Clash duel — server-managed session, auto-join
-                // with a legal 12-card FALLBACK deck. The duel screen lets the player
-                // customise during the 30s picking phase; both clients race to join
-                // (server idempotent). The fallback-deck build + pre-join lives in a
-                // lazy helper so the card-clash math + tile catalog (~50 KB) stay off
-                // the entry chunk. Fire-and-forget: the duel screen polls + retries.
+                // Chronicle Duel joins idempotently from the battle screen. The
+                // server owns deck validation, rules, timeouts and finalization.
                 setScreen("tilecardsDuel");
-                const char = character;
-                void import("./lib/clan-war-tilecards-join")
-                    .then(m => m.joinClanWarTileCards(char, inferredWarId, ch.id))
-                    .catch(() => { /* the duel screen polls + retries */ });
                 break;
             }
         }
@@ -6345,8 +6337,8 @@ export default function App() {
                 pushHollowGateLog(`[Tile Seal] ${flavor}`);
                 markResolved();
                 setHollowGateEvent({
-                    title: "Shinobi Card Clash Seal",
-                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them in a Shinobi Card Clash duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
+                    title: "Shinobi Chronicle Duel Seal",
+                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them in a Shinobi Chronicle Duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
                     kind: "tile_game",
                     choices: [
                         {

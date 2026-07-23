@@ -28,7 +28,7 @@ import {
 import { getCharacterElements, hasCharacterElement } from "../lib/elements";
 import { ELEMENTAL_CORE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
-import { deriveCardClashCard } from "../lib/card-clash";
+import { getChronicleCard } from "../lib/chronicle-duel";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
 import {
     type ItemCategory,
@@ -40,6 +40,16 @@ import {
 import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+
+function chronicleInventorySummary(id: string): string {
+    const card = getChronicleCard(id);
+    if (!card) return "Retired card";
+    return card.cardClass === "monster"
+        ? `Level ${card.level} · ATK ${card.attack}`
+        : card.cardClass === "magic"
+            ? "Magic"
+            : "Trap";
+}
 
 // Rarity-tiered ryo sell value for cost:0 hunt drop materials. MUST match the
 // server table in api/inventory/_sale.ts (HUNT_MATERIAL_SELL_RYO).
@@ -582,7 +592,7 @@ export function Inventory({
                     <div className="inventory-panel-header">
                         <h2>{inventoryTab === "items"
                             ? (categoryFilter === "all" ? "Backpack" : `Backpack · ${ITEM_CATEGORY_META[categoryFilter].label}`)
-                            : "Shinobi Card Clash Cards"}</h2>
+                            : "Shinobi Chronicle Duel Cards"}</h2>
 
                         <div className="inventory-tabs">
                             <button
@@ -600,7 +610,7 @@ export function Inventory({
                                 aria-pressed={inventoryTab === "tileCards"}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
-                                <FiGrid aria-hidden="true" /> Card Clash
+                                <FiGrid aria-hidden="true" /> Chronicle Duel
                             </button>
                         </div>
                     </div>
@@ -782,7 +792,7 @@ export function Inventory({
 
                             {tileCardStacks.length === 0 ? (
                                 <p className="inventory-empty">
-                                    No Shinobi Card Clash cards yet. Buy card packs from the Shop or Grand Marketplace.
+                                    No Shinobi Chronicle Duel cards yet. Buy card packs from the Shop or Grand Marketplace.
                                 </p>
                             ) : (
                                 <div className="tile-card-inventory-grid">
@@ -808,7 +818,7 @@ export function Inventory({
                                             <strong>{card?.name ?? id}</strong>
 
                                             <div className="tile-card-mini-stats">
-                                                <span>⏣ {card ? deriveCardClashCard(card).cost : "?"} · ⚔ {card ? deriveCardClashCard(card).power : "?"}</span>
+                                                <span>{chronicleInventorySummary(card?.id ?? "")}</span>
                                                 <span>{card?.element ?? "Unknown"}</span>
                                             </div>
 
@@ -832,11 +842,23 @@ export function Inventory({
                                     />
                                     <strong>{selectedTileCard.card.name}</strong>
                                     {(() => {
-                                        const clash = deriveCardClashCard(selectedTileCard.card);
+                                        const clash = getChronicleCard(selectedTileCard.card.id);
                                         return (
                                             <p className="hint">
-                                                {selectedTileCard.card.rarity} {selectedTileCard.card.element} · ⏣ {clash.cost} Chakra · ⚔ {clash.power} Power · {clash.role} | Owned x{selectedTileCard.count}
-                                                <br />{clash.abilityText}
+                                                {clash?.rarity ?? selectedTileCard.card.rarity}{" "}
+                                                {clash?.cardClass ?? "retired card"}
+                                                {clash?.cardClass === "monster"
+                                                    ? ` · Level ${clash.level} · ATK ${clash.attack} · DEF ${clash.defense}`
+                                                    : ""}{" "}
+                                                | Owned x{selectedTileCard.count}
+                                                <br />
+                                                {clash
+                                                    ? clash.cardClass === "monster"
+                                                        ? clash.monsterType === "effect"
+                                                            ? clash.effectText
+                                                            : clash.lore
+                                                        : clash.effectText
+                                                    : "This card is not part of the current Chronicle catalog."}
                                             </p>
                                         );
                                     })()}
