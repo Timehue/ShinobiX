@@ -72,7 +72,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader('X-Last-Ts', String(messages.length ? messages[messages.length - 1].ts : 0));
         // Expose both so cross-origin clients can read them (the client uses
         // them to skip re-parsing the body when nothing changed).
-        res.setHeader('Access-Control-Expose-Headers', 'X-Message-Count, X-Last-Ts');
+        // Re-listing x-player-token-refresh: this overwrites the exposure list
+        // cors() set, and dropping it here would blind the client's sliding
+        // session refresh on chat polls.
+        res.setHeader('Access-Control-Expose-Headers', 'X-Message-Count, X-Last-Ts, x-player-token-refresh');
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(messages);
     }

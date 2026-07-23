@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import { kv } from './_storage.js';
 import {
     issuePlayerToken,
+    maybeRefreshPlayerToken,
     playerSessionEpochKey,
     rotatePlayerSessionEpoch,
     verifyPlayerToken,
@@ -161,5 +162,94 @@ describe('player session tokens', () => {
         const token = issuePlayerToken('alice')!;
         epochs.set(playerSessionEpochKey('alice'), Number.NaN);
         assert.equal(await verifyPlayerToken(token), null);
+    });
+});
+
+const HOUR_MS = 60 * 60 * 1000;
+
+describe('sliding player token refresh', () => {
+    before(() => {
+        process.env.SESSION_SECRET = 'test-secret-do-not-use-in-prod';
+        kv.get = async <T,>(key: string) => {
+            if (key.startsWith('auth-session:')) return (epochs.get(key) ?? null) as T | null;
+            if (key.startsWith('auth:')) {
+                return (missingAccounts.has(authName(key)) ? null : { hash: 'exists', salt: 'exists' }) as T | null;
+            }
+            return null;
+        };
+        kv.incr = async (key: string) => {
+            const next = (epochs.get(key) ?? 0) + 1;
+            epochs.set(key, next);
+            return next;
+        };
+    });
+
+    beforeEach(() => {
+        process.env.SESSION_SECRET = 'test-secret-do-not-use-in-prod';
+        epochs.clear();
+        missingAccounts.clear();
+    });
+
+    after(() => {
+        kv.get = originalGet;
+        kv.incr = originalIncr;
+        if (PRIOR_SECRET === undefined) delete process.env.SESSION_SECRET;
+        else process.env.SESSION_SECRET = PRIOR_SECRET;
+    });
+
+    it('leaves a token alone while it is still in the first half of its life', async () => {
+        // Full 24h TTL, so ~24h remain — well past the refresh threshold.
+        assert.equal(await maybeRefreshPlayerToken(issuePlayerToken('alice')!), null);
+        // 13h remain: still more than half of the 24h TTL.
+        assert.equal(await maybeRefreshPlayerToken(issuePlayerToken('alice', 13 * HOUR_MS)!), null);
+    });
+
+    it('mints a replacement once a valid token passes the halfway point', async () => {
+        const aging = issuePlayerToken('alice', 4 * HOUR_MS)!;
+        const refreshed = await maybeRefreshPlayerToken(aging);
+        assert.ok(refreshed);
+        assert.notEqual(refreshed, aging);
+        // The replacement authenticates as the same account...
+        assert.equal(await verifyPlayerToken(refreshed), 'alice');
+        // ...and buys real time: it is not just a re-stamp of the old expiry.
+        assert.ok(Number(refreshed.split('.')[2]) > Number(aging.split('.')[2]));
+    });
+
+    it('never resurrects an expired token — that still needs a real login', async () => {
+        assert.equal(await maybeRefreshPlayerToken(issuePlayerToken('alice', -1_000)!), null);
+    });
+
+    it('refuses to refresh forged, malformed, or revoked tokens', async () => {
+        const aging = issuePlayerToken('alice', 4 * HOUR_MS)!;
+
+        const tampered = aging.split('.');
+        tampered[1] = Buffer.from('bob').toString('base64url');
+        assert.equal(await maybeRefreshPlayerToken(tampered.join('.')), null);
+
+        for (const malformed of ['', 'garbage', 'a.b.c', 'v3.x.123.0.sig']) {
+            assert.equal(await maybeRefreshPlayerToken(malformed), null);
+        }
+
+        // A password change / admin revocation rotates the epoch, which must kill
+        // the refresh chain too — otherwise sliding refresh would defeat revocation.
+        epochs.set(playerSessionEpochKey('alice'), 1);
+        assert.equal(await maybeRefreshPlayerToken(aging), null);
+    });
+
+    it('carries the session epoch forward so later revocation still bites', async () => {
+        epochs.set(playerSessionEpochKey('alice'), 7);
+        const aging = issuePlayerToken('alice', 4 * HOUR_MS, 7)!;
+        const refreshed = await maybeRefreshPlayerToken(aging);
+        assert.ok(refreshed);
+        assert.equal(refreshed.split('.')[3], '7');
+        assert.equal(await verifyPlayerToken(refreshed), 'alice');
+        await rotatePlayerSessionEpoch('alice');
+        assert.equal(await verifyPlayerToken(refreshed), null);
+    });
+
+    it('is inert without SESSION_SECRET, leaving the password fallback untouched', async () => {
+        const aging = issuePlayerToken('alice', 4 * HOUR_MS)!;
+        delete process.env.SESSION_SECRET;
+        assert.equal(await maybeRefreshPlayerToken(aging), null);
     });
 });
