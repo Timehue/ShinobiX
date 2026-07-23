@@ -260,10 +260,16 @@ function bfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, n
     return null;
 }
 
-/** Deterministic LCG — same constants as the shipped engine. */
-function makeRng(seed: number): () => number {
-    let s = (Math.max(1, Math.floor(seed)) >>> 0) || 1;
-    return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+/** Deterministic LCG — same constants as the shipped engine.
+ *  The cursor lives in an EXTERNAL cell (RngState) rather than a closure so the
+ *  live/player-controlled path can checkpoint and rewind it (see pet-duel-live.ts).
+ *  The arithmetic is unchanged, so every existing caller draws the same stream. */
+export interface RngState { s: number }
+function makeRngFrom(state: RngState): () => number {
+    return () => { state.s = (Math.imul(state.s, 1664525) + 1013904223) >>> 0; return state.s / 4294967296; };
+}
+function newRngState(seed: number): RngState {
+    return { s: (Math.max(1, Math.floor(seed)) >>> 0) || 1 };
 }
 
 // ── Abilities (PetJutsu → real-time ability; mirrors pet-duel-sim.buildAbility) ─
@@ -437,7 +443,26 @@ interface Fighter {
     lungeAbIdx: number;                     // >-2 while mid-pounce: which move resolves on contact (-1 = basic attack)
     lungeTgtId: string | null;
     lungeStuck: number;                     // consecutive pounce ticks with ~no progress (wall) → resolve early, don't phantom-whiff
+    // ── PLAYER CONTROL (docs/pet-coliseum-player-control-plan.md) ──────────────
+    // All four are inert unless `controlled` is true, and `controlled` is only ever
+    // set by the live/commanded path (pet-duel-live.ts). Every existing entry point
+    // leaves them at these defaults, so runPetDuelCinematic stays byte-identical and
+    // the server mirror / ladder / sector-war outcomes are untouched.
+    controlled: boolean;                    // this fighter accepts player commands
+    cmdIdx: number;                         // ordered move: >=0 ability index, -1 basic, -2 none
+    cmdLeft: number;                        // ticks the order stays queued before it lapses
+    cmdBreak: boolean;                      // Bond Break pending — unleash the signature now
+    stance: number;                         // 0 aggressive · 1 balanced · 2 guarded
 }
+
+/** Stance knobs — the zero-APM strategic dial. Balanced (1) is exactly the shipped
+ *  AI behaviour, so an uncontrolled or un-dialled fighter fights as it always has. */
+const STANCES: readonly { aggression: number; retreatHp: number; dodgeBias: number }[] = [
+    { aggression: 0.28, retreatHp: -0.10, dodgeBias: -0.04 },   // 0 aggressive — press, commit, ignore the retreat threshold
+    { aggression: 0.00, retreatHp: 0.00, dodgeBias: 0.00 },     // 1 balanced   — the shipped brain, unchanged
+    { aggression: -0.26, retreatHp: 0.12, dodgeBias: 0.10 },    // 2 guarded    — hold range, read telegraphs, disengage early
+];
+const stanceOf = (f: Fighter) => STANCES[f.controlled ? clamp(Math.round(f.stance), 0, 2) : 1];
 
 // Classify a pet into a fighting ARCHETYPE from its DECLARED role/sub-role (the old
 // engine ignored these — the headroom), falling back to stat/moveset shape. Standalone
@@ -569,6 +594,8 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         cThornsPct: ch ? ch.thorns : 0, cLifelinePct: ch ? ch.lifeline : 0, cCleanse: ch ? ch.cleanse : 0,
         basicRanged: abilities.some((a) => a.cls === "ranged" && !a.isMove),
         lungeAbIdx: -2, lungeTgtId: null, lungeStuck: 0,
+        // Player control defaults OFF — every existing caller gets the shipped AI.
+        controlled: false, cmdIdx: -2, cmdLeft: 0, cmdBreak: false, stance: 1,
     };
 }
 
@@ -788,6 +815,12 @@ function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, ev
 
 // ── Casting ──────────────────────────────────────────────────────────────────────
 function beginCast(f: Fighter, idx: number, targetId: string, t: number, events: DuelEvent[]) {
+    // The player's order is spent the moment the pet actually commits to it, so the
+    // HUD can flip the button from "ordered" back to ready on the same tick.
+    if (f.controlled) {
+        if (f.cmdBreak && idx >= 0 && f.abilities[idx].signature) f.cmdBreak = false;
+        if (f.cmdIdx === idx) { f.cmdIdx = -2; f.cmdLeft = 0; }
+    }
     f.pendingIdx = idx; f.pendingTargetId = targetId;
     f.state = "windup"; f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
     f.vx = 0; f.vy = 0;
@@ -1351,7 +1384,44 @@ function beginEngageManeuver(f: Fighter, e: Fighter, idx: number, desiredRange: 
     beginManeuver(f, e, idx, t, events);
     return true;
 }
+/** The move the player has ordered this fighter to use, or -2 for "no order".
+ *  A pending Bond Break resolves to the signature slot. Always -2 when the fighter
+ *  is not under player control, which is every non-live call site. */
+function orderedIdx(f: Fighter): number {
+    if (!f.controlled) return -2;
+    if (f.cmdBreak) {
+        for (let i = 0; i < f.abilities.length; i++) if (f.abilities[i].signature) return i;
+    }
+    return f.cmdIdx >= f.abilities.length ? -2 : f.cmdIdx;
+}
+const hasOrder = (f: Fighter) => f.controlled && (f.cmdBreak || f.cmdIdx !== -2);
+/** Offensive pick with the player's order taking precedence over the AI's choice.
+ *  An ordered move that is on cooldown or unaffordable does NOT lapse: the pet keeps
+ *  poking with basics and fires the order the moment it comes up. */
+function commandedOffensive(f: Fighter, e: Fighter | null, forceSig: boolean): number {
+    const idx = orderedIdx(f);
+    if (idx === -1) return -1;                       // ordered a plain basic attack
+    if (idx >= 0) {
+        const a = f.abilities[idx];
+        if (a.cls !== "support" && !a.isMove) {
+            // Bond Break is paid for by the meter, so it bypasses the cooldown the AI
+            // otherwise hoards the signature behind — that is the whole point of the meter.
+            if (f.cmdBreak && a.signature) { a.cdLeft = 0; return idx; }
+            return a.cdLeft <= 0 && f.stamina >= a.cost ? idx : -1;
+        }
+    }
+    return bestOffensive(f, e, forceSig);
+}
 function readySupport(f: Fighter, fighters: Fighter[]): number {
+    // An explicit order owns the decision: a commanded support move is cast when it
+    // is ready, and a commanded ATTACK is never pre-empted by an AI support pick.
+    const ord = orderedIdx(f);
+    if (ord !== -2) {
+        if (ord < 0) return -1;
+        const a = f.abilities[ord];
+        if (a.cls !== "support") return -1;
+        return a.cdLeft <= 0 && f.stamina >= a.cost ? ord : -1;
+    }
     if (f.supportCastLocked) return -1;
     const ally = pickAlly(f, fighters);
     for (let i = 0; i < f.abilities.length; i++) {
@@ -1375,6 +1445,14 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     const dx = e.x - f.x, dy = e.y - f.y;
     const d = Math.max(1e-4, Math.sqrt(dx * dx + dy * dy));
     const hpFrac = f.hp / f.maxHp;
+    // STANCE — the player's zero-APM strategic dial, folded into the same three knobs
+    // the AI already reasons with. Balanced (and every uncontrolled fighter) reads the
+    // style values unchanged, and both clamps are no-ops there because deriveStyle
+    // already clamped to these bounds → byte-identical on the authoritative path.
+    const st = stanceOf(f);
+    const styleAggression = clamp(f.style.aggression + st.aggression, 0, 1);
+    const styleRetreatHp = clamp(f.style.retreatHp + st.retreatHp, 0.08, 0.75);
+    const styleDodgeBias = f.style.dodgeBias + st.dodgeBias;
     // DESPERATION last-stand — a wounded AGGRESSIVE fighter (rusher/brawler, an Aggressive/
     // Battleborn trait, or an endure/lifeline charge in the tank) stops fleeing and gathers
     // for one committed strike: the anime last-ditch attack that sometimes reverses a fight.
@@ -1403,7 +1481,7 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         const meleeTell = eAb ? eAb.cls === "melee" : !e.basicRanged;
         const threatRange = meleeTell ? MELEE_RANGE + 0.9 : (eAb ? eAb.range : RANGED_RANGE * 0.85);
         if (d <= threatRange) {
-            const chance = clamp(0.22 + (f.spd - e.spd) * 0.0022 + f.style.dodgeBias, 0.05, 0.85) * (1 - (_forcedEngage ? 1 : _stallPressure));
+            const chance = clamp(0.22 + (f.spd - e.spd) * 0.0022 + styleDodgeBias, 0.05, 0.85) * (1 - (_forcedEngage ? 1 : _stallPressure));
             if (rng() < chance) {   // rng() always drawn (order preserved); stall just lowers the threshold → no dodge
                 // Sidestep perpendicular to the incoming line (away from arena edge).
                 let px = -dy / d, py = dx / d;
@@ -1464,9 +1542,12 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // not a leash partner: it plants, tracks the pressure pet, and waits for a
     // telegraph/recovery opening. Active dodges above and punish windows below
     // still break the hold, so this remains an autobattle rather than a turn lock.
+    // A live ORDER also claims the beat. Without this the initiative hold would
+    // swallow the player's command until the AI happened to hand the beat over,
+    // which reads as an unresponsive button.
     const ownsBeat = (_partyMode
         ? f.team === _laneInitiativeTeam[Math.min(1, f.slot)]
-        : f.team === _cinematicInitiativeTeam) || _forcedEngage;
+        : f.team === _cinematicInitiativeTeam) || _forcedEngage || hasOrder(f);
     const counterWindow = e.state === "recover" || e.state === "stagger" || e.state === "strike";
     const finishingExit = f.reposLeft > 0 && f.routeActive;
     if (!ownsBeat && !counterWindow && !finishingExit) {
@@ -1481,8 +1562,20 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // available as the payoff for an early successful dodge, but pets that were not
     // pressured do not both stand still and power up at the first possible tick.
     const supportAbility = sup >= 0 ? f.abilities[sup] : null;
-    const holdOpeningPower = t < Math.round(DUEL_TPS * 2.2)
+    // An explicit order is never held back by the AI's opening-buff restraint.
+    const holdOpeningPower = t < Math.round(DUEL_TPS * 2.2) && orderedIdx(f) === -2
         && (supportAbility?.kind === "buff" || supportAbility?.kind === "haste");
+    // A commanded MOBILITY move (Dash/Rush/Lunge) is a reposition, not an attack, so
+    // it never reaches the offensive picker — fire it here while it is ready.
+    const orderedMobility = orderedIdx(f);
+    if (orderedMobility >= 0 && f.abilities[orderedMobility].isMove
+        && f.abilities[orderedMobility].cdLeft <= 0 && f.stamina >= f.abilities[orderedMobility].cost
+        && f.statuses.rootLeft <= 0) {
+        setIntent(f, "reposition", Math.max(MELEE_RANGE, d), `commanded ${f.abilities[orderedMobility].name}`, "player ordered a repositioning move");
+        beginManeuver(f, e, orderedMobility, t, events);
+        f.cmdIdx = -2; f.cmdLeft = 0;
+        return;
+    }
     if (sup >= 0 && !holdOpeningPower) {
         if (!desperate && d < SUPPORT_CAST_CLEARANCE) {
             setIntent(f, "retreat", SUPPORT_CAST_CLEARANCE, `make room for ${supportAbility?.name ?? "support"}`, "enemy is inside support cast clearance");
@@ -1501,12 +1594,12 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
 
     // 4) Choose the move I want + the range I want to fight at (R*). The signature is
     // hoarded unless the foe is low/open or this is a last-stand/kill-shot (forceSig).
-    const offIdx = bestOffensive(f, e, desperate || killShot);
+    const offIdx = commandedOffensive(f, e, desperate || killShot);
     const offAb = offIdx >= 0 ? f.abilities[offIdx] : null;
     const useRanged = offAb ? offAb.cls === "ranged" : f.basicRanged;
     const moveRange = offAb ? offAb.range : (f.basicRanged ? RANGED_RANGE * 0.85 : f.reach);
     // Desperation drops the retreat penalty and presses ALL-IN.
-    const aggr = desperate ? 1 : clamp(f.style.aggression - (hpFrac < f.style.retreatHp ? 0.3 : 0), 0, 1);
+    const aggr = desperate ? 1 : clamp(styleAggression - (hpFrac < styleRetreatHp ? 0.3 : 0), 0, 1);
     // R* — the distance to fight at. CRITICAL for ranged: it must sit INSIDE firing
     // range (even at the far edge of the ±BAND_H band) so a kiter's pokes always
     // connect instead of parking just out of reach and stalling. Cautious pets edge
@@ -1536,7 +1629,9 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // Once a fighter has committed, it must finish the exit beat before attacking
     // again. An open enemy is still pursued after the reset; it no longer cancels the
     // reset and turns the exchange into repeated point-blank smacks.
-    const holdRepos = f.reposLeft > 0 && !killShot && !desperate;
+    // A standing player order also cancels the exit beat: being told to do something
+    // must beat the choreography, or the pet dances out for a second before obeying.
+    const holdRepos = f.reposLeft > 0 && !killShot && !desperate && !hasOrder(f);
     if (!holdRepos) f.routeActive = false;
     // A loadout's movement slot now caps the running exit with a CURVED elemental
     // traversal. It is not the pounce/dash state: the pet runs a crescent lane,
@@ -1562,8 +1657,13 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         setIntent(f, offAb.signature || killShot || desperate ? "burst" : "execute combo", rStar, offAb.name, killShot ? "enemy is vulnerable" : desperate ? "last-stand opening" : "ability is ready, in range, and line of sight is clear");
         f.commit = 0; beginCast(f, offIdx, e.id, t, events); return;
     }
+    // A commanded move that is READY but still out of reach owns the approach. Without
+    // this the pet would keep taking free ranged pokes from its comfortable neutral
+    // range and never close, so an ordered melee move — a Bond Break above all — could
+    // sit queued for the whole fight. Inert for an uncontrolled fighter.
+    const closingForOrder = hasOrder(f) && offAb != null && !canFire;
     // Basic attack — melee must already be at contact range; ranged basics poke.
-    if (!holdRepos && f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) {
+    if (!holdRepos && !closingForOrder && f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) {
         const basicRange = f.basicRanged ? RANGED_RANGE * 0.85 : Math.max(f.reach + 0.35, MIN_SEP + 1.15);
         const basicLos = f.basicRanged ? hasLineOfSight(f.x, f.y, e.x, e.y) : losForCommit;
         if (d <= basicRange && basicLos && (f.faceX * dx + f.faceY * dy) > -0.2) {
@@ -1686,6 +1786,10 @@ function tickStatuses(f: Fighter) {
     if (s.rootLeft > 0) s.rootLeft--;
     if (s.wallPenaltyLeft > 0) s.wallPenaltyLeft--;
     if (s.buffLeft > 0 && --s.buffLeft <= 0) s.buffMag = 0;
+    // A player order lapses if the pet never gets a window to use it, so an
+    // unreachable or permanently-blocked command can't freeze it out of its own AI.
+    // A pending Bond Break is exempt: the meter was already spent on it.
+    if (f.controlled && f.cmdLeft > 0 && --f.cmdLeft <= 0) f.cmdIdx = -2;
 }
 function stepManeuver(f: Fighter, fighters: Fighter[]) {
     const e = pickTarget(f, fighters);
@@ -2006,72 +2110,141 @@ function snap(t: number, fighters: Fighter[], projectiles: Projectile[], debugTr
 }
 
 // ── Core loop ──────────────────────────────────────────────────────────────────
-function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean): DuelResult {
-    const rng = makeRng(seed);
-    const projectiles: Projectile[] = [];
-    const nextProjId = { n: 0 };
-    const snapshots: DuelSnapshot[] = [];
-    const events: DuelEvent[] = [];
-    let ticks = 0;
-    let winner: "player" | "enemy" | null = null;
-    SIM_WALLS = [];   // reset barrier walls per run → deterministic (no carry-over between fights)
+// The loop is split into createDuelState / stepDuelState / finishDuelState so the
+// player-controlled path (pet-duel-live.ts) can drive it one tick at a time, read
+// the fighters between ticks, and rewind. `simulate()` below composes the three in
+// exactly the order the single fused loop used to run, so every existing entry
+// point — and therefore the server mirror, the ladder and sector war — produces
+// byte-identical snapshots and events.
+
+/** A duel paused between ticks. Opaque to callers outside this module. */
+export interface CinematicDuelState {
+    fighters: Fighter[];
+    projectiles: Projectile[];
+    nextProjId: { n: number };
+    snapshots: DuelSnapshot[];
+    events: DuelEvent[];
+    rngState: RngState;
+    rng: () => number;
+    accuracyEnabled: boolean;
+    debugTrace: boolean;
+    t: number;                       // the next tick to run
+    ticks: number;
+    winner: "player" | "enemy" | null;
+    done: boolean;
+    lastDmgTick: number;
+    prevTotalHp: number;
+    // Mirrors of the module-level scratch globals. They are swapped in before each
+    // tick and back out after, so a PAUSED duel can never be corrupted by another
+    // duel (a preview harness, a replay) simulating in between.
+    walls: { x: number; y: number; r: number; expiry: number; ownerId: string }[];
+    stallPressure: number;
+    forcedEngage: boolean;
+    partyMode: boolean;
+    initiativeTeam: "player" | "enemy";
+    laneInitiative: ["player" | "enemy", "player" | "enemy"];
+}
+
+function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean): CinematicDuelState {
+    const rngState = newRngState(seed);
+    let prevTotalHp = 0;
+    for (const f of fighters) prevTotalHp += Math.max(0, f.hp);
+    // Clear the scratch globals BEFORE the opening snapPos pass: snapPos consults
+    // SIM_WALLS through walkableAt, so a previous duel's expired barriers would
+    // otherwise displace this duel's spawn positions.
+    SIM_WALLS = [];
     _stallPressure = 0; _forcedEngage = false;
     _partyMode = fighters.length > 2;
-    _cinematicInitiativeTeam = (seed & 1) === 0 ? "player" : "enemy";
-    _laneInitiativeTeam = [
-        _cinematicInitiativeTeam,
-        _cinematicInitiativeTeam === "player" ? "enemy" : "player",
-    ];
-    let lastDmgTick = 0, prevTotalHp = 0;
-    for (const f of fighters) prevTotalHp += Math.max(0, f.hp);
     for (const f of fighters) { const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy; }
-    for (let t = 0; t < CAP_TICKS; t++) {
-        ticks = t + 1;
-        if (SIM_WALLS.length) SIM_WALLS = SIM_WALLS.filter((w) => w.expiry > t);   // expire finished walls
-        // Stall pressure: how long since ANY damage landed → ramps to force a decisive exchange.
-        _stallPressure = clamp(((t - lastDmgTick) / DUEL_TPS - STALL_START_SECS) / STALL_RAMP_SECS, 0, 1);
-        if (_stallPressure >= 1) _forcedEngage = true;   // latch a confirmed stand-off → brawl to a result
-        // Alternate the per-tick step order by tick parity so neither side keeps a
-        // persistent "second-mover" reaction edge (which skews mirror matches). The
-        // pet that steps second sees the first's fresh wind-up and can react-dodge —
-        // alternating averages it to ~50%. Deterministic (tick parity, no rng).
-        if ((t & 1) === 1) { for (let i = fighters.length - 1; i >= 0; i--) stepFighter(fighters[i], fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
-        else { for (const f of fighters) stepFighter(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
-        stepProjectiles(fighters, projectiles, rng, t, events);
-        for (const f of fighters) tickStatuses(f);
-        separateAll(fighters);
-        const newlyDefeated = new Set<string>();
-        for (const f of fighters) {
-            if (f.hp <= 0 && f.state !== "dead" && f.reviveLeft > 0) { f.reviveLeft -= 1; f.hp = Math.max(1, Math.round(f.maxHp * 0.4)); clearLunge(f); }
-            if (f.hp <= 0 && f.state !== "dead") {
-                f.hp = 0;
-                f.state = "dead"; f.stateLeft = 0;
-                f.vx = 0; f.vy = 0; f.routeActive = false; f.maneuverLeft = 0;
-                f.targetId = null; f.targetLockLeft = 0;
-                clearLunge(f);
-                setIntent(f, "eliminated", 0, "match over", "health reached zero");
-                newlyDefeated.add(f.id);
-                events.push({ t, type: "ko", side: f.team, actorId: f.id });
-            }
-            const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy;
-            quantizeFighter(f);
+    const initiativeTeam: "player" | "enemy" = (seed & 1) === 0 ? "player" : "enemy";
+    return {
+        fighters, projectiles: [], nextProjId: { n: 0 }, snapshots: [], events: [],
+        rngState, rng: makeRngFrom(rngState), accuracyEnabled, debugTrace,
+        t: 0, ticks: 0, winner: null, done: false,
+        lastDmgTick: 0, prevTotalHp,
+        walls: [], stallPressure: 0, forcedEngage: false, partyMode: fighters.length > 2,
+        initiativeTeam,
+        laneInitiative: [initiativeTeam, initiativeTeam === "player" ? "enemy" : "player"],
+    };
+}
+
+/** Run exactly one tick. Returns false once the duel is over (or the cap is hit). */
+function stepDuelState(sim: CinematicDuelState): boolean {
+    if (sim.done) return false;
+    const t = sim.t;
+    if (t >= CAP_TICKS) { sim.done = true; return false; }
+    const { fighters, projectiles, nextProjId, events, snapshots, rng, accuracyEnabled } = sim;
+    // Load this duel's scratch state into the module globals the helpers read.
+    SIM_WALLS = sim.walls;
+    _stallPressure = sim.stallPressure; _forcedEngage = sim.forcedEngage;
+    _partyMode = sim.partyMode;
+    _cinematicInitiativeTeam = sim.initiativeTeam;
+    _laneInitiativeTeam = sim.laneInitiative;
+
+    sim.ticks = t + 1;
+    if (SIM_WALLS.length) SIM_WALLS = SIM_WALLS.filter((w) => w.expiry > t);   // expire finished walls
+    // Stall pressure: how long since ANY damage landed → ramps to force a decisive exchange.
+    _stallPressure = clamp(((t - sim.lastDmgTick) / DUEL_TPS - STALL_START_SECS) / STALL_RAMP_SECS, 0, 1);
+    if (_stallPressure >= 1) _forcedEngage = true;   // latch a confirmed stand-off → brawl to a result
+    // Alternate the per-tick step order by tick parity so neither side keeps a
+    // persistent "second-mover" reaction edge (which skews mirror matches). The
+    // pet that steps second sees the first's fresh wind-up and can react-dodge —
+    // alternating averages it to ~50%. Deterministic (tick parity, no rng).
+    if ((t & 1) === 1) { for (let i = fighters.length - 1; i >= 0; i--) stepFighter(fighters[i], fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
+    else { for (const f of fighters) stepFighter(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
+    stepProjectiles(fighters, projectiles, rng, t, events);
+    for (const f of fighters) tickStatuses(f);
+    separateAll(fighters);
+    const newlyDefeated = new Set<string>();
+    for (const f of fighters) {
+        if (f.hp <= 0 && f.state !== "dead" && f.reviveLeft > 0) { f.reviveLeft -= 1; f.hp = Math.max(1, Math.round(f.maxHp * 0.4)); clearLunge(f); }
+        if (f.hp <= 0 && f.state !== "dead") {
+            f.hp = 0;
+            f.state = "dead"; f.stateLeft = 0;
+            f.vx = 0; f.vy = 0; f.routeActive = false; f.maneuverLeft = 0;
+            f.targetId = null; f.targetLockLeft = 0;
+            clearLunge(f);
+            setIntent(f, "eliminated", 0, "match over", "health reached zero");
+            newlyDefeated.add(f.id);
+            events.push({ t, type: "ko", side: f.team, actorId: f.id });
         }
-        if (newlyDefeated.size > 0) {
-            // Projectiles owned by or targeting a defeated pet cannot resolve after
-            // the decisive knockout. Other active projectiles continue normally.
-            for (let i = projectiles.length - 1; i >= 0; i--) {
-                const p = projectiles[i];
-                if (newlyDefeated.has(p.ownerId) || newlyDefeated.has(p.targetId)) projectiles.splice(i, 1);
-            }
-            SIM_WALLS = SIM_WALLS.filter((wall) => !newlyDefeated.has(wall.ownerId));
-        }
-        // Any damage this tick (a landed hit OR a DoT) resets the stall timer → pressure only
-        // builds in a genuine no-damage stand-off.
-        { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (totalHp < prevTotalHp - 0.5) lastDmgTick = t; prevTotalHp = totalHp; }
-        snapshots.push(snap(t, fighters, projectiles, debugTrace));
-        const pA = teamAlive(fighters, "player"), eA = teamAlive(fighters, "enemy");
-        if (!pA || !eA) { winner = pA && !eA ? "player" : eA && !pA ? "enemy" : null; break; }
+        const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy;
+        quantizeFighter(f);
     }
+    if (newlyDefeated.size > 0) {
+        // Projectiles owned by or targeting a defeated pet cannot resolve after
+        // the decisive knockout. Other active projectiles continue normally.
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const p = projectiles[i];
+            if (newlyDefeated.has(p.ownerId) || newlyDefeated.has(p.targetId)) projectiles.splice(i, 1);
+        }
+        SIM_WALLS = SIM_WALLS.filter((wall) => !newlyDefeated.has(wall.ownerId));
+    }
+    // Any damage this tick (a landed hit OR a DoT) resets the stall timer → pressure only
+    // builds in a genuine no-damage stand-off.
+    { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (totalHp < sim.prevTotalHp - 0.5) sim.lastDmgTick = t; sim.prevTotalHp = totalHp; }
+    snapshots.push(snap(t, fighters, projectiles, sim.debugTrace));
+
+    // Store the scratch state back before anything else can run a duel. The
+    // initiative team is load-bearing here: a landed exchange HANDS THE BEAT OVER
+    // (`_cinematicInitiativeTeam = target.team`), so failing to write it back would
+    // silently reset initiative to its opening value every tick.
+    sim.walls = SIM_WALLS;
+    sim.stallPressure = _stallPressure; sim.forcedEngage = _forcedEngage;
+    sim.initiativeTeam = _cinematicInitiativeTeam;
+    sim.laneInitiative = _laneInitiativeTeam;
+    sim.t = t + 1;
+
+    const pA = teamAlive(fighters, "player"), eA = teamAlive(fighters, "enemy");
+    if (!pA || !eA) { sim.winner = pA && !eA ? "player" : eA && !pA ? "enemy" : null; sim.done = true; return false; }
+    if (sim.t >= CAP_TICKS) sim.done = true;
+    return !sim.done;
+}
+
+/** Resolve the timeout draw rule and package the DuelResult. Safe to call repeatedly. */
+function finishDuelState(sim: CinematicDuelState): DuelResult {
+    const { fighters } = sim;
+    let winner = sim.winner;
     if (winner === null && teamAlive(fighters, "player") && teamAlive(fighters, "enemy")) {
         const frac = (team: "player" | "enemy") => fighters
             .filter((f) => f.team === team)
@@ -2080,7 +2253,13 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean, d
         winner = Math.abs(pf - ef) < 1e-6 ? null : pf > ef ? "player" : "enemy";
     }
     const result: DuelResult["result"] = winner === "player" ? "win" : winner === "enemy" ? "loss" : "draw";
-    return { result, winner, ticks, snapshots, events };
+    return { result, winner, ticks: sim.ticks, snapshots: sim.snapshots, events: sim.events };
+}
+
+function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean): DuelResult {
+    const sim = createDuelState(fighters, seed, accuracyEnabled, debugTrace);
+    while (stepDuelState(sim)) { /* run to a KO or the cap */ }
+    return finishDuelState(sim);
 }
 
 // ── Public entry points (drop-in for the casual coliseum call sites) ──────────────
@@ -2116,4 +2295,177 @@ export function runPetPartyDuelCinematic(
  *  so per-archetype win-rate is measured from the SAME classifier the sim uses. */
 export function petCinematicArchetype(pet: Pet): Archetype {
     return classifyArchetype(pet, petCinematicAbilities(pet));
+}
+
+// ── LIVE / PLAYER-CONTROLLED API ────────────────────────────────────────────────
+// Everything below exists only for the commanded coliseum path (pet-duel-live.ts).
+// None of it runs for runPetDuelCinematic / runPetPartyDuelCinematic, so the
+// server mirror, the pet ladder and sector war are untouched by its presence.
+
+/** One player input. `idx` is an ability slot, or -1 for a plain basic attack. */
+export type DuelCommand =
+    | { kind: "ability"; actorId: string; idx: number }
+    | { kind: "break"; actorId: string }
+    | { kind: "stance"; actorId: string; stance: number }
+    | { kind: "auto"; actorId: string; on: boolean };
+
+/** What the command deck needs to draw one fighter's buttons for a given tick. */
+export interface DuelControlSnap {
+    stamina: number;
+    hp: number; maxHp: number;
+    stance: number;
+    auto: boolean;
+    orderedIdx: number;                 // -2 none, -1 basic, >=0 ability slot
+    breakPending: boolean;
+    abilities: Array<{ name: string; kind: PetJutsu["kind"]; cost: number; signature: boolean; cdLeft: number; cdTicks: number; isMove: boolean; support: boolean }>;
+}
+
+/** Order-of-battle for the live path: which fighters obey the player. */
+export function createLiveCinematicDuel(
+    playerPet: Pet, enemyPet: Pet, seed: number,
+    playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
+    applyItems = true, accuracyEnabled = petAccuracyEnabled(), terrain: string | null = null,
+    debugTrace = false,
+): CinematicDuelState {
+    // Identical construction to runPetDuelCinematic — the ONLY difference is that
+    // the player's fighter accepts commands, so an "Auto"-only run reproduces the
+    // uncontrolled fight exactly.
+    const fighters = [
+        buildFighter(playerPet, "player", 0, -5.6, 2.6, enemyPet.element, playerDamageMult * terrainPetMult(terrain, playerPet.element), playerHpMult, playerReviveOnce, applyItems),
+        buildFighter(enemyPet, "enemy", 0, 5.6, 2.6, playerPet.element, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems),
+    ];
+    fighters[0].controlled = true;
+    return createDuelState(fighters, seed, accuracyEnabled, debugTrace);
+}
+
+/** 2v2 variant — both player-side pets take commands. */
+export function createLivePartyCinematicDuel(
+    playerLead: Pet, playerReserve: Pet | null,
+    enemyLead: Pet, enemyReserve: Pet | null,
+    seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
+    applyItems = true, accuracyEnabled = petAccuracyEnabled(), debugTrace = false,
+): CinematicDuelState {
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -5.6, 2.6, enemyLead.element, playerDamageMult, playerHpMult, playerReviveOnce, applyItems)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -5.0, -3.2, enemyReserve?.element ?? enemyLead.element, playerDamageMult, playerHpMult, false, applyItems));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 5.6, 2.6, playerLead.element, 1, 1, false, applyItems));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 5.0, -3.2, playerReserve?.element ?? playerLead.element, 1, 1, false, applyItems));
+    for (const f of fighters) if (f.team === "player") f.controlled = true;
+    return createDuelState(fighters, seed, accuracyEnabled, debugTrace);
+}
+
+export const stepCinematicDuel = (sim: CinematicDuelState): boolean => stepDuelState(sim);
+export const finishCinematicDuel = (sim: CinematicDuelState): DuelResult => finishDuelState(sim);
+export const cinematicDuelDone = (sim: CinematicDuelState): boolean => sim.done;
+
+/** How long an unfulfilled order waits for its window before lapsing. */
+export const DUEL_ORDER_TICKS = Math.round(DUEL_TPS * 5);
+
+export function applyDuelCommand(sim: CinematicDuelState, cmd: DuelCommand): boolean {
+    const f = sim.fighters.find((g) => g.id === cmd.actorId);
+    if (!f || !f.controlled || f.hp <= 0) return false;
+    switch (cmd.kind) {
+        case "ability": {
+            if (cmd.idx < -1 || cmd.idx >= f.abilities.length) return false;
+            f.cmdIdx = cmd.idx; f.cmdLeft = DUEL_ORDER_TICKS;
+            return true;
+        }
+        case "break": {
+            if (!f.abilities.some((a) => a.signature)) return false;
+            f.cmdBreak = true;
+            return true;
+        }
+        case "stance":
+            f.stance = clamp(Math.round(cmd.stance), 0, 2);
+            return true;
+        case "auto":
+            // "Auto" hands the fight back to the AI mid-duel: clear any standing
+            // order so the brain is not still executing the last command.
+            f.controlled = !cmd.on;
+            f.cmdIdx = -2; f.cmdLeft = 0; f.cmdBreak = false;
+            return true;
+    }
+}
+
+export function readDuelControl(sim: CinematicDuelState, actorId: string): DuelControlSnap | null {
+    const f = sim.fighters.find((g) => g.id === actorId);
+    if (!f) return null;
+    return {
+        stamina: f.stamina, hp: Math.max(0, f.hp), maxHp: f.maxHp,
+        stance: f.stance, auto: !f.controlled,
+        orderedIdx: f.controlled ? f.cmdIdx : -2, breakPending: f.controlled && f.cmdBreak,
+        abilities: f.abilities.map((a) => ({
+            name: a.name, kind: a.kind, cost: a.cost, signature: a.signature,
+            cdLeft: a.cdLeft, cdTicks: a.cdTicks, isMove: a.isMove, support: a.cls === "support",
+        })),
+    };
+}
+
+// ── Checkpoint / rewind ─────────────────────────────────────────────────────────
+// The live path keeps the simulation a beat AHEAD of playback so the presentation
+// layer still gets its look-ahead. To keep commands responsive anyway, it rewinds
+// to the last fully-played tick and re-simulates with the order applied. The engine
+// is deterministic and cheap, so replaying a fraction of a second is free.
+
+const cloneStatuses = (s: Statuses): Statuses => ({ ...s });
+const cloneAbility = (a: Ability): Ability => ({ ...a });
+function cloneFighter(f: Fighter): Fighter {
+    // `pet` and `style` are never mutated during a run, so they are shared by
+    // reference — cloning `pet` per tick would copy the whole pet record (including
+    // any inlined artwork) thirty times a second.
+    return { ...f, abilities: f.abilities.map(cloneAbility), statuses: cloneStatuses(f.statuses) };
+}
+
+export interface CinematicDuelCheckpoint {
+    fighters: Fighter[];
+    projectiles: Projectile[];
+    nextProjId: number;
+    snapshotCount: number;
+    eventCount: number;
+    rngS: number;
+    t: number; ticks: number;
+    winner: "player" | "enemy" | null;
+    done: boolean;
+    lastDmgTick: number; prevTotalHp: number;
+    walls: { x: number; y: number; r: number; expiry: number; ownerId: string }[];
+    stallPressure: number; forcedEngage: boolean;
+    initiativeTeam: "player" | "enemy";
+    laneInitiative: ["player" | "enemy", "player" | "enemy"];
+}
+
+export function checkpointCinematicDuel(sim: CinematicDuelState): CinematicDuelCheckpoint {
+    return {
+        fighters: sim.fighters.map(cloneFighter),
+        projectiles: sim.projectiles.map((p) => ({ ...p })),
+        nextProjId: sim.nextProjId.n,
+        snapshotCount: sim.snapshots.length,
+        eventCount: sim.events.length,
+        rngS: sim.rngState.s,
+        t: sim.t, ticks: sim.ticks, winner: sim.winner, done: sim.done,
+        lastDmgTick: sim.lastDmgTick, prevTotalHp: sim.prevTotalHp,
+        walls: sim.walls.map((w) => ({ ...w })),
+        stallPressure: sim.stallPressure, forcedEngage: sim.forcedEngage,
+        initiativeTeam: sim.initiativeTeam,
+        // Copied, not aliased: the lane array is mutated in place when a 2v2 lane
+        // hands its beat over, which would otherwise write through the checkpoint.
+        laneInitiative: [sim.laneInitiative[0], sim.laneInitiative[1]],
+    };
+}
+
+/** Rewind the sim to a checkpoint, discarding every snapshot and event produced
+ *  after it. The retained prefix is bit-identical to what was already played. */
+export function restoreCinematicDuel(sim: CinematicDuelState, cp: CinematicDuelCheckpoint): void {
+    sim.fighters.length = 0;
+    for (const f of cp.fighters) sim.fighters.push(cloneFighter(f));
+    sim.projectiles.length = 0;
+    for (const p of cp.projectiles) sim.projectiles.push({ ...p });
+    sim.nextProjId.n = cp.nextProjId;
+    sim.snapshots.length = cp.snapshotCount;
+    sim.events.length = cp.eventCount;
+    sim.rngState.s = cp.rngS;
+    sim.t = cp.t; sim.ticks = cp.ticks; sim.winner = cp.winner; sim.done = cp.done;
+    sim.lastDmgTick = cp.lastDmgTick; sim.prevTotalHp = cp.prevTotalHp;
+    sim.walls = cp.walls.map((w) => ({ ...w }));
+    sim.stallPressure = cp.stallPressure; sim.forcedEngage = cp.forcedEngage;
+    sim.initiativeTeam = cp.initiativeTeam;
+    sim.laneInitiative = [cp.laneInitiative[0], cp.laneInitiative[1]];
 }

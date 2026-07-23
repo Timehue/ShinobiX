@@ -112,9 +112,20 @@ const roles = read("lib/pet-roles.ts")
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"');
 write("pet-roles.ts", "lib/pet-roles.ts", roles);
 
+// 9. pet-bond-meter.ts → pet-bond-meter.ts. The casual coliseum REPLAY endpoint
+//    (api/pet/_duel-replay.ts) must recompute the Bond meter exactly as the
+//    client did, because Bond Break is the one command the engine does not gate
+//    itself: applyDuelCommand accepts it unconditionally and it ZEROES the
+//    signature cooldown. The meter is the only thing standing between a modified
+//    client and a signature every five seconds, so it has to be server-side.
+//    Type-only import of DuelEvent — just redirect it at the generated sibling.
+const bond = read("lib/pet-bond-meter.ts")
+    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
+write("pet-bond-meter.ts", "lib/pet-bond-meter.ts", bond);
+
 // Sanity: no client-only import paths may survive into the server copy.
 const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts"]) {
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }

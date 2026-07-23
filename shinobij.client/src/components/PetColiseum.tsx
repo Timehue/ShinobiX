@@ -57,6 +57,9 @@ import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
+import type { LiveDuel, DuelCommand } from "../lib/pet-duel-live";
+import { bondCharge } from "../lib/pet-bond-meter";
+import { PetDuelCommandDeck } from "./PetDuelCommandDeck";
 import { PARTY_SPOTLIGHT_COOLDOWN_SECONDS, appendCapped, boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove, selectDuelSpotlightEvent } from "../lib/pet-duel-presentation";
 import { petVisualQuality, type PetVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
@@ -3095,9 +3098,11 @@ function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; cont
     return { durationSec: 1.86, contactDelayMs: 180 };
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
+    /** False while a live duel is still simulating — see the end check below. */
+    canEnd?: boolean;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => void;
     spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number; style?: PetHeroMoveStyle }) => void;
@@ -4038,7 +4043,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         camEye.current[2] = lerp(camEye.current[2], desiredEye[2], eyeAlpha);
         camera.position.set(camEye.current[0] + sx, camEye.current[1] + sy, camEye.current[2]);
         camera.lookAt(camLook.current[0], camLook.current[1], camLook.current[2]);
-        if (!ended.current && clock.current.t >= maxT) {
+        // `canEnd` guards the LIVE (player-controlled) duel: there, maxT is the edge
+        // of the simulated buffer, not the end of the fight, so catching up to it
+        // mid-match must never be mistaken for the finish.
+        if (!ended.current && canEnd && clock.current.t >= maxT) {
             if (!endHold.current) endHold.current = now + 1.95;
             else if (now >= endHold.current) { ended.current = true; onEnd(); }
         }
@@ -6826,6 +6834,16 @@ function DuelAiDebugHud({ duel, clock, nameById }: { duel: DuelResult; clock: { 
     );
 }
 
+/** Placeholder timeline for the first frame of a live duel, before the controller
+ *  has produced a snapshot. Every consumer indexes snapshots defensively, so this
+ *  simply renders nothing for one frame rather than needing a separate branch. */
+const EMPTY_SNAPSHOTS: DuelResult["snapshots"] = [];
+const EMPTY_EVENTS: DuelResult["events"] = [];
+const EMPTY_DUEL: DuelResult = { result: "draw", winner: null, ticks: 0, snapshots: EMPTY_SNAPSHOTS, events: EMPTY_EVENTS };
+// Frozen because this single instance is shared by every live duel's first frame;
+// a consumer that appended to it would corrupt every subsequent fight.
+Object.freeze(EMPTY_SNAPSHOTS); Object.freeze(EMPTY_EVENTS); Object.freeze(EMPTY_DUEL);
+
 export type PetColiseumDuelProps = {
     playerPet: Pet;
     enemyPet: Pet;
@@ -6837,6 +6855,15 @@ export type PetColiseumDuelProps = {
      *  (for reward posting) and the sim runs exactly once. Omit only in the
      *  /petvfx.html preview harness, where the renderer self-runs from the seed. */
     result?: DuelResult;
+    /** PLAYER-CONTROLLED duel (docs/pet-coliseum-player-control-plan.md). When set,
+     *  the fight is simulated live a beat ahead of playback and the command deck is
+     *  shown; `result` is ignored and the outcome arrives through `onOutcome` when
+     *  the fight actually finishes. Casual PvE only — every other caller passes a
+     *  precomputed `result` and gets the unchanged watch-only duel. */
+    live?: LiveDuel;
+    /** Fired once, with the settled DuelResult, when a live duel finishes. The
+     *  mounting screen owns reward posting, exactly as it does for `result`. */
+    onOutcome?: (result: DuelResult) => void;
     sharedImages?: Record<string, string>;
     /** Dev-harness scrub point for deterministic VFX screenshots. Live callers omit it. */
     initialTick?: number;
@@ -6844,7 +6871,7 @@ export type PetColiseumDuelProps = {
     onExit: () => void;
 };
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
     // into [min,max] — exactly what the static preset rendered) and let
@@ -6855,14 +6882,32 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [dpr, setDpr] = useState(dprBase);
     const perfQa = useMemo(() => new URLSearchParams(window.location.search).get("petPerf") === "1", []);
     const mobileQa = useMemo(() => new URLSearchParams(window.location.search).get("mobileqa") === "1", []);
-    const duel = useMemo(
-        () => directPetDuelPresentation(result
+    // Keyboard shortcuts on the command deck are offered only where there is a real
+    // pointer; on touch they would just be dead hint glyphs cluttering the buttons.
+    const canHover = useMemo(() => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(pointer: fine)").matches, []);
+    const staticDuel = useMemo(
+        () => live ? EMPTY_DUEL : directPetDuelPresentation(result
             ?? ((playerReservePet || enemyReservePet)
                 ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
                 : runPetDuel(playerPet, enemyPet, seed))),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [result, seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
+        [live, result, seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
     );
+    // ── LIVE (player-controlled) duel ────────────────────────────────────────
+    // The view is a GROWING DuelResult: the settled prefix of the simulation, cut
+    // short of the look-ahead buffer the presentation layer needs. Its identity
+    // changes as it grows, so every memo below (dash beats, hero cuts, breathers)
+    // recomputes against the new timeline exactly as it would for a finished fight.
+    const [liveView, setLiveView] = useState<DuelResult | null>(() => live ? live.advance(Math.max(0, initialTick)) : null);
+    const [deckTick, setDeckTick] = useState(0);
+    // The tick a Bond Break was spent on — the meter counts events after it.
+    const [bondSpentAt, setBondSpentAt] = useState(-1);
+    // Optimistic echo of the most recent command, so a tap lights its button on the
+    // same frame instead of waiting for playback to reach the re-simulated tick.
+    const [pendingIntent, setPendingIntent] = useState<{
+        atTick: number; stance: number | null; auto: boolean | null; orderedIdx: number | null; breakPending: boolean | null;
+    }>({ atTick: -1, stance: null, auto: null, orderedIdx: null, breakPending: null });
+    const duel = live ? (liveView ?? EMPTY_DUEL) : staticDuel;
     const roster = useMemo(() => {
         const r: Array<{ id: string; pet: Pet; mirror: boolean }> = [{ id: "player-0", pet: playerPet, mirror: false }];
         if (playerReservePet) r.push({ id: "player-1", pet: playerReservePet, mirror: false });
@@ -6886,6 +6931,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const clock = useRef<DuelClock>({ t: Math.max(0, initialTick), playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
     const seqRef = useRef(0);
     const [runId, setRunId] = useState(0);
+    // A live duel must hand its outcome over EXACTLY once — Replay remounts the
+    // director and the exit forfeit is a second path into the same settlement.
+    const outcomeSent = useRef(false);
     const [ended, setEnded] = useState(false);
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
@@ -7124,7 +7172,57 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (!clock.current.playing || cutIn) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
         clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
+    // ── Command deck plumbing ────────────────────────────────────────────────
+    // Every order goes through live.command(), which rewinds to the last tick the
+    // player has actually seen and re-simulates — so a tap is obeyed on the next
+    // frame despite the look-ahead buffer.
+    const issueCommand = (cmd: DuelCommand) => {
+        if (!live) return;
+        live.command(cmd);
+        const tick = Math.max(0, Math.floor(clock.current.t));
+        setLiveView(live.advance(tick));
+        // Optimistic echo: the control log is a record of what was TRUE at each
+        // played tick, so it cannot show an order issued for the tick after this
+        // one. Without this the button would take a beat to light up and the deck
+        // would feel unresponsive even though the pet already has its orders.
+        setPendingIntent((prev) => ({
+            atTick: tick,
+            stance: cmd.kind === "stance" ? cmd.stance : prev.atTick === tick ? prev.stance : null,
+            auto: cmd.kind === "auto" ? cmd.on : prev.atTick === tick ? prev.auto : null,
+            orderedIdx: cmd.kind === "ability" ? cmd.idx : cmd.kind === "auto" && cmd.on ? -2 : prev.atTick === tick ? prev.orderedIdx : null,
+            breakPending: cmd.kind === "break" ? true : cmd.kind === "auto" && cmd.on ? false : prev.atTick === tick ? prev.breakPending : null,
+        }));
+    };
+    const loggedControl = live ? live.controlAt(deckTick, "player-0") : null;
+    // Trust the optimistic echo only until playback passes the tick it was issued
+    // on; from there the re-simulated log is authoritative again.
+    const echo = pendingIntent.atTick >= deckTick ? pendingIntent : null;
+    // Leaving a live fight early is a FORFEIT. A watch-only duel was already
+    // settled before it played, so quitting cost nothing; a live one would
+    // otherwise let a player walk away from a loss — and from the Hollow Gate HP
+    // penalty — by closing the screen.
+    const exitDuel = () => {
+        if (live && onOutcome && !outcomeSent.current) {
+            outcomeSent.current = true;
+            onOutcome({ ...live.outcome(), result: "loss", winner: "enemy" });
+        }
+        onExit();
+    };
+    const deckControl = loggedControl && echo ? {
+        ...loggedControl,
+        stance: echo.stance ?? loggedControl.stance,
+        auto: echo.auto ?? loggedControl.auto,
+        orderedIdx: echo.orderedIdx ?? loggedControl.orderedIdx,
+        breakPending: echo.breakPending ?? loggedControl.breakPending,
+    } : loggedControl;
+    // The meter is folded from the VISIBLE events, so it fills in step with the
+    // hits the player is watching rather than with the buffered ones.
+    const bond = live ? bondCharge(duel.events, "player-0", deckTick, bondSpentAt) : 0;
     const finishDuel = () => {
+        // A live duel owns its own outcome: the mounting screen has not seen a
+        // result yet, so hand it over here for reward posting. Guarded because
+        // Replay remounts the director, which would otherwise settle a second time.
+        if (live && onOutcome && !outcomeSent.current) { outcomeSent.current = true; onOutcome(live.outcome()); }
         // The result is its own shot. A late hero cut-in, dash ribbon, or pressure
         // volume must never remain layered over the winner/loser composition.
         setEnded(true);
@@ -7141,6 +7239,21 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     };
     const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setDusts([]); setScorches([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
+    // The live pump. Declared AFTER every clock mutation above on purpose: the
+    // immutability lint treats a ref read inside an effect as pinning that ref, so
+    // an earlier declaration would flag the existing playback controls.
+    // A timer rather than useFrame — the simulation only has to stay AHEAD of
+    // playback, and pumping React state at the render rate would be wasted work.
+    useEffect(() => {
+        if (!live) return;
+        const timer = window.setInterval(() => {
+            const tick = Math.max(0, Math.floor(clock.current.t));
+            const next = live.advance(tick);
+            setLiveView((prev) => (prev === next ? prev : next));
+            setDeckTick(tick);
+        }, 66);
+        return () => window.clearInterval(timer);
+    }, [live]);
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
@@ -7243,7 +7356,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
                 <BloomFx />
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
@@ -7357,10 +7470,32 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
             {debugAi && <DuelAiDebugHud duel={duel} clock={clock} nameById={nameById} />}
 
+            {/* The player's controls. Hidden during the VS intro, a cut-in and the
+                result screen so they never compete with an authored beat — and once
+                the fight has SETTLED, because Replay then re-plays a decided match
+                and a deck whose buttons no longer do anything is worse than none. */}
+            {live && !live.settled && !ended && !cutIn && !intro && (
+                <PetDuelCommandDeck
+                    control={deckControl}
+                    bond={bond}
+                    accent={elementColor(playerPet.element)}
+                    keyboard={!mobileQa && canHover}
+                    compact={mobileQa}
+                    onAbility={(idx) => issueCommand({ kind: "ability", actorId: "player-0", idx })}
+                    onBreak={() => { setBondSpentAt(Math.max(0, Math.floor(clock.current.t))); issueCommand({ kind: "break", actorId: "player-0" }); }}
+                    /* Stance and Auto are team-wide: in a 2v2 the deck drives the
+                       lead, but a plan the player sets should govern both pets. */
+                    onStance={(stance) => live.controlledIds.forEach((id) => issueCommand({ kind: "stance", actorId: id, stance }))}
+                    onAuto={(on) => live.controlledIds.forEach((id) => issueCommand({ kind: "auto", actorId: id, on }))}
+                />
+            )}
+
             {!ended && !cutIn && <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
-                <button onClick={onExit} style={duelBtn}>✕ Exit</button>
+                <button onClick={exitDuel} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
-                <button onClick={replay} style={duelBtn}>⟲ Replay</button>
+                {/* Replaying mid-fight would discard a live match, so the control is
+                    offered only on the result screen there. */}
+                {!live && <button onClick={replay} style={duelBtn}>⟲ Replay</button>}
             </div>}
             {!ended && !cutIn && <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Coliseum" : "Pet Coliseum"}</div>}
 
@@ -7372,7 +7507,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
                             {onFightAgain && <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>}
-                            <button onClick={onExit} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
+                            <button onClick={exitDuel} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
                         </div>
                     </div>
                 </div>
