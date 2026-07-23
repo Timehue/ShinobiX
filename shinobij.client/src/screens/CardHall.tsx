@@ -112,7 +112,7 @@ export function CardHall({
     );
     setBusy(false);
     if (!result.ok || !result.matchId || !result.session) {
-      setError(result.error ?? "Could not start the duel.");
+      setError(result.error ?? "Could not start the showdown.");
       return;
     }
     setMatchId(result.matchId);
@@ -160,7 +160,7 @@ export function CardHall({
       <header className="chronicle-header">
         <button onClick={onBack}>Back</button>
         <h1>
-          Shinobi Chronicle Duel
+          Shinobi Chronicle Showdown
           <small>
             {CHRONICLE_ROOM_TITLE} · Rules Version {CHRONICLE_RULES_VERSION}
           </small>
@@ -172,7 +172,7 @@ export function CardHall({
         </span>
         <button
           onClick={() => setShowTutorial(true)}
-          aria-label="Open duel tutorial"
+          aria-label="Open showdown tutorial"
         >
           How to play
         </button>
@@ -227,7 +227,7 @@ export function CardHall({
                   {duel.winner === duel.viewerSide
                     ? "Victory"
                     : duel.winner === "draw"
-                      ? "Duel Cancelled"
+                      ? "Showdown Cancelled"
                       : "Defeat"}
                 </h2>
                 {reward ? (
@@ -255,7 +255,7 @@ export function CardHall({
                   disabled={busy}
                   style={{ marginLeft: 8 }}
                 >
-                  Duel Again
+                  Play Again
                 </button>
               </div>
             ) : null}
@@ -280,9 +280,9 @@ export function CardHall({
           <div className="chronicle-panel" style={{ textAlign: "center" }}>
             <h2>{CHRONICLE_ROOM_TITLE}</h2>
             <p>
-              A Dark Crisis-era Shinobi format using the November 17, 2003
-              Limited List structure, six declared turn phases and the
-              historical first-turn draw rule.
+              A frozen classic Shinobi format built on the founding card pool
+              and its sealed Limited Scroll, with six declared turn phases and
+              the traditional first-turn draw rule.
             </p>
             {!savedValid ? (
               <p>
@@ -307,7 +307,7 @@ export function CardHall({
             </label>
             {error ? <div className="chronicle-error">{error}</div> : null}
             <button onClick={() => void begin()} disabled={busy}>
-              {busy ? "Preparing duel…" : "Start Duel vs AI"}
+              {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
             </button>
             <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
               Review Deck
@@ -516,7 +516,7 @@ function DeckBuilder({
           {deck.length}/{MAIN_DECK_SIZE}
         </h2>
         <p>
-          {counts.monster} Monsters · {counts.magic} Magic · {counts.trap} Traps
+          {counts.monster} Monsters · {counts.magic} Jutsu · {counts.trap} Snares
         </p>
         {groups.map(([id, count]) => (
           <div className="chronicle-deck__row" key={id}>
@@ -595,7 +595,7 @@ function FreePlayQueue({
       body: JSON.stringify({ name: character.name, action: "join" }),
     });
     if (!response.ok) {
-      setError("Could not join the duel queue.");
+      setError("Could not join the showdown queue.");
       return;
     }
     setSearching(true);
@@ -604,13 +604,13 @@ function FreePlayQueue({
     <section className="chronicle-panel">
       <h2>{CHRONICLE_ROOM_TITLE}</h2>
       <p>
-        Unranked Free-Play PvP with the Dark Crisis-era room rules. No rewards
+        Unranked Free-Play PvP with the Founding Codex room rules. No rewards
         and no rating changes. Hidden hands, Deck order, face-down Monsters and
-        set Traps remain server-private.
+        set Snares remain server-private.
       </p>
       {error ? <div className="chronicle-error">{error}</div> : null}
       <button onClick={() => void join()} disabled={searching}>
-        {searching ? "Searching…" : "Find a Duel"}
+        {searching ? "Searching…" : "Find a Showdown"}
       </button>
     </section>
   );
@@ -621,9 +621,9 @@ function Rules() {
     <section className="chronicle-panel chronicle-rules">
       <h2>{CHRONICLE_ROOM_TITLE}</h2>
       <p>
-        U.S. December 2003 rules through{" "}
-        {CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet}, translated into Shinobi
-        cards. Start with 8,000 Health Points, a 40-card Deck and five cards.
+        The {CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet}, a frozen classic
+        ruleset translated into Shinobi cards. Start with 8,000 Health Points, a
+        40-card Deck and five cards.
       </p>
       <p>
         <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. The first player draws on
@@ -638,12 +638,12 @@ function Rules() {
       <p>
         <strong>Elements:</strong> Fire beats Wind, then Lightning, Earth, Water
         and Fire again. Advantage adds +200 to the used ATK or DEF. Neutral is
-        the default table. Field Magic replaces that wheel with its printed
+        the default table. Field Jutsu replaces that wheel with its printed
         +300/−200 modifier; replacing the Field card replaces the modifier, so
         field advantages never stack.
       </p>
       <p>
-        <strong>Support:</strong> Set Traps wait one turn and allow one matching
+        <strong>Support:</strong> Set Snares wait one turn and allow one matching
         response—no chains. Most cards allow three copies; printed LIMIT 1/2
         exceptions and the number of copies you own are server-enforced. Lose
         at zero Health Points, on an empty Deck draw, or by forfeit.

@@ -1540,7 +1540,7 @@ export function WorldMap({
         setScreen("petArena");
     }
     function startWandererCardDuel(w: Wanderer) {
-        // The gambler deals you straight into Chronicle Duel in the Card Hall.
+        // The gambler deals you straight into Chronicle Showdown in the Card Hall.
         coolWanderer(w.id); // gambler dealt you in — gone for a few hours
         // Remember the sector so finishing the match returns the player here: the
         // Card Hall's Back goes through history to the World Map, which reopens this
@@ -2908,7 +2908,7 @@ export function WorldMap({
         ];
         if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
         if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-        if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+        if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
         if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
         if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });
         if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: "+1 Aura Stone", sub: "Awakening Stone material" });
@@ -4550,7 +4550,7 @@ export function WorldMap({
                 ];
                 if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
                 if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-                if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+                if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
                 if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
                 if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });
                 if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: "+1 Aura Stone", sub: "Awakening Stone material" });

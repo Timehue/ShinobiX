@@ -55,7 +55,7 @@ export const RELEASE_SYSTEM_MATRIX: ReleaseSystemRow[] = [
         requiredBeforeEnable: "Server-authoritative damage settlement and staging receipt review.",
     },
     {
-        system: "Shinobi Chronicle Duel",
+        system: "Shinobi Chronicle Showdown",
         launchState: "ready",
         reason: "AI, free-play PvP, Clan War and Sector War share one server-authoritative rules engine with validated 40-card decks.",
         risk: "Low to medium; balance and reconnect behavior should still be observed after release.",

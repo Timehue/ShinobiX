@@ -99,7 +99,7 @@ export function cleanMiraaBet(raw: unknown): number {
 /*
  * Server-authoritative Miraa settlement.
  *
- * Miraa plays server-authoritative Shinobi Chronicle Duel, whose win/loss is produced entirely
+ * Miraa plays server-authoritative Shinobi Chronicle Showdown, whose win/loss is produced entirely
  * on the (untrusted) client with no determinism contract — so the ryo result
  * CANNOT be read from a client-reported outcome without reopening a mint (a
  * hostile client would simply always report 'win'). Instead the wager resolves as

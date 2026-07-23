@@ -47,8 +47,8 @@ function chronicleInventorySummary(id: string): string {
     return card.cardClass === "monster"
         ? `Level ${card.level} · ATK ${card.attack}`
         : card.cardClass === "magic"
-            ? "Magic"
-            : "Trap";
+            ? "Jutsu"
+            : "Snare";
 }
 
 // Rarity-tiered ryo sell value for cost:0 hunt drop materials. MUST match the
@@ -592,7 +592,7 @@ export function Inventory({
                     <div className="inventory-panel-header">
                         <h2>{inventoryTab === "items"
                             ? (categoryFilter === "all" ? "Backpack" : `Backpack · ${ITEM_CATEGORY_META[categoryFilter].label}`)
-                            : "Shinobi Chronicle Duel Cards"}</h2>
+                            : "Shinobi Chronicle Showdown Cards"}</h2>
 
                         <div className="inventory-tabs">
                             <button
@@ -610,7 +610,7 @@ export function Inventory({
                                 aria-pressed={inventoryTab === "tileCards"}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
-                                <FiGrid aria-hidden="true" /> Chronicle Duel
+                                <FiGrid aria-hidden="true" /> Chronicle Showdown
                             </button>
                         </div>
                     </div>
@@ -792,7 +792,7 @@ export function Inventory({
 
                             {tileCardStacks.length === 0 ? (
                                 <p className="inventory-empty">
-                                    No Shinobi Chronicle Duel cards yet. Buy card packs from the Shop or Grand Marketplace.
+                                    No Shinobi Chronicle Showdown cards yet. Buy card packs from the Shop or Grand Marketplace.
                                 </p>
                             ) : (
                                 <div className="tile-card-inventory-grid">

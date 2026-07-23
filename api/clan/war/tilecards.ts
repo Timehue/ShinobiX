@@ -76,7 +76,7 @@ function advanceTimeout(session: Session, now: number): boolean {
 }
 function actionIntent(body: Record<string, unknown>, action: string): ChronicleActionIntent { return { action, handIndex:index(body.handIndex),zoneIndex:index(body.zoneIndex),tributeZoneIndexes:Array.isArray(body.tributeZoneIndexes)?body.tributeZoneIndexes.map(index).filter((n):n is number=>n!==undefined):undefined,attackerZoneIndex:index(body.attackerZoneIndex),targetZoneIndex:body.targetZoneIndex===null?null:index(body.targetZoneIndex),targetSide:body.targetSide==='p1'||body.targetSide==='p2'?body.targetSide:undefined,graveyardIndex:index(body.graveyardIndex),...(body.position==='attack'||body.position==='defense'?{position:body.position}:{})}; }
 
-/** Clan-war Chronicle Duel. The shared rules engine computes the only result accepted by war settlement. */
+/** Clan-war Chronicle Showdown. The shared rules engine computes the only result accepted by war settlement. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
     const identity = await authedPlayerOrAdmin(req); if (!identity) return res.status(401).json({ error: 'Authentication required.' });

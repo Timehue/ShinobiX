@@ -5,14 +5,14 @@ import { CardClashDuelScreen, type CardClashDuelConfig } from "./ClanWarTileCard
 const FREEPLAY_CARD_CONFIG: CardClashDuelConfig = {
     stashKey: "cardClashFreePlay.v1",
     endpoint: "/api/card-clash/match",
-    title: "Free-Play Chronicle Duel",
+    title: "Free-Play Chronicle Showdown",
     backScreen: "shinobiTiles",
     backLabel: "Back to Card Hall",
-    emptyTitle: "No active Chronicle duel",
+    emptyTitle: "No active Chronicle showdown",
     emptyNote: "The match context was lost. Return to the Card Hall to queue again.",
     emptyBackLabel: "Back to Card Hall",
-    awaitingNote: "Waiting for your opponent to join the duel.",
-    forfeitConfirm: "Forfeit the duel? Your opponent takes the win.",
+    awaitingNote: "Waiting for your opponent to join the showdown.",
+    forfeitConfirm: "Forfeit the showdown? Your opponent takes the win.",
     doneNote: (won, draw) => draw
         ? "Technical draw. Free play is unranked."
         : won ? "Victory. Free play has no rewards or rating changes." : "Defeat. No rating was lost.",

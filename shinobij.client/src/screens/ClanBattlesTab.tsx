@@ -285,8 +285,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                         </p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
-                                {/* All five modes are picker-eligible. Tile cards uses a
-                                    server-managed Triple-Triad-style duel; both clients are
+                                {/* All five modes are picker-eligible. Cards uses a
+                                    server-managed Chronicle Showdown; both clients are
                                     auto-pulled into ClanWarTileCardDuel on accept. */}
                                 {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).map(m => (
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>

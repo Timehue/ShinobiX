@@ -1,5 +1,5 @@
 /*
- * Shinobi Chronicle Duel -- shared rules v10.
+ * Shinobi Chronicle Showdown -- shared rules v10.
  *
  * This module is deliberately dependency-light and is consumed by both the
  * server handlers and the React client.  The server is the authority: clients
@@ -26,12 +26,12 @@ export const MAX_MONSTER_LEVEL = 8;
 export const TURN_TIMEOUT_MS = 60_000;
 export const RESPONSE_TIMEOUT_MS = 15_000;
 
-export const CHRONICLE_ROOM_TITLE = "December 2003 USA TCG Time Wizard";
+export const CHRONICLE_ROOM_TITLE = "Founding Codex Format";
 export const CHRONICLE_DECEMBER_2003_FORMAT = Object.freeze({
   roomTitle: CHRONICLE_ROOM_TITLE,
-  region: "USA TCG",
+  region: "Shinobi Chronicle",
   snapshotDate: "2003-12-01",
-  latestLegalSet: "Dark Crisis",
+  latestLegalSet: "Founding Codex",
   limitedListEffective: "2003-11-17",
   startingLifePoints: STARTING_LIFE_POINTS,
   openingHandSize: OPENING_HAND_SIZE,
@@ -66,7 +66,7 @@ export const CHRONICLE_DECEMBER_2003_FORMAT = Object.freeze({
       "Activate during an open Main Phase; replace the previous shared environment.",
     trap: "Set during an open Main Phase, wait at least one turn, then answer the printed trigger window.",
     responseOrder:
-      "The non-turn player receives one server-owned Trap response before the pending action resolves; Chronicle Duel does not build multi-link chains.",
+      "The non-turn player receives one server-owned Snare response before the pending action resolves; Chronicle Showdown does not build multi-link chains.",
   }),
 });
 
@@ -87,7 +87,7 @@ export const CHRONICLE_ELEMENT_BATTLE_BONUS = 200;
 /**
  * A deliberately simple five-nature wheel. The advantaged Monster gains the
  * bonus on the stat it is currently using in battle (ATK or DEF); the other
- * Monster receives no additional penalty. An active Field Magic replaces this
+ * Monster receives no additional penalty. An active Field Jutsu replaces this
  * neutral-field wheel with its printed +300/-200 modifier, so bonuses never
  * stack.
  */
@@ -254,13 +254,13 @@ export interface ChronicleEffect {
   trigger?: ChronicleTrigger;
   /** Element-themed reactive cards require an established face-up specialist.
    * This keeps their stronger 2003-style interruption roles from becoming a
-   * single generic Trap package in every deck. */
+   * single generic Snare package in every deck. */
   requiresFaceUpElement?: ChronicleElement;
-  /** Restrict a reactive counter to the printed Magic subtype or effect role. */
+  /** Restrict a reactive counter to the printed Jutsu subtype or effect role. */
   requiresMagicType?: ChronicleMagicCard["magicType"];
   requiresMagicKind?: ChronicleEffectKind;
   requiresMagicMonsterTarget?: boolean;
-  /** Simple, server-enforced activation costs inspired by period counter Traps. */
+  /** Simple, server-enforced activation costs inspired by period counter Snares. */
   healthCost?: number;
   discardCost?: number;
   amount?: number;
@@ -457,7 +457,7 @@ function stableElementIndex(key: string, modulo: number): number {
   return hash % modulo;
 }
 
-/** Chronicle Duel has exactly five Monster elements. Ice identities are
+/** Chronicle Showdown has exactly five Monster elements. Ice identities are
  * Water-aligned; formerly unaligned or shadow-flavored identities are
  * distributed across the four remaining affinities so the roster stays
  * balanced without inventing additional gameplay elements. */
@@ -726,7 +726,7 @@ interface ReviewedMonsterEffect {
 /**
  * Explicit semantic review of the Effect Monster roster. The list deliberately
  * covers 66 of the 287 launch Monsters (23.0%): enough to create early-TCG
- * uncertainty without making Normal Monsters or Magic/Trap cards irrelevant.
+ * uncertainty without making Normal Monsters or Jutsu/Snare cards irrelevant.
  */
 const REVIEWED_MONSTER_EFFECTS: Readonly<
   Record<string, ReviewedMonsterEffect>
@@ -860,7 +860,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
   "tc-33": {
     effect: { kind: "recoverMagicOnFlip", trigger: "onFlip", amount: 1 },
     effectText:
-      "FLIP: Return the most recently sent Magic Card from your Graveyard to your hand.",
+      "FLIP: Return the most recently sent Jutsu Card from your Graveyard to your hand.",
     attackAdjustment: -300,
   },
   "tc-34": {
@@ -946,7 +946,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
       amount: 200,
     },
     effectText:
-      "Each time a Magic Card is activated while this card is face-up: It gains 200 ATK until the End Phase.",
+      "Each time a Jutsu Card is activated while this card is face-up: It gains 200 ATK until the End Phase.",
     attackAdjustment: -300,
   },
   "tc-48": {
@@ -965,13 +965,13 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
       trigger: "onDestroyedByBattle",
     },
     effectText:
-      "If destroyed by battle: Return the most recent Field Magic Card in your Graveyard to your hand.",
+      "If destroyed by battle: Return the most recent Field Jutsu Card in your Graveyard to your hand.",
     attackAdjustment: -200,
   },
   "tc-50": {
     effect: { kind: "sealAllTraps", trigger: "whileFaceUp" },
     effectText:
-      "While this card is face-up, neither player can activate Trap Cards.",
+      "While this card is face-up, neither player can activate Snare Cards.",
     attackAdjustment: -300,
     deckLimit: 1,
   },
@@ -990,7 +990,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
       trigger: "onTributeSummon",
     },
     effectText:
-      "If Tribute Summoned: Destroy 1 opponent Set Magic or Trap Card. This card cannot attack this turn.",
+      "If Tribute Summoned: Destroy 1 opponent Set Jutsu or Snare Card. This card cannot attack this turn.",
     defenseAdjustment: -100,
   },
   "tc-99": {
@@ -1068,7 +1068,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
   "tc-126": {
     effect: { kind: "sealAttackTraps", trigger: "whileFaceUp" },
     effectText:
-      "While this card is face-up, your opponent cannot activate Traps when you declare an attack.",
+      "While this card is face-up, your opponent cannot activate Snares when you declare an attack.",
     attackAdjustment: -200,
   },
   "tc-127": {
@@ -1157,7 +1157,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
   "legacy-thousand-seals": {
     effect: { kind: "sealAttackTraps", trigger: "whileFaceUp" },
     effectText:
-      "While this card is face-up, your opponent cannot activate Traps when you declare an attack.",
+      "While this card is face-up, your opponent cannot activate Snares when you declare an attack.",
     attackAdjustment: -200,
     deckLimit: 1,
   },
@@ -1191,7 +1191,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
   "story-story-ai-stormveil-village-25": {
     effect: { kind: "sealAttackTraps", trigger: "whileFaceUp" },
     effectText:
-      "While this card is face-up, your opponent cannot activate Traps when you declare an attack.",
+      "While this card is face-up, your opponent cannot activate Snares when you declare an attack.",
     attackAdjustment: -200,
   },
   "story-story-ai-stormveil-village-100": {
@@ -1627,7 +1627,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/legacy/jutsu/sealbreak-verdict.webp",
     "A precise counter-script tears one prepared technique out of the opposing line.",
     "normal",
-    "Destroy one opponent Magic or Trap Card.",
+    "Destroy one opponent Jutsu or Snare Card.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -1648,7 +1648,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/legacy/jutsu/hundredfold-tempest.webp",
     "Layered wind seals scour every hostile preparation from the enemy field.",
     "normal",
-    "Destroy all Magic and Trap Cards your opponent controls.",
+    "Destroy all Jutsu and Snare Cards your opponent controls.",
     {
       kind: "destroyAllOpponentMagicTraps",
       legalController: "owner",
@@ -1843,7 +1843,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/legacy/jutsu/cleansing-radiance.webp",
     "A white sealing flare burns one hostile script away without touching its bearer.",
     "normal",
-    "Destroy one opponent Magic or Trap Card, then gain 500 Health Points.",
+    "Destroy one opponent Jutsu or Snare Card, then gain 500 Health Points.",
     {
       kind: "destroyOneMagicTrapAndHeal",
       legalController: "owner",
@@ -1995,7 +1995,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/chronicle/cards/chronicle-chakra-ledger.webp",
     "A quartermaster's coded account reveals one prepared resource at the decisive moment.",
     "normal",
-    "Return one Magic Card from your Graveyard to your hand.",
+    "Return one Jutsu Card from your Graveyard to your hand.",
     {
       kind: "recoverOneGraveyardCard",
       legalController: "owner",
@@ -2218,7 +2218,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/chronicle/cards/chronicle-grave-lantern-rite.webp",
     "Blue lanterns guide a lost landscape seal back from the Graveyard.",
     "normal",
-    "Return one Field Magic Card from your Graveyard to your hand.",
+    "Return one Field Jutsu Card from your Graveyard to your hand.",
     {
       kind: "recoverOneGraveyardCard",
       legalController: "owner",
@@ -2292,7 +2292,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/chronicle/cards/chronicle-shrine-purge.webp",
     "A ring of white flame consumes one hostile script without harming the shrine.",
     "normal",
-    "Destroy the active Field Magic Card.",
+    "Destroy the active Field Jutsu Card.",
     {
       kind: "destroyActiveField",
       legalController: "owner",
@@ -2309,7 +2309,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/chronicle/cards/chronicle-storm-shear.webp",
     "A razor cyclone strips every prepared technique from both formations.",
     "normal",
-    "Destroy all Magic and Trap Cards on the field.",
+    "Destroy all Jutsu and Snare Cards on the field.",
     {
       kind: "destroyAllMagicTraps",
       legalController: "owner",
@@ -2519,7 +2519,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Kage Judgment Seal",
     "/legacy/jutsu/founders-injunction.webp",
     "The founder's hidden injunction voids one enemy technique at the instant of release.",
-    "When an opponent activates a Magic Card: pay 1500 Health Points; negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card: pay 1500 Health Points; negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -2541,7 +2541,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Chakra Jammer",
     "/chronicle/cards/chronicle-chakra-jammer.webp",
     "A disruptive tag scrambles the shaping pattern of an enemy technique.",
-    "When an opponent activates a Magic Card: discard 1 random card; negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card: discard 1 random card; negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -2563,7 +2563,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Counter-Script Cache",
     "/legacy/jutsu/house-rules.webp",
     "A prepared ruleset closes the loophole an invading technique expected to exploit.",
-    "When Magic targets exactly 1 Monster: discard 1 random card; negate it and send it to the Graveyard.",
+    "When Jutsu targets exactly 1 Monster: discard 1 random card; negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -2585,7 +2585,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Imperial Silence Ward",
     "/legacy/jutsu/empire-of-silence.webp",
     "A sovereign barrier forbids one opposing technique from taking form.",
-    "When an opponent activates an Equip Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates an Equip Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -2606,7 +2606,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Still-Water Rebuttal",
     "/legacy/jutsu/still-water-gaze.webp",
     "A perfectly calm counter-seal unthreads one incoming technique.",
-    "When an opponent activates a Magic Card that would draw cards: negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card that would draw cards: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -2858,7 +2858,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Sovereign's Decree",
     "/legacy/jutsu/sovereigns-decree.webp",
     "A hidden royal script rejects one technique that would alter the field.",
-    "When an opponent activates a Field Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates a Field Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3214,7 +3214,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Ember Cipher",
     "/chronicle/cards/chronicle-ember-cipher.webp",
     "A burning counter-script consumes an enemy technique while it is still being shaped.",
-    "When an opponent activates a Normal Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates a Normal Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3232,7 +3232,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Drowned Formula",
     "/chronicle/cards/chronicle-drowned-formula.webp",
     "A waterlogged seal dissolves the pattern of an activated technique.",
-    "When an opponent activates an Equip Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates an Equip Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3250,7 +3250,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Grounding-Rod Script",
     "/chronicle/cards/chronicle-grounding-rod-script.webp",
     "A buried iron seal grounds hostile chakra before the technique resolves.",
-    "When an opponent activates a Field Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates a Field Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3268,7 +3268,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Windless Edict",
     "/chronicle/cards/chronicle-windless-edict.webp",
     "A still-air decree denies the motion an enemy technique needs to form.",
-    "When an opponent activates a Magic Card that changes ATK: negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card that changes ATK: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3286,7 +3286,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Mirror-Moon Rebuttal",
     "/chronicle/cards/chronicle-mirror-moon-rebuttal.webp",
     "A reflected moon seal turns an enemy technique back into inert ink.",
-    "When an opponent activates a Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3303,7 +3303,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Kage Archive Lock",
     "/chronicle/cards/chronicle-kage-archive-lock.webp",
     "A classified prohibition closes around one forbidden technique at activation.",
-    "When an opponent activates a Magic Card that would draw cards: negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card that would draw cards: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3321,7 +3321,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Five-Seal Denial",
     "/chronicle/cards/chronicle-five-seal-denial.webp",
     "Five village scripts converge to erase an activated technique from the field.",
-    "When an opponent activates a Magic Card: negate it and send it to the Graveyard.",
+    "When an opponent activates a Jutsu Card: negate it and send it to the Graveyard.",
     {
       kind: "destroyOneMagicTrap",
       legalController: "owner",
@@ -3801,7 +3801,7 @@ function actionGuard(
   if (state.rulesVersion !== CHRONICLE_RULES_VERSION)
     return "This duel used retired rules; start a new duel.";
   if (state.status !== "active") return "The duel is over.";
-  if (state.responseWindow) return "A Trap response is waiting.";
+  if (state.responseWindow) return "A Snare response is waiting.";
   if (state.activePlayer !== actor) return "It is not your turn.";
   if (!phases.includes(state.phase))
     return "That action is not legal in this phase.";
@@ -4066,7 +4066,7 @@ function applyStandaloneFlipEffect(
       const recoveredId = side.graveyard.splice(graveyardIndex, 1)[0];
       side.hand.push(recoveredId);
       state.log.push(
-        `${card.name}'s Flip effect returns ${getChronicleCard(recoveredId)?.name ?? "a Magic Card"} to the hand.`,
+        `${card.name}'s Flip effect returns ${getChronicleCard(recoveredId)?.name ?? "a Jutsu Card"} to the hand.`,
       );
     }
   }
@@ -4211,7 +4211,7 @@ function applyDestroyedByBattleEffect(
       const recoveredId = side.graveyard.splice(graveyardIndex, 1)[0];
       side.hand.push(recoveredId);
       state.log.push(
-        `${card.name} recovers a Field Magic Card.`,
+        `${card.name} recovers a Field Jutsu Card.`,
       );
     }
   } else if (effect.kind === "reviveNormalWhenDestroyedByBattle") {
@@ -4499,7 +4499,7 @@ function maybeOpenResponse(
     expiresAt: now + RESPONSE_TIMEOUT_MS,
     pendingAction: { ...pendingAction, actor },
   };
-  next.log.push(`${sideOf(next, responder).name} may respond with a set Trap.`);
+  next.log.push(`${sideOf(next, responder).name} may respond with a set Snare.`);
   return success(next);
 }
 
@@ -4584,7 +4584,7 @@ function resolveSummon(
       const destroyedId = sideOf(next, opponentKey).magicTrapZones[setZoneIndex]!.cardId;
       sendMagicTrapToGrave(next, opponentKey, setZoneIndex);
       next.log.push(
-        `${card.name}'s Tribute effect destroys the opponent's Set ${getChronicleCard(destroyedId)?.cardClass === "trap" ? "Trap" : "Magic"} Card.`,
+        `${card.name}'s Tribute effect destroys the opponent's Set ${getChronicleCard(destroyedId)?.cardClass === "trap" ? "Snare" : "Jutsu"} Card.`,
       );
     }
   }
@@ -4769,7 +4769,7 @@ function validateEffectTarget(
     const id = sideOf(state, actor).graveyard[index];
     const target = id ? getChronicleCard(id) : undefined;
     if (target?.cardClass !== "magic" || target.magicType !== "field")
-      return "Choose a Field Magic Card in your Graveyard.";
+      return "Choose a Field Jutsu Card in your Graveyard.";
     return null;
   }
   if (scope === "ownGraveyardMagic") {
@@ -4777,7 +4777,7 @@ function validateEffectTarget(
     const id = sideOf(state, actor).graveyard[index];
     const target = id ? getChronicleCard(id) : undefined;
     if (!target || target.cardClass !== "magic")
-      return "Choose a Magic Card in your Graveyard.";
+      return "Choose a Jutsu Card in your Graveyard.";
     return null;
   }
   if (scope === "ownGraveyardLevel4OrLowerMonster") {
@@ -4810,7 +4810,7 @@ function validateEffectTarget(
       !validZone(index, MAGIC_TRAP_ZONE_COUNT) ||
       !sideOf(state, targetSide).magicTrapZones[index]
     )
-      return "Choose an opponent Magic or Trap Card.";
+      return "Choose an opponent Jutsu or Snare Card.";
     return null;
   }
   const targetSide =
@@ -4866,10 +4866,10 @@ function resolveMagic(
   const handIndex = Number(intent.handIndex);
   const card = cardInHand(next, actor, handIndex);
   if (!card || card.cardClass !== "magic")
-    return failure(state, "Select a Magic Card in your hand.");
+    return failure(state, "Select a Jutsu Card in your hand.");
   const openIndex = side.magicTrapZones.findIndex((zone) => zone === null);
   if (card.magicType !== "field" && openIndex < 0)
-    return failure(state, "All Magic/Trap Zones are occupied.");
+    return failure(state, "All Jutsu/Snare Zones are occupied.");
   const targetError = validateEffectTarget(next, actor, card, intent);
   if (targetError) return failure(state, targetError);
   side.hand.splice(handIndex, 1);
@@ -4877,7 +4877,7 @@ function resolveMagic(
     const targetIndex = Number(intent.targetZoneIndex);
     const target = side.monsterZones[targetIndex]!;
     if (target.attachedEquipId)
-      return failure(state, "That Monster already has an Equip Magic Card.");
+      return failure(state, "That Monster already has an Equip Jutsu Card.");
     const zone: ChronicleMagicTrapZone = {
       instanceId: nextIid(next, "equip"),
       cardId: card.id,
@@ -5131,12 +5131,12 @@ export function activateMagic(
   if (guard) return failure(state, guard);
   const card = cardInHand(state, actor, Number(intent.handIndex));
   if (!card || card.cardClass !== "magic")
-    return failure(state, "Select a Magic Card in your hand.");
+    return failure(state, "Select a Jutsu Card in your hand.");
   if (
     card.magicType !== "field" &&
     !sideOf(state, actor).magicTrapZones.some((zone) => zone === null)
   )
-    return failure(state, "All Magic/Trap Zones are occupied.");
+    return failure(state, "All Jutsu/Snare Zones are occupied.");
   const targetError = validateEffectTarget(state, actor, card, intent);
   if (targetError) return failure(state, targetError);
   const pending = { ...intent, action: "activate-magic" };
@@ -5163,11 +5163,11 @@ export function setTrap(
   if (guard) return failure(state, guard);
   const card = cardInHand(state, actor, handIndex);
   if (!card || card.cardClass !== "trap")
-    return failure(state, "Select a Trap Card in your hand.");
+    return failure(state, "Select a Snare Card in your hand.");
   if (!validZone(zoneIndex, MAGIC_TRAP_ZONE_COUNT))
-    return failure(state, "Choose a valid Magic/Trap Zone.");
+    return failure(state, "Choose a valid Jutsu/Snare Zone.");
   if (sideOf(state, actor).magicTrapZones[zoneIndex])
-    return failure(state, "That Magic/Trap Zone is occupied.");
+    return failure(state, "That Jutsu/Snare Zone is occupied.");
   const next = clone(state);
   const side = sideOf(next, actor);
   side.hand.splice(handIndex, 1);
@@ -5179,7 +5179,7 @@ export function setTrap(
     faceUp: false,
     setOnTurn: next.turnNumber,
   };
-  next.log.push(`${side.name} Sets a Trap Card.`);
+  next.log.push(`${side.name} Sets a Snare Card.`);
   return success(next);
 }
 
@@ -5976,18 +5976,18 @@ export function activateTrap(
   zoneIndex: number,
 ): ChronicleResult {
   const window = state.responseWindow;
-  if (!window) return failure(state, "There is no Trap response window.");
+  if (!window) return failure(state, "There is no Snare response window.");
   if (window.responder !== actor)
-    return failure(state, "Only the responding player may activate a Trap.");
+    return failure(state, "Only the responding player may activate a Snare.");
   if (!window.eligibleZoneIndexes.includes(zoneIndex))
-    return failure(state, "That Trap is not eligible for this response.");
+    return failure(state, "That Snare is not eligible for this response.");
   const next = clone(state);
   const copiedWindow = next.responseWindow!;
   const side = sideOf(next, actor);
   const zone = side.magicTrapZones[zoneIndex];
   const card = zone ? getChronicleCard(zone.cardId) : undefined;
   if (!zone || !card || card.cardClass !== "trap")
-    return failure(state, "That set Trap is unavailable.");
+    return failure(state, "That set Snare is unavailable.");
   zone.faceUp = true;
   side.magicTrapZones[zoneIndex] = null;
   side.graveyard.push(card.id);
@@ -6058,13 +6058,13 @@ export function passResponse(
   actor: ChronicleSideKey,
 ): ChronicleResult {
   const window = state.responseWindow;
-  if (!window) return failure(state, "There is no Trap response window.");
+  if (!window) return failure(state, "There is no Snare response window.");
   if (window.responder !== actor)
     return failure(state, "Only the responding player may pass.");
   const next = clone(state);
   const copiedWindow = next.responseWindow!;
   next.responseWindow = null;
-  next.log.push(`${sideOf(next, actor).name} passes the Trap response.`);
+  next.log.push(`${sideOf(next, actor).name} passes the Snare response.`);
   return resolvePending(next, copiedWindow);
 }
 
@@ -6073,7 +6073,7 @@ export function passExpiredResponse(
   now = Date.now(),
 ): ChronicleResult {
   if (!state.responseWindow || state.responseWindow.expiresAt > now)
-    return failure(state, "No Trap response has expired.");
+    return failure(state, "No Snare response has expired.");
   return passResponse(state, state.responseWindow.responder);
 }
 

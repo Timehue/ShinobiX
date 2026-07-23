@@ -22,7 +22,7 @@ const ENCOUNTER_AI_DIFFICULTY: Record<TileDifficulty, ChronicleAiDifficulty> = {
 };
 
 /** Current-rules PvE host. Encounter callers retain ownership of their reward, HP,
- * torch and seal consequences; the duel server owns every card-game decision. */
+ * torch and seal consequences; the showdown server owns every card-game decision. */
 export function CardClashDuel({
     character, creatorCards, tileDifficulty = "normal", dungeonSceneImage,
     opponentAvatar, onDungeonWin, onDungeonLose, onDungeonDraw, onDungeonLeave,
@@ -50,7 +50,7 @@ export function CardClashDuel({
         started.current = true;
         void startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true).then((result) => {
             setBusy(false);
-            if (!result.ok || !result.matchId || !result.session) setError(result.error ?? "Could not prepare the sealed duel.");
+            if (!result.ok || !result.matchId || !result.session) setError(result.error ?? "Could not prepare the sealed showdown.");
             else { setMatchId(result.matchId); setDuel(result.session); }
         });
     }, [character.name, deck, tileDifficulty]);
@@ -77,12 +77,12 @@ export function CardClashDuel({
 
     return <main className="chronicle-shell chronicle-encounter" style={sceneStyle}>
         <header className="chronicle-header">
-            <button onClick={onDungeonLeave} disabled={busy}>Leave Duel</button>
-            <h1>Shinobi Chronicle Duel<small>{tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium"}</small></h1>
+            <button onClick={onDungeonLeave} disabled={busy}>Leave Showdown</button>
+            <h1>Shinobi Chronicle Showdown<small>{tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium"}</small></h1>
         </header>
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
         {error && !duel ? <section className="chronicle-panel"><div className="chronicle-error" role="alert">{error}</div><button onClick={onDungeonLeave}>Leave encounter</button></section> : null}
-        {done ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Duel." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the duel."}</p><button onClick={resolve}>Continue</button></section> : null}
+        {done ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section> : null}
         {duel ? <ChronicleDuelBoard state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar} busy={busy} error={error} onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }
