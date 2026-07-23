@@ -55,7 +55,14 @@ export const RELEASE_SYSTEM_MATRIX: ReleaseSystemRow[] = [
         requiredBeforeEnable: "Server-authoritative damage settlement and staging receipt review.",
     },
     {
-        system: "Card Clash, Pet Arena, Pet Ladder",
+        system: "Shinobi Chronicle Duel",
+        launchState: "ready",
+        reason: "AI, free-play PvP, Clan War and Sector War share one server-authoritative rules engine with validated 40-card decks.",
+        risk: "Low to medium; balance and reconnect behavior should still be observed after release.",
+        requiredBeforeEnable: "Automated engine, endpoint, asset and production-build gates must remain green.",
+    },
+    {
+        system: "Pet Arena, Pet Ladder",
         launchState: "monitor",
         reason: "Contained side activities with existing rate limits and battle state.",
         risk: "Medium; clarity and balance are more likely than save-loss issues.",
@@ -106,26 +113,12 @@ const SCREEN_NOTICES: Partial<Record<Screen, PublicBetaNotice>> = {
         title: "Sector War is soft-launched",
         body: "Sector declarations, terrain, mercenaries, and war supply should be monitored before inviting all players into them.",
     },
-    sectorCard: {
-        id: "sector-card",
-        screen: "sectorCard",
-        state: "monitor",
-        title: "Sector Card Clash is in beta",
-        body: "This battle affects war pressure. Finish the match before leaving and report stuck results to staff.",
-    },
     sectorPet: {
         id: "sector-pet",
         screen: "sectorPet",
         state: "monitor",
         title: "Sector Pet Battle is in beta",
         body: "Pet sector fights are safe to test, but beta rewards and war impact should be watched by staff.",
-    },
-    shinobiTiles: {
-        id: "card-clash",
-        screen: "shinobiTiles",
-        state: "monitor",
-        title: "Card Clash is a side-mode beta",
-        body: "Play for variety and testing; early progression still comes from training, missions, and the Logbook.",
     },
     cardClashFreePlay: {
         id: "card-free-play",

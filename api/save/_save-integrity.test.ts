@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { adminSaveTargetAllowed, sanitizeCharacterSave } from './[name].js';
+import {
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    CHRONICLE_RULES_VERSION,
+} from '../../shared/chronicle-duel.js';
 
 const wrap = (character: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({ ...extra, character });
 
@@ -25,6 +29,34 @@ const sanitizeCompatible = (
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
 ) => withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing));
+
+describe('Chronicle Duel save validation', () => {
+    it('accepts a legal owned 40-card deck', () => {
+        const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
+        const out = sanitizeCompatible(
+            wrap({ tileCards: [], cardClashDeck: deck }),
+            wrap({ tileCards: [] }),
+        ).character as Record<string, unknown>;
+        assert.deepEqual(out.cardClashDeck, deck);
+    });
+
+    it('preserves the stored deck when a client submits forged card ids', () => {
+        const storedDeck = [...CHRONICLE_FIXED_FALLBACK_DECK];
+        const out = sanitizeCompatible(
+            wrap({ tileCards: [], cardClashDeck: Array(40).fill('forged-card') }),
+            wrap({ tileCards: [], cardClashDeck: storedDeck }),
+        ).character as Record<string, unknown>;
+        assert.deepEqual(out.cardClashDeck, storedDeck);
+    });
+
+    it('bounds the acknowledged tutorial version to current rules', () => {
+        const out = sanitizeCompatible(
+            wrap({ cardClashTutorialVersion: 999 }),
+            wrap({}),
+        ).character as Record<string, unknown>;
+        assert.equal(out.cardClashTutorialVersion, CHRONICLE_RULES_VERSION);
+    });
+});
 
 describe('jutsu loadout persistence', () => {
     const learnedIds = Array.from({ length: 15 }, (_, index) => `trained-${index + 1}`);

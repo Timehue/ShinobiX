@@ -21,29 +21,20 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // stage (PetArena3DStage) landed ~278 KB of LAZY 3D/gameplay chunks (CI measured
 // budgeted 6,385,827 B). All startup gates below are UNTOUCHED and still pass —
 // the new code is off the entry path (initial graph 1.43 MB raw / 367 KB gzip).
-const TOTAL_JS_CSS_FAIL_BYTES = 6_600_000;
+// 2026-07-23: 6.60 → 6.64 MB. Chronicle Duel adds 160,674 B of lazy rules,
+// board and card-dossier chunks; the complete product graph measures 6,627,372 B.
+// The new ceiling leaves only 12,628 B of build variance. Startup remains well
+// below its independent raw/gzip gates, which stay unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_640_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
 // from data/storylines so the chapter prose left too (795→581 KB; initial
 // gzip ~497→340 KB). Lower these again when the next drain lands, never raise
 // them to "fix" a regression.
-// 2026-07-22: accumulated feature work (not a single regression) grew the entry
-// chunk back to ~645 KB, leaving <1 KB under the 660,000 ceiling — so the build
-// began failing on cross-platform variance alone (passes on Windows, 645.3 KB
-// on Linux CI). Raised to 675,000 to restore a small reliable margin. This is a
-// budget-lifecycle bump, not regression-papering: the RIGHT next step is to
-// drain the entry chunk (lazy-load eager data) and lower this again.
-// 2026-07-22 (drain, as promised above): 675,000 → 640,000. Three eager modules
-// were code-split OFF the entry chunk: (1) BattleTowerFight (~76 KB) — the sealed
-// combat screen was dragged in by StoryBossFightHost (the one eager importer;
-// every other importer was already lazy), now lazy-loaded inside the host, which
-// stays eager only for its light request-bus listener; (2)+(3) the tile-card
-// catalog + card-clash deck math (~50 KB) — needed only by the clan-war
-// "tilecards" launch, moved into a lazy lib/clan-war-tilecards-join helper. Entry
-// fell 644.3 KB → 558.6 KB (571,995 B measured on Windows). 640,000 leaves ~11.9%
-// headroom — far above the ~1 KB cross-platform variance that motivated the bump,
-// yet 35 KB below the old ceiling. Lower again when the next drain lands.
+// 2026-07-22: accumulated feature work briefly raised this to 675,000, then
+// BattleTowerFight and the retired card engine were moved off the entry graph.
+// The drained entry measured 571,995 B, so the gate was lowered to 640,000.
 const ENTRY_JS_FAIL_BYTES = 640_000;
 const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 385_000;

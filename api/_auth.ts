@@ -188,6 +188,83 @@ export async function verifyPlayerToken(token: string): Promise<string | null> {
     }
 }
 
+// ─── Sliding token refresh ────────────────────────────────────────────────────
+//
+// Tokens used to be minted ONLY by player-auth (register / login / password
+// change). Because the client is token-first and purges the stored password the
+// moment a token exists, a player had no way to re-mint one — so every session
+// hit a hard 24h wall and the client had to show a "session timed out, re-enter
+// your password" modal. That fired for anyone who came back the next day, which
+// is pure friction for an ordinary, still-authenticated player.
+//
+// Instead we slide the window: when a request arrives with a still-valid token
+// that is past the halfway point of its life, we mint a replacement and hand it
+// back on a response header. The client swaps it in transparently. An ACTIVE
+// player therefore never expires; the 24h TTL now measures *inactivity*, which
+// is what it was always meant to mean.
+//
+// Security is unchanged. The refresh is only issued for a token that fully
+// verifies (signature + expiry + current session epoch + SESSION_SECRET), so it
+// grants nothing a plain request with that same token could not already do; it
+// cannot resurrect an expired, forged, or epoch-revoked token; and the new token
+// carries the SAME session epoch, so a password change or admin revocation still
+// kills the whole chain instantly.
+export const PLAYER_TOKEN_REFRESH_HEADER = 'x-player-token-refresh';
+
+/** Refresh once a token is this far through its life (0.5 → past the halfway point). */
+const REFRESH_AFTER_FRACTION = 0.5;
+
+/**
+ * Cheap, signature-free structural parse of a token's expiry and epoch. Used to
+ * decide whether a refresh is even worth attempting, so the common case (a token
+ * with plenty of life left) costs a string split and nothing else — no HMAC and
+ * no storage read. NEVER treat the result as authenticated: only
+ * verifyPlayerToken establishes trust.
+ */
+function peekTokenClaims(token: string): { expMs: number; sessionEpoch: number } | null {
+    if (!token) return null;
+    const parts = token.split('.');
+    const version = parts[0];
+    if (version === TOKEN_VERSION && parts.length === 5) {
+        const expMs = Number(parts[2]);
+        const sessionEpoch = Number(parts[3]);
+        if (!Number.isFinite(expMs) || !Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) return null;
+        return { expMs, sessionEpoch };
+    }
+    if (version === LEGACY_TOKEN_VERSION && parts.length === 4) {
+        const expMs = Number(parts[2]);
+        if (!Number.isFinite(expMs)) return null;
+        return { expMs, sessionEpoch: 0 };
+    }
+    return null;
+}
+
+/**
+ * Given the token on an incoming request, return a freshly minted replacement
+ * when the current one is valid but past its refresh threshold — otherwise null
+ * (nothing to do). Best-effort by design: every failure path returns null and
+ * the request proceeds on the existing token exactly as before.
+ *
+ * An already-EXPIRED token is never refreshed. That case is a genuine session
+ * end and still requires a real login.
+ */
+export async function maybeRefreshPlayerToken(token: string): Promise<string | null> {
+    if (!sessionSecret()) return null;
+    const claims = peekTokenClaims(token);
+    if (!claims) return null;
+    const remainingMs = claims.expMs - Date.now();
+    // Dead already, or still comfortably fresh — no refresh in either case.
+    if (remainingMs <= 0) return null;
+    if (remainingMs > TOKEN_TTL_MS * REFRESH_AFTER_FRACTION) return null;
+    // Only now do the real work: full verification (HMAC + epoch read + ban-free
+    // identity). This is the sole gate on issuing the replacement.
+    const canonical = await verifyPlayerToken(token);
+    if (!canonical) return null;
+    // verifyPlayerToken already proved the stored epoch equals the token's, so
+    // reuse the parsed value rather than paying for a second storage read.
+    return issuePlayerToken(canonical, undefined, claims.sessionEpoch);
+}
+
 // ─── Admin session tokens (Phase 4 hardening) ─────────────────────────────────
 //
 // The admin panel used to attach the reusable ADMIN_PASSWORD to EVERY request

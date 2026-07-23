@@ -94,6 +94,7 @@ export function setActiveToken(token: string | null): void {
         // A fresh token re-arms the expiry notice so a future expiry can prompt
         // re-login again. (#14)
         _sessionExpiredNotified = false;
+        _consecutive401s = 0;
     } catch {
         /* storage disabled — ignore */
     }
@@ -158,6 +159,65 @@ function notifySessionExpired(): void {
     } catch {
         /* SSR / no window — ignore */
     }
+}
+
+// ── Sliding refresh + transient-401 tolerance ────────────────────────────────
+// The server hands back a freshly minted token on this header once the current
+// one passes the halfway point of its life (see maybeRefreshPlayerToken in
+// api/_auth.ts). Swapping it in here means an actively-playing session never
+// expires, so the re-auth modal above stops firing for ordinary players.
+const TOKEN_REFRESH_HEADER = 'x-player-token-refresh';
+
+/**
+ * Read the expiry stamped into a token. Both formats put it in field 3
+ * (`v2.<name>.<expMs>.<epoch>.<sig>` / `v1.<name>.<expMs>.<sig>`). Structural
+ * only — the client cannot verify the signature, and never needs to: this is
+ * used solely to tell "definitely dead" from "should still work", never to
+ * grant access.
+ */
+function tokenExpiryMs(token: string): number | null {
+    const parts = token.split('.');
+    if (parts[0] !== 'v2' && parts[0] !== 'v1') return null;
+    const expMs = Number(parts[2]);
+    return Number.isFinite(expMs) ? expMs : null;
+}
+
+/** True only when the token's own expiry has demonstrably passed. */
+function isTokenExpired(token: string): boolean {
+    const expMs = tokenExpiryMs(token);
+    return expMs !== null && expMs <= Date.now();
+}
+
+/** True when the stored token exists and is past its expiry. */
+export function isActiveTokenExpired(): boolean {
+    const token = getActiveToken();
+    return Boolean(token) && isTokenExpired(token!);
+}
+
+// Not every 401 on a token-bearing request means the session died. A blip in the
+// server's session-epoch read fails closed (401), and a few endpoints answer 401
+// for reasons unrelated to the player's session — e.g. api/player/travel.ts
+// rejects an admin-only identity. Those used to pop the re-auth modal at a fully
+// logged-in player. So: if the token is genuinely past its expiry, surface it
+// immediately; otherwise require several consecutive failures, since any single
+// successful response proves the session is alive and resets the count.
+const TRANSIENT_401_TOLERANCE = 3;
+let _consecutive401s = 0;
+
+/**
+ * Adopt a server-minted replacement token if the response carried one. Applied
+ * on EVERY response path — including requests whose caller supplied its own
+ * credential — so a session can never miss its renewal just because of which
+ * branch of the interceptor it took.
+ */
+function adoptRefreshedToken(response: Response): Response {
+    try {
+        const refreshed = response.headers.get(TOKEN_REFRESH_HEADER);
+        if (refreshed && refreshed !== getActiveToken()) setActiveToken(refreshed);
+    } catch {
+        /* header access unavailable (opaque response) — ignore */
+    }
+    return response;
 }
 
 function observeSaveVersion(response: Response): Response {
@@ -248,6 +308,13 @@ let installed = false;
 export function installAuthFetch(): void {
     if (installed || typeof window === 'undefined' || !window.fetch) return;
     installed = true;
+    // Cold start with a token that already died (>24h away, now that active play
+    // slides the window). Restoring the session with it would 401 every call and
+    // dump the player into the re-auth modal; dropping it instead lets the boot
+    // path fall through to the normal login screen, which is both honest and one
+    // fewer thing to dismiss. No credential is lost — an expired token could not
+    // authenticate anything anyway.
+    if (isActiveTokenExpired()) setActiveToken(null);
     // Kick off fingerprint computation in the background so it's ready for
     // the second + subsequent requests. First request may not carry the
     // header, which is fine — server only uses fp opportunistically.
@@ -296,7 +363,7 @@ export function installAuthFetch(): void {
             // token, or a manual admin header we normalized above). The admin
             // credential is already resolved on newHeaders — attach nothing else.
             newInit.headers = newHeaders;
-            return observeSaveVersion(await originalFetch(input, newInit));
+            return observeSaveVersion(adoptRefreshedToken(await originalFetch(input, newInit)));
         }
 
         // We do NOT gate on admin here: if the operator is ALSO signed in as their
@@ -315,12 +382,25 @@ export function installAuthFetch(): void {
 
         const response = await originalFetch(input, newInit);
 
+        // Sliding refresh: adopt a server-minted replacement token before doing
+        // anything else, so a session that was about to lapse is already renewed
+        // by the time the expiry check below runs. setActiveToken also re-arms
+        // the one-shot expiry latch.
+        adoptRefreshedToken(response);
+
         // A rejected session token requires a clean login. Only surface this when a
         // player token was actually sent — an admin-only request's 401 is not a
         // player session expiry. We intentionally do not persist a reusable
         // password merely to refresh tokens in-place.
-        if (response.status === 401 && token && !isAuthEndpoint(input)) {
-            notifySessionExpired();
+        if (token && !isAuthEndpoint(input)) {
+            if (response.status !== 401) {
+                _consecutive401s = 0; // the session demonstrably still works
+            } else {
+                _consecutive401s += 1;
+                if (isTokenExpired(token) || _consecutive401s >= TRANSIENT_401_TOLERANCE) {
+                    notifySessionExpired();
+                }
+            }
         }
         return observeSaveVersion(response);
     };

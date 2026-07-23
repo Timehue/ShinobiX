@@ -1545,7 +1545,7 @@ export function WorldMap({
         setScreen("petArena");
     }
     function startWandererCardDuel(w: Wanderer) {
-        // The gambler deals you straight into a Card Clash match in the Card Hall.
+        // The gambler deals you straight into Chronicle Duel in the Card Hall.
         coolWanderer(w.id); // gambler dealt you in — gone for a few hours
         // Remember the sector so finishing the match returns the player here: the
         // Card Hall's Back goes through history to the World Map, which reopens this
@@ -3048,6 +3048,30 @@ export function WorldMap({
         const sectorTileCol = (sectorPlayerPos % 12) + 1;
         const sectorTileRow = Math.floor(sectorPlayerPos / 12) + 1;
         const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
+        // Clan territory is inert until a clan actually claims the sector: the terrain
+        // buff, the raid path, guards, war supply and the weather override all no-op on
+        // `!ownerClan` (lib/world-state, Arena territoryBuffMultiplier). On an untouched
+        // sector the full card is five rows of zeroes eating the top of the panel, so
+        // collapse it to one line and only spend the space once it means something —
+        // owned, mid-capture, guarded, cooling down, or a live war ground.
+        const territoryRebuildMinsLeft = territory.rebuiltAt
+            ? Math.ceil((TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt)) / 60000)
+            : 0;
+        const territoryIsLive = Boolean(
+            territory.ownerClan
+            || villageWar
+            || territory.controlScore > 0
+            || territory.guards.length > 0
+            || territory.hp < TERRITORY_HP_MAX
+            || territoryRebuildMinsLeft > 0,
+        );
+        // Claiming is a Clan Hall action, so a clanless player can never move an idle
+        // sector off zero — the collapsed card would be a permanently inert row telling
+        // them about a system they cannot touch. Hide it outright for them. A LIVE
+        // sector still shows: someone else's hold is world state that affects them
+        // (the owner's terrain buff applies against them, and they can raid it), and a
+        // war ground is village-level, not clan-level.
+        const showTerritoryCard = territoryIsLive || Boolean(character.clan);
         const sectorIsCurrent = sameSector(currentSector, selectedSector);
         const sectorRoadExits = roadExitsForSector(selectedSector);
 
@@ -3751,33 +3775,37 @@ export function WorldMap({
                             <p>{weatherEffects[sectorWeather].effect}</p>
                         </header>
 
+                        {showTerritoryCard && (
                         <section className="summary-box sector-panel-card sector-territory-card">
                             <div className="sector-panel-card-head">
                                 <h4><GiShield aria-hidden="true" />Territory</h4>
                                 <span className={`sector-status-pill ${territory.ownerClan ? "is-owned" : ""}`}>{territory.ownerClan ? "Owned" : "Open"}</span>
                             </div>
-                            <p className="sector-owner-line"><strong>Owner</strong><span>{sectorOwnerLabel}</span></p>
-                            {!territory.ownerClan && territory.rebuiltAt && (() => {
-                                const msLeft = TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt);
-                                if (msLeft <= 0) return null;
-                                const minsLeft = Math.ceil(msLeft / 60000);
-                                return <p className="sector-rebuild-note">Recovering: capturable in {minsLeft}m</p>;
-                            })()}
-                            <div className="sector-meter-block">
-                                <div className="sector-meter-row">
-                                    <span>Control</span>
-                                    <strong>{territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</strong>
-                                </div>
-                                <div className="sector-meter sector-meter-control"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
-                            </div>
-                            <div className="sector-meter-block">
-                                <div className="sector-meter-row">
-                                    <span>HP</span>
-                                    <strong>{territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</strong>
-                                </div>
-                                <div className="sector-meter sector-meter-hp"><span style={{ width: `${(territory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div>
-                            </div>
-                            <p className="sector-guard-list"><strong>Guards</strong><span>{territory.guards.length ? territory.guards.join(", ") : "None"}</span></p>
+                            {territoryIsLive ? (
+                                <>
+                                    <p className="sector-owner-line"><strong>Owner</strong><span>{sectorOwnerLabel}</span></p>
+                                    {!territory.ownerClan && territory.rebuiltAt && territoryRebuildMinsLeft > 0 && (
+                                        <p className="sector-rebuild-note">Recovering: capturable in {territoryRebuildMinsLeft}m</p>
+                                    )}
+                                    <div className="sector-meter-block">
+                                        <div className="sector-meter-row">
+                                            <span>Control</span>
+                                            <strong>{territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</strong>
+                                        </div>
+                                        <div className="sector-meter sector-meter-control"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
+                                    </div>
+                                    <div className="sector-meter-block">
+                                        <div className="sector-meter-row">
+                                            <span>HP</span>
+                                            <strong>{territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</strong>
+                                        </div>
+                                        <div className="sector-meter sector-meter-hp"><span style={{ width: `${(territory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div>
+                                    </div>
+                                    <p className="sector-guard-list"><strong>Guards</strong><span>{territory.guards.length ? territory.guards.join(", ") : "None"}</span></p>
+                                </>
+                            ) : (
+                                <p className="sector-territory-idle-note">Unclaimed — no clan holds this sector, so nothing here is contested.</p>
+                            )}
                             {villageWar && (
                                 <div className="summary-box sector-panel-card sector-war-card">
                                     <div className="sector-panel-card-head">
@@ -3841,6 +3869,7 @@ export function WorldMap({
                                 </button>
                             )}
                         </section>
+                        )}
                         {sectorTraces && (
                             <SectorTracesCard
                                 traces={sectorTraces}
