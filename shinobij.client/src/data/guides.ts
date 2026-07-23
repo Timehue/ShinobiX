@@ -185,7 +185,7 @@ const BEGINNER: Guide = {
                     ["Pet Yard", "Raise pets that fight alongside you."],
                     ["World Map", "Explore sectors and contest territory."],
                     ["Town Hall", "Village upgrades and bonuses."],
-                    ["Card Hall", "Play Shinobi Chronicle Duel with your collected cards."],
+                    ["Card Hall", "Play Shinobi Chronicle Showdown with your collected cards."],
                     ["Tavern", "Village chat and social features."],
                 ] },
                 { type: "p", text: "Currencies: Ryo (everyday money) · Fate Shards (rare / premium) · Honor Seals (earned by Vanguards in PvP)." },
@@ -493,19 +493,19 @@ const PETS: Guide = {
     ],
 };
 
-// ── 5. Shinobi Chronicle Duel ───────────────────────────────────────────────
+// ── 5. Shinobi Chronicle Showdown ───────────────────────────────────────────────
 const CARDCLASH: Guide = {
     id: "cardclash",
-    title: "Shinobi Chronicle Duel",
+    title: "Shinobi Chronicle Showdown",
     tagline: "A five-element shinobi TCG with server-authoritative 2003-era rules.",
     icon: "🎴",
-    blurb: "Build a 40-card deck of Monsters, Magic and Traps, then reduce the opposing duelist's Health Points to zero.",
+    blurb: "Build a 40-card deck of Monsters, Jutsu and Snares, then reduce the opposing challenger's Health Points to zero.",
     sections: [
         {
             heading: "1 · The Goal",
             blocks: [
-                { type: "p", text: "Both duelists begin with 8,000 Health Points and a five-card hand. Summon Monsters, set Traps and activate Magic to reduce the opposing duelist to zero Health Points." },
-                { type: "p", text: "If a duelist cannot draw when required, that duelist loses. The server owns the deck, hidden zones, timing windows and result." },
+                { type: "p", text: "Both challengers begin with 8,000 Health Points and a five-card hand. Summon Monsters, set Snares and activate Jutsu to reduce the opposing challenger to zero Health Points." },
+                { type: "p", text: "If a challenger cannot draw when required, that challenger loses. The server owns the deck, hidden zones, timing windows and result." },
             ],
         },
         {
@@ -514,8 +514,8 @@ const CARDCLASH: Guide = {
                 { type: "list", items: [
                     "Draw Phase: draw one card.",
                     "Standby Phase: resolve effects that wait for this phase.",
-                    "Main Phase 1: Normal Summon or Set one Monster, change legal positions, and activate or Set Magic and Traps.",
-                    "Battle Phase: choose attacks and answer legal Trap windows. The first player cannot battle on the first turn.",
+                    "Main Phase 1: Normal Summon or Set one Monster, change legal positions, and activate or Set Jutsu and Snares.",
+                    "Battle Phase: choose attacks and answer legal Snare windows. The first player cannot battle on the first turn.",
                     "Main Phase 2: make another legal Main Phase action after battle.",
                     "End Phase: resolve end effects and pass the turn.",
                 ] },
@@ -527,24 +527,24 @@ const CARDCLASH: Guide = {
                 { type: "list", items: [
                     "Normal Monsters are straightforward fighters; Effect Monsters carry printed abilities and make up roughly one quarter of the Monster roster.",
                     "Summon a Monster face-up in Attack Position or Set it face-down in Defense Position. Higher-level Monsters require tributes.",
-                    "Normal Magic resolves during a Main Phase. Equip and Field Magic remain active while legal.",
-                    "Traps must be Set before use and can answer only their printed trigger window.",
-                    "Each duelist has five Monster Zones and five Magic/Trap Zones.",
+                    "Normal Jutsu resolves during a Main Phase. Equip and Field Jutsu remain active while legal.",
+                    "Snares must be Set before use and can answer only their printed trigger window.",
+                    "Each challenger has five Monster Zones and five Jutsu/Snare Zones.",
                 ] },
             ],
         },
         {
-            heading: "4 · Elements and Field Magic",
+            heading: "4 · Elements and Field Jutsu",
             blocks: [
                 { type: "p", text: "Every Monster belongs to Fire, Water, Earth, Wind or Lightning. The neutral arena is the default, but Monsters are never neutral." },
-                { type: "table", head: ["Field Magic", "Shared modifier"], rows: [
+                { type: "table", head: ["Field Jutsu", "Shared modifier"], rows: [
                     ["Volcano", "Fire ATK +300; Wind ATK −200"],
                     ["Ocean", "Water ATK +300; Fire ATK −200"],
                     ["Desert", "Earth ATK +300; Water ATK −200"],
                     ["Sky", "Wind ATK +300; Lightning ATK −200"],
                     ["Lightning Storm", "Lightning ATK +300; Earth ATK −200"],
                 ] },
-                { type: "p", text: "Only one Field Magic can be active. A new Field replaces the old environment, so bonuses never stack." },
+                { type: "p", text: "Only one Field Jutsu can be active. A new Field replaces the old environment, so bonuses never stack." },
             ],
         },
         {
@@ -553,7 +553,7 @@ const CARDCLASH: Guide = {
                 { type: "list", items: [
                     "A deck is exactly 40 cards.",
                     "Most cards allow up to three copies. Limited and Semi-Limited cards allow one or two.",
-                    "Balance low-, medium- and high-tier Monsters with enough Magic and Traps to protect your board and answer threats.",
+                    "Balance low-, medium- and high-tier Monsters with enough Jutsu and Snares to protect your board and answer threats.",
                     "The Card Hall validates owned copies and the November 17, 2003-inspired Limited List before saving.",
                 ] },
                 { type: "p", text: "The same server-authoritative rules power AI, free-play PvP, Clan War, Sector War and sealed encounters." },
@@ -659,7 +659,7 @@ const CLANS: Guide = {
                     ["1v1 PvP", "30"],
                     ["Pet 2v2", "40"],
                     ["Pet 1v1", "20"],
-                    ["Chronicle Duel", "10"],
+                    ["Chronicle Showdown", "10"],
                 ] },
                 { type: "p", text: "First clan to drop the enemy's War HP to 0 wins. Results, the MVP and your war record are saved to clan history. The same two clans can't immediately rematch — there's a cooldown before another war." },
             ],
@@ -681,7 +681,7 @@ const HOLLOWGATE: Guide = {
                 { type: "list", items: [
                     "Enter with a Hollow Gate Key (consumed on a fresh run). You get up to 2 fresh runs per day; resuming a run already in progress is free.",
                     "Explore a generated 15×11 grid with fog of war, climbing 5 floors to the final boss — the Hollow Gate Warden.",
-                    "Along the way: shinobi battles, elite fights, traps, treasure chests, wild Hollow Beasts to befriend (a key source of pets), and card duels.",
+                    "Along the way: shinobi battles, elite fights, traps, treasure chests, wild Hollow Beasts to befriend (a key source of pets), and card showdowns.",
                 ] },
                 { type: "callout", tone: "warn", label: "Watch the Threat meter", text: "A Threat meter rises as you move — fill it and you get ambushed, so don't wander aimlessly. Take efficient routes and grab what matters." },
             ],

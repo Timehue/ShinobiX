@@ -84,7 +84,7 @@ export const CW_MODE_LABEL: Record<CwChallengeMode, string> = {
     pvp2v2: "2v2 PvP",
     pet1v1: "Pet 1v1",
     pet2v2: "Pet 2v2",
-    tilecards: "Chronicle Duel",
+    tilecards: "Chronicle Showdown",
 };
 
 export const CW_MODE_ICON: Record<CwChallengeMode, string> = {

@@ -104,7 +104,7 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-debt", title: "The Gambler's Debt", giver: "Saji Two-Coins",
         bandMin: 1, bandMax: 100, weight: 5, fateShards: 0, award: "House Breaker",
         stages: [
-            { key: "table", text: "Saji owes 'The House'. Buy him time — win two Shinobi Chronicle Duels against the patron's enforcers.", metric: "cardClashWins", count: 2 },
+            { key: "table", text: "Saji owes 'The House'. Buy him time — win two Shinobi Chronicle Showdowns against the patron's enforcers.", metric: "cardClashWins", count: 2 },
             { key: "collection", text: "The House calls the debt anyway and sends its bodyguard, Kuroban, to collect it from Saji's hide — and yours.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
         ],
     },

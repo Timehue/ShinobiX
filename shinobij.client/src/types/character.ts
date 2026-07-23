@@ -334,14 +334,14 @@ export type Character = {
     activePetId2v2?: string;
     tileCards: string[];
     savedTileDeck?: string[];
-    // ── Shinobi Chronicle Duel (compatibility field names retained) ──────────
+    // ── Shinobi Chronicle Showdown (compatibility field names retained) ──────────
     // Compatibility identifiers remain stable so existing saves, missions and
-    // achievements migrate to Chronicle Duel in place.
+    // achievements migrate to Chronicle Showdown in place.
     cardClashDeck?: string[];
     cardClashWins?: number;
     cardClashLosses?: number;
     cardClashDraws?: number;
-    // UTC date (YYYY-MM-DD) of the most recent Chronicle Duel win — gates the
+    // UTC date (YYYY-MM-DD) of the most recent Chronicle Showdown win — gates the
     // once-per-day first-win ryo bonus.
     cardClashDailyWinDate?: string;
     // Legacy one-time tutorial flag retained for older saves.

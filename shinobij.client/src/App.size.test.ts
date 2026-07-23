@@ -165,7 +165,7 @@ import { readFileSync } from "node:fs";
 // isTraveling / pendingTravel / screenRef — must live here, exactly like the other
 // heartbeat delivery wiring above.)
 // → 8,441 (net −18: extracted the clan-war "tilecards" fallback-deck build +
-// Chronicle Duel keeps its rules/catalog behind lazy Card Hall and battle
+// Chronicle Showdown keeps its rules/catalog behind lazy Card Hall and battle
 // routes instead of loading it eagerly from App. See scripts/check-build-size.mjs.)
 const MAX_LINES = 8_441;
 

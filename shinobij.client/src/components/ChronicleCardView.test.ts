@@ -30,7 +30,7 @@ test("Monster cards render the complete physical TCG information hierarchy", () 
     "3200",
     "DEF",
     "2600",
-    "SJD-DCR",
+    "SJ-CDX",
     "tc-142",
   ];
   let cursor = -1;
@@ -61,22 +61,22 @@ test("generated Monster lore uses Shinobi Journey flavor text instead of roster 
   }
 });
 
-test("Field Magic and Trap cards have explicit, distinct physical card identities", () => {
+test("Field Jutsu and Snare cards have explicit, distinct physical card identities", () => {
   const field = renderCard("chronicle-field-volcano");
   const trap = renderCard("chronicle-smoke-bomb");
   const counterTrap = renderCard("chronicle-kage-judgment-seal");
 
-  assert.match(field, /FIELD MAGIC/);
-  assert.match(field, /MAGIC CARD/);
+  assert.match(field, /FIELD JUTSU/);
+  assert.match(field, /JUTSU CARD/);
   assert.match(field, /Fire Monsters gain 300 ATK/);
   assert.match(field, /chronicle\/fields\/volcano\.webp/);
 
-  assert.match(trap, /NORMAL TRAP/);
-  assert.match(trap, /TRAP CARD/);
+  assert.match(trap, /NORMAL SNARE/);
+  assert.match(trap, /SNARE CARD/);
   assert.match(trap, /negate that attack/);
   assert.doesNotMatch(trap, />COUNTER</);
-  assert.match(counterTrap, /COUNTER TRAP/);
-  assert.match(counterTrap, /COUNTER \/ TRAP CARD/);
+  assert.match(counterTrap, /COUNTER SNARE/);
+  assert.match(counterTrap, /COUNTER \/ SNARE CARD/);
 });
 
 test("face-down rendering uses the card back and leaks no card identity", () => {
@@ -95,7 +95,7 @@ test("every Chronicle catalog entry renders through the same complete card face"
     assert.ok(html.includes(card.id), `${card.id} must render its stable ID`);
     assert.match(html, /chronicle-card__art-frame/);
     assert.match(html, /chronicle-card__dossier/);
-    assert.match(html, /SJD-DCR/);
+    assert.match(html, /SJ-CDX/);
 
     if (card.cardClass === "monster") {
       assert.match(
@@ -106,13 +106,13 @@ test("every Chronicle catalog entry renders through the same complete card face"
       assert.match(html, />ATK</);
       assert.match(html, />DEF</);
     } else if (card.cardClass === "magic") {
-      assert.match(html, /MAGIC CARD/);
+      assert.match(html, /JUTSU CARD/);
     } else {
       assert.match(
         html,
-        card.trapType === "counter" ? /COUNTER TRAP/ : /NORMAL TRAP/,
+        card.trapType === "counter" ? /COUNTER SNARE/ : /NORMAL SNARE/,
       );
-      assert.match(html, /TRAP CARD/);
+      assert.match(html, /SNARE CARD/);
     }
   }
 });

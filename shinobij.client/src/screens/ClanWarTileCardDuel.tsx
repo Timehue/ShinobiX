@@ -28,10 +28,10 @@ export interface CardClashDuelConfig {
 }
 
 const CLAN_WAR_DUEL_CONFIG: CardClashDuelConfig = {
-    stashKey: "clanWarChallenge.v1", endpoint: "/api/clan/war/tilecards", title: "Clan War Chronicle Duel",
-    backScreen: "shinobiCouncil", backLabel: "Back to Council", emptyTitle: "No active clan-war duel",
+    stashKey: "clanWarChallenge.v1", endpoint: "/api/clan/war/tilecards", title: "Clan War Chronicle Showdown",
+    backScreen: "shinobiCouncil", backLabel: "Back to Council", emptyTitle: "No active clan-war showdown",
     emptyNote: "The duel context was lost. Return to the Shinobi Council Hall.", emptyBackLabel: "Back to Council Hall",
-    awaitingNote: "Waiting for the opposing clan's duelist to join.", forfeitConfirm: "Forfeit the duel? Your clan takes the authoritative loss.",
+    awaitingNote: "Waiting for the opposing clan's challenger to join.", forfeitConfirm: "Forfeit the showdown? Your clan takes the authoritative loss.",
     doneNote: (_won, draw) => draw ? "No war damage on a technical draw." : "Clan-war damage was applied once by the server.",
 };
 
@@ -55,7 +55,7 @@ export function CardClashDuelScreen({ character, setScreen, config, sharedImages
         if (!stash) return null;
         const response = await fetch(config.endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...stash, ...extra }) });
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error ?? `Duel request failed (${response.status}).`);
+        if (!response.ok) throw new Error(body.error ?? `Showdown request failed (${response.status}).`);
         if (body.session?.rulesVersion && body.session?.p1) { setView(body.session as ChronicleProjection); setWaiting(false); }
         else { setWaiting(true); }
         return body;
@@ -105,7 +105,7 @@ export function CardClashDuelScreen({ character, setScreen, config, sharedImages
     const opponentName = view && opponentSide ? view[opponentSide].name : "";
     const playerAvatar = character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`];
     const opponentAvatar = opponentName ? sharedImages[`avatar:${opponentName.toLowerCase()}`] : undefined;
-    return <main className="chronicle-shell"><header className="chronicle-header"><button onClick={() => setScreen(config.backScreen)}>{config.backLabel}</button><h1>Shinobi Chronicle Duel<small>{config.title}</small></h1></header>{error ? <div className="chronicle-error" role="alert">{error}</div> : null}{waiting || !view ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>{config.awaitingNote}</p><p>The server is validating both 40-card decks and will choose the first player.</p></section> : <>{view.status === "complete" ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{draw ? "Technical Draw" : won ? "Victory" : "Defeat"}</h2><p>{config.doneNote(won, draw)}</p></section> : null}<ChronicleDuelBoard state={view} cardsById={cardsById} playerAvatar={playerAvatar} opponentAvatar={opponentAvatar} busy={busy} error={error} onAction={(intent) => void action(intent)} /></>}</main>;
+    return <main className="chronicle-shell"><header className="chronicle-header"><button onClick={() => setScreen(config.backScreen)}>{config.backLabel}</button><h1>Shinobi Chronicle Showdown<small>{config.title}</small></h1></header>{error ? <div className="chronicle-error" role="alert">{error}</div> : null}{waiting || !view ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>{config.awaitingNote}</p><p>The server is validating both 40-card decks and will choose the first player.</p></section> : <>{view.status === "complete" ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{draw ? "Technical Draw" : won ? "Victory" : "Defeat"}</h2><p>{config.doneNote(won, draw)}</p></section> : null}<ChronicleDuelBoard state={view} cardsById={cardsById} playerAvatar={playerAvatar} opponentAvatar={opponentAvatar} busy={busy} error={error} onAction={(intent) => void action(intent)} /></>}</main>;
 }
 
 export function ClanWarTileCardDuel({ character, setScreen, sharedImages = {} }: { character: Character; setScreen: (screen: Screen) => void; sharedImages?: Record<string, string> }) {

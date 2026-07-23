@@ -43,7 +43,7 @@ test("duel board exposes mirrored zones, Health Points, and the active Field Car
     }),
   );
 
-  assert.match(html, /Shinobi Journey Chronicle Duel board/);
+  assert.match(html, /Shinobi Journey Chronicle Showdown board/);
   assert.match(html, /OPPONENT FIELD/);
   assert.match(html, /YOUR FIELD/);
   assert.match(html, /OPPONENT DECK/);

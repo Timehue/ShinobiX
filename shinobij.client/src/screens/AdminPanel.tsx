@@ -444,10 +444,6 @@ export function AdminPanel({
     }
 
     const [cardName, setCardName] = useState("New Card");
-    const [cardTop, setCardTop] = useState(25);
-    const [cardRight, setCardRight] = useState(25);
-    const [cardBottom, setCardBottom] = useState(25);
-    const [cardLeft, setCardLeft] = useState(25);
     const [cardElement, setCardElement] = useState("None");
     const [cardRarity, setCardRarity] = useState<TileCard["rarity"]>("common");
     const [cardDescription, setCardDescription] = useState("A custom card.");
@@ -479,20 +475,12 @@ export function AdminPanel({
     const [aiBulkCustomPrompts, setAiBulkCustomPrompts] = useState<Record<string, string>>({});
 
     function cardFromForm(id?: string): TileCard {
-        // Clamp edges to the 1–99 two-digit range the card game uses, so a
-        // blank, negative, or oversized input can't save a card that renders or
-        // compares wrong. Built-in cards (values 15–99) are unaffected.
-        const edge = (v: number) => clampNumber(Number.isFinite(v) ? Math.floor(v) : 1, 1, 99);
-        return { id: id ?? `card-${makeId()}`, name: cardName.trim() || "New Card", top: edge(cardTop), right: edge(cardRight), bottom: edge(cardBottom), left: edge(cardLeft), element: cardElement, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
+        return { id: id ?? `card-${makeId()}`, name: cardName.trim() || "New Card", element: cardElement, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
     }
 
     function loadAdminCard(card: TileCard) {
         setEditingCardId(card.id);
         setCardName(card.name);
-        setCardTop(card.top);
-        setCardRight(card.right);
-        setCardBottom(card.bottom);
-        setCardLeft(card.left);
         setCardElement(card.element);
         setCardRarity(card.rarity);
         setCardDescription(card.description);
@@ -4370,18 +4358,6 @@ export function AdminPanel({
                         <label>Card Name</label>
                         <input value={cardName} onChange={(e) => setCardName(e.target.value)} />
 
-                        <label>Top (1–99)</label>
-                        <input type="number" min={1} max={99} value={cardTop} onChange={(e) => setCardTop(Number(e.target.value))} />
-
-                        <label>Right (1–99)</label>
-                        <input type="number" min={1} max={99} value={cardRight} onChange={(e) => setCardRight(Number(e.target.value))} />
-
-                        <label>Bottom (1–99)</label>
-                        <input type="number" min={1} max={99} value={cardBottom} onChange={(e) => setCardBottom(Number(e.target.value))} />
-
-                        <label>Left (1–99)</label>
-                        <input type="number" min={1} max={99} value={cardLeft} onChange={(e) => setCardLeft(Number(e.target.value))} />
-
                         <label>Element</label>
                         <select value={cardElement} onChange={(e) => setCardElement(e.target.value)}>
                             {["None", "Fire", "Water", "Wind", "Earth", "Lightning", "Shadow", "Ice", "Neutral"].map((el) => (
@@ -4419,7 +4395,7 @@ export function AdminPanel({
 
                         <div className="menu">
                             <button onClick={createAdminCard}>{editingCardId ? "Save Card" : "Create Card"}</button>
-                            {editingCardId && <button onClick={() => { setEditingCardId(""); setCardName("New Card"); setCardTop(25); setCardRight(25); setCardBottom(25); setCardLeft(25); setCardImage(""); }}>Cancel Edit</button>}
+                            {editingCardId && <button onClick={() => { setEditingCardId(""); setCardName("New Card"); setCardImage(""); }}>Cancel Edit</button>}
                         </div>
                     </section>
 
@@ -4554,7 +4530,7 @@ export function AdminPanel({
                             return (
                                 <div key={card.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                                     {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />}
-                                    <span style={{ flex: 1 }}><strong>{card.name}</strong> | T:{card.top} R:{card.right} B:{card.bottom} L:{card.left} | {card.element} | {card.rarity}</span>
+                                    <span style={{ flex: 1 }}><strong>{card.name}</strong> | {card.element} | {card.rarity}</span>
                                     <button onClick={() => loadAdminCard(card)}>Edit</button>
                                     {isCreator && (
                                         <button className="danger-button" onClick={() => { setCreatorCards(creatorCards.filter((c) => c.id !== card.id)); if (editingCardId === card.id) setEditingCardId(""); }}>Delete</button>
