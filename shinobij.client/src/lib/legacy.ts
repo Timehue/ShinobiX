@@ -253,6 +253,6 @@ export const TRIAL_STAT_LABELS: Record<string, string> = {
     tilesExplored: "tiles explored", sectorDiscoveries: "sector discoveries",
     hiddenFinds: "hidden places found", wandererQuests: "wanderer quests finished",
     petDuelWins: "pet duel wins", petExpeditions: "pet expeditions completed",
-    cardClashWins: "Card Clash wins",
+    cardClashWins: "Chronicle Duel wins",
     warContribution: "war contribution dealt", warPvpKills: "war PvP takedowns",
 };

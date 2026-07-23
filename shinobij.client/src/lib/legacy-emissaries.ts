@@ -111,7 +111,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
         trialLine: "Your trial is on my books, shinobi. The odds I wrote beside your name are — flattering.",
         quests: [
-            { id: "eq-broker-ledger", label: "Win 4 rounds of Card Clash for the ledger", metric: "cardClashWins", target: 4 },
+            { id: "eq-broker-ledger", label: "Win 4 Chronicle Duels for the ledger", metric: "cardClashWins", target: 4 },
             { id: "eq-broker-debts", label: "Collect 8 battle debts owed to Kesshi", metric: "totalAiKills", target: 8 },
         ],
     },
