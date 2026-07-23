@@ -1839,7 +1839,7 @@ export default function App() {
             }
         }
         refreshSharedGameState(); // fetch fresh data on tab return
-        const id = setInterval(refreshSharedGameState, 5000);
+        const id = setInterval(refreshSharedGameState, 10000); // 10s (was 5s): non-critical shared state, already ETag/304-revalidated
         return () => {
             alive = false;
             clearInterval(id);
@@ -2681,10 +2681,10 @@ export default function App() {
         // immediate poll on incoming attack/challenge, so the HTTP poll only needs
         // to be a slow (~20s) reconcile + forceReload backstop — this is the win
         // that removes the bulk of the request volume. When the socket is DOWN we
-        // fall straight back to the original fast adaptive cadence so nothing
-        // regresses: 1s in combat/arena AND while exploring sectors, 15s in the
-        // village (sector 0). Village-queued guards also stay fast so a raider's
-        // attack reaches the defender within ~1s.
+        // fall back to a fast adaptive cadence so combat never regresses: 1s in
+        // combat/arena, 3s while exploring sectors (a wild ambush is less urgent
+        // than an active fight), 15s in the village (sector 0). Village-queued
+        // guards stay at 1s so a raider's attack reaches the defender within ~1s.
         const currentScreen = screenRef.current;
         const SOCKET_RECONCILE_MS = 20000;
         const interval = socketConnected
@@ -2695,7 +2695,7 @@ export default function App() {
             ? 1000   // queued for village defense — must respond to raids fast
             : currentSector === 0
             ? 15000  // village — no urgent combat needs
-            : 1000;  // exploring sectors — live presence
+            : 3000;  // exploring sectors (socket down) — presence + pendingAttacker backstop, ~3x less volume than 1s
         const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
     }, [
