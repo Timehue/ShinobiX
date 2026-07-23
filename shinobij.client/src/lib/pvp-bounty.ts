@@ -66,16 +66,7 @@ export async function startBountyHunter(playerName: string, hunterId: string): P
     }
 }
 
-export async function claimBountyHunterKill(playerName: string, hunterId: string, hunterName: string): Promise<{ amount: number; target: string } | null> {
-    try {
-        const res = await fetch("/api/pvp/bounty", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "ai-hunter-claim", playerName, hunterId, hunterName }),
-        });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; amount?: number; target?: string };
-        return data.ok && (data.amount ?? 0) > 0 ? { amount: data.amount!, target: data.target ?? playerName } : null;
-    } catch {
-        return null;
-    }
-}
+// NOTE: there is no client "AI hunter collected the bounty" call. Losing to a
+// server-spawned bounty hunter does NOT clear your bounty — only a real player
+// beating you in a verified duel does (claimBountyOnWin above). The server
+// ai-hunter-claim action is now a no-op kept for old clients; do not call it.

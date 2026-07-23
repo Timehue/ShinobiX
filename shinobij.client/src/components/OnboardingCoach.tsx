@@ -104,8 +104,16 @@ const stepProgress: Partial<Record<CanonicalOnboardingStep, string>> = {
     sectorReturn: "Academy Training - Step 9/9",
 };
 
+// "Has the player actually trained a jutsu yet?"
+//
+// This used to count mastery ENTRIES (>= 4), but a brand-new character is seeded
+// with one level-1 entry per bloodline jutsu — so any bloodline granting four or
+// more jutsu made this true at creation and the lesson (Academy step 2/9) was
+// skipped before the player ever saw it. Starters all begin at level 1, so
+// "trained" means one of them has been pushed past level 1. The count-increase
+// baseline in the effect below still covers learning a brand-new jutsu.
 function hasTrainedStarterJutsu(character: Character): boolean {
-    return (character.jutsuMastery?.length ?? 0) >= 4;
+    return (character.jutsuMastery ?? []).some((mastery) => (mastery.level ?? 1) > 1);
 }
 
 function hasStarterLoadoutComplete(character: Character): boolean {

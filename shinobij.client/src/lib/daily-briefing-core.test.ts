@@ -100,11 +100,24 @@ test("unspent stat points and idle training are surfaced", () => {
     assert.ok(ids.indexOf("stats") < ids.indexOf("training"));
 });
 
-test("a recommended mission names the specific hunt", () => {
+test("a recommended mission names the specific hunt and routes to the Hunter Board", () => {
     const recos = buildRecommendations({ ...SETTLED, hasMissionSlot: true });
     const mission = recos.find((r) => r.id === "mission");
     assert.ok(mission);
     assert.match(mission!.title, /Shadow Panther/);
+    // recommendedMission() picks from the builtin HUNT catalog, and hunt
+    // contracts are accepted at the Hunter Board — NOT the Mission Hall, which
+    // never lists them. Routing to "missions" sent the player somewhere the
+    // mission they had just been told to run did not exist.
+    assert.equal(mission!.screen, "hunting");
+});
+
+test("a mission recommendation with no named hunt still routes to the Mission Hall", () => {
+    // No hunt qualifies at this level, so the generic prompt is used.
+    const recos = buildRecommendations({ ...SETTLED, hasMissionSlot: true, recommendedMissionName: null });
+    const mission = recos.find((r) => r.id === "mission");
+    assert.ok(mission);
+    assert.equal(mission!.title, "Run a mission");
     assert.equal(mission!.screen, "missions");
 });
 

@@ -9,7 +9,7 @@ import {
     clanWarCooldownKey, loadClanContext, type ChallengeResult, type ClanWar,
 } from './_storage.js';
 import { awardWarEndClanXp } from './_war-xp.js';
-import { resolveChronicleDeck } from '../../card-clash/_deck.js';
+import { resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../../card-clash/_deck.js';
 import {
     CHRONICLE_RULES_VERSION, TURN_TIMEOUT_MS, applyAction, createMatch,
     passExpiredResponse, projectMatchForViewer,
@@ -26,8 +26,17 @@ type Session = {
 const sessionKey = (id: string) => `cw-tilecards:${id}`;
 function submittedIds(value: unknown): string[] { if (!Array.isArray(value)) return []; return value.flatMap((entry) => typeof entry === 'string' ? [entry] : entry && typeof entry === 'object' && typeof (entry as { id?: unknown }).id === 'string' ? [String((entry as { id: string }).id)] : []); }
 function index(value: unknown): number | undefined { const n = Number(value); return Number.isFinite(n) ? Math.floor(n) : undefined; }
-async function resolveDeck(name: string, requested: string[], admin: boolean): Promise<string[] | null> {
-    return resolveChronicleDeck(name, requested, admin);
+// Deck resolution WRITES the player's save (starter grants + the approved deck)
+// and therefore advances `_saveVersion`. The join response must echo that new
+// version — authFetch's observeSaveVersion picks `_saveVersion` off any JSON
+// body and advances the client's base version. Dropping it left the client
+// echoing a stale `_baseSaveVersion` on its next autosave, which 409s and
+// reconciles by replacing local progress with the server copy.
+async function resolveDeck(name: string, requested: string[], admin: boolean): Promise<ChronicleDeckResolution | null> {
+    return resolveChronicleDeckWithSave(name, requested, admin);
+}
+function versionEcho(resolution: ChronicleDeckResolution): Record<string, number> {
+    return resolution.saveVersion === undefined ? {} : { _saveVersion: resolution.saveVersion };
 }
 function winnerResult(session: Session, challenge: { fromClan: string }): ChallengeResult {
     const winner = session.state?.winner;
@@ -89,11 +98,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (challenge.mode !== 'tilecards' || challenge.status !== 'accepted') return {status:409 as const,body:{error:'The card challenge is not active.'}};
                 const lower=me.toLowerCase(); const from=(challenge.fromPlayer??'').toLowerCase()===lower||(challenge.fromPlayer2??'').toLowerCase()===lower; const to=(challenge.acceptedPlayer??'').toLowerCase()===lower||(challenge.acceptedPlayer2??'').toLowerCase()===lower;
                 if (!identity.admin && !from && !to) return {status:403 as const,body:{error:'Only an accepted participant can join.'}};
-                const clan=from?challenge.fromClan:(war.clans.find((item)=>item!==challenge.fromClan)??''); const deck=await resolveDeck(me,submittedIds(body.deck??body.defaultDeck),identity.admin); if(!deck)return{status:400 as const,body:{error:'No legal 40-card Chronicle deck is available.'}};
-                if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});return{status:200 as const,body:{session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
-                if(safeName(session.p1Name)===safeName(me)||session.p2Name&&safeName(session.p2Name)===safeName(me)){const side=safeName(session.p1Name)===safeName(me)?'p1':'p2';return{status:200 as const,body:{session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}};}
+                const clan=from?challenge.fromClan:(war.clans.find((item)=>item!==challenge.fromClan)??''); const resolution=await resolveDeck(me,submittedIds(body.deck??body.defaultDeck),identity.admin); if(!resolution)return{status:400 as const,body:{error:'No legal 40-card Chronicle deck is available.'}}; const deck=resolution.deck; const version=versionEcho(resolution);
+                if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});return{status:200 as const,body:{...version,session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
+                if(safeName(session.p1Name)===safeName(me)||session.p2Name&&safeName(session.p2Name)===safeName(me)){const side=safeName(session.p1Name)===safeName(me)?'p1':'p2';return{status:200 as const,body:{...version,session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}};}
                 if(session.status!=='awaiting-p2'||session.p1Clan===clan)return{status:403 as const,body:{error:'The opposing seat is unavailable.'}};
-                session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});return{status:200 as const,body:{session:projectMatchForViewer(session.state,'p2')}};
+                session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});return{status:200 as const,body:{...version,session:projectMatchForViewer(session.state,'p2')}};
             }
             if(!session||!session.state)return{status:404 as const,body:{error:'No active duel session.'}}; const side=viewer??(identity.admin?(body.side==='p2'?'p2':'p1'):null); if(!side)return{status:403 as const,body:{error:'Only the two duelists can act.'}};
             if(!ACTIONS.has(action))return{status:400 as const,body:{error:`Unknown action: ${action}`}}; const applied=applyAction(session.state,side,actionIntent(body,action),now);if(!applied.ok)return{status:400 as const,body:{error:applied.error}};
