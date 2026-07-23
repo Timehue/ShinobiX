@@ -5,6 +5,7 @@
  * the player name travels in the body (the handler also re-checks it against auth).
  */
 
+import type { WfStance, WfDoctrine } from "./pet-warfront-sim";
 import type { Pet, PetJutsu } from "../types/pet";
 
 export type Mode = "coliseum" | "tactical";
@@ -23,14 +24,21 @@ export type LadderListEntry = { rank: number; slug: string; name: string; villag
 export type LadderNotify = { from: string; mode: Mode; won: boolean; at: number };
 export type LadderView = {
     mode: Mode; total: number; ladder: LadderListEntry[];
-    you: { rank: number | null; hasDefense: boolean; defense: PetLite[] | null; challengesLeft: number; band: number };
+    you: { rank: number | null; hasDefense: boolean; defense: PetLite[] | null; challengesLeft: number; band: number; stance?: WfStance; doctrine?: WfDoctrine };
     notifications: LadderNotify[];
 };
 export type OfferOpponent = { kind: "player" | "ai"; id: string; name: string; village?: string; rank: number | null; summary: PetLite[] };
 
 export type ChallengeReplay =
     | { kind: "coliseum"; seed: number; player: LadderPet; enemy: LadderPet }
-    | { kind: "tactical"; seed: number; blue: Array<{ pet: LadderPet; role: ArenaRoleLite }>; red: Array<{ pet: LadderPet; role: ArenaRoleLite }> };
+    | {
+        kind: "tactical"; seed: number;
+        blue: Array<{ pet: LadderPet; role: ArenaRoleLite }>; red: Array<{ pet: LadderPet; role: ArenaRoleLite }>;
+        // The formation + doctrine each side brought. The replay MUST use these or
+        // it shows a different match than the one the server scored.
+        blueStance?: WfStance; redStance?: WfStance;
+        blueDoctrine?: WfDoctrine; redDoctrine?: WfDoctrine;
+    };
 export type ChallengeResult = { won: boolean; mode: Mode; targetId: string; rank: number | null; challengesLeft: number; replay: ChallengeReplay };
 
 /** Reconstruct a sim-ready client Pet from a sealed ladder snapshot. */
@@ -59,7 +67,10 @@ export async function fetchLadder(name: string, mode: Mode, top?: number): Promi
     if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
     return data as LadderView;
 }
-export const setLadderDefense = (name: string, mode: Mode, petIds: string[]) => post<{ ok: true; defense: PetLite[] }>(name, { action: "defense", mode, petIds });
+/** Tactical also stores the opening formation and team doctrine — the rest of the
+ *  pre-match setup a player would make if they were there to make it. */
+export const setLadderDefense = (name: string, mode: Mode, petIds: string[], setup?: { stance?: WfStance; doctrine?: WfDoctrine }) =>
+    post<{ ok: true; defense: PetLite[]; stance?: WfStance; doctrine?: WfDoctrine }>(name, { action: "defense", mode, petIds, ...setup });
 export const getLadderOffer = (name: string, mode: Mode) => post<{ offer: OfferOpponent[] }>(name, { action: "offer", mode });
 export const challengeLadder = (name: string, mode: Mode, targetId: string) => post<ChallengeResult>(name, { action: "challenge", mode, targetId });
 export const clearLadderNotify = (name: string) => post<{ ok: true }>(name, { action: "clearNotify" });

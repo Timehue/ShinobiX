@@ -455,6 +455,257 @@ disconnect are handled, not just replaying one log. Note also that §6's premise
 ("casual PvE is client-authoritative, so this ships without touching competitive
 outcomes") no longer describes casual PvE.
 
+## 10. Two-player commanded duels — TRUE LOCKSTEP (in progress)
+
+Decision: PvP pet fights become genuine two-sided commanded duels via lockstep,
+not ghosts and not post-hoc log merging. Hollow Gate was converted to the PvE
+controller at the same time, so every single-player pet fight is now commanded.
+
+### 10.1 Why log-merging was rejected
+
+The tempting shape — each player records an input log against an AI copy of the
+opponent, then the server merges both — does not work. An order is a *reaction*:
+"use Ember Coil" was chosen because the opponent was mid-recovery at that moment.
+Replay it against different opponent behaviour and you reproduce the keystroke
+without the reason for it, yielding a third fight neither player played. This is
+the standard reason RTS and fighting games use lockstep rather than merging.
+
+### 10.2 The protocol
+
+Commands here are RARE — a handful per fight, not one per frame — so this is RTS
+command-lockstep with a fixed input delay, not per-frame netcode. Nothing is sent
+per tick.
+
+- A command is **never applied now**. It is scheduled for a future tick.
+- Each client reports the tick it has reached. The server publishes
+  `safeTick = min(both players' progress) + INPUT_DELAY_TICKS` — the watermark
+  below which no further command can ever be inserted.
+- Neither client simulates past `safeTick`. Playback stalling against it is
+  exactly the "waiting for opponent" state.
+- Both clients therefore apply an identical command set at identical ticks, which
+  is the determinism contract the engine already guarantees.
+
+Two invariants the tests exist to protect, both of which were violated by the
+first implementation:
+
+1. **A command must be scheduled strictly past every reachable watermark**, i.e.
+   `max(playback, progress) + INPUT_DELAY_TICKS + 1`. Landing *on* the watermark
+   means one client has simulated that tick and the other has not.
+2. **A server confirmation supersedes the proposer's optimistic copy; it does not
+   join it.** Keeping both applies the command twice on the proposing client and
+   once on the peer — harmless for an idempotent order, but it flips an `auto`
+   toggle straight back and corrupts the log the server replays.
+
+Consequently the server must accept or reject a proposed tick and **never
+restamp it**, since the proposer has already applied it locally at that tick.
+
+### 10.3 Known costs, and the upgrade that removes them
+
+- **PvP orders are not instant.** They land ~`INPUT_DELAY_TICKS` later, where PvE
+  orders are immediate. For "tell your pet which move to use" this is
+  imperceptible; it would not be for a fighting game.
+- **PvP runs a shorter speculative buffer** (`LOCKSTEP_LOOKAHEAD_TICKS`) than PvE,
+  because without rewind every buffered tick is added latency. The stage director
+  loses some of its retroactive routing window in PvP as a result.
+- **The slower client gates the faster one.** Inherent to lockstep.
+
+Both of the first two are removable by rewinding the speculative buffer down to
+`safeTick` — safe by construction, since the watermark is behind *both* players'
+playback, so such a rewind can never rewrite a frame either player has seen. The
+checkpoint machinery for it already exists (`checkpointCinematicDuel` /
+`restoreCinematicDuel`). Deferred so the first version has one thing to get right.
+
+### 10.4 The wire
+
+All events are namespaced `petduel:` and ride the EXISTING realtime socket
+(`api/_realtime/socket.ts`) rather than a second connection — its handshake is
+already authenticated with the same token → password → ban path as every HTTP
+route, and a duel that outlived a presence reconnect would desynchronise anyway.
+
+| client → server | server → client |
+|---|---|
+| `challenge {to,mode,pets}` | `invite {id,from,mode}` → the target |
+| `accept {id,pets}` | `start {id,seed,mode,side,player,enemy}` → both |
+| `decline {id}` | `declined {id,by}` → the challenger |
+| `input {id,tick,cmd}` | `sync {id,safeTick,inputs}` → both |
+| `progress {id,tick}` | `peerGone {id,side}` → the survivor |
+| `resign {id}` | `over {id,winner,reason}` → both |
+
+`sync` is cumulative and the client's ingest is idempotent, so a dropped frame
+costs a round trip and nothing else — which is why there is no per-message ack.
+
+Decisions worth not re-litigating:
+
+- **Progress reports carry PLAYBACK, not the simulation head.** The watermark
+  means "both players have SEEN this"; reporting the speculative head would
+  declare ticks settled that the reporting player has not watched.
+- **A closed tab is not an instant forfeit.** The stall window gives a refresh or
+  a flaky connection time to return. If it does not, the dropped side stops
+  gating the watermark, its pet reverts to its own AI, and the fight finishes —
+  so the survivor always gets a real result instead of a hung match.
+- **Rosters are sealed at accept time** and never re-read from the client, so a
+  mid-fight save edit cannot change the combatants.
+- **The seed is server-minted.** A client must never choose the fight it is about
+  to play.
+
+### 10.5 Status
+
+**Built and green:**
+
+- `shinobij.client/src/lib/pet-duel-lockstep.ts` — the pure, transport-free
+  session core, implementing the same `LiveDuel` interface as the PvE controller
+  so the renderer needed no changes. Its test drives two independent sessions
+  through a simulated relay and asserts byte-identical timelines.
+- `api/_realtime/pet-duel-session.ts` — the authoritative half: seed, apply order,
+  watermark, ownership, drop handling. 16 tests.
+- `api/_realtime/pet-duel-socket.ts` — the protocol above, plus `sweepSessions`
+  hooked into the 1-second game loop so lapsed invites and dead fights cannot leak.
+- `shinobij.client/src/lib/pet-duel-transport.ts` — binds a session to the shared
+  socket; the only file that knows about both.
+- `shinobij.client/src/components/PetDuelLiveHost.tsx` — the whole client
+  lifecycle (challenge, invite prompt, bind, mount, settle) in one component, so
+  PetArena only had to say "the player clicked challenge".
+- Renderer: the `Waiting for opponent…` stall indicator and the peer-disconnected
+  notice. PetArena's async `DuelChallenge` path for pet duels is **deleted** —
+  PvP is live-only, so a queued invite would have been a lie.
+
+**Still open — see §10.6.**
+
+### 10.6 Server-side winner derivation — DONE
+
+`replayLockstepPetDuel` (`api/pet/_duel-replay.ts`) replays the merged,
+server-sequenced log and declares the winner; `pet-duel-socket.ts` calls it when a
+client signals the fight resolved. That signal is only a HINT — the server reaches
+its own verdict, so a premature or invented `finished` just produces a replay that
+has not ended and is ignored.
+
+Three things differ from the single-commander casual replay, each because both
+pets are commanded here:
+
+- both sides are marked controlled, so an `enemy-*` order actually takes effect;
+- each side's Bond meter is tracked **separately**, so one player spending their
+  Break cannot silently invalidate the other's;
+- the rate cap is **per side**, so a flooding client cannot starve its opponent
+  out of a shared budget.
+
+Accuracy is pinned to `true` on both sides of the wire, matching the client's
+`CONTROLLED_DUEL_ACCURACY`: the server cannot see a browser's localStorage, so an
+unpinned flag would desynchronise the replay and hand the client a lever on the
+outcome.
+
+## 11. Defense Doctrine — how a garrison stays worth leaving
+
+### 11.1 The problem, stated honestly
+
+A commanded pet beats an identical uncommanded one. That is the whole point of the
+feature, and it is fine in the Coliseum where both players are present. It is NOT
+fine for a sector-war garrison, where the defender is offline **by definition** —
+leaving a pet to hold ground is the entire reason garrisons exist. An attacker who
+plays would beat every unattended pet, and garrisoning would stop making sense.
+
+### 11.2 The fix: a garrison is briefed, not abandoned
+
+Its owner authors a **doctrine** — a stance, a move priority, and a rule for when
+to spend the Bond meter (`ready` / `foeBloodied` / `finisher` / `never`) — and the
+pet fights to those standing orders. The defender still expresses skill; they
+express it in advance, the way you brief someone you cannot radio.
+
+The rejected alternative was a defensive stat buff to compensate. That converts a
+skill gap into a gear gap, which is the opposite of the "power by skill, never
+bought or grinded" pillar.
+
+Doctrine is deliberately **weaker than live command** — a plan cannot read the
+moment — so attacking a garrison still rewards showing up. It just stops being the
+difference between a player and a rock.
+
+An owner who never opens the doctrine screen gets `DEFAULT_DOCTRINE`, which is a
+no-op: their pet fights exactly as it does today.
+
+### 11.3 Where it applies
+
+- **Sector-war garrisons** — the intended use. Note both pets there are typically
+  unattended, so both fight to their doctrines, which is symmetric and fair.
+- **A dropped lockstep player** — their pets fall back to *their* doctrine rather
+  than bare AI, which is a far better answer to a disconnect.
+
+### 11.4 The desync trap this creates, and how it is closed
+
+Doctrine orders are issued INSIDE the fight and never cross the wire — both
+clients evaluate the same pure function. Two consequences had to be handled:
+
+1. **The hand-over tick is server-computed and broadcast** as
+   `max(both players' progress) + INPUT_DELAY_TICKS + 1`. That is strictly beyond
+   anything either client can already have simulated (simulation is gated at
+   `min(progress) + DELAY`), so neither applies it retroactively — and being one
+   number from one place, they cannot disagree about when the pet went autonomous.
+2. **The server replay must run the identical evaluator.** `replayLockstepPetDuel`
+   takes the same autonomy descriptors, so its verdict reproduces the fight both
+   players watched. Without this, any disconnect would make the server's answer
+   differ from the screen. `pet-duel-doctrine.ts` is in the `gen-pet-sim` mirror
+   for exactly this reason.
+
+A reconnecting player's pets **stay** on standing orders for the stretch they were
+away: those ticks are already simulated on the peer, so un-applying them would
+desynchronise.
+
+### 11.5 Status — SHIPPED
+
+- **Model + evaluator** (`lib/pet-duel-doctrine.ts`, 15 tests). The evaluator is
+  pure — a function of an explicit view struct, never of the sim — so client and
+  server reach identical decisions.
+- **One shared `applyDoctrineTick`.** The live lockstep session, the server replay
+  and the garrison resolver all call it. Three hand-written copies of "build the
+  view, call doctrineCommand, track the Bond spend" would drift, and a drift here
+  means the server scores a fight that differs from the one on screen.
+- **Sector war** — `api/village/sector-pet.ts` and `SectorWarPetBattle.tsx` both
+  call `runDoctrineDuel`. BOTH pets fight to their own orders, because neither
+  owner is present: the holder garrisoned, the challenger was travelling. A
+  determinism test pins that the client replay reproduces the server's winner.
+- **`pet.doctrine`** — additive and optional. Undefined means no standing orders,
+  which is exactly the pre-doctrine behaviour, and `parseDoctrine` degrades
+  anything malformed to a no-op. Nothing about it grants stats, so there is no
+  server-side validation beyond the shape.
+- **Authoring UI** — `components/PetDoctrineEditor.tsx`, mounted in the Pet Yard.
+  Three decisions only. A doctrine that needed a spreadsheet would be a worse
+  answer than the AI it replaces.
+
+## 12. Ladder as a live PvP queue
+
+`api/pvp/pet-ranked-queue.ts` already exists and does the hard part: join/leave/
+poll, a level band that widens with wait time, durable per-player match records,
+and an `initiator` flag. Converting the ladder is therefore wiring, not building:
+when a client polls and sees a match, the initiator sends `petduel:challenge` and
+the opponent auto-accepts from that name. The whole lockstep handshake is reused
+and almost no new server code is needed.
+
+This also removes the reroll problem entirely — there is no "start a fight, see it
+going badly, close the tab" window, because the fight only exists once two live
+players are matched, and the server owns the result either way.
+
+### 10.7 SUPERSEDED: sector war conflicts with "no offline path"
+
+Resolved by §11 — a garrison fights to standing orders, so it does not need its
+owner present. The section is kept because the reasoning explains why doctrine
+exists at all.
+
+Converting sector-war pet clashes to lockstep runs into a design contradiction
+that needs a decision rather than an implementation.
+
+A sector-war clash happens when one player's pet walks into a sector another
+player's pet is holding. The holder is frequently **not online** — that is the
+whole point of leaving a pet to hold ground. Lockstep needs both players present,
+and there is deliberately no async path, so the two rules cannot both hold:
+
+- *If the defender must be present*, sectors can only be contested when the holder
+  happens to be online, which largely removes the reason to garrison one.
+- *If the defender may be absent*, their pet needs some non-live behaviour —
+  its own AI, or a recorded input log — and that is the ghost model that was
+  rejected for arena PvP.
+
+The ladder does not have this problem: it fights a stored defender snapshot, so
+only the attacker is ever really playing. That one is implementable as specified
+and is the next piece of work.
+
 ## Sources
 
 - [Auto battler — Grokipedia](https://grokipedia.com/page/Auto_battler)

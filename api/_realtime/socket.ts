@@ -38,7 +38,8 @@ import { kv } from '../_storage.js';
 import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
-import { setOnSweep } from './game-loop.js';
+import { setOnSweep, setOnDuelDrop } from './game-loop.js';
+import { wirePetDuel, notifyPeerGone } from './pet-duel-socket.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt, type TravelLease } from './travel-lease.js';
@@ -158,6 +159,13 @@ function wireRealtime(io: IOServer): void {
     // poll immediately — emit to that player's `user:<canonical>` room.
     setRealtimeEmitter((room, event, payload) => {
         io.to(room).emit(event, payload);
+    });
+
+    // A player who goes silent mid-duel stops gating the lockstep watermark. Tell
+    // the survivor so their fight resumes instead of stalling on a peer that is
+    // never going to report again.
+    setOnDuelDrop((session, dropped) => {
+        for (const side of dropped) notifyPeerGone(io, session, side);
     });
 
     // ── Handshake auth: reuse the EXACT HTTP auth (token → password → ban). ──
@@ -334,6 +342,10 @@ function wireRealtime(io: IOServer): void {
         }
 
         socket.on('presence', onPresence);
+
+        // Live two-player pet duels (docs/pet-coliseum-player-control-plan.md §10).
+        // All rules live in pet-duel-session.ts; this only attaches the handlers.
+        wirePetDuel(io, socket);
 
         // Tile movement has a dedicated tiny delta path. This avoids rebuilding
         // and broadcasting the whole sector roster for every click/WASD step.

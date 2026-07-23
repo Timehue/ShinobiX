@@ -22,7 +22,8 @@
 import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
 import { runPetDuelCinematic } from "../_pet-sim/pet-duel-cinematic.js";
 import type { Pet as CinePet } from "../_pet-sim/pet-types.js";
-import { runPetArenaMatch, type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
+import { type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
+import { runWarfrontMatch, type WfStance, type WfDoctrine } from "../_pet-sim/pet-warfront-sim.js";
 import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetTrait } from "./_pet-types.js";
 
 export type Mode = "coliseum" | "tactical";
@@ -71,7 +72,23 @@ export type LadderEntry = {
 };
 
 /** The sealed, heavy defense doc (stored per player per mode, read only on a fight). */
-export type DefenseDoc = { slug: string; name: string; village?: string; mode: Mode; pets: LadderPet[]; roles: ArenaRole[]; updatedAt: number };
+/** A ladder defense. For TACTICAL this is the whole pre-match setup a player
+ *  would make if they were present: the team, the opening FORMATION and the team
+ *  DOCTRINE. Both new fields default when absent, so a defense saved before they
+ *  existed still resolves. */
+export type DefenseDoc = {
+    slug: string; name: string; village?: string; mode: Mode;
+    pets: LadderPet[]; roles: ArenaRole[];
+    stance?: WfStance; doctrine?: WfDoctrine;
+    updatedAt: number;
+};
+
+export const LADDER_STANCES: readonly WfStance[] = ["balanced", "siege", "jungle", "headhunt", "turtle"];
+export const LADDER_DOCTRINES: readonly WfDoctrine[] = ["vanguard", "bulwark", "zealot", "warden-pact"];
+export const parseStance = (v: unknown): WfStance =>
+    (LADDER_STANCES as readonly string[]).includes(String(v)) ? v as WfStance : "balanced";
+export const parseDoctrineChoice = (v: unknown): WfDoctrine =>
+    (LADDER_DOCTRINES as readonly string[]).includes(String(v)) ? v as WfDoctrine : "vanguard";
 
 const clampStat = (v: unknown, min: number, max: number, dflt: number): number => {
     const n = typeof v === "number" && Number.isFinite(v) ? Math.round(v) : dflt;
@@ -342,5 +359,23 @@ export function resolveColiseum(attacker: LadderPet, defender: LadderPet, seed: 
 export function resolveTactical(attacker: DefenseDoc, defender: DefenseDoc, seed: number): boolean {
     const blue: ArenaSlot[] = attacker.pets.map((p, i) => ({ pet: toPet(p), role: attacker.roles[i] ?? "tracker" }));
     const red: ArenaSlot[] = defender.pets.map((p, i) => ({ pet: toPet(p), role: defender.roles[i] ?? "tracker" }));
-    return runPetArenaMatch(blue, red, seed, true).winner === "blue";
+    // Resolve the game people ACTUALLY play. The tactical arena is the Hollow
+    // Warfront lane war, but this used to run the retired capture-the-scroll
+    // deathmatch — so a ranked defense was scored in a mode nobody plays. Each
+    // side now brings its own opening formation and team doctrine.
+    //
+    // WAR COUNCIL IS AUTO FOR BOTH SIDES. The council is a 30-second interactive
+    // buy popup and neither player is present for a ladder resolve, so an
+    // interactive one would hang or silently pass. "balanced" is the same policy
+    // the client locks for PvP/co-op, where determinism matters for the same reason.
+    // Same cast rationale as resolveColiseum: the generated mirror types its Pet
+    // as the full client shape, while toPet yields the combat-relevant subset the
+    // sim actually reads. Runtime-safe; the field sets the engine touches match.
+    type WfSlots = Parameters<typeof runWarfrontMatch>[0];
+    return runWarfrontMatch(
+        blue as unknown as WfSlots, red as unknown as WfSlots, seed,
+        "balanced", "balanced", undefined,
+        { blue: parseStance(attacker.stance), red: parseStance(defender.stance) },
+        { blue: parseDoctrineChoice(attacker.doctrine), red: parseDoctrineChoice(defender.doctrine) },
+    ).winner === "blue";
 }

@@ -12,7 +12,11 @@ import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { petPvpGearById, petConsumableById } from "../data/pet-config";
-import { PetColiseumDuel, PetArenaMatch } from "../components/PetColiseum";
+import { PetColiseumDuel } from "../components/PetColiseum";
+import { PetWarfrontMatch } from "../components/PetWarfrontMatch";
+import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type WfStance, type WfDoctrine } from "../lib/pet-ladder-setup";
+import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
+import { PetDuelLiveHost } from "../components/PetDuelLiveHost";
 import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
@@ -79,11 +83,33 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const [offer, setOffer] = useState<OfferOpponent[] | null>(null);
     const [replay, setReplay] = useState<ChallengeResult | null>(null);
     const [outcome, setOutcome] = useState<{ won: boolean; rank: number | null } | null>(null);
+    // Live ranked matchmaking: the queue pairs two players and the lockstep
+    // host runs the fight. `queuedAgainst` arms the auto-accept so the paired
+    // player is not asked to confirm a duel they just queued for.
+    const [queuedAgainst, setQueuedAgainst] = useState<string | null>(null);
+    const [liveDuelActive, setLiveDuelActive] = useState(false);
+    const [ladderNote, setLadderNote] = useState<string | null>(null);
+    // Tactical defense is more than a team: it is the whole pre-match setup a
+    // player would make if they were present. Seeded from the saved defense.
+    // DERIVED from the saved defense with a local override, rather than mirrored
+    // into state by an effect: there is no window where the pickers show something
+    // the server does not have, and an unsaved edit still survives a refresh.
+    const [stanceEdit, setStanceEdit] = useState<WfStance | null>(null);
+    const [doctrineEdit, setDoctrineEdit] = useState<WfDoctrine | null>(null);
+    const defStance = stanceEdit ?? asFormation(view?.you?.stance);
+    const defDoctrine = doctrineEdit ?? asTeamDoctrine(view?.you?.doctrine);
     const refreshId = useRef(0);
 
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     const available = useMemo(() => character.pets.filter((p) => !isPetOnExpedition(p)), [character.pets]);
+    // Queue with the pet you have picked to defend your rank; falling back to the
+    // first available one keeps "Find a match" usable before a defense is set.
+    const ladderQueuePets = useMemo(() => {
+        const picked = character.pets.find((p) => p.id === picks[0]);
+        const pet = picked ?? available[0];
+        return pet ? [pet] : [];
+    }, [character.pets, picks, available]);
     const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
 
     const refresh = useCallback(async () => {
@@ -115,7 +141,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const saveDefense = async () => {
         if (picks.length !== teamSize) return;
         setBusy(true);
-        try { await setLadderDefense(name, mode, picks); await refresh(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+        try { await setLadderDefense(name, mode, picks, mode === "tactical" ? { stance: defStance, doctrine: defDoctrine } : undefined); await refresh(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
     };
     const openOffer = async () => {
         setBusy(true);
@@ -142,7 +168,18 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         }
         const blue: ArenaSlot[] = r.blue.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
         const red: ArenaSlot[] = r.red.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
-        return <PetArenaMatch blue={blue} red={red} seed={r.seed} applyItems sharedImages={sharedImages} onExit={exitCinematic} />;
+        // The tactical ladder resolves on the WARFRONT (the lane war people play),
+        // with the War Council on auto for both sides because neither player is
+        // present. Replaying anything else would show a different fight.
+        return <PetWarfrontMatch
+            blue={blue} red={red} seed={r.seed}
+            autoBuy="balanced"
+            stance={r.blueStance ?? "balanced"}
+            doctrine={r.blueDoctrine ?? "vanguard"}
+            opponentStance={r.redStance ?? "balanced"}
+            opponentDoctrine={r.redDoctrine ?? "vanguard"}
+            onExit={exitCinematic}
+        />;
     }
 
     const you = view?.you;
@@ -214,6 +251,36 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 </div>
             )}
 
+            {/* Live ranked matchmaking + the duel it produces. Coliseum only —
+                tactical 4v4 is still the sealed server resolve. */}
+            {mode === "coliseum" && (
+                <>
+                    <PetLadderQueuePanel
+                        playerName={name}
+                        level={character.level}
+                        elo={character.petRankedRating ?? 1000}
+                        pets={ladderQueuePets}
+                        duelActive={liveDuelActive}
+                        onMatched={(opponent) => { setQueuedAgainst(opponent); setLiveDuelActive(true); }}
+                    />
+                    <PetDuelLiveHost
+                        myPets={ladderQueuePets}
+                        autoAcceptFrom={queuedAgainst}
+                        onError={(message) => { setErr(message); setQueuedAgainst(null); setLiveDuelActive(false); }}
+                        onOutcome={(result, opponent) => {
+                            setQueuedAgainst(null);
+                            setLiveDuelActive(false);
+                            setErr(null);
+                            setOutcome({ won: result === "win", rank: null });
+                            setLadderNote(result === "win" ? `You beat ${opponent}.` : result === "draw" ? `Draw with ${opponent}.` : `${opponent} took that one.`);
+                            void refresh();
+                        }}
+                        sharedImages={sharedImages}
+                    />
+                    {ladderNote && <p className="hint" style={{ textAlign: "center" }}>{ladderNote}</p>}
+                </>
+            )}
+
             {/* Two columns: defense + challenge (left) | the ladder (right) */}
             <div className="pl-cols">
                 <div>
@@ -252,15 +319,50 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                                 <button className="pl-btn pl-btn-gold" style={{ marginTop: 12 }} onClick={saveDefense} disabled={busy || picks.length !== teamSize}>
                                     {you?.hasDefense ? "Update defense" : "Set defense"} ({picks.length}/{teamSize})
                                 </button>
+                                {/* The rest of the pre-match setup. A defense fights while its
+                                    owner is offline, so these are the calls they leave behind —
+                                    and the War Council runs on auto, because nobody is there to
+                                    answer a 30-second buy popup. */}
+                                {mode === "tactical" && (
+                                    <div className="pl-setup">
+                                        <div className="pl-sub" style={{ marginTop: 10, fontWeight: 700 }}>Opening formation</div>
+                                        <div className="menu" style={{ gap: 6, flexWrap: "wrap" }}>
+                                            {LADDER_FORMATIONS.map((f) => (
+                                                <button key={f.value} type="button" title={f.hint}
+                                                    aria-pressed={defStance === f.value}
+                                                    className={defStance === f.value ? "pl-btn pl-btn-gold" : "pl-btn"}
+                                                    onClick={() => setStanceEdit(f.value)}>{f.label}</button>
+                                            ))}
+                                        </div>
+                                        <div className="pl-sub" style={{ marginTop: 10, fontWeight: 700 }}>Team doctrine</div>
+                                        <div className="menu" style={{ gap: 6, flexWrap: "wrap" }}>
+                                            {LADDER_DOCTRINES.map((d) => (
+                                                <button key={d.value} type="button" title={d.hint}
+                                                    aria-pressed={defDoctrine === d.value}
+                                                    className={defDoctrine === d.value ? "pl-btn pl-btn-gold" : "pl-btn"}
+                                                    onClick={() => setDoctrineEdit(d.value)}>{d.label}</button>
+                                            ))}
+                                        </div>
+                                        <p className="pl-sub" style={{ marginTop: 8 }}>
+                                            War Council runs automatically for a defense — you will not be there to call the buys.
+                                        </p>
+                                    </div>
+                                )}
                             </>}
                     </div>
 
-                    {/* Challenge */}
+                    {/* Challenge — TACTICAL ONLY. Coliseum rank is contested through the
+                        live queue above (plan §12): a ranked pet duel is fought by two
+                        present players, so the old "challenge a stored defense and watch
+                        the server resolve it" path would be a second, asynchronous way to
+                        move the same ladder. Tactical 4v4 still resolves server-side. */}
+                    {mode === "tactical" && (
                     <div className="pl-panel">
                         <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}>⚔ Challenge for rank</button>
                         {!you?.hasDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Set a defense first to enter the ladder.</p>}
                         {you?.hasDefense && (you?.challengesLeft ?? 0) <= 0 && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>You're out of challenges today — back tomorrow.</p>}
                     </div>
+                    )}
                 </div>
 
                 {/* Ladder list */}
