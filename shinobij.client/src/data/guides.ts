@@ -185,7 +185,7 @@ const BEGINNER: Guide = {
                     ["Pet Yard", "Raise pets that fight alongside you."],
                     ["World Map", "Explore sectors and contest territory."],
                     ["Town Hall", "Village upgrades and bonuses."],
-                    ["Card Hall", "Play Shinobi Card Clash with your collected cards."],
+                    ["Card Hall", "Play Shinobi Chronicle Duel with your collected cards."],
                     ["Tavern", "Village chat and social features."],
                 ] },
                 { type: "p", text: "Currencies: Ryo (everyday money) · Fate Shards (rare / premium) · Honor Seals (earned by Vanguards in PvP)." },
@@ -493,65 +493,70 @@ const PETS: Guide = {
     ],
 };
 
-// ── 5. Shinobi Card Clash ───────────────────────────────────────────────────
+// ── 5. Shinobi Chronicle Duel ───────────────────────────────────────────────
 const CARDCLASH: Guide = {
     id: "cardclash",
-    title: "Shinobi Card Clash",
-    tagline: "A fast 3-location card duel played with your collected shinobi cards.",
+    title: "Shinobi Chronicle Duel",
+    tagline: "A five-element shinobi TCG with server-authoritative 2003-era rules.",
     icon: "🎴",
-    blurb: "The Card Hall game: 6 turns, a ramping chakra economy, three locations, win 2 of 3.",
+    blurb: "Build a 40-card deck of Monsters, Magic and Traps, then reduce the opposing duelist's Health Points to zero.",
     sections: [
         {
             heading: "1 · The Goal",
             blocks: [
-                { type: "p", text: "Shinobi Card Clash is a 6-turn battle for control of 3 locations. At the end of Turn 6, the side with more total Power at a location wins it — win 2 of the 3 to win the match." },
-                { type: "p", text: "If it's 1–1 with one tied location, the higher total board Power wins; a full tie is a draw." },
+                { type: "p", text: "Both duelists begin with 8,000 Health Points and a five-card hand. Summon Monsters, set Traps and activate Magic to reduce the opposing duelist to zero Health Points." },
+                { type: "p", text: "If a duelist cannot draw when required, that duelist loses. The server owns the deck, hidden zones, timing windows and result." },
             ],
         },
         {
-            heading: "2 · Chakra Ramps Each Turn",
+            heading: "2 · Turn Phases",
             blocks: [
                 { type: "list", items: [
-                    "You get 1 Chakra on Turn 1, 2 on Turn 2 … up to 6 on Turn 6.",
-                    "Each card costs Chakra to play.",
-                    "Unused Chakra does NOT carry over — spend it each turn.",
+                    "Draw Phase: draw one card.",
+                    "Standby Phase: resolve effects that wait for this phase.",
+                    "Main Phase 1: Normal Summon or Set one Monster, change legal positions, and activate or Set Magic and Traps.",
+                    "Battle Phase: choose attacks and answer legal Trap windows. The first player cannot battle on the first turn.",
+                    "Main Phase 2: make another legal Main Phase action after battle.",
+                    "End Phase: resolve end effects and pass the turn.",
                 ] },
             ],
         },
         {
-            heading: "3 · Cards & Hand",
+            heading: "3 · Cards and Positions",
             blocks: [
                 { type: "list", items: [
-                    "You open with 3 cards and draw 1 at the start of each new turn (max hand of 7).",
-                    "Each location holds up to 4 of your cards (and 4 of the opponent's).",
-                    "Cards have a Cost and Power, a Role (fighter, defender, support, assassin, summoner, control), and often an On-Reveal ability — buffing allies, weakening enemies, drawing cards, or summoning clones.",
+                    "Normal Monsters are straightforward fighters; Effect Monsters carry printed abilities and make up roughly one quarter of the Monster roster.",
+                    "Summon a Monster face-up in Attack Position or Set it face-down in Defense Position. Higher-level Monsters require tributes.",
+                    "Normal Magic resolves during a Main Phase. Equip and Field Magic remain active while legal.",
+                    "Traps must be Set before use and can answer only their printed trigger window.",
+                    "Each duelist has five Monster Zones and five Magic/Trap Zones.",
                 ] },
             ],
         },
         {
-            heading: "4 · Locations",
+            heading: "4 · Elements and Field Magic",
             blocks: [
-                { type: "p", text: "Three random locations are drawn each match from a pool of 13. Most give a Power bonus to certain cards — play into them:" },
-                { type: "table", head: ["Location", "Bonus"], rows: [
-                    ["Training Ground", "No special effect"],
-                    ["Volcano Pass / River Shrine / Stone Gate / Wind Bridge / Storm Peak / Moonshadow Ruins / Frozen Lake", "+2 Power to matching-element cards (Fire / Water / Earth / Wind / Lightning / Shadow / Ice)"],
-                    ["Ninja Academy", "Common cards +2 Power"],
-                    ["Black Market", "Rare cards +2 Power"],
-                    ["Hollow Gate", "Epic & Legendary cards +2 Power"],
-                    ["Hidden Dojo", "Cards costing 1–2 get +1 Power"],
-                    ["Kage Summit", "Cards costing 5–6 get +2 Power"],
+                { type: "p", text: "Every Monster belongs to Fire, Water, Earth, Wind or Lightning. The neutral arena is the default, but Monsters are never neutral." },
+                { type: "table", head: ["Field Magic", "Shared modifier"], rows: [
+                    ["Volcano", "Fire ATK +300; Wind ATK −200"],
+                    ["Ocean", "Water ATK +300; Fire ATK −200"],
+                    ["Desert", "Earth ATK +300; Water ATK −200"],
+                    ["Sky", "Wind ATK +300; Lightning ATK −200"],
+                    ["Lightning Storm", "Lightning ATK +300; Earth ATK −200"],
                 ] },
+                { type: "p", text: "Only one Field Magic can be active. A new Field replaces the old environment, so bonuses never stack." },
             ],
         },
         {
             heading: "5 · Building a Deck",
             blocks: [
                 { type: "list", items: [
-                    "A deck is exactly 12 cards.",
-                    "Common / Rare: up to 2 copies each. Epic / Legendary: 1 copy each.",
-                    "At most 2 Legendary cards per deck.",
+                    "A deck is exactly 40 cards.",
+                    "Most cards allow up to three copies. Limited and Semi-Limited cards allow one or two.",
+                    "Balance low-, medium- and high-tier Monsters with enough Magic and Traps to protect your board and answer threats.",
+                    "The Card Hall validates owned copies and the November 17, 2003-inspired Limited List before saving.",
                 ] },
-                { type: "p", text: "Collect cards from Card Packs in the Shop or Grand Marketplace — the pool is 150+ cards across Common, Rare, Epic and Legendary. Card Clash also appears as a Clan War challenge mode, so a sharp deck pays off in more than casual play." },
+                { type: "p", text: "The same server-authoritative rules power AI, free-play PvP, Clan War, Sector War and sealed encounters." },
             ],
         },
         {
@@ -654,7 +659,7 @@ const CLANS: Guide = {
                     ["1v1 PvP", "30"],
                     ["Pet 2v2", "40"],
                     ["Pet 1v1", "20"],
-                    ["Card Clash", "10"],
+                    ["Chronicle Duel", "10"],
                 ] },
                 { type: "p", text: "First clan to drop the enemy's War HP to 0 wins. Results, the MVP and your war record are saved to clan history. The same two clans can't immediately rematch — there's a cooldown before another war." },
             ],

@@ -1,354 +1,825 @@
-/*
- * Server-authoritative Shinobi Card Clash — single-player (vs AI) engine.
- *
- * The "Play vs AI" match used to be resolved entirely on the client, which then
- * POSTed the winner to /api/card-clash/ai-settle for a Ryo payout — so a
- * fabricated `result:'player'` paid a win the player never earned (P1 audit).
- *
- * This module makes the SERVER run the match: it owns the shuffled decks, the
- * hidden AI hand, and every turn resolution, so the winner is computed here
- * (determineWinner) and the reward is paid from THAT — the client can no longer
- * assert an outcome. It is the single-player twin of the PvP session in
- * api/card-clash/match.ts and reuses the same pure engine
- * (api/clan/war/_card-clash-engine.ts) for validation, on-reveal effects, power,
- * and win determination.
- *
- * Turn model (faithful to the old client game, NOT the PvP simultaneous-commit):
- * the player plays cards one at a time — each revealed immediately with its
- * On-Reveal effect (`playOne`) — then ends the turn; the greedy AI then responds
- * (`aiTakeTurn`), and the turn advances (`advanceOrFinish`). The player is p1, the
- * AI is p2. The AI deck is generated server-side from the built-in catalog only
- * (never creator cards) so it can never field cards a player would need to own.
- */
+/* Server-owned Shinobi Chronicle Duel AI session. */
 import {
-    applyOnReveal,
-    clashCopyLimit,
-    createMatch,
-    dealOpening,
-    determineWinner,
-    locationBonus,
-    locationSidePower,
-    pickRandomLocationIds,
-    shuffleDeck,
-    CLASH_DECK_SIZE,
-    CLASH_MAX_HAND,
-    CLASH_MAX_LEGENDARY,
-    CLASH_MAX_TURNS,
-    CLASH_SLOTS,
-    type ClashCard,
-    type ClashLocationDef,
-    type ClashMatch,
-    type ClashPlayed,
-    type ClashRarity,
-    type ClashSide,
-    type ClashSideKey,
-} from '../clan/war/_card-clash-engine.js';
-import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+  CHRONICLE_AI_DIFFICULTY_DETAILS,
+  CHRONICLE_FIXED_FALLBACK_DECK,
+  CHRONICLE_RULES_VERSION,
+  applyAction,
+  createMatch,
+  elementBattleBonus,
+  getChronicleCard,
+  monsterAttack,
+  monsterDefense,
+  projectMatchForViewer,
+  tributeCountForLevel,
+  type ChronicleActionIntent,
+  type ChronicleAiDifficulty,
+  type ChronicleMatch,
+  type ChronicleProjection,
+  type ChronicleSideKey,
+} from "../../shared/chronicle-duel.js";
 
-export type AiMatchResult = 'player' | 'opponent' | 'draw';
+export type AiMatchResult = "player" | "opponent" | "draw";
 
 export interface AiMatchSession {
-    matchId: string;
-    playerName: string;
-    createdAt: number;
-    player: ClashSide;   // p1 (the human)
-    ai: ClashSide;       // p2 (the server AI)
-    match: ClashMatch;
-    status: 'active' | 'done';
-    winner?: AiMatchResult;
-    settledAt?: number;
+  matchId: string;
+  playerName: string;
+  createdAt: number;
+  rulesVersion: typeof CHRONICLE_RULES_VERSION;
+  difficulty: ChronicleAiDifficulty;
+  state: ChronicleMatch;
+  status: "active" | "done";
+  winner?: AiMatchResult;
+  settledAt?: number;
+  settlementMode?: "standard" | "external";
 }
 
-/** Per-viewer projection: full board (both sides revealed) + the player's own
- *  hand, but only COUNTS of the AI's hand/deck — its contents stay hidden. */
-export interface AiMatchProjection {
-    matchId: string;
-    status: 'active' | 'done';
-    turn: number;
-    maxTurns: number;
-    winner?: AiMatchResult;
-    playerHand: ClashCard[];
-    playerChakra: number;
-    playerNextDiscount: number;
-    playerDeckCount: number;
-    opponentHandCount: number;
-    opponentDeckCount: number;
-    locations: Array<{ def: ClashLocationDef; player: ClashPlayed[]; opponent: ClashPlayed[] }>;
-    log: string[];
+export type AiMatchProjection = ChronicleProjection & {
+  matchId: string;
+  aiDifficulty: ChronicleAiDifficulty;
+  aiDeckName: string;
+  winnerResult?: AiMatchResult;
+};
+
+function resultFor(state: ChronicleMatch): AiMatchResult | undefined {
+  if (state.status !== "complete") return undefined;
+  return state.winner === "p1"
+    ? "player"
+    : state.winner === "p2"
+      ? "opponent"
+      : "draw";
 }
 
-const OPPONENT_KEY: ClashSideKey = 'p2';
-const PLAYER_KEY: ClashSideKey = 'p1';
-
-function effectiveCost(cost: number, discount: number): number {
-    return Math.max(1, cost - discount);
+function syncTerminal(session: AiMatchSession): void {
+  const winner = resultFor(session.state);
+  if (!winner) return;
+  session.status = "done";
+  session.winner = winner;
 }
 
-// A log token the client localizes to the card's display name (the server only
-// knows card ids; names live in the client bundle). See hydrateServerMatch.
-function cardToken(id: string): string {
-    return `{{card:${id}}}`;
+function mediumAiDeck(): string[] {
+  const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
+  const replacements = ["tc-21", "tc-22", "tc-23", "tc-24"];
+  for (let i = 0; i < replacements.length; i++) deck[i * 3] = replacements[i];
+  deck[24] = "chronicle-hollow-breach";
+  deck[32] = "chronicle-pitfall-tag-array";
+  return deck;
 }
 
-// ── AI deck generation (server-side, built-in catalog only) ──────────────────
-// Faithful port of shinobij.client/src/lib/card-clash.ts generateAiDeck +
-// aiRarityWeights. Uses Math.random — the AI deck is a server secret, never
-// replayed, so it needs no determinism contract.
+const HARD_AI_DECK = Object.freeze([
+  // Crimson Tempest: 19 no-Tribute Monsters, three one-Tribute threats and
+  // two finishers. The Fire concentration supports Volcano and Fire Traps.
+  "tc-28", "tc-28", "tc-28",
+  "tc-74", "tc-74", "tc-74",
+  "tc-83", "tc-83", "tc-83",
+  "tc-92", "tc-92", "tc-92",
+  "tc-08", "tc-08",
+  "tc-13", "tc-13",
+  "tc-54", "tc-54", "tc-54",
+  "tc-50",
+  "tc-42", "tc-42",
+  "tc-124",
+  "tc-137",
+  "chronicle-field-volcano", "chronicle-field-volcano",
+  "chronicle-stacked-scrolls",
+  "chronicle-giant-felling-edict",
+  "chronicle-hollow-breach", "chronicle-hollow-breach",
+  "chronicle-hundredfold-tempest",
+  "chronicle-sealbreak-verdict",
+  "chronicle-storm-shear",
+  "chronicle-ringed-detonation",
+  "chronicle-mirror-shell-counter",
+  "chronicle-returning-cylinder-seal",
+  "chronicle-torrential-tag-field",
+  "chronicle-pitfall-tag-array", "chronicle-pitfall-tag-array",
+  "chronicle-cinder-minefield",
+] as const);
 
-type RarityWeights = Partial<Record<ClashRarity, number>>;
+export const CHRONICLE_AI_DECKS: Readonly<
+  Record<ChronicleAiDifficulty, readonly string[]>
+> = Object.freeze({
+  easy: Object.freeze([...CHRONICLE_FIXED_FALLBACK_DECK]),
+  medium: Object.freeze(mediumAiDeck()),
+  hard: HARD_AI_DECK,
+});
 
-function aiRarityWeights(playerLevel: number): RarityWeights {
-    if (playerLevel >= 50) return { common: 0.35, rare: 0.35, epic: 0.22, legendary: 0.08 };
-    if (playerLevel >= 25) return { common: 0.45, rare: 0.4, epic: 0.15 };
-    return { common: 0.6, rare: 0.4 };
+/** Return a copy so a live match can shuffle without mutating a template. */
+export function generateAiServerDeck(
+  difficulty: ChronicleAiDifficulty = "medium",
+): string[] {
+  return [...CHRONICLE_AI_DECKS[difficulty]];
 }
 
-function weightedRarity(weights: RarityWeights): ClashRarity {
-    const entries = Object.entries(weights) as [ClashRarity, number][];
-    const total = entries.reduce((s, [, w]) => s + w, 0);
-    let roll = Math.random() * total;
-    for (const [rarity, w] of entries) {
-        roll -= w;
-        if (roll <= 0) return rarity;
-    }
-    return entries[0][0];
+export function createAiMatch(
+  matchId: string,
+  playerName: string,
+  playerDeck: string[],
+  difficulty: ChronicleAiDifficulty,
+  now: number,
+  random: () => number = Math.random,
+  settlementMode: "standard" | "external" = "standard",
+): AiMatchSession {
+  const session: AiMatchSession = {
+    matchId,
+    playerName,
+    createdAt: now,
+    rulesVersion: CHRONICLE_RULES_VERSION,
+    difficulty,
+    state: createMatch(
+      playerName,
+      playerDeck,
+      "Chronicle Keeper",
+      generateAiServerDeck(difficulty),
+      random,
+      now,
+    ),
+    status: "active",
+    settlementMode,
+  };
+  advanceAi(session, now);
+  return session;
 }
 
-/** The built-in catalog as engine cards (id + canonical stats), for the AI only. */
-function builtinCatalog(): ClashCard[] {
-    return Object.entries(BUILTIN_CLASH).map(([id, stats]) => ({ id, ...stats }));
+function controlsFaceUpElement(
+  state: ChronicleMatch,
+  sideKey: ChronicleSideKey,
+  element: string,
+): boolean {
+  return state[sideKey].monsterZones.some((monster) => {
+    if (!monster?.faceUp) return false;
+    const card = getChronicleCard(monster.cardId);
+    return card?.cardClass === "monster" && card.element === element;
+  });
 }
 
-/** Build a legal 12-card AI deck from the built-in catalog (never creator cards),
- *  honouring the same copy / legendary-cap rules as a player deck. */
-export function generateAiServerDeck(playerLevel: number): ClashCard[] {
-    const catalog = builtinCatalog();
-    const weights = aiRarityWeights(playerLevel);
-    const allowed = new Set(Object.keys(weights));
-    const byRarity: Record<string, ClashCard[]> = {};
-    for (const c of catalog) {
-        if (!allowed.has(c.rarity)) continue;
-        (byRarity[c.rarity] ??= []).push(c);
-    }
-
-    const deck: ClashCard[] = [];
-    const counts: Record<string, number> = {};
-    let legendaryCount = 0;
-    let safety = 0;
-    while (deck.length < CLASH_DECK_SIZE && safety < 500) {
-        safety++;
-        const rarity = weightedRarity(weights);
-        const pool = byRarity[rarity];
-        if (!pool || pool.length === 0) continue;
-        const card = pool[Math.floor(Math.random() * pool.length)];
-        if (card.rarity === 'legendary' && legendaryCount >= CLASH_MAX_LEGENDARY) continue;
-        if ((counts[card.id] ?? 0) >= clashCopyLimit(card.rarity)) continue;
-        deck.push(card);
-        counts[card.id] = (counts[card.id] ?? 0) + 1;
-        if (card.rarity === 'legendary') legendaryCount++;
-    }
-
-    // Backfill from commons/rares if weighting starved the deck.
-    if (deck.length < CLASH_DECK_SIZE) {
-        const filler = catalog.filter((c) => c.rarity === 'common' || c.rarity === 'rare');
-        let i = 0;
-        while (deck.length < CLASH_DECK_SIZE && filler.length > 0) {
-            const card = filler[i % filler.length];
-            if ((counts[card.id] ?? 0) < clashCopyLimit(card.rarity)) {
-                deck.push(card);
-                counts[card.id] = (counts[card.id] ?? 0) + 1;
-            } else if (i > filler.length * 3) {
-                break;
-            }
-            i++;
-        }
-    }
-    return shuffleDeck(deck);
+function canSupportTrapRequirement(
+  state: ChronicleMatch,
+  sideKey: ChronicleSideKey,
+  element: string | undefined,
+): boolean {
+  if (!element || controlsFaceUpElement(state, sideKey, element)) return true;
+  return state[sideKey].hand.some((id) => {
+    const card = getChronicleCard(id);
+    return card?.cardClass === "monster" && card.element === element;
+  });
 }
 
-// ── Session setup ────────────────────────────────────────────────────────────
-
-function freshSide(deck: ClashCard[]): ClashSide {
-    const shuffled = shuffleDeck(deck);
-    const { hand, rest } = dealOpening(shuffled);
-    return {
-        name: '', clan: '', defaultDeck: [], deck: rest, hand,
-        chakra: 1, nextDiscount: 0, committed: false, pending: [], ready: true,
-    };
+function trapResponsePriority(
+  state: ChronicleMatch,
+  responder: ChronicleSideKey,
+  zoneIndex: number,
+): number {
+  const cardId = state[responder].magicTrapZones[zoneIndex]?.cardId ?? "";
+  const card = getChronicleCard(cardId);
+  if (card?.cardClass !== "trap") return 0;
+  const window = state.responseWindow;
+  const attacker =
+    window?.trigger === "onAttackDeclared"
+      ? state[window.pendingAction.actor].monsterZones[
+          Number(window.pendingAction.attackerZoneIndex)
+        ]
+      : null;
+  const incomingAttack = attacker
+    ? monsterAttack(attacker, state.activeField, state)
+    : 0;
+  if (card.effect.kind === "destroyAttackerAndDamageBoth") {
+    if (incomingAttack >= state[responder].lifePoints)
+      return incomingAttack >= state[window?.pendingAction.actor ?? "p1"].lifePoints
+        ? 2
+        : -10;
+    return 6;
+  }
+  if (card.effect.kind === "negateAttackAndInflictDamage") return 7;
+  if (card.effect.kind === "endBattlePhase") return 9;
+  if (card.effect.kind === "summonDefenderFromHand") return 8;
+  if (card.effect.kind === "destroyAllAttackPositionMonsters")
+    return (
+      6 +
+      state[window?.pendingAction.actor ?? "p1"].monsterZones.filter(
+        (monster) => monster?.faceUp && monster.position === "attack",
+      ).length
+    );
+  if (card.effect.kind === "destroyAllMonsters") {
+    const actor = window?.pendingAction.actor ?? otherSide(responder);
+    const opposingCount = state[actor].monsterZones.filter(Boolean).length + 1;
+    const ownCount = state[responder].monsterZones.filter(Boolean).length;
+    return opposingCount >= ownCount ? 6 : 1;
+  }
+  if (
+    card.effect.kind === "destroyOneMonster"
+  )
+    return 5;
+  if (card.effect.kind === "destroyLowestAttackWhenOutnumbered") return 6;
+  if (card.effect.kind === "destroyAttackerIfTargetDestroyed") return 5;
+  if (
+    card.effect.kind === "weakenSummonedMonster" ||
+    card.effect.kind === "sealSummonedMonsterFaceDown"
+  )
+    return 5;
+  if (
+    card.effect.kind === "borrowAttackerDefense" ||
+    card.effect.kind === "redirectAttackToHighestDefense" ||
+    card.effect.kind === "defensiveFeint"
+  )
+    return 4;
+  if (
+    card.effect.kind === "modifyAttackUntilEndTurn" &&
+    (card.effect.amount ?? 0) < 0
+  )
+    return incomingAttack >= state[responder].lifePoints ? 6 : 3;
+  if (card.effect.kind === "returnOneMonsterToHand") return 2;
+  if (card.effect.kind === "negateOneAttack") return 1;
+  return 2;
 }
 
-/** Create a fresh server AI match: player deck already ownership-resolved by the
- *  caller, AI deck generated here. Deals opening hands, picks 3 locations. */
-export function createAiMatch(matchId: string, playerName: string, playerDeck: ClashCard[], playerLevel: number, now: number): AiMatchSession {
-    return {
-        matchId,
-        playerName,
-        createdAt: now,
-        player: freshSide(playerDeck),
-        ai: freshSide(generateAiServerDeck(playerLevel)),
-        match: createMatch(pickRandomLocationIds()),
-        status: 'active',
-    };
+function otherSide(side: ChronicleSideKey): ChronicleSideKey {
+  return side === "p1" ? "p2" : "p1";
 }
 
-// ── Single play (immediate reveal + On-Reveal) ───────────────────────────────
-
-/** Play one hand card for a side: validate (chakra / slot / index), spend chakra,
- *  place it revealed, and apply its On-Reveal. Mutates. Mirrors the client
- *  playCard's per-card reveal semantics. */
-export function playOne(
-    session: AiMatchSession,
-    sideKey: ClashSideKey,
-    handIndex: number,
-    loc: number,
-): { ok: true } | { ok: false; error: string } {
-    if (session.status !== 'active') return { ok: false, error: 'The match is over.' };
-    const side = sideKey === PLAYER_KEY ? session.player : session.ai;
-    const match = session.match;
-    if (!Number.isInteger(handIndex) || handIndex < 0 || handIndex >= side.hand.length)
-        return { ok: false, error: 'That card is not in hand.' };
-    if (!Number.isInteger(loc) || loc < 0 || loc >= match.locations.length)
-        return { ok: false, error: 'No such location.' };
-    if (match.locations[loc][sideKey].length >= CLASH_SLOTS)
-        return { ok: false, error: 'That location is full (max 4 cards).' };
-
-    const card = side.hand[handIndex];
-    const cost = effectiveCost(card.cost, side.nextDiscount);
-    if (cost > side.chakra) return { ok: false, error: 'Not enough Chakra.' };
-
-    side.hand.splice(handIndex, 1);
-    side.chakra -= cost;
-    side.nextDiscount = 0;
-
-    const played: ClashPlayed = {
-        ...card,
-        iid: `iid-${match.iidCounter++}`,
-        owner: sideKey,
-        basePower: card.power,
-        currentPower: card.power,
-        loc,
-    };
-    match.locations[loc][sideKey].push(played);
-    match.log.push(`${sideKey === PLAYER_KEY ? '🟦 You play' : '🟥 Opponent plays'} ${cardToken(card.id)} at ${match.locations[loc].def.name}.`);
-    applyOnReveal(match, side, sideKey, played);
-    return { ok: true };
+function visibleMonsterThreat(
+  state: ChronicleMatch,
+  monster: NonNullable<ChronicleMatch["p1"]["monsterZones"][number]>,
+): number {
+  if (!monster.faceUp) return 0;
+  return monster.position === "attack"
+    ? monsterAttack(monster, state.activeField, state)
+    : monsterDefense(monster);
 }
 
-// ── Greedy AI turn (port of client aiTakeTurn) ───────────────────────────────
-
-/** The AI plays greedily: repeatedly the affordable card with the best
- *  power-per-chakra, at the location where it helps most (prefers where it is
- *  losing + the location bonus). Mutates until it can make no more legal play. */
-export function aiTakeTurn(session: AiMatchSession): void {
-    const match = session.match;
-    const ai = session.ai;
-    let safety = 0;
-    while (safety < 24) {
-        safety++;
-        const discount = ai.nextDiscount;
-
-        let bestHandIndex = -1;
-        let bestCardScore = -Infinity;
-        for (let i = 0; i < ai.hand.length; i++) {
-            const c = ai.hand[i];
-            const cost = effectiveCost(c.cost, discount);
-            if (cost > ai.chakra) continue;
-            const ratio = c.power / cost + c.power * 0.01;
-            if (ratio > bestCardScore) {
-                bestCardScore = ratio;
-                bestHandIndex = i;
-            }
-        }
-        if (bestHandIndex === -1) break;
-        const card = ai.hand[bestHandIndex];
-
-        let bestLoc = -1;
-        let bestLocScore = -Infinity;
-        for (let li = 0; li < match.locations.length; li++) {
-            const location = match.locations[li];
-            if (location[OPPONENT_KEY].length >= CLASH_SLOTS) continue;
-            const deficit = locationSidePower(location, PLAYER_KEY) - locationSidePower(location, OPPONENT_KEY);
-            const marginal = card.power + locationBonus(card, location.def);
-            const score = deficit + marginal;
-            if (score > bestLocScore) {
-                bestLocScore = score;
-                bestLoc = li;
-            }
-        }
-        if (bestLoc === -1) break;
-
-        const res = playOne(session, OPPONENT_KEY, bestHandIndex, bestLoc);
-        if (!res.ok) break;
-    }
+function trapSetPriority(cardId: string): number {
+  const card = getChronicleCard(cardId);
+  if (card?.cardClass !== "trap") return 0;
+  switch (card.effect.kind) {
+    case "destroyAllAttackPositionMonsters":
+    case "negateAttackAndInflictDamage":
+    case "destroyAllMonsters":
+    case "endBattlePhase":
+      return 8;
+    case "summonDefenderFromHand":
+      return 7;
+    case "destroyAttackerAndDamageBoth":
+      return 7;
+    case "destroyOneMonster":
+    case "destroyLowestAttackWhenOutnumbered":
+      return 6;
+    case "destroyAttackerIfTargetDestroyed":
+    case "weakenSummonedMonster":
+    case "sealSummonedMonsterFaceDown":
+      return 5;
+    case "redirectAttackToHighestDefense":
+    case "borrowAttackerDefense":
+    case "defensiveFeint":
+      return 5;
+    case "returnOneMonsterToHand":
+      return 5;
+    case "destroyOneMagicTrap":
+      return 4;
+    case "negateOneAttack":
+      return 3;
+    default:
+      return 1;
+  }
 }
 
-// ── Turn advance / finish ────────────────────────────────────────────────────
-
-function drawOne(side: ClashSide): void {
-    if (side.deck.length > 0 && side.hand.length < CLASH_MAX_HAND) side.hand.push(side.deck.shift()!);
-}
-
-/** After the AI has responded: finish the match at turn 6 (compute the winner),
- *  else advance a turn (chakra rises, both draw). Mutates + sets status/winner. */
-export function advanceOrFinish(session: AiMatchSession): void {
-    const match = session.match;
-    if (match.turn >= CLASH_MAX_TURNS) {
-        const w = determineWinner(match);
-        session.winner = w === 'p1' ? 'player' : w === 'p2' ? 'opponent' : 'draw';
-        session.status = 'done';
-        match.log.push(
-            session.winner === 'player' ? '🏆 You win the clash!'
-                : session.winner === 'opponent' ? '💀 You lose the clash.'
-                    : '🤝 The clash ends in a draw.',
+function chooseMainAction(
+  state: ChronicleMatch,
+  difficulty: ChronicleAiDifficulty,
+): ChronicleActionIntent {
+  const side = state.p2;
+  const usefulFlip = side.monsterZones.findIndex((monster) => {
+    if (
+      !monster ||
+      monster.faceUp ||
+      monster.summonedOnTurn === state.turnNumber
+    )
+      return false;
+    const card = getChronicleCard(monster.cardId);
+    return (
+      card?.cardClass === "monster" &&
+      (card.monsterEffect?.kind === "drawOnFlip" ||
+        card.monsterEffect?.kind === "cycleHandsOnFlip" ||
+        card.monsterEffect?.kind === "healOnFlip" ||
+        (card.monsterEffect?.kind ===
+          "changeStrongestOpponentPositionOnFlip" &&
+          state.p1.monsterZones.some((target) => target?.faceUp)) ||
+        (card.monsterEffect?.kind === "destroyStrongestOpponentOnFlip" &&
+          state.p1.monsterZones.some(Boolean)) ||
+        (card.monsterEffect?.kind === "recoverMagicOnFlip" &&
+          side.graveyard.some(
+            (id) => getChronicleCard(id)?.cardClass === "magic",
+          )))
+    );
+  });
+  if (usefulFlip >= 0) return { action: "flip-summon", zoneIndex: usefulFlip };
+  // Use the closed Magic vocabulary with server-selected legal targets.
+  const openMagicTrap = side.magicTrapZones.findIndex((zone) => zone === null);
+  const fieldMagicIndex = side.hand
+    .map((id, handIndex) => ({ card: getChronicleCard(id), handIndex }))
+    .find(
+      ({ card }) =>
+        card?.cardClass === "magic" &&
+        card.magicType === "field" &&
+        state.activeField?.cardId !== card.id &&
+        side.hand.some((heldId) => {
+          const held = getChronicleCard(heldId);
+          return (
+            held?.cardClass === "monster" &&
+            held.element === card.effect.boostElement
+          );
+        }),
+    )?.handIndex ?? -1;
+  if (fieldMagicIndex >= 0)
+    return { action: "activate-magic", handIndex: fieldMagicIndex };
+  if (openMagicTrap >= 0) {
+    for (let handIndex = 0; handIndex < side.hand.length; handIndex++) {
+      const card = getChronicleCard(side.hand[handIndex]);
+      if (!card || card.cardClass !== "magic") continue;
+      if (card.magicType === "field") continue;
+      const scope = card.effect.targetScope;
+      if (
+        card.effect.kind === "destroyAllOpponentMonsters" ||
+        card.effect.kind === "destroyAllMonsters"
+      ) {
+        const ownCount = side.monsterZones.filter(Boolean).length;
+        const opponentCount = state.p1.monsterZones.filter(Boolean).length;
+        if (
+          opponentCount > 0 &&
+          (card.effect.kind === "destroyAllOpponentMonsters" ||
+            opponentCount > ownCount)
+        )
+          return { action: "activate-magic", handIndex };
+        continue;
+      }
+      if (
+        card.effect.kind === "destroyAllOpponentMagicTraps" ||
+        card.effect.kind === "destroyAllMagicTraps"
+      ) {
+        const ownCount =
+          side.magicTrapZones.filter(Boolean).length +
+          (state.activeField?.owner === "p2" ? 1 : 0);
+        const opponentCount =
+          state.p1.magicTrapZones.filter(Boolean).length +
+          (state.activeField?.owner === "p1" ? 1 : 0);
+        if (
+          opponentCount > 0 &&
+          (card.effect.kind === "destroyAllOpponentMagicTraps" ||
+            opponentCount > ownCount)
+        )
+          return { action: "activate-magic", handIndex };
+        continue;
+      }
+      if (card.effect.kind === "destroyActiveField") {
+        if (state.activeField?.owner === "p1")
+          return { action: "activate-magic", handIndex };
+        continue;
+      }
+      if (
+        (card.effect.kind === "drawCards" ||
+          card.effect.kind === "drawThenDiscardRandom") &&
+        side.deck.length >= (card.effect.amount ?? 1)
+      )
+        return { action: "activate-magic", handIndex };
+      if (card.effect.kind === "healLifePoints" && side.lifePoints <= 6_800)
+        return { action: "activate-magic", handIndex };
+      if (scope === "ownedFaceUpMonster") {
+        const legalOwnedTargets = side.monsterZones.flatMap(
+          (monster, targetZoneIndex) =>
+            monster?.faceUp &&
+            (card.magicType !== "equip" || !monster.attachedEquipId)
+              ? [{ monster, targetZoneIndex }]
+              : [],
         );
-        return;
+        if (difficulty === "hard")
+          legalOwnedTargets.sort(
+            (a, b) =>
+              visibleMonsterThreat(state, b.monster) -
+              visibleMonsterThreat(state, a.monster),
+          );
+        const targetZoneIndex = legalOwnedTargets[0]?.targetZoneIndex ?? -1;
+        if (targetZoneIndex >= 0)
+          return {
+            action: "activate-magic",
+            handIndex,
+            targetZoneIndex,
+            targetSide: "p2",
+          };
+      } else if (
+        scope === "opponentMonster" ||
+        scope === "opponentLevel4OrLowerMonster" ||
+        scope === "anyFaceUpMonster"
+      ) {
+        const legalOpponentTargets = state.p1.monsterZones.flatMap(
+          (monster, targetZoneIndex) => {
+            if (!monster) return [];
+            const targetCard = getChronicleCard(monster.cardId);
+            const legal =
+              scope === "anyFaceUpMonster" ||
+              card.effect.kind === "changeOneMonsterPosition"
+                ? monster.faceUp
+                : (scope !== "opponentLevel4OrLowerMonster" ||
+                    (monster.faceUp &&
+                      targetCard?.cardClass === "monster" &&
+                      targetCard.level <= 4)) &&
+                  (card.effect.kind !== "destroyLowDefenseMonster" ||
+                    (monster.faceUp &&
+                      monsterDefense(monster) <= (card.effect.cap ?? 1_000)));
+            return legal ? [{ monster, targetZoneIndex }] : [];
+          },
+        );
+        if (difficulty === "hard")
+          legalOpponentTargets.sort(
+            (a, b) =>
+              visibleMonsterThreat(state, b.monster) -
+              visibleMonsterThreat(state, a.monster),
+          );
+        const targetZoneIndex =
+          legalOpponentTargets[0]?.targetZoneIndex ?? -1;
+        if (targetZoneIndex >= 0)
+          return {
+            action: "activate-magic",
+            handIndex,
+            targetZoneIndex,
+            targetSide: "p1",
+          };
+      } else if (scope === "opponentMagicTrap") {
+        const targetZoneIndex = state.p1.magicTrapZones.findIndex(Boolean);
+        if (targetZoneIndex >= 0)
+          return {
+            action: "activate-magic",
+            handIndex,
+            targetZoneIndex,
+            targetSide: "p1",
+          };
+      } else if (scope === "ownGraveyardLevel4OrLowerMonster") {
+        const graveyardIndex = side.graveyard.findIndex((id) => {
+          const target = getChronicleCard(id);
+          return (
+            target?.cardClass === "monster" &&
+            target.level <= 4 &&
+            (card.effect.kind !== "reviveLevel4OrLowerNormalMonster" ||
+              target.monsterType === "normal")
+          );
+        });
+        const needsOpenMonsterZone =
+          card.effect.kind === "reviveLevel4OrLowerMonster" ||
+          card.effect.kind === "reviveLevel4OrLowerNormalMonster";
+        if (
+          graveyardIndex >= 0 &&
+          (!needsOpenMonsterZone ||
+            side.monsterZones.some((zone) => zone === null))
+        )
+          return { action: "activate-magic", handIndex, graveyardIndex };
+      } else if (scope === "ownGraveyardMagic") {
+        const graveyardIndex = side.graveyard.findIndex(
+          (id) => getChronicleCard(id)?.cardClass === "magic",
+        );
+        if (graveyardIndex >= 0)
+          return { action: "activate-magic", handIndex, graveyardIndex };
+      } else if (scope === "ownGraveyardFieldMagic") {
+        const graveyardIndex = side.graveyard.findIndex((id) => {
+          const target = getChronicleCard(id);
+          return target?.cardClass === "magic" && target.magicType === "field";
+        });
+        if (graveyardIndex >= 0)
+          return { action: "activate-magic", handIndex, graveyardIndex };
+      } else if (scope === "none" && card.effect.kind !== "healLifePoints")
+        return { action: "activate-magic", handIndex };
     }
-    match.turn += 1;
-    session.player.chakra = match.turn;
-    session.ai.chakra = match.turn;
-    drawOne(session.player);
-    drawOne(session.ai);
-    match.log.push(`— Turn ${match.turn} —`);
+  }
+  if (!state.normalSummonUsed) {
+    const openZone = side.monsterZones.findIndex((zone) => zone === null);
+    const candidates = side.hand.flatMap((id, handIndex) => {
+      const card = getChronicleCard(id);
+      if (!card || card.cardClass !== "monster") return [];
+      const tributes = tributeCountForLevel(card.level);
+      if (tributes > side.monsterZones.filter(Boolean).length) return [];
+      return [{ handIndex, card, tributes }];
+    });
+    candidates.sort((a, b) => {
+      // Prefer a playable low-Level body, but take a Tribute line only when
+      // its canonical board value clearly exceeds the expendable bodies.
+      const effectValue = (card: (typeof a)["card"]): number => {
+        switch (card.monsterEffect?.kind) {
+          case "sealAllTraps":
+          case "destroyStrongestOpponentOnFlip":
+          case "recoverMagicOnFlip":
+          case "recoverFieldMagicWhenDestroyedByBattle":
+          case "setStrongestOpponentFaceDownOnSummon":
+          case "destroySetMagicTrapOnTributeSummon":
+          case "phaseOutBattlePairAfterDamage":
+          case "destroyAttackerOnFlip":
+          case "reviveNormalWhenDestroyedByBattle":
+          case "sealAttackTraps":
+            return 700;
+          case "drawOnFlip":
+          case "cycleHandsOnFlip":
+          case "drawOnBattleDamage":
+          case "discardOpponentCardOnBattleDamage":
+          case "searchNormalWhenDestroyedByBattle":
+          case "drawOnTributeSummon":
+          case "surviveBattleOncePerTurn":
+          case "alliedElementAttackBoost":
+          case "gainAttackOnMagicActivated":
+          case "guardOtherMonsters":
+            return 500;
+          case "healOnFlip":
+          case "returnBattleOpponentWhenDestroyed":
+          case "destroyAttackerWhenDefenseHolds":
+          case "reflectDamageWhenAttacked":
+          case "piercingBattleDamage":
+          case "changeStrongestOpponentPositionOnFlip":
+          case "changeToDefenseWhenAttacked":
+          case "gainAttackWhenBattlingStronger":
+          case "gainAttackWhileOnlyMonster":
+            return 350;
+          default:
+            return 150;
+        }
+      };
+      const av =
+        a.card.attack +
+        a.card.defense +
+        effectValue(a.card) * (difficulty === "hard" ? 1.3 : difficulty === "easy" ? 0.35 : 1) -
+        a.tributes * (difficulty === "hard" ? 1_850 : difficulty === "easy" ? 2_400 : 2_100);
+      const bv =
+        b.card.attack +
+        b.card.defense +
+        effectValue(b.card) * (difficulty === "hard" ? 1.3 : difficulty === "easy" ? 0.35 : 1) -
+        b.tributes * (difficulty === "hard" ? 1_850 : difficulty === "easy" ? 2_400 : 2_100);
+      return bv - av || a.card.level - b.card.level;
+    });
+    const choice = candidates[0];
+    if (choice) {
+      const tributeCandidates = side.monsterZones.flatMap((monster, index) =>
+        monster ? [{ monster, index }] : [],
+      );
+      if (difficulty === "hard")
+        tributeCandidates.sort(
+          (a, b) =>
+            visibleMonsterThreat(state, a.monster) -
+            visibleMonsterThreat(state, b.monster),
+        );
+      const tributeZoneIndexes = tributeCandidates
+        .map(({ index }) => index)
+        .slice(0, choice.tributes);
+      const zoneIndex = openZone >= 0 ? openZone : tributeZoneIndexes[0];
+      return {
+        action:
+          choice.card.monsterEffect?.trigger === "onFlip"
+            ? "set-monster"
+            : "normal-summon",
+        handIndex: choice.handIndex,
+        zoneIndex,
+        tributeZoneIndexes,
+      };
+    }
+  }
+  if (openMagicTrap >= 0) {
+    const trapChoices = side.hand.flatMap((id, handIndex) => {
+      const card = getChronicleCard(id);
+      return card?.cardClass === "trap" &&
+        canSupportTrapRequirement(state, "p2", card.effect.requiresFaceUpElement)
+        ? [{ handIndex, priority: trapSetPriority(id) }]
+        : [];
+    });
+    if (difficulty === "hard")
+      trapChoices.sort((a, b) => b.priority - a.priority);
+    const trapIndex = trapChoices[0]?.handIndex ?? -1;
+    if (trapIndex >= 0)
+      return {
+        action: "set-trap",
+        handIndex: trapIndex,
+        zoneIndex: openMagicTrap,
+      };
+  }
+  if (state.phase === "main1") {
+    if (state.turnNumber === 1 && state.firstPlayer === "p2")
+      return { action: "enter-end-phase" };
+    return { action: "start-battle" };
+  }
+  return { action: "enter-end-phase" };
 }
 
-/** Resolve the player's End-Turn: the AI responds, then advance or finish. */
-export function endTurn(session: AiMatchSession): void {
-    if (session.status !== 'active') return;
-    aiTakeTurn(session);
-    advanceOrFinish(session);
+function knownBattleMargin(
+  state: ChronicleMatch,
+  attacker: NonNullable<ChronicleMatch["p2"]["monsterZones"][number]>,
+  defender: NonNullable<ChronicleMatch["p1"]["monsterZones"][number]>,
+): number | null {
+  if (!defender.faceUp) return null;
+  const attackerCard = getChronicleCard(attacker.cardId);
+  const defenderCard = getChronicleCard(defender.cardId);
+  if (
+    attackerCard?.cardClass !== "monster" ||
+    defenderCard?.cardClass !== "monster"
+  )
+    return null;
+  const attackerValue =
+    monsterAttack(attacker, state.activeField, state) +
+    elementBattleBonus(
+      attackerCard.element,
+      defenderCard.element,
+      state.activeField,
+    );
+  const defenderValue =
+    (defender.position === "attack"
+      ? monsterAttack(defender, state.activeField, state)
+      : monsterDefense(defender)) +
+    elementBattleBonus(
+      defenderCard.element,
+      attackerCard.element,
+      state.activeField,
+    );
+  return attackerValue - defenderValue;
 }
 
-/** Whether the match has finished. A plain predicate (not a type guard) so
- *  callers can re-check status AFTER a mutating call without TS wrongly narrowing
- *  `status` to a single literal across the mutation. */
+function chooseBattleAction(
+  state: ChronicleMatch,
+  difficulty: ChronicleAiDifficulty,
+): ChronicleActionIntent {
+  const attackers = state.p2.monsterZones.flatMap((monster, index) =>
+    monster?.faceUp &&
+    monster.position === "attack" &&
+    monster.lastAttackTurn !== state.turnNumber
+      ? [{ monster, index }]
+      : [],
+  );
+  if (attackers.length === 0) return { action: "enter-main-2" };
+  const targets = state.p1.monsterZones.flatMap((monster, index) =>
+    monster ? [{ monster, index }] : [],
+  );
+  if (targets.length === 0) {
+    if (difficulty === "hard")
+      attackers.sort(
+        (a, b) =>
+          monsterAttack(b.monster, state.activeField, state) -
+          monsterAttack(a.monster, state.activeField, state),
+      );
+    return {
+      action: "attack",
+      attackerZoneIndex: attackers[0].index,
+      targetZoneIndex: null,
+    };
+  }
+
+  if (difficulty === "hard") {
+    const favorable = attackers.flatMap((attacker) =>
+      targets.flatMap((target) => {
+        const margin = knownBattleMargin(
+          state,
+          attacker.monster,
+          target.monster,
+        );
+        return margin !== null && margin >= 0
+          ? [
+              {
+                attackerIndex: attacker.index,
+                targetIndex: target.index,
+                score:
+                  margin +
+                  visibleMonsterThreat(state, target.monster) * 0.15,
+              },
+            ]
+          : [];
+      }),
+    );
+    favorable.sort((a, b) => b.score - a.score);
+    if (favorable[0])
+      return {
+        action: "attack",
+        attackerZoneIndex: favorable[0].attackerIndex,
+        targetZoneIndex: favorable[0].targetIndex,
+      };
+
+    // A face-down Monster is intentionally treated as unknown. Hard AI uses
+    // its strongest available attacker, but never reads the hidden card.
+    const hiddenTarget = targets.find(({ monster }) => !monster.faceUp);
+    if (hiddenTarget) {
+      attackers.sort(
+        (a, b) =>
+          monsterAttack(b.monster, state.activeField, state) -
+          monsterAttack(a.monster, state.activeField, state),
+      );
+      return {
+        action: "attack",
+        attackerZoneIndex: attackers[0].index,
+        targetZoneIndex: hiddenTarget.index,
+      };
+    }
+    return { action: "enter-main-2" };
+  }
+
+  const attacker = attackers[0];
+  const knownFavorable = targets.find(({ monster }) => {
+    const margin = knownBattleMargin(state, attacker.monster, monster);
+    return margin === null || margin >= 0;
+  });
+  if (!knownFavorable) return { action: "enter-main-2" };
+  return {
+    action: "attack",
+    attackerZoneIndex: attacker.index,
+    targetZoneIndex: knownFavorable.index,
+  };
+}
+
+/** Continue server AI decisions until the human must act or answer a response. */
+export function advanceAi(session: AiMatchSession, now = Date.now()): void {
+  let safety = 0;
+  while (session.state.status === "active" && safety++ < 100) {
+    const state = session.state;
+    if (state.responseWindow) {
+      if (state.responseWindow.responder !== "p2") break;
+      const zoneIndex = state.responseWindow.eligibleZoneIndexes
+        .slice()
+        .sort(
+          (a, b) =>
+            trapResponsePriority(state, "p2", b) -
+            trapResponsePriority(state, "p2", a),
+        )
+        .find((index) => trapResponsePriority(state, "p2", index) > 0);
+      const intent: ChronicleActionIntent =
+        zoneIndex === undefined
+          ? { action: "pass-response" }
+          : { action: "activate-trap", zoneIndex };
+      const out = applyAction(state, "p2", intent, now);
+      if (!out.ok) {
+        const passed = applyAction(
+          state,
+          "p2",
+          { action: "pass-response" },
+          now,
+        );
+        if (!passed.ok) break;
+        session.state = passed.state;
+      } else session.state = out.state;
+      continue;
+    }
+    if (state.activePlayer !== "p2") break;
+    const intent: ChronicleActionIntent =
+      state.phase === "draw" || state.phase === "standby"
+        ? { action: "advance-phase" }
+        : state.phase === "battle"
+          ? chooseBattleAction(state, session.difficulty)
+          : state.phase === "end"
+            ? { action: "end-turn" }
+            : chooseMainAction(state, session.difficulty);
+    const out = applyAction(state, "p2", intent, now);
+    if (!out.ok) {
+      const fallback: ChronicleActionIntent =
+        state.phase === "draw" || state.phase === "standby"
+          ? { action: "advance-phase" }
+          : state.phase === "battle"
+            ? { action: "enter-main-2" }
+            : state.phase === "end"
+              ? { action: "end-turn" }
+              : { action: "enter-end-phase" };
+      const recovered = applyAction(state, "p2", fallback, now);
+      if (!recovered.ok) break;
+      session.state = recovered.state;
+    } else session.state = out.state;
+  }
+  syncTerminal(session);
+}
+
+export function applyPlayerAction(
+  session: AiMatchSession,
+  intent: ChronicleActionIntent,
+  now = Date.now(),
+): { ok: true } | { ok: false; error: string } {
+  if (
+    session.rulesVersion !== CHRONICLE_RULES_VERSION ||
+    session.state.rulesVersion !== CHRONICLE_RULES_VERSION
+  )
+    return {
+      ok: false,
+      error: "This duel used retired rules; start a new duel.",
+    };
+  if (session.status !== "active")
+    return { ok: false, error: "The duel is over." };
+  const out = applyAction(session.state, "p1", intent, now);
+  if (!out.ok) return { ok: false, error: out.error };
+  session.state = out.state;
+  advanceAi(session, now);
+  syncTerminal(session);
+  return { ok: true };
+}
+
 export function isDone(session: AiMatchSession): boolean {
-    return session.status === 'done';
+  syncTerminal(session);
+  return session.status === "done";
 }
 
-/** Player concedes → immediate opponent win. Mutates + sets status/winner. */
 export function forfeit(session: AiMatchSession): void {
-    if (session.status !== 'active') return;
-    session.status = 'done';
-    session.winner = 'opponent';
-    session.match.log.push('🏳️ You retreat. The clash is forfeit.');
+  if (session.status !== "active") return;
+  const out = applyAction(session.state, "p1", { action: "forfeit" });
+  if (out.ok) session.state = out.state;
+  syncTerminal(session);
 }
-
-// ── Projection ───────────────────────────────────────────────────────────────
 
 export function projectAiMatch(session: AiMatchSession): AiMatchProjection {
-    return {
-        matchId: session.matchId,
-        status: session.status,
-        turn: session.match.turn,
-        maxTurns: CLASH_MAX_TURNS,
-        winner: session.winner,
-        playerHand: session.player.hand,
-        playerChakra: session.player.chakra,
-        playerNextDiscount: session.player.nextDiscount,
-        playerDeckCount: session.player.deck.length,
-        opponentHandCount: session.ai.hand.length,
-        opponentDeckCount: session.ai.deck.length,
-        locations: session.match.locations.map((l) => ({ def: l.def, player: l.p1, opponent: l.p2 })),
-        log: session.match.log,
-    };
+  return {
+    matchId: session.matchId,
+    aiDifficulty: session.difficulty,
+    aiDeckName: CHRONICLE_AI_DIFFICULTY_DETAILS[session.difficulty].deckName,
+    ...projectMatchForViewer(session.state, "p1"),
+    winnerResult: resultFor(session.state),
+  };
 }

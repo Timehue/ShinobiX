@@ -708,6 +708,16 @@
     overflow-wrap: anywhere;
 }
 
+/* The one-line stand-in for the Territory card on an unclaimed, uncontested
+   sector — see WorldMap `territoryIsLive`. Quiet by design: it explains why the
+   meters are absent without competing with the actions below it. Scoped to the
+   command panel because the generic `.map-instance .sector-command-panel p`
+   above already claims every paragraph in here and would otherwise win. */
+.map-instance .sector-command-panel .sector-territory-idle-note {
+    margin: 0 !important;
+    color: var(--slate-400) !important;
+}
+
 .sector-rebuild-note {
     padding: var(--sp-2) !important;
     border: 1px solid rgba(250, 204, 21, 0.36) !important;
@@ -763,17 +773,51 @@
     font-size: var(--fs-xs) !important;
     line-height: 1.25 !important;
     border-radius: var(--r-md) !important;
+    /* `.sector-presence` still carries `repeat(auto-fit, minmax(120px, 1fr))`
+       from 06-combat-core.css, which fits TWO columns once the panel is wide
+       enough (and it always is on mobile, where the aside goes full-width).
+       That rule dodged the split by putting `grid-column: 1 / -1` on a bare
+       `h4`, but these cards now wrap the heading in `.sector-panel-card-head`,
+       so the escape no longer matches and the head landed in column 1 with the
+       next row's content beside it — Hunt Trail's target floated right of its
+       own title, and Players Here's empty note sat beside its heading. These
+       are stacked cards, not a tile grid; pin them to one column. */
+    grid-template-columns: 1fr !important;
 }
 
 .map-instance .sector-command-panel .sector-presence .sector-panel-card-head h4 {
     font-size: var(--fs-sm) !important;
 }
 
+/* Hunt Trail's progress value ("0/2 trail") inherits a filled blue block from
+   `.sector-presence span` (06-combat-core.css) plus `display: block` above.
+   Full-bleed that reads as a broken button, so size it to its content and give
+   it the same pill language as the rest of the panel. Scoped to
+   `.sector-owner-line` so the empty note and the player status pills are
+   untouched. */
+.map-instance .sector-command-panel .sector-presence .sector-owner-line span {
+    display: inline-flex !important;
+    align-items: center;
+    justify-self: start;
+    width: auto !important;
+    padding: 3px 9px !important;
+    border: 1px solid rgba(186, 230, 253, 0.22);
+    border-radius: var(--r-pill) !important;
+    background: rgba(30, 58, 138, 0.55);
+    color: var(--slate-100) !important;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Empty / in-progress state copy. This used to be a 1px DASHED outline, which
+   reads as a drop target or an unfinished placeholder rather than shipped
+   chrome. A solid hairline over a faint inset fill says "nothing here yet"
+   just as clearly without looking like debug scaffolding. */
 .map-instance .sector-command-panel .sector-empty-note {
     display: block !important;
     padding: var(--sp-3) !important;
-    border: 1px dashed rgba(148, 163, 184, 0.24);
+    border: 1px solid rgba(148, 163, 184, 0.16);
     border-radius: var(--r-sm);
+    background: rgba(2, 6, 23, 0.42);
     color: var(--slate-400) !important;
     font-size: var(--fs-xs) !important;
     line-height: 1.35 !important;

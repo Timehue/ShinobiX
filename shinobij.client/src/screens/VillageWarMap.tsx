@@ -169,7 +169,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                     <div className="vwm-info-body">
                         <p>Villages fight over the world map, <b>one sector at a time</b>. The seated <b>Kage</b> declares war on an enemy-held sector and sets how it's fought — then the whole village joins in.</p>
                         <div className="vwm-info-grid">
-                            <div><b>⚔ Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Card Clash). Every fight is server-decided — no faking a win.</span></div>
+                            <div><b>⚔ Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Chronicle Duel). Every fight is server-decided — no faking a win.</span></div>
                             <div><b>❤ Control HP → capture</b><span>Each win drains the enemy sector's Control HP; a defense win heals it. Rank matters — Kage/elders/ANBU hit harder. Drain it to 0 to capture.</span></div>
                             <div><b>🗺 Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
                             <div><b>🗡 Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and chips Control HP.</span></div>

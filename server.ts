@@ -284,7 +284,7 @@ import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
 import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
-import { safeEqual } from './api/_auth.js';
+import { safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER } from './api/_auth.js';
 // CORS origin predicate — single source of truth, shared with cors() and the
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
@@ -549,6 +549,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-admin-token, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
+    // Response headers the browser is allowed to read cross-origin. Without this
+    // the sliding-token refresh header is invisible to the client on the dev
+    // origin (vite :5173 → API), and sessions would still expire there.
+    res.setHeader('Access-Control-Expose-Headers', PLAYER_TOKEN_REFRESH_HEADER);
     // HSTS: tell browsers to always use HTTPS for this host (1 year). Only emit
     // it on responses that actually arrived over HTTPS — both Railway's edge and
     // cPanel's Apache terminate TLS and forward with x-forwarded-proto. Per the
@@ -561,6 +565,50 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
+    }
+    next();
+});
+
+// Sliding session-token refresh. A player token is valid for 24h and used to be
+// mintable ONLY at login, so an ordinary player was thrown a "session timed out,
+// re-enter your password" modal once a day — the client is token-first and keeps
+// no password to silently re-mint with. Here, any request arriving with a token
+// that is still valid but more than halfway through its life gets a freshly
+// minted replacement handed back on a response header, which the client swaps in
+// transparently. Active play therefore never expires; the TTL now bounds
+// INACTIVITY instead.
+//
+// Runs before the routes so it covers every handler, and is entirely
+// best-effort: maybeRefreshPlayerToken returns null (and any throw is swallowed)
+// whenever the token is absent, malformed, already expired, epoch-revoked, or
+// still fresh, and the request then proceeds untouched. It never authenticates
+// anything — handlers still run their own authedPlayer checks.
+//
+// UNSAFE METHODS ONLY. A minted token is a credential scoped to ONE account, so
+// it must never land in a shared cache: Cloudflare fronts this origin and does
+// cache some GET responses, and a cached refresh header would hand one player's
+// session token to whoever got the cache hit. Restricting emission to methods
+// Cloudflare never caches removes that risk structurally, rather than relying on
+// a Cache-Control header that a downstream handler is free to overwrite. Nothing
+// is lost in coverage: an active client POSTs constantly (api/player/heartbeat
+// is POST-only, and the autosave POSTs to /api/save/:name every 15s), so it will
+// always be offered a refresh well inside the 12h window.
+const TOKEN_REFRESH_METHODS = new Set<string>(['POST', 'PUT', 'PATCH', 'DELETE']);
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const raw = req.headers['x-player-token'];
+        const token = Array.isArray(raw) ? raw[0] : raw;
+        if (token && TOKEN_REFRESH_METHODS.has((req.method ?? '').toUpperCase())) {
+            const refreshed = await maybeRefreshPlayerToken(token);
+            if (refreshed) {
+                res.setHeader(PLAYER_TOKEN_REFRESH_HEADER, refreshed);
+                // Belt-and-braces against any intermediary that would cache this
+                // response despite the unsafe method.
+                res.setHeader('Cache-Control', 'private, no-store');
+            }
+        }
+    } catch {
+        /* refresh is a convenience — never let it fail a request */
     }
     next();
 });
