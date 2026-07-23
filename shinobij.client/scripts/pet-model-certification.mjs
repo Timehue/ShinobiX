@@ -316,7 +316,14 @@ async function main() {
     const starterGlbAssets = [...new Set(starterForms.map((entry) => entry.asset).filter((asset) => asset.endsWith(".glb")))].sort();
     const roster = [];
     const starters = [];
-    for (const file of rosterFiles) roster.push(await auditGlb(resolve(rosterRoot, file), { requireRig: true, minimumAtlasBytes: 250_000 }));
+    // The color atlas is now stored as WebP (was PNG). A 2048² WebP for these
+    // textured pets runs ~67–295 KB, so the old 250 KB floor — calibrated for the
+    // uncompressed PNG atlases — false-fails almost the whole roster. Drop it to a
+    // 40 KB coarse "is there a real atlas here" pre-check; the actual defence
+    // against blank/flat/uncolored atlases is the semantic content check in
+    // colorMetrics (opaque-pixel, lumaDeviation, coloredPixelRatio), which is
+    // format-independent and far stronger than any byte count.
+    for (const file of rosterFiles) roster.push(await auditGlb(resolve(rosterRoot, file), { requireRig: true, minimumAtlasBytes: 40_000 }));
     // Starter forms are deliberately leaner than the rigged 140-pet roster for
     // mobile combat. Keep the roster's 8k production floor while allowing the
     // reviewed low-poly Selkie silhouette to certify at 6k+ vertices.
