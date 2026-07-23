@@ -1155,10 +1155,10 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
 // 403'd for non-admins. Clan/village treasury gifts now go through the atomic
 // /api/{clan,village}/treasury/transfer endpoints. audit #18.)
 
-// -- Shinobi Tiles card game (types, ELEMENT_COUNTERS, the 150-card catalog,
-// and getAllTileCards) moved to ./data/tile-cards (imported back near the top).
-// TileCard, TileCardArrow + getAllTileCards are re-exported here for the
-// existing "../App" import sites (components/Shop, screens/Inventory).
+// -- Shinobi Chronicle Showdown card catalog (the TileCard type, the 150-card
+// catalog, and getAllTileCards) moved to ./data/tile-cards (imported back near
+// the top). TileCard + getAllTileCards are re-exported here for the existing
+// "../App" import sites (components/Shop, screens/Inventory).
 
 // getItemById extracted to ./lib/items (imported back + re-exported above).
 

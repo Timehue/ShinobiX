@@ -1,4 +1,4 @@
-/* Server-owned Shinobi Chronicle Duel AI session. */
+/* Server-owned Shinobi Chronicle Showdown AI session. */
 import {
   CHRONICLE_AI_DIFFICULTY_DETAILS,
   CHRONICLE_FIXED_FALLBACK_DECK,

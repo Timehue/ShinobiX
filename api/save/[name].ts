@@ -1025,7 +1025,7 @@ export function sanitizeCharacterSave(
         // achievements but never decreased through legitimate play.
         totalStatsTrained: 0,
         totalMissionsCompleted: 0,
-        // Shinobi Chronicle Duel lifetime tallies — feed quest metrics (e.g. the
+        // Shinobi Chronicle Showdown lifetime tallies — feed quest metrics (e.g. the
         // Card Hall progression). Client-incremented per duel, so without a
         // per-save clamp a tampered save could jump these 0 → 999K to
         // auto-complete a "win N card games" quest. A single save can only

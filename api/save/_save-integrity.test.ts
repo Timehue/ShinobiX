@@ -30,7 +30,7 @@ const sanitizeCompatible = (
     existing: Record<string, unknown> | null,
 ) => withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing));
 
-describe('Chronicle Duel save validation', () => {
+describe('Chronicle Showdown save validation', () => {
     it('accepts a legal owned 40-card deck', () => {
         const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
         const out = sanitizeCompatible(

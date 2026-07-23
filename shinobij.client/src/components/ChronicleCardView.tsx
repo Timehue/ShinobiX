@@ -45,7 +45,7 @@ export function ChronicleCardView({
         <span>
           SHINOBI
           <br />
-          JOURNEY<small>CHRONICLE DUEL</small>
+          JOURNEY<small>CHRONICLE SHOWDOWN</small>
         </span>
       </div>
     );
@@ -60,7 +60,7 @@ export function ChronicleCardView({
   const element =
     card.cardClass === "monster"
       ? ELEMENT[card.element]
-      : { color: frameColor, mark: card.cardClass === "magic" ? "M" : "T" };
+      : { color: frameColor, mark: card.cardClass === "magic" ? "J" : "S" };
   const style = {
     "--chronicle-frame": frameColor,
     "--chronicle-rarity": RARITY[card.rarity],
@@ -69,21 +69,21 @@ export function ChronicleCardView({
   const details =
     card.cardClass === "monster"
       ? `Level ${card.level} ${card.element} ${card.monsterType} Monster. ATK ${card.attack}, DEF ${card.defense}. ${card.monsterType === "effect" ? card.effectText : card.lore}`
-      : `${card.cardClass === "magic" ? `${card.magicType} Magic` : `${card.trapType} Trap`}. ${card.effectText} ${card.lore}`;
+      : `${card.cardClass === "magic" ? `${card.magicType} Jutsu` : `${card.trapType} Snare`}. ${card.effectText} ${card.lore}`;
   const classLabel =
     card.cardClass === "monster"
       ? "MONSTER"
       : card.cardClass === "magic"
-        ? "MAGIC"
-        : "TRAP";
+        ? "JUTSU"
+        : "SNARE";
   const subtypeLabel =
     card.cardClass === "monster"
       ? card.monsterType === "effect"
         ? "EFFECT MONSTER"
         : "NORMAL MONSTER"
       : card.cardClass === "magic"
-        ? `${card.magicType.toUpperCase()} MAGIC`
-        : `${card.trapType.toUpperCase()} TRAP`;
+        ? `${card.magicType.toUpperCase()} JUTSU`
+        : `${card.trapType.toUpperCase()} SNARE`;
   const rulesText =
     card.cardClass === "monster"
       ? card.monsterType === "effect"
@@ -94,8 +94,8 @@ export function ChronicleCardView({
     card.cardClass === "monster"
       ? `${card.family.toUpperCase()} / ${card.monsterType === "effect" ? "EFFECT" : "NORMAL"} MONSTER`
       : card.cardClass === "magic"
-        ? `${card.magicType.toUpperCase()} / MAGIC CARD`
-        : `${card.trapType.toUpperCase()} / TRAP CARD`;
+        ? `${card.magicType.toUpperCase()} / JUTSU CARD`
+        : `${card.trapType.toUpperCase()} / SNARE CARD`;
   const supportInstruction =
     card.cardClass === "trap"
       ? "Set before activation"
@@ -149,7 +149,7 @@ export function ChronicleCardView({
             title={classLabel}
             aria-hidden="true"
           >
-            <b>{card.cardClass === "magic" ? "M" : "T"}</b>
+            <b>{card.cardClass === "magic" ? "J" : "S"}</b>
             <small>{classLabel}</small>
           </span>
         )}
@@ -159,7 +159,7 @@ export function ChronicleCardView({
           {card.cardClass === "monster"
             ? `LEVEL ${card.level}`
             : card.cardClass === "magic"
-              ? `${card.magicType} Magic Card`
+              ? `${card.magicType} Jutsu Card`
               : `${card.trapType} response card`}
         </span>
         {card.cardClass === "monster" ? (
@@ -196,8 +196,8 @@ export function ChronicleCardView({
           {card.cardClass === "monster"
             ? element.mark
             : card.cardClass === "magic"
-              ? "M"
-              : "T"}
+              ? "J"
+              : "S"}
         </span>
       </div>
       <div className="chronicle-card__dossier">
@@ -226,7 +226,7 @@ export function ChronicleCardView({
         </div>
       )}
       <footer className="chronicle-card__footer">
-        <span>SJD-DCR</span>
+        <span>SJ-CDX</span>
         <span>{card.id}</span>
         <span>{card.deckLimit ? `LIMIT ${card.deckLimit}` : "MAX 3"}</span>
       </footer>

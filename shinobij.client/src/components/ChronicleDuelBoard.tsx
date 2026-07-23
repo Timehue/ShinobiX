@@ -254,12 +254,12 @@ export function ChronicleDuelBoard({
     <section
       className={`chronicle-table ${state.activeField ? "has-field" : ""}`}
       style={fieldStyle}
-      aria-label="Shinobi Journey Chronicle Duel board"
+      aria-label="Shinobi Journey Chronicle Showdown board"
     >
       <div className="chronicle-room-banner">
-        <span>TIME WIZARD ROOM</span>
+        <span>CODEX HALL</span>
         <strong>{CHRONICLE_ROOM_TITLE}</strong>
-        <small>Dark Crisis pool | November 17, 2003 Limited List</small>
+        <small>Founding card pool · Sealed Limited Scroll</small>
       </div>
       <header className="chronicle-duel-status">
         <div className="chronicle-combatant">
@@ -289,7 +289,7 @@ export function ChronicleDuelBoard({
             {phaseMeta?.label.toUpperCase() ?? state.phase.toUpperCase()} |{" "}
             {secondsRemaining}s
           </span>
-          {state.responseWindow ? <em>TRAP RESPONSE</em> : null}
+          {state.responseWindow ? <em>SNARE RESPONSE</em> : null}
         </div>
         <div>
           <span>Hand {foe.handCount}</span>
@@ -361,7 +361,7 @@ export function ChronicleDuelBoard({
           <span className="chronicle-side-label opponent">OPPONENT FIELD</span>
           <div
             className="chronicle-zone-row opponent backrow"
-            aria-label="Opponent Magic and Trap Zones"
+            aria-label="Opponent Jutsu and Snare Zones"
           >
             {foe.magicTrapZones.map((zone, index) => (
               <button
@@ -378,7 +378,7 @@ export function ChronicleDuelBoard({
                     compact
                   />
                 ) : (
-                  <span>MAGIC/TRAP {index + 1}</span>
+                  <span>JUTSU/SNARE {index + 1}</span>
                 )}
               </button>
             ))}
@@ -523,7 +523,7 @@ export function ChronicleDuelBoard({
           </div>
           <div
             className="chronicle-zone-row player backrow"
-            aria-label="Your Magic and Trap Zones"
+            aria-label="Your Jutsu and Snare Zones"
           >
             {me.magicTrapZones.map((zone, index) => (
               <button
@@ -542,7 +542,7 @@ export function ChronicleDuelBoard({
                     compact
                   />
                 ) : (
-                  <span>MAGIC/TRAP {index + 1}</span>
+                  <span>JUTSU/SNARE {index + 1}</span>
                 )}
               </button>
             ))}
@@ -586,7 +586,7 @@ export function ChronicleDuelBoard({
         <div className="chronicle-combatant">
           <ChronicleDuelistAvatar name={me.name} avatar={playerAvatar} />
           <div className="chronicle-combatant__identity">
-            <span className="eyebrow">DUELIST</span>
+            <span className="eyebrow">CHALLENGER</span>
             <strong>{me.name}</strong>
             <div className="chronicle-combatant__health">
               <b>
@@ -615,7 +615,7 @@ export function ChronicleDuelBoard({
         <div
           className="chronicle-actions response"
           role="group"
-          aria-label="Trap response"
+          aria-label="Snare response"
         >
           <strong>
             Respond to{" "}
@@ -631,7 +631,7 @@ export function ChronicleDuelBoard({
                 disabled={busy}
                 onClick={() => act({ action: "activate-trap", zoneIndex })}
               >
-                Activate {id ? cardsById[id]?.name : "Trap"}
+                Activate {id ? cardsById[id]?.name : "Snare"}
               </button>
             );
           })}
@@ -761,7 +761,7 @@ export function ChronicleDuelBoard({
                 })
               }
             >
-              {selectedIsFieldCard ? "Activate Field Card" : "Activate Magic"}
+              {selectedIsFieldCard ? "Activate Field Card" : "Activate Jutsu"}
             </button>
           ) : null}
           {selected?.cardClass === "trap" && main ? (
@@ -775,7 +775,7 @@ export function ChronicleDuelBoard({
                 })
               }
             >
-              Set Trap
+              Set Snare
             </button>
           ) : null}
           {handIndex === null &&

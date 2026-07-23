@@ -508,8 +508,8 @@ export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
     { id: "wq-warpath",    label: "Cut down 10 foes — a real warpath",    metric: "totalAiKills",       target: 10 },
     { id: "wq-beasts",     label: "Win 2 pet duels in the coliseum",      metric: "totalPetWins",       target: 2 },
     { id: "wq-menagerie",  label: "Win 4 pet duels in the coliseum",      metric: "totalPetWins",       target: 4 },
-    { id: "wq-cards",      label: "Win 2 Shinobi Chronicle Duels",   metric: "cardClashWins",      target: 2 },
-    { id: "wq-highroller", label: "Win 4 Shinobi Chronicle Duels",   metric: "cardClashWins",      target: 4 },
+    { id: "wq-cards",      label: "Win 2 Shinobi Chronicle Showdowns",   metric: "cardClashWins",      target: 2 },
+    { id: "wq-highroller", label: "Win 4 Shinobi Chronicle Showdowns",   metric: "cardClashWins",      target: 4 },
     { id: "wq-scout",      label: "Scout 10 tiles across the sectors",    metric: "totalTilesExplored", target: 10 },
     { id: "wq-trailblaze", label: "Scout 25 tiles across the sectors",    metric: "totalTilesExplored", target: 25 },
 ];

@@ -149,7 +149,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         >
           −40 HP
         </div>
-        <div style={{ padding: "0.3rem 0.6rem" }}>Chronicle Duel</div>
+        <div style={{ padding: "0.3rem 0.6rem" }}>Chronicle Showdown</div>
         <div
           style={{
             padding: "0.3rem 0.6rem",
@@ -172,7 +172,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         <strong style={{ color: "var(--blue-400)" }}>4. Accept = play.</strong>{" "}
         When the defender accepts,{" "}
         <em>both clients are auto-pulled into the battle</em>. PvP, Pet or
-        Chronicle Duel screens open on their own. Fight, and the server records
+        Chronicle Showdown screens open on their own. Fight, and the server records
         the result.
       </p>
       <p
@@ -185,10 +185,10 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
           padding: "0.5rem 0.7rem",
         }}
       >
-        <strong style={{ color: "var(--blue-400)" }}>Chronicle Duels:</strong>{" "}
-        bring a legal <strong>40-card Main Deck</strong>. Both duelists begin at{" "}
+        <strong style={{ color: "var(--blue-400)" }}>Chronicle Showdowns:</strong>{" "}
+        bring a legal <strong>40-card Main Deck</strong>. Both challengers begin at{" "}
         <strong>8,000 Health Points</strong> and alternate server-validated
-        actions through Main, Battle and End phases. Monster, Magic and Trap
+        actions through Main, Battle and End phases. Monster, Jutsu and Snare
         Zones use the same rules as the Card Hall; the server credits the winner
         once.
       </p>

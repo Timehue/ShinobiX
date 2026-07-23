@@ -1950,7 +1950,7 @@ export default function App() {
     // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged
     // into the arena's AI list only (never into the saved creatorAis).
     const [wandererAis, setWandererAis] = useState<CreatorAi[]>([]);
-    // Set when a sector gambler deals the player into Chronicle Duel.
+    // Set when a sector gambler deals the player into Chronicle Showdown.
     const [cardAutoStart, setCardAutoStart] = useState(false);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     // Lifted "fight in progress" flags (fed by Arena/PetArena onBattleActiveChange)
@@ -2310,7 +2310,7 @@ export default function App() {
                 setScreen("petArena");
                 break;
             case "tilecards": {
-                // Chronicle Duel joins idempotently from the battle screen. The
+                // Chronicle Showdown joins idempotently from the battle screen. The
                 // server owns deck validation, rules, timeouts and finalization.
                 setScreen("tilecardsDuel");
                 break;
@@ -6314,12 +6314,12 @@ export default function App() {
                 pushHollowGateLog(`[Tile Seal] ${flavor}`);
                 markResolved();
                 setHollowGateEvent({
-                    title: "Shinobi Chronicle Duel Seal",
-                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them in a Shinobi Chronicle Duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
+                    title: "Shinobi Chronicle Showdown Seal",
+                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them in a Shinobi Chronicle Showdown to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
                     kind: "tile_game",
                     choices: [
                         {
-                            label: "Begin Tile Duel",
+                            label: "Begin Tile Showdown",
                             tone: "primary",
                             onSelect: () => {
                                 setHollowGateEvent(null);

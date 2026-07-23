@@ -271,8 +271,8 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
 // New server-managed clan-war system. Lives inside Shinobi Council
 // Hall as a dedicated tab. Owns its own polling loop + state; the
 // parent only needs to mount it.
-// ── Clan-war PvP tile-card duel screen ──────────────────────────────
-// Server-managed Triple-Triad-style 3x3 duel. Both players' decks +
+// ── Clan-war PvP Chronicle Showdown screen ──────────────────────────
+// Server-managed Chronicle Showdown. Both players' decks +
 // the board live in cw-tilecards:<challengeId> on the server (service-role
 // only — NOT anon-readable; the raw row holds both hands and every
 // face-down card, so only the handler's per-viewer projection ships). This

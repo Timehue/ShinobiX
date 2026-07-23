@@ -44,10 +44,9 @@ import {
   type ChronicleSideKey,
 } from "../../shared/chronicle-duel.js";
 import {
-  CHRONICLE_DECEMBER_2003_EXCLUDED_EFFECTS,
-  CHRONICLE_DECEMBER_2003_POPULAR_EFFECT_AUDIT,
-  CHRONICLE_NOVEMBER_2003_LIST_AUDIT,
-  CHRONICLE_US_2002_2003_ROLE_AUDIT,
+  CHRONICLE_FOUNDING_EXCLUDED_EFFECTS,
+  CHRONICLE_FOUNDING_EFFECT_AUDIT,
+  CHRONICLE_FOUNDING_ROLE_AUDIT,
 } from "../../shared/chronicle-duel-audit.js";
 import { CHRONICLE_LEGACY_SOURCES } from "../../shared/legacy-card-sources.js";
 import { CHRONICLE_STORY_SOURCES } from "../../shared/story-card-sources.js";
@@ -119,8 +118,8 @@ function placeMonster(
 test("Chronicle constants and opening rules are locked", () => {
   const state = createMatch("One", deck, "Two", deck, fixedRandom, 1_000);
   assert.equal(state.rulesVersion, CHRONICLE_RULES_VERSION);
-  assert.equal(CHRONICLE_ROOM_TITLE, "December 2003 USA TCG Time Wizard");
-  assert.equal(CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet, "Dark Crisis");
+  assert.equal(CHRONICLE_ROOM_TITLE, "Founding Codex Format");
+  assert.equal(CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet, "Founding Codex");
   assert.equal(
     CHRONICLE_DECEMBER_2003_FORMAT.limitedListEffective,
     "2003-11-17",
@@ -204,18 +203,15 @@ test("random card effects advance a persisted deterministic match RNG", () => {
   assert.deepEqual(a.state[actor].graveyard, b.state[actor].graveyard);
 });
 
-test("November 17, 2003 research list is complete and never becomes card identity", () => {
-  assert.equal(CHRONICLE_NOVEMBER_2003_LIST_AUDIT.forbidden.length, 0);
-  assert.equal(CHRONICLE_NOVEMBER_2003_LIST_AUDIT.limited.length, 45);
-  assert.equal(CHRONICLE_NOVEMBER_2003_LIST_AUDIT.semiLimited.length, 6);
-  for (const referenceName of [
-    ...CHRONICLE_NOVEMBER_2003_LIST_AUDIT.limited,
-    ...CHRONICLE_NOVEMBER_2003_LIST_AUDIT.semiLimited,
-  ]) {
-    assert.equal(
-      CHRONICLE_CARD_CATALOG.some((card) => card.name === referenceName),
-      false,
-    );
+test("every catalog card carries an original, unique name and id", () => {
+  const names = new Set<string>();
+  const ids = new Set<string>();
+  for (const card of CHRONICLE_CARD_CATALOG) {
+    assert.ok(card.name.trim().length > 0, `${card.id} must have a name`);
+    assert.equal(names.has(card.name), false, `duplicate name ${card.name}`);
+    assert.equal(ids.has(card.id), false, `duplicate id ${card.id}`);
+    names.add(card.name);
+    ids.add(card.id);
   }
 });
 
@@ -477,23 +473,17 @@ test("U.S. 2002-2003 role pass provides deep Magic and Trap pools without copied
       card.effect.trigger === "onMagicActivated" ? "counter" : "normal",
       `${card.id} physical Trap type must match its response role`,
     );
-  for (const row of CHRONICLE_US_2002_2003_ROLE_AUDIT) {
-    assert.ok(row.referenceCards.length > 0);
+  for (const row of CHRONICLE_FOUNDING_ROLE_AUDIT) {
     assert.ok(row.chronicleCardIds.length > 0);
     for (const id of row.chronicleCardIds)
       assert.ok(getChronicleCard(id), `${row.role} references missing ${id}`);
-    for (const referenceName of row.referenceCards)
-      assert.equal(
-        CHRONICLE_CARD_CATALOG.some((card) => card.name === referenceName),
-        false,
-      );
   }
   const expectedTriggerByRole = new Map<string, string>([
     ["attack declaration response", "onAttackDeclared"],
     ["summon response", "onMonsterSummoned"],
-    ["Magic activation counter", "onMagicActivated"],
+    ["Jutsu activation counter", "onMagicActivated"],
   ]);
-  for (const row of CHRONICLE_US_2002_2003_ROLE_AUDIT) {
+  for (const row of CHRONICLE_FOUNDING_ROLE_AUDIT) {
     const expectedTrigger = expectedTriggerByRole.get(row.role);
     if (!expectedTrigger) continue;
     for (const id of row.chronicleCardIds) {
@@ -526,8 +516,8 @@ test("U.S. 2002-2003 role pass provides deep Magic and Trap pools without copied
 });
 
 test("popular legal December 2003 effects are translated into distinct Chronicle roles", () => {
-  assert.equal(CHRONICLE_DECEMBER_2003_POPULAR_EFFECT_AUDIT.length, 16);
-  assert.ok(CHRONICLE_DECEMBER_2003_EXCLUDED_EFFECTS.length >= 4);
+  assert.equal(CHRONICLE_FOUNDING_EFFECT_AUDIT.length, 16);
+  assert.ok(CHRONICLE_FOUNDING_EXCLUDED_EFFECTS.length >= 4);
   const expectedKinds: Readonly<Record<string, string>> = {
     "tc-08": "destroyStrongestOpponentOnFlip",
     "tc-33": "recoverMagicOnFlip",
@@ -548,15 +538,8 @@ test("popular legal December 2003 effects are translated into distinct Chronicle
     "chronicle-ringed-detonation": "destroyAttackerAndDamageBoth",
   };
 
-  for (const row of CHRONICLE_DECEMBER_2003_POPULAR_EFFECT_AUDIT) {
-    assert.ok(row.referenceCards.length > 0);
+  for (const row of CHRONICLE_FOUNDING_EFFECT_AUDIT) {
     assert.ok(row.chronicleCardIds.length > 0);
-    for (const referenceName of row.referenceCards)
-      assert.equal(
-        CHRONICLE_CARD_CATALOG.some((card) => card.name === referenceName),
-        false,
-        `${referenceName} must remain research-only`,
-      );
     for (const id of row.chronicleCardIds) {
       const card = getChronicleCard(id);
       assert.ok(card, `${row.role} references missing ${id}`);
@@ -565,7 +548,7 @@ test("popular legal December 2003 effects are translated into distinct Chronicle
           ? card.monsterEffect?.kind
           : card?.effect.kind;
       assert.equal(kind, expectedKinds[id], id);
-      if (row.november2003Status === "limited")
+      if (row.copyRule === "limited")
         assert.equal(deckLimitForCard(id), 1, `${id} must remain one-copy`);
     }
   }

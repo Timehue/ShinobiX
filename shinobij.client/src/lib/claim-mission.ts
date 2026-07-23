@@ -170,7 +170,7 @@ function systemLockedMessage(system?: string): string {
         case "legacy": return "Requires Legacy access.";
         case "pet":
         case "expedition": return "Requires a pet.";
-        case "cardClash": return "Requires Chronicle Duel access.";
+        case "cardClash": return "Requires Chronicle Showdown access.";
         default: return "This mission requires a system your character has not unlocked yet.";
     }
 }

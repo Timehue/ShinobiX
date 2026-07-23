@@ -23,7 +23,7 @@
 //                          already arrive over the authenticated heartbeat +
 //                          Socket.IO nudge, so the subscription was dropped and
 //                          the grant removed (2026-07-17 / re-confirmed 2026-07-23).
-//        cw-tilecards:*  — the raw Chronicle duel row holds both decks, both
+//        cw-tilecards:*  — the raw Chronicle showdown row holds both decks, both
 //                          hands, and every face-down card; only the
 //                          authenticated handler's per-viewer projection is
 //                          safe to expose. Removed 2026-07-23 (P0).

@@ -196,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!participants)
           return {
             status: 404 as const,
-            body: { error: "Chronicle duel not found or expired." },
+            body: { error: "Chronicle showdown not found or expired." },
           };
         const me = identity.admin
           ? safeName(String(body.playerName ?? participants.p1Name))
