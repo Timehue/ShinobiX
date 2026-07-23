@@ -165,9 +165,8 @@ import { readFileSync } from "node:fs";
 // isTraveling / pendingTravel / screenRef — must live here, exactly like the other
 // heartbeat delivery wiring above.)
 // → 8,441 (net −18: extracted the clan-war "tilecards" fallback-deck build +
-// pre-join into lib/clan-war-tilecards-join.ts. This also drains the entry chunk —
-// the tile-card catalog + card-clash deck math (~50 KB) now load on demand with
-// the helper instead of eagerly from App. See scripts/check-build-size.mjs.)
+// Chronicle Duel keeps its rules/catalog behind lazy Card Hall and battle
+// routes instead of loading it eagerly from App. See scripts/check-build-size.mjs.)
 const MAX_LINES = 8_441;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {

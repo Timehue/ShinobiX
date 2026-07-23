@@ -1,5 +1,6 @@
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+import { countChronicleCardsWithStarter, deckLimitForCard } from '../../shared/chronicle-duel.js';
 
 export const CARD_PACK_TYPES = ['standard', 'epic', 'legendary'] as const;
 export type CardPackType = typeof CARD_PACK_TYPES[number];
@@ -73,9 +74,26 @@ export function applyCardPackOpen(
         .map(([id]) => id);
     if (pool.length === 0) return { ok: false, status: 503, error: 'Card pack pool is unavailable.' };
     const cards: string[] = [];
+    const ownedCounts = countChronicleCardsWithStarter(owned);
+    const usefulCopiesRemaining = pool.reduce(
+        (total, id) => total + Math.max(0, deckLimitForCard(id) - (ownedCounts.get(id) ?? 0)),
+        0,
+    );
+    if (usefulCopiesRemaining < def.count) {
+        return {
+            ok: false,
+            status: 409,
+            error: `This pack tier cannot provide ${def.count === 1 ? 'another playable card' : `${def.count} playable cards`}. No currency was spent.`,
+        };
+    }
     for (let i = 0; i < def.count; i++) {
-        const rawIndex = Math.floor(Number(pickIndex(pool.length)) || 0);
-        cards.push(pool[Math.max(0, Math.min(pool.length - 1, rawIndex))]);
+        // Duplicates remain useful until the card's format limit. Packs never
+        // charge currency for a copy that cannot be added to a legal deck.
+        const usefulPool = pool.filter((id) => (ownedCounts.get(id) ?? 0) < deckLimitForCard(id));
+        const rawIndex = Math.floor(Number(pickIndex(usefulPool.length)) || 0);
+        const id = usefulPool[Math.max(0, Math.min(usefulPool.length - 1, rawIndex))];
+        cards.push(id);
+        ownedCounts.set(id, (ownedCounts.get(id) ?? 0) + 1);
     }
     const nextBalance = balance - cost;
     return {

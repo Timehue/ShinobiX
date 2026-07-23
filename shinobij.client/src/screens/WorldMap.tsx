@@ -1545,7 +1545,7 @@ export function WorldMap({
         setScreen("petArena");
     }
     function startWandererCardDuel(w: Wanderer) {
-        // The gambler deals you straight into a Card Clash match in the Card Hall.
+        // The gambler deals you straight into Chronicle Duel in the Card Hall.
         coolWanderer(w.id); // gambler dealt you in — gone for a few hours
         // Remember the sector so finishing the match returns the player here: the
         // Card Hall's Back goes through history to the World Map, which reopens this

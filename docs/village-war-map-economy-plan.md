@@ -846,7 +846,7 @@ sets the conditions" is the genre norm — Tibia/Albion).
 | Win‑condition | Server‑authoritative winner? | Reuse | Status |
 |---|---|---|---|
 | **Combat (PvP)** | ✅ winner from sealed HP (`api/pvp/move.ts`) | the existing `sectorAttack` DuelChallenge → PvP session already does attacker‑vs‑defender and seals the sector biome → terrain buff applies (`api/village-guard/challenge.ts`) | **Ready** |
-| **Card Battle** | ✅ full engine runs server‑side, deterministic winner (`api/clan/war/_card-clash-engine.ts`) | fork the clan‑war card duel into a sector‑card session | **Ready** (needs a thin sector wrapper) |
+| **Card Battle** | ✅ full Chronicle engine runs server-side (`shared/chronicle-duel.ts`) | shared engine with dedicated Sector War session wrapper | **Ready** |
 | **Pet Battle** | ⚠️ **client‑run** — the autobattler runs in the browser; the server only validates a *claimed* outcome with daily caps (`api/pet/battle-result.ts`) | — | **NOT safe as‑is** |
 
 **Pet battle is the one real blocker.** Trusting a client‑claimed pet result to flip
