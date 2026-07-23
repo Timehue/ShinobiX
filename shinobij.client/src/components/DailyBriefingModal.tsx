@@ -156,8 +156,17 @@ export function DailyBriefingModal({
         });
     };
 
+    // Only burn the day's SEEN_KEY once the login reward is actually settled.
+    // Marking it seen on any close meant a player who dismissed the briefing
+    // before hitting Claim never got another chance that day — and a missed day
+    // breaks the login streak, which is the whole point of the panel. An
+    // unclaimed close now dismisses for THIS session only, so the briefing (and
+    // the claim) comes back on the next load.
+    const rewardSettled = alreadyClaimedToday || Boolean(claim);
     const close = () => {
-        try { localStorage.setItem(SEEN_KEY, today); } catch { /* ignore */ }
+        if (rewardSettled) {
+            try { localStorage.setItem(SEEN_KEY, today); } catch { /* ignore */ }
+        }
         setDismissed(true);
     };
     const go = (screen: Screen) => { close(); navigate(screen); };

@@ -11,6 +11,7 @@ import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
+import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
@@ -3647,13 +3648,17 @@ export default function App() {
             return;
         }
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        // A 200 does NOT always mean the save landed: during an admin reset/edit
+        // lock the server answers `{ persisted: false }` without writing. Treat
+        // that as a failure so the dirty flag survives and the autosave retries.
+        type SaveAck = { _saveVersion?: number; persisted?: boolean; reason?: string };
+        let saveData: SaveAck | null = null;
+        try { saveData = await res.json() as SaveAck; } catch { /* 200 with empty body */ }
+        if (saveData?.persisted === false) { charDirtyRef.current = true; throw new Error(`Save deferred by the server (${saveData.reason ?? "locked"})`); }
         // Keep the version ref current so the next autosave doesn't echo a stale
         // base version and spuriously conflict.
         if (echoVersion) {
-            try {
-                const data = await res.json() as { _saveVersion?: number };
-                if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
-            } catch { /* server may return 200 with an empty body; ignore */ }
+            if (typeof saveData?._saveVersion === "number") latestSaveVersionRef.current = saveData._saveVersion;
             // #25: this immediate save just committed `characterToSave` at the
             // version we advanced above. If no NEWER local change has landed since
             // (live ref still points at the saved object), clear the dirty flag and
@@ -3747,6 +3752,15 @@ export default function App() {
             if (attempt === 0) await new Promise((r) => setTimeout(r, 2000));
         }
         return null;
+    }
+
+    // Settle a won E/D combat mission server-side (lib/mission-combat-claim);
+    // without that token the Mission Hall's "Claim Reward" can only ever fail.
+    async function settleCombatMissionClaim(missionKey: string) {
+        if (!character?.name) return;
+        const result = await queueCombatMissionClaim(character.name, missionKey);
+        if (!result) return alert("Your mission win couldn't be registered with the server, so there's no reward to claim in the Mission Hall. You'll need to run the mission again.");
+        if (result.saveVersion !== undefined) latestSaveVersionRef.current = result.saveVersion;
     }
 
     function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
@@ -4677,13 +4691,14 @@ export default function App() {
         }
 
         const accounts = loadPlayerAccounts();
-        if (!regToken) {
-            alert("The server did not issue a secure session token. Account creation is paused; contact an administrator.");
-            return;
-        }
-        accounts[key] = { ...(accounts[key] ?? {}), token: regToken };
+        // No token = SESSION_SECRET unset server-side: the documented fallback,
+        // not an error. Bailing here was the worst outcome — registration already
+        // succeeded, so the name was permanently taken by an account that could
+        // never be finished. Fall back to the password credential, as
+        // reauthKeepState does. (To require tokens, enforce on the SERVER first.)
+        accounts[key] = { ...(accounts[key] ?? {}), ...(regToken ? { token: regToken } : {}) };
         savePlayerAccounts(accounts);
-        setActivePlayer(newCharacter.name);
+        setActivePlayer(newCharacter.name, regToken ? undefined : password);
 
         const characterToCreate = await import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; });
         setCurrentAccountName(characterToCreate.name); setCharacter(characterToCreate);
@@ -4937,22 +4952,21 @@ export default function App() {
             alert("Password required to delete a server account.");
             return;
         }
-        await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
-            method: "DELETE",
-            headers: localPw ? { "x-player-password": localPw } : {},
-        }).catch(() => {});
-        // Also remove the server-side auth record so the name can be reused.
-        void fetch('/api/player-auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(localPw ? { 'x-player-password': localPw } : {}) },
-            body: JSON.stringify({ action: 'delete', name: accountName.toLowerCase(), password: localPw }),
-        }).catch(() => {});
+        // BOTH the save and the auth record must be gone before we forget the
+        // account locally — see deleteServerAccount. Bail out with everything
+        // intact if either half fails, rather than orphaning the name.
+        const deletion = await deleteServerAccount(accountName, localPw);
+        if (!deletion.ok) return alert(DELETE_ACCOUNT_ERRORS[deletion.reason]);
         const accounts = loadPlayerAccounts();
-        delete accounts[accountKey(accountName)];
-        savePlayerAccounts(accounts);
+        delete accounts[accountKey(accountName)]; savePlayerAccounts(accounts); endLocalSession();
+    }
+
+    // Tear the session down and return to login. Shared by logout and account
+    // deletion. setActivePlayer(null) is load-bearing — it clears the persisted
+    // password + token (the sync effect only ever passes "", never null).
+    function endLocalSession() {
         setCharacter(null);
         setCurrentAccountName("");
-        // Account deleted — also wipe the persisted session token.
         setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
@@ -4966,28 +4980,20 @@ export default function App() {
         setScreen("start");
     }
 
-    function logoutPlayer() {
+    // "Logout + Save" must FINISH the save before tearing the session down —
+    // clearing the character (and its auth token) first lost the last chunk of
+    // progress. On save failure, offer to stay logged in.
+    async function logoutPlayer() {
         if (character) {
             saveAccountProgress(character);
-            pushSaveToServer(character, currentAccountName || character.name);
+            try {
+                await pushSaveToServer(character, currentAccountName || character.name);
+            } catch {
+                charDirtyRef.current = true;
+                if (!(await gameConfirm("Your progress could not be saved to the server. Logging out now will lose everything since your last successful save. Log out anyway?", { title: "Save Failed", confirmLabel: "Log out anyway", danger: true }))) return;
+            }
         }
-        setCharacter(null);
-        setCurrentAccountName("");
-        // Clear the persisted player password + session token from local/session
-        // storage on logout. Without this they survive logout (the sync effect
-        // only ever passes "" — never null — so it never triggers the clear),
-        // leaving a reusable plaintext password readable on a shared machine.
-        setActivePlayer(null);
-        setActiveTraining(null);
-        setActiveJutsuTraining(null);
-        setAcceptedMissionIds([]);
-        setMissionProgress({});
-        setTriggeredEvents([]);
-        setPendingAiProfileId("");
-        setPendingPvpOpponent(null);
-        setCurrentSector(40);
-        setActiveTriggeredEvent(null);
-        setScreen("start");
+        endLocalSession();
     }
 
     function recordBuiltInMissionProgress(missionId: string, kind: "field-explore" | "field-raid" | "hunt-track" | "hunt-kill") {
@@ -5351,7 +5357,9 @@ export default function App() {
     const stableNavigate = useCallback((nextScreen: Screen) => navigateRef.current(nextScreen), []);
     const logoutPlayerRef = useRef(logoutPlayer);
     logoutPlayerRef.current = logoutPlayer;
-    const stableLogout = useCallback(() => logoutPlayerRef.current(), []);
+    // logoutPlayer is async (it awaits the final save); the menu props take a
+    // plain `() => void`. It reports its own failures to the player.
+    const stableLogout = useCallback(() => { void logoutPlayerRef.current(); }, []);
 
     function navigate(nextScreen: Screen) {
         // Lock: cannot leave during an active battle (any type — isUnresolvedBattle).
@@ -8186,7 +8194,7 @@ export default function App() {
                         onHuntBeastDefeated={completeHuntForAi}
                         missionBattleActive={missionBattleActive}
                         onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
-                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack} onQueueCombatClaim={(missionKey) => { void fetch("/api/missions/queue-combat-claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ playerName: character.name, missionId: missionKey }) }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && typeof d._saveVersion === "number") latestSaveVersionRef.current = d._saveVersion; }).catch(() => { /* fallback: optimistic local flag + autosave persist it */ }); }}
+                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack} onQueueCombatClaim={(missionKey) => { void settleCombatMissionClaim(missionKey); }}
                         exploreAmbushActive={pendingExploreSector !== null}
                         onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}

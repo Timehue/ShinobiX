@@ -3097,8 +3097,20 @@ export function Arena({
                 })
                 .then((data: { xp?: unknown; ryo?: unknown; character?: Partial<Character> } | null) => {
                     updateCharacter(buildWin(data?.character));
+                    // Report what the server actually paid, not what we predicted.
+                    // A null `data` means the token was missing or the report was
+                    // refused — that grants nothing, and the banner must say so.
+                    const grantedXp = Number(data?.xp);
+                    const grantedRyo = Number(data?.ryo);
+                    announceWinRewards(
+                        Number.isFinite(grantedXp) ? grantedXp : 0,
+                        Number.isFinite(grantedRyo) ? grantedRyo : 0,
+                    );
                 })
-                .catch(() => updateCharacter({ ...base, hp: playerHp }));
+                .catch(() => {
+                    updateCharacter({ ...base, hp: playerHp });
+                    announceWinRewards(0, 0);
+                });
             aiFightTokenPromiseRef.current = null;
         } else {
             updateCharacter({ ...base, hp: Math.min(base.hp, playerHp) });
@@ -3130,8 +3142,25 @@ export function Arena({
         const raidNote = territoryRaidDamage?.ownerClan ? ` Sector ${currentSector} HP -${territoryRaidDamageAmount}.` : territoryRaidDamage ? ` Sector ${currentSector} control broken.` : "";
         const villageWarNote = "";
         const effectiveXpGain = effectiveCharacterXpGain(character, xpGain);
-        setLog(`${opponentName} defeated. +${effectiveXpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}${scrollNote}${raidNote}${villageWarNote}`);
-        addCombatLog(`${opponentName} is defeated. ${character.name} gains ${effectiveXpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);
+        // Hoisted so the report-ai-fight `.then` above can call it with the
+        // amounts the SERVER actually granted.
+        function announceWinRewards(xp: number, ryo: number) {
+            const rewardNote = xp > 0 || ryo > 0
+                ? ` +${xp} XP, +${ryo} ryo, +15 stamina.${bonusNote}`
+                : " No XP or ryo was awarded for this fight.";
+            setLog(`${opponentName} defeated.${rewardNote}${honorNote}${auraDustNote}${scrollNote}${raidNote}${villageWarNote}`);
+            addCombatLog(`${opponentName} is defeated. ${character.name} gains ${xp} XP, ${ryo} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);
+        }
+        // Under server-auth these numbers are only a PREDICTION: report-ai-fight
+        // caps XP/ryo and a profession can substitute the payout, so the banner
+        // used to promise rewards the server had already refused. Announce the
+        // win now, and let announceWinRewards (called from the report response)
+        // restate the line with the amounts actually granted.
+        if (!aiFightServerAuthEnabled()) {
+            announceWinRewards(effectiveXpGain, ryoGain);
+        } else {
+            setLog(`${opponentName} defeated. Tallying rewards…`);
+        }
         setRaidBattleKind("none");
         setClanWarPointsActive(0);
     }

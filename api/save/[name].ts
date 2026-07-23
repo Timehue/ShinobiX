@@ -73,11 +73,40 @@ const PUBLIC_TOPLEVEL_FIELDS: readonly string[] = [];
 // internal _-metadata are NEVER exposed to a non-owner, on any read.
 const PUBLIC_COMBAT_TOPLEVEL_FIELDS: readonly string[] = ['savedBloodlines', 'creatorJutsus', 'creatorItems'];
 
+// ── Shared admin-authored game content ──────────────────────────────────────
+// The `admin1` / `admin2` save slots double as the store for admin-authored
+// GLOBAL game content — custom jutsu, items, AIs, events, missions, raids,
+// Chronicle cards, pet kits, and the VN/event-gate configs. Every client pulls
+// those two slots on login (App.tsx pullSharedAdminContent) to hydrate content
+// that is meant to be visible to everyone.
+//
+// The private-by-default DTO above correctly strips all root fields from a
+// foreign read — which silently broke that hydration for ordinary players: they
+// got `{ character }` and no content at all. (It looked fine in testing because
+// anyone who had logged in before the allowlist landed still had a locally
+// merged copy persisted in their own save.)
+//
+// So: these specific root fields, and ONLY from the two admin content slots,
+// are public. They are authored game content, not player data. Everything else
+// on those slots (the admin's own character, currencies, progress) stays behind
+// the same allowlist as any other player.
+const ADMIN_CONTENT_SLOTS = new Set<string>(['admin1', 'admin2']);
+const SHARED_ADMIN_CONTENT_FIELDS: readonly string[] = [
+    'creatorJutsus', 'creatorItems', 'creatorAis', 'creatorEvents',
+    'creatorMissions', 'creatorRaids', 'creatorCards',
+    'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
+];
+
+/** True when `name` is one of the two admin slots that hold shared game content. */
+export function isAdminContentSlot(name: string): boolean {
+    return ADMIN_CONTENT_SLOTS.has(name);
+}
+
 // Build the non-owner response: an explicit allowlist DTO. Nothing from the
 // stored save reaches a foreign reader unless it is named here — no top-level
 // spread, no internal metadata (_saveVersion / _saveAt), and future fields are
 // private until deliberately added.
-export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat: boolean }): Record<string, unknown> {
+export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat: boolean; sharedContent?: boolean }): Record<string, unknown> {
     const char = data.character as Record<string, unknown> | undefined;
     const projectedChar: Record<string, unknown> = {};
     if (char && typeof char === 'object') {
@@ -91,6 +120,12 @@ export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat
     }
     if (opts.combat) {
         for (const k of PUBLIC_COMBAT_TOPLEVEL_FIELDS) {
+            if (k in data) out[k] = data[k];
+        }
+    }
+    // Admin content slots only — see SHARED_ADMIN_CONTENT_FIELDS.
+    if (opts.sharedContent) {
+        for (const k of SHARED_ADMIN_CONTENT_FIELDS) {
             if (k in data) out[k] = data[k];
         }
     }
@@ -2070,7 +2105,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (isOwner) {
             payload = combatOnly ? combatProjection(data) : data;
         } else {
-            payload = buildPublicSaveDTO(data, { combat: combatOnly });
+            // Admin content slots additionally expose the shared authored-content
+            // root fields, which every client needs to hydrate custom jutsu /
+            // items / events / cards. See SHARED_ADMIN_CONTENT_FIELDS.
+            payload = buildPublicSaveDTO(data, { combat: combatOnly, sharedContent: isAdminContentSlot(name) });
         }
         return res.status(200).json(payload);
     }
@@ -2253,7 +2291,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.get(adminLockKey),
                         kv.get(key),
                     ]);
-                    if (pendingSignal || adminLock) return res.status(200).end();
+                    // Reset signal / admin edit in flight — drop the write so it
+                    // can't overwrite the admin's changes. Say so explicitly:
+                    // a bare 200 read as "saved" to the client, which then cleared
+                    // its dirty flag and stopped retrying, so everything the player
+                    // did during the (up to 5 minute) lock was silently discarded.
+                    // Still a 200 — this is expected, not an error — but
+                    // `persisted:false` tells the client to keep the state dirty
+                    // and retry.
+                    if (pendingSignal || adminLock) {
+                        return res.status(200).json({ ok: false, persisted: false, reason: 'reset-pending' });
+                    }
                     // Sanitize before merge: caps per-save gains to prevent exploit spikes.
                     // Clan saves go through a different validator (field-level
                     // role gating + per-call deltas) instead of the player-save

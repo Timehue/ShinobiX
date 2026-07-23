@@ -8,8 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import type { PvpSession } from './session.js';
-import { postVillageHerald } from '../_announce.js';
-import { normalizeBoard, placeBounty, claimBounty, claimBountyByAi, findBounty, type BountyBoard, type Bounty } from './_bounty.js';
+import { normalizeBoard, placeBounty, claimBounty, findBounty, type BountyBoard } from './_bounty.js';
 
 /*
  * /api/pvp/bounty — GET (board) + POST (place / claim)
@@ -33,40 +32,11 @@ import { normalizeBoard, placeBounty, claimBounty, claimBountyByAi, findBounty, 
 const BOUNTY_KEY = 'pvp:bounties';
 const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 const CLAIM_TTL_SECONDS = 24 * 60 * 60;
-const AI_HUNTER_TTL_SECONDS = 30 * 60;
 const AUDIT_PREFIX = 'audit:pvp-bounty:';
 
 function num(v: unknown): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
-}
-
-function aiHunterKey(playerName: string, hunterId: string): string {
-    return `pvp:bounty-ai:${playerName}:${hunterId}`;
-}
-
-function cleanHunterName(v: unknown): string {
-    const s = String(v ?? '').replace(/[^\w .'-]/g, '').trim().slice(0, 48);
-    return s || 'a bounty hunter';
-}
-
-async function notifyBountyContributors(bounty: Bounty, hunterName: string): Promise<void> {
-    const contributors = Array.from(new Set((bounty.contributors ?? []).map((c) => safeName(c)).filter(Boolean)));
-    await Promise.all(contributors.map(async (slug) => {
-        try {
-            const rec = await kv.get<Record<string, unknown>>(`save:${slug}`);
-            const char = (rec?.character ?? null) as Record<string, unknown> | null;
-            const village = typeof char?.village === 'string' ? char.village : '';
-            if (!village) return;
-            await postVillageHerald(
-                village,
-                'Bounty collected',
-                `${bounty.target} was killed by ${hunterName}. The ${bounty.amount.toLocaleString()} ryo bounty has left the board.`,
-            );
-        } catch {
-            /* best-effort per contributor */
-        }
-    }));
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -155,6 +125,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── CLAIM ──────────────────────────────────────────────────────────────
         if (action === 'ai-hunter-start') {
+            // Read-only gate. The AI bounty hunter still spawns and fights you —
+            // the client scales it to the pool size returned here — but an AI kill
+            // NEVER settles the bounty. Only a real player winning a verified duel
+            // can (the 'claim' action, cross-checked against a real PvpSession).
+            // So this just confirms a bounty still exists and hands back its size
+            // for scaling; there is nothing to settle, so no token is minted.
             const hunterId = typeof body.hunterId === 'string' ? body.hunterId.trim().slice(0, 140) : '';
             if (!/^[A-Za-z0-9:_-]{8,140}$/.test(hunterId)) {
                 return res.status(400).json({ error: 'Missing hunterId.' });
@@ -162,71 +138,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
             const bounty = findBounty(board, playerName);
             if (!bounty) return res.status(200).json({ ok: false, reason: 'no-bounty' });
-
-            const token = {
-                target: playerName,
-                hunterId,
-                amount: bounty.amount,
-                updatedAt: bounty.updatedAt,
-                contributors: bounty.contributors,
-                ts: now,
-            };
-            const started = await kv.set(aiHunterKey(playerName, hunterId), token, { nx: true, ex: AI_HUNTER_TTL_SECONDS } as never);
             return res.status(200).json({
                 ok: true,
-                alreadyStarted: !started,
                 bounty: { target: bounty.target, amount: bounty.amount, contributors: bounty.contributors, updatedAt: bounty.updatedAt },
-                ttlSeconds: AI_HUNTER_TTL_SECONDS,
             });
         }
 
         if (action === 'ai-hunter-claim') {
-            const hunterId = typeof body.hunterId === 'string' ? body.hunterId.trim().slice(0, 140) : '';
-            if (!/^[A-Za-z0-9:_-]{8,140}$/.test(hunterId)) {
-                return res.status(400).json({ error: 'Missing hunterId.' });
-            }
-            const hunterName = cleanHunterName(body.hunterName);
-            const key = aiHunterKey(playerName, hunterId);
-
-            const out = await withKvLock<{ status: number; body: unknown; burned?: Bounty }>(BOUNTY_KEY, async () => {
-                const token = await kv.get<{ target?: string; hunterId?: string; ts?: number }>(key);
-                if (!token || token.target !== playerName || token.hunterId !== hunterId) {
-                    return { status: 200, body: { ok: false, reason: 'expired' } };
-                }
-
-                const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-                const current = findBounty(board, playerName);
-                if (!current) {
-                    await kv.del(key).catch(() => undefined);
-                    return { status: 200, body: { ok: true, amount: 0, target: playerName } };
-                }
-
-                const claimKey = `pvp:bounty-ai-claimed:${playerName}:${hunterId}:${current.updatedAt}`;
-                const placed = await kv.set(claimKey, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-                if (!placed) return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0 } };
-
-                const result = claimBountyByAi(board, playerName);
-                if (!result.ok) return { status: 200, body: { ok: true, amount: 0 } };
-                await kv.set(BOUNTY_KEY, result.board);
-                await kv.del(key).catch(() => undefined);
-                return {
-                    status: 200,
-                    body: { ok: true, amount: result.amount, target: result.bounty.target },
-                    burned: result.bounty,
-                };
-            }, { failClosed: true });
-
-            if (out.burned) {
-                await notifyBountyContributors(out.burned, hunterName);
-                await kv.set(`${AUDIT_PREFIX}ai-claim:${Date.now()}`, {
-                    ts: now,
-                    target: playerName,
-                    hunterId,
-                    hunterName,
-                    amount: out.burned.amount,
-                }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-            }
-            return res.status(out.status).json(out.body);
+            // AI bounty hunters do NOT collect bounties — that was the self-clear
+            // exploit (a client-resolved PvE "loss" burned a bounty other players
+            // had staked ryo on, with no authoritative receipt). The bounty stays
+            // on the board until a real player claims it via 'claim'. This branch
+            // is kept only so a client that hasn't updated yet gets a clean,
+            // correct answer (its "the bounty could not be settled" path) instead
+            // of an error. It never mutates the board.
+            return res.status(200).json({ ok: true, amount: 0, uncollectible: true });
         }
 
         if (action === 'claim') {

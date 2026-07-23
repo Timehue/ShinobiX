@@ -24,9 +24,12 @@
 --   * `save:%` rows are ALREADY service-role-only: they are not in the anon
 --     SELECT allowlist below, and the `authenticated` role has NO policy AND
 --     (as of 2026-06-01) NO grant either, so RLS denies it every row.
---   * Field-level redaction of the anon-readable prefixes (pvp/cw-tilecards/
---     challenges) is done in the app layer — RLS is row-level and cannot
---     project inside the `value` jsonb. See the PvP/guard projection helpers.
+--   * The anon-readable set is deliberately limited to prefixes whose RAW row
+--     is safe for either fighter to read, because RLS is row-level and cannot
+--     project inside the `value` jsonb. A record that needs per-viewer
+--     redaction (Chronicle duels — hands, decks, face-down cards) must NOT be
+--     anon-readable at all; serve it through the authenticated handler's
+--     projection instead. See the PvP/guard projection helpers.
 -- Defense-in-depth (APPLIED 2026-06-01, migration
 -- `harden_kv_store_revoke_authenticated_select`): the `authenticated` role is
 --   now granted NOTHING on kv_store (see the `revoke all … from authenticated`
@@ -59,7 +62,17 @@ create index if not exists kv_store_key_pattern_idx
 --
 -- Anon allowlist:
 --   pvp:*            — PvP session state (intentionally shared between fighters and spectators)
---   cw-tilecards:*   — Clan-war tile-card duel state (same rationale)
+--
+-- `cw-tilecards:*` was REMOVED from the anon allowlist (2026-07-23 hardening,
+-- P0). The Chronicle duel record stores BOTH players' full decks, both hands,
+-- and the face-down identity of every set monster/trap. api/clan/war/tilecards.ts
+-- only ever returns `projectMatchForViewer()` (shared/chronicle-duel.ts), which
+-- redacts all of that per viewer — but the anon SELECT grant let anyone holding
+-- the public anon key read the RAW row and see their opponent's hand and traps.
+-- ClanWarTileCardDuel never subscribed to the key via Realtime (it polls the
+-- authenticated endpoint on a 3s timer), so removing the grant costs nothing.
+-- Do NOT re-add it: if the duel ever needs push updates, publish a separate
+-- key holding ONLY a revision counter and refetch the projection over HTTP.
 --
 -- `challenges:*` was REMOVED from the anon allowlist (2026-07-17 hardening). The
 -- browser never subscribed to it via Realtime — incoming challenges are carried
@@ -86,7 +99,6 @@ create policy "kv_store_anon_select"
     to anon
     using (
         key like 'pvp:%'
-        or key like 'cw-tilecards:%'
     );
 
 -- Belt-and-suspenders: also revoke broad table grants from anon so that
@@ -132,7 +144,7 @@ do $$
 begin
     if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
         alter publication supabase_realtime set table public.kv_store
-            where (key like 'pvp:%' or key like 'cw-tilecards:%');
+            where (key like 'pvp:%');
     end if;
 end $$;
 

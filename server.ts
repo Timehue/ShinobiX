@@ -1430,8 +1430,19 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 // additionally ?v=POSE_ASSET_V cache-busted client-side, so a pose re-clean
 // changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
 // chunk map or data manifest can go stale.
-const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
+// 3D model payloads (glb/gltf + their sidecar buffers and compressed textures)
+// were missing here, so every pet/arena model served max-age=0 and Cloudflare
+// revalidated against the Railway origin on each load — by far the largest
+// re-fetched payload in the build (~621 MB of GLBs). They are fixed-name like
+// the rest of this group, and the roster URLs additionally carry a ?v= revision
+// (ROSTER_MODEL_ASSET_REVISION), so a week of edge cache is safe and a model
+// swap that bumps the revision is picked up immediately.
+const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf|glb|gltf|bin|ktx2|basis|hdr)$/i;
 const _STATIC_ASSET_URL_RE = /^\/(?:assets|badges|music|sfx|sector-map|scenes)\/.+\.[a-z0-9]+$/i;
+// Any request for a file with a real asset extension, wherever it lives
+// (/pet-models/roster/*.glb, /combat-vfx/*.webp, /anbu/*, …). Client routes never
+// carry a file extension, so matching on extension alone cannot shadow one.
+const _ASSET_EXT_URL_RE = /\.(?:js|mjs|css|map|json|png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf|glb|gltf|bin|ktx2|basis|hdr)$/i;
 
 app.use((req, res, next) => {
     if (shouldRedirectToCanonical(req.headers.host, req.path)) {
@@ -1461,6 +1472,19 @@ app.use(express.static(staticDir, {
 // MIME type; caching HTML under a chunk URL strands players until the bad cache
 // entry expires. Real client routes still fall through to the SPA fallback.
 app.get(_STATIC_ASSET_URL_RE, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).type('text/plain').send('Static asset not found');
+});
+
+// Same guard, widened to ANY asset extension outside those directories — most
+// importantly /pet-models/**/*.glb. A missing model previously fell through to
+// the SPA fallback and came back as index.html with HTTP 200; the GLTF loader
+// then choked on HTML, which surfaces as a hung or crashed 3D scene rather than
+// a plain missing asset. A 404 lets the caller fall back cleanly.
+app.get(_ASSET_EXT_URL_RE, (req, res, next) => {
+    // Never shadow the API's own 404 (which answers JSON) — every real handler
+    // is registered above this, so anything left under /api belongs to that path.
+    if (/^\/api(?:\/|$)/.test(req.path)) return next();
     res.setHeader('Cache-Control', 'no-store');
     res.status(404).type('text/plain').send('Static asset not found');
 });

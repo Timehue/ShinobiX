@@ -76,7 +76,10 @@ describe('authoritative balance response migration', () => {
         assert.match(arena, /const tokenRequest = aiFightTokenPromiseRef\.current \?\? Promise\.resolve\(""\)/);
         assert.match(arena, /updateCharacter\(buildWin\(data\?\.character\)\)/);
         assert.match(api, /applyAiFightSecondaryRewards/);
-        assert.match(arena, /catch\(\(\) => updateCharacter\(\{ \.\.\.base, hp: playerHp \}\)\)/);
+        // A failed/refused report still resolves the win from the LOCAL base —
+        // never from client-computed rewards. (The catch also restates the
+        // reward banner as "nothing granted", so match inside the block.)
+        assert.match(arena, /\.catch\(\(\) => \{[\s\S]{0,200}?updateCharacter\(\{ \.\.\.base, hp: playerHp \}\)/);
         assert.match(arena, /if \(!serverCharacter\) return \{ \.\.\.base, hp: Math\.min\(base\.hp, playerHp\) \}/);
         assert.doesNotMatch(arena, /ryo:\s*rewarded\.ryo \+ \(serverCharacter \? 0 : effRyo\)/);
     });

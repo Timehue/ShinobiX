@@ -5,7 +5,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-    placeBounty, claimBounty, claimBountyByAi, findBounty, normalizeBoard, emptyBoard,
+    placeBounty, claimBounty, findBounty, normalizeBoard, emptyBoard,
     BOUNTY_MIN_PLACE, BOUNTY_MAX_PLACE, BOUNTY_MAX_PER_TARGET,
     type BountyBoard, type PlaceInput,
 } from './_bounty.js';
@@ -76,21 +76,6 @@ describe('claimBounty', () => {
     });
     it('rejects claiming a head with no bounty', () => {
         assert.equal(claimBounty(emptyBoard(), 'Ghost').ok, false);
-    });
-});
-
-describe('claimBountyByAi', () => {
-    it('burns the pool, removes the head, and preserves contributor metadata', () => {
-        const placed = placeBounty(placeInput({ amount: 20_000 }), NOW);
-        assert.ok(placed.ok);
-        if (!placed.ok) return;
-        const r = claimBountyByAi(placed.board, 'Kenji');
-        assert.equal(r.ok, true);
-        if (!r.ok) return;
-        assert.equal(r.amount, 20_000);
-        assert.equal(r.bounty.target, 'Kenji');
-        assert.deepEqual(r.bounty.contributors, ['rill']);
-        assert.equal(findBounty(r.board, 'Kenji'), undefined, 'AI claim clears the head');
     });
 });
 

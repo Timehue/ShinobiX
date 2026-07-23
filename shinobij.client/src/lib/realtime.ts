@@ -16,11 +16,19 @@
 //      on kv_store and creates an anon SELECT policy that allows reads
 //      on the prefixes this client subscribes to:
 //        pvp:*           — PvP session state
-//        cw-tilecards:*  — Clan-war tile-card duels
-//      Anything else stays invisible to the browser. (challenges:* used to be
-//      here but the client never actually subscribed to it — incoming challenges
-//      arrive over the authenticated heartbeat + Socket.IO — so its anon read
-//      grant was removed 2026-07-17.)
+//      Anything else stays invisible to the browser.
+//      Removed grants — do NOT re-add either:
+//        challenges:*    — the client never actually subscribed to it (incoming
+//                          challenges arrive over the authenticated heartbeat +
+//                          Socket.IO), removed 2026-07-17.
+//        cw-tilecards:*  — the raw Chronicle duel row holds both decks, both
+//                          hands, and every face-down card; only the
+//                          authenticated handler's per-viewer projection is
+//                          safe to expose. Removed 2026-07-23 (P0).
+//
+// A record that needs per-viewer redaction can never be Realtime-subscribed
+// directly: RLS is row-level and the browser would receive the raw `value`.
+// Publish a revision-counter key instead and refetch the projection over HTTP.
 //
 // To add a new realtime-subscribed prefix: update supabase-schema.sql's
 // SELECT policy AND this comment, then re-run the schema file.
