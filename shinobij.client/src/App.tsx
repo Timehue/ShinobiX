@@ -331,7 +331,6 @@ import {
     currentMonthKey,
     currentDateKey,
     makeId,
-    playerSlug,
 } from "./lib/utils";
 
 import {
@@ -2148,45 +2147,12 @@ export default function App() {
         return () => clearInterval(id);
     }, []);
 
-    // Realtime push for incoming duel challenges. Listens on the
-    // KV key `challenges:<myName>` and merges new entries the
-    // moment Postgres commits the write — instead of waiting up
-    // to the heartbeat interval (3-15s depending on screen). The
-    // heartbeat continues to handle presence + roster + pendingAttacker
-    // since those need separate logic; this is a parallel low-latency
-    // channel just for incoming challenges.
-    useEffect(() => {
-        if (!character?.name) return;
-        let alive = true;
-        let unsubscribe: (() => void) | null = null;
-        const characterName = character.name;
-        // Must match the server's `challenges:<safeName slug>` key (heartbeat /
-        // player-challenge write it through safeName), so subscribe via playerSlug.
-        const myKey = `challenges:${playerSlug(characterName)}`;
-
-        void import("./lib/realtime").then(({ realtimeAvailable, subscribeKvKey }) => {
-            if (!alive || !realtimeAvailable()) return;
-            unsubscribe = subscribeKvKey<DuelChallenge[]>(myKey, (next) => {
-                if (!alive) return;
-                if (!Array.isArray(next)) return;
-                const myNameLower = characterName.toLowerCase();
-                const incoming = next
-                    .filter((c) => (c?.toName ?? "").toLowerCase() === myNameLower)
-                    .filter((c) => !dismissedChallengeIdsRef.current.has(c.id))
-                    .map((c) => ({ ...c, challenger: normalizeCharacter(c.challenger) }));
-                setDuelChallenges((current) => {
-                    const merged = current.filter((existing) => !incoming.some((c) => c.id === existing.id));
-                    return [...merged, ...incoming];
-                });
-            });
-        }).catch(() => {
-            /* no realtime fallback needed: heartbeat still polls challenges */
-        });
-        return () => {
-            alive = false;
-            if (unsubscribe) unsubscribe();
-        };
-    }, [character?.name]);
+    // Incoming duel challenges arrive over the authenticated heartbeat
+    // (`data.pendingChallenges`, merged below), nudged to fire immediately by the
+    // Socket.IO "kick" on an incoming challenge. A former anon-Realtime push on
+    // `challenges:<slug>` was removed when that key left the kv_store anon SELECT
+    // allowlist (2026-07-23 Chronicle-leak migration) — the row is no longer
+    // anon-readable, so the subscription could only ever be silent. See lib/realtime.ts.
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [pendingArenaMatch, setPendingArenaMatch] = useState<{ blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null>(null); // Tactical Arena PvP match → PetArena

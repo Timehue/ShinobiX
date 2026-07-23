@@ -18,9 +18,11 @@
 //        pvp:*           — PvP session state
 //      Anything else stays invisible to the browser.
 //      Removed grants — do NOT re-add either:
-//        challenges:*    — the client never actually subscribed to it (incoming
-//                          challenges arrive over the authenticated heartbeat +
-//                          Socket.IO), removed 2026-07-17.
+//        challenges:*    — App.tsx used to subscribe here for a low-latency push,
+//                          but the row is not per-viewer safe and challenges
+//                          already arrive over the authenticated heartbeat +
+//                          Socket.IO nudge, so the subscription was dropped and
+//                          the grant removed (2026-07-17 / re-confirmed 2026-07-23).
 //        cw-tilecards:*  — the raw Chronicle duel row holds both decks, both
 //                          hands, and every face-down card; only the
 //                          authenticated handler's per-viewer projection is
