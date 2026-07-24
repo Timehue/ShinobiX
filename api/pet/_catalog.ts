@@ -51,6 +51,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Steals the bait, skips the snare, and watches you reset it. Trackers swear it keeps count.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -107,6 +108,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "White on white until it moves. Mountain scouts follow its prints to find the safe crossings.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -162,6 +164,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "No one in the village owns it. It has never once gone hungry.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -218,6 +221,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Works the canopy line at dawn. Falconers say it picks its shinobi, not the other way around.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -274,6 +278,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Works the flood pools in pairs and shares the catch. Will trade a fish for anything that glints.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -329,6 +334,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Older than the fence it suns on. Takes a hit like a wall and forgets it by noon.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -385,6 +391,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Sleeps under hot rock and moves only when it matters. Sand caravans step around it, not over.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -441,6 +448,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Roosts in burn scars while they're still warm. Steals anything it can lift, and some things it can't.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -497,6 +505,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Bright as a warning sign, and it is one. Handled wrong, it numbs a grown arm for a day.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -552,6 +561,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Goes through what it can't go around. Fence posts included.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -608,6 +618,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Doesn't make a sound in the air. Night patrols skip any stretch of woods it won't roost in.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -664,6 +675,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Swims the dune face just under the surface. You see the ripple, then you don't.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -720,6 +732,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Slips through fog banks and locked pantries alike. Ask any riverside innkeeper.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -776,6 +789,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its shell turns a kunai edge. Smiths keep one in the forge out of professional respect.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -832,6 +846,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Stands in the shallows for an hour and moves once. It rarely needs twice.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -888,6 +903,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Nests in forge ash while the coals still tick. The smiths' apprentices name every one.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -944,6 +960,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "First to freeze when something's wrong in the grass. Scouts trust it over each other.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -1000,6 +1017,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Rides the front edge of bad weather. Harbor crews haul nets when it lands.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -1056,6 +1074,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Maps a cave by ear in one pass. Miners follow it out when the lamps die.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -1111,6 +1130,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Sits in the paddy muck all season. One croak before rain, two before worse.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -1167,6 +1187,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Works in threes: one begs, one distracts, one empties your pack.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -1223,6 +1244,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "A winter cub with paws it hasn't grown into. Already shrugs off cold that drops grown men.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -1279,6 +1301,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Lives behind the shrine lanterns and eats what the incense draws. The monks count it as staff.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -1334,6 +1357,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Digs through packed clay like loose snow. Its old dens double as ambush pits.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -1390,6 +1414,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Runt of the litter, first to the kill. The rest of the pack follows it anyway.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -1446,6 +1471,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Cracks marrow bones on the flint outcrops. You hear dinner from a ridge away.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -1502,6 +1528,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Tunnels the warm ground near the vents. Farmers borrow one to thaw the seed rows early.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -1558,6 +1585,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Drawn to campfires, never burned by them. Old hands read the swarm for wind shifts.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -1614,6 +1642,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Suns itself on cooling lava crust. Its tail heat will light kindling in a pinch.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -1670,6 +1699,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Whelped near the vents. Chews slag the way other pups chew boots.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -1726,6 +1756,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Lives under one particular stone in one particular stream, and defends both.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -1782,6 +1813,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Indistinguishable from the riverbed until your toe finds out.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -1838,6 +1870,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "The school flashes silver a heartbeat before the wave lands. Divers time their breath by it.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -1894,6 +1927,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Stands in the reeds like it's paid to. One strike, one frog.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -1950,6 +1984,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Moves through flooded grass without bending a blade. Trap-fishers count their catch twice.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -2006,6 +2041,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Nests in wind chimes and prayer flags. Sings whichever way the weather is turning.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -2062,6 +2098,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Skims the dry flats faster than a courier hawk. The couriers are still sore about it.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -2118,6 +2155,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Builds mud nests on sheer rock over a killing drop. The rent up there is cheap.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -2174,6 +2212,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Has stolen coins, buttons, and one chunin's forehead protector. It keeps a collection.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -2230,6 +2269,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Crosses ravines on locked wings. The landing is negotiable.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -2286,6 +2326,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its fur crackles in dry weather. Handlers learn to wear leather.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -2342,6 +2383,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "You don't see it move. You see where it was, and the singe mark.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -2398,6 +2440,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its burrows follow old lightning strikes. Diggers find the tunnels fused to glass.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -2454,6 +2497,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Pins its catch on lightning-split branches. Tidy, in an unsettling way.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -2510,6 +2554,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Startles into a flash of static. A whole covey goes off like a signal flare.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -2565,6 +2610,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Suns itself by the kiln yards until its shell rings like fired pottery.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -2620,6 +2666,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Wears a living coat of moss. In the rains, it flowers.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -2675,6 +2722,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Rolls up tight and lets the sandstorm do the traveling.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -2730,6 +2778,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Scaled like river stones. Curls up mid-path and gets mistaken for a cairn.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -2785,6 +2834,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "One whistle from its burrow and the whole hillside goes quiet.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -2848,6 +2898,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Fur like a dropped ember. Trappers set double lines for it and still come home empty.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -2911,6 +2962,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Outruns the avalanche it started. Snow scouts trace its line down the safe face.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -2973,6 +3025,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "You hear the second step, never the first. Caravan guards double the watch for it.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -3036,6 +3089,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Stoops from above the cloud deck. Message hawks fly wide around its ridge.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -3099,6 +3153,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Works the surf line like it's paid by the shell. The pearl divers count it as crew.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -3161,6 +3216,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Took a loaded wagon wheel across the shell once. The wagon lost.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -3224,6 +3280,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Strikes from under a handspan of sand. Caravans stake their lines wide of any ripple.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -3287,6 +3344,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Turns up a day ahead of the smoke. Fire wardens trust it enough to start packing.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -3350,6 +3408,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Deep blue and dead calm. Apothecaries pay well for the sweat off its back.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -3412,6 +3471,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Quills punch through a training post. It sheds them like thrown senbon when it charges.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -3475,6 +3535,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Hunts the snowfields by moonlight. Old scouts say if it lands on your gate, take the watch seriously.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -3538,6 +3599,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Near invisible at rest. Most bites get filed under 'stepped on it.'",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -3601,6 +3663,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Hunts in fog thick enough to lose your own hands in. Nothing about that fight is fair.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -3664,6 +3727,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its shed plates go straight to the smiths for lamellar. There's a finder's fee.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -3727,6 +3791,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Feathers with an oyster-shell sheen. Coast shrines call one on the roof a good season.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -3790,6 +3855,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Sleeps in the forge stacks and comes out trailing sparks. Two smithy fires this year. Allegedly.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -3853,6 +3919,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "The antlers grow back barbed every spring. It hones them on ironwood.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -3916,6 +3983,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Fishes in weather that sinks boats. Harbormasters watch where it dares to dive.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -3979,6 +4047,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "A wingspan like a cloak thrown over the lamplight. Night couriers log it as a hazard.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -4041,6 +4110,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Old enough that a garden grows on its back. It remembers ponds that dried up.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -4104,6 +4174,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Fights with a cut stave and holds the high ground. The woodcutters just leave it the grove.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -4167,6 +4238,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "From the black-ice country. Its breath rimes steel, so the kennel masters feed it outside.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -4230,6 +4302,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Most winter mornings the monks find it curled in the lit brazier, unburnt.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -4292,6 +4365,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Digs setts through quarry fill. The crews just work around the holes now.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -4355,6 +4429,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "A yearling off a direwolf litter. The village kennels won't board it twice.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -4418,6 +4493,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its laugh carries across the vent fields. Prospectors pack up when they hear it twice.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -4481,6 +4557,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Coat patterned like banked coals. Whole camps have stared straight at it and seen only the fire.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -4544,6 +4621,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Hovers over the fire line hunting whatever runs. The burn crews call it the foreman.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -4607,6 +4685,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Kills vent-adders on their own rock. The miners leave it eggs. Cheap insurance.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -4670,6 +4749,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Won three coliseum seasons before anyone knew it was wild. The scribes had to reprint its card.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -4733,6 +4813,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Raids the fish traps on the ebb, gone by the flood. The weir keepers respect the schedule.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -4796,6 +4877,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Hauls out on ice that won't hold a man. Then watches you work that out.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -4859,6 +4941,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Stalks the reef pools at low tide, patterned like the coral it robs.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -4922,6 +5005,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Dives deeper than the pearl crews and surfaces first. They've stopped racing it.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -4985,6 +5069,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Dens in crevasse ice and hunts the tunnels under the glacier. Rope teams follow its bolt-holes.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -5048,6 +5133,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Circles the eye of a storm cell. The weather watchers chart the bird, not the sky.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -5111,6 +5197,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Fishes on the offshore wind and never wets more than its talons.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -5174,6 +5261,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Threads gusts that ground every other wing. The lighthouse keepers keep tallies.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -5237,6 +5325,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Somehow always nests above where the flood will reach. Fishermen check where it lays, then the sky.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -5300,6 +5389,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Crosses open water on a wingbeat an hour. Sailors write the sighting into the ship's log.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -5363,6 +5453,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Static snaps off its fur in dry wind. The granary cats moved out.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -5426,6 +5517,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Winter coat goes white with a blue crackle. Kills above its weight and drags it home uphill.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 3,
@@ -5489,6 +5581,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Jumps between strikes out on the flats. Locals swear the lightning misses on purpose.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 3,
@@ -5552,6 +5645,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "The sentry's fur lifts before the storm clears the dunes. The colony digs in early. So do the caravans.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -5615,6 +5709,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Circles storm wrecks the way its cousins circle carrion. Salvage crews follow it out.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 3,
@@ -5677,6 +5772,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Plugs its burrow with a stone cut to fit. Masons have checked the fit. It's good.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -5739,6 +5835,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "The hide sets harder with age. Old ones scratch themselves on standing stones and win.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 3,
@@ -5801,6 +5898,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Digs out nests behind the quartz seams. Prospectors trail it with pans.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 3,
@@ -5863,6 +5961,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Quills like flaked flint. It stamps a ring of them loose; trackers harvest the circles.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 3,
@@ -5925,6 +6024,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Sits in thorn brakes nothing else can enter, calm as a fed monk.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 3,
@@ -5988,6 +6088,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Runs the high ice alone. Herders find its prints circling the camp — never inside.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4,
@@ -6051,6 +6152,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Rides the drafts ahead of the lightning. Falconers retired the lure — nothing brings it down but weather.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4,
@@ -6114,6 +6216,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Steps out of one shadow and into another a field away. Kennel masters won't say its name twice after dark.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4,
@@ -6176,6 +6279,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Crosses battlefields untouched. Both sides hold fire without agreeing to.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -6239,6 +6343,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Bit through a cart axle to reach the salted fish. The axle hangs behind a tavern bar now.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 4,
@@ -6302,6 +6407,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Seen once a generation, always before a good harvest. The shrine keepers fill its bowl anyway.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 4,
@@ -6365,6 +6471,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Every few winters the caldera goes cold and word spreads that it's dead. Come spring, it never is.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4,
@@ -6427,6 +6534,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Surfaces in still water on full-moon nights. Ferrymen pole around the wake and don't discuss it.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -6490,6 +6598,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its roar carries thunder one valley over. The herds move a day before it does.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 4,
@@ -6552,6 +6661,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Hide grown through with quartz. Blades skate off it; trappers stopped billing for lost gear.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 4,
@@ -6615,6 +6725,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Casts no reflection in shrine mirrors. It keeps landing where history's about to happen, so the scribes follow it.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4,
@@ -6678,6 +6789,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Roosts where lightning strikes twice. The glassed sand under its ridge lies knee-deep.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -6741,6 +6853,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Hunts inside the white-out where no tracker follows. What it leaves, the cold finishes.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4,
@@ -6804,6 +6917,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Plated in old blue ice. One held a coliseum gate alone; the scribes printed its card that season.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4,
@@ -6867,6 +6981,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Was old when the village walls went up. Still nests on the roof beam its card was inked from.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4,
@@ -6930,6 +7045,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Three tempers, one body, no safe angle. The hunt logs end mid-sentence.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -6993,6 +7109,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its wings shed cinders for miles. Watchtowers report it as a moving dusk.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 4,
@@ -7056,6 +7173,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Wades the caldera like a paddy field. The new roads bend around its walking line.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4,
@@ -7119,6 +7237,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "The old charts mark its feeding grounds with an anchor and the word DON'T.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 4,
@@ -7182,6 +7301,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Tunnels the glacier into blue-lit halls. Ice cutters harvest the walls and leave before dark.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -7245,6 +7365,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Deep crews tell of arms thicker than masts. Some crews never got the chance to tell anyone.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4,
@@ -7308,6 +7429,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Lifts livestock through a gale. The herders file it under storm damage and everyone lets them.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4,
@@ -7371,6 +7493,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Runs the cloud banks like open steppe. Cavalry masters have offered fortunes for one. Nobody's ever collected.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4,
@@ -7434,6 +7557,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Waits in the eye of the storm and asks nothing. Somehow that's worse.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -7497,6 +7621,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Falls with the bolt and lopes off through the burn. The fields it crosses come up green early.",
         "role": "defender",
         "subRole": "bruiser",
         "moveRange": 4,
@@ -7560,6 +7685,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Its dive whistles a note the hill kids copy all summer. The herds never learn it in time.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4,
@@ -7623,6 +7749,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Throws tail spikes trailing arc-light. The bounty board reposts it every season. Nobody collects.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4,
@@ -7685,6 +7812,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Stood still long enough for a shrine to go up on its shoulder. It walks carefully now.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4,
@@ -7747,6 +7875,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "Counts as architecture until dusk. Masons check their rooflines by daylight.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4,
@@ -7809,6 +7938,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
+        "description": "A grove that walks. The loggers mark where it stood and cut anywhere else.",
         "role": "tracker",
         "subRole": "kite",
         "moveRange": 4,
@@ -7895,6 +8025,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "Shrine ledgers list nine chosen companions in nine hundred years. The scribes keep its card inked and waiting.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4
@@ -7980,6 +8111,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "Old sailors swear every great storm is the same storm, coming back. They're right, and it has a name.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 4
@@ -8058,6 +8190,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "The mountain shrines were built to calm something under the ice. It got up anyway. It just wasn't angry.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4
@@ -8136,6 +8269,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "Crests the ridge at first light with antlers too bright to look at straight. Dawn patrols set their watch by it.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4
@@ -8213,6 +8347,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 3
             }
         ],
+        "description": "Slipped its chain when the Gate first cracked, the story goes. Nobody ever found the other end of the chain.",
         "role": "assassin",
         "subRole": "assassin",
         "moveRange": 4
@@ -8291,6 +8426,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "The south wind's firebird. A molted feather won't cool — the coliseum keeps one burning as its eternal flame.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4
@@ -8369,6 +8505,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "Coast folk call every wreck its tribute. They pay theirs in rice wine and get better weather for it. Most years.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4
@@ -8447,6 +8584,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 3
             }
         ],
+        "description": "Waddles like a joke until the wind picks up. The mountain tengu deny teaching it anything, which settles it.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4
@@ -8525,6 +8663,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "Festival drummers copy its thunder, hoping the real thing takes the compliment and passes by. Some years it does.",
         "role": "assassin",
         "subRole": "striker",
         "moveRange": 4
@@ -8602,6 +8741,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
+        "description": "Moves once a season, and the valleys adjust. Mapmakers gave up and started dating their maps instead.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4
