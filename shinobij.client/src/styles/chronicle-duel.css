@@ -201,55 +201,43 @@ button.chronicle-card {
   grid-row: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto;
   column-gap: 6px;
   align-items: center;
   min-width: 0;
-  min-height: 44px;
+  min-height: 28px;
   margin: 0;
-  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 66%, transparent);
-  border-bottom: 2px solid var(--chronicle-frame);
+  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 50%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--chronicle-frame) 78%, transparent);
   border-radius: 5px 5px 0 0;
-  background:
-    linear-gradient(
-      100deg,
-      rgba(20, 27, 34, 0.82),
-      rgba(4, 8, 12, 0.9) 78%
-    ),
-    var(--chronicle-frame);
-  padding: 5px 8px 5px;
-  box-shadow:
-    inset 0 0 14px rgba(255, 255, 255, 0.05),
-    0 2px 10px rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(2px);
-}
-.chronicle-card__class {
-  grid-row: 1;
-  grid-column: 1;
-  align-self: end;
-  color: color-mix(in srgb, var(--chronicle-frame) 82%, #fff);
-  font-size: 0.5rem;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.19em;
-  text-shadow: 0 1px 2px #000;
+  /* Frosted-glass nameplate: translucent so the illustration reads through it,
+     legibility carried by the blur + text shadow (see the reference card). */
+  /* Fully see-through: no tint — the blur alone frosts the art behind the name,
+     legibility carried entirely by the text shadow. */
+  background: transparent;
+  padding: 3px 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px) saturate(1.1);
 }
 .chronicle-card__name {
   display: -webkit-box;
-  grid-row: 2;
+  grid-row: 1;
   grid-column: 1;
   align-self: center;
   min-width: 0;
   color: #f8f3e8;
   font:
-    900 0.94rem/1.05 "Palatino Linotype",
+    900 0.88rem/1.03 "Palatino Linotype",
     Georgia,
     serif;
   letter-spacing: 0.025em;
   overflow: hidden;
   overflow-wrap: anywhere;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px #000;
+  text-shadow:
+    0 1px 3px #000,
+    0 0 6px rgba(0, 0, 0, 0.85);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -264,43 +252,93 @@ button.chronicle-card {
 .chronicle-card__element {
   position: relative;
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   align-self: center;
-  display: grid;
-  place-items: center;
-  width: 41px;
-  height: 41px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 34px;
+  height: 32px;
   margin-left: 0;
-  clip-path: polygon(25% 4%, 75% 4%, 98% 50%, 75% 96%, 25% 96%, 2% 50%);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--chronicle-element) 88%, #fff),
-    color-mix(in srgb, var(--chronicle-element) 64%, #020509)
+  isolation: isolate;
+  clip-path: polygon(25% 3%, 75% 3%, 99% 50%, 75% 97%, 25% 97%, 1% 50%);
+  /* Brushed-metal bezel: a conic sweep so the rim catches light like a set jewel. */
+  background: conic-gradient(
+    from 128deg at 50% 42%,
+    color-mix(in srgb, var(--chronicle-element) 26%, #04060a),
+    color-mix(in srgb, var(--chronicle-element) 96%, #fff) 21%,
+    color-mix(in srgb, var(--chronicle-element) 30%, #04060a) 47%,
+    color-mix(in srgb, var(--chronicle-element) 82%, #fff) 73%,
+    color-mix(in srgb, var(--chronicle-element) 26%, #04060a)
   );
   color: #fff;
-  filter: drop-shadow(0 2px 2px #000);
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.7))
+    drop-shadow(
+      0 0 7px color-mix(in srgb, var(--chronicle-element) 62%, transparent)
+    );
 }
+/* Faceted gem inset — the bezel shows as a thin rim around it. */
 .chronicle-card__element::before {
   content: "";
   position: absolute;
-  width: 33px;
-  height: 33px;
+  inset: 2px;
+  z-index: 0;
   clip-path: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: radial-gradient(
+    118% 118% at 34% 24%,
+    color-mix(in srgb, var(--chronicle-element) 55%, #fff) 0%,
+    var(--chronicle-element) 33%,
+    color-mix(in srgb, var(--chronicle-element) 74%, #03060a) 70%,
+    color-mix(in srgb, var(--chronicle-element) 42%, #010305) 100%
+  );
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 7px rgba(0, 0, 0, 0.6);
+}
+/* Specular gloss sweeping the top half. */
+.chronicle-card__element::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: 1;
+  clip-path: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    179deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.14) 24%,
+    transparent 48%
+  );
+  mix-blend-mode: screen;
 }
 .chronicle-card__element b {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
   font:
-    900 0.9rem/1 ui-monospace,
+    900 0.76rem/1 ui-monospace,
     monospace;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+}
+.chronicle-card__element b svg {
+  display: block;
+  width: 15px;
+  height: 15px;
 }
 .chronicle-card__element small {
-  max-width: 34px;
+  position: relative;
+  z-index: 2;
+  max-width: 26px;
   overflow: hidden;
-  font-size: 0.3rem;
+  font-size: 0.26rem;
   font-weight: 900;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-overflow: clip;
   text-transform: uppercase;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.75);
 }
 .chronicle-card__element.support {
   --chronicle-element: var(--chronicle-frame);
@@ -316,10 +354,14 @@ button.chronicle-card {
   margin: 0;
   border-left: 1px solid color-mix(in srgb, var(--chronicle-frame) 44%, transparent);
   border-right: 1px solid color-mix(in srgb, var(--chronicle-frame) 44%, transparent);
+  /* Tight text-hugging scrim that fades to clear, so a head sitting just below
+     the nameplate shows through instead of being masked by a solid band. Text
+     legibility rides on the stronger shadow below, not an opaque backing. */
   background: linear-gradient(
     180deg,
-    rgba(4, 8, 12, 0.86),
-    rgba(4, 8, 12, 0.52)
+    rgba(4, 8, 12, 0.6),
+    rgba(4, 8, 12, 0.14) 68%,
+    transparent
   );
   padding: 3px 8px 3px;
   color: #e6ecf3;
@@ -327,7 +369,9 @@ button.chronicle-card {
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px #000;
+  text-shadow:
+    0 1px 3px #000,
+    0 0 3px rgba(0, 0, 0, 0.9);
 }
 .chronicle-card__level-marks {
   display: flex;
@@ -383,11 +427,14 @@ button.chronicle-card {
   z-index: 2;
   inset: 0;
   pointer-events: none;
+  /* Raise the top "clear zone" — the header/LEVEL panels already back their own
+     text, so the scrim only needs a short top fade. Clear by ~20% (just under
+     the nameplate) so heads read; keep the bottom band for the stats overlay. */
   background: linear-gradient(
     180deg,
-    rgba(2, 6, 10, 0.66) 0%,
-    rgba(2, 6, 10, 0.16) 15%,
-    transparent 30%,
+    rgba(2, 6, 10, 0.5) 0%,
+    rgba(2, 6, 10, 0.1) 11%,
+    transparent 20%,
     transparent 48%,
     rgba(2, 6, 10, 0.55) 68%,
     rgba(2, 6, 10, 0.9) 100%
@@ -400,7 +447,9 @@ button.chronicle-card {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 50% 26%;
+  /* Full-bleed art fills the card; the overlay panels above are translucent so
+     the illustration (head included) reads through them. */
+  object-position: 50% 50%;
   background: #060b10;
 }
 .chronicle-card__art-frame.emblem-art {
@@ -616,9 +665,6 @@ button.chronicle-card {
   padding: 3px 4px;
   border-bottom-width: 2px;
 }
-.chronicle-card.compact .chronicle-card__class {
-  font-size: 0.3rem;
-}
 .chronicle-card.compact .chronicle-card__name {
   display: block;
   font-size: clamp(0.42rem, 0.7vw, 0.58rem);
@@ -626,16 +672,20 @@ button.chronicle-card {
   text-overflow: ellipsis;
 }
 .chronicle-card.compact .chronicle-card__element {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 25px;
   margin-left: 2px;
 }
-.chronicle-card.compact .chronicle-card__element::before {
-  width: 19px;
-  height: 19px;
+.chronicle-card.compact .chronicle-card__element::before,
+.chronicle-card.compact .chronicle-card__element::after {
+  inset: 2px;
 }
 .chronicle-card.compact .chronicle-card__element b {
   font-size: 0.52rem;
+}
+.chronicle-card.compact .chronicle-card__element b svg {
+  width: 12px;
+  height: 12px;
 }
 .chronicle-card.compact .chronicle-card__element small {
   display: none;
