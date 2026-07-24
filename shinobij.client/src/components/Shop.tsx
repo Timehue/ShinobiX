@@ -466,9 +466,9 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
             {currency === "fateShards" && (
                 <>
                     <button onClick={() => void openPack("epic", 10)} disabled={packBusy || character.fateShards < packCost(10)} style={{ color: "#ce93d8" }}>
-                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
+                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Elite Pack — 1 top-tier card (Rare / Epic) — 10 Fate Shards
                     </button>
-                    {/* Legendary pack — sits right next to the Epic pack, costs
+                    {/* Legendary pack — sits right next to the Elite pack, costs
                         3× as much for the corresponding tier jump. Same draw
                         mechanic, just filtered to legendary rarity. */}
                     <button
