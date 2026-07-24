@@ -1481,7 +1481,10 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         const meleeTell = eAb ? eAb.cls === "melee" : !e.basicRanged;
         const threatRange = meleeTell ? MELEE_RANGE + 0.9 : (eAb ? eAb.range : RANGED_RANGE * 0.85);
         if (d <= threatRange) {
-            const chance = clamp(0.22 + (f.spd - e.spd) * 0.0022 + styleDodgeBias, 0.05, 0.85) * (1 - (_forcedEngage ? 1 : _stallPressure));
+            // Controlled-stance disposition: Guard READS and evades far more, Press
+            // eats the hit to keep trading. Balanced/uncontrolled = ×1 (byte-identical).
+            const stanceDodge = f.controlled ? (f.stance === 2 ? 1.9 : f.stance === 0 ? 0.45 : 1) : 1;
+            const chance = Math.min(0.9, clamp(0.22 + (f.spd - e.spd) * 0.0022 + styleDodgeBias, 0.05, 0.85) * stanceDodge) * (1 - (_forcedEngage ? 1 : _stallPressure));
             if (rng() < chance) {   // rng() always drawn (order preserved); stall just lowers the threshold → no dodge
                 // Sidestep perpendicular to the incoming line (away from arena edge).
                 let px = -dy / d, py = dx / d;
@@ -1577,7 +1580,13 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         return;
     }
     if (sup >= 0 && !holdOpeningPower) {
-        if (!desperate && d < SUPPORT_CAST_CLEARANCE) {
+        // "Make room" is a luxury: a support pet backs off to cast a buff/heal safely.
+        // But a mutual spacing preference can deadlock — B retreats to make room while
+        // A holds to counter B's disengage, so neither closes and the fight freezes at
+        // the clearance boundary (observed: two Wind pets frozen 5.05 apart for 60 s).
+        // Once a stand-off is CONFIRMED (forcedEngage — only after ~10 s of zero damage),
+        // stop making room and just cast where you stand, breaking the limit cycle.
+        if (!desperate && !_forcedEngage && d < SUPPORT_CAST_CLEARANCE) {
             setIntent(f, "retreat", SUPPORT_CAST_CLEARANCE, `make room for ${supportAbility?.name ?? "support"}`, "enemy is inside support cast clearance");
             beginReposition(f, Math.round(DUEL_TPS * 0.9), e);
             const supportShift = readyMobility(f);
@@ -1617,6 +1626,16 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         rStar = clamp(phraseRange + (0.5 - aggr) * 0.35 + f.style.rangeBias, MELEE_RANGE + 0.5, moveRange - 0.4);
     } else {
         rStar = MELEE_RANGE * clamp(1.1 - aggr * 0.3, 0.85, 1.15) + f.style.rangeBias * 0.2;
+    }
+    // STANCE is the player's headline dial, so give it TEETH beyond the small nudge
+    // it makes to aggression inside the clamps above: Press pulls the engagement range
+    // IN so the pet closes and trades; Guard pushes it OUT so the pet holds spacing and
+    // reads. Controlled-only and a no-op for Balance (stance 1), so every uncontrolled
+    // fighter and the whole authoritative path stay byte-identical — only a deliberate
+    // Press/Guard order from the player moves this.
+    if (f.controlled) {
+        if (f.stance === 0) rStar = Math.max(MELEE_RANGE * 0.92, rStar * 0.62);                                    // Press: close the distance
+        else if (f.stance === 2) rStar = Math.min((useRanged ? moveRange - 0.4 : MELEE_RANGE * 2.2), rStar * 1.45); // Guard: hold range
     }
 
     // 4) PUNISH — the enemy just whiffed / is recovering: press the opening HARD
@@ -1743,7 +1762,11 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // attacks above may still catch the runner, but locomotion never follows the
     // same line or destination. This creates a clean distance break before the
     // next side receives initiative.
-    if (!holdRepos && e.reposLeft > 0 && e.routeActive) {
+    // Holding to counter the enemy's disengage is the other half of the deadlock
+    // above: if I plant here while the enemy is "making room", neither of us closes.
+    // A confirmed stand-off (forcedEngage) overrides the counter-wait and makes me
+    // pursue, so a mutual spacing standoff resolves into a brawl.
+    if (!holdRepos && !_forcedEngage && e.reposLeft > 0 && e.routeActive) {
         setIntent(f, "hold position", rStar, "track the disengage and prepare a counter", "opponent owns the exit beat");
         f.vx = 0; f.vy = 0;
         f.faceX = dx / d; f.faceY = dy / d;
@@ -1774,12 +1797,18 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
 }
 
 // ── Per-fighter tick ─────────────────────────────────────────────────────────────
-function tickStatuses(f: Fighter) {
+/** Advances a fighter's status timers and applies any DoT tick. Returns the
+ *  damage dealt by a lingering DoT (burn/wound) THIS tick, so the caller can tell
+ *  passive chip apart from a real exchange: a DoT alone must NOT count as "combat
+ *  happening", or the stall timer never ramps and both pets stand and stare while
+ *  the burn ticks (the mid-fight freeze). */
+function tickStatuses(f: Fighter): number {
     const s = f.statuses;
     if (f.itemsOn && f.cCleanse > 0 && (s.burnLeft > 0 || s.stunLeft > 0 || s.slowLeft > 0 || s.rootLeft > 0)) {
         s.burnLeft = 0; s.burnDmg = 0; s.halfHeal = false; s.stunLeft = 0; s.slowLeft = 0; s.rootLeft = 0; f.cCleanse = 0;
     }
-    if (s.burnLeft > 0) { if (s.burnLeft % Math.round(DUEL_TPS * 0.4) === 0) f.hp -= s.burnDmg; if (--s.burnLeft <= 0) { s.burnDmg = 0; s.halfHeal = false; } }
+    let dot = 0;
+    if (s.burnLeft > 0) { if (s.burnLeft % Math.round(DUEL_TPS * 0.4) === 0) { f.hp -= s.burnDmg; dot = s.burnDmg; } if (--s.burnLeft <= 0) { s.burnDmg = 0; s.halfHeal = false; } }
     if (s.stunLeft > 0) s.stunLeft--;
     if (s.slowLeft > 0) s.slowLeft--;
     if (s.hasteLeft > 0) s.hasteLeft--;
@@ -1790,6 +1819,7 @@ function tickStatuses(f: Fighter) {
     // unreachable or permanently-blocked command can't freeze it out of its own AI.
     // A pending Bond Break is exempt: the meter was already spent on it.
     if (f.controlled && f.cmdLeft > 0 && --f.cmdLeft <= 0) f.cmdIdx = -2;
+    return dot;
 }
 function stepManeuver(f: Fighter, fighters: Fighter[]) {
     const e = pickTarget(f, fighters);
@@ -2003,7 +2033,11 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             f.exchangesSinceRoute++;
             const justUsed = f.pendingIdx >= 0 ? f.abilities[f.pendingIdx] : null;
             const wounded = f.hp / f.maxHp < f.style.retreatHp;
-            const cadence = _partyMode ? PARTY_ROUTE_CADENCE : DUEL_ROUTE_CADENCE;
+            let cadence = _partyMode ? PARTY_ROUTE_CADENCE : DUEL_ROUTE_CADENCE;
+            // Controlled-stance: Press trades several more exchanges before breaking
+            // off (stays in your face); Guard resets sooner (patient spacing). No-op
+            // for Balance / any uncontrolled fighter, so the authoritative path holds.
+            if (f.controlled) cadence = f.stance === 0 ? cadence + 3 : f.stance === 2 ? Math.max(1, cadence - 1) : cadence;
             // The wall itself creates the route change for the opponent; sending
             // its caster across the floor too only doubles the dead air.
             const supportSetup = justUsed?.cls === "support"
@@ -2019,7 +2053,10 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             } else if (fullReset) {
                 if (justUsed?.cls === "support") f.supportResetDone = true;
                 f.exchangesSinceRoute = 0;
-                beginReposition(f, Math.round(DUEL_TPS * f.style.reposDur), target);
+                // Press cuts the exit beat short to re-commit fast; Guard draws it out
+                // to reset spacing. Controlled-only, ×1 for Balance/uncontrolled.
+                const stanceRepos = f.controlled ? (f.stance === 0 ? 0.35 : f.stance === 2 ? 1.5 : 1) : 1;
+                beginReposition(f, Math.round(DUEL_TPS * f.style.reposDur * stanceRepos), target);
             } else {
                 f.routeActive = false; f.reposLeft = 0;
                 f.spacingOffset = 0;
@@ -2193,7 +2230,8 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     if ((t & 1) === 1) { for (let i = fighters.length - 1; i >= 0; i--) stepFighter(fighters[i], fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
     else { for (const f of fighters) stepFighter(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
     stepProjectiles(fighters, projectiles, rng, t, events);
-    for (const f of fighters) tickStatuses(f);
+    let dotDmg = 0;
+    for (const f of fighters) dotDmg += tickStatuses(f);
     separateAll(fighters);
     const newlyDefeated = new Set<string>();
     for (const f of fighters) {
@@ -2220,9 +2258,14 @@ function stepDuelState(sim: CinematicDuelState): boolean {
         }
         SIM_WALLS = SIM_WALLS.filter((wall) => !newlyDefeated.has(wall.ownerId));
     }
-    // Any damage this tick (a landed hit OR a DoT) resets the stall timer → pressure only
-    // builds in a genuine no-damage stand-off.
-    { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (totalHp < sim.prevTotalHp - 0.5) sim.lastDmgTick = t; sim.prevTotalHp = totalHp; }
+    // A landed EXCHANGE resets the stall timer → pressure only builds in a genuine
+    // no-damage stand-off. Passive DoT chip (dotDmg) is deliberately excluded: a
+    // lingering burn kept resetting the timer every 0.4 s, which pinned stallPressure
+    // at 0 and left both pets planted (holdNeutral on, forcedEngage never latching) —
+    // the mid-fight "just standing there" freeze. Subtracting dotDmg means real damage
+    // still resets it (byte-identical to the old rule in any DoT-free tick) while a
+    // DoT-only tick no longer counts as combat.
+    { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (sim.prevTotalHp - totalHp > dotDmg + 0.5) sim.lastDmgTick = t; sim.prevTotalHp = totalHp; }
     snapshots.push(snap(t, fighters, projectiles, sim.debugTrace));
 
     // Store the scratch state back before anything else can run a duel. The
