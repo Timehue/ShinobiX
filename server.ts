@@ -80,6 +80,7 @@ import bloodlinesListHandler from './api/bloodlines/list.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import migrateToBaseHandler from './api/admin/migrate-to-base.js';
+import migrateImagesToR2Handler from './api/admin/migrate-images-to-r2.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import towersFloorsHandler from './api/towers/floors.js';
 import towersStartHandler  from './api/towers/start.js';
@@ -1028,6 +1029,7 @@ route('/admin/migrate-kv', migrateKvHandler);
 // Admin: REVERSE copy disk overlay → Supabase base, to retire the overlay/cPanel
 // (Option B, docs/RETIRE_CPANEL_RUNBOOK.md). Copy-only — never deletes the overlay.
 route('/admin/migrate-to-base', migrateToBaseHandler);
+route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
 
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).
