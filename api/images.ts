@@ -4,6 +4,7 @@ import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
+import { r2WriteEnabled, putImage } from './_r2.js';
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
 // rejected — keeps disk usage bounded and stops one player from filling the
@@ -98,6 +99,21 @@ export function base64DecodedByteLength(dataUrl: string): number {
     if (len === 0) return 0;
     const pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
     return Math.floor((len * 3) / 4) - pad;
+}
+
+// Decode a `data:image/<type>;base64,<payload>` URL into its mime + raw bytes.
+// Returns null for anything that isn't a base64 image data URL (e.g. an external
+// http(s) URL, which has no bytes to store). Used by the R2 dual-write + backfill
+// so image bytes can be served from object storage instead of Postgres.
+export function decodeBase64Image(s: string): { mime: string; buf: Buffer } | null {
+    const m = /^data:(image\/[a-z0-9+.-]+);base64,(.*)$/is.exec(s);
+    if (!m) return null;
+    try {
+        const buf = Buffer.from(m[2], 'base64');
+        return buf.length > 0 ? { mime: m[1].toLowerCase(), buf } : null;
+    } catch {
+        return null;
+    }
 }
 
 // Returns an error string if the avatar image is unacceptable, else null.
@@ -482,6 +498,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // failure here must not fail the upload (the hash write above is
             // authoritative; /api/img falls back to it and self-heals on read).
             await kv.set(`shared:img:${id}`, image).catch(() => undefined);
+
+            // Stage 3 (R2): also dual-write the decoded bytes to R2 so GET /api/img
+            // can redirect there instead of reading Postgres (see api/_r2.ts +
+            // docs/R2_IMAGE_MIGRATION_PLAN.md). Best-effort + gated: no-op unless
+            // the R2 write creds are set, and a failure NEVER fails the upload
+            // (Postgres above stays authoritative; the read path falls back to it).
+            // Only inline data-URL images have bytes to store — external http(s)
+            // URLs are left to the Postgres redirect path.
+            if (r2WriteEnabled()) {
+                const decoded = decodeBase64Image(image);
+                if (decoded) void putImage(id, decoded).catch(() => undefined);
+            }
 
             // Asset registry (Priority 6) + content audit (Priority 8). Both are
             // best-effort and feature-gated (DISABLE_ASSET_META) — they wrap
