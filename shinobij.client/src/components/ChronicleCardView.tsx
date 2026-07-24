@@ -1,5 +1,51 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
+
+// Crisp per-element glyphs for the corner badge — reads far more premium than a
+// bare letter. White fills/strokes ride on top of the element-tinted gem.
+const ELEMENT_ICONS: Record<string, ReactElement> = {
+  Fire: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12.7 2c.5 2.4-.3 4.2-1.7 5.7C9.3 9.6 7.5 11.2 7.5 14a4.5 4.5 0 0 0 9 .3c.1-1.2-.2-2.3-.8-3.3 1.1.5 1.9 1.5 2.3 2.7.8-2.6-.2-5.2-2-7.1C14.4 5.1 13.3 3.7 12.7 2Zm-.9 11.3c.7.5 1.1 1.3 1.1 2.2a2 2 0 0 1-4 .1c0-1 .5-1.7 1.2-2.4.2.9.8 1.4 1.7 1.5-.4-.4-.4-.9 0-1.4Z"
+      />
+    </svg>
+  ),
+  Water: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 2.5C9 6.4 5.5 9.8 5.5 14a6.5 6.5 0 0 0 13 0C18.5 9.8 15 6.4 12 2.5Zm-2.6 9.1c.4 0 .7.3.7.7 0 1.6 1.1 2.9 2.6 3.2.4.1.6.4.5.8-.1.4-.4.6-.8.5a4.9 4.9 0 0 1-3.7-4.5c0-.4.3-.7.7-.7Z"
+      />
+    </svg>
+  ),
+  Earth: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 2 4 8.6 12 22l8-13.4L12 2Zm0 2.7 4.8 4L12 18l-4.8-9.3L12 4.7Z"
+      />
+      <path fill="currentColor" opacity=".55" d="M12 4.7 16.8 8.7 12 18Z" />
+    </svg>
+  ),
+  Wind: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+      strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8h9.5A2.75 2.75 0 1 0 9.8 5" />
+      <path d="M3 12h13a2.75 2.75 0 1 1-2.7 3.2" />
+      <path d="M3 16h6.5" />
+    </svg>
+  ),
+  Lightning: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M13.6 2 5 13.4h5.2L9 22l9.4-12.3h-5.6L15 2h-1.4Z"
+      />
+    </svg>
+  ),
+};
 
 const FRAME: Record<string, string> = {
   monster: "#b85f35",
@@ -132,7 +178,6 @@ export function ChronicleCardView({
     >
       <span className="chronicle-card__foil" aria-hidden="true" />
       <header className="chronicle-card__header">
-        <span className="chronicle-card__class">{subtypeLabel}</span>
         <strong className="chronicle-card__name">{card.name}</strong>
         {card.cardClass === "monster" ? (
           <span
@@ -140,7 +185,9 @@ export function ChronicleCardView({
             title={`${card.element} element`}
             aria-label={`${card.element} element`}
           >
-            <b aria-hidden="true">{element.mark}</b>
+            <b aria-hidden="true">
+              {ELEMENT_ICONS[card.element] ?? element.mark}
+            </b>
             <small>{card.element}</small>
           </span>
         ) : (
