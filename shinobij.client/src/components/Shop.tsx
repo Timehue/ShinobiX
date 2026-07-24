@@ -18,6 +18,7 @@ import type { Character } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { openCardPack, type CardPackType } from "../lib/card-pack";
+import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
@@ -451,6 +452,18 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
             packBusyRef.current = false;
             setPackBusy(false);
         }
+    }
+
+    // Sealed until the Chronicle Scribe event hands over the traveler's codex
+    // (the server enforces the same lock on both pack-purchase endpoints).
+    const packLock = cardGameLockStatus(character);
+    if (packLock.locked) {
+        return (
+            <div className="card" style={{ marginTop: "1rem" }}>
+                <h2>🃏 Card Packs</h2>
+                <p style={{ color: "#aaa", marginBottom: 0 }}>{packLock.body}</p>
+            </div>
+        );
     }
 
     return (

@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { randomUUID } from 'node:crypto';
+import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from './_starter-cards.js';
 
 /*
  * /api/card-clash/queue — open matchmaking for free-play Chronicle Showdown PvP.
@@ -71,6 +72,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                     const char = (save?.character ?? null) as Record<string, unknown> | null;
                     if (char && typeof char.level === 'number') serverLevel = char.level;
+                    // The Chronicle stays sealed until the scribe event. Gating the
+                    // queue JOIN is what keeps free-play matches locked end-to-end:
+                    // match.ts sessions can only form from a queue pairing, so the
+                    // hot per-move match endpoint needs no extra save read.
+                    if (char && !chronicleUnlocked(char)) {
+                        return res.status(409).json({ error: CHRONICLE_LOCKED_ERROR });
+                    }
                 } catch { /* best-effort; default applies */ }
             }
 

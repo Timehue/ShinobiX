@@ -45,11 +45,11 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         tellTint: "#60a5fa",
         greeting: "The clouds told me you were coming. They rarely bother.",
         lore: [
-            "Ninjutsu is not shouting at the sky. It is asking, in the sky's own grammar.",
+            "I spent ten years learning to call lightning down. The trick I use most is knowing when it's coming anyway.",
             "I have stood inside four storms that had names. Two of them learned mine.",
             "The Sage and I walked together once. He watches paths. I watch weather. Same work.",
         ],
-        trialLine: "Your trial sits in the wind ahead of you. I can read you its shape — walking it is yours.",
+        trialLine: "Your trial's waiting up the road, and the weather over it is ugly. I'd tell you more, but you'd only pack wrong.",
         quests: [
             { id: "eq-storm-conduits", label: "Strike down 8 foes while the storm watches", metric: "totalAiKills", target: 8 },
             { id: "eq-storm-skyward", label: "Scout 15 tiles beneath open sky", metric: "totalTilesExplored", target: 15 },
@@ -58,13 +58,13 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "veil-mother-suzu", name: "Veil-Mother Suzu", categories: ["genjutsu"],
         tellTint: "#c084fc",
-        greeting: "Do not mind the moths. They mind you, and that is different.",
+        greeting: "Don't mind the moths. They're mine. Mostly.",
         lore: [
-            "A genjutsu is a small mercy: the enemy's last moments, spent somewhere kinder.",
+            "People call genjutsu cruel. I think it's a mercy — the enemy's last moments, spent somewhere kinder than here.",
             "Half my face is porcelain. Guess which half the world believes.",
-            "The moths carry what people almost said. It is heavier than what they say.",
+            "I heard your name twice before we met. Once from a drunk, once from a dying man. The stories didn't match. I liked that.",
         ],
-        trialLine: "Your trial is already happening in the space between what you do and what they see. Continue.",
+        trialLine: "Your trial has already started. You walked past part of it this morning without noticing — and no, I won't say which part.",
         quests: [
             { id: "eq-veil-unseen", label: "Win 5 battles under the lantern-moths' sight", metric: "totalAiKills", target: 5 },
             { id: "eq-veil-moths", label: "Trace 12 tiles by lantern-moth light", metric: "totalTilesExplored", target: 12 },
@@ -73,11 +73,11 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "iron-pilgrim-daigo", name: "Iron Pilgrim Daigo", categories: ["taijutsu"],
         tellTint: "#f59e0b",
-        greeting: "Every bead on this string is a fight I did not need a weapon for.",
+        greeting: "Every bead on this string is a fight I didn't need a weapon for.",
         lore: [
-            "The body forgets nothing. Train it in patience and it will spend that too.",
+            "I broke my hands twice learning this. The third time, the stone broke first. Nobody sings about the first two times.",
             "Stone beads, stone knuckles, stone road. Everything else wore out.",
-            "I do not bless fists. I bless what they choose not to break.",
+            "A young man once asked me to bless his fists. I blessed his neighbors instead. He understood, eventually.",
         ],
         trialLine: "Your trial is counted in bruises the record keeper never sees. I see them. Go on.",
         quests: [
@@ -90,8 +90,8 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         tellTint: "#e2e8f0",
         greeting: "Thirty-one swords on my back. Every one of them is listening.",
         lore: [
-            "A sealed sword is not a retired sword. It is a sword that has said enough.",
-            "People ask which blade is strongest. The strongest one is still sheathed. It always is.",
+            "People ask why thirty-one. Because the thirty-second went to someone who earned it, and I'm still deciding about the rest.",
+            "Everyone asks which of my blades is strongest. It's the one I've never had to draw. That's the whole point of it.",
             "The shrine burned twice. The swords carried themselves out. I merely followed.",
         ],
         trialLine: "The swords have opinions about your trial. Most are favorable. Finish it before they change.",
@@ -103,11 +103,11 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "duel-broker-kesshi", name: "Duel-Broker Kesshi", categories: ["pvp", "cards", "war"],
         tellTint: "#f87171",
-        greeting: "Everything is a wager. You have simply not read the terms yet.",
+        greeting: "Everything's a wager, friend. Most people just haven't read the terms yet.",
         lore: [
             "This ledger is chained to me. Or I am chained to it. The interest compounds either way.",
             "I brokered a duel between two Kage once. The village that watched still owes me.",
-            "Wars are just duels that forgot their manners. I keep the accounts regardless.",
+            "The scribes press legends into Chronicle cards. I write the odds beside them. Between the two of us, that's history covered.",
         ],
         trialLine: "Your trial is on my books, shinobi. The odds I wrote beside your name are — flattering.",
         quests: [
@@ -121,8 +121,8 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         greeting: "You stand where the deep things listen. Speak softly, or interestingly.",
         lore: [
             "This mask was bone before the Gate. It remembers being something's face.",
-            "The keystone sigils are not locks. They are apologies, written very firmly.",
-            "What sleeps below does not hate you. It simply has not decided you matter. Change that carefully.",
+            "I was there the first time a Kage came back wrong. We had no word for it then. Now the whole world knows the word Hollow.",
+            "The thing down there doesn't hate you. It just hasn't decided you matter yet. If I were you, I'd change that carefully.",
         ],
         trialLine: "Your trial reaches into old places. The Warden walks the boundary with you — from the boundary's side.",
         quests: [
@@ -137,7 +137,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         lore: [
             "Walls keep villages standing. People keep villages worth it. I carry equipment for both.",
             "The lantern has gone out exactly once. I do not talk about that night, and neither does the village that is still here.",
-            "Healers and sentries do the same job at different distances.",
+            "I trained as a medic first. Turns out most wounds are easier to prevent from the front row.",
         ],
         trialLine: "Your trial is the quiet kind — the kind villages never thank properly. The lantern sees it. Proceed.",
         quests: [
@@ -152,7 +152,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         lore: [
             "I drew the finest maps of my generation. Then I noticed the land kept editing them. Now we collaborate.",
             "Every beast I ever followed knew a road no cartographer did. So I stopped following cartographers.",
-            "The blank map has one mark on it. When you find where, you will not need the map either.",
+            "I watched a beast take three straight at the coliseum, then walk its tamer home like the tamer was the pet. The scribes gave it a card. It had earned one.",
         ],
         trialLine: "Your trial is off the edge of every chart I ever sold. Good. That is where the real ones are.",
         quests: [

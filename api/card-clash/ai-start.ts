@@ -14,6 +14,7 @@ import {
 } from "./_ai-reward.js";
 import { createAiMatch, projectAiMatch } from "./_ai-engine.js";
 import { resolveChronicleDeckWithSave } from "./_deck.js";
+import { chronicleUnlockedFor, CHRONICLE_LOCKED_ERROR } from "./_starter-cards.js";
 
 function submittedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -59,6 +60,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ))
     )
       return;
+
+    // The Chronicle stays sealed until the scribe event: no codex, no HALL
+    // duels. World-embedded encounters (dungeon card tiles and other
+    // externalStakes duels) stay open — a locked player must never hit a
+    // dead-end room. Spoofing the flag buys nothing: the lock is onboarding
+    // pacing, and encounter duels already carry no hall reward token.
+    if (
+      !identity.admin &&
+      body.externalStakes !== true &&
+      !(await chronicleUnlockedFor(playerName))
+    ) {
+      return res.status(409).json({ error: CHRONICLE_LOCKED_ERROR });
+    }
 
     const requested = submittedIds(body.deck);
     // AI and PvP share one locked server resolver: starter grants, ownership,

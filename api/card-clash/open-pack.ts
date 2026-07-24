@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyCardPackOpen } from './_pack.js';
+import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from './_starter-cards.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -21,6 +22,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'card-pack', 20, 60_000, identity.name))) return;
 
         const result = await mutatePlayerSave(playerName, ({ character }) => {
+            // No codex, no packs — the scribe event unlocks the Chronicle.
+            if (!identity.admin && !chronicleUnlocked(character)) {
+                return { ok: false as const, status: 409, error: CHRONICLE_LOCKED_ERROR };
+            }
             const opened = applyCardPackOpen(character, body.packType, randomInt);
             if (!opened.ok) return opened;
             return {
