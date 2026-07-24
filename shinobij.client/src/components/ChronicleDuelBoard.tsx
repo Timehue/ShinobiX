@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import {
-  CHRONICLE_DECEMBER_2003_FORMAT,
+  CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ROOM_TITLE,
   getChronicleCard,
   STARTING_LIFE_POINTS,
@@ -106,10 +106,10 @@ export function ChronicleDuelBoard({
     !state.responseWindow &&
     state.status === "active";
   const main = state.phase === "main1" || state.phase === "main2";
-  const phaseIndex = CHRONICLE_DECEMBER_2003_FORMAT.phases.findIndex(
+  const phaseIndex = CHRONICLE_FOUNDING_FORMAT.phases.findIndex(
     (phase) => phase.id === state.phase,
   );
-  const phaseMeta = CHRONICLE_DECEMBER_2003_FORMAT.phases[phaseIndex];
+  const phaseMeta = CHRONICLE_FOUNDING_FORMAT.phases[phaseIndex];
 
   const requiredTributes =
     selected?.cardClass === "monster"
@@ -308,7 +308,7 @@ export function ChronicleDuelBoard({
         ) : null}
       </div>
       <ol className="chronicle-phase-rail" aria-label="Turn phases">
-        {CHRONICLE_DECEMBER_2003_FORMAT.phases.map((phase, index) => (
+        {CHRONICLE_FOUNDING_FORMAT.phases.map((phase, index) => (
           <li
             key={phase.id}
             className={

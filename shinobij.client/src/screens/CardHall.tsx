@@ -3,7 +3,7 @@ import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
 import {
-  CHRONICLE_DECEMBER_2003_FORMAT,
+  CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ELEMENTS,
   CHRONICLE_ROOM_TITLE,
   CHRONICLE_RULES_VERSION,
@@ -280,9 +280,9 @@ export function CardHall({
           <div className="chronicle-panel" style={{ textAlign: "center" }}>
             <h2>{CHRONICLE_ROOM_TITLE}</h2>
             <p>
-              A frozen classic Shinobi format built on the founding card pool
-              and its sealed Limited Scroll, with six declared turn phases and
-              the traditional first-turn draw rule.
+              The founding Shinobi card format — the original card pool and its
+              Limited Scroll, six declared turn phases and the opening-turn draw
+              rule.
             </p>
             {!savedValid ? (
               <p>
@@ -621,9 +621,9 @@ function Rules() {
     <section className="chronicle-panel chronicle-rules">
       <h2>{CHRONICLE_ROOM_TITLE}</h2>
       <p>
-        The {CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet}, a frozen classic
-        ruleset translated into Shinobi cards. Start with 8,000 Health Points, a
-        40-card Deck and five cards.
+        The founding ruleset of the {CHRONICLE_FOUNDING_FORMAT.latestLegalSet}:
+        a lean, mastery-first duel built on the original Shinobi card pool. Start
+        with 8,000 Health, a 40-card Deck and a five-card opening hand.
       </p>
       <p>
         <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. The first player draws on
