@@ -15,7 +15,11 @@ concurrency:
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # ~22 min typical, but the full suite + two builds + Playwright browser
+    # install + cross-browser smoke + audit can spike past 30 on a slow runner
+    # (observed 30m17s → cancelled). 45 gives headroom so timing variance can't
+    # cancel an otherwise-green run.
+    timeout-minutes: 45
     env:
       # Exercise the same Sentry-enabled bundle path Railway builds. The dummy
       # DSN is public-format test data and sends nothing during build or smoke.
