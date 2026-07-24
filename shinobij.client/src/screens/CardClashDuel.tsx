@@ -9,10 +9,16 @@ import {
     displayCardsById,
     startChronicleAi,
     type ChronicleAiDifficulty,
+    type ChronicleAiResult,
     type ChronicleProjection,
 } from "../lib/chronicle-duel";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import "../styles/chronicle-duel.css";
+
+// Same replay pacing the Card Hall uses: a full beat per logged Keeper move,
+// a quiet beat for silent phase bookkeeping.
+const AI_STEP_BEAT_MS = 950;
+const AI_STEP_QUIET_MS = 400;
 
 type TileDifficulty = "easy" | "normal" | "hard";
 const ENCOUNTER_AI_DIFFICULTY: Record<TileDifficulty, ChronicleAiDifficulty> = {
@@ -43,25 +49,52 @@ export function CardClashDuel({
     const [duel, setDuel] = useState<ChronicleProjection | null>(null);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(true);
+    const [aiActing, setAiActing] = useState(false);
     const started = useRef(false);
+    const replayToken = useRef(0);
+    useEffect(() => () => { replayToken.current += 1; }, []);
+
+    /** Replay the Keeper's captured moves one beat at a time, then settle. */
+    async function presentSession(result: ChronicleAiResult) {
+        const final = result.session;
+        if (!final) return;
+        const steps = result.aiSteps ?? [];
+        const token = ++replayToken.current;
+        if (steps.length > 0) {
+            setAiActing(true);
+            let previousLast = duel?.log.at(-1);
+            for (const step of steps) {
+                setDuel(step);
+                const beat = step.log.at(-1) !== previousLast ? AI_STEP_BEAT_MS : AI_STEP_QUIET_MS;
+                await new Promise<void>((resolve) => window.setTimeout(resolve, beat));
+                if (replayToken.current !== token) return;
+                previousLast = step.log.at(-1);
+            }
+            setAiActing(false);
+        }
+        setDuel(final);
+    }
 
     useEffect(() => {
         if (started.current) return;
         started.current = true;
-        void startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true).then((result) => {
+        void startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true).then(async (result) => {
+            if (!result.ok || !result.matchId || !result.session) { setBusy(false); setError(result.error ?? "Could not prepare the sealed showdown."); return; }
+            setMatchId(result.matchId);
+            await presentSession(result);
             setBusy(false);
-            if (!result.ok || !result.matchId || !result.session) setError(result.error ?? "Could not prepare the sealed showdown.");
-            else { setMatchId(result.matchId); setDuel(result.session); }
         });
+        // presentSession is stable for the one-shot start effect
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.name, deck, tileDifficulty]);
 
     async function act(intent: Parameters<typeof chronicleAiAction>[1]) {
         if (!matchId || busy) return;
         setBusy(true); setError("");
         const result = await chronicleAiAction(matchId, intent);
+        if (!result.ok || !result.session) { setBusy(false); setError(result.error ?? "That action was not legal."); return; }
+        await presentSession(result);
         setBusy(false);
-        if (!result.ok || !result.session) setError(result.error ?? "That action was not legal.");
-        else setDuel(result.session);
     }
 
     function resolve() {
@@ -83,6 +116,6 @@ export function CardClashDuel({
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
         {error && !duel ? <section className="chronicle-panel"><div className="chronicle-error" role="alert">{error}</div><button onClick={onDungeonLeave}>Leave encounter</button></section> : null}
         {done ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section> : null}
-        {duel ? <ChronicleDuelBoard state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar} busy={busy} error={error} onAction={(intent) => void act(intent)} /> : null}
+        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar} busy={busy} aiActing={aiActing} error={error} onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }

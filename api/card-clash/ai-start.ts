@@ -7,12 +7,13 @@ import { cors, safeName } from "../_utils.js";
 import {
   CHRONICLE_AI_DIFFICULTIES,
   type ChronicleAiDifficulty,
+  type ChronicleProjection,
 } from "../../shared/chronicle-duel.js";
 import {
   CARD_CLASH_AI_TOKEN_TTL_SECONDS,
   cardClashAiTokenKey,
 } from "./_ai-reward.js";
-import { createAiMatch, projectAiMatch } from "./_ai-engine.js";
+import { captureAiStep, createAiMatch, projectAiMatch } from "./_ai-engine.js";
 import { resolveChronicleDeckWithSave } from "./_deck.js";
 import { chronicleUnlockedFor, CHRONICLE_LOCKED_ERROR } from "./_starter-cards.js";
 
@@ -99,6 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // opt out of Card Hall rewards cannot grant value or alter duel rules.
     const settlementMode =
       body.externalStakes === true ? "external" : "standard";
+    const aiSteps: ChronicleProjection[] = [];
     const session = createAiMatch(
       matchId,
       playerName,
@@ -107,6 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       Date.now(),
       Math.random,
       settlementMode,
+      (state) => captureAiStep(aiSteps, state),
     );
     await kv.set(cardClashAiTokenKey(matchId), session, {
       ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS,
@@ -117,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ok: true,
         matchId,
         session: projectAiMatch(session),
+        ...(aiSteps.length ? { aiSteps } : {}),
         migratedDeck: resolved.usedRequested ? undefined : resolvedDeck,
         ...(resolved.saveVersion === undefined
           ? {}
