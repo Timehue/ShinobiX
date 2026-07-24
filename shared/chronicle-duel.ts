@@ -650,6 +650,22 @@ const STORY_KAGE_ART: Readonly<Record<string, string>> = {
     "/portraits/kage-sable-nocturne-hollow.webp",
 };
 
+/** In-fiction flavor for story-boss cards, banded like the stat profile. Kept
+ * diegetic on purpose (no level/chapter meta — the scribes don't know what a
+ * "chapter" is): the Chronicle records the world, so the lore talks about the
+ * village and the Hollow, never about the game. */
+function storyLoreFor(source: ChronicleStorySource): string {
+  if (source.levelReq >= 100)
+    return `What became of ${source.village}'s own Kage when the Hollow finished with them. The survivors tell it quietly, and never twice the same.`;
+  if (source.levelReq >= 65)
+    return `A name from ${source.village}'s darkest season. The shinobi who finally faced them rarely talk about it sober.`;
+  if (source.levelReq >= 25)
+    return `Pressed from field reports out of ${source.village}. No two witnesses agreed, so the scribes printed the worst version.`;
+  if (source.levelReq <= 4)
+    return `Every legend starts as somebody's first real fight. ${source.village} remembers this one.`;
+  return `One of ${source.village}'s harder lessons, taken down by a scribe who watched from a prudent rooftop.`;
+}
+
 function monsterFromStory(source: ChronicleStorySource): ChronicleMonsterCard {
   const profile =
     source.levelReq >= 100
@@ -697,7 +713,7 @@ function monsterFromStory(source: ChronicleStorySource): ChronicleMonsterCard {
     ...(STORY_KAGE_ART[source.bossName]
       ? { image: STORY_KAGE_ART[source.bossName] }
       : {}),
-    lore: `${source.bossName} stands at the Level ${source.levelReq} chapter of ${source.village}.`,
+    lore: storyLoreFor(source),
     element: STORY_ELEMENT_BY_VILLAGE[source.village] ?? "Earth",
     rarity: profile.rarity as ChronicleRarity,
     cardClass: "monster",

@@ -100,11 +100,28 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // finale to show — they close back to the sector instead (see
     // advanceAfterChoice).
     const isRiftEvent = event.id.startsWith("rift-giver-") || event.id.startsWith("rift-descend-");
+    // Story reckonings ("story-reckoning-*", lib/story-reckonings): roadside
+    // character scenes. They start with "story-" so they used to fall into the
+    // CHAPTER branch and promise "Continue to Story Hall" / a chapter reward —
+    // copy that lies for a road conversation. They belong to the pure-VN family.
+    const isStoryReckoningEvent = event.id.startsWith("story-reckoning-");
+    // The Chronicle Scribe's traveler's-codex event (lib/chronicle-scribe).
+    const isScribeEvent = event.id === "chronicle-scribe";
+    // Catch-all for pure conversation scenes: a zero-reward visualNovel event
+    // has nothing to claim, and its "free battle" would pay that same nothing —
+    // on such events both footer buttons are traps, not affordances. Story
+    // chapters are excluded: their reward rides the chapter boss, so they keep
+    // their own labels.
+    const isZeroRewardVn = !isStoryChapterEvent
+        && event.eventKind === "visualNovel"
+        && !event.xpReward && !event.ryoReward && !event.staminaReward && !event.currencyRewards;
     // Story interludes ("story-interlude-*") and road events ("story-road-*"):
     // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
     // only from choices). The choice itself is the payoff, recorded server-side,
     // so the free-battle affordances are hidden and the finale copy changes.
-    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || isRiftEvent;
+    // 2026-07 pass widens the family to reckonings, the scribe, and any other
+    // zero-reward VN so no pure conversation ever grows the generic footer.
+    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || isRiftEvent || isStoryReckoningEvent || isScribeEvent || isZeroRewardVn;
     // Post-finale ending epilogues ("story-epilogue-*", lib/story-epilogue.ts):
     // pure goodbye scenes — no battle, no reward, never re-offered.
     const isStoryEpilogue = event.id.startsWith("story-epilogue-");
@@ -135,7 +152,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             // standing. The finale would promise a fight the rift never offers
             // and claim a choice was recorded when saying no records nothing.
             // The caller already holds the action lock, so complete directly.
-            if (isRiftEvent) { onComplete(); return; }
+            // The scribe ends the same way: Ihara speaks her own goodbye in the
+            // choice conclusion, so a SCENE COMPLETE panel after it is filler.
+            if (isRiftEvent || isScribeEvent) { onComplete(); return; }
             setShowFinale(true);
             return;
         }
