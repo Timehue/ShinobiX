@@ -131,6 +131,7 @@ export function PetDuelCommandDeck({
             <style>{`
                 @keyframes petDeckArm { 0%,100% { transform: scale(1); } 45% { transform: scale(1.07); } }
                 @keyframes petDeckOrdered { 0%,100% { opacity: 1; } 50% { opacity: 0.62; } }
+                @keyframes petDeckHeld { 0%,100% { opacity: 0.9; } 50% { opacity: 0.66; } }
                 @keyframes petDeckSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(240%); } }
                 .pet-deck { pointer-events: auto; }
                 .pet-deck button { transition: transform 110ms ease, border-color 140ms ease, background 140ms ease, box-shadow 160ms ease; }
@@ -223,21 +224,33 @@ export function PetDuelCommandDeck({
                         ordered={!auto && control.orderedIdx === -1}
                         onClick={() => onAbility(-1)}
                     />
-                    {orderable.map(({ a, i }, slot) => (
-                        <MoveButton
-                            key={`${a.name}-${i}`}
-                            label={a.name}
-                            sub={a.isMove ? "reposition" : a.support ? "support" : `${a.cost} stam`}
-                            hint={keyboard ? MOVE_KEYS[slot + 1] : undefined}
-                            color={kindColor(a.kind, a.support, a.isMove)}
-                            compact={compact}
-                            disabled={auto}
-                            dim={a.cdLeft > 0 || control.stamina < a.cost}
-                            cooldown={a.cdTicks > 0 ? a.cdLeft / a.cdTicks : 0}
-                            ordered={!auto && control.orderedIdx === i}
-                            onClick={() => onAbility(i)}
-                        />
-                    ))}
+                    {orderable.map(({ a, i }, slot) => {
+                        const onCd = a.cdLeft > 0;
+                        const lowStam = control.stamina < a.cost;
+                        // A standing order that cannot fire yet is HELD, not dropped —
+                        // the engine keeps poking with basics and unleashes it the moment
+                        // it comes up (pet-duel-cinematic commandedOffensive). Say so, so a
+                        // tap on a charging move reads as "locked in, waiting" instead of
+                        // "ignored — nothing happened".
+                        const isOrdered = !auto && control.orderedIdx === i;
+                        const waiting = isOrdered ? (onCd ? "queued" : lowStam ? "low stam" : null) : null;
+                        return (
+                            <MoveButton
+                                key={`${a.name}-${i}`}
+                                label={a.name}
+                                sub={a.isMove ? "reposition" : a.support ? "support" : `${a.cost} stam`}
+                                hint={keyboard ? MOVE_KEYS[slot + 1] : undefined}
+                                color={kindColor(a.kind, a.support, a.isMove)}
+                                compact={compact}
+                                disabled={auto}
+                                dim={onCd || lowStam}
+                                cooldown={a.cdTicks > 0 ? a.cdLeft / a.cdTicks : 0}
+                                ordered={isOrdered}
+                                waiting={waiting}
+                                onClick={() => onAbility(i)}
+                            />
+                        );
+                    })}
                 </div>
 
                 {/* ── Zone 3: Bond Break (the gauge IS the button) + Auto ────── */}
@@ -352,15 +365,19 @@ function Gauge({ label, pct, color, height }: { label: string; pct: number; colo
     );
 }
 
-function MoveButton({ label, sub, hint, color, compact, disabled, dim = false, cooldown = 0, ordered, onClick }: {
+function MoveButton({ label, sub, hint, color, compact, disabled, dim = false, cooldown = 0, ordered, waiting = null, onClick }: {
     label: string; sub: string; hint?: string; color: string; compact: boolean;
-    disabled: boolean; dim?: boolean; cooldown?: number; ordered: boolean; onClick: () => void;
+    disabled: boolean; dim?: boolean; cooldown?: number; ordered: boolean; waiting?: string | null; onClick: () => void;
 }) {
+    // An ordered move that is still charging keeps the "you locked this in" identity
+    // (border + glow) but swaps the pulse for a slower breathe and says WHY it hasn't
+    // fired, so the deck never looks unresponsive while the pet poks with basics.
+    const held = ordered && !!waiting;
     return (
         <button
             type="button"
             aria-pressed={ordered}
-            aria-label={`${label} — ${sub}${ordered ? ", ordered" : ""}`}
+            aria-label={`${label} — ${sub}${ordered ? (waiting ? `, ordered, ${waiting}` : ", ordered") : ""}`}
             disabled={disabled}
             onClick={onClick}
             title={`${label} · ${sub}${hint ? ` (${hint})` : ""}`}
@@ -372,12 +389,12 @@ function MoveButton({ label, sub, hint, color, compact, disabled, dim = false, c
                 padding: compact ? "7px 5px" : "7px 9px", borderRadius: 12,
                 border: `1px solid ${ordered ? color : "rgba(148,163,184,0.36)"}`,
                 background: ordered ? `${color}2e` : "rgba(4,8,18,0.86)",
-                color: dim ? "#64748b" : "#e8eef7",
+                color: dim && !ordered ? "#64748b" : "#e8eef7",
                 font: "800 11px/1.2 Inter, system-ui, sans-serif",
                 textAlign: "center", cursor: disabled ? "default" : "pointer",
                 opacity: disabled ? 0.45 : 1,
                 boxShadow: ordered ? `0 0 16px ${color}59, inset 0 -2px 0 ${color}` : undefined,
-                animation: ordered ? "petDeckOrdered 950ms ease-in-out infinite" : undefined,
+                animation: ordered ? (held ? "petDeckHeld 1300ms ease-in-out infinite" : "petDeckOrdered 950ms ease-in-out infinite") : undefined,
             }}
         >
             {/* Cooldown wipe — drains downward as the move comes back. */}
@@ -388,8 +405,8 @@ function MoveButton({ label, sub, hint, color, compact, disabled, dim = false, c
                 <span aria-hidden="true" style={{ position: "absolute", top: 3, left: 5, font: "800 8px/1 Inter, system-ui, sans-serif", color: "#64748b" }}>{hint}</span>
             )}
             <span style={{ position: "relative", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{label}</span>
-            <span style={{ position: "relative", display: "block", marginTop: 4, font: "800 9px/1 Inter, system-ui, sans-serif", letterSpacing: "0.06em", color: ordered ? color : dim ? "#475569" : "#8b98ab", textTransform: "uppercase" }}>
-                {ordered ? "ordered" : sub}
+            <span style={{ position: "relative", display: "block", marginTop: 4, font: "800 9px/1 Inter, system-ui, sans-serif", letterSpacing: "0.06em", color: held ? "#fbbf24" : ordered ? color : dim ? "#475569" : "#8b98ab", textTransform: "uppercase" }}>
+                {held ? waiting : ordered ? "ordered" : sub}
             </span>
         </button>
     );
