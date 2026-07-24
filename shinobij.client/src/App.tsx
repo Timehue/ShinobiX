@@ -307,6 +307,7 @@ import {
 } from "./constants/hunter";
 
 import { type Achievement, ACHIEVEMENTS } from "./constants/achievements";
+import { unseenAchievements, markAchievementsToasted } from "./lib/achievement-toast-ledger";
 import { nextEarnedTitles } from "./lib/earned-titles";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
@@ -1607,35 +1608,34 @@ export default function App() {
     // load (so existing players don't get a flood of toasts). After that, any
     // newly-eligible achievement fires a toast and is persisted.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
-    // Achievement ids already surfaced (or backfilled) this session. Guards
-    // against a character re-sync (heartbeat/poll) momentarily returning a
-    // snapshot that lacks the just-unlocked achievement: without this, the
-    // detection below would treat it as newly-unlocked again and re-toast a
-    // popup the player already dismissed (and re-pay its reward). Persistence
-    // handles reloads; this ref handles mid-session state churn.
-    const surfacedAchievementsRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!character) return;
         const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
         const prior = character.unlockedAchievements;
+        // Durable per-device ledger of which toasts this player has already seen
+        // (lib/achievement-toast-ledger). A popup is shown at most once per device,
+        // then suppressed forever after — so it can't re-fire on refresh/login even
+        // if the unlock never persisted server-side.
+        const achPlayer = (character.name ?? "").toLowerCase();
 
         // Earned titles — union-sync with unlocked title achievements (lib/earned-titles).
         const newTitles = nextEarnedTitles(character, eligibleIds);
         if (newTitles) setCharacter(c => c ? { ...c, earnedTitles: newTitles } : c);
         if (!prior) {
-            // First load — silent backfill, no toasts
+            // First load — silent backfill, no toasts. Record every eligible id as
+            // already-seen so none of them ever toast later.
             const now = Date.now();
             const stamps: Record<string, number> = {};
             for (const id of eligibleIds) stamps[id] = now;
-            for (const id of eligibleIds) surfacedAchievementsRef.current.add(id);
+            markAchievementsToasted(achPlayer, eligibleIds);
             setCharacter(c => c ? { ...c, unlockedAchievements: eligibleIds, achievementUnlockedAt: stamps } : c);
             return;
         }
 
         const priorSet = new Set(prior);
-        const newlyUnlocked = eligibleIds.filter(id => !priorSet.has(id) && !surfacedAchievementsRef.current.has(id));
+        const newlyUnlocked = unseenAchievements(achPlayer, eligibleIds.filter(id => !priorSet.has(id)));
         if (newlyUnlocked.length === 0) return;
-        for (const id of newlyUnlocked) surfacedAchievementsRef.current.add(id);
+        markAchievementsToasted(achPlayer, newlyUnlocked);
 
         const now = Date.now();
         const stamps = { ...(character.achievementUnlockedAt ?? {}) };
