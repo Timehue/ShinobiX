@@ -19,8 +19,9 @@ function renderCard(id: string, hidden = false): string {
 test("Monster cards render the complete physical TCG information hierarchy", () => {
   const html = renderCard("tc-142");
 
+  // The subtype ("EFFECT MONSTER") is no longer a top-of-card eyebrow — it now
+  // reads only once, in the "BEAST / EFFECT MONSTER" taxonomy line below the art.
   const expectedInOrder = [
-    "EFFECT MONSTER",
     "Solar God Beast",
     "LEVEL 8",
     "/chronicle/cards/tc-142.webp",
