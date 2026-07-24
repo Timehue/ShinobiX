@@ -3,8 +3,10 @@ import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 
 // Crisp per-element glyphs for the corner badge — reads far more premium than a
 // bare letter. White fills/strokes ride on top of the element-tinted gem.
-const ELEMENT_ICONS: Record<string, ReactElement> = {
-  Fire: (
+// Factories (not bare elements) so the JSX is built at render time — a bare
+// module-level element evaluates at import, before test harnesses set up React.
+const ELEMENT_ICONS: Record<string, () => ReactElement> = {
+  Fire: () => (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="currentColor"
@@ -12,7 +14,7 @@ const ELEMENT_ICONS: Record<string, ReactElement> = {
       />
     </svg>
   ),
-  Water: (
+  Water: () => (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="currentColor"
@@ -20,7 +22,7 @@ const ELEMENT_ICONS: Record<string, ReactElement> = {
       />
     </svg>
   ),
-  Earth: (
+  Earth: () => (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="currentColor"
@@ -29,7 +31,7 @@ const ELEMENT_ICONS: Record<string, ReactElement> = {
       <path fill="currentColor" opacity=".55" d="M12 4.7 16.8 8.7 12 18Z" />
     </svg>
   ),
-  Wind: (
+  Wind: () => (
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
       strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 8h9.5A2.75 2.75 0 1 0 9.8 5" />
@@ -37,7 +39,7 @@ const ELEMENT_ICONS: Record<string, ReactElement> = {
       <path d="M3 16h6.5" />
     </svg>
   ),
-  Lightning: (
+  Lightning: () => (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="currentColor"
@@ -186,7 +188,7 @@ export function ChronicleCardView({
             aria-label={`${card.element} element`}
           >
             <b aria-hidden="true">
-              {ELEMENT_ICONS[card.element] ?? element.mark}
+              {ELEMENT_ICONS[card.element]?.() ?? element.mark}
             </b>
             <small>{card.element}</small>
           </span>
