@@ -44,6 +44,7 @@ import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningI
 import type { StoryReckoning } from "../data/story-reckonings";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
+import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntroEvent, claimTravelersCodex } from "../lib/chronicle-scribe";
 import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
 import { addItem, ownsItem } from "../lib/inventory";
@@ -855,7 +856,7 @@ export function WorldMap({
                 setSageOffer(r.offer);
                 try { window.localStorage?.setItem("legacy.sage.lastOffer", String(r.offer.expiresAt ?? 0)); } catch { /* best-effort */ }
                 if (r.reason !== "already-waiting") {
-                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage waits in ${sectorRegionName(r.offer.sector)} — sector ${r.offer.sector} on your map. He has been watching your path.` });
+                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage is waiting in ${sectorRegionName(r.offer.sector)} — sector ${r.offer.sector} on your map. He's been asking after you by name.` });
                 }
             } else {
                 // One-time "moved on" beat: we knew of an offer, and it is gone.
@@ -863,7 +864,7 @@ export function WorldMap({
                     const last = Number(window.localStorage?.getItem("legacy.sage.lastOffer") ?? 0);
                     if (last > 0 && Date.now() > last) {
                         window.localStorage?.removeItem("legacy.sage.lastOffer");
-                        setWhisper({ kicker: "The road is empty", text: "The Sage has moved on. Do not mourn the moment — he has found you once, and he will find you again." });
+                        setWhisper({ kicker: "The road is empty", text: "The Sage has moved on. Don't fret it — folk say he always circles back for the ones he's already picked out." });
                     }
                 } catch { /* best-effort */ }
             }
@@ -970,6 +971,13 @@ export function WorldMap({
         if (!wandererPresenceGate(`rift#${character.name}#${rift.id}#${selectedSector}#${bucket}`, 0.35)) return [];
         return [synthRiftGiver(rift, selectedSector)];
     }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, character.name, selectedSector]);
+    // Chronicle Scribe (lib/chronicle-scribe): one-time roaming NPC who explains
+    // the card game in-fiction and hands over the traveler's codex. Retired for
+    // good once the server sets starterCardsClaimed.
+    const scribeWanderers = useMemo(() => {
+        if (!isWanderersEnabled()) return [];
+        return scribeWandererFor(character, selectedSector);
+    }, [character.level, character.starterCardsClaimed, character.name, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -1402,6 +1410,14 @@ export function WorldMap({
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
                 setSelectedCreatorEvent(riftIntroEvent(rift, targetSector, biomeForWorldSector(selectedSector)));
+            }
+            return;
+        }
+        if (w.id === SCRIBE_WANDERER_ID) {
+            if (selectedSector != null) {
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(scribeIntroEvent(biomeForWorldSector(selectedSector)));
             }
             return;
         }
@@ -2767,6 +2783,30 @@ export function WorldMap({
                         });
                         return;
                     }
+                    if (c.trait === SCRIBE_ACCEPT_MARKER) {
+                        // Leave the scene up so Ihara's send-off conclusion plays
+                        // (closing here would eat the beat — see the rift-abandon
+                        // note below). The server grant is idempotent: it tops the
+                        // collection up to the same starter floor the first duel
+                        // would grant anyway, then latches starterCardsClaimed.
+                        void claimTravelersCodex(character.name).then((resp) => {
+                            if (resp.ok) {
+                                updateCharacter(prev => prev ? ({
+                                    ...prev,
+                                    ...(resp.tileCards ? { tileCards: resp.tileCards } : {}),
+                                    starterCardsClaimed: true,
+                                }) : prev);
+                            } else if (resp.reason === "already-claimed") {
+                                // Self-heal a stale local mirror; the scribe retires.
+                                updateCharacter(prev => prev ? ({ ...prev, starterCardsClaimed: true }) : prev);
+                            } else {
+                                setTimeout(() => alert(resp.reason === "level"
+                                    ? "Ihara squints at you. \"Not yet. Find your feet first — I'll find the rest of you.\""
+                                    : "The codex couldn't be claimed. Find Ihara again in a moment."), 40);
+                            }
+                        });
+                        return;
+                    }
                     if (c.trait === RIFT_DESCEND_MARKER) {
                         const rift = riftByDescentEventId(ev.id);
                         setSelectedCreatorEvent(null);
@@ -3190,7 +3230,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...storyReckoningWanderers, ...riftGiverWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...storyReckoningWanderers, ...riftGiverWanderers, ...scribeWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}

@@ -452,6 +452,10 @@ export type Character = {
     activeStoryReckoning?: { id: string; stage: "task" | "return"; metric: "totalAiKills" | "totalTilesExplored"; baseline: number; target: number; dropItemId: string } | null;
     // Epoch ms until which the roaming rift-giver stays quiet after a clear.
     riftCooldownUntil?: number;
+    // One-time Chronicle Scribe "traveler's codex" latch — set server-side by
+    // /api/card-clash/claim-starter; retires the roaming scribe NPC. Mirror of
+    // the server flag (preserved against stale saves in api/save/[name].ts).
+    starterCardsClaimed?: boolean;
     // Cosmetic titles earned from completing Quest Book epics. Additive/optional.
     questTitles?: string[];
     // Persistent world-standing flags from epic branch choices (e.g. "goro-spared").

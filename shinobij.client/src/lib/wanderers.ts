@@ -80,6 +80,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
             "Hand over your ryo, leaf-rat. Choose quick.",
             "Wrong road to walk alone.",
             "Far from home. That makes this easy.",
+            "Toll road. New policy. Started about when I saw you coming.",
         ],
     },
     gambler: {
@@ -88,9 +89,10 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         tellTint: "#ffd24a",
         names: ["Saji Two-Coins", "Miraa the Sly", "Old Tatsu", "Kael of Sixes"],
         greetings: [
-            "Care for a hand of cards, friend?",
-            "Three locations, one purse. You in?",
+            "Care for a hand, friend? Small stakes. Mostly.",
             "May the better liar win — and I'm a very good liar.",
+            "Fresh Chronicle deck, and nobody on this road brave enough to sit down. You look brave.",
+            "One game. I win, we call it tuition. You win, the purse is yours.",
         ],
     },
     pilgrim: {
@@ -100,8 +102,9 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Brother Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
         greetings: [
             "Rest a moment, traveler. The road is long.",
-            "A blessing for the road — take it.",
-            "You hear it? No. No one does anymore.",
+            "Here — take something for the road. An old man's pack is too heavy already.",
+            "Sit, sit — well, don't sit, you're in a hurry, I can tell. Take this anyway.",
+            "Take it, take it. An old man needs a lighter pack more than he needs ryo.",
         ],
     },
     beast: {
@@ -122,8 +125,8 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Old Hermit Roku", "Hermit Kaede", "The Grey Pilgrim", "Master Tobei", "Sister Uzune"],
         greetings: [
             "These roads aren't safe, traveler. Lend your blade to a task?",
-            "The wilds grow bold. I'd ask a favor of a capable shinobi.",
-            "Walk with purpose — I've a task that needs doing.",
+            "You look capable, and I'm past pretending I can handle this myself. A task, for fair pay?",
+            "I've been waiting all day for someone who doesn't walk like a victim. Got a moment?",
         ],
     },
     merchant: {
@@ -132,9 +135,9 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         tellTint: "#fbbf24",
         names: ["Miko of the Pack", "Suri Lantern-Hands", "Jin the Mule", "Tama Roadstall"],
         greetings: [
-            "Road prices, road risks. I have charms if your purse has weight.",
+            "Road prices, friend. Everything costs more out where the patrols don't reach.",
             "Keep your blade low and your coins ready.",
-            "A fair trade travels farther than a threat.",
+            "Everything's for sale except the mule. People keep asking about the mule.",
         ],
     },
     medic: {
@@ -144,8 +147,8 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Nurse Enka", "Field Medic Ren", "Old Stitch", "Sister Koma"],
         greetings: [
             "You look like the road has been chewing on you.",
-            "Bandage, tonic, steady hands. Sit if you need mending.",
-            "I do not ask who hit first. I patch what is bleeding.",
+            "Bandage, tonic, steady hands. Sit down if you need mending.",
+            "I don't ask who hit first. I patch whoever's bleeding.",
         ],
     },
     patrol: {
@@ -155,8 +158,8 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Storm Road Patrol", "Ashen Border Patrol", "Frostfang Scout", "Moonshadow Sentry"],
         greetings: [
             "State your village and your business.",
-            "These roads are watched. Choose your words cleanly.",
-            "Patrol passing through. Trouble follows careless steps.",
+            "These roads are watched. Move along and we've got no quarrel.",
+            "Patrol coming through. Seen anything on the road we should hear about?",
         ],
     },
     tracker: {
@@ -166,7 +169,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Ibo the Tracker", "Kana Reed-Eyes", "Old Pawprint", "Shin of the Bent Grass"],
         greetings: [
             "Fresh tracks cross this dirt. Something bold is nearby.",
-            "The wilds are talking. Most people forget to listen.",
+            "Something big crossed here before dawn, dragging a paw. If that beast of yours is game, it's worth following.",
             "I can point you toward teeth, coin, or trouble. Sometimes all three.",
         ],
     },
@@ -197,7 +200,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         tellTint: "#c084fc",
         names: ["The Wandering Sage"],
         greetings: [
-            "I have watched your path, shinobi.",
+            "I've watched your path a long while, shinobi.",
         ],
     },
     // The eight Legacy Emissaries. All weight 0: like the Sage they are synthed
@@ -205,10 +208,10 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     // the natural cast — these entries exist to satisfy the archetype record;
     // the synth supplies the real voice/tint from EMISSARY_DEFS.
     "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["The clouds told me you were coming."] },
-    "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Do not mind the moths."] },
+    "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Don't mind the moths."] },
     "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Pilgrim Daigo"], greetings: ["Every bead is a fight without a weapon."] },
     "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["The swords are listening."] },
-    "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything is a wager."] },
+    "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything's a wager, friend."] },
     "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["Speak softly, or interestingly."] },
     "lantern-warden-mei": { verb: "legacyQuest", weight: 0, tellTint: "#fbbf24", names: ["Lantern-Warden Mei"], greetings: ["Shield in one hand, lantern in the other."] },
     "mapless-ojii":       { verb: "legacyQuest", weight: 0, tellTint: "#7be0a3", names: ["Mapless Ojii"],       greetings: ["This map is blank on purpose."] },

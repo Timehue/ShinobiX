@@ -23,6 +23,7 @@ import {
   type ChronicleDisplayCard,
 } from "../lib/chronicle-duel";
 import { getAllTileCards } from "../data/tile-cards";
+import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { ChronicleCardView } from "../components/ChronicleCardView";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
@@ -30,16 +31,7 @@ import { CardClashTutorial } from "../components/CardClashTutorial";
 type Tab = "collection" | "deck" | "play" | "pvp" | "rules";
 type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
 
-export function CardHall({
-  character,
-  updateCharacter,
-  creatorCards,
-  onBack,
-  autoStart = false,
-  onAutoStartConsumed,
-  onStartFreePlay,
-  sharedImages = {},
-}: {
+type CardHallProps = {
   character: Character;
   updateCharacter: (character: Character) => void;
   creatorCards: TileCard[];
@@ -48,7 +40,41 @@ export function CardHall({
   onAutoStartConsumed?: () => void;
   onStartFreePlay?: (matchId: string) => void;
   sharedImages?: Record<string, string>;
-}) {
+};
+
+/** Gate: the hall is sealed until the Chronicle Scribe event hands over the
+ *  traveler's codex. A separate outer component (zero hooks) so the inner
+ *  hall mounts fresh on unlock and its autoStart/queue effects never run
+ *  while locked. The server enforces the same lock on duels/queue/packs. */
+export function CardHall(props: CardHallProps) {
+  const lock = cardGameLockStatus(props.character);
+  const { autoStart, onAutoStartConsumed } = props;
+  // A deep-link autoStart that arrives while locked must not survive to fire
+  // a surprise duel on the first unlocked visit — consume it here.
+  useEffect(() => {
+    if (lock.locked && autoStart) onAutoStartConsumed?.();
+  }, [lock.locked, autoStart, onAutoStartConsumed]);
+  if (!lock.locked) return <CardHallInner {...props} />;
+  return (
+    <div style={{ maxWidth: 560, margin: "48px auto 0", padding: "0 16px", textAlign: "center" }}>
+      <div style={{ fontSize: "2.6rem", marginBottom: 8 }} aria-hidden="true">🎴</div>
+      <h2 style={{ margin: "0 0 10px" }}>{lock.title}</h2>
+      <p style={{ color: "#9aa3b2", lineHeight: 1.55, fontSize: ".95rem", margin: "0 0 20px" }}>{lock.body}</p>
+      <button onClick={props.onBack}>Back</button>
+    </div>
+  );
+}
+
+function CardHallInner({
+  character,
+  updateCharacter,
+  creatorCards,
+  onBack,
+  autoStart = false,
+  onAutoStartConsumed,
+  onStartFreePlay,
+  sharedImages = {},
+}: CardHallProps) {
   const sourceCards = useMemo(
     () => getAllTileCards(creatorCards),
     [creatorCards],
@@ -177,6 +203,10 @@ export function CardHall({
           How to play
         </button>
       </header>
+      <p className="chronicle-scribe-note">
+        The scribes will tell you straight: our archives kept burning. So we
+        print the history on cards now — you can't burn ten thousand pockets.
+      </p>
       <nav className="chronicle-tabs" aria-label="Card Hall sections">
         {(
           [

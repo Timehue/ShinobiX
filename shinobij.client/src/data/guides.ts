@@ -468,6 +468,7 @@ const PETS: Guide = {
             heading: "3 · The Pet Coliseum",
             blocks: [
                 { type: "p", text: "The arena is an auto-battler on a 14×7 obstacle grid: pick your pet and it moves and casts on its own with AI — element advantage and positioning decide it. You direct the draft, the pet fights the fight." },
+                { type: "p", text: "The coliseum is where the wild breeds of the sectors prove themselves — the same beasts you befriend on the world map, fighting in front of the same crowds. The Chronicle scribes watch the sand too: a beast that makes a name here ends up printed on a card sooner or later." },
                 { type: "p", text: "Where you can battle:" },
                 { type: "list", items: [
                     "Casual duels against other players' pets.",
@@ -497,13 +498,15 @@ const PETS: Guide = {
 const CARDCLASH: Guide = {
     id: "cardclash",
     title: "Shinobi Chronicle Showdown",
-    tagline: "A five-element shinobi TCG with server-authoritative founding-format rules.",
+    tagline: "A five-element dueling card game where every card records a real legend of the world.",
     icon: "🎴",
     blurb: "Build a 40-card deck of Monsters, Jutsu and Snares, then reduce the opposing challenger's Health Points to zero.",
     sections: [
         {
             heading: "1 · The Goal",
             blocks: [
+                { type: "p", text: "The Chronicle is the villages' answer to the Hollow: archives burn, but cards scatter. The scribes press real legends into the Founding Codex — the tyrant Kage you face in the story, beasts that make their name in the coliseum, and the Legacy deeds of shinobi like you — so a Showdown is two collectors arguing history with the records themselves." },
+                { type: "callout", tone: "tip", label: "How it unlocks", text: "Around level 17, a Chronicle scribe starts walking the wild sectors asking after you. Find her on the world map — she hands you your first deck (the traveler's codex), and the Card Hall opens from that moment." },
                 { type: "p", text: "Both challengers begin with 8,000 Health Points and a five-card hand. Summon Monsters, set Snares and activate Jutsu to reduce the opposing challenger to zero Health Points." },
                 { type: "p", text: "If a challenger cannot draw when required, that challenger loses. The server owns the deck, hidden zones, timing windows and result." },
             ],

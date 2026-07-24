@@ -47,6 +47,12 @@
 .chronicle-header__spacer {
   flex: 1;
 }
+.chronicle-scribe-note {
+  max-width: 1420px;
+  margin: -4px auto 14px;
+  color: #8795a8;
+  font: italic 400 0.8rem/1.45 Georgia, serif;
+}
 .chronicle-tabs {
   display: flex;
   gap: 6px;

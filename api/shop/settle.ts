@@ -9,6 +9,7 @@ import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { loadSettlementCatalogs } from './_catalog.js';
 import { applyCardPackPurchase, applyItemPurchase, type ShopPackId } from './_settlement.js';
+import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from '../card-clash/_starter-cards.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -45,6 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const packId = action.packId as ShopPackId;
             if (packId !== 'standard' && packId !== 'epic' && packId !== 'legendary') {
                 return { ok: false as const, status: 400, error: 'Unknown card pack.' };
+            }
+            // No codex, no packs — the scribe event unlocks the Chronicle.
+            if (!chronicleUnlocked(character)) {
+                return { ok: false as const, status: 409, error: CHRONICLE_LOCKED_ERROR };
             }
             const settled = applyCardPackPurchase(character, catalogs.cards, packId, requestId, Date.now(), randomInt);
             if (!settled.ok) return settled;

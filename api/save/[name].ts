@@ -926,6 +926,9 @@ export function sanitizeCharacterSave(
     else delete char.academySparClaimed;
     if (exChar.starterPetClaimed === true) char.starterPetClaimed = true;
     else delete char.starterPetClaimed;
+    // One-time Chronicle Scribe codex latch, written by /api/card-clash/claim-starter.
+    if (exChar.starterCardsClaimed === true) char.starterCardsClaimed = true;
+    else delete char.starterCardsClaimed;
     if (Array.isArray(exChar.redeemedPetEncounters)) char.redeemedPetEncounters = exChar.redeemedPetEncounters;
     else delete char.redeemedPetEncounters;
     if (Array.isArray(exChar.claimedCreatorEvents)) char.claimedCreatorEvents = exChar.claimedCreatorEvents;
