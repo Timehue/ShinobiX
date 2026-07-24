@@ -1607,6 +1607,13 @@ export default function App() {
     // load (so existing players don't get a flood of toasts). After that, any
     // newly-eligible achievement fires a toast and is persisted.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
+    // Achievement ids already surfaced (or backfilled) this session. Guards
+    // against a character re-sync (heartbeat/poll) momentarily returning a
+    // snapshot that lacks the just-unlocked achievement: without this, the
+    // detection below would treat it as newly-unlocked again and re-toast a
+    // popup the player already dismissed (and re-pay its reward). Persistence
+    // handles reloads; this ref handles mid-session state churn.
+    const surfacedAchievementsRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!character) return;
         const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
@@ -1620,13 +1627,15 @@ export default function App() {
             const now = Date.now();
             const stamps: Record<string, number> = {};
             for (const id of eligibleIds) stamps[id] = now;
+            for (const id of eligibleIds) surfacedAchievementsRef.current.add(id);
             setCharacter(c => c ? { ...c, unlockedAchievements: eligibleIds, achievementUnlockedAt: stamps } : c);
             return;
         }
 
         const priorSet = new Set(prior);
-        const newlyUnlocked = eligibleIds.filter(id => !priorSet.has(id));
+        const newlyUnlocked = eligibleIds.filter(id => !priorSet.has(id) && !surfacedAchievementsRef.current.has(id));
         if (newlyUnlocked.length === 0) return;
+        for (const id of newlyUnlocked) surfacedAchievementsRef.current.add(id);
 
         const now = Date.now();
         const stamps = { ...(character.achievementUnlockedAt ?? {}) };
