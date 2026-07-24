@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CHRONICLE_CARD_CATALOG,
-  CHRONICLE_DECEMBER_2003_FORMAT,
-  CHRONICLE_DECEMBER_2003_LIMITED_IDS,
-  CHRONICLE_DECEMBER_2003_SEMI_LIMITED_IDS,
+  CHRONICLE_FOUNDING_FORMAT,
+  CHRONICLE_FOUNDING_LIMITED_IDS,
+  CHRONICLE_FOUNDING_SEMI_LIMITED_IDS,
   CHRONICLE_EFFECT_MONSTER_IDS,
   CHRONICLE_ELEMENT_ADVANTAGE,
   CHRONICLE_ELEMENT_BATTLE_BONUS,
@@ -119,11 +119,7 @@ test("Chronicle constants and opening rules are locked", () => {
   const state = createMatch("One", deck, "Two", deck, fixedRandom, 1_000);
   assert.equal(state.rulesVersion, CHRONICLE_RULES_VERSION);
   assert.equal(CHRONICLE_ROOM_TITLE, "Founding Codex Format");
-  assert.equal(CHRONICLE_DECEMBER_2003_FORMAT.latestLegalSet, "Founding Codex");
-  assert.equal(
-    CHRONICLE_DECEMBER_2003_FORMAT.limitedListEffective,
-    "2003-11-17",
-  );
+  assert.equal(CHRONICLE_FOUNDING_FORMAT.latestLegalSet, "Founding Codex");
   assert.deepEqual(CHRONICLE_ELEMENTS, [
     "Fire",
     "Water",
@@ -141,13 +137,13 @@ test("Chronicle constants and opening rules are locked", () => {
   assert.equal(CHRONICLE_ELEMENT_BATTLE_BONUS, 200);
   assert.equal(elementBattleBonus("Earth", "Water"), 200);
   assert.equal(elementBattleBonus("Earth", "Fire"), 0);
-  assert.deepEqual(CHRONICLE_DECEMBER_2003_FORMAT.defaultField, {
+  assert.deepEqual(CHRONICLE_FOUNDING_FORMAT.defaultField, {
     name: "Neutral Field",
     attackModifier: 0,
     cardActive: false,
   });
   assert.deepEqual(
-    CHRONICLE_DECEMBER_2003_FORMAT.phases.map((phase) => phase.id),
+    CHRONICLE_FOUNDING_FORMAT.phases.map((phase) => phase.id),
     ["draw", "standby", "main1", "battle", "main2", "end"],
   );
   assert.equal(state.p1.lifePoints, STARTING_LIFE_POINTS);
@@ -155,7 +151,7 @@ test("Chronicle constants and opening rules are locked", () => {
   assert.equal(
     state.p1.hand.length,
     OPENING_HAND_SIZE + 1,
-    "the 2003 first player draws on turn one",
+    "the founding rule: first player draws on turn one",
   );
   assert.equal(state.p2.hand.length, OPENING_HAND_SIZE);
   assert.equal(state.p1.deck.length, MAIN_DECK_SIZE - OPENING_HAND_SIZE - 1);
@@ -440,7 +436,7 @@ test("classic starter spans low, medium, one-Tribute, and two-Tribute Monster ba
   assert.ok(catalogTierCounts.mythic >= 20);
 });
 
-test("U.S. 2002-2003 role pass provides deep Magic and Trap pools without copied identities", () => {
+test("founding role pass provides deep Jutsu and Snare pools without copied identities", () => {
   const magicCards = CHRONICLE_SUPPORT_CARDS.filter(
     (card) => card.cardClass === "magic",
   );
@@ -515,7 +511,7 @@ test("U.S. 2002-2003 role pass provides deep Magic and Trap pools without copied
   }
 });
 
-test("popular legal December 2003 effects are translated into distinct Chronicle roles", () => {
+test("founding-era card effects map to distinct Chronicle roles", () => {
   assert.equal(CHRONICLE_FOUNDING_EFFECT_AUDIT.length, 16);
   assert.ok(CHRONICLE_FOUNDING_EXCLUDED_EFFECTS.length >= 4);
   const expectedKinds: Readonly<Record<string, string>> = {
@@ -685,11 +681,11 @@ test("five Field Magic environments apply the requested elemental ATK shifts and
 });
 
 test("iconic high-impact roles use visible one- or two-copy deck limits", () => {
-  assert.ok(CHRONICLE_DECEMBER_2003_LIMITED_IDS.length >= 10);
-  assert.ok(CHRONICLE_DECEMBER_2003_SEMI_LIMITED_IDS.length >= 10);
-  for (const id of CHRONICLE_DECEMBER_2003_LIMITED_IDS)
+  assert.ok(CHRONICLE_FOUNDING_LIMITED_IDS.length >= 10);
+  assert.ok(CHRONICLE_FOUNDING_SEMI_LIMITED_IDS.length >= 10);
+  for (const id of CHRONICLE_FOUNDING_LIMITED_IDS)
     assert.equal(deckLimitForCard(id), 1);
-  for (const id of CHRONICLE_DECEMBER_2003_SEMI_LIMITED_IDS)
+  for (const id of CHRONICLE_FOUNDING_SEMI_LIMITED_IDS)
     assert.equal(deckLimitForCard(id), 2);
   assert.equal(deckLimitForCard("chronicle-stacked-scrolls"), 1);
   assert.equal(deckLimitForCard("chronicle-sealbreak-verdict"), 2);
@@ -1025,7 +1021,7 @@ test("Flip effects draw, heal, weaken an attacker, and spring a concealed tag am
   }
 });
 
-test("popular 2003 Monster roles remove, recover, recruit, discard, and suppress Traps", () => {
+test("founding Monster roles remove, recover, recruit, discard, and suppress Snares", () => {
   let state = summonReady("tc-08");
   let actor = state.activePlayer;
   let opponent: ChronicleSideKey = actor === "p1" ? "p2" : "p1";

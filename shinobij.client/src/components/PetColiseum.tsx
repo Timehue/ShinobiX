@@ -1089,6 +1089,22 @@ function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdro
 // only one duel mounts at a time, and it decays to 0 every frame, so a stale
 // value from a prior fight is gone within a few frames.
 const duelFovKick = { current: 0 };
+// Transient camera SHAKE requested from OUTSIDE the render loop (a player command).
+// Screen shake lives inside DuelDirector's useFrame ref; a command is issued from an
+// onClick, so this module singleton bridges the tap → the next frame folds it into the
+// live shake and zeroes it. Same safety as duelFovKick: one duel at a time, consumed
+// every frame. This is what gives a MOVE CHOICE a physical jolt, not just a UI popup.
+const duelCmdKick = { shake: 0, zoom: 0 };
+// Command RUSH — the fix for "I chose a move and nothing happened for a while." The
+// engine deliberately makes pets size each other up between exchanges (a ~1–2 s
+// standoff), so an ordered move can take a beat to actually land on screen. Rather than
+// touch that sim cadence (a proven dead-end that breaks the AI-vs-AI tests), this
+// fast-forwards the PLAYBACK clock through the dead staring gap after a command until
+// the next real beat, so the ordered strike reaches the screen fast — then hands off to
+// the savor slow-mo on contact. Render-only: it scales the camera clock, never the sim,
+// so determinism / ranked / the server replay are untouched. Set by issueCommand,
+// consumed + cleared by DuelDirector. `fromTick` bounds it so it can never run away.
+const duelCmdRush = { active: false, fromTick: 0 };
 function ResponsiveCamera() {
     const { camera, size } = useThree();
     useFrame(() => {
@@ -1751,8 +1767,8 @@ const INTRO_SPLASH_END = 1.05;   // s — establish the matchup without delaying
 const INTRO_PAUSE_END = 1.18;    // s — one clean still face-off before the gather
 const INTRO_SIZEUP_END = 2.15;   // s — readable power gather at the real starting positions
 const INTRO_TOTAL = 2.35;        // s — brief lock-in beat, then FIGHT
-const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
-const DUEL_CAMERA_Y = 5.75;
+const INTRO_WIDE_DOLLY = 14.2;   // camera pull-back distance for the wide size-up shot
+const DUEL_CAMERA_Y = 5.15;      // eye height — lower + closer than the old 5.75 so the pets read BIG, near-side-on, not a tiny top-down diorama
 const DUEL_LOOK_Y = 0.9;
 const introWideHold = (introSec: number): number => introSec < INTRO_TOTAL ? 1 : 0;
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
@@ -3249,13 +3265,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // speed, arena-VFX slow-mo and savor slow-mo, creating abrupt 1.42x ->
         // 0.015x -> 0x changes that looked like lag even on a steady frame rate.
         const authoredDashInFlight = attackDashBeats.some((cue) => clock.current.t >= cue.startTick && clock.current.t < cue.resolveTick);
-        let phraseScale = timeScale.current;
+        // Command rush: blow through the dead standoff after the player orders a move so
+        // the strike reaches the screen fast. Never while a dash / big VFX / hit-stop is
+        // playing (those ARE the payoff — don't skip them), so it only compresses the
+        // eventless staring gap.
+        const rushing = duelCmdRush.active && hitStop.current <= 0 && !authoredDashInFlight && !majorVfxBusy();
+        let phraseScale = rushing ? Math.max(timeScale.current, 4.0) : timeScale.current;
         if (authoredDashInFlight) phraseScale = Math.min(phraseScale, 1.08);
         if (majorVfxBusy()) phraseScale = Math.min(phraseScale, 0.92);
         // Cap the amount of *simulation time* exposed by one render frame. The
         // previous delta cap was applied before playback scaling, so neutral play
-        // could still jump 1.72 simulation ticks in a single 30 fps frame.
-        const maxTickAdvance = authoredDashInFlight ? 0.78 : majorVfxBusy() ? 0.82 : 1.05;
+        // could still jump 1.72 simulation ticks in a single 30 fps frame. The rush
+        // lifts the cap so the fast-forward can actually move (~4× real-time).
+        const maxTickAdvance = rushing ? 3.0 : authoredDashInFlight ? 0.78 : majorVfxBusy() ? 0.82 : 1.05;
         let dt = Math.min(frameDelta * phraseScale, maxTickAdvance / DUEL_TPS);
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
         if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 1 - Math.exp(-7.2 * frameDelta));
@@ -3265,6 +3287,18 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         const cur = Math.floor(clock.current.t);
         if (cur > lastTick.current) {
             const crossedEvents = duel.events.filter((event) => event.t > lastTick.current && event.t <= cur);
+            // End the command rush the instant a real beat arrives — the player's ordered
+            // move landing (its windup / cast / hit), any KO, or any crit — so the
+            // fast-forward only ever eats the empty staring gap and always hands the
+            // contact itself to full-speed savor. A safety cap ends it regardless.
+            if (duelCmdRush.active) {
+                const reachedBeat = crossedEvents.some((e) =>
+                    (typeof e.actorId === "string" && e.actorId.startsWith("player")
+                        && (e.type === "windup" || e.type === "cast" || e.type === "hit" || e.type === "ultimate"))
+                    || e.type === "ko"
+                    || (e.type === "hit" && e.crit));
+                if (reachedBeat || cur - duelCmdRush.fromTick > DUEL_TPS * 4) duelCmdRush.active = false;
+            }
             const spotlightCandidate = partyMode ? selectDuelSpotlightEvent(crossedEvents) : null;
             const spotlightEvent = spotlightCandidate
                 && (spotlightCandidate.type === "ko" || now >= spotlightUntil.current)
@@ -3961,6 +3995,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // Perspective hero camera: adaptive framing of the LIVING leads (tighter when
         // they plant close, wider when spread) + per-frame RE-AIM (cuts ease back to the
         // live midpoint) + decaying shake, zoom-punch, and KO pull-back. All render-only.
+        // A player command jolts the camera on the frame it lands (bridged from the
+        // onClick via the module singleton), so choosing a move is FELT immediately —
+        // before the sim resolves it. Consumed once, then decays with the rest.
+        if (duelCmdKick.shake > 0) { shake.current = Math.max(shake.current, duelCmdKick.shake); duelCmdKick.shake = 0; }
+        if (duelCmdKick.zoom > 0) { zoomKick.current = Math.max(zoomKick.current, duelCmdKick.zoom); duelCmdKick.zoom = 0; }
         const a = shake.current; shake.current *= 0.85;
         const sx = a > 0.01 ? Math.sin(now * 53) * a * 0.1 : 0;
         const sy = a > 0.01 ? Math.sin(now * 61) * a * 0.06 : 0;
@@ -4008,7 +4047,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // Ordinary exchanges stay close enough to read eyes, paws and recoil.
         // Wide geography still pulls back, but no longer leaves two small pets in
         // a mostly empty stadium during every neutral beat.
-        let dollyTarget = Math.max(11.7, Math.min(15.2, 10.0 + spread * 0.8));
+        let dollyTarget = Math.max(9.4, Math.min(13.0, 8.2 + spread * 0.66));
         // Opening: pull WIDE for the size-up, then punch in as the pets charge to the face-off,
         // and give a "lock-in" shake the instant they arrive.
         const dollyIntro = clock.current.intro ?? 999;
@@ -6962,7 +7001,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [aftermathFx, setAftermathFx] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean }>>([]);
     const [supportFx, setSupportFx] = useState<Array<{ id: number; pos: Vec3; color: string; kind: DuelSupportKind; actorId?: string }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
-    const [cutInQueue, setCutInQueue] = useState<Array<{ id: number; pet: Pet; side: "player" | "enemy"; move: string }>>([]);
+    const [cutInQueue, setCutInQueue] = useState<Array<{ id: number; pet: Pet; side: "player" | "enemy"; move: string; variant?: "command"; hold?: number }>>([]);
     const cutIn = cutInQueue[0] ?? null;
     const [shocks, setShocks] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
     const [powerUps, setPowerUps] = useState<Array<{ id: number; pos: Vec3; color: string; actorId?: string; style: PetHeroMoveStyle }>>([]);
@@ -6986,7 +7025,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     useEffect(() => {
         if (!cutIn) return;
-        const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), 1020);
+        const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1020);
         return () => window.clearTimeout(timer);
     }, [cutIn]);
     useEffect(() => {
@@ -7193,10 +7232,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack") => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 900 : 780); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
-    const triggerCutIn = (actorId: string, move: string) => {
+    const triggerCutIn = (actorId: string, move: string, opts?: { variant?: "command"; hold?: number }) => {
         const r = roster.find((x) => x.id === actorId); if (!r) return;
         const id = seqRef.current++;
-        setCutInQueue((queue) => appendCapped(queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") }, partyDuel ? 2 : 1));
+        setCutInQueue((queue) => appendCapped(queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move"), variant: opts?.variant, hold: opts?.hold }, partyDuel ? 2 : 1));
     };
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the still size-up / power-gather clock.
@@ -7220,11 +7259,38 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const echoId = seqRef.current;
         const accent = elementColor(playerPet.element);
         if (cmd.kind === "ability") {
-            setCommandEcho({ id: echoId, label: cmd.idx === -1 ? "Strike" : (moveName ?? "Attack"), tone: "attack" });
-            setFlash({ id: echoId, color: accent.glow, intensity: 0.32 });
+            const moveLabel = cmd.idx === -1 ? "Strike" : (moveName ?? "Attack");
+            setCommandEcho({ id: echoId, label: moveLabel, tone: "attack" });
+            // EVERY move choice lands as a felt beat the instant you tap — not a silent
+            // queue that waits on the sim. The name slams in, the screen flashes the pet's
+            // colour, and the CAMERA jolts + punches in (bridged to DuelDirector's shake/
+            // zoom). Render-only; the actual damage still resolves server/sim-side later.
+            setFlash({ id: echoId, color: accent.glow, intensity: 0.5 });
+            triggerMoveCallout(moveLabel, "player", "attack");
+            duelCmdKick.shake = Math.max(duelCmdKick.shake, 0.7);
+            duelCmdKick.zoom = Math.max(duelCmdKick.zoom, 1.2);
+            duelFovKick.current = Math.max(duelFovKick.current, 1.6);
+            // Fast-forward the dead standoff so the ordered move reaches the screen fast.
+            duelCmdRush.active = true; duelCmdRush.fromTick = tick;
+            // A chosen NAMED move that is ACTUALLY going to fire (not a basic poke, not a
+            // move on cooldown / low stamina that will only be HELD) escalates to the full
+            // anime freeze-frame cut-in — the same staging the sim uses for signatures — so
+            // the big commitment reads as an EVENT. Kept honest: the cutscene never promises
+            // a strike the pet isn't about to throw.
+            if (cmd.idx >= 0) {
+                const ab = deckControl?.abilities[cmd.idx];
+                const readyToFire = !!ab && ab.cdLeft <= 0 && (deckControl?.stamina ?? 0) >= ab.cost;
+                if (readyToFire) triggerCutIn("player-0", moveLabel, { variant: "command", hold: 760 });
+            }
         } else if (cmd.kind === "break") {
             setCommandEcho({ id: echoId, label: "Bond Break", tone: "signature" });
             setFlash({ id: echoId, color: "#fbbf24", intensity: 0.5 });
+            // The signature call gets the hardest jolt of any command.
+            triggerMoveCallout("Bond Break", "player", "attack");
+            duelCmdKick.shake = Math.max(duelCmdKick.shake, 1.1);
+            duelCmdKick.zoom = Math.max(duelCmdKick.zoom, 1.8);
+            duelFovKick.current = Math.max(duelFovKick.current, 2.4);
+            duelCmdRush.active = true; duelCmdRush.fromTick = tick;
         } else if (cmd.kind === "stance") {
             setCommandEcho({ id: echoId, label: `${["Press", "Balance", "Guard"][cmd.stance] ?? "Balance"} stance`, tone: "plan" });
         } else if (cmd.kind === "auto") {
@@ -7286,7 +7352,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setPressureFx([]);
         setSetPieces([]);
     };
-    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setDusts([]); setScorches([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; duelCmdRush.active = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setDusts([]); setScorches([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     // The live pump. Declared AFTER every clock mutation above on purpose: the
     // immutability lint treats a ref read inside an effect as pinning that ref, so
@@ -7435,10 +7501,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 const isEnemy = cutIn.side === "enemy";
                 const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
                 const cutPoseId = posedId(cutIn.pet.id);
+                const isCommand = cutIn.variant === "command";
                 const lunarHero = /kitsune|eclipse/i.test(cutIn.pet.name);
                 const tidalHero = /selkie|tidal/i.test(cutIn.pet.name);
-                const heroMotif = lunarHero ? "☾" : tidalHero ? "≋" : "✦";
-                const heroKicker = lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : "Anime Break";
+                // A commanded move borrows the same freeze-frame staging but names itself
+                // honestly ("Your Order") — the marquee "Anime Break" wording stays reserved
+                // for the sim's actual signature reveal.
+                const heroMotif = isCommand ? "▶" : lunarHero ? "☾" : tidalHero ? "≋" : "✦";
+                const heroKicker = isCommand ? "Your Order" : lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : "Anime Break";
                 return (
                     <div className={`pet-cutin pet-duel-hero-cutin ${cutIn.side}`} key={`cutin-${cutIn.id}`} style={{ ["--hero-glow" as string]: elementGlow, boxShadow: `inset 0 0 90px ${elementBase}55` } as React.CSSProperties}>
                         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}42, transparent 44%)`, mixBlendMode: "screen" }} />

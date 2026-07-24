@@ -156,10 +156,10 @@ test("the bond meter fills on the player's work and resets when it is spent", ()
         { t: 20, type: "hit", side: "enemy", actorId: "enemy-0", targetId: "player-0", dmg: 30 },
     ];
     assert.equal(bondCharge(events, "player-0", 4), 0, "nothing has happened yet");
-    assert.equal(bondCharge(events, "player-0", 5), 9, "a landed hit pays");
-    assert.equal(bondCharge(events, "player-0", 9), 24, "a crit pays a bonus on top");
-    assert.equal(bondCharge(events, "player-0", 20), 41, "dodging and being hit both feed the meter");
-    assert.equal(bondCharge(events, "player-0", 20, 9), 17, "spending the meter discounts everything up to that tick");
+    assert.equal(bondCharge(events, "player-0", 5), 12, "a landed hit pays");
+    assert.equal(bondCharge(events, "player-0", 9), 31, "a crit pays a bonus on top");
+    assert.equal(bondCharge(events, "player-0", 20), 54, "dodging and being hit both feed the meter");
+    assert.equal(bondCharge(events, "player-0", 20, 9), 23, "spending the meter discounts everything up to that tick");
     assert.ok(!bondReady(events, "player-0", 20));
 });
 

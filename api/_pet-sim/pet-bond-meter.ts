@@ -19,15 +19,21 @@ import type { DuelEvent } from "./pet-duel-sim.js";
 
 export const BOND_FULL = 100;
 
-/** Gains are tuned so a clean, aggressive fight earns roughly two Breaks over a
- *  35–45 s duel, and a defensive one still earns about one. Taking damage pays a
- *  little so a losing player is not locked out of their comeback button. */
+/** Gains are tuned so a clean, aggressive fight earns roughly two–three Breaks over a
+ *  35–45 s duel, and even an OUT-MATCHED player reliably earns one before the fight is
+ *  over — the old, lower rates left the gauge stuck below full in ~1 of 4 mismatched
+ *  fights (measured), so a losing player never got their comeback button. `hitTaken`
+ *  pays the most of that comeback fuel: if you are getting beaten, you are still
+ *  charging. All gains are event-earned (no passive timer), so a Break is always paid
+ *  for by fighting — the server replay (`api/pet/_duel-replay.ts`) recomputes this exact
+ *  fold to reject any Break the meter did not cover. Keep the generated server mirror
+ *  (`api/_pet-sim/pet-bond-meter.js`) in sync after any change here (gen-pet-sim.mjs). */
 export const BOND_GAINS = Object.freeze({
-    hitLanded: 9,
-    critBonus: 6,
+    hitLanded: 12,
+    critBonus: 7,
     signatureBonus: 0,   // the Break already IS the signature — no self-refund
-    dodged: 12,
-    hitTaken: 5,
+    dodged: 14,
+    hitTaken: 9,
 });
 
 /**

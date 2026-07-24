@@ -497,7 +497,7 @@ const PETS: Guide = {
 const CARDCLASH: Guide = {
     id: "cardclash",
     title: "Shinobi Chronicle Showdown",
-    tagline: "A five-element shinobi TCG with server-authoritative 2003-era rules.",
+    tagline: "A five-element shinobi TCG with server-authoritative founding-format rules.",
     icon: "🎴",
     blurb: "Build a 40-card deck of Monsters, Jutsu and Snares, then reduce the opposing challenger's Health Points to zero.",
     sections: [
@@ -554,7 +554,7 @@ const CARDCLASH: Guide = {
                     "A deck is exactly 40 cards.",
                     "Most cards allow up to three copies. Limited and Semi-Limited cards allow one or two.",
                     "Balance low-, medium- and high-tier Monsters with enough Jutsu and Snares to protect your board and answer threats.",
-                    "The Card Hall validates owned copies and the November 17, 2003-inspired Limited List before saving.",
+                    "The Card Hall validates owned copies and the founding Limited List before saving.",
                 ] },
                 { type: "p", text: "The same server-authoritative rules power AI, free-play PvP, Clan War, Sector War and sealed encounters." },
             ],

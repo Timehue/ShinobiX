@@ -27,12 +27,10 @@ export const TURN_TIMEOUT_MS = 60_000;
 export const RESPONSE_TIMEOUT_MS = 15_000;
 
 export const CHRONICLE_ROOM_TITLE = "Founding Codex Format";
-export const CHRONICLE_DECEMBER_2003_FORMAT = Object.freeze({
+export const CHRONICLE_FOUNDING_FORMAT = Object.freeze({
   roomTitle: CHRONICLE_ROOM_TITLE,
   region: "Shinobi Chronicle",
-  snapshotDate: "2003-12-01",
   latestLegalSet: "Founding Codex",
-  limitedListEffective: "2003-11-17",
   startingLifePoints: STARTING_LIFE_POINTS,
   openingHandSize: OPENING_HAND_SIZE,
   mainDeckSize: MAIN_DECK_SIZE,
@@ -253,8 +251,8 @@ export interface ChronicleEffect {
   targetScope: ChronicleTargetScope;
   trigger?: ChronicleTrigger;
   /** Element-themed reactive cards require an established face-up specialist.
-   * This keeps their stronger 2003-style interruption roles from becoming a
-   * single generic Snare package in every deck. */
+   * This keeps their stronger interruption roles from collapsing into a single
+   * generic Snare package in every deck. */
   requiresFaceUpElement?: ChronicleElement;
   /** Restrict a reactive counter to the printed Jutsu subtype or effect role. */
   requiresMagicType?: ChronicleMagicCard["magicType"];
@@ -3398,12 +3396,12 @@ export const CHRONICLE_EFFECT_MONSTER_IDS = /* @__PURE__ */ Object.freeze(
 const CARD_BY_ID = new Map(
   CHRONICLE_CARD_CATALOG.map((card) => [card.id, card]),
 );
-export const CHRONICLE_DECEMBER_2003_LIMITED_IDS = Object.freeze(
+export const CHRONICLE_FOUNDING_LIMITED_IDS = Object.freeze(
   CHRONICLE_CARD_CATALOG.filter((card) => card.deckLimit === 1).map(
     (card) => card.id,
   ),
 );
-export const CHRONICLE_DECEMBER_2003_SEMI_LIMITED_IDS = Object.freeze(
+export const CHRONICLE_FOUNDING_SEMI_LIMITED_IDS = Object.freeze(
   CHRONICLE_CARD_CATALOG.filter((card) => card.deckLimit === 2).map(
     (card) => card.id,
   ),
