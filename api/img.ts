@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { categoryFromId } from './images.js';
+import { r2ReadEnabled, r2ObjectExists, r2PublicUrl } from './_r2.js';
 
 // Phase 2 — per-image binary serving (see
 // docs/load-and-refresh-perf-audit-2026-06-08.md).
@@ -74,6 +75,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Missing or invalid image id (expected "<category>:<key>").' });
     }
     const cat = categoryFromId(id);
+
+    // Stage 3 (R2): when R2 reads are enabled AND this image's bytes exist in R2,
+    // redirect straight to the public (Cloudflare-fronted) URL — the browser
+    // fetches the bytes from R2, never from Postgres through this function. This
+    // removes the DB round-trip that 503s under load and blanks cold portraits.
+    // r2ObjectExists HEAD-checks once per id per process then caches a hit, so
+    // steady-state this is a pure redirect. Any miss (R2 disabled, un-backfilled
+    // id, external-URL image, or a HEAD failure) falls through to the existing
+    // Postgres path below — so nothing regresses and the fallback stays intact.
+    if (r2ReadEnabled()) {
+        const url = r2PublicUrl(id);
+        if (url && (await r2ObjectExists(id))) {
+            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+            return res.redirect(302, url);
+        }
+    }
 
     // Per-call timeout so one slow KV read can't hang the function.
     const withTimeout = <T>(p: Promise<T | null>, ms = 8_000): Promise<T | null | typeof IMAGE_READ_TIMEOUT> =>
