@@ -36,7 +36,17 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // line per species (140 strings, ~18 KB) to data/pet-pool.ts; measured
 // 6,670,602 B — 602 B past the old ceiling. Startup gates untouched and green
 // (initial graph 1.31 MB raw / 343.3 KB gzip, entry under its gate).
-const TOTAL_JS_CSS_FAIL_BYTES = 6_690_000;
+// 2026-07-24: 6.69 -> 6.70 MB. Chronicle Showdown board feel pass: AI-turn
+// replay pacing, click-to-attack + phase-rail jumps, forfeit confirm, duel
+// resume, and the asset-free WebAudio SFX synth land ~10 KB of lazy board
+// code; measured 6,696,327 B — 6,327 B past the old ceiling. Startup gates
+// untouched (initial graph 1.31 MB raw / 343.3 KB gzip, entry under its gate).
+// 2026-07-24: 6.70 -> 6.71 MB. Chronicle board motion pass (card
+// arrive/flip/destroy pulses, attack lunges, ticking HP + damage floats,
+// duel-start and outcome splashes) adds ~3.5 KB of lazy board code/CSS;
+// measured 6,703,504 B. Startup gates untouched (initial graph 1.31 MB raw /
+// 343.3 KB gzip, entry under its gate).
+const TOTAL_JS_CSS_FAIL_BYTES = 6_710_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

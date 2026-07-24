@@ -40,6 +40,21 @@ export type AiMatchProjection = ChronicleProjection & {
   winnerResult?: AiMatchResult;
 };
 
+/** Called after each individual AI action so callers can capture the board
+ *  between moves (the client replays these snapshots with pacing beats). */
+export type AiStepListener = (state: ChronicleMatch) => void;
+
+/** Trim intermediate replay snapshots: the client ticker only needs the log
+ *  tail per beat; the final session still carries the full projected log. */
+const AI_STEP_LOG_LINES = 8;
+export function captureAiStep(
+  steps: ChronicleProjection[],
+  state: ChronicleMatch,
+): void {
+  const projected = projectMatchForViewer(state, "p1");
+  steps.push({ ...projected, log: projected.log.slice(-AI_STEP_LOG_LINES) });
+}
+
 function resultFor(state: ChronicleMatch): AiMatchResult | undefined {
   if (state.status !== "complete") return undefined;
   return state.winner === "p1"
@@ -117,6 +132,7 @@ export function createAiMatch(
   now: number,
   random: () => number = Math.random,
   settlementMode: "standard" | "external" = "standard",
+  onAiStep?: AiStepListener,
 ): AiMatchSession {
   const session: AiMatchSession = {
     matchId,
@@ -135,7 +151,7 @@ export function createAiMatch(
     status: "active",
     settlementMode,
   };
-  advanceAi(session, now);
+  advanceAi(session, now, onAiStep);
   return session;
 }
 
@@ -721,7 +737,11 @@ function chooseBattleAction(
 }
 
 /** Continue server AI decisions until the human must act or answer a response. */
-export function advanceAi(session: AiMatchSession, now = Date.now()): void {
+export function advanceAi(
+  session: AiMatchSession,
+  now = Date.now(),
+  onAiStep?: AiStepListener,
+): void {
   let safety = 0;
   while (session.state.status === "active" && safety++ < 100) {
     const state = session.state;
@@ -750,6 +770,7 @@ export function advanceAi(session: AiMatchSession, now = Date.now()): void {
         if (!passed.ok) break;
         session.state = passed.state;
       } else session.state = out.state;
+      onAiStep?.(session.state);
       continue;
     }
     if (state.activePlayer !== "p2") break;
@@ -775,6 +796,7 @@ export function advanceAi(session: AiMatchSession, now = Date.now()): void {
       if (!recovered.ok) break;
       session.state = recovered.state;
     } else session.state = out.state;
+    onAiStep?.(session.state);
   }
   syncTerminal(session);
 }
@@ -783,6 +805,7 @@ export function applyPlayerAction(
   session: AiMatchSession,
   intent: ChronicleActionIntent,
   now = Date.now(),
+  onAiStep?: AiStepListener,
 ): { ok: true } | { ok: false; error: string } {
   if (
     session.rulesVersion !== CHRONICLE_RULES_VERSION ||
@@ -797,7 +820,7 @@ export function applyPlayerAction(
   const out = applyAction(session.state, "p1", intent, now);
   if (!out.ok) return { ok: false, error: out.error };
   session.state = out.state;
-  advanceAi(session, now);
+  advanceAi(session, now, onAiStep);
   syncTerminal(session);
   return { ok: true };
 }

@@ -12,9 +12,13 @@ import {
   cardClashAiTokenKey,
   utcDateKey,
 } from "./_ai-reward.js";
-import { CHRONICLE_RULES_VERSION } from "../../shared/chronicle-duel.js";
+import {
+  CHRONICLE_RULES_VERSION,
+  type ChronicleProjection,
+} from "../../shared/chronicle-duel.js";
 import {
   applyPlayerAction,
+  captureAiStep,
   forfeit,
   isDone,
   projectAiMatch,
@@ -114,12 +118,17 @@ async function settle(
   };
 }
 
-async function persistOrSettle(session: StoredSession, key: string) {
+async function persistOrSettle(
+  session: StoredSession,
+  key: string,
+  aiSteps?: ChronicleProjection[],
+) {
+  const steps = aiSteps?.length ? { aiSteps } : {};
   if (!isDone(session)) {
     await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
     return {
       status: 200 as const,
-      body: { ok: true, session: projectAiMatch(session) },
+      body: { ok: true, session: projectAiMatch(session), ...steps },
     };
   }
   if (session.settledAt)
@@ -129,6 +138,7 @@ async function persistOrSettle(session: StoredSession, key: string) {
         ok: true,
         session: projectAiMatch(session),
         reward: session.settledReward,
+        ...steps,
       },
     };
   const now = Date.now();
@@ -137,7 +147,7 @@ async function persistOrSettle(session: StoredSession, key: string) {
     await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
     return {
       status: 200 as const,
-      body: { ok: true, session: projectAiMatch(session) },
+      body: { ok: true, session: projectAiMatch(session), ...steps },
     };
   }
   const paid = await settle(session, now);
@@ -156,6 +166,7 @@ async function persistOrSettle(session: StoredSession, key: string) {
       reward: paid.reward,
       character: paid.character,
       _saveVersion: paid.saveVersion,
+      ...steps,
     },
   };
 }
@@ -231,32 +242,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: { error: `Unknown action: ${action}` },
           };
         if (isDone(session)) return persistOrSettle(session, key);
-        const moved = applyPlayerAction(session, {
-          action,
-          handIndex: optionalIndex(body.handIndex),
-          zoneIndex: optionalIndex(body.zoneIndex),
-          tributeZoneIndexes: Array.isArray(body.tributeZoneIndexes)
-            ? body.tributeZoneIndexes
-                .map(optionalIndex)
-                .filter((n): n is number => n !== undefined)
-            : undefined,
-          attackerZoneIndex: optionalIndex(body.attackerZoneIndex),
-          targetZoneIndex:
-            body.targetZoneIndex === null
-              ? null
-              : optionalIndex(body.targetZoneIndex),
-          targetSide:
-            body.targetSide === "p1" || body.targetSide === "p2"
-              ? body.targetSide
+        const aiSteps: ChronicleProjection[] = [];
+        const moved = applyPlayerAction(
+          session,
+          {
+            action,
+            handIndex: optionalIndex(body.handIndex),
+            zoneIndex: optionalIndex(body.zoneIndex),
+            tributeZoneIndexes: Array.isArray(body.tributeZoneIndexes)
+              ? body.tributeZoneIndexes
+                  .map(optionalIndex)
+                  .filter((n): n is number => n !== undefined)
               : undefined,
-          graveyardIndex: optionalIndex(body.graveyardIndex),
-          ...(body.position === "attack" || body.position === "defense"
-            ? { position: body.position }
-            : {}),
-        });
+            attackerZoneIndex: optionalIndex(body.attackerZoneIndex),
+            targetZoneIndex:
+              body.targetZoneIndex === null
+                ? null
+                : optionalIndex(body.targetZoneIndex),
+            targetSide:
+              body.targetSide === "p1" || body.targetSide === "p2"
+                ? body.targetSide
+                : undefined,
+            graveyardIndex: optionalIndex(body.graveyardIndex),
+            ...(body.position === "attack" || body.position === "defense"
+              ? { position: body.position }
+              : {}),
+          },
+          Date.now(),
+          (state) => captureAiStep(aiSteps, state),
+        );
         if (!moved.ok)
           return { status: 400 as const, body: { error: moved.error } };
-        return persistOrSettle(session, key);
+        return persistOrSettle(session, key, aiSteps);
       },
       { failClosed: true },
     );

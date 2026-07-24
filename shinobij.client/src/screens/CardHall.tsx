@@ -21,6 +21,7 @@ import {
   type ChronicleAiResult,
   type ChronicleAiDifficulty,
   type ChronicleDisplayCard,
+  type ChronicleProjection,
 } from "../lib/chronicle-duel";
 import { getAllTileCards } from "../data/tile-cards";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
@@ -30,6 +31,24 @@ import { CardClashTutorial } from "../components/CardClashTutorial";
 
 type Tab = "collection" | "deck" | "play" | "pvp" | "rules";
 type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
+
+// Pacing beats between the Chronicle Keeper's replayed moves: a full beat when
+// the step landed a new log line, a quiet beat for silent phase bookkeeping.
+const AI_STEP_BEAT_MS = 950;
+const AI_STEP_QUIET_MS = 400;
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+// Per-tab pointer at the live AI duel so a refresh can offer "Resume" —
+// the server keeps the session in KV and answers action:"state".
+const CHRONICLE_AI_RESUME_KEY = "chronicleAiMatch.v1";
+function readResumableMatch(): string | null {
+  try {
+    return window.sessionStorage.getItem(CHRONICLE_AI_RESUME_KEY);
+  } catch {
+    return null;
+  }
+}
 
 type CardHallProps = {
   character: Character;
@@ -116,7 +135,75 @@ function CardHallInner({
   const [reward, setReward] = useState<ChronicleAiResult["reward"]>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiActing, setAiActing] = useState(false);
+  const [resumableMatchId, setResumableMatchId] = useState<string | null>(
+    readResumableMatch,
+  );
   const autoStarted = useRef(false);
+  const replayToken = useRef(0);
+  useEffect(() => {
+    // Cancel any in-flight AI replay when the hall unmounts.
+    return () => {
+      replayToken.current += 1;
+    };
+  }, []);
+
+  function syncResumableMatch(nextMatchId: string | null) {
+    setResumableMatchId(nextMatchId);
+    try {
+      if (nextMatchId)
+        window.sessionStorage.setItem(CHRONICLE_AI_RESUME_KEY, nextMatchId);
+      else window.sessionStorage.removeItem(CHRONICLE_AI_RESUME_KEY);
+    } catch {
+      /* private mode — resume just won't survive a refresh */
+    }
+  }
+
+  /** Sync the authoritative result immediately, then show the Keeper's moves
+   *  one beat at a time. Settlement (ryo, W/L, save version) must never wait
+   *  on — or be skipped by — an interrupted animation. */
+  async function presentSession(result: ChronicleAiResult) {
+    const final = result.session;
+    if (!final) return;
+    if (result.reward) setReward(result.reward);
+    if (result.character) updateCharacter(result.character);
+    syncResumableMatch(final.status === "complete" ? null : final.matchId);
+    const steps = result.aiSteps ?? [];
+    const token = ++replayToken.current;
+    if (steps.length > 0) {
+      setAiActing(true);
+      let previous: Pick<ChronicleProjection, "log"> | null = duel;
+      for (const step of steps) {
+        setDuel({ ...final, ...step });
+        const newLine = step.log.at(-1) !== previous?.log.at(-1);
+        await sleep(newLine ? AI_STEP_BEAT_MS : AI_STEP_QUIET_MS);
+        if (replayToken.current !== token) return;
+        previous = step;
+      }
+      setAiActing(false);
+    }
+    setDuel(final);
+  }
+
+  /** Reload an interrupted duel from the server (action:"state"). */
+  async function resumeShowdown() {
+    if (!resumableMatchId || busy) return;
+    setBusy(true);
+    setError("");
+    setReward(undefined);
+    const result = await chronicleAiAction(resumableMatchId, {
+      action: "state",
+    });
+    if (!result.ok || !result.session) {
+      setBusy(false);
+      syncResumableMatch(null);
+      setError(result.error ?? "That showdown has expired.");
+      return;
+    }
+    setMatchId(resumableMatchId);
+    await presentSession(result);
+    setBusy(false);
+  }
   const deckDirty = JSON.stringify(deck) !== JSON.stringify(savedDeck);
   const deckCheck = useMemo(
     () => validateOwnedChronicleDeck(deck, ownedCounts),
@@ -136,14 +223,15 @@ function CardHallInner({
       deckIds,
       difficulty,
     );
-    setBusy(false);
     if (!result.ok || !result.matchId || !result.session) {
+      setBusy(false);
       setError(result.error ?? "Could not start the showdown.");
       return;
     }
     setMatchId(result.matchId);
-    setDuel(result.session);
     setTab("play");
+    await presentSession(result);
+    setBusy(false);
   }
 
   useEffect(() => {
@@ -159,14 +247,13 @@ function CardHallInner({
     setBusy(true);
     setError("");
     const result = await chronicleAiAction(matchId, intent);
-    setBusy(false);
     if (!result.ok || !result.session) {
+      setBusy(false);
       setError(result.error ?? "That action was not legal.");
       return;
     }
-    setDuel(result.session);
-    if (result.reward) setReward(result.reward);
-    if (result.character) updateCharacter(result.character);
+    await presentSession(result);
+    setBusy(false);
   }
 
   function closeTutorial() {
@@ -290,6 +377,7 @@ function CardHallInner({
               </div>
             ) : null}
             <ChronicleDuelBoard
+              key={matchId ?? "duel"}
               state={duel}
               cardsById={cardsById}
               playerAvatar={
@@ -302,6 +390,7 @@ function CardHallInner({
                 ]
               }
               busy={busy}
+              aiActing={aiActing}
               error={error}
               onAction={(intent) => void act(intent)}
             />
@@ -336,6 +425,16 @@ function CardHallInner({
               </select>
             </label>
             {error ? <div className="chronicle-error">{error}</div> : null}
+            {resumableMatchId ? (
+              <p>
+                <button
+                  onClick={() => void resumeShowdown()}
+                  disabled={busy}
+                >
+                  Resume Interrupted Showdown
+                </button>
+              </p>
+            ) : null}
             <button onClick={() => void begin()} disabled={busy}>
               {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
             </button>

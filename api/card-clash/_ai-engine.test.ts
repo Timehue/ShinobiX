@@ -5,11 +5,13 @@ import {
   CHRONICLE_FIXED_FALLBACK_DECK,
   MAIN_DECK_SIZE,
   validateDeckIds,
+  type ChronicleProjection,
 } from "../../shared/chronicle-duel.js";
 import {
   CHRONICLE_AI_DECKS,
   advanceAi,
   applyPlayerAction,
+  captureAiStep,
   createAiMatch,
   forfeit,
   generateAiServerDeck,
@@ -278,4 +280,41 @@ test("AI projection hides opponent hand, deck identities and set cards", () => {
   assert.equal(projection.p2.deckCount, session.state.p2.deck.length);
   for (const zone of projection.p2.magicTrapZones)
     if (zone && !zone.faceUp) assert.equal(zone.cardId, undefined);
+});
+
+test("AI turns emit per-move step snapshots the client can replay", () => {
+  const steps: ChronicleProjection[] = [];
+  const session = createAiMatch(
+    "match-steps",
+    "Tester",
+    [...CHRONICLE_FIXED_FALLBACK_DECK],
+    "medium",
+    1_000,
+    () => 0,
+    "standard",
+    (state) => captureAiStep(steps, state),
+  );
+  // Player goes first with the seeded RNG: the opening advance produced no
+  // AI steps, but ending the player's turn must replay the Keeper's full
+  // turn one action at a time.
+  assert.equal(steps.length, 0);
+  applyPlayerAction(session, { action: "advance-phase" }, 1_100);
+  applyPlayerAction(session, { action: "advance-phase" }, 1_200);
+  applyPlayerAction(session, { action: "enter-end-phase" }, 1_300);
+  const collected: ChronicleProjection[] = [];
+  const ended = applyPlayerAction(session, { action: "end-turn" }, 2_000, (state) =>
+    captureAiStep(collected, state),
+  );
+  assert.equal(ended.ok, true);
+  assert.ok(collected.length >= 3, "AI turn produced step-by-step snapshots");
+  // Snapshots are viewer projections: the Keeper's hand stays hidden and the
+  // final snapshot matches the settled post-turn board.
+  for (const step of collected) {
+    assert.equal(step.p2.hand, undefined);
+    assert.ok(step.log.length <= 8, "intermediate logs are trimmed");
+  }
+  const last = collected.at(-1)!;
+  assert.equal(last.activePlayer, "p1");
+  assert.equal(last.p2.monsterZones.filter(Boolean).length,
+    session.state.p2.monsterZones.filter(Boolean).length);
 });

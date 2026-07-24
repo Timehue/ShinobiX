@@ -746,12 +746,16 @@ button.chronicle-card {
   padding: clamp(8px, 1.4vw, 18px);
   border: 1px solid #3b4651;
   border-radius: 14px;
+  /* Neutral arena art keeps the table painted even before a Field Card
+     resolves — same treatment the elemental fields get, dimmed deeper so
+     the playmat still pops. */
   background:
     radial-gradient(
       ellipse at center,
-      rgba(47, 68, 64, 0.38),
-      rgba(8, 14, 20, 0.96) 68%
+      rgba(24, 36, 40, 0.32),
+      rgba(6, 11, 16, 0.88) 74%
     ),
+    url("/chronicle/fields/neutral.webp") center / cover no-repeat,
     linear-gradient(#1a232a, #0b1117);
   box-shadow:
     inset 0 0 70px rgba(0, 0, 0, 0.65),
@@ -1107,14 +1111,17 @@ button.chronicle-card {
   overflow: hidden;
   border: 1px solid rgba(87, 154, 172, 0.38);
   border-radius: 12px;
+  /* One knob drives every zone/card size on the mat so the board scales as a
+     unit with the viewport instead of leaving dead space around tiny cards. */
+  --chron-zone-w: clamp(72px, 11.2vmin, 138px);
   background:
-    linear-gradient(rgba(4, 11, 17, 0.38), rgba(4, 11, 17, 0.62)),
+    linear-gradient(rgba(4, 11, 17, 0.52), rgba(4, 11, 17, 0.7)),
     repeating-linear-gradient(
       90deg,
       transparent 0 19%,
       rgba(75, 151, 166, 0.05) 19% 20%
     ),
-    radial-gradient(circle at 50% 50%, rgba(50, 104, 119, 0.2), transparent 58%);
+    url("/chronicle/fields/neutral.webp") center / cover no-repeat;
   padding: 8px clamp(5px, 1vw, 12px);
   box-shadow:
     inset 0 0 60px rgba(0, 0, 0, 0.66),
@@ -1138,7 +1145,8 @@ button.chronicle-card {
   transform: rotate(180deg);
 }
 .chronicle-playmat .chronicle-zone-row {
-  grid-template-columns: repeat(5, minmax(48px, 1fr));
+  grid-template-columns: repeat(5, minmax(48px, var(--chron-zone-w)));
+  justify-content: center;
   width: 100%;
 }
 .chronicle-pile-rail {
@@ -1244,12 +1252,12 @@ button.chronicle-card {
   font-size: 0.58rem;
 }
 .chronicle-zone .chronicle-card {
-  width: min(100%, 88px);
+  width: min(100%, calc(var(--chron-zone-w, 100px) - 10px));
   max-height: none;
 }
 .chronicle-playmat .chronicle-zone {
   position: relative;
-  min-height: clamp(82px, 8vw, 122px);
+  min-height: calc(var(--chron-zone-w) * 1.22);
   overflow: hidden;
   border-color: rgba(89, 164, 177, 0.38);
   background:
@@ -1260,6 +1268,21 @@ button.chronicle-card {
       rgba(89, 157, 169, 0.04) 10px 11px
     );
   box-shadow: inset 0 0 18px rgba(42, 101, 117, 0.08);
+}
+.chronicle-playmat .chronicle-zone.inspectable {
+  cursor: zoom-in;
+}
+.chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
+  border-color: rgba(124, 200, 255, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(124, 200, 255, 0.22),
+    inset 0 0 20px rgba(74, 141, 178, 0.14);
+}
+.chronicle-zone.inspected {
+  border-color: #7cc8ff;
+  box-shadow:
+    0 0 0 2px rgba(124, 200, 255, 0.3),
+    inset 0 0 22px rgba(124, 200, 255, 0.12);
 }
 .chronicle-playmat .chronicle-zone > span {
   max-width: 70px;
@@ -1295,7 +1318,7 @@ button.chronicle-card {
   min-height: clamp(54px, 8vw, 105px);
 }
 .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
-  min-height: clamp(66px, 6vw, 94px);
+  min-height: calc(var(--chron-zone-w) * 0.84);
 }
 .chronicle-field-divider {
   display: grid;
@@ -1366,11 +1389,15 @@ button.chronicle-card {
   place-items: center;
   border: 1px solid rgba(96, 151, 120, 0.22);
   border-radius: 5px;
-  color: #718b7b;
+  background:
+    linear-gradient(rgba(4, 12, 10, 0.52), rgba(4, 12, 10, 0.74)),
+    url("/chronicle/fields/neutral.webp") center / cover no-repeat;
+  color: #cfe3d6;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-align: center;
+  text-shadow: 0 1px 3px #000;
   text-transform: uppercase;
 }
 .chronicle-active-field {
@@ -1411,6 +1438,405 @@ button.chronicle-card {
   font-size: 0.67rem;
   font-weight: 600;
   line-height: 1.45;
+  animation: chronicle-log-in 0.38s ease;
+}
+@keyframes chronicle-log-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.chronicle-ai-acting {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  color: #f2c98a;
+  font-size: 0.62rem;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.chronicle-ai-acting i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentcolor;
+  animation: chronicle-acting-pulse 1.05s ease-in-out infinite;
+}
+.chronicle-ai-acting i:nth-child(2) {
+  animation-delay: 0.17s;
+}
+.chronicle-ai-acting i:nth-child(3) {
+  animation-delay: 0.34s;
+}
+@keyframes chronicle-acting-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+.chronicle-table.ai-acting .chronicle-duelist-avatar.opponent {
+  animation: chronicle-foe-glow 1.3s ease-in-out infinite;
+}
+/* Clickable phase-rail chips: legal next-step jumps read as buttons. */
+.chronicle-phase-rail .chronicle-phase-jump {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chronicle-phase-rail li.jumpable {
+  border-style: dashed;
+  border-color: rgba(212, 170, 98, 0.5);
+}
+.chronicle-phase-rail li.jumpable:hover {
+  border-style: solid;
+  border-color: #d4aa62;
+  color: #ffd98f;
+  background: rgba(52, 44, 24, 0.55);
+  box-shadow: 0 0 12px rgba(222, 178, 95, 0.14);
+}
+/* Two-step forfeit: armed state must look unmistakably different. */
+.chronicle-actions button.danger.armed {
+  border-color: #e4666e;
+  background: #4a1519;
+  color: #ffd7d9;
+  box-shadow: 0 0 0 2px rgba(228, 102, 110, 0.35);
+}
+/* Sound toggle chip in the room banner. */
+.chronicle-sfx-toggle {
+  margin-left: 8px;
+  min-width: 26px;
+  border: 1px solid rgba(148, 168, 186, 0.4);
+  border-radius: 5px;
+  background: rgba(9, 16, 23, 0.72);
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.chronicle-sfx-toggle:hover {
+  border-color: #d0a85f;
+}
+/* Destroyed-Monster impact: quick shake + white bloom over the mat. */
+.chronicle-playmat.impact {
+  animation: chronicle-impact-shake 0.36s ease-out;
+}
+.chronicle-playmat.impact::after {
+  content: "";
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(255, 240, 219, 0.3),
+    rgba(255, 226, 189, 0.08) 46%,
+    transparent 72%
+  );
+  animation: chronicle-impact-fade 0.43s ease-out forwards;
+}
+@keyframes chronicle-impact-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translate(-3px, 1px);
+  }
+  40% {
+    transform: translate(3px, -2px);
+  }
+  60% {
+    transform: translate(-2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -1px);
+  }
+}
+@keyframes chronicle-impact-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* ── Card motion layer ─────────────────────────────────────────────────────
+   Zone-level pulses (never the card itself — cards carry rotation transforms
+   for the opponent's 180° and Defense Position 90° which must not be
+   overridden by an animation). */
+.chronicle-playmat .chronicle-zone.fx-arrive {
+  z-index: 3;
+  border-color: #f1c671;
+  box-shadow: 0 0 20px rgba(241, 198, 113, 0.4);
+  animation: chronicle-fx-arrive 0.52s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes chronicle-fx-arrive {
+  0% {
+    transform: scale(0.55);
+    filter: brightness(2.1);
+    opacity: 0.2;
+  }
+  55% {
+    transform: scale(1.07);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+.chronicle-playmat .chronicle-zone.fx-flip {
+  z-index: 3;
+  animation: chronicle-fx-flip 0.48s ease-out;
+}
+@keyframes chronicle-fx-flip {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.1);
+    filter: brightness(2.4) saturate(0.55);
+    box-shadow: 0 0 26px rgba(240, 224, 180, 0.65);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+.chronicle-playmat .chronicle-zone.fx-destroyed {
+  animation: chronicle-fx-destroyed 0.56s ease-out;
+}
+@keyframes chronicle-fx-destroyed {
+  0% {
+    transform: scale(1.06);
+    box-shadow:
+      inset 0 0 0 44px rgba(255, 199, 138, 0.6),
+      0 0 30px rgba(255, 148, 88, 0.75);
+  }
+  45% {
+    transform: scale(0.97) rotate(-1.2deg);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+.chronicle-playmat .chronicle-zone.fx-strike-up {
+  z-index: 3;
+  animation: chronicle-fx-strike-up 0.4s ease-in-out;
+}
+@keyframes chronicle-fx-strike-up {
+  0%,
+  100% {
+    transform: none;
+  }
+  32% {
+    transform: translateY(-16px) scale(1.06);
+  }
+  58% {
+    transform: translateY(3px);
+  }
+}
+.chronicle-playmat .chronicle-zone-row.fx-row-strike {
+  animation: chronicle-fx-row-strike 0.42s ease-in-out;
+}
+@keyframes chronicle-fx-row-strike {
+  0%,
+  100% {
+    transform: none;
+  }
+  38% {
+    transform: translateY(11px);
+  }
+}
+/* Newly drawn cards slide up into the hand (mount animation: fires for the
+   opening hand as a cascade and for each later draw). */
+.chronicle-hand .chronicle-card,
+.chronicle-opponent-hand__card {
+  animation: chronicle-hand-draw 0.3s ease-out backwards;
+}
+@keyframes chronicle-hand-draw {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Floating life-point deltas over each duelist's health readout. */
+.chronicle-combatant__health {
+  position: relative;
+}
+.chronicle-float-anchor {
+  position: absolute;
+  top: 40%;
+  left: 55%;
+  z-index: 30;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.chronicle-float {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, 0);
+  color: #ff7d72;
+  font:
+    900 1.05rem/1 ui-monospace,
+    monospace;
+  white-space: nowrap;
+  text-shadow:
+    0 2px 5px #000,
+    0 0 12px rgba(0, 0, 0, 0.9);
+  animation: chronicle-float-rise 1.3s ease-out forwards;
+}
+.chronicle-float.heal {
+  color: #7de6a0;
+}
+@keyframes chronicle-float-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.75);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -3px) scale(1.18);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -36px) scale(1);
+  }
+}
+/* Health bar drains instead of jumping. */
+.chronicle-health-meter::after {
+  transition: width 0.55s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+/* ── Duel splashes ──────────────────────────────────────────────────────── */
+.chronicle-splash {
+  position: fixed;
+  z-index: 1050;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(3, 7, 12, 0.78),
+    rgba(3, 7, 12, 0.4) 58%,
+    transparent
+  );
+  text-align: center;
+  pointer-events: none;
+  animation: chronicle-splash-fade 2.1s ease forwards;
+}
+.chronicle-splash.outcome {
+  animation-duration: 2.6s;
+}
+.chronicle-splash b {
+  color: #f3d79f;
+  font:
+    900 clamp(2.4rem, 7vw, 4.8rem)/1 Georgia,
+    serif;
+  letter-spacing: 0.18em;
+  text-shadow:
+    0 4px 18px #000,
+    0 0 48px rgba(240, 196, 99, 0.55);
+  animation: chronicle-splash-slam 0.55s cubic-bezier(0.2, 1.6, 0.35, 1)
+    backwards;
+}
+.chronicle-splash span {
+  color: #cdd8e2;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px #000;
+  animation: chronicle-splash-sub 0.8s ease 0.25s backwards;
+}
+.chronicle-splash.outcome.defeat b {
+  color: #ff9d94;
+  text-shadow:
+    0 4px 18px #000,
+    0 0 48px rgba(216, 98, 89, 0.6);
+}
+.chronicle-splash.outcome.draw b {
+  color: #bcc8d4;
+  text-shadow:
+    0 4px 18px #000,
+    0 0 40px rgba(150, 170, 190, 0.5);
+}
+@keyframes chronicle-splash-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes chronicle-splash-sub {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes chronicle-splash-fade {
+  0%,
+  76% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes chronicle-foe-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 18px rgba(0, 0, 0, 0.72),
+      0 0 0 2px rgba(5, 10, 15, 0.82),
+      0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 18px rgba(0, 0, 0, 0.72),
+      0 0 0 2px rgba(5, 10, 15, 0.82),
+      0 0 22px rgba(216, 106, 92, 0.6);
+  }
 }
 .chronicle-player-bar {
   grid-template-columns: 1fr 1fr;
@@ -1443,6 +1869,11 @@ button.chronicle-card {
 }
 .chronicle-hand .chronicle-card {
   flex: 0 0 auto;
+  width: clamp(88px, 12vmin, 148px);
+  transition: transform 0.15s ease;
+}
+.chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+  transform: translateY(-4px);
 }
 .chronicle-actions {
   display: flex;
@@ -1719,15 +2150,15 @@ button.chronicle-card {
     gap: 7px !important;
   }
   .chronicle-opponent-hand {
-    min-height: 42px;
+    min-height: 48px;
     margin-bottom: 4px;
   }
   .chronicle-opponent-hand__card,
   .chronicle-opponent-hand .chronicle-card {
-    width: 38px;
+    width: 44px;
   }
   .chronicle-opponent-hand__card {
-    margin-left: -18px;
+    margin-left: -20px;
   }
   .chronicle-phase-rail {
     margin-bottom: 6px;
@@ -1736,7 +2167,7 @@ button.chronicle-card {
     padding-block: 4px;
   }
   .chronicle-duel-stage {
-    grid-template-columns: minmax(176px, 210px) minmax(0, 1fr) 88px;
+    grid-template-columns: minmax(200px, 244px) minmax(0, 1fr) 96px;
     gap: 7px;
   }
   .chronicle-card-detail-panel {
@@ -1750,7 +2181,7 @@ button.chronicle-card {
     gap: 4px;
   }
   .chronicle-card-detail-panel__zoom > .chronicle-card {
-    max-width: 176px;
+    max-width: 220px;
   }
   .chronicle-card-detail-panel__zoom
     > .chronicle-card:not(.long-name):not(.very-long-name)
@@ -1761,20 +2192,12 @@ button.chronicle-card {
     padding-block: 3px;
   }
   .chronicle-playmat {
+    --chron-zone-w: clamp(76px, 11.6vmin, 142px);
     padding-block: 4px;
   }
   .chronicle-zone-row {
     gap: 5px;
     margin-block: 3px;
-  }
-  .chronicle-playmat .chronicle-zone {
-    min-height: 70px;
-  }
-  .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
-    min-height: 52px;
-  }
-  .chronicle-playmat .chronicle-zone .chronicle-card {
-    width: min(100%, 50px);
   }
   .chronicle-field-divider {
     min-height: 64px;
@@ -1811,7 +2234,7 @@ button.chronicle-card {
     padding: 7px 6px 5px;
   }
   .chronicle-hand .chronicle-card {
-    width: 78px;
+    width: clamp(88px, 12vmin, 144px);
   }
   .chronicle-actions {
     margin-top: 6px;
@@ -1858,15 +2281,15 @@ button.chronicle-card {
     padding: 3px 7px;
   }
   .chronicle-opponent-hand {
-    min-height: 32px;
+    min-height: 40px;
     margin-bottom: 2px;
   }
   .chronicle-opponent-hand__card,
   .chronicle-opponent-hand .chronicle-card {
-    width: 28px;
+    width: 36px;
   }
   .chronicle-opponent-hand__card {
-    margin-left: -13px;
+    margin-left: -16px;
   }
   .chronicle-phase-rail {
     margin-bottom: 3px;
@@ -1875,7 +2298,7 @@ button.chronicle-card {
     padding-block: 2px;
   }
   .chronicle-duel-stage {
-    grid-template-columns: minmax(154px, 174px) minmax(0, 1fr) 72px;
+    grid-template-columns: minmax(184px, 216px) minmax(0, 1fr) 84px;
     gap: 5px;
   }
   .chronicle-card-detail-panel {
@@ -1889,48 +2312,36 @@ button.chronicle-card {
     gap: 2px;
   }
   .chronicle-card-detail-panel__zoom > .chronicle-card {
-    max-width: 124px;
+    max-width: 180px;
   }
   .chronicle-card-detail-panel__zoom > span {
     padding-block: 2px;
   }
   .chronicle-playmat {
+    --chron-zone-w: clamp(64px, 9.6vmin, 110px);
     padding-block: 2px;
   }
   .chronicle-zone-row {
     gap: 4px;
     margin-block: 1px;
   }
-  .chronicle-playmat .chronicle-zone {
-    height: 54px;
-    min-height: 54px;
-  }
-  .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
-    height: 42px;
-    min-height: 42px;
-  }
-  .chronicle-playmat .chronicle-zone .chronicle-card {
-    width: 38px;
-  }
   .chronicle-field-divider {
-    height: 50px;
-    min-height: 50px;
-    margin-block: 2px;
-    overflow: hidden;
-    padding: 2px;
+    min-height: 58px;
+    margin-block: 3px;
+    padding: 3px;
   }
   .chronicle-field-zone {
-    min-height: 44px;
-    padding: 2px;
+    min-height: 50px;
+    padding: 3px;
   }
   .chronicle-field-zone__empty {
-    min-height: 36px;
+    min-height: 42px;
   }
   .chronicle-active-field {
     gap: 5px;
   }
   .chronicle-active-field .chronicle-card {
-    width: 30px;
+    width: 36px;
   }
   .chronicle-battle-message {
     gap: 2px;
@@ -1956,7 +2367,7 @@ button.chronicle-card {
     padding: 5px 4px 3px;
   }
   .chronicle-hand .chronicle-card {
-    width: 60px;
+    width: clamp(78px, 10.4vmin, 124px);
   }
   .chronicle-actions {
     margin-top: 3px;
@@ -2073,6 +2484,9 @@ button.chronicle-card {
   .chronicle-phase-rail span {
     display: none;
   }
+  .chronicle-playmat {
+    --chron-zone-w: clamp(56px, 17.5vw, 92px);
+  }
   .chronicle-zone-row {
     grid-template-columns: repeat(5, minmax(48px, 1fr));
     gap: 3px;
@@ -2096,6 +2510,12 @@ button.chronicle-card {
   .chronicle-card.compact {
     width: 74px;
   }
+  /* Board cards must stay inside their zones — the generic 74px compact
+     width above would overflow the ~65px mobile zones (overflow: hidden
+     clips them). Higher specificity so it wins regardless of order. */
+  .chronicle-playmat .chronicle-zone .chronicle-card {
+    width: min(100%, calc(var(--chron-zone-w) - 8px));
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .chronicle-card {
@@ -2103,6 +2523,48 @@ button.chronicle-card {
   }
   .chronicle-card.selected {
     transform: none;
+  }
+  .chronicle-battle-message strong,
+  .chronicle-ai-acting i,
+  .chronicle-table.ai-acting .chronicle-duelist-avatar.opponent,
+  .chronicle-playmat.impact,
+  .chronicle-playmat.impact::after,
+  .chronicle-playmat .chronicle-zone.fx-arrive,
+  .chronicle-playmat .chronicle-zone.fx-flip,
+  .chronicle-playmat .chronicle-zone.fx-destroyed,
+  .chronicle-playmat .chronicle-zone.fx-strike-up,
+  .chronicle-playmat .chronicle-zone-row.fx-row-strike,
+  .chronicle-hand .chronicle-card,
+  .chronicle-opponent-hand__card,
+  .chronicle-splash,
+  .chronicle-splash b,
+  .chronicle-splash span {
+    animation: none !important;
+  }
+  .chronicle-playmat.impact::after {
+    content: none;
+  }
+  .chronicle-float {
+    animation-duration: 0.9s !important;
+    animation-name: chronicle-float-reduced !important;
+  }
+  .chronicle-health-meter::after {
+    transition: none;
+  }
+  .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+    transform: none;
+  }
+}
+/* Reduced-motion floats: still show the number, no travel. */
+@keyframes chronicle-float-reduced {
+  0%,
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -10px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -10px);
   }
 }
 .chronicle-tutorial-backdrop {
