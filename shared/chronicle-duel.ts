@@ -488,12 +488,25 @@ function monsterLoreFromSource(
   return `${finishSentence(source.description)} In the world of Shinobi Journey, ${ELEMENT_LORE[element]}.`;
 }
 
+/** Per-card exact stat overrides — hand-tuned numbers that bypass the tier +
+ * element formula for specific signature cards. Keyed by tile-card id. */
+const MONSTER_STAT_OVERRIDES: Readonly<
+  Record<
+    string,
+    { level: number; attack: number; defense: number; powerTier: MonsterPowerTier }
+  >
+> = {
+  // Blue Blade Raccoon — promoted to a Legendary signature card.
+  "tc-41": { level: 8, attack: 3_500, defense: 2_500, powerTier: "mythic" },
+};
+
 function monsterFromSource(source: TileCard): ChronicleMonsterCard {
   const powerTier = REVIEWED_MONSTER_TIERS[source.id] ?? "standard";
   const base = TIER_PROFILE[powerTier];
   const element = normalizeElement(source.element, source.id);
   const profile = ELEMENT_PROFILE[element];
   const isTrainingDummy = source.id === "tc-01";
+  const override = isTrainingDummy ? undefined : MONSTER_STAT_OVERRIDES[source.id];
   return {
     id: source.id,
     name: source.name,
@@ -516,12 +529,14 @@ function monsterFromSource(source: TileCard): ChronicleMonsterCard {
             source.name.includes("Wraith")
           ? "Spirit"
           : "Beast",
-    level: isTrainingDummy ? 1 : base.level,
-    attack: isTrainingDummy ? 300 : Math.max(100, base.attack + profile.attack),
+    level: isTrainingDummy ? 1 : (override?.level ?? base.level),
+    attack: isTrainingDummy
+      ? 300
+      : (override?.attack ?? Math.max(100, base.attack + profile.attack)),
     defense: isTrainingDummy
       ? 800
-      : Math.max(100, base.defense + profile.defense),
-    powerTier,
+      : (override?.defense ?? Math.max(100, base.defense + profile.defense)),
+    powerTier: override?.powerTier ?? powerTier,
   };
 }
 

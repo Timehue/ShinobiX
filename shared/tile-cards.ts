@@ -57,7 +57,7 @@ export const shinobiTileCards: TileCard[] = [
     { id: "tc-39", name: "Moonshadow Spy",      element: "Neutral", rarity: "rare", description: "Strong top control." },
     { id: "tc-40", name: "Golden Beetle",       element: "Neutral", rarity: "rare", description: "Strong bottom control." },
     // Epic (10)
-    { id: "tc-41", name: "Blue Blade Raccoon",  element: "Water",   rarity: "epic", description: "Strong all-around mascot card." },
+    { id: "tc-41", name: "Blue Blade Raccoon",  element: "Water",   rarity: "legendary", description: "Azure-bladed champion of the rushing rivers, whose dance of steel has never met its equal." },
     { id: "tc-42", name: "Inferno Cat",         element: "Fire",    rarity: "epic", description: "Huge power, limited left." },
     { id: "tc-43", name: "Iron Beetle King",    element: "Earth",   rarity: "epic", description: "Strong defensive control." },
     { id: "tc-44", name: "Phantom Spider Lady", element: "Shadow",  rarity: "epic", description: "Excellent top-side control." },
