@@ -3456,6 +3456,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                                 style: heroStyle,
                             });
                         }
+                        // A blow landed BY the pet the player is driving. The player's
+                        // own agency has to read every time — a light poke from your pet
+                        // should still land with weight, or commanding it feels inert.
+                        // So a player-side contact gets a feedback FLOOR (a guaranteed
+                        // contact flash + a touch more shake/hit-stop) even when its
+                        // balance damage is small. Render-only; the sim is untouched.
+                        const playerHit = e.actorId.startsWith("player");
                         const contactFeedback = () => {
                             // Sound rides the contact frame (immediate, or delayed with a
                             // set-piece), so the hit/crit lands on the same beat as the
@@ -3464,11 +3471,12 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                             playPetSfx(e.crit ? "crit" : "hit");
                             spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                             if (!spotlight) return;
-                            hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0));
-                            shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0));
-                            if (impactHeavy || e.move) {
+                            const floor = playerHit ? 1 : 0;   // 0/1 gate for the player-agency floor
+                            hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0) + floor * 0.02);
+                            shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0) + floor * 0.4);
+                            if (impactHeavy || e.move || playerHit) {
                                 const contactFlash = new THREE.Color(col).lerp(new THREE.Color("#fff4d2"), 0.26).getStyle();
-                                const contactFrame = Math.min(0.34, 0.1 + frac * 0.62 + (e.crit ? 0.08 : 0) + (dashCombo ? 0.06 : 0));
+                                const contactFrame = Math.min(0.34, (playerHit ? 0.12 : 0.1) + frac * 0.62 + (e.crit ? 0.08 : 0) + (dashCombo ? 0.06 : 0));
                                 onFlash(contactFlash, contactFrame);
                                 scheduleDirectorCue(() => onFlash(col, Math.min(0.2, 0.035 + frac * 0.34) + (e.crit ? 0.05 : 0)), 62);
                             }
@@ -3488,6 +3496,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                             else if (e.crit || heavyKind) savor(0.72, 0.12);
                             else if (authoredDashContact || dashCombo) savor(0.62, 0.22);
                             else if (isAbility || heavy) savor(0.98, 0.04);
+                            else if (playerHit) savor(1.02, 0.03);   // player-agency floor: even a light poke you drove gets a readable contact beat
                         }
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
                         if (spotlight) zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashCombo ? 2.5 : (isAbility || heavy) ? 1.45 : 0.42);
@@ -6964,6 +6973,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [dusts, setDusts] = useState<Array<{ id: number; at: Vec3 }>>([]);   // transient foot-dust on dodge landings / KO impact
     const [scorches, setScorches] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks — the arena remembers the fight
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
+    // The player's LAST order, echoed as an instant ribbon on their side. The deck
+    // buttons already confirm at the bottom of the screen, but a command has to read
+    // as an ACT — so the moment you tap, a labelled flourish fires in the play area,
+    // before the sim even resolves the move. This is what turns "did that do
+    // anything?" into "I just called that shot." Purely presentational.
+    const [commandEcho, setCommandEcho] = useState<{ id: number; label: string; tone: "attack" | "signature" | "plan" } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
@@ -6974,6 +6989,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), 1020);
         return () => window.clearTimeout(timer);
     }, [cutIn]);
+    useEffect(() => {
+        if (!commandEcho) return;
+        const timer = window.setTimeout(() => setCommandEcho((cur) => (cur && cur.id === commandEcho.id ? null : cur)), 1050);
+        return () => window.clearTimeout(timer);
+    }, [commandEcho]);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
     const profileById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, petCombatModel(r.pet)?.profile])) as Record<string, PetCombatModelProfile | undefined>, [roster]);
@@ -7187,11 +7207,29 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // Every order goes through live.command(), which rewinds to the last tick the
     // player has actually seen and re-simulates — so a tap is obeyed on the next
     // frame despite the look-ahead buffer.
-    const issueCommand = (cmd: DuelCommand) => {
+    const issueCommand = (cmd: DuelCommand, moveName?: string) => {
         if (!live) return;
         live.command(cmd);
         const tick = Math.max(0, Math.floor(clock.current.t));
         setLiveView(live.advance(tick));
+        // Instant agency read: name the order in the play area and pop a short flash
+        // in the pet's own colour the moment it is issued, so a tap is felt, not just
+        // registered. Stance/Auto are quieter (a plan, not a strike); an ability or
+        // Bond Break gets the louder treatment.
+        seqRef.current += 1;
+        const echoId = seqRef.current;
+        const accent = elementColor(playerPet.element);
+        if (cmd.kind === "ability") {
+            setCommandEcho({ id: echoId, label: cmd.idx === -1 ? "Strike" : (moveName ?? "Attack"), tone: "attack" });
+            setFlash({ id: echoId, color: accent.glow, intensity: 0.32 });
+        } else if (cmd.kind === "break") {
+            setCommandEcho({ id: echoId, label: "Bond Break", tone: "signature" });
+            setFlash({ id: echoId, color: "#fbbf24", intensity: 0.5 });
+        } else if (cmd.kind === "stance") {
+            setCommandEcho({ id: echoId, label: `${["Press", "Balance", "Guard"][cmd.stance] ?? "Balance"} stance`, tone: "plan" });
+        } else if (cmd.kind === "auto") {
+            setCommandEcho({ id: echoId, label: cmd.on ? "Auto — pet decides" : "You have the reins", tone: "plan" });
+        }
         // Optimistic echo: the control log is a record of what was TRUE at each
         // played tick, so it cannot show an order issued for the tick after this
         // one. Without this the button would take a beat to light up and the deck
@@ -7282,6 +7320,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+                @keyframes petDuelCmdEcho { 0% { opacity: 0; transform: translateY(10px) scale(0.82); } 16% { opacity: 1; transform: translateY(0) scale(1.06); } 30% { transform: translateY(0) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px) scale(0.98); } }
                 @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
                 @keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
                 @keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
@@ -7484,6 +7523,38 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", width: mobileQa ? "calc(100% - 24px)" : "max-content", maxWidth: "84%", boxSizing: "border-box", textAlign: "center", pointerEvents: "none", padding: mobileQa ? "7px 12px" : "7px 22px", borderRadius: mobileQa ? 18 : 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: mobileQa ? "800 14px/1.2 var(--font-display)" : "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: mobileQa ? "normal" : "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
+            {/* Command echo — the player's order, named the instant it is issued so a
+                tap reads as a called shot. Sits above the deck on the player's side,
+                clear of the centre broadcast line. */}
+            {commandEcho && !ended && !cutIn && (() => {
+                const accent = elementColor(playerPet.element);
+                const sig = commandEcho.tone === "signature";
+                const plan = commandEcho.tone === "plan";
+                const edge = sig ? "#fbbf24" : plan ? "rgba(148,163,184,0.7)" : accent.glow;
+                return (
+                    <div key={`cmd-${commandEcho.id}`} style={{
+                        position: "absolute", left: mobileQa ? "50%" : "clamp(14px,4vw,54px)",
+                        bottom: mobileQa ? "38%" : "26%",
+                        transform: mobileQa ? "translateX(-50%)" : undefined,
+                        zIndex: 13, pointerEvents: "none",
+                    }}>
+                        <div style={{
+                            display: "flex", alignItems: "center", gap: 8,
+                            padding: "6px 14px 6px 12px", borderRadius: 999,
+                            background: "rgba(8,11,22,0.82)", border: `1.5px solid ${edge}`,
+                            boxShadow: `0 6px 20px rgba(0,0,0,0.5), 0 0 16px ${edge}44`,
+                            color: sig ? "#fff7e6" : plan ? "#dbeafe" : "#eaf2ff",
+                            font: "900 clamp(12px,1.7vw,17px)/1 var(--font-display), Inter, system-ui, sans-serif",
+                            letterSpacing: "0.03em", whiteSpace: "nowrap",
+                            animation: "petDuelCmdEcho 1050ms cubic-bezier(.16,.84,.24,1) forwards",
+                        }}>
+                            <span aria-hidden="true" style={{ color: edge, fontSize: "1.05em", textShadow: `0 0 10px ${edge}` }}>{sig ? "★" : plan ? "◆" : "▶"}</span>
+                            <span style={{ textShadow: "0 2px 8px #000" }}>{commandEcho.label}</span>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {debugAi && <DuelAiDebugHud duel={duel} clock={clock} nameById={nameById} />}
 
             {/* Lockstep stall — the shared watermark has caught up to playback and
@@ -7515,7 +7586,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     accent={elementColor(playerPet.element)}
                     keyboard={!mobileQa && canHover}
                     compact={mobileQa}
-                    onAbility={(idx) => issueCommand({ kind: "ability", actorId: "player-0", idx })}
+                    onAbility={(idx) => issueCommand({ kind: "ability", actorId: "player-0", idx }, idx === -1 ? "Strike" : deckControl?.abilities[idx]?.name)}
                     onBreak={() => { setBondSpentAt(Math.max(0, Math.floor(clock.current.t))); issueCommand({ kind: "break", actorId: "player-0" }); }}
                     /* Stance and Auto are team-wide: in a 2v2 the deck drives the
                        lead, but a plan the player sets should govern both pets. */
