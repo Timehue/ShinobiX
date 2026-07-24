@@ -412,13 +412,16 @@ test("classic starter spans low, medium, one-Tribute, and two-Tribute Monster ba
     }).length,
     5,
   );
+  // 5 distinct power tiers: the classic weak/standard/elite/boss spread plus the
+  // mythic tier introduced when Blue Blade Raccoon (tc-41) was promoted to a
+  // Legendary signature card.
   assert.equal(
     new Set(
       fallbackMonsters.map(
         (id) => (getChronicleCard(id) as { powerTier?: string })?.powerTier,
       ),
     ).size,
-    4,
+    5,
   );
   const catalogTierCounts = CHRONICLE_CARD_CATALOG.filter(
     (card) => card.cardClass === "monster",
