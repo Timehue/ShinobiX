@@ -1,5 +1,5 @@
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
-import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { countChronicleCardsWithStarter, deckLimitForCard } from '../../shared/chronicle-duel.js';
 
 export const CARD_PACK_TYPES = ['standard', 'epic', 'legendary'] as const;
@@ -10,12 +10,18 @@ type PackDefinition = {
     baseCost: number;
     count: number;
     rarities: string[];
+    // Which storefront pool this pack draws from. 'shop' = the weaker half of
+    // the catalog (ryo); 'marketplace' = the best 50% (premium Fate Shards).
+    pool: 'shop' | 'marketplace';
 };
 
 const PACKS: Record<CardPackType, PackDefinition> = {
-    standard: { currency: 'ryo', baseCost: 250, count: 5, rarities: ['common', 'rare'] },
-    epic: { currency: 'fateShards', baseCost: 10, count: 1, rarities: ['epic'] },
-    legendary: { currency: 'fateShards', baseCost: 30, count: 1, rarities: ['legendary'] },
+    // Shop (ryo): the standard pool — Commons and the weaker Rares.
+    standard: { currency: 'ryo', baseCost: 250, count: 5, rarities: ['common', 'rare'], pool: 'shop' },
+    // Grand Marketplace (Fate Shards): the best 50%. The Elite pack covers the
+    // top Rares + Epics; the Legendary pack is the guaranteed top tier.
+    epic: { currency: 'fateShards', baseCost: 10, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
+    legendary: { currency: 'fateShards', baseCost: 30, count: 1, rarities: ['legendary'], pool: 'marketplace' },
 };
 
 const CARD_COLLECTION_CAP = 1_200;
@@ -70,7 +76,10 @@ export function applyCardPackOpen(
     const cost = cardPackCost(character, type);
     if (balance < cost) return { ok: false, status: 409, error: `Not enough ${def.currency}.` };
     const pool = Object.entries(BUILTIN_CLASH)
-        .filter(([, card]) => def.rarities.includes(card.rarity))
+        .filter(([id, card]) =>
+            def.rarities.includes(card.rarity) &&
+            isMarketplaceCard(id) === (def.pool === 'marketplace'),
+        )
         .map(([id]) => id);
     if (pool.length === 0) return { ok: false, status: 503, error: 'Card pack pool is unavailable.' };
     const cards: string[] = [];

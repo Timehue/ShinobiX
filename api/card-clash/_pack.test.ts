@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { deckLimitForCard } from '../../shared/chronicle-duel.js';
 import { applyCardPackOpen, cardPackCost, cardPackDiscountPercent } from './_pack.js';
 
@@ -23,16 +23,22 @@ test('standard pack mirrors the village, elder, clan, and doctrine discount and 
     assert.equal(opened.balance, 800);
     assert.equal(opened.cards.length, 5);
     assert.equal(opened.character.tileCards instanceof Array, true);
-    for (const id of opened.cards) assert.ok(['common', 'rare'].includes(BUILTIN_CLASH[id].rarity));
+    // Shop pack draws only the weaker half: Commons + non-marketplace Rares.
+    for (const id of opened.cards) {
+        assert.ok(['common', 'rare'].includes(BUILTIN_CLASH[id].rarity));
+        assert.equal(isMarketplaceCard(id), false);
+    }
 });
 
-test('premium packs debit Fate Shards and can only draw the purchased rarity', () => {
+test('premium packs debit Fate Shards and draw only best-50% Marketplace cards', () => {
     const epic = applyCardPackOpen({ fateShards: 10, tileCards: [] }, 'epic', (max) => max - 1);
     assert.equal(epic.ok, true);
     if (epic.ok) {
         assert.equal(epic.balance, 0);
         assert.equal(epic.cards.length, 1);
-        assert.equal(BUILTIN_CLASH[epic.cards[0]].rarity, 'epic');
+        // Elite pack: a best-50% Rare or Epic.
+        assert.ok(['rare', 'epic'].includes(BUILTIN_CLASH[epic.cards[0]].rarity));
+        assert.equal(isMarketplaceCard(epic.cards[0]), true);
     }
     const legendary = applyCardPackOpen({ fateShards: 29, tileCards: [], elderFocus: 'trade' }, 'legendary', () => 0);
     assert.equal(legendary.ok, true, '5% trade discount floors 30 to 28');
@@ -40,6 +46,7 @@ test('premium packs debit Fate Shards and can only draw the purchased rarity', (
         assert.equal(legendary.cost, 28);
         assert.equal(legendary.balance, 1);
         assert.equal(BUILTIN_CLASH[legendary.cards[0]].rarity, 'legendary');
+        assert.equal(isMarketplaceCard(legendary.cards[0]), true);
     }
 });
 
@@ -58,7 +65,7 @@ test('pack opening fails closed for invalid type, insufficient balance, and coll
 
 test('packs prefer useful second and third deck copies and protect completed tiers', () => {
     const standardPool = Object.entries(BUILTIN_CLASH)
-        .filter(([, card]) => ['common', 'rare'].includes(card.rarity))
+        .filter(([id, card]) => ['common', 'rare'].includes(card.rarity) && !isMarketplaceCard(id))
         .map(([id]) => id);
     const cappedId = standardPool[0];
     const opened = applyCardPackOpen(
