@@ -306,7 +306,7 @@ export {
 import {
 } from "./constants/hunter";
 
-import { type Achievement, ACHIEVEMENTS } from "./constants/achievements";
+import { type Achievement, ACHIEVEMENTS, achievementReward } from "./constants/achievements";
 import { nextEarnedTitles } from "./lib/earned-titles";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
@@ -1640,52 +1640,28 @@ export default function App() {
         const now = Date.now();
         const stamps = { ...(character.achievementUnlockedAt ?? {}) };
         for (const id of newlyUnlocked) stamps[id] = now;
-        // Optimistically reflect the unlock locally for instant UI. Persistence
-        // and the one-time reward payout are SERVER-SIDE (/api/achievements/sync
-        // below): the generic /api/save endpoint deliberately strips
-        // unlockedAchievements, so a client-only unlock never sticks and the toast
-        // re-fires every refresh/login — and paying the reward on the server stops
-        // it from being re-minted into the wallet each reload.
+        // One-time reward payout for each newly-unlocked achievement. Only fires
+        // here (the `prior`-exists branch), never on the first-load backfill
+        // above — so existing players don't get a retroactive windfall.
+        let rewardRyo = 0, rewardShards = 0;
+        for (const id of newlyUnlocked) {
+            const a = ACHIEVEMENTS.find(x => x.id === id);
+            if (!a) continue;
+            const r = achievementReward(a);
+            rewardRyo += r.ryo; rewardShards += r.fateShards;
+        }
         setCharacter(c => c ? {
             ...c,
             unlockedAchievements: [...prior, ...newlyUnlocked],
             achievementUnlockedAt: stamps,
+            ryo: c.ryo + rewardRyo,
+            fateShards: (c.fateShards ?? 0) + rewardShards,
         } : c);
 
         const unlocked = newlyUnlocked
             .map(id => ACHIEVEMENTS.find(a => a.id === id))
             .filter((a): a is Achievement => !!a);
         setAchievementToasts(prev => [...prev, ...unlocked]);
-
-        // Server-authoritative persist + reward: the sync recomputes eligibility
-        // from the stored save, unions in the new ids, and pays each reward once
-        // (server claim ledger). Merge the authoritative fields + wallet delta back
-        // so the unlock rides along on the next save and the wallet stays in sync.
-        const playerName = character.name;
-        if (playerName) void (async () => {
-            try {
-                const res = await fetch('/api/achievements/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ playerName }),
-                });
-                if (!res.ok) return;
-                const data = await res.json() as {
-                    character?: Partial<Character>;
-                    reward?: { ryo?: number; fateShards?: number };
-                };
-                const serverUnlocked = Array.isArray(data.character?.unlockedAchievements) ? data.character.unlockedAchievements : null;
-                if (!serverUnlocked) return;
-                setCharacter(c => c ? {
-                    ...c,
-                    unlockedAchievements: [...new Set([...(c.unlockedAchievements ?? []), ...serverUnlocked])],
-                    achievementUnlockedAt: { ...(c.achievementUnlockedAt ?? {}), ...(data.character?.achievementUnlockedAt ?? {}) },
-                    earnedTitles: data.character?.earnedTitles ?? c.earnedTitles,
-                    ryo: c.ryo + (data.reward?.ryo ?? 0),
-                    fateShards: (c.fateShards ?? 0) + (data.reward?.fateShards ?? 0),
-                } : c);
-            } catch { /* offline / no auth: re-syncs on a later detection */ }
-        })();
     }, [character]);
 
     // Auto-dismiss toasts one at a time so a flood doesn't pile up forever.
