@@ -581,6 +581,11 @@ export function normalizePetTemplate(pet: Pet, petPool: Pet[]): Pet {
         moveRange: pet.moveRange ?? baseTemplate.moveRange,
         // Backfill element for pre-element saves; the pet's own element wins if set.
         element: pet.element ?? baseTemplate.element,
+        // Backfill the species flavor line the same way (cosmetic — wild-pet
+        // descriptions shipped after many pets were already befriended). Falls
+        // through to the built-in template when an admin-authored template
+        // predates the flavor pass; the pet's own description always wins.
+        description: pet.description ?? baseTemplate.description ?? fallback?.description,
         jutsus,
     } : pet;
     return capPetStats({
