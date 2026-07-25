@@ -62,7 +62,22 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // local gate stops reporting a false green. If this budget needs raising again
 // soon, drain a screen off the graph instead — the startup gates below are the
 // ones that must never be relaxed.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_730_000;
+// 2026-07-25: 6.72 -> 6.79 MB. Combat HUD v3 (the shared PvE + PvP duel chrome:
+// framed dossiers, ringed portraits, iconed resource rows, AP rail + turn
+// medallion, iconed command deck, full-bleed jutsu card wall) plus the
+// board-token avatar fit pass and the durable battle-log foundations
+// (receipt display metadata, per-player history index, combat-history route).
+// Nearly all of it is the LAZY per-screen battle-skin chunk and index CSS.
+// Local build measures 6,757,400 B on top of the profession-ceremony and
+// Chronicle-Keeper passes that landed alongside it.
+//
+// Sized by the margin rule established above rather than by the local number:
+// CI runs ~7 KB heavier because @sentry/vite-plugin injects instrumentation
+// into the product chunks, so CI should land near 6,764,000 B. This ceiling
+// leaves CI ~15.6 KB of spare (22.6 KB locally) — an earlier draft sat 600 B
+// above the CI estimate and would have reported a false local green.
+// Startup gates untouched — initial graph 1.31 MB raw / 344.1 KB gzip.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_780_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -95,6 +95,36 @@
         display: block !important;
     }
 
+/* Combat dossier portrait — fill the frame, then crop head-anchored.
+   `.combat-avatar` is a `display: grid` box with `place-items: center`, so its
+   implicit row was sized by the IMAGE's intrinsic height: a 512x768 avatar in a
+   122px frame computed a 177px row, `height: 100%` resolved against that row
+   (not the frame), and the image overflowed. `overflow: hidden` + the 50%
+   radius then clipped the portrait's vertical MIDDLE — the fighter's chest —
+   and `object-fit: cover` never engaged at all, because the box already matched
+   the source's aspect.
+
+   Taking the image out of grid flow (absolute, like its `.combat-avatar-fallback`
+   sibling, which is why the parent is already `position: relative`) makes the
+   box exactly the frame, so `cover` + a head-anchored 25% finally apply.
+   The FILL half is desktop-only: the <=800px chip pins the avatar to an explicit
+   36/40px square, which has no percentage to resolve and already fills. The CROP
+   half applies at every width — that small square still crops a portrait source,
+   so without it the phone chip shows the same chest instead of a face. */
+.arena-fullscreen .combat-avatar img {
+    object-position: center 25% !important;
+}
+
+@media (min-width: 801px) {
+    .arena-fullscreen .combat-avatar img {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+}
+
 /* Sector travel tile avatar — fills tile with a small inset so it doesn't touch borders */
 .tiny-map-avatar {
     width: 88% !important;
@@ -159,6 +189,78 @@
         z-index: 3;
     }
 
+/* ── Combat token base ────────────────────────────────────────────────────
+   Gives each fighter a footing on its hex so the token reads as STANDING on
+   the board instead of floating over it. `orbForPos` already seats the orb's
+   bottom at 85% of the hex height for exactly this reason, but nothing drew
+   the contact point, so the offset just looked like bad centring.
+
+   Two layers: `::after` is the soft cast shadow on the floor, `::before` is a
+   lit ellipse rim in the fighter's side colour. Both sit BELOW the circle and
+   behind the portrait (the image is z-index 1), so they never cover the art.
+
+   `overflow: visible` is required — the orb clips to a circle by default, which
+   silently swallowed the pre-existing `::after` ground shadow entirely. The art
+   stays circular regardless: the image and the initials fallback each carry
+   their own `border-radius: 50%`. (28-desktop-scaling.css already unclips the
+   orb the same way for the PvP guard aura.) */
+.arena-fullscreen .avatar-orb {
+    overflow: visible;
+}
+
+.arena-fullscreen .avatar-orb::after {
+    bottom: -9px;
+    width: 96%;
+    height: 19px;
+    background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.42) 46%, transparent 74%);
+    z-index: 0;
+}
+
+/* The lit platform. Solid enough to read as a disc the fighter stands on at the
+   ~40px the token occupies on a scaled board, not a soft halo. */
+.arena-fullscreen .avatar-orb::before {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 82%;
+    height: 17px;
+    border-radius: 50%;
+    border: 2px solid rgba(150, 222, 255, 0.9);
+    background:
+        radial-gradient(ellipse at 50% 34%, rgba(198, 240, 255, 0.5), rgba(125, 211, 252, 0.3) 46%, rgba(56, 150, 210, 0.14) 72%, transparent 88%);
+    box-shadow:
+        0 0 12px rgba(125, 211, 252, 0.75),
+        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.arena-fullscreen .avatar-orb.enemy-orb::before {
+    border-color: rgba(255, 172, 132, 0.92);
+    background:
+        radial-gradient(ellipse at 50% 34%, rgba(255, 214, 190, 0.5), rgba(255, 138, 92, 0.32) 46%, rgba(200, 70, 35, 0.16) 72%, transparent 88%);
+    box-shadow:
+        0 0 12px rgba(255, 120, 70, 0.75),
+        inset 0 1px 2px rgba(255, 255, 255, 0.35);
+}
+
+.arena-fullscreen .avatar-orb.pet-summon-orb::before {
+    border-color: rgba(190, 240, 120, 0.85);
+    background:
+        radial-gradient(ellipse at 50% 34%, rgba(226, 252, 180, 0.46), rgba(163, 230, 53, 0.3) 46%, rgba(101, 163, 13, 0.14) 72%, transparent 88%);
+    box-shadow:
+        0 0 11px rgba(132, 204, 22, 0.65),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+/* The base belongs to the fighter, so it travels with them for free: orbForPos
+   animates `left`/`top` over 280ms and the pseudo-elements ride along, which is
+   what sells the walk. Deliberately NOT pulsing — an idle animation under every
+   token is visual noise during a turn, and it also keeps the board stable for
+   screenshot-based layout checks. */
+
     /* enemy orb — red/orange glow */
     .avatar-orb.enemy-orb {
         box-shadow: 0 0 0 3px rgba(255,160,80,0.9), 0 0 14px 4px rgba(255,80,30,0.6), 0 6px 18px rgba(0,0,0,0.85), inset 0 -8px 14px rgba(0,0,0,0.4);
@@ -194,17 +296,51 @@
         100% { box-shadow: 0 0 0 3px rgba(248,113,113,1), 0 0 16px 5px rgba(248,113,113,0.7), 0 5px 14px rgba(0,0,0,0.8), inset 0 -6px 12px rgba(0,0,0,0.4); }
     }
 
-    /* Avatar inside orb — fills the orb container */
+    /* Avatar inside orb — fills the orb container.
+       `object-position` is head-anchored, NOT centred. Avatars are portraits
+       (taller than wide), and a 1:1 orb crops a portrait's top and bottom
+       equally at the 50% default — which lands the window on the torso and cuts
+       the face off. 25% keeps the head in frame. Square and landscape sources
+       are unaffected (they have no vertical overflow to reposition). This
+       mirrors the crop the sector map already uses for the same reason. */
     .avatar-orb .tiny-map-avatar {
         width: 100% !important;
         height: 100% !important;
         border-radius: 50% !important;
         object-fit: cover !important;
+        object-position: center 25% !important;
         display: block !important;
         border: none !important;
         box-shadow: none !important;
         position: relative;
         z-index: 1;
+    }
+
+    /* Initials/paw placeholder behind the orb art.
+       This had NO styling at all, so it laid out as a normal in-flow block
+       inside the orb's flex box — the initials sat BESIDE the avatar and showed
+       as stray letters over the board token instead of behind it. Absolute +
+       z-index 0 puts it under the image, exactly like its side-HUD counterpart
+       `.combat-avatar-fallback`, so it is only visible when the art is missing
+       or fails to load. */
+    .avatar-orb .avatar-orb-fallback {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: #fef3c7;
+        font-weight: 900;
+        /* Fixed px, not em: the orb inherits the page font-size, so an em value
+           would render ~5px. The whole board is drawn through a CSS `scale()`
+           transform, so a px size here scales with the grid like everything
+           else. The pet orb passes its own inline size and still wins. */
+        font-size: 17px;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        background: radial-gradient(circle, #334155, #0f172a);
+        pointer-events: none;
     }
 
 /* Arena hex tile avatar — fills the hex clip-path */
