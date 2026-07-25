@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, MAX_ROAMING_QUEST_GIVERS, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, questForWanderer, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -84,6 +84,107 @@ describe("archetype spawn balance (2026-07 pass)", () => {
     });
 });
 
+// Content-locked archetypes must never take the road, or their offer dead-ends:
+// "Deal me in" walked a pre-codex player into the Card Hall's sealed wall.
+describe("content-locked archetypes", () => {
+    const CARD_UNLOCKED = { starterCardsClaimed: true, pets: [{}] };
+
+    it("locks the gambler until the SCRIBE EVENT, not until you own cards", () => {
+        assert.deepEqual(lockedWandererVerbs({ starterCardsClaimed: true, pets: [{}] }), []);
+        assert.ok(lockedWandererVerbs({ pets: [{}] }).includes("gamble"));
+        // Mirrors api/card-clash/_starter-cards.ts: only boolean true unlocks, and
+        // holding cards is not the unlock.
+        assert.ok(lockedWandererVerbs({ starterCardsClaimed: false, pets: [{}] }).includes("gamble"));
+        assert.ok(lockedWandererVerbs(null).includes("gamble"));
+    });
+
+    it("locks the beast challenge while the pet roster is empty", () => {
+        assert.ok(lockedWandererVerbs({ starterCardsClaimed: true, pets: [] }).includes("petDuel"));
+        assert.ok(!lockedWandererVerbs(CARD_UNLOCKED).includes("petDuel"));
+    });
+
+    it("never rolls a locked archetype anywhere in the world", () => {
+        const locked = lockedWandererVerbs({});
+        let spawns = 0;
+        for (let bucket = 5000; bucket < 5030; bucket++) {
+            for (let sector = 1; sector <= 60; sector++) {
+                for (const w of rollWanderers(sector, bucket, locked)) {
+                    spawns++;
+                    assert.ok(w.verb !== "gamble", `sector ${sector}: a sealed player must not meet a gambler`);
+                    assert.ok(w.verb !== "petDuel", `sector ${sector}: a pet-less player must not meet a beast`);
+                }
+            }
+        }
+        assert.ok(spawns > 100, "the locked world is still populated, not emptied");
+    });
+
+    it("thins the CAST, not the roster size — locked weight is redistributed", () => {
+        const locked = lockedWandererVerbs({});
+        for (let bucket = 5000; bucket < 5010; bucket++) {
+            for (let sector = 1; sector <= 60; sector++) {
+                assert.equal(
+                    rollWanderers(sector, bucket, locked).length,
+                    rollWanderers(sector, bucket).length,
+                    `sector ${sector}/${bucket}: a locked player meets just as many wanderers`,
+                );
+            }
+        }
+    });
+
+    it("a relocated wanderer can't smuggle a locked archetype in the back door", () => {
+        // wanderersVisitingSector re-derives the wanderer from its id, so it needs
+        // the same lock the home roster got.
+        const locked = lockedWandererVerbs({});
+        const bucket = 5000;
+        const moves: Record<string, number> = {};
+        for (let sector = 1; sector <= 60; sector++) {
+            for (let i = 0; i < 2; i++) moves[`w-${sector}-${bucket}-${i}`] = 7;
+        }
+        const visiting = wanderersVisitingSector(7, bucket, moves, {}, 1000, locked);
+        assert.ok(visiting.length > 0, "the fixture should actually produce visitors");
+        for (const w of visiting) {
+            assert.ok(w.verb !== "gamble" && w.verb !== "petDuel", `${w.archetype} slipped through relocation`);
+        }
+    });
+
+    it("never offers a quest objective the player can't progress", () => {
+        // The other half of the same bug: a sage could hand a pre-codex player
+        // "Win 2 Shinobi Chronicle Showdowns" — unwinnable, and it occupies their
+        // one quest slot until abandoned.
+        const locked = lockedQuestMetrics({});
+        const sage = (id: string): Wanderer => ({
+            id, name: id, archetype: "sage", verb: "quest", level: 10,
+            homeTile: 30, waypoints: [30], greeting: "…", tellTint: "#fff", avatarKey: "sage",
+        });
+        for (let i = 0; i < 300; i++) {
+            const def = questForWanderer(sage(`w-${i}-5000-0`), locked);
+            assert.ok(def.metric !== "cardClashWins", `${def.id} needs a deck the player has not been given`);
+            assert.ok(def.metric !== "totalPetWins", `${def.id} needs a pet the player does not have`);
+        }
+    });
+
+    it("offers the whole quest catalog once nothing is locked", () => {
+        const open = lockedQuestMetrics({ starterCardsClaimed: true, pets: [{}] });
+        assert.deepEqual(open, []);
+        const sage = (id: string): Wanderer => ({
+            id, name: id, archetype: "sage", verb: "quest", level: 10,
+            homeTile: 30, waypoints: [30], greeting: "…", tellTint: "#fff", avatarKey: "sage",
+        });
+        const metrics = new Set<string>();
+        for (let i = 0; i < 300; i++) metrics.add(questForWanderer(sage(`w-${i}-5000-0`), open).metric);
+        assert.ok(metrics.has("cardClashWins") && metrics.has("totalPetWins"), "unlocking restores the full catalog");
+        // No lock argument must behave exactly like an empty lock list.
+        assert.deepEqual(questForWanderer(sage("w-7-5000-0"), open), questForWanderer(sage("w-7-5000-0")));
+    });
+
+    it("unlocking changes who is on the road without changing how many", () => {
+        const sealed = rollWanderers(12, 5000, lockedWandererVerbs({}));
+        const open = rollWanderers(12, 5000, lockedWandererVerbs(CARD_UNLOCKED));
+        assert.equal(sealed.length, open.length);
+        assert.deepEqual(open, rollWanderers(12, 5000), "no lock === no options");
+    });
+});
+
 describe("wandererPresenceGate", () => {
     it("is deterministic for the same key", () => {
         assert.equal(wandererPresenceGate("road#aki#ev1#7#5000", 0.35), wandererPresenceGate("road#aki#ev1#7#5000", 0.35));
@@ -115,6 +216,76 @@ describe("wandererCount", () => {
         assert.equal(wandererCount(0.7), 1);
         assert.equal(wandererCount(0.95), 2);
         assert.ok(wandererCount(0.99) <= 2);
+    });
+    it("keeps two-wanderer sectors a rare tail (the clutter case)", () => {
+        // Roll the whole 0..1 range and count how much of it lands on a pair.
+        let pairs = 0;
+        const steps = 1000;
+        for (let i = 0; i < steps; i++) if (wandererCount(i / steps) === 2) pairs++;
+        const rate = pairs / steps;
+        assert.ok(rate > 0.02 && rate <= 0.08, `pairs should be a rare tail, got ${(rate * 100).toFixed(1)}%`);
+    });
+});
+
+// The user-facing bug this guards: the three roaming quest-givers each ran their
+// own presence gate, so their odds stacked into a crowd, and declining one did
+// nothing — the same NPC was standing in the next sector you entered.
+describe("roaming quest-giver density", () => {
+    const giver = (id: string): Wanderer => ({
+        id, name: id, archetype: "sage", verb: "quest", level: 10,
+        homeTile: 30, waypoints: [30], greeting: "…", tellTint: "#fff", avatarKey: "sage",
+    });
+
+    it("keeps every rate-gated giver occasional, rift lowest", () => {
+        for (const [who, rate] of Object.entries(QUEST_GIVER_PRESENCE)) {
+            assert.ok(rate > 0 && rate <= 0.4, `${who} at ${rate} should be an occasional meeting`);
+        }
+        // The rift giver is fixed for a whole UTC day, so it must be the rarest.
+        assert.ok(QUEST_GIVER_PRESENCE.rift <= QUEST_GIVER_PRESENCE.road);
+        // The Chronicle Scribe gates a whole system, so she is deliberately NOT
+        // rate-gated — she must not be re-added to this table (see chronicle-scribe).
+        assert.ok(!("scribe" in QUEST_GIVER_PRESENCE), "the scribe is always present, never a coin flip");
+    });
+
+    it("caps a sector at one giver, in priority order", () => {
+        const picked = pickRoamingQuestGivers([giver("road"), giver("rift")], {}, 1000);
+        assert.equal(picked.length, MAX_ROAMING_QUEST_GIVERS);
+        assert.equal(picked[0].id, "road", "the finite story beat outranks the repeatable rift offer");
+    });
+
+    it("drops a giver you turned down and promotes the next in line", () => {
+        const now = 1000;
+        const cooled = withWandererCooldown({}, "road", now, WANDERER_DECLINE_COOLDOWN_MS);
+        const picked = pickRoamingQuestGivers([giver("road"), giver("rift")], cooled, now);
+        assert.deepEqual(picked.map(w => w.id), ["rift"]);
+    });
+
+    it("leaves the sector empty when every giver is on a decline cooldown", () => {
+        const now = 1000;
+        let cd: Record<string, number> = {};
+        for (const id of ["road", "rift"]) cd = withWandererCooldown(cd, id, now, WANDERER_DECLINE_COOLDOWN_MS);
+        assert.deepEqual(pickRoamingQuestGivers([giver("road"), giver("rift")], cd, now), []);
+        // …and they come back once it lifts, rather than being gone for good.
+        const later = now + WANDERER_DECLINE_COOLDOWN_MS + 1;
+        assert.equal(pickRoamingQuestGivers([giver("road"), giver("rift")], cd, later).length, 1);
+    });
+
+    it("declining backs a giver off longer than fleeing a bandit, but not the full anti-farm window", () => {
+        assert.ok(WANDERER_DECLINE_COOLDOWN_MS > WANDERER_FLEE_COOLDOWN_MS);
+        assert.ok(WANDERER_DECLINE_COOLDOWN_MS < WANDERER_NPC_COOLDOWN_MS);
+    });
+
+    it("a declined giver is absent from EVERY sector, not just the one you met it in", () => {
+        // The regression: the presence gate is per-sector and deterministic, so
+        // before the cooldown a declined giver simply reappeared next door.
+        const now = 1000;
+        const cd = withWandererCooldown({}, "rift-giver-legacy-echo", now, WANDERER_DECLINE_COOLDOWN_MS);
+        for (let sector = 1; sector <= 60; sector++) {
+            const present = wandererPresenceGate(`rift#aki#rift-legacy-echo#${sector}#5000`, QUEST_GIVER_PRESENCE.rift)
+                ? pickRoamingQuestGivers([giver("rift-giver-legacy-echo")], cd, now)
+                : [];
+            assert.deepEqual(present, [], `sector ${sector} must respect the decline`);
+        }
     });
 });
 

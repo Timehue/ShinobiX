@@ -26,18 +26,26 @@ describe("scribeWandererFor", () => {
         assert.deepEqual(scribeWandererFor(asCharacter({}), null, now), []);
     });
 
-    it("is deterministic per (player, sector, window) and present in a healthy share of sectors", () => {
-        const now = new Date(1_800_000_000_000);
+    it("FINDS YOU — present in every sector, every window, until the codex is claimed", () => {
+        // Owner call 2026-07-24: unlike every other roaming giver, Ihara rolls no
+        // presence chance. The card game, the pack storefronts and the gambler
+        // wanderer are all sealed until she hands over the codex, so a player who
+        // never bumps into her never sees the Chronicle at all.
         const char = asCharacter({});
-        let present = 0;
-        for (let sector = 1; sector <= 55; sector++) {
-            const a = scribeWandererFor(char, sector, now);
-            const b = scribeWandererFor(char, sector, now);
-            assert.deepEqual(a, b, `sector ${sector}: same window must give the same answer`);
-            if (a.length) present++;
+        for (let sector = 1; sector <= 60; sector++) {
+            for (const t of [1_800_000_000_000, 1_800_021_600_000, 1_800_043_200_000]) {
+                const found = scribeWandererFor(char, sector, new Date(t));
+                assert.equal(found.length, 1, `sector ${sector} @ ${t}: she must be here`);
+                assert.equal(found[0].id, SCRIBE_WANDERER_ID);
+            }
         }
-        // Gate is 0.45 — allow wide tolerance, but she must be findable and not omnipresent.
-        assert.ok(present >= 10 && present <= 45, `expected a findable-but-not-everywhere scribe (got ${present}/55)`);
+    });
+
+    it("still retires the instant the codex is claimed", () => {
+        const now = new Date(1_800_000_000_000);
+        for (let sector = 1; sector <= 60; sector++) {
+            assert.deepEqual(scribeWandererFor(asCharacter({ starterCardsClaimed: true }), sector, now), []);
+        }
     });
 
     it("synths a well-formed on-grid wanderer", () => {
