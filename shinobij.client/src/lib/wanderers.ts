@@ -71,8 +71,12 @@ interface ArchetypeMeta {
 // The Phase-1 cast. Voices mirror docs/sector-wanderers-content.md.
 const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     bandit: {
+        // 2026-07 clutter pass: 0.30 → 0.24. The bandit is the only archetype that
+        // WALKS AT YOU and forces a Fight/Flee choice, so it sets how intrusive the
+        // road feels — it was ~2× the support cast. Knock-on: the robberStreak
+        // ambush gauntlet (5 fends → gang) now triggers proportionally less often.
         verb: "attack",
-        weight: 0.3,
+        weight: 0.24,
         tellTint: "#ff6b5a",
         names: ["Kazan the Ashbound", "Goro Two-Blades", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
@@ -219,6 +223,33 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
 
 const ARCHETYPE_IDS = Object.keys(ARCHETYPES) as WandererArchetypeId[];
 
+// ── Locked content: don't spawn an NPC whose offer dead-ends ─────────────────
+// Some archetypes hand the player straight into a system that may still be
+// sealed for them. The gambler deals you into Shinobi Chronicle Showdown, which
+// stays locked until Scribe Ihara hands over the traveler's codex
+// (`starterCardsClaimed`) — so before that, "Deal me in" walked you into the
+// Card Hall's "the Chronicle is sealed" wall. The beast challenges your pet,
+// which needs you to actually own one. The server already refuses the duel
+// itself (api/card-clash/ai-start.ts checks chronicleUnlockedFor), so this is
+// about not OFFERING what can't be taken: the NPC simply isn't on the road yet.
+//
+// Locked archetypes don't leave a hole in the roster — pickWeightedArchetype
+// redistributes their weight across the rest of the cast, so a pre-codex player
+// meets just as many wanderers, drawn from the archetypes that work for them.
+
+/** What this character can't be offered yet. Pure + tested; the single place
+ *  that decides which archetypes are content-locked. */
+export function lockedWandererVerbs(
+    character: { starterCardsClaimed?: boolean; pets?: unknown[] } | null | undefined,
+): WandererVerb[] {
+    const locked: WandererVerb[] = [];
+    // The card game is gated on the SCRIBE EVENT, not on owning cards — mirrors
+    // api/card-clash/_starter-cards.ts `chronicleUnlocked` (only boolean true).
+    if (character?.starterCardsClaimed !== true) locked.push("gamble");
+    if (!character?.pets?.length) locked.push("petDuel");
+    return locked;
+}
+
 /** Default ON for everyone; opt out per-device with localStorage `wanderers.v1 = "off"`. */
 export function isWanderersEnabled(): boolean {
     if (typeof window === "undefined") return false;
@@ -237,6 +268,16 @@ export const WANDERER_NPC_COOLDOWN_MS = 3 * 60 * 60 * 1000; // a few hours
 // window — but it must stop hunting you, or the same bandit re-confronts you every
 // single time you re-enter the sector until the 6h roster rolls over.
 export const WANDERER_FLEE_COOLDOWN_MS = 30 * 60 * 1000; // half an hour
+// The "no thanks" cooldown for the ROAMING QUEST-GIVER NPCs (the rift giver, the
+// story road-event NPC, the Chronicle Scribe). These aren't part of the natural
+// roster: they're synthesised per-player from whatever quest is next, so their
+// presence gate keeps saying yes until the quest is dealt with — which meant
+// declining one did nothing at all, and the same NPC was standing in the next
+// sector you walked into. Turning a giver down now backs it off everywhere for a
+// while, so "not now" is an answer the world respects. Longer than a bandit's
+// flee back-off (you weren't running from anything) but well short of the
+// anti-farm window (changing your mind shouldn't cost you the evening).
+export const WANDERER_DECLINE_COOLDOWN_MS = 2 * 60 * 60 * 1000; // two hours
 
 export function isWandererOnCooldown(
     cooldowns: Record<string, number> | null | undefined,
@@ -304,14 +345,20 @@ export function wandererPresenceGate(key: string, chance: number): boolean {
     return mulberry32(h >>> 0)() < chance;
 }
 
-function pickWeightedArchetype(r: number): WandererArchetypeId {
-    const total = ARCHETYPE_IDS.reduce((s, id) => s + ARCHETYPES[id].weight, 0);
+/** Weighted draw over the natural cast. `locked` verbs are dropped and their
+ *  weight is re-normalised across the rest, so excluding an archetype thins the
+ *  CAST, never the roster size — and the draw still consumes exactly one rng
+ *  value, keeping every other roll in rollWanderers on its usual footing. */
+function pickWeightedArchetype(r: number, locked?: ReadonlySet<WandererVerb>): WandererArchetypeId {
+    const pool = ARCHETYPE_IDS.filter((id) => ARCHETYPES[id].weight > 0 && !locked?.has(ARCHETYPES[id].verb));
+    if (!pool.length) return "bandit"; // every archetype locked out — shouldn't happen
+    const total = pool.reduce((s, id) => s + ARCHETYPES[id].weight, 0);
     let x = r * total;
-    for (const id of ARCHETYPE_IDS) {
+    for (const id of pool) {
         x -= ARCHETYPES[id].weight;
         if (x <= 0) return id;
     }
-    return "bandit";
+    return pool[pool.length - 1];
 }
 
 // Keep wanderers in the interior of the 12×12 board (away from the corners/edges
@@ -343,11 +390,61 @@ export function wandererLevelFor(sector: number, rng: () => number): number {
 // rarer, lower for busier). 2026-07 balance pass: 0.6/0.92 → 0.52/0.88 so the
 // flattened archetype weights above actually get room to show their whole cast.
 const WANDERER_EMPTY_CHANCE = 0.52;  // ~52% of sectors: nobody this window
-const WANDERER_SINGLE_CHANCE = 0.88; // 0.52–0.88 → one; 0.88–1.0 → two
+// 2026-07 clutter pass: 0.88 → 0.93, so a two-wanderer sector drops from ~12% to
+// ~7%. The EMPTY chance is deliberately left alone — raising it would undo the
+// earlier pass that gave the flattened archetype weights room to show the whole
+// cast. It's the CROWDED tail, not the occupancy rate, that reads as clutter.
+const WANDERER_SINGLE_CHANCE = 0.93; // 0.52–0.93 → one; 0.93–1.0 → two
 export function wandererCount(roll: number): 0 | 1 | 2 {
     if (roll < WANDERER_EMPTY_CHANCE) return 0;
     if (roll < WANDERER_SINGLE_CHANCE) return 1;
     return 2;
+}
+
+// ── Roaming quest-giver density ──────────────────────────────────────────────
+// The "the road finds you" NPCs are synthesised per-player and each ran its own
+// independent presence gate, so their odds STACKED: at 0.45/0.35/0.35 a sector
+// averaged 1.15 giver standees on top of the natural roster, and any two of them
+// could share a tile. These rates are the single place to tune that, and
+// pickRoamingQuestGivers caps how many may stand in one sector at once.
+//
+// The Chronicle Scribe is NOT in this table and NOT subject to the cap: she gates
+// a whole system rather than offering optional content, so she is always present
+// once eligible and retires permanently on claim. See lib/chronicle-scribe.ts.
+export const QUEST_GIVER_PRESENCE = {
+    /** Main-story road beat (was 0.35). */
+    road: 0.25,
+    /** Repeatable Hollow Gate rift offer — the most common complaint, since the
+     *  offered rift is fixed for a whole UTC day, so it was the SAME face in a
+     *  third of every sector you entered all day (was 0.35). */
+    rift: 0.2,
+} as const;
+
+/** How many rate-gated quest-giver standees may share one sector. One: they're
+ *  meant to feel like a chance meeting on the road, not a job board. (The scribe
+ *  stands outside this budget.) */
+export const MAX_ROAMING_QUEST_GIVERS = 1;
+
+/**
+ * Which roaming quest-givers actually stand in the sector: drop any the player
+ * has turned down (still inside WANDERER_DECLINE_COOLDOWN_MS) and keep at most
+ * `max`, in the caller's PRIORITY order. Deterministic — each candidate is
+ * already stable per (player, sector, window) and the cooldown map only moves
+ * when the player interacts — so nothing flickers between polls.
+ */
+export function pickRoamingQuestGivers(
+    candidates: Wanderer[],
+    cooldowns: Record<string, number> | null | undefined,
+    now: number,
+    max: number = MAX_ROAMING_QUEST_GIVERS,
+): Wanderer[] {
+    const out: Wanderer[] = [];
+    for (const w of candidates) {
+        if (out.length >= max) break;
+        if (isWandererOnCooldown(cooldowns, w.id, now)) continue;
+        out.push(w);
+    }
+    return out;
 }
 
 /**
@@ -355,15 +452,20 @@ export function wandererCount(roll: number): 0 | 1 | 2 {
  * identical roster (verified in wanderers.test.ts), so nothing flickers and the
  * server could re-derive the exact same cast if a later phase needs to.
  */
-export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
+export function rollWanderers(
+    sector: number,
+    dayBucket: number,
+    lockedVerbs?: readonly WandererVerb[],
+): Wanderer[] {
     if (!Number.isFinite(sector) || sector <= 0) return [];
+    const locked = lockedVerbs?.length ? new Set(lockedVerbs) : undefined;
     const rng = mulberry32(seedFrom(sector, dayBucket));
     const count = wandererCount(rng());
     const used = new Set<number>();
     const out: Wanderer[] = [];
 
     for (let i = 0; i < count; i++) {
-        const archetype = pickWeightedArchetype(rng());
+        const archetype = pickWeightedArchetype(rng(), locked);
         const meta = ARCHETYPES[archetype];
 
         let home = interiorTile(rng);
@@ -479,6 +581,7 @@ export function wanderersVisitingSector(
     moves: Record<string, number> | null | undefined,
     cooldowns: Record<string, number> | null | undefined,
     now: number,
+    lockedVerbs?: readonly WandererVerb[],
 ): Wanderer[] {
     const out: Wanderer[] = [];
     for (const [id, dest] of Object.entries(moves ?? {})) {
@@ -486,7 +589,9 @@ export function wanderersVisitingSector(
         if (isWandererOnCooldown(cooldowns, id, now)) continue; // still on the road
         const parsed = parseWandererId(id);
         if (!parsed || parsed.dayBucket !== dayBucket) continue; // stale window
-        const w = rollWanderers(parsed.sector, dayBucket)[parsed.index];
+        // Same lock as the home roster: a visiting wanderer is RE-DERIVED from its
+        // id, so without this a content-locked archetype could walk in the back door.
+        const w = rollWanderers(parsed.sector, dayBucket, lockedVerbs)[parsed.index];
         if (!w) continue;
         out.push(relocateWandererInto(w, sector));
     }
@@ -517,11 +622,31 @@ export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
     { id: "wq-trailblaze", label: "Scout 25 tiles across the sectors",    metric: "totalTilesExplored", target: 25 },
 ];
 
-/** The (stable) quest a given sage offers — deterministic from its id. */
-export function questForWanderer(w: Wanderer): WandererQuestDef {
+/** Quest objectives this character has no way to make progress on yet — the same
+ *  content locks as lockedWandererVerbs, expressed as counters. Without this a
+ *  sage could hand a pre-codex player "Win 2 Shinobi Chronicle Showdowns", which
+ *  is unwinnable while the Card Hall is sealed, and it occupies their one quest
+ *  slot. (The server owns the target + reward per quest id either way; this only
+ *  decides what gets OFFERED.) */
+export function lockedQuestMetrics(
+    character: { starterCardsClaimed?: boolean; pets?: unknown[] } | null | undefined,
+): WandererQuestMetric[] {
+    const locked: WandererQuestMetric[] = [];
+    if (character?.starterCardsClaimed !== true) locked.push("cardClashWins");
+    if (!character?.pets?.length) locked.push("totalPetWins");
+    return locked;
+}
+
+/** The (stable) quest a given sage offers — deterministic from its id, drawn only
+ *  from objectives the player can actually make progress on. */
+export function questForWanderer(w: Wanderer, lockedMetrics?: readonly WandererQuestMetric[]): WandererQuestDef {
+    const pool = lockedMetrics?.length
+        ? WANDERER_QUEST_CATALOG.filter((q) => !lockedMetrics.includes(q.metric))
+        : WANDERER_QUEST_CATALOG;
+    const catalog = pool.length ? pool : WANDERER_QUEST_CATALOG;
     let h = 0;
     for (let i = 0; i < w.id.length; i++) h = (Math.imul(h, 31) + w.id.charCodeAt(i)) >>> 0;
-    return WANDERER_QUEST_CATALOG[h % WANDERER_QUEST_CATALOG.length];
+    return catalog[h % catalog.length];
 }
 
 /** Which character counter an active quest tracks (for client-side progress). */

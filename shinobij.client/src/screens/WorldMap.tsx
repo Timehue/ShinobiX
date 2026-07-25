@@ -32,7 +32,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { WANDERER_PENDING_KEY, type WandererFightResult } from "../lib/wanderer-fight";
@@ -45,6 +45,7 @@ import type { StoryReckoning } from "../data/story-reckonings";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntroEvent, claimTravelersCodex } from "../lib/chronicle-scribe";
+import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
 import { addItem, ownsItem } from "../lib/inventory";
@@ -671,14 +672,19 @@ export function WorldMap({
             // ones that have since wandered off to another sector so they don't
             // reappear here when the cooldown lifts. Legacy Sage/emissaries render
             // from their own arrays below and stay exempt.
-            const natives = rollWanderers(selectedSector, bucket)
+            // Content the player can't act on yet is kept OFF the road entirely —
+            // no gambler before Ihara hands over the codex (the Card Hall would just
+            // show its sealed wall), no beast challenge with an empty pet roster.
+            // Their weight is redistributed, so the roster keeps its usual size.
+            const locked = lockedWandererVerbs(character);
+            const natives = rollWanderers(selectedSector, bucket, locked)
                 .filter(w => !isWandererOnCooldown(cd, w.id, now) && !hasWandererRelocated(moves, w.id));
             // Plus any wanderers that have wandered INTO this sector from elsewhere and
             // whose cooldown has now lifted — they're findable again, just somewhere new.
-            const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now);
+            const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now, locked);
             return [...natives, ...visitors];
         },
-        [selectedSector, character.wandererCooldowns, character.wandererMoves],
+        [selectedSector, character.wandererCooldowns, character.wandererMoves, character.starterCardsClaimed, character.pets.length],
     );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
@@ -943,11 +949,11 @@ export function WorldMap({
         const event = nextRoadEvent(character);
         if (!event) return [];
         // Balance: the road finds them — but not in EVERY sector. The NPC walks
-        // ~35% of sectors per 6h window (deterministic, reshuffles each window),
-        // so an ignored story beat stops reading as wallpaper yet stays a couple
-        // of hops away when the player goes looking.
+        // QUEST_GIVER_PRESENCE.road of sectors per 6h window (deterministic,
+        // reshuffles each window), so an ignored story beat stops reading as
+        // wallpaper yet stays a couple of hops away when the player goes looking.
         const bucket = wandererDayBucket(new Date());
-        if (!wandererPresenceGate(`road#${character.name}#${event.id}#${selectedSector}#${bucket}`, 0.35)) return [];
+        if (!wandererPresenceGate(`road#${character.name}#${event.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.road)) return [];
         return [synthRoadWanderer(event, selectedSector)];
     }, [character.level, character.storyProgress, character.storyTraits, character.name, selectedSector]);
     // Named story reckonings: current-canon characters stand at their own
@@ -963,12 +969,13 @@ export function WorldMap({
         if (!isWanderersEnabled() || selectedSector == null) return [];
         const rift = nextRift(character);
         if (!rift) return [];
-        // Balance: same presence gate as the road-event NPC — a rift being
-        // available shouldn't put the rattled messenger in every sector you
-        // enter. ~35% of sectors per window keeps rifts easy to pick up without
-        // the giver becoming a fixture.
+        // Balance: same presence gate as the road-event NPC, at the lowest rate of
+        // the three (QUEST_GIVER_PRESENCE.rift) — a rift being available shouldn't
+        // put the rattled messenger in every sector you enter. nextRift is fixed
+        // for a whole UTC day, so this is the giver that most easily turns into a
+        // fixture: one face, all day, in every gate-passing sector.
         const bucket = wandererDayBucket(new Date());
-        if (!wandererPresenceGate(`rift#${character.name}#${rift.id}#${selectedSector}#${bucket}`, 0.35)) return [];
+        if (!wandererPresenceGate(`rift#${character.name}#${rift.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.rift)) return [];
         return [synthRiftGiver(rift, selectedSector)];
     }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, character.name, selectedSector]);
     // Chronicle Scribe (lib/chronicle-scribe): one-time roaming NPC who explains
@@ -978,6 +985,52 @@ export function WorldMap({
         if (!isWanderersEnabled()) return [];
         return scribeWandererFor(character, selectedSector);
     }, [character.level, character.starterCardsClaimed, character.name, selectedSector]);
+    // The rate-gated roaming givers, thinned to what actually stands here. Each
+    // memo above only knows its OWN odds, so before this they stacked — a sector
+    // could hold a story NPC AND a rift giver, and neither cared that you'd already
+    // turned them down. Priority is main story → repeatable: the story beat is
+    // finite, the rift giver comes back tomorrow.
+    //
+    // The Chronicle Scribe is NOT in here on purpose. She's rendered unconditionally
+    // (see the render list) so she never loses a coin-flip against the rift giver:
+    // she's the key to a locked system, not an offer.
+    const roamingQuestGivers = useMemo(
+        () => pickRoamingQuestGivers(
+            [...roadWanderers, ...riftGiverWanderers],
+            character.wandererCooldowns,
+            Date.now(),
+        ),
+        [roadWanderers, riftGiverWanderers, character.wandererCooldowns],
+    );
+    // Turning a roaming giver down. Their VN closes through onCancel (backed out)
+    // OR onComplete (played a decline choice's goodbye), and neither told us
+    // whether the offer was TAKEN — so accepts stamp this ref and the close path
+    // cools the NPC only when it wasn't stamped.
+    //
+    // Two deliberate exemptions. Story reckonings stand at their own village
+    // outskirts with unfinished business, and a fixture is what they're meant to be.
+    // The Chronicle Scribe must keep finding you until you take the codex — cooling
+    // her for two hours because you closed her scene is exactly the wall this pass
+    // exists to remove, since the card game stays sealed until she hands it over.
+    const giverAcceptedRef = useRef<string | null>(null);
+    function isRoamingGiverEventId(id: string): boolean {
+        return id.startsWith(RIFT_GIVER_PREFIX) || id.startsWith(ROAD_WANDERER_PREFIX);
+    }
+    /** Called on every roaming-giver VN close. A giver whose offer wasn't taken
+     *  backs off everywhere for WANDERER_DECLINE_COOLDOWN_MS. The giver's VN event
+     *  id IS its wanderer id for all three, so the cooldown map keys directly off
+     *  it — and these ids don't parse as natural wanderers, so coolWanderer skips
+     *  the relocation branch and only writes the cooldown. */
+    function noteGiverVnClosed(eventId: string) {
+        if (!isRoamingGiverEventId(eventId)) return;
+        const accepted = giverAcceptedRef.current === eventId;
+        giverAcceptedRef.current = null;
+        if (accepted) return;
+        coolWanderer(eventId, WANDERER_DECLINE_COOLDOWN_MS);
+        // Communicated, not silent — the same rule the Sage's decline follows: the
+        // player should know the NPC backs off AND that it circles back.
+        setWhisper({ kicker: "They move on", text: "You beg off, and they take it without argument. Whatever they were carrying will keep, and they will find you again once they have walked a while." });
+    }
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -1350,6 +1403,11 @@ export function WorldMap({
     }
     function handleWandererEngage(w: Wanderer) {
         rememberWanderer(w);
+        // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
+        // never carry into this one's decline check. (The rift-accept branch closes
+        // its VN directly rather than through a close path, so the stamp it leaves
+        // would otherwise outlive the scene that set it.)
+        if (isRoamingGiverEventId(w.id)) giverAcceptedRef.current = null;
         // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
         if (w.id === LEGACY_SAGE_WANDERER_ID) {
             if (sageOffer) {
@@ -1529,6 +1587,13 @@ export function WorldMap({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
+        // Backstop for the spawn gate, same as the gambler's: the Pet Arena has its
+        // own empty-roster screen, and being walked into it by a beast that just
+        // challenged you is a dead end.
+        if (!character.pets.length) {
+            setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out — tame one first, and it will still be prowling this road.` });
+            return;
+        }
         // The beast fields a pet SCALED to the player's CHARACTER level so the duel is
         // a real fight, not a pushover. Reuses the Pet Coliseum entry + its server-safe
         // casual reward path — no new endpoint.
@@ -1556,6 +1621,14 @@ export function WorldMap({
         setScreen("petArena");
     }
     function startWandererCardDuel(w: Wanderer) {
+        // Backstop for the spawn gate (lockedWandererVerbs keeps gamblers off the
+        // road pre-codex): never hand a sealed player to the Card Hall, which would
+        // just show its "the Chronicle is sealed" wall. Say it in-fiction instead —
+        // and point at Ihara, since finding her IS the way through.
+        if (cardGameLockStatus(character).locked) {
+            setWandererDialog({ w, msg: `${w.name} squints at your empty hands, then pockets the deck. "Come back when a scribe's put a codex in your pack — no sport in fleecing a man with nothing to play."` });
+            return;
+        }
         // The gambler deals you straight into Chronicle Showdown in the Card Hall.
         coolWanderer(w.id); // gambler dealt you in — gone for a few hours
         // Remember the sector so finishing the match returns the player here: the
@@ -1567,7 +1640,9 @@ export function WorldMap({
         setScreen("shinobiTiles");
     }
     async function acceptWandererQuest(w: Wanderer, defOverride?: EmissaryQuestDef) {
-        const def = defOverride ?? questForWanderer(w);
+        // Same locked-objective filter the offer text uses, so the accepted id can
+        // never be the card/pet quest a sealed player was never shown.
+        const def = defOverride ?? questForWanderer(w, lockedQuestMetrics(character));
         setWandererDialog({ w, busy: true });
         try {
             const res = await fetch("/api/sector/wanderer-quest", {
@@ -2602,6 +2677,10 @@ export function WorldMap({
         alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
+        // A roaming giver's scene can end here as well as through onCancel (a
+        // decline choice plays its goodbye and then completes), so both close paths
+        // run the accept check. No-op for every other event id.
+        noteGiverVnClosed(event.id);
         // Story road events pay nothing here — the choice was the payoff and it
         // was reported at choice time. Just close the scene.
         if (event.id.startsWith(ROAD_WANDERER_PREFIX)) { setSelectedCreatorEvent(null); return; }
@@ -2760,7 +2839,7 @@ export function WorldMap({
                 lineIndex={creatorEventLine}
                 setPageIndex={setCreatorEventPage}
                 setLineIndex={setCreatorEventLine}
-                onCancel={() => setSelectedCreatorEvent(null)}
+                onCancel={() => { noteGiverVnClosed(selectedCreatorEvent.id); setSelectedCreatorEvent(null); }}
                 onComplete={() => completeCreatorEvent(selectedCreatorEvent)}
                 onBattle={onStartEventEncounter}
                 onChoice={(c) => {
@@ -2773,6 +2852,7 @@ export function WorldMap({
                     }
                     if (c.trait === RIFT_ACCEPT_MARKER) {
                         const rift = riftBySynthId(ev.id);
+                        giverAcceptedRef.current = ev.id; // taken, not turned down
                         setSelectedCreatorEvent(null);
                         if (rift) void acceptRift(character.name, rift.id).then((resp) => {
                             if (resp.ok && resp.activeRiftQuest) {
@@ -2784,6 +2864,10 @@ export function WorldMap({
                         return;
                     }
                     if (c.trait === SCRIBE_ACCEPT_MARKER) {
+                        // Inert today — the scribe is exempt from the decline cooldown, so
+                        // noteGiverVnClosed ignores her either way. Kept so the stamp is
+                        // already right if she is ever brought back under that rule.
+                        giverAcceptedRef.current = ev.id;
                         // Leave the scene up so Ihara's send-off conclusion plays
                         // (closing here would eat the beat — see the rift-abandon
                         // note below). The server grant is idempotent: it tops the
@@ -2825,6 +2909,10 @@ export function WorldMap({
                     }
                     const t = c.trait;
                     if (t) {
+                        // A road beat with a trait IS resolved — nextRoadEvent moves
+                        // on — so it must not also read as "turned down" when the
+                        // conclusion finishes and the scene completes.
+                        giverAcceptedRef.current = ev.id;
                         updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev);
                         if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t);
                     }
@@ -3230,7 +3318,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...storyReckoningWanderers, ...riftGiverWanderers, ...scribeWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...storyReckoningWanderers, ...scribeWanderers, ...roamingQuestGivers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -3522,7 +3610,9 @@ export function WorldMap({
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "tracker" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                                                <button onClick={() => followTracker(wandererDialog.w)}>Follow tracks</button>
+                                                {/* Follow tracks leads into a pet duel — hide it, rather than
+                                                    locking the whole tracker, when there's no pet to send. */}
+                                                {character.pets.length > 0 && <button onClick={() => followTracker(wandererDialog.w)}>Follow tracks</button>}
                                                 <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Take a favor"}</button>
                                                 <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
@@ -3625,7 +3715,7 @@ export function WorldMap({
                                                     </>
                                                 );
                                             }
-                                            const def = questForWanderer(wandererDialog.w);
+                                            const def = questForWanderer(wandererDialog.w, lockedQuestMetrics(character));
                                             const offer = epicForWanderer(wandererDialog.w.id, character.level, { atWar: activeVillageWarsFor(character.village).length > 0, hasRivalry: !!character.wandererNemesis });
                                             return (
                                                 <>
@@ -3665,11 +3755,19 @@ export function WorldMap({
                                                         )
                                                     ) : (
                                                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                                            {em.quests.map(q => (
+                                                            {/* Emissary errands share the wanderer-quest metric union, so they
+                                                                need the same locked-objective filter: Kesshi's ledger errand
+                                                                wants Chronicle wins and Ojii's wants pet duels. Every emissary
+                                                                has a second errand on an always-open metric, so this never
+                                                                empties the list — the fallback is belt-and-braces for data edits. */}
+                                                            {(em.quests.filter(q => !lockedQuestMetrics(character).includes(q.metric)) as typeof em.quests).map(q => (
                                                                 <button key={q.id} disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w, q)} style={{ textAlign: "left", fontSize: ".78rem" }}>
                                                                     {q.label}
                                                                 </button>
                                                             ))}
+                                                            {em.quests.every(q => lockedQuestMetrics(character).includes(q.metric)) && (
+                                                                <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: 0 }}>They have nothing for you on this road yet. Walk a while longer and come back.</p>
+                                                            )}
                                                         </div>
                                                     )}
                                                     {isLegacyEnabled() && character.legacy && (

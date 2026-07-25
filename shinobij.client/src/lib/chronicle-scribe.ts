@@ -19,7 +19,8 @@ import type { Character } from "../types/character";
 import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer } from "./wanderers";
-import { wandererPresenceGate, wandererDayBucket } from "./wanderers";
+// No presence-gate import: the scribe is intentionally always present (see
+// scribeWandererFor). Everything else about her rides the normal wanderer path.
 
 export const SCRIBE_WANDERER_ID = "chronicle-scribe";
 /** Sentinel choice trait WorldMap intercepts (never stored as a story trait). */
@@ -39,15 +40,23 @@ export function scribeEligible(character: Pick<Character, "level" | "starterCard
 }
 
 /**
- * The scribe for the player's current sector this 6h window, or []. Same
- * presence-gate rhythm as the rift giver, slightly more present (0.45) — this
- * is an onboarding beat, and she should be found within a session or two of
- * becoming eligible, not stalked across a week of sectors.
+ * The scribe for the player's current sector, or [].
+ *
+ * DELIBERATELY UNGATED — she is the ONLY roaming NPC that does not roll a
+ * presence chance, and the only one exempt from the one-giver-per-sector cap and
+ * the decline cooldown. The other givers offer optional content, so making them
+ * rare is a kindness; Ihara is the KEY TO A LOCKED SYSTEM. The card game, the
+ * pack storefronts, and (since the content-lock pass) the gambler wanderer are
+ * all sealed until she hands over the traveler's codex, so a player who never
+ * bumps into her never sees the Chronicle at all. Hit the level, and she finds
+ * you — every sector, until you take the codex, after which she retires for good
+ * (`starterCardsClaimed`). Owner call, 2026-07-24.
+ *
+ * `now` is unused but kept in the signature: callers pass it, and it keeps the
+ * door open for re-introducing a window-based rhythm without touching them.
  */
-export function scribeWandererFor(character: Character, sector: number | null, now: Date = new Date()): Wanderer[] {
+export function scribeWandererFor(character: Character, sector: number | null, _now: Date = new Date()): Wanderer[] {
     if (sector == null || !scribeEligible(character)) return [];
-    const bucket = wandererDayBucket(now);
-    if (!wandererPresenceGate(`scribe#${character.name}#${sector}#${bucket}`, 0.45)) return [];
     return [synthChronicleScribe(sector)];
 }
 
