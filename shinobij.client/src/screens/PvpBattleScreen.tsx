@@ -1,6 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+// Command-deck glyphs (game-icons.net, CC BY 3.0) — one per basic action.
+import {
+    GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
+} from "react-icons/gi";
 import "../styles/battle-skin.css";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
@@ -1403,6 +1407,8 @@ export function PvpBattleScreen({
                     turn={session.round}
                     statuses={me.statuses}
                     isActive={isMyTurn && !done}
+                    level={me.character?.level as number | undefined}
+                    power={me.character?.xp as number | undefined}
                 />
 
                 <main className={`combat-main-area bt-${battleTabs.tab}`}>
@@ -1644,30 +1650,30 @@ export function PvpBattleScreen({
                             <button className={pendingBasicAttack ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
                                 disabled={submitting || myAp < 40 || me.stamina < 10}>
-                                <span>Attack</span><small>40 AP | 10 SP | R1</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>40 AP | 10 SP | R1</small>
                             </button>
                             <button className={selectedActionId === "move" ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
                                 disabled={submitting || myAp < pvpAdjustedApCost(30)}>
-                                <span>Move</span><small>{pvpAdjustedApCost(30)} AP / tile</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{pvpAdjustedApCost(30)} AP / tile</small>
                             </button>
                             <button onClick={() => submitAction("basicHeal")}
                                 disabled={submitting || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10 || myAp < 60}>
-                                <span>Heal</span><small>60 AP | 10 CP | CD {myCooldowns.basicHeal ?? 0}</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>60 AP | 10 CP | CD {myCooldowns.basicHeal ?? 0}</small>
                             </button>
                             <button onClick={() => submitAction("clear")}
                                 disabled={submitting || (myCooldowns.clear ?? 0) > 0 || myAp < 60}>
-                                <span>Clear</span><small>60 AP | CD {myCooldowns.clear ?? 0}</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>60 AP | CD {myCooldowns.clear ?? 0}</small>
                             </button>
                             <button onClick={() => submitAction("cleanse")}
                                 disabled={submitting || (myCooldowns.cleanse ?? 0) > 0 || myAp < 60}>
-                                <span>Cleanse</span><small>60 AP | CD {myCooldowns.cleanse ?? 0}</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>60 AP | CD {myCooldowns.cleanse ?? 0}</small>
                             </button>
                             <button onClick={() => submitAction("flee")} disabled={submitting || myAp < 100}>
-                                <span>Flee</span><small>100 AP | 50%</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>100 AP | 50%</small>
                             </button>
                             <button onClick={() => submitAction("wait")} disabled={submitting}>
-                                <span>Wait</span><small>End turn</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small>
                             </button>
                         </div>
                     )}
@@ -1787,7 +1793,10 @@ export function PvpBattleScreen({
                                                             {j.image && <img src={j.image} alt={j.name} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{j.name}</span>
-                                                        <span className="combat-jutsu-info">{j.ap} AP | R{j.range} | CD {myCooldowns[j.id] ?? 0}</span>
+                                                        {/* "CD 0" is noise on every card; an ACTIVE cooldown already
+                                                            shows as the corner pip. Dropping it keeps the cost line
+                                                            inside the card without truncating. */}
+                                                        <span className="combat-jutsu-info">{j.ap} AP · R{j.range}{onCooldown ? ` · CD ${myCooldowns[j.id]}` : ""}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
@@ -1978,6 +1987,16 @@ export function PvpBattleScreen({
                             });
                         })() : session.log.map((line, i) => <BattleLogLine line={line} key={i} />)}
                     </div>
+
+                    {/* Whose-turn banner — pinned to the board panel's bottom-right
+                        corner (absolute, so it takes no grid row). Purely a readout
+                        of the session's active role; it drives nothing. */}
+                    {!done && (
+                        <div className={`combat-turn-banner${isMyTurn ? " ctb-player" : " ctb-enemy"}`} aria-hidden="true">
+                            <span className="ctb-name">{isMyTurn ? me.name : opp.name}</span>
+                            <span className="ctb-suffix">'s Turn</span>
+                        </div>
+                    )}
                 </main>
 
                 {/* ── Battle chat (in-grid, between battlefield and enemy HUD) ── */}
@@ -2030,6 +2049,8 @@ export function PvpBattleScreen({
                     turn={session.round}
                     statuses={opp.statuses}
                     isActive={!isMyTurn && !done}
+                    level={opp.character?.level as number | undefined}
+                    power={opp.character?.xp as number | undefined}
                 />
             </div>
 
