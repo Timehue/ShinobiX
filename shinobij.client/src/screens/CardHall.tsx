@@ -25,6 +25,7 @@ import {
 } from "../lib/chronicle-duel";
 import { getAllTileCards } from "../data/tile-cards";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
+import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleCardView } from "../components/ChronicleCardView";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
@@ -384,11 +385,10 @@ function CardHallInner({
                 character.avatarImage ||
                 sharedImages[`avatar:${character.name.toLowerCase()}`]
               }
-              opponentAvatar={
-                sharedImages[
-                  `avatar:${duel[duel.viewerSide === "p1" ? "p2" : "p1"].name.toLowerCase()}`
-                ]
-              }
+              opponentAvatar={chronicleDuelistAvatar(
+                duel[duel.viewerSide === "p1" ? "p2" : "p1"].name,
+                sharedImages,
+              )}
               busy={busy}
               aiActing={aiActing}
               error={error}
