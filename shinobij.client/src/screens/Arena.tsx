@@ -7,6 +7,8 @@ import {
     GiColiseum, GiLaurelsTrophy, GiSkullCrossedBones, GiFirstAidKit, GiScrollUnfurled,
     GiVillage, GiNextButton, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
     GiRollingDices, GiTwoCoins,
+    // Command-deck glyphs (one per basic action).
+    GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
 } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -5174,10 +5176,11 @@ export function Arena({
                         onMouseLeave={() => setHoveredBattleTile(null)}
                         onClick={() => handleTileClickRef.current(i)}
                     >
-                        {isBarrierTile ? <GiShield aria-hidden="true" />
-                            : i === playerPos ? (character.avatarImage ? "" : character.name.slice(0, 2).toUpperCase())
-                            : i === enemyPos ? (isImageAvatar(opponentAvatar) ? "" : opponentAvatar)
-                                : ""}
+                        {/* Fighters are drawn ONLY by the orb overlay above the tiles —
+                            it now renders unconditionally (initials fallback included),
+                            so the tile must stay empty or an art-less fighter would show
+                            twice: once as this bare text and once inside its orb. */}
+                        {isBarrierTile ? <GiShield aria-hidden="true" /> : ""}
                     </button>
                 );
             })
@@ -5722,6 +5725,9 @@ export function Arena({
                     village={character.village}
                     turn={turn}
                     statuses={displayStatuses(playerStatuses)}
+                    isActive={activeActor === "player"}
+                    level={character.level}
+                    power={character.xp}
                 />
 
                 <main className={`combat-main-area bt-${battleTabs.tab}`}>
@@ -5856,8 +5862,14 @@ export function Arena({
                                         // stable key keeps the same DOM node, so CSS transitions a position
                                         // change but never the initial mount.
                                         <div key={isEnemy ? "enemy-orb" : "player-orb"} className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}`} style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                            {/* The orb ALWAYS renders so both fighters get the same token
+                                                and standing base. The portrait is what's conditional: with
+                                                no usable art the styled initials fallback shows through
+                                                instead, rather than the fighter dropping to bare text on
+                                                the hex tile (which is what made an art-less AI look
+                                                unstyled next to the player). */}
                                             <span className="avatar-orb-fallback" aria-hidden="true">{altText.slice(0, 2).toUpperCase()}</span>
-                                            <img className="tiny-map-avatar" src={imgSrc} alt={altText} fetchPriority="high" />
+                                            {isImageAvatar(imgSrc) && <img className="tiny-map-avatar" src={imgSrc} alt={altText} fetchPriority="high" />}
                                         </div>
                                     );
                                 };
@@ -5917,14 +5929,15 @@ export function Arena({
                                 };
                                 return (
                                     <>
-                                        {character.avatarImage && orbForPos(playerPos, false, character.avatarImage, character.name)}
-                                        {/* Player + enemy HP bars render UNGATED by the orb's avatar
-                                            guard: an image-less fighter falls back to an emoji inside
-                                            the hex tile, but its HP must still show on the board. */}
+                                        {orbForPos(playerPos, false, character.avatarImage ?? "", character.name)}
+                                        {/* Player + enemy HP bars use the same x/y math as orbForPos so
+                                            each bar rides its own token. Both are unconditional, like the
+                                            orbs themselves — every fighter gets a token, a standing base
+                                            and an HP bar whether or not their portrait resolved. */}
                                         {hpBadgeFor(playerPos, "player-hp-badge", playerHp, character.maxHp, "player")}
                                         {isPetAlive && summonedPet && petActorOrb(petPos, summonedPet)}
                                         {isPetAlive && summonedPet && hpBadgeFor(petPos, "pet-hp-badge", petHp, petMaxHp, "pet", `${petDisplayName(summonedPet)} · ${petTurnsRemaining}⟳`)}
-                                        {isImageAvatar(opponentAvatar) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
+                                        {orbForPos(enemyPos, true, opponentAvatar, opponentName)}
                                         {hpBadgeFor(enemyPos, "enemy-hp-badge", enemyHp, enemyMaxHp, "enemy")}
                                     </>
                                 );
@@ -5969,27 +5982,28 @@ export function Arena({
                             on cooldown), mirroring each handler's own guards so a
                             disabled button can never block a legal action. Wait stays
                             live (it also skips the enemy-turn delay). */}
-                        <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><span>Attack</span><small>40 AP | 10 SP</small></button>
-                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
+                        <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>40 AP | 10 SP</small></button>
+                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
                         <button
                             onClick={basicHeal}
                             title={playerHp >= character.maxHp ? "You are already at full HP" : "Restore 10% HP"}
                             disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || playerHp >= character.maxHp || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}
-                        ><span>Heal</span><small>{playerHp >= character.maxHp ? "Full HP - not needed" : `60 AP | 10 CP | CD ${cooldowns.basicHeal ?? 0}`}</small></button>
-                        <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
-                        <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
+                        ><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{playerHp >= character.maxHp ? "Full HP - not needed" : `60 AP | 10 CP | CD ${cooldowns.basicHeal ?? 0}`}</small></button>
+                        <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
+                        <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
                         {canSummonPet && (
                             <button
                                 onClick={summonActivePet}
                                 disabled={!activeBattlePetCanSummon || Boolean(summonedPet) || petSummonedThisFight || activeActor !== "player"}
                                 title={activeBattlePetSummonNote}
                             >
+                                <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
                                 <span>Pet</span>
                                 <small>{summonedPet ? `${petDisplayName(summonedPet)} fighting` : petSummonedThisFight ? "Pet already used" : activeBattlePetSummonNote}</small>
                             </button>
                         )}
-                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 50%</small></button>
-                        <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
+                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>100 AP | 50%</small></button>
+                        <button onClick={waitTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
@@ -6042,8 +6056,11 @@ export function Arena({
 
                                                     <span className="combat-jutsu-name">{jutsu.name}</span>
 
+                                                    {/* "CD 0" is noise on every card; an ACTIVE cooldown
+                                                        already shows as the corner pip. Dropping it keeps
+                                                        the cost line inside the card without truncating. */}
                                                     <span className="combat-jutsu-info">
-                                                        {jutsu.ap} AP | R{jutsu.range} | CD {cooldown}
+                                                        {jutsu.ap} AP · R{jutsu.range}{isOnCooldown ? ` · CD ${cooldown}` : ""}
                                                     </span>
                                                 </button>
 
@@ -6261,6 +6278,16 @@ export function Arena({
                             })
                         )}
                     </div>
+
+                    {/* Whose-turn banner — pinned to the board panel's bottom-right
+                        corner (absolute, so it takes no grid row). Purely a readout
+                        of activeActor; it drives nothing. */}
+                    {battleStarted && !battleEnded && (
+                        <div className={`combat-turn-banner${activeActor === "player" ? " ctb-player" : " ctb-enemy"}`} aria-hidden="true">
+                            <span className="ctb-name">{activeActor === "player" ? character.name : opponentName}</span>
+                            <span className="ctb-suffix">'s Turn</span>
+                        </div>
+                    )}
                 </main>
                 <CombatSideHud
                     name={opponentName}
@@ -6275,6 +6302,8 @@ export function Arena({
                     village={opponentCharacter?.village ?? pendingAiProfile?.village ?? "AI"}
                     turn={turn}
                     statuses={displayStatuses(enemyStatuses)}
+                    isActive={activeActor === "enemy"}
+                    level={opponentLevel}
                 />
             </div>
 

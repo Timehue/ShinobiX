@@ -16,20 +16,33 @@ import {
     actionTokenKey,
     type BattleReceipt,
     type ActionReceiptInput,
+    buildActionDisplay,
+    sanitizeImageRef,
+    buildHistorySummary,
+    mergeHistoryEntry,
+    indexBattleForParticipants,
+    readBattleHistory,
+    historyKey,
+    HISTORY_MAX_ENTRIES,
+    RECEIPT_TTL_SEC,
+    type BattleHistorySummary,
 } from './_receipts.js';
 import type { PvpFighter, PvpSession } from './pvp/session.js';
 
 // ─── In-memory KV double (get/set/incr/keys/mget with NX semantics) ──────────
 function makeFakeKv() {
     const store = new Map<string, unknown>();
+    const ttl = new Map<string, number | undefined>();
     return {
         store,
+        ttl,
         async get<T = unknown>(key: string): Promise<T | null> {
             return (store.has(key) ? store.get(key) : null) as T | null;
         },
         async set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null> {
             if (options?.nx && store.has(key)) return null;
             store.set(key, value);
+            ttl.set(key, options?.ex);
             return 'OK';
         },
         async incr(key: string): Promise<number> {
@@ -311,5 +324,255 @@ describe('readActionReceipts (ordered by seq)', () => {
     it('returns [] for a battle with no receipts', async () => {
         const kv = makeFakeKv();
         assert.deepEqual(await readActionReceipts('nope', { kv }), []);
+    });
+});
+
+// ─── Phase 1: server-owned presentation metadata ─────────────────────────────
+//
+// `display` exists so a battle log can show "Blazing Dragon Arc" instead of the
+// raw id `starter-nin-fire-2`, and so the client can pick an icon without the
+// receipt carrying art. Every field is optional: the 90 days of receipts written
+// before this shipped must keep rendering.
+
+describe('sanitizeImageRef (receipt payload safety)', () => {
+    it('accepts a rooted static asset path', () => {
+        assert.equal(sanitizeImageRef('/starter-avatar-one.webp'), '/starter-avatar-one.webp');
+    });
+
+    it('accepts a short /api/img reference', () => {
+        assert.equal(sanitizeImageRef('/api/img?id=jutsu:fireball'), '/api/img?id=jutsu:fireball');
+    });
+
+    it('accepts an absolute https URL', () => {
+        assert.equal(sanitizeImageRef('https://img.shinobijourney.com/a.webp'), 'https://img.shinobijourney.com/a.webp');
+    });
+
+    it('DROPS a data: URL so base64 art can never bloat a 90-day receipt', () => {
+        assert.equal(sanitizeImageRef('data:image/webp;base64,UklGRk5DAABXRUJQ'), undefined);
+    });
+
+    it('drops other unsafe schemes and protocol-relative hosts', () => {
+        assert.equal(sanitizeImageRef('javascript:alert(1)'), undefined);
+        assert.equal(sanitizeImageRef('http://insecure.example/a.png'), undefined);
+        assert.equal(sanitizeImageRef('blob:https://x/y'), undefined);
+        assert.equal(sanitizeImageRef('//evil.host/a.png'), undefined);
+    });
+
+    it('drops an oversized reference rather than storing it', () => {
+        assert.equal(sanitizeImageRef('/a' + 'b'.repeat(400) + '.webp'), undefined);
+    });
+});
+
+describe('buildActionDisplay (optional, clamped)', () => {
+    it('keeps label + category and the optional element/discipline', () => {
+        const d = buildActionDisplay({ label: 'Blazing Dragon Arc', category: 'jutsu', element: 'Fire', discipline: 'Ninjutsu' });
+        assert.equal(d?.label, 'Blazing Dragon Arc');
+        assert.equal(d?.category, 'jutsu');
+        assert.equal(d?.element, 'Fire');
+        assert.equal(d?.discipline, 'Ninjutsu');
+        assert.equal(d?.imageRef, undefined, 'no image supplied → field stays absent');
+    });
+
+    it('returns undefined without a usable label or category', () => {
+        assert.equal(buildActionDisplay(undefined), undefined);
+        assert.equal(buildActionDisplay({ category: 'jutsu' }), undefined);
+        assert.equal(buildActionDisplay({ label: '   ', category: 'jutsu' }), undefined);
+        assert.equal(buildActionDisplay({ label: 'Thing' }), undefined);
+    });
+
+    it('clamps a pathological label instead of persisting it whole', () => {
+        const d = buildActionDisplay({ label: 'x'.repeat(500), category: 'jutsu' });
+        assert.ok(d && d.label.length <= 80, `label should be clamped, got ${d?.label.length}`);
+    });
+
+    it('strips an unsafe image reference but keeps the rest of the block', () => {
+        const d = buildActionDisplay({ label: 'Fireball', category: 'jutsu', imageRef: 'data:image/png;base64,AAAA' });
+        assert.equal(d?.label, 'Fireball');
+        assert.equal(d?.imageRef, undefined);
+    });
+});
+
+describe('buildActionReceipt display metadata', () => {
+    it('carries the server-resolved display block onto the receipt', () => {
+        const input = castInput();
+        input.display = { label: 'Blazing Dragon Arc', category: 'jutsu', element: 'Fire', discipline: 'Ninjutsu' };
+        const r = buildActionReceipt(input, 1, 1);
+        assert.equal(r.display?.label, 'Blazing Dragon Arc');
+        assert.equal(r.display?.category, 'jutsu');
+        assert.equal(r.display?.element, 'Fire');
+    });
+
+    it('omits display entirely when the caller supplies none (legacy receipts)', () => {
+        const r = buildActionReceipt(castInput(), 1, 1);
+        assert.equal(r.display, undefined, 'absent, not an empty object');
+    });
+
+    it('never lets a data: image reach the stored receipt', () => {
+        const input = castInput();
+        input.display = { label: 'Fireball', category: 'jutsu', imageRef: 'data:image/webp;base64,UklGRg' };
+        const r = buildActionReceipt(input, 1, 1);
+        assert.equal(r.display?.imageRef, undefined);
+        assert.ok(!JSON.stringify(r).includes('base64'), 'no base64 payload anywhere in the receipt');
+    });
+});
+
+// ─── Phase 2: durable per-player battle history index ────────────────────────
+//
+// A BattleReceipt is findable by battleId, but nothing let a player LIST their
+// battles once the 15-min session died. These tests pin the contract that makes
+// a finished fight survive: both participants indexed, newest first, capped, and
+// idempotent so a retried terminal settlement can't duplicate a row.
+
+function receiptFor(overrides: Partial<BattleReceipt> = {}): BattleReceipt {
+    return {
+        battleId: 'b1',
+        ranked: false,
+        startedAt: 1_000,
+        endedAt: 2_000,
+        rounds: 4,
+        p1: { name: 'Alice', hp: 120, maxHp: 500, finalStatuses: [] },
+        p2: { name: 'Bob', hp: 0, maxHp: 480, finalStatuses: [] },
+        winner: 'p1',
+        log: [],
+        ...overrides,
+    };
+}
+
+// Pass-through lock: the production call injects api/_lock.ts withKvLock; the
+// serialization itself is that module's contract, not this one's.
+const passThroughLock = async <T,>(_target: string, fn: () => Promise<T>) => fn();
+
+describe('buildHistorySummary (participant-relative)', () => {
+    it('describes the battle from the WINNER side', () => {
+        const s = buildHistorySummary(receiptFor(), 'p1');
+        assert.equal(s.battleId, 'b1');
+        assert.equal(s.opponent, 'Bob');
+        assert.equal(s.outcome, 'win');
+        assert.equal(s.rounds, 4);
+        assert.equal(s.ranked, false);
+        assert.equal(s.mode, 'PvP');
+    });
+
+    it('describes the SAME battle from the loser side', () => {
+        const s = buildHistorySummary(receiptFor(), 'p2');
+        assert.equal(s.opponent, 'Alice');
+        assert.equal(s.outcome, 'loss');
+        assert.equal(s.winner, 'p1', 'absolute winner is preserved alongside the relative outcome');
+    });
+
+    it('marks a draw for both sides', () => {
+        assert.equal(buildHistorySummary(receiptFor({ winner: 'draw' }), 'p1').outcome, 'draw');
+        assert.equal(buildHistorySummary(receiptFor({ winner: 'draw' }), 'p2').outcome, 'draw');
+    });
+
+    it('records a flee against the fleeing player only', () => {
+        const r = receiptFor({ winner: 'p2', fleedBy: 'p1' });
+        assert.equal(buildHistorySummary(r, 'p1').outcome, 'flee');
+        assert.equal(buildHistorySummary(r, 'p2').outcome, 'win');
+    });
+
+    it('labels a ranked battle', () => {
+        const s = buildHistorySummary(receiptFor({ ranked: true }), 'p1');
+        assert.equal(s.ranked, true);
+        assert.equal(s.mode, 'Ranked');
+    });
+});
+
+describe('mergeHistoryEntry (newest first, deduped, capped)', () => {
+    it('puts the newest battle first', () => {
+        const older = buildHistorySummary(receiptFor({ battleId: 'old', endedAt: 1 }), 'p1');
+        const newer = buildHistorySummary(receiptFor({ battleId: 'new', endedAt: 9 }), 'p1');
+        const merged = mergeHistoryEntry([older], newer);
+        assert.deepEqual(merged.map((e) => e.battleId), ['new', 'old']);
+    });
+
+    it('DEDUPES by battleId so a retried settlement cannot duplicate a row', () => {
+        const entry = buildHistorySummary(receiptFor(), 'p1');
+        const once = mergeHistoryEntry([], entry);
+        const twice = mergeHistoryEntry(once, entry);
+        assert.equal(twice.length, 1);
+    });
+
+    it('caps the list, dropping the oldest', () => {
+        let list: BattleHistorySummary[] = [];
+        for (let i = 0; i < HISTORY_MAX_ENTRIES + 10; i++) {
+            list = mergeHistoryEntry(list, buildHistorySummary(receiptFor({ battleId: `b${i}`, endedAt: i }), 'p1'));
+        }
+        assert.equal(list.length, HISTORY_MAX_ENTRIES);
+        assert.equal(list[0].battleId, `b${HISTORY_MAX_ENTRIES + 9}`, 'newest retained');
+        assert.ok(!list.some((e) => e.battleId === 'b0'), 'oldest dropped');
+    });
+
+    it('tolerates a missing/corrupt existing list', () => {
+        const entry = buildHistorySummary(receiptFor(), 'p1');
+        assert.equal(mergeHistoryEntry(null, entry).length, 1);
+        assert.equal(mergeHistoryEntry(undefined, entry).length, 1);
+    });
+});
+
+describe('indexBattleForParticipants (both sides, idempotent, best-effort)', () => {
+    it('indexes BOTH participants under their own keys', async () => {
+        const kv = makeFakeKv();
+        const res = await indexBattleForParticipants(receiptFor(), { kv, lock: passThroughLock });
+        assert.deepEqual(res, { p1: true, p2: true });
+        const alice = await readBattleHistory('alice', { kv });
+        const bob = await readBattleHistory('bob', { kv });
+        assert.equal(alice[0].opponent, 'Bob');
+        assert.equal(alice[0].outcome, 'win');
+        assert.equal(bob[0].opponent, 'Alice');
+        assert.equal(bob[0].outcome, 'loss');
+    });
+
+    it('is IDEMPOTENT — a retried terminal settlement adds no duplicate', async () => {
+        const kv = makeFakeKv();
+        await indexBattleForParticipants(receiptFor(), { kv, lock: passThroughLock });
+        await indexBattleForParticipants(receiptFor(), { kv, lock: passThroughLock });
+        await indexBattleForParticipants(receiptFor(), { kv, lock: passThroughLock });
+        assert.equal((await readBattleHistory('alice', { kv })).length, 1);
+        assert.equal((await readBattleHistory('bob', { kv })).length, 1);
+    });
+
+    it('accumulates distinct battles newest-first', async () => {
+        const kv = makeFakeKv();
+        await indexBattleForParticipants(receiptFor({ battleId: 'b1', endedAt: 10 }), { kv, lock: passThroughLock });
+        await indexBattleForParticipants(receiptFor({ battleId: 'b2', endedAt: 20 }), { kv, lock: passThroughLock });
+        const alice = await readBattleHistory('alice', { kv });
+        assert.deepEqual(alice.map((e) => e.battleId), ['b2', 'b1']);
+    });
+
+    it('never throws when the store fails — history is display-only', async () => {
+        const failing = {
+            async get() { throw new Error('kv down'); },
+            async set() { throw new Error('kv down'); },
+        } as unknown as NonNullable<Parameters<typeof indexBattleForParticipants>[1]>['kv'];
+        const res = await indexBattleForParticipants(receiptFor(), { kv: failing, lock: passThroughLock });
+        assert.deepEqual(res, { p1: false, p2: false }, 'reports failure without throwing into the combat path');
+    });
+
+    it('applies the 90-day receipt TTL to the index', async () => {
+        const kv = makeFakeKv();
+        await indexBattleForParticipants(receiptFor(), { kv, lock: passThroughLock });
+        assert.equal(kv.ttl.get(historyKey('alice')), RECEIPT_TTL_SEC);
+    });
+
+    it('skips a battle with no id', async () => {
+        const kv = makeFakeKv();
+        const res = await indexBattleForParticipants(receiptFor({ battleId: '' }), { kv, lock: passThroughLock });
+        assert.deepEqual(res, { p1: false, p2: false });
+    });
+});
+
+describe('readBattleHistory', () => {
+    it('returns an empty list for a player with no battles', async () => {
+        const kv = makeFakeKv();
+        assert.deepEqual(await readBattleHistory('nobody', { kv }), []);
+    });
+
+    it('filters out corrupt rows rather than surfacing them', async () => {
+        const kv = makeFakeKv();
+        await kv.set(historyKey('alice'), [null, { battleId: '' }, { battleId: 'ok', opponent: 'Bob' }]);
+        const list = await readBattleHistory('alice', { kv });
+        assert.equal(list.length, 1);
+        assert.equal(list[0].battleId, 'ok');
     });
 });

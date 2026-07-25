@@ -65,7 +65,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     }
 
-    const entries = await readActionReceipts(battleId);
+    // Durable payload. `battle` is the resolved BattleReceipt when one exists so
+    // the client can render the summary header (outcome, rounds, opponent)
+    // without a second request; it is null while the fight is still live.
+    const battle = await readBattleReceipt(battleId);
+    const all = await readActionReceipts(battleId);
+
+    // 404 only when we have NEITHER a live session NOR any durable record —
+    // otherwise a battle that resolved before per-action receipts existed would
+    // look like it never happened.
+    if (!live && !battle && all.length === 0) {
+        return res.status(404).json({ error: 'No combat log found for that battle.' });
+    }
+
+    // Optional server-side narrowing. The client can also filter locally, but
+    // doing it here keeps a long fight's payload small on mobile.
+    const actorFilter = String(req.query.actor ?? 'all').toLowerCase();
+    const includeBasic = String(req.query.includeBasic ?? 'true').toLowerCase() !== 'false';
+    // Resolve "self"/"opponent" against the CALLER's role, not a client-supplied
+    // role, so the filter can't be used to probe anything they can't already see.
+    const myRole: 'p1' | 'p2' | null = !identity.admin && identity.name
+        ? (identity.name === safeName(p1Name) ? 'p1' : identity.name === safeName(p2Name) ? 'p2' : null)
+        : null;
+
+    let filtered = all;
+    if (myRole && (actorFilter === 'self' || actorFilter === 'opponent')) {
+        const want: 'p1' | 'p2' = actorFilter === 'self' ? myRole : (myRole === 'p1' ? 'p2' : 'p1');
+        filtered = filtered.filter((e) => e.actorRole === want);
+    }
+    if (!includeBasic) {
+        // "Basic actions" are the low-signal turn/movement/basic beats a player
+        // scrubbing a fight usually wants out of the way.
+        const noisy = new Set(['basic', 'movement', 'turn']);
+        filtered = filtered.filter((e) => !noisy.has(e.display?.category ?? ''));
+    }
+
+    // Newest-first pagination by seq. `beforeSeq` walks backwards through a long
+    // fight without re-sending the whole log.
+    const rawLimit = Number(req.query.limit);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(200, Math.floor(rawLimit))) : filtered.length;
+    const rawBefore = Number(req.query.beforeSeq);
+    const beforeSeq = Number.isFinite(rawBefore) ? Math.floor(rawBefore) : null;
+    const windowed = beforeSeq === null ? filtered : filtered.filter((e) => e.seq < beforeSeq);
+    // Take the LAST `limit` entries so a default request returns the most recent
+    // action of the fight, then hand back ascending seq order for rendering.
+    const page = windowed.slice(Math.max(0, windowed.length - limit));
+    const nextCursor = page.length && windowed.length > page.length ? page[0].seq : undefined;
+
+    // A battle that predates per-action receipts still has its final log on the
+    // BattleReceipt. Report that honestly via `source` so the client renders it
+    // through buildActionsFromPvpLog instead of showing "no actions".
+    const source = all.length > 0 ? 'receipts' : (battle?.log?.length ? 'legacy-final-log' : 'receipts');
+
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ battleId, entries, source: 'receipts' });
+    return res.status(200).json({
+        battleId,
+        battle,
+        entries: page,
+        source,
+        nextCursor,
+        legacyLog: source === 'legacy-final-log' ? (battle?.log ?? []) : undefined,
+    });
 }

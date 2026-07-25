@@ -124,7 +124,41 @@ function vfxEvent(
     };
 }
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
-import { writeBattleReceipt, writeActionReceipt } from '../_receipts.js';
+import { writeBattleReceipt, writeActionReceipt, buildBattleReceipt, indexBattleForParticipants } from '../_receipts.js';
+import { withKvLock } from '../_lock.js';
+import type { ActionReceiptCategory } from '../_receipts.js';
+
+// Readable fallback label + category per raw move action, used to seed the
+// receipt metadata before the switch. Branches that resolve a real jutsu/item
+// overwrite both; the terminal/system actions rely on these entries so a
+// historical log never shows a bare protocol string like "claim-afk-win".
+const DEFAULT_ACTION_LABELS: Record<string, string> = {
+    wait: 'Wait',
+    move: 'Move',
+    clear: 'Clear',
+    cleanse: 'Cleanse',
+    flee: 'Flee',
+    basicAttack: 'Basic Attack',
+    basicHeal: 'Basic Heal',
+    jutsu: 'Jutsu',
+    weapon: 'Weapon Attack',
+    item: 'Item',
+    'claim-afk-win': 'Forfeit Win Claimed',
+};
+
+const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
+    wait: 'turn',
+    move: 'movement',
+    clear: 'basic',
+    cleanse: 'basic',
+    flee: 'turn',
+    basicAttack: 'basic',
+    basicHeal: 'basic',
+    jutsu: 'jutsu',
+    weapon: 'weapon',
+    item: 'item',
+    'claim-afk-win': 'system',
+};
 import { onlineStore } from '../_realtime/online-store.js';
 import { settleKageDuel, recordPendingKageSettle, kageDuelKey } from '../village/_kage-settle.js';
 import {
@@ -1382,6 +1416,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         let result: PvpSession;
 
+        // ── Server-owned receipt metadata ────────────────────────────────────
+        // The durable action receipt used to derive its display name from the
+        // request body (`itemName ?? jutsuId ?? action`), which meant a jutsu
+        // persisted its raw ID as the label and a client could influence what a
+        // historical record claims happened. This single object is seeded with a
+        // safe default and then overwritten INSIDE each switch branch from the
+        // object the server itself resolved and validated, so the receipt can
+        // only ever describe what actually executed.
+        const receiptAction: {
+            id: string;
+            name: string;
+            type: string;
+            category: ActionReceiptCategory;
+            element?: string;
+            discipline?: string;
+            imageRef?: string;
+        } = {
+            id: String(action),
+            name: DEFAULT_ACTION_LABELS[String(action)] ?? String(action),
+            type: String(action),
+            category: DEFAULT_ACTION_CATEGORIES[String(action)] ?? 'system',
+        };
+
         switch (action) {
             case 'wait': {
                 // Determine whether this wait counts as an AFK skip. The
@@ -1518,6 +1575,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!jutsu) {
                     return finish(await rejectWithLog(`${me.name}: selected jutsu is not available in this PvP session. Reopen the duel or re-equip your loadout.`));
                 }
+                // Receipt metadata from the SERVER's resolved jutsu (sanitized by
+                // session.ts at fight-create), not the request body. No imageRef:
+                // the sealed PvP loadout carries NO art field at all, which is
+                // exactly why a receipt can never end up holding a base64 blob.
+                // The client renders an element/category glyph instead.
+                receiptAction.id = String(jutsu.id ?? jutsuId);
+                receiptAction.name = String(jutsu.name ?? jutsuId);
+                receiptAction.category = 'jutsu';
+                receiptAction.element = jutsu.element ? String(jutsu.element) : undefined;
+                receiptAction.discipline = jutsu.type ? String(jutsu.type) : undefined;
                 // jutsuIsSane re-validation removed — the jutsu comes from the
                 // session's loadout list, which session.ts already sanitized at
                 // fight-create time and is immutable afterwards. No code path
@@ -1802,6 +1869,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Weapon is not equipped for this fighter' });
                 }
+                // Receipt metadata from the SERVER's equipped item, not the
+                // client's itemName (which equippedPvpItem only uses to look up).
+                receiptAction.id = String(serverItem.id ?? 'weapon');
+                receiptAction.name = String(serverItem.name ?? 'Weapon Attack');
+                receiptAction.category = 'weapon';
+                receiptAction.element = serverItem.weaponElement ? String(serverItem.weaponElement) : undefined;
                 const wSlot = normalizeEquipmentSlot(serverItem.slot);
                 const weapRange = serverItem.weaponRange ?? (wSlot === 'thrown' ? 4 : 1);
                 const wApCost = serverItem.apCost ?? 40;
@@ -1893,6 +1966,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Item is not equipped for this fighter' });
                 }
+                // Receipt metadata from the SERVER's equipped item (see weapon).
+                receiptAction.id = String(serverItem.id ?? 'item');
+                receiptAction.name = String(serverItem.name ?? 'Item');
+                receiptAction.category = 'item';
+                receiptAction.element = serverItem.weaponElement ? String(serverItem.weaponElement) : undefined;
                 const iApCost = serverItem.apCost ?? 35;
                 if (!canAct(iApCost)) return finish(withRejected(session, `Not enough AP or actions left for ${serverItem.name ?? 'that item'}.`));
                 // Cooldown enforcement — combat items (pills / smoke bomb) honour
@@ -2039,6 +2117,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // support / reward dispute can be reconstructed later. Disable with
             // DISABLE_COMBAT_RECEIPTS=1.
             await writeBattleReceipt(result).catch(() => undefined);
+            // Index the finished battle into BOTH players' durable history lists
+            // so it stays reachable after the 15-min session TTL — without this a
+            // resolved fight is only findable if you already know its battleId.
+            // Runs AFTER the receipt so the index can never point at a battle
+            // with no record. Display-only and dedup-by-battleId, so a retried
+            // terminal move adds nothing; failures are logged, never rolled back.
+            try {
+                const built = buildBattleReceipt(result, Date.now());
+                await indexBattleForParticipants(built, { lock: withKvLock, safeName });
+            } catch (err) {
+                console.error('[pvp/move] battle history index failed', err);
+            }
             // If this finished duel was an OFFICIAL Kage challenge (the server
             // wrote a `kage-duel:<battleId>` pointer when the Kage accepted),
             // settle the seat now so neither player has to manually press
@@ -2073,9 +2163,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pre: session,
             post: result,
             role,
-            actionId: String(jutsuId ?? itemId ?? action),
-            actionName: String(itemName ?? jutsuId ?? action),
+            // Identity + label come from `receiptAction`, which each switch
+            // branch overwrote from the object the SERVER resolved. Previously
+            // these read `jutsuId ?? itemId ?? action` / `itemName ?? jutsuId`,
+            // so a jutsu stored its raw ID as the display name and the label was
+            // partly client-controlled.
+            actionId: receiptAction.id,
+            actionName: receiptAction.name,
             actionType: action, // the raw move action label (jutsu/weapon/item/move/wait/flee/basicAttack/…)
+            display: {
+                label: receiptAction.name,
+                category: receiptAction.category,
+                element: receiptAction.element,
+                discipline: receiptAction.discipline,
+                imageRef: receiptAction.imageRef,
+            },
             moveToken,
         }).catch(() => undefined);
         // Cap log size — UI only renders the last ~20 entries anyway, and an

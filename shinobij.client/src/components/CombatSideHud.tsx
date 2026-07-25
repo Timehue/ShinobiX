@@ -99,6 +99,8 @@ export function CombatSideHud({
     turn,
     statuses,
     isActive,
+    level,
+    power,
 }: {
     name: string;
     avatar: string;
@@ -113,6 +115,9 @@ export function CombatSideHud({
     turn: number;
     statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
     isActive?: boolean;
+    /** Optional dossier footer stats (level star + power). Omitted callers render no footer. */
+    level?: number;
+    power?: number;
 }) {
     const hpPct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
     const hpColor = hpPct > 50 ? "var(--success)" : hpPct > 25 ? "var(--gold-2)" : "var(--danger)";
@@ -147,14 +152,14 @@ export function CombatSideHud({
                 </div>
             </div>
 
-            <div className="resource-line">
+            <div className="resource-line resource-line--chakra">
                 <span className="resource-label">Chakra <small>{chakra} / {maxChakra}</small></span>
                 <div className="hud-bar chakra-bar">
                     <span style={{ width: `${Math.max(0, Math.min(100, (chakra / Math.max(1, maxChakra)) * 100))}%` }} />
                 </div>
             </div>
 
-            <div className="resource-line">
+            <div className="resource-line resource-line--stamina">
                 <span className="resource-label">Stamina <small>{stamina} / {maxStamina}</small></span>
                 <div className="hud-bar stamina-bar">
                     <span style={{ width: `${Math.max(0, Math.min(100, (stamina / Math.max(1, maxStamina)) * 100))}%` }} />
@@ -162,7 +167,7 @@ export function CombatSideHud({
             </div>
 
             {shield > 0 && (
-                <div className="resource-line">
+                <div className="resource-line resource-line--shield">
                     <span className="resource-label">Shield <small>{shield}</small></span>
                     <div className="hud-bar shield-bar">
                         <span style={{ width: `${Math.min(100, (shield / 1500) * 100)}%` }} />
@@ -183,6 +188,26 @@ export function CombatSideHud({
 
             <CombatEffectsPanel title="Buffs" tone="positive" statuses={statuses.filter((s) => s.kind === "positive")} />
             <CombatEffectsPanel title="Debuffs" tone="negative" statuses={statuses.filter((s) => s.kind === "negative")} />
+
+            {/* Dossier footer — level + accumulated power, the two numbers that
+                frame "how big is this fighter" at a glance. Rendered only when a
+                caller supplies them so Towers/legacy consumers are unchanged. */}
+            {(level != null || power != null) && (
+                <div className="combat-hud-stats">
+                    {level != null && (
+                        <span className="chs-stat" title="Level">
+                            <i className="chs-icon chs-icon--level" aria-hidden="true" />
+                            {level}
+                        </span>
+                    )}
+                    {power != null && (
+                        <span className="chs-stat" title="Power">
+                            <i className="chs-icon chs-icon--power" aria-hidden="true" />
+                            {power.toLocaleString()}
+                        </span>
+                    )}
+                </div>
+            )}
         </aside>
     );
 }

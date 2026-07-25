@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
-import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase } from "react-icons/gi";
+import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase,
+    // Command-deck glyphs (one per basic action), matching Arena + PvP.
+    GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "react-icons/gi";
 import type { Character } from "../types/character";
 import {
     submitTowerAction, fetchTowerState, TOWER_TURN_AFK_MS,
@@ -551,28 +553,29 @@ export function MissionArenaFight({
                         <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
                             disabled={busy || !myTurn || outOfActions || myAp < ATTACK_AP || !enemy || enemy.hp <= 0}
                             title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
-                            className={mode === "attack" ? "selected-action" : ""}><span>Attack</span><small>{ATTACK_AP} AP | R1</small></button>
+                            className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{ATTACK_AP} AP | R1</small></button>
                         <button className={mode === "move" ? "selected-action" : ""}
                             disabled={busy || !myTurn || outOfActions || myAp < MOVE_AP}
-                            onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><span>Move</span><small>{MOVE_AP} AP / tile</small></button>
+                            onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{MOVE_AP} AP / tile</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "heal" }); }}
-                            disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < UTILITY_AP}><span>Heal</span><small>{UTILITY_AP} AP | CD {healCd}</small></button>
+                            disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < UTILITY_AP}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{UTILITY_AP} AP | CD {healCd}</small></button>
                         <button onClick={() => { resetTargeting(); if (enemy) void send({ type: "clear", targetId: enemy.id }); }}
-                            disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < UTILITY_AP || !enemy || enemy.hp <= 0}><span>Clear</span><small>{UTILITY_AP} AP | CD {clearCd}</small></button>
+                            disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < UTILITY_AP || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{UTILITY_AP} AP | CD {clearCd}</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
-                            disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < UTILITY_AP}><span>Cleanse</span><small>{UTILITY_AP} AP | CD {cleanseCd}</small></button>
+                            disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < UTILITY_AP}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{UTILITY_AP} AP | CD {cleanseCd}</small></button>
                         {(session.pendingCompanion || companion) && (
                             <button
                                 onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
                                 disabled={busy || !myTurn || !session.pendingCompanion || !!companion}
                                 title={companion ? `${companion.name} is already on the field` : session.pendingCompanion ? `Summon ${session.pendingCompanion.name}` : "No active pet"}
                             >
+                                <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
                                 <span>Pet</span>
                                 <small>{companion ? `${companion.name} · ${companionRoundsLeft}⟳` : session.pendingCompanion ? `Summon ${session.pendingCompanion.name}` : "No active pet"}</small>
                             </button>
                         )}
-                        <button onClick={() => { void leaveFight(); }}><span>Flee</span><small>Leave fight</small></button>
-                        <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><span>Wait</span><small>End turn</small></button>
+                        <button onClick={() => { void leaveFight(); }}><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>Leave fight</small></button>
+                        <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
@@ -598,7 +601,9 @@ export function MissionArenaFight({
                                             >
                                                 <span className="combat-jutsu-thumb">{art ? <img src={art} alt={j.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
                                                 <span className="combat-jutsu-name">{j.name}</span>
-                                                <span className="combat-jutsu-info">{j.ap} AP | R{j.range} | CD {cd}</span>
+                                                {/* "CD 0" is noise on every card; an ACTIVE cooldown already
+                                                    shows as the corner pip. */}
+                                                <span className="combat-jutsu-info">{j.ap} AP · R{j.range}{onCd ? ` · CD ${cd}` : ""}</span>
                                             </button>
                                         </div>
                                     );
