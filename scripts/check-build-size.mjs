@@ -46,7 +46,23 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // duel-start and outcome splashes) adds ~3.5 KB of lazy board code/CSS;
 // measured 6,703,504 B. Startup gates untouched (initial graph 1.31 MB raw /
 // 343.3 KB gzip, entry under its gate).
-const TOTAL_JS_CSS_FAIL_BYTES = 6_710_000;
+// 2026-07-25: 6.71 -> 6.72 MB. The Chronicle zone-highlight pass and the
+// wandering-AI spawn/cooldown pass (giver density cap, decline cooldown,
+// content-locked archetypes) together crossed the old ceiling. All of it is in
+// the LAZY WorldMap/board screens: CI measured budgeted between 6,710,000 and
+// 6,716,232 B (bounded by its own rounded 6.40 MB report plus the failure), and
+// a local build measures 6,709,186 B. Startup gates untouched and green — CI
+// initial graph 1.31 MB raw / 344.2 KB gzip, entry under its gate.
+//
+// NOTE ON THE MARGIN: the previous ceiling left 814 B of local headroom, so a
+// local build passed while CI failed — CI has the Sentry DSN, and
+// @sentry/vite-plugin injects instrumentation into the product chunks (its own
+// vendor chunk is excluded from this budget but shows up in "all emitted"). The
+// bump below is sized to clear CI's worst case with ~14 KB to spare, so the
+// local gate stops reporting a false green. If this budget needs raising again
+// soon, drain a screen off the graph instead — the startup gates below are the
+// ones that must never be relaxed.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_730_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
