@@ -12,6 +12,7 @@ import {
     type ChronicleAiResult,
     type ChronicleProjection,
 } from "../lib/chronicle-duel";
+import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import "../styles/chronicle-duel.css";
 
@@ -107,6 +108,8 @@ export function CardClashDuel({
     const won = Boolean(done && duel && duel.winner === duel.viewerSide);
     const draw = done && duel.winner === "draw";
     const sceneStyle = dungeonSceneImage ? { "--chronicle-scene": `url(${dungeonSceneImage})` } as CSSProperties : undefined;
+    // Encounter hosts don't pass an avatar, so the Keeper resolves its own.
+    const foeName = duel ? duel[duel.viewerSide === "p1" ? "p2" : "p1"].name : "";
 
     return <main className="chronicle-shell chronicle-encounter" style={sceneStyle}>
         <header className="chronicle-header">
@@ -116,6 +119,6 @@ export function CardClashDuel({
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
         {error && !duel ? <section className="chronicle-panel"><div className="chronicle-error" role="alert">{error}</div><button onClick={onDungeonLeave}>Leave encounter</button></section> : null}
         {done ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section> : null}
-        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar} busy={busy} aiActing={aiActing} error={error} onAction={(intent) => void act(intent)} /> : null}
+        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }
