@@ -16,6 +16,7 @@ import {
   playChronicleSfx,
   setChronicleSfxMuted,
 } from "../lib/chronicle-sfx";
+import { chronicleLegalPlacements } from "../lib/chronicle-placements";
 import { isImageAvatar } from "../lib/avatar";
 import { ChronicleCardView } from "./ChronicleCardView";
 
@@ -206,6 +207,12 @@ export function ChronicleDuelBoard({
     selected?.cardClass === "monster"
       ? tributeCountForLevel(selected.level)
       : 0;
+  // Card-first placement: lifting a card out of hand lights up every zone it
+  // could legally enter, so the board answers "where does this go?" before a
+  // slot is committed.
+  const placements = chronicleLegalPlacements(state, selected);
+  const placingMonster = placements.mode === "monster";
+  const placingTrap = placements.mode === "trap";
   const magicTargetScope =
     selected?.cardClass === "magic" ? selected.effect.targetScope : "none";
   const targetsOwnedMonster = magicTargetScope === "ownedFaceUpMonster";
@@ -797,27 +804,22 @@ export function ChronicleDuelBoard({
                 selected?.cardClass === "magic" &&
                 (!targetsOwnedMonster || !legalMagicTarget);
               const canInspect = Boolean(monster?.cardId);
+              // An open zone is somewhere the picked Monster can land; an
+              // occupied one is a Tribute candidate when its Level demands one.
+              const placementTarget = placements.monsterZones.includes(index);
+              const tributeTarget = placements.tributeZones.includes(index);
               return (
                 <button
                   type="button"
                   ref={zoneRef(zoneKey)}
-                  className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${targetsOwnedMonster && legalMagicTarget ? "legal-target" : ""} ${destination === index || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
+                  className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${placementTarget || tributeTarget || (targetsOwnedMonster && legalMagicTarget) ? "legal-target" : ""} ${placementTarget ? "placement-open" : ""} ${(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
                   onClick={() => {
                     const interactive = myTurn && !blockedByMagicSelection;
-                    if (
-                      interactive &&
-                      selected?.cardClass === "monster" &&
-                      monster &&
-                      requiredTributes > 0
-                    ) {
+                    if (tributeTarget) {
                       setInspect(null);
                       toggleTribute(index);
-                    } else if (
-                      interactive &&
-                      selected?.cardClass === "monster" &&
-                      !monster
-                    ) {
+                    } else if (placementTarget) {
                       setInspect(null);
                       setDestination(index);
                     } else if (
@@ -871,14 +873,13 @@ export function ChronicleDuelBoard({
           >
             {me.magicTrapZones.map((zone, index) => {
               const zoneKey = `me-backrow-${index}`;
-              const canPlace =
-                myTurn && selected?.cardClass === "trap" && !zone;
+              const canPlace = placements.trapZones.includes(index);
               const canInspect = Boolean(zone?.cardId);
               return (
                 <button
                   type="button"
                   ref={zoneRef(zoneKey)}
-                  className={`chronicle-zone ${destination === index ? "selected" : ""} ${!canPlace && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
+                  className={`chronicle-zone ${canPlace ? "legal-target placement-open" : ""} ${placingTrap && destination === index ? "selected" : ""} ${!canPlace && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
                   onClick={() => {
                     if (canPlace) {
@@ -1052,9 +1053,13 @@ export function ChronicleDuelBoard({
           {selected?.cardClass === "monster" && main ? (
             <>
               <span className="chronicle-placement-help">
-                Choose an open Monster Zone, then play this Monster face-up in
-                Attack Position or face-down in Defense Position. Tributes{" "}
-                {tributes.length}/{requiredTributes}.
+                {state.normalSummonUsed
+                  ? "You already used your Normal Summon or Set this turn."
+                  : requiredTributes > 0 && tributes.length < requiredTributes
+                    ? `Level ${selected.level} needs ${requiredTributes} Tribute${requiredTributes === 1 ? "" : "s"} — click your own Monsters to offer them (${tributes.length}/${requiredTributes}).`
+                    : destination === null
+                      ? "Click a glowing Monster Zone to place this Monster."
+                      : `Monster Zone ${destination + 1} chosen — play it face-up in Attack Position or face-down in Defense Position.`}
               </span>
               {tributes.map((zoneIndex) => (
                 <button
@@ -1069,6 +1074,7 @@ export function ChronicleDuelBoard({
                 className="summon-attack"
                 disabled={
                   busy ||
+                  state.normalSummonUsed ||
                   destination === null ||
                   tributes.length !== requiredTributes
                 }
@@ -1087,6 +1093,7 @@ export function ChronicleDuelBoard({
                 className="summon-defense"
                 disabled={
                   busy ||
+                  state.normalSummonUsed ||
                   destination === null ||
                   tributes.length !== requiredTributes
                 }
@@ -1104,39 +1111,63 @@ export function ChronicleDuelBoard({
             </>
           ) : null}
           {selected?.cardClass === "magic" && main ? (
-            <button
-              disabled={
-                busy ||
-                !selectedMagicTargetReady ||
-                (selectedMagicNeedsOpenMonsterZone &&
-                  !me.monsterZones.some((zone) => zone === null))
-              }
-              onClick={() =>
-                act({
-                  action: "activate-magic",
-                  handIndex: handIndex!,
-                  targetZoneIndex: target,
-                  targetSide: targetsOwnedMonster ? meKey : foeKey,
-                  graveyardIndex: graveyardIndex ?? undefined,
-                })
-              }
-            >
-              {selectedIsFieldCard ? "Activate Field Card" : "Activate Jutsu"}
-            </button>
+            <>
+              <span className="chronicle-placement-help">
+                {selectedIsFieldCard
+                  ? "Activate this Field Card to take over the shared Field Zone."
+                  : magicTargetScope === "none"
+                    ? "This Jutsu needs no target — activate it."
+                    : selectedMagicTargetReady
+                      ? "Target locked — activate the Jutsu."
+                      : targetsGraveyard
+                        ? "Choose a legal card in your Graveyard below."
+                        : targetsOwnedMonster
+                          ? "Click one of your glowing Monsters to target it."
+                          : targetsOpponentBackrow
+                            ? "Click a glowing opponent Jutsu/Snare Zone to target it."
+                            : "Click a glowing opponent Monster to target it."}
+              </span>
+              <button
+                disabled={
+                  busy ||
+                  !selectedMagicTargetReady ||
+                  (selectedMagicNeedsOpenMonsterZone &&
+                    !me.monsterZones.some((zone) => zone === null))
+                }
+                onClick={() =>
+                  act({
+                    action: "activate-magic",
+                    handIndex: handIndex!,
+                    targetZoneIndex: target,
+                    targetSide: targetsOwnedMonster ? meKey : foeKey,
+                    graveyardIndex: graveyardIndex ?? undefined,
+                  })
+                }
+              >
+                {selectedIsFieldCard ? "Activate Field Card" : "Activate Jutsu"}
+              </button>
+            </>
           ) : null}
           {selected?.cardClass === "trap" && main ? (
-            <button
-              disabled={busy || destination === null}
-              onClick={() =>
-                act({
-                  action: "set-trap",
-                  handIndex: handIndex!,
-                  zoneIndex: destination!,
-                })
-              }
-            >
-              Set Snare
-            </button>
+            <>
+              <span className="chronicle-placement-help">
+                {destination === null
+                  ? "Click a glowing Jutsu/Snare Zone to set this Snare face-down."
+                  : `Jutsu/Snare Zone ${destination + 1} chosen — set the Snare face-down.`}
+              </span>
+              <button
+                disabled={busy || destination === null}
+                onClick={() =>
+                  act({
+                    action: "set-trap",
+                    handIndex: handIndex!,
+                    zoneIndex: destination!,
+                  })
+                }
+              >
+                Set Snare
+              </button>
+            </>
           ) : null}
           {handIndex === null &&
           main &&
