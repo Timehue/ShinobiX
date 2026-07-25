@@ -1243,6 +1243,30 @@ button.chronicle-card {
     0 0 0 1px rgba(107, 202, 169, 0.22),
     inset 0 0 22px rgba(64, 154, 124, 0.1);
 }
+/* An empty zone the card in hand can be placed into — breathes so "where does
+   this go?" is answered at a glance, before any slot is committed. */
+.chronicle-zone.placement-open:not(.selected) {
+  animation: chronicle-placement-open 1.5s ease-in-out infinite;
+}
+.chronicle-zone.placement-open:not(.selected) > span {
+  color: #8fd9c0;
+}
+@keyframes chronicle-placement-open {
+  0%,
+  100% {
+    border-color: rgba(107, 202, 169, 0.72);
+    box-shadow:
+      0 0 0 1px rgba(107, 202, 169, 0.2),
+      inset 0 0 22px rgba(64, 154, 124, 0.1);
+  }
+  50% {
+    border-color: rgba(140, 233, 199, 0.95);
+    box-shadow:
+      0 0 0 2px rgba(107, 202, 169, 0.4),
+      0 0 18px rgba(87, 191, 156, 0.32),
+      inset 0 0 26px rgba(64, 154, 124, 0.22);
+  }
+}
 .chronicle-zone:disabled {
   cursor: default;
 }
@@ -2536,6 +2560,7 @@ button.chronicle-card {
   .chronicle-playmat .chronicle-zone-row.fx-row-strike,
   .chronicle-hand .chronicle-card,
   .chronicle-opponent-hand__card,
+  .chronicle-zone.placement-open:not(.selected),
   .chronicle-splash,
   .chronicle-splash b,
   .chronicle-splash span {
