@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character, Profession } from "../App";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import overviewArt from "../assets/professions/overview.webp";
+import healerArt from "../assets/professions/healer.webp";
+import vanguardArt from "../assets/professions/vanguard.webp";
+import petTamerArt from "../assets/professions/pettamer.webp";
+import "./ProfessionPicker.css";
 
 type Stage = "intro" | "choose" | "confirm";
 
@@ -57,12 +62,55 @@ const PROFESSION_ICON: Record<Profession, GameIconName> = {
     petTamer: "paw",
 };
 
+// Bundled defaults so the ceremony always has art. `sharedImages` (admin-set,
+// same keys as before) still wins when present — these are the fallback, not a
+// replacement. Same four files the Professions overview screen imports, so Vite
+// emits one shared copy rather than a second set.
+const PROFESSION_ART: Record<Profession, string> = {
+    healer: healerArt,
+    vanguard: vanguardArt,
+    petTamer: petTamerArt,
+};
+
 const INTRO_LINES = [
     "The village elder eyes you carefully.",
     "\"You have grown stronger. Your skills have caught my attention — and the attention of the village. The time has come to choose your path.\"",
     "\"Three paths are open to a shinobi of your standing. The Pet Tamer walks with beasts and bends them to their will. The Healer mends what war breaks. The Vanguard leads the charge against our enemies.\"",
     "\"Choose wisely. Your choice will shape who you become.\"",
 ];
+
+// Ember drift field behind the choice — fixed, hand-tuned values so the motes
+// don't march in lockstep. CSS disables the whole layer under .lite-fx and
+// prefers-reduced-motion.
+const EMBERS = [
+    { left: "8%", dur: "17s", delay: "0s", drift: "40px" },
+    { left: "19%", dur: "22s", delay: "5s", drift: "-26px" },
+    { left: "31%", dur: "15s", delay: "9s", drift: "34px" },
+    { left: "44%", dur: "24s", delay: "2s", drift: "-44px" },
+    { left: "57%", dur: "19s", delay: "12s", drift: "28px" },
+    { left: "68%", dur: "26s", delay: "7s", drift: "-32px" },
+    { left: "79%", dur: "16s", delay: "15s", drift: "46px" },
+    { left: "91%", dur: "21s", delay: "3s", drift: "-22px" },
+];
+
+function Embers() {
+    return (
+        <div className="pp-embers" aria-hidden="true">
+            {EMBERS.map((e, i) => (
+                <span
+                    key={i}
+                    className="pp-ember"
+                    style={{
+                        left: e.left,
+                        ["--pp-dur" as string]: e.dur,
+                        ["--pp-delay" as string]: e.delay,
+                        ["--pp-drift" as string]: e.drift,
+                    }}
+                />
+            ))}
+        </div>
+    );
+}
 
 export function ProfessionPicker({
     character,
@@ -73,9 +121,12 @@ export function ProfessionPicker({
     onProfessionChosen: (profession: Profession) => void;
     sharedImages?: Record<string, string>;
 }) {
-    const backdropImage = sharedImages["profession:backdrop"];
-    const elderImage = sharedImages["profession:elder-portrait"];
-    const portraitFor = (id: Profession) => sharedImages[`profession:portrait-${id}`];
+    const backdropImage = sharedImages["profession:backdrop"] ?? overviewArt;
+    // Falls back to the crossroad vista, which is a scene plate rather than a
+    // portrait — so it stays decorative unless an admin sets a real elder image.
+    const sharedElder = sharedImages["profession:elder-portrait"];
+    const elderImage = sharedElder ?? overviewArt;
+    const portraitFor = (id: Profession) => sharedImages[`profession:portrait-${id}`] ?? PROFESSION_ART[id];
     const [stage, setStage] = useState<Stage>("intro");
     const [pending, setPending] = useState<Profession | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -126,9 +177,7 @@ export function ProfessionPicker({
     const backdrop: React.CSSProperties = {
         position: "fixed",
         inset: 0,
-        background: backdropImage
-            ? `linear-gradient(180deg, rgba(8,12,28,0.85), rgba(4,6,18,0.96)), url(${backdropImage}) center/cover no-repeat`
-            : "linear-gradient(180deg, rgba(8,12,28,0.96), rgba(4,6,18,0.99))",
+        background: "#04060a",
         // Allow scrolling when the inner card is taller than the viewport
         // (was the mobile cut-off cause — fixed + alignItems:center clips
         // anything past the viewport edges with no way to scroll).
@@ -147,49 +196,51 @@ export function ProfessionPicker({
         padding: "16px 16px max(16px, env(safe-area-inset-bottom, 16px))",
     };
 
+    // The establishing shot + veil + embers, shared by all three stages so the
+    // scene never cuts to a different backdrop mid-ceremony.
+    const scene = (
+        <>
+            <div className="pp-bg" style={{ ["--pp-bg-image" as string]: `url(${backdropImage})` }} aria-hidden="true" />
+            <div className="pp-bg-veil" aria-hidden="true" />
+            <Embers />
+        </>
+    );
+
     if (stage === "intro") {
         return createPortal(
-            <div style={backdrop}>
-                <div style={{
-                    background: "linear-gradient(180deg, rgba(15,18,34,0.97), rgba(8,10,22,0.99))",
-                    border: "2px solid rgba(168,85,247,0.5)",
-                    borderRadius: 12,
-                    padding: 28,
-                    maxWidth: 680,
-                    width: "100%",
-                    color: "#e9d5ff",
-                    boxShadow: "0 0 70px rgba(168,85,247,0.35)",
-                }}>
-                    <p className="act-label" style={{ color: "var(--purple-500)", letterSpacing: 2, marginTop: 0 }}>
-                        A CROSSROAD
-                    </p>
-                    <h2 style={{ margin: "0 0 16px", color: "#faf5ff" }}>The Elder Summons You</h2>
+            <div className="pp-root" style={backdrop}>
+                {scene}
+                <div className="pp-scroll">
+                    <p className="pp-kicker">A Crossroad</p>
+                    <h2 className="pp-scroll-title">The Elder Summons You</h2>
                     {elderImage && (
-                        <img
-                            src={elderImage}
-                            alt="Village elder"
-                            style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: 8, marginBottom: 16 }}
-                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                        />
+                        <div className="pp-elder-art">
+                            <img
+                                src={elderImage}
+                                alt={sharedElder ? "Village elder" : ""}
+                                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                            />
+                        </div>
                     )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                    <div className="pp-lines">
                         {INTRO_LINES.map((line, i) => (
-                            <p key={i} style={{ margin: 0, lineHeight: 1.6 }}>{line}</p>
+                            <p
+                                key={i}
+                                className={`pp-line${line.startsWith("\"") ? " pp-line-speech" : ""}`}
+                                style={{ ["--pp-i" as string]: i }}
+                            >
+                                {line}
+                            </p>
                         ))}
                     </div>
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <div className="pp-actions pp-actions-end">
                         <button
                             type="button"
+                            className="pp-btn pp-btn-seal"
+                            style={{ ["--pp-accent" as string]: "#caa04a" }}
                             onClick={() => setStage("choose")}
-                            style={{
-                                background: "linear-gradient(135deg,#7c3aed,var(--purple-500))",
-                                borderColor: "#c4b5fd",
-                                color: "#faf5ff",
-                                padding: "10px 20px",
-                                fontWeight: 600,
-                            }}
                         >
-                            Continue ▶
+                            Continue ▸
                         </button>
                     </div>
                 </div>
@@ -200,86 +251,67 @@ export function ProfessionPicker({
 
     if (stage === "choose") {
         return createPortal(
-            <div style={backdrop}>
-                <div style={{
-                    width: "100%",
-                    maxWidth: 1100,
-                    color: "#e9d5ff",
-                }}>
-                    <div style={{ textAlign: "center", marginBottom: 24 }}>
-                        <p className="act-label" style={{ color: "var(--purple-500)", letterSpacing: 3, margin: 0 }}>
-                            CHOOSE YOUR PATH
-                        </p>
-                        <h2 style={{ margin: "8px 0 0", color: "#faf5ff", fontSize: 28 }}>
-                            What kind of shinobi will you become?
-                        </h2>
-                        <p style={{ margin: "8px 0 0", color: "#a78bfa", fontSize: 13 }}>
-                            This is a permanent decision.
-                        </p>
-                    </div>
-                    <div style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                        gap: 16,
-                    }}>
-                        {PROFESSIONS.map((p) => {
+            <div className="pp-root" style={backdrop}>
+                {scene}
+                <div className="pp-shell">
+                    <header className="pp-head">
+                        <p className="pp-kicker">Choose your path</p>
+                        <h2 className="pp-title">What kind of shinobi will you become?</h2>
+                        <div className="pp-warn-band">
+                            <p className="pp-warn">
+                                <span className="pp-warn-mark" aria-hidden="true" />
+                                This is a permanent decision
+                            </p>
+                        </div>
+                    </header>
+                    <div className="pp-choices">
+                        {PROFESSIONS.map((p, i) => {
                             const portrait = portraitFor(p.id);
                             return (
-                                <button
-                                    type="button"
+                                <article
                                     key={p.id}
-                                    onClick={() => { setPending(p.id); setStage("confirm"); }}
-                                    style={{
-                                        background: "linear-gradient(180deg, rgba(15,18,34,0.97), rgba(8,10,22,0.99))",
-                                        border: `2px solid ${p.accent}`,
-                                        borderRadius: 12,
-                                        padding: 24,
-                                        textAlign: "left",
-                                        cursor: "pointer",
-                                        color: "#e9d5ff",
-                                        transition: "transform 120ms, box-shadow 120ms",
-                                        boxShadow: `0 0 20px ${p.accent}33`,
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        gap: 12,
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = "translateY(-4px)";
-                                        e.currentTarget.style.boxShadow = `0 0 36px ${p.accent}66`;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = "";
-                                        e.currentTarget.style.boxShadow = `0 0 20px ${p.accent}33`;
-                                    }}
+                                    className="pp-card"
+                                    style={{ ["--pp-accent" as string]: p.accent, ["--pp-i" as string]: i }}
                                 >
-                                    {portrait && (
-                                        <img
-                                            src={portrait}
-                                            alt={p.name}
-                                            style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8 }}
-                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                        />
-                                    )}
-                                    <div style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 12,
-                                    }}>
-                                        <span style={{
-                                            color: p.accent,
-                                            lineHeight: 1,
-                                        }}><GameIcon name={PROFESSION_ICON[p.id]} size={36} /></span>
-                                        <div>
-                                            <h3 style={{ margin: 0, color: p.accent, fontSize: 22 }}>{p.name}</h3>
-                                            <p style={{ margin: "2px 0 0", color: "#c4b5fd", fontStyle: "italic", fontSize: 13 }}>
-                                                {p.tagline}
-                                            </p>
+                                    <div className="pp-card-art">
+                                        {portrait && (
+                                            <img
+                                                src={portrait}
+                                                alt=""
+                                                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                            />
+                                        )}
+                                        <div className="pp-card-head">
+                                            <span className="pp-emblem" aria-hidden="true">
+                                                <GameIcon name={PROFESSION_ICON[p.id]} size={28} />
+                                            </span>
+                                            <div>
+                                                <h3 className="pp-card-name">{p.name}</h3>
+                                                <span className="pp-card-tag">{p.tagline}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.55, fontSize: 14 }}>
-                                        {p.bullets.map((b) => <li key={b}>{b}</li>)}
-                                    </ul>
-                                </button>
+                                    <div className="pp-card-body">
+                                        <ul className="pp-perks">
+                                            {p.bullets.map((b) => <li key={b}>{b}</li>)}
+                                        </ul>
+                                    </div>
+                                    {/* Stretched-link CTA: the whole plate is clickable, but the
+                                        focus ring and accessible name stay on this one control. */}
+                                    <button
+                                        type="button"
+                                        className="pp-card-cta"
+                                        onClick={() => { setPending(p.id); setStage("confirm"); }}
+                                    >
+                                        <span>Walk the {p.name}'s path</span>
+                                        <span className="pp-cta-arrow" aria-hidden="true">▸</span>
+                                    </button>
+                                    <span className="pp-sheen" aria-hidden="true" />
+                                    <span className="pp-corner pp-corner-tl" aria-hidden="true" />
+                                    <span className="pp-corner pp-corner-tr" aria-hidden="true" />
+                                    <span className="pp-corner pp-corner-bl" aria-hidden="true" />
+                                    <span className="pp-corner pp-corner-br" aria-hidden="true" />
+                                </article>
                             );
                         })}
                     </div>
@@ -296,58 +328,53 @@ export function ProfessionPicker({
     // it doesn't violate the Rules of Hooks across the earlier
     // returns for "intro" and "choose".
     if (!info) return null;
+    const confirmArt = portraitFor(info.id);
     return createPortal(
-        <div style={backdrop}>
-            <div style={{
-                background: "linear-gradient(180deg, rgba(15,18,34,0.98), rgba(8,10,22,0.99))",
-                border: `2px solid ${info.accent}`,
-                borderRadius: 12,
-                padding: 28,
-                maxWidth: 480,
-                width: "100%",
-                color: "#e9d5ff",
-                boxShadow: `0 0 60px ${info.accent}66`,
-                textAlign: "center",
-            }}>
-                <div style={{ color: info.accent, marginBottom: 8 }}><GameIcon name={PROFESSION_ICON[info.id]} size={56} /></div>
-                <p className="act-label" style={{ color: info.accent, letterSpacing: 2, margin: 0 }}>
-                    CONFIRM YOUR PATH
-                </p>
-                <h2 style={{ margin: "8px 0 12px", color: "#faf5ff" }}>
-                    Become a {info.name}?
-                </h2>
-                <p style={{ margin: "0 0 20px", color: "#c4b5fd", lineHeight: 1.5 }}>
-                    This is your <strong style={{ color: "#fda4af" }}>permanent</strong> profession.
-                    You cannot change it later.
-                </p>
-                {error && (
-                    <p style={{ margin: "0 0 12px", color: "#fda4af", fontSize: 13 }}>
-                        {error}
-                    </p>
+        <div className="pp-root" style={backdrop}>
+            {scene}
+            <div className="pp-confirm" style={{ ["--pp-accent" as string]: info.accent }}>
+                {confirmArt && (
+                    <div className="pp-confirm-art">
+                        <img
+                            src={confirmArt}
+                            alt=""
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                    </div>
                 )}
-                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                    <button
-                        type="button"
-                        onClick={() => { setPending(null); setStage("choose"); setError(null); }}
-                        disabled={submitting}
-                        style={{ padding: "10px 20px" }}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => void commit()}
-                        disabled={submitting}
-                        style={{
-                            background: `linear-gradient(135deg, ${info.accent}, ${info.accent}cc)`,
-                            borderColor: info.accent,
-                            color: "#0a0a1a",
-                            padding: "10px 20px",
-                            fontWeight: 700,
-                        }}
-                    >
-                        {submitting ? "Confirming…" : "Yes, I'm sure"}
-                    </button>
+                <div className="pp-confirm-inner">
+                    <span className="pp-emblem" aria-hidden="true">
+                        <GameIcon name={PROFESSION_ICON[info.id]} size={32} />
+                    </span>
+                    <p className="pp-kicker">Confirm your path</p>
+                    <h2 className="pp-confirm-title">Become a {info.name}?</h2>
+                    <p className="pp-confirm-copy">
+                        This is your <span className="pp-permanent">permanent</span> profession.
+                        You cannot change it later.
+                    </p>
+                    {error && (
+                        <p className="pp-error" role="alert">
+                            {error}
+                        </p>
+                    )}
+                    <div className="pp-actions">
+                        <button
+                            type="button"
+                            className="pp-btn pp-btn-ghost"
+                            onClick={() => { setPending(null); setStage("choose"); setError(null); }}
+                            disabled={submitting}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="pp-btn pp-btn-seal"
+                            onClick={() => void commit()}
+                            disabled={submitting}
+                        >
+                            {submitting ? "Confirming…" : "Yes, I'm sure"}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>,
