@@ -306,8 +306,9 @@ export {
 import {
 } from "./constants/hunter";
 
-import { type Achievement, ACHIEVEMENTS, achievementReward } from "./constants/achievements";
-import { nextEarnedTitles } from "./lib/earned-titles";
+import { type Achievement, ACHIEVEMENTS, titlesForAchievementIds } from "./constants/achievements";
+import { achievementPatchFromSync, claimAchievementSync, createAchievementSyncGate, planAchievementSync, releaseAchievementSync, syncedToastIds, type AchievementSyncResponse } from "./lib/achievement-sync";
+import { markAchievementsToasted, unseenAchievements } from "./lib/achievement-toast-ledger";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
@@ -1603,65 +1604,61 @@ export default function App() {
     }, [character?.name, currentAccountName]);
 
     // ── Achievement unlock detection ───────────────────────────────────────
-    // Re-runs whenever character state changes. Silently backfills on first
-    // load (so existing players don't get a flood of toasts). After that, any
-    // newly-eligible achievement fires a toast and is persisted.
+    // Achievement state is SERVER-OWNED: every generic /api/save overwrites
+    // unlockedAchievements / achievementUnlockedAt / earnedTitles with the stored
+    // copy, so POST /api/achievements/sync is the only writer that can persist an
+    // unlock — and the only one that pays its reward, exactly once, from a server
+    // claim ledger. This effect therefore NEVER writes those fields optimistically
+    // and never computes a reward: it asks the server to reconcile, then applies
+    // the authoritative reply. Writing them locally is what caused a save-churn
+    // loop (dirty save → server discards → re-hydrate reverts → effect re-fires),
+    // which drove /api/save into 409s then 429s and re-rendered mid-combat. The
+    // gate guarantees one request per distinct divergence — see lib/achievement-sync.ts.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
-    // Achievement ids already surfaced (or backfilled) this session. Guards
-    // against a character re-sync (heartbeat/poll) momentarily returning a
-    // snapshot that lacks the just-unlocked achievement: without this, the
-    // detection below would treat it as newly-unlocked again and re-toast a
-    // popup the player already dismissed (and re-pay its reward). Persistence
-    // handles reloads; this ref handles mid-session state churn.
-    const surfacedAchievementsRef = useRef<Set<string>>(new Set());
+    const achievementGateRef = useRef(createAchievementSyncGate());
     useEffect(() => {
-        if (!character) return;
+        const playerName = character?.name;
+        if (!character || !playerName) return;
         const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
-        const prior = character.unlockedAchievements;
-
-        // Earned titles — union-sync with unlocked title achievements (lib/earned-titles).
-        const newTitles = nextEarnedTitles(character, eligibleIds);
-        if (newTitles) setCharacter(c => c ? { ...c, earnedTitles: newTitles } : c);
-        if (!prior) {
-            // First load — silent backfill, no toasts
-            const now = Date.now();
-            const stamps: Record<string, number> = {};
-            for (const id of eligibleIds) stamps[id] = now;
-            for (const id of eligibleIds) surfacedAchievementsRef.current.add(id);
-            setCharacter(c => c ? { ...c, unlockedAchievements: eligibleIds, achievementUnlockedAt: stamps } : c);
-            return;
-        }
-
-        const priorSet = new Set(prior);
-        const newlyUnlocked = eligibleIds.filter(id => !priorSet.has(id) && !surfacedAchievementsRef.current.has(id));
-        if (newlyUnlocked.length === 0) return;
-        for (const id of newlyUnlocked) surfacedAchievementsRef.current.add(id);
-
-        const now = Date.now();
-        const stamps = { ...(character.achievementUnlockedAt ?? {}) };
-        for (const id of newlyUnlocked) stamps[id] = now;
-        // One-time reward payout for each newly-unlocked achievement. Only fires
-        // here (the `prior`-exists branch), never on the first-load backfill
-        // above — so existing players don't get a retroactive windfall.
-        let rewardRyo = 0, rewardShards = 0;
-        for (const id of newlyUnlocked) {
-            const a = ACHIEVEMENTS.find(x => x.id === id);
-            if (!a) continue;
-            const r = achievementReward(a);
-            rewardRyo += r.ryo; rewardShards += r.fateShards;
-        }
-        setCharacter(c => c ? {
-            ...c,
-            unlockedAchievements: [...prior, ...newlyUnlocked],
-            achievementUnlockedAt: stamps,
-            ryo: c.ryo + rewardRyo,
-            fateShards: (c.fateShards ?? 0) + rewardShards,
-        } : c);
-
-        const unlocked = newlyUnlocked
-            .map(id => ACHIEVEMENTS.find(a => a.id === id))
-            .filter((a): a is Achievement => !!a);
-        setAchievementToasts(prev => [...prev, ...unlocked]);
+        const plan = planAchievementSync({
+            eligibleIds,
+            unlocked: character.unlockedAchievements,
+            earnedTitles: character.earnedTitles,
+            titlesForUnlocked: titlesForAchievementIds(eligibleIds),
+        });
+        // First-ever sync for this save: the server seeds its claim ledger (so
+        // existing progress pays no retroactive windfall), which also means it
+        // rewards and toasts nothing — so suppress the popups for that pass. It
+        // runs as soon as the character loads, which keeps the player's first
+        // real unlock a genuine, celebrated, paid one.
+        const silent = plan.uninitialized;
+        if (!claimAchievementSync(achievementGateRef.current, playerName, plan)) return;
+        void (async () => {
+            try {
+                const res = await fetch('/api/achievements/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerName }),
+                });
+                if (!res.ok) return;
+                const data = await res.json() as AchievementSyncResponse;
+                const patch = achievementPatchFromSync(data);
+                if (!patch) return;
+                setCharacter(c => c ? { ...c, ...patch } : c);
+                if (silent) { markAchievementsToasted(playerName, patch.unlockedAchievements); return; }
+                const toastIds = unseenAchievements(playerName, syncedToastIds(data));
+                if (toastIds.length === 0) return;
+                markAchievementsToasted(playerName, toastIds);
+                setAchievementToasts(prev => [...prev, ...toastIds
+                    .map(id => ACHIEVEMENTS.find(a => a.id === id))
+                    .filter((a): a is Achievement => !!a)]);
+            } catch {
+                // Offline / auth blip: retries on the next unlock or page load.
+                // Deliberately no immediate retry — that was the loop.
+            } finally {
+                releaseAchievementSync(achievementGateRef.current);
+            }
+        })();
     }, [character]);
 
     // Auto-dismiss toasts one at a time so a flood doesn't pile up forever.
