@@ -1,0 +1,771 @@
+/* =============================================================================
+   PROFESSION PICKER — the Level-13 class-select ceremony.
+   -----------------------------------------------------------------------------
+   The forced overlay where a player permanently commits to Healer / Vanguard /
+   Pet Tamer. It is the single most consequential click in the game, so it gets
+   a full cinematic treatment rather than the plain bordered boxes it used to be:
+   a Ken-Burns establishing shot behind letterboxed vignette, drifting embers,
+   and three full-bleed art plates with class emblems and igniting accent rims.
+
+   Palette rule: chrome (frames, type, ornaments) follows the house dark/gold
+   from start-skin.css; the per-class accent (--pp-accent, set inline from the
+   profession data) only ever tints that class's own card. That keeps the three
+   paths instantly distinguishable without three competing UI themes.
+
+   Motion is decorative only — every animation here is disabled under .lite-fx
+   (device-tier low-end phones) and prefers-reduced-motion. Nothing is conveyed
+   by motion alone.
+
+   Colocated with the screen (imported by ProfessionPicker.tsx, like
+   PetLadder.css) rather than added to the index.css manifest ON PURPOSE: the
+   picker is a lazy chunk shown once in an account's lifetime, so its ~15 KB
+   rides along only when the ceremony actually opens instead of weighing on
+   every cold start. Being a late-injected chunk, it also loads AFTER the
+   global sheets, so the few overrides here (the app-wide h2 hairline) win
+   without !important.
+   ========================================================================== */
+
+.pp-root {
+    --pp-accent: var(--gold-500);
+    --pp-ink: #05070c;
+    --pp-panel-top: rgba(20, 26, 34, 0.94);
+    --pp-panel-bot: rgba(7, 10, 15, 0.97);
+    font-family: var(--font-body);
+    color: var(--sj-text-primary);
+    isolation: isolate;
+}
+
+/* ── Backdrop stack ─────────────────────────────────────────────────────────
+   Three fixed layers under the content: the establishing shot, a vignette +
+   letterbox veil that guarantees text contrast over ANY art (including
+   admin-swapped shared images), and the ember field. */
+
+.pp-bg,
+.pp-bg-veil,
+.pp-embers {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+.pp-bg {
+    /* Overscanned so the Ken-Burns drift never exposes an edge. */
+    inset: -3%;
+    background-image: var(--pp-bg-image);
+    background-size: cover;
+    background-position: center 38%;
+    transform: scale(1.02);
+    animation: pp-kenburns 46s ease-in-out infinite alternate;
+    z-index: 0;
+}
+
+.pp-bg-veil {
+    z-index: 1;
+    background:
+        /* letterbox falloff, top and bottom */
+        linear-gradient(180deg, rgba(3, 5, 9, 0.92) 0%, rgba(3, 5, 9, 0.55) 22%,
+                                rgba(3, 5, 9, 0.62) 62%, rgba(3, 5, 9, 0.95) 100%),
+        /* cool ambient tint keeps it in the same world as the rest of the UI */
+        radial-gradient(120% 80% at 50% 8%, rgba(126, 92, 190, 0.16), transparent 62%),
+        /* vignette */
+        radial-gradient(130% 100% at 50% 45%, transparent 38%, rgba(2, 3, 6, 0.78) 100%);
+}
+
+.pp-embers { z-index: 2; overflow: hidden; }
+
+.pp-ember {
+    position: absolute;
+    bottom: -6vh;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--gold-300);
+    box-shadow: 0 0 8px 2px rgba(250, 204, 21, 0.35);
+    opacity: 0;
+    animation: pp-ember-rise var(--pp-dur, 15s) linear var(--pp-delay, 0s) infinite;
+}
+
+@keyframes pp-kenburns {
+    from { transform: scale(1.02) translate3d(0, 0, 0); }
+    to   { transform: scale(1.13) translate3d(-1.2%, -1.6%, 0); }
+}
+
+@keyframes pp-ember-rise {
+    0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6); }
+    12%  { opacity: 0.75; }
+    80%  { opacity: 0.5; }
+    100% { opacity: 0; transform: translate3d(var(--pp-drift, 30px), -104vh, 0) scale(1); }
+}
+
+/* ── Shared shell / header ─────────────────────────────────────────────────── */
+
+.pp-shell {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    max-width: 1180px;
+    margin: auto;
+    padding: clamp(8px, 3vh, 40px) 0;
+    animation: pp-rise var(--motion-scene, 400ms) ease-out both;
+}
+
+.pp-head {
+    text-align: center;
+    margin-bottom: clamp(18px, 3.4vh, 34px);
+}
+
+.pp-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 0 0 10px;
+    /* The label is an anonymous flex item between the two rules; without this
+       a long kicker ("Confirm your path") wraps and strands the rules at
+       mid-height. The rules shrink instead. */
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    text-indent: 0.42em; /* optical re-centre against the trailing letterspace */
+    color: var(--gold-300);
+    text-shadow: 0 0 18px rgba(250, 204, 21, 0.35);
+}
+
+/* Hairline rules + a diamond, echoing the start-screen nav ornaments. */
+.pp-kicker::before,
+.pp-kicker::after {
+    content: "";
+    flex: 0 1 clamp(28px, 12vw, 130px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(202, 138, 4, 0.75));
+}
+.pp-kicker::after { background: linear-gradient(90deg, rgba(202, 138, 4, 0.75), transparent); }
+
+.pp-title {
+    margin: 0;
+    /* The app-wide h2 rule paints a full-width gold hairline. Here it would
+       cut across the hero at an arbitrary grid width — the header gets its own
+       ornament band below instead. */
+    border-bottom: 0;
+    font-family: var(--font-display);
+    font-weight: var(--fw-bold);
+    font-size: clamp(26px, 4.4vw, 46px);
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    background: linear-gradient(180deg, #fff8e3 0%, #f4dfa6 46%, #c08a2e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.85));
+}
+
+/* Ornament band: two fading rules closing in on the permanence warning, so the
+   most important sentence on the screen sits inside the divider rather than
+   floating under it. */
+.pp-warn-band {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2vw, 20px);
+    margin-top: 16px;
+}
+
+.pp-warn-band::before,
+.pp-warn-band::after {
+    content: "";
+    flex: 0 1 240px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(202, 138, 4, 0.55));
+}
+.pp-warn-band::after { background: linear-gradient(90deg, rgba(202, 138, 4, 0.55), transparent); }
+
+.pp-warn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 5px 16px 5px 12px;
+    border: 1px solid rgba(202, 138, 4, 0.4);
+    border-radius: var(--r-pill);
+    background: rgba(8, 10, 15, 0.66);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold-300);
+}
+
+.pp-warn-mark {
+    width: 8px;
+    height: 8px;
+    rotate: 45deg;
+    background: linear-gradient(135deg, var(--gold-400), var(--gold-700));
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.55);
+}
+
+/* ── Choice grid ───────────────────────────────────────────────────────────── */
+
+.pp-choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: clamp(12px, 1.6vw, 20px);
+    align-items: stretch;
+}
+
+.pp-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--r-lg);
+    background: linear-gradient(180deg, var(--pp-panel-top), var(--pp-panel-bot));
+    border: 1px solid color-mix(in srgb, var(--pp-accent) 34%, transparent);
+    box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.62),
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 0 22px color-mix(in srgb, var(--pp-accent) 12%, transparent);
+    overflow: hidden;
+    transition:
+        transform var(--motion-normal, 180ms) ease,
+        border-color var(--motion-normal, 180ms) ease,
+        box-shadow var(--motion-normal, 180ms) ease,
+        opacity var(--motion-normal, 180ms) ease,
+        filter var(--motion-normal, 180ms) ease;
+    animation: pp-rise var(--motion-scene, 400ms) ease-out both;
+    animation-delay: calc(var(--pp-i, 0) * 90ms);
+}
+
+/* Art plate ---------------------------------------------------------------- */
+
+.pp-card-art {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    max-height: 210px;
+    overflow: hidden;
+    background: radial-gradient(80% 80% at 50% 30%,
+        color-mix(in srgb, var(--pp-accent) 16%, transparent), transparent 70%), #0a0e14;
+}
+
+.pp-card-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scale(1.01);
+    transition: transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1),
+                filter var(--motion-slow, 280ms) ease;
+    filter: saturate(0.92) brightness(0.86);
+}
+
+/* Melts the plate into the panel so there is no hard photo seam, and keeps a
+   thin accent light line along the join. */
+.pp-card-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(5, 7, 12, 0.35) 0%, transparent 34%,
+                                rgba(7, 10, 15, 0.72) 82%, var(--pp-panel-top) 100%),
+        linear-gradient(0deg, color-mix(in srgb, var(--pp-accent) 26%, transparent) 0 1px, transparent 1px);
+}
+
+/* Class identity block, sitting over the bottom of the art. */
+.pp-card-head {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pp-emblem {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    color: var(--pp-accent);
+    background: linear-gradient(160deg, rgba(16, 21, 28, 0.96), rgba(5, 8, 12, 0.98));
+    border: 1px solid color-mix(in srgb, var(--pp-accent) 62%, transparent);
+    /* Hex-cut medallion — the class-select signature shape. */
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--pp-accent) 34%, transparent);
+    transition: box-shadow var(--motion-normal, 180ms) ease, transform var(--motion-normal, 180ms) ease;
+}
+
+.pp-card-name {
+    display: block;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(20px, 2vw, 25px);
+    font-weight: var(--fw-bold);
+    line-height: 1.05;
+    letter-spacing: 0.03em;
+    color: #fdfaf2;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 26px color-mix(in srgb, var(--pp-accent) 45%, transparent);
+}
+
+.pp-card-tag {
+    display: block;
+    margin-top: 3px;
+    font-size: var(--fs-xs);
+    font-style: italic;
+    letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--pp-accent) 72%, #ffffff);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+}
+
+/* Body -------------------------------------------------------------------- */
+
+.pp-card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px 14px;
+}
+
+.pp-perks {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.pp-perks li {
+    position: relative;
+    padding-left: 20px;
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    color: var(--sj-text-secondary);
+}
+
+/* Faceted marker instead of a browser bullet. */
+.pp-perks li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.52em;
+    width: 7px;
+    height: 7px;
+    rotate: 45deg;
+    background: var(--pp-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--pp-accent) 60%, transparent);
+}
+
+.pp-card-cta {
+    /* The real, focusable control. Its ::after stretches over the whole card,
+       so the entire plate is the hit area while the accessible name and focus
+       ring stay on one element. */
+    position: relative;
+    z-index: 3;
+    appearance: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: auto;
+    padding: 12px 18px;
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--pp-accent) 78%, #ffffff);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--pp-accent) 26%, transparent);
+    border-radius: 0;
+    transition: background var(--motion-normal, 180ms) ease, color var(--motion-normal, 180ms) ease;
+}
+
+.pp-card-cta::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    top: -100vh; /* clipped by the card's overflow:hidden */
+    z-index: 1;
+}
+
+.pp-card-cta span { position: relative; z-index: 2; }
+
+.pp-card-cta .pp-cta-arrow {
+    transition: transform var(--motion-normal, 180ms) ease;
+    font-size: 15px;
+}
+
+/* Sheen + corner brackets -------------------------------------------------- */
+
+.pp-sheen {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(105deg, transparent 38%,
+        rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.03) 56%, transparent 66%);
+    transform: translateX(-60%);
+}
+
+.pp-corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    z-index: 4;
+    pointer-events: none;
+    border: 1px solid var(--pp-accent);
+    opacity: 0;
+    transition: opacity var(--motion-normal, 180ms) ease;
+}
+.pp-corner-tl { top: 7px; left: 7px; border-right: 0; border-bottom: 0; }
+.pp-corner-tr { top: 7px; right: 7px; border-left: 0; border-bottom: 0; }
+.pp-corner-bl { bottom: 7px; left: 7px; border-right: 0; border-top: 0; }
+.pp-corner-br { bottom: 7px; right: 7px; border-left: 0; border-top: 0; }
+
+/* Interaction -------------------------------------------------------------- */
+
+.pp-card:hover,
+.pp-card:focus-within {
+    transform: translateY(-6px);
+    border-color: color-mix(in srgb, var(--pp-accent) 92%, transparent);
+    box-shadow:
+        0 26px 60px rgba(0, 0, 0, 0.7),
+        0 0 0 1px color-mix(in srgb, var(--pp-accent) 45%, transparent),
+        0 0 42px color-mix(in srgb, var(--pp-accent) 34%, transparent);
+}
+
+.pp-card:hover .pp-card-art img,
+.pp-card:focus-within .pp-card-art img {
+    transform: scale(1.09);
+    filter: saturate(1.06) brightness(1);
+}
+
+.pp-card:hover .pp-emblem,
+.pp-card:focus-within .pp-emblem {
+    transform: translateY(-2px);
+    box-shadow: 0 0 26px color-mix(in srgb, var(--pp-accent) 62%, transparent);
+}
+
+.pp-card:hover .pp-corner,
+.pp-card:focus-within .pp-corner { opacity: 0.85; }
+
+.pp-card:hover .pp-card-cta,
+.pp-card:focus-within .pp-card-cta {
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--pp-accent) 22%, transparent),
+        color-mix(in srgb, var(--pp-accent) 7%, transparent));
+    color: #fffdf6;
+}
+
+.pp-card:hover .pp-cta-arrow,
+.pp-card:focus-within .pp-cta-arrow { transform: translateX(5px); }
+
+.pp-card:hover .pp-sheen { animation: pp-sheen-sweep 780ms ease-out; }
+
+/* Spotlight: the hovered path stays lit, its rivals recede. */
+.pp-choices:hover .pp-card:not(:hover) {
+    opacity: 0.68;
+    filter: saturate(0.62);
+}
+
+.pp-card-cta:focus-visible {
+    outline: 2px solid var(--gold-300);
+    outline-offset: -3px;
+}
+
+@keyframes pp-sheen-sweep {
+    0%   { opacity: 0; transform: translateX(-60%); }
+    22%  { opacity: 1; }
+    100% { opacity: 0; transform: translateX(60%); }
+}
+
+@keyframes pp-rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ── Intro (the elder's summons) ───────────────────────────────────────────── */
+
+.pp-scroll {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    max-width: 700px;
+    margin: auto;
+    padding: clamp(20px, 3vw, 30px);
+    border-radius: var(--r-lg);
+    background: linear-gradient(180deg, var(--pp-panel-top), var(--pp-panel-bot));
+    border: 1px solid rgba(202, 138, 4, 0.42);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72), 0 0 40px rgba(202, 138, 4, 0.12);
+    animation: pp-rise var(--motion-scene, 400ms) ease-out both;
+}
+
+.pp-scroll .pp-kicker { justify-content: flex-start; }
+.pp-scroll .pp-kicker::before { display: none; }
+
+.pp-scroll-title {
+    margin: 0 0 16px;
+    font-family: var(--font-display);
+    font-size: clamp(22px, 3.2vw, 32px);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.02em;
+    color: #fdfaf2;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.8);
+}
+
+.pp-elder-art {
+    position: relative;
+    height: clamp(150px, 26vh, 260px);
+    margin-bottom: 18px;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    border: 1px solid rgba(202, 138, 4, 0.28);
+}
+
+.pp-elder-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    animation: pp-kenburns 40s ease-in-out infinite alternate;
+}
+
+.pp-elder-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 45%, rgba(7, 10, 15, 0.85) 100%);
+}
+
+.pp-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    margin-bottom: 22px;
+}
+
+.pp-line {
+    margin: 0;
+    font-size: var(--fs-md);
+    line-height: 1.65;
+    color: var(--sj-text-secondary);
+    animation: pp-line-in 520ms ease-out both;
+    animation-delay: calc(160ms + var(--pp-i, 0) * 180ms);
+}
+
+/* Spoken lines read as dialogue: quoted, lit, and rule-marked. */
+.pp-line-speech {
+    padding-left: 14px;
+    border-left: 2px solid rgba(202, 138, 4, 0.5);
+    color: var(--sj-text-primary);
+    font-style: italic;
+}
+
+@keyframes pp-line-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ── Confirm ───────────────────────────────────────────────────────────────── */
+
+.pp-confirm {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    max-width: 520px;
+    margin: auto;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    text-align: center;
+    background: linear-gradient(180deg, var(--pp-panel-top), var(--pp-panel-bot));
+    border: 1px solid color-mix(in srgb, var(--pp-accent) 62%, transparent);
+    box-shadow:
+        0 26px 70px rgba(0, 0, 0, 0.75),
+        0 0 46px color-mix(in srgb, var(--pp-accent) 26%, transparent);
+    animation: pp-rise var(--motion-scene, 400ms) ease-out both;
+}
+
+.pp-confirm-art {
+    position: relative;
+    height: clamp(150px, 26vh, 220px);
+    overflow: hidden;
+}
+
+.pp-confirm-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(1.02);
+    animation: pp-kenburns 34s ease-in-out infinite alternate;
+}
+
+.pp-confirm-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(5, 7, 12, 0.4) 0%, transparent 30%,
+                                rgba(7, 10, 15, 0.8) 78%, var(--pp-panel-top) 100%),
+        radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--pp-accent) 26%, transparent), transparent 70%);
+}
+
+.pp-confirm-inner {
+    position: relative;
+    padding: 0 clamp(18px, 4vw, 30px) clamp(20px, 3vw, 26px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pp-confirm .pp-emblem {
+    width: 66px;
+    height: 66px;
+    margin-top: -33px;
+    margin-bottom: 12px;
+    z-index: 2;
+}
+
+.pp-confirm .pp-kicker { margin-bottom: 6px; color: color-mix(in srgb, var(--pp-accent) 74%, #ffffff); }
+.pp-confirm .pp-kicker::before,
+.pp-confirm .pp-kicker::after { flex-basis: clamp(20px, 8vw, 60px); }
+
+.pp-confirm-title {
+    margin: 0 0 10px;
+    border-bottom: 0; /* see .pp-title — the app-wide h2 hairline */
+    font-family: var(--font-display);
+    font-size: clamp(22px, 3.4vw, 30px);
+    font-weight: var(--fw-bold);
+    color: #fdfaf2;
+}
+
+.pp-confirm-copy {
+    margin: 0 0 20px;
+    max-width: 40ch;
+    font-size: var(--fs-base);
+    line-height: 1.6;
+    color: var(--sj-text-secondary);
+}
+
+.pp-permanent {
+    color: var(--gold-300);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.04em;
+}
+
+.pp-error {
+    margin: 0 0 14px;
+    padding: 8px 14px;
+    border: 1px solid rgba(198, 83, 89, 0.5);
+    border-radius: var(--r-sm);
+    background: rgba(88, 22, 28, 0.28);
+    color: #ffb4b8;
+    font-size: var(--fs-xs);
+}
+
+.pp-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.pp-actions-end { justify-content: flex-end; }
+
+/* Ornate buttons, sized for thumbs on mobile. */
+.pp-btn {
+    appearance: none;
+    min-height: 44px;
+    padding: 11px 24px;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: transform var(--motion-fast, 120ms) ease, box-shadow var(--motion-normal, 180ms) ease,
+                background var(--motion-normal, 180ms) ease, color var(--motion-normal, 180ms) ease;
+}
+
+.pp-btn:disabled { opacity: 0.6; cursor: default; }
+.pp-btn:not(:disabled):hover { transform: translateY(-1px); }
+.pp-btn:not(:disabled):active { transform: translateY(0); }
+
+.pp-btn-ghost {
+    background: linear-gradient(180deg, rgba(20, 26, 34, 0.92), rgba(8, 11, 16, 0.96));
+    border: 1px solid var(--sj-border-strong);
+    color: var(--sj-text-secondary);
+}
+.pp-btn-ghost:not(:disabled):hover { color: var(--sj-text-primary); border-color: rgba(221, 230, 236, 0.42); }
+
+.pp-btn-seal {
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--pp-accent) 92%, #ffffff),
+        color-mix(in srgb, var(--pp-accent) 72%, #000000));
+    border: 1px solid color-mix(in srgb, var(--pp-accent) 60%, #ffffff);
+    color: #0a0d12;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--pp-accent) 34%, transparent);
+}
+.pp-btn-seal:not(:disabled):hover {
+    box-shadow: 0 0 34px color-mix(in srgb, var(--pp-accent) 55%, transparent);
+}
+
+.pp-btn:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 800px) {
+    .pp-choices { grid-template-columns: 1fr; gap: 14px; }
+    /* Portrait phones scroll the list, so the plates shrink to keep 2-3 cards
+       reachable without a long scroll to the third path. */
+    .pp-card-art { aspect-ratio: 16 / 9; max-height: 168px; }
+    .pp-kicker { letter-spacing: 0.3em; gap: 10px; }
+    .pp-kicker::before, .pp-kicker::after { flex-basis: clamp(14px, 8vw, 50px); }
+    /* Hover spotlight is meaningless on touch and can stick after a tap. */
+    .pp-choices:hover .pp-card:not(:hover) { opacity: 1; filter: none; }
+    .pp-actions { width: 100%; }
+    .pp-btn { flex: 1 1 140px; }
+}
+
+@media (max-width: 560px) {
+    .pp-card-art { max-height: 148px; }
+    .pp-emblem { width: 44px; height: 44px; }
+    .pp-perks li { font-size: var(--fs-xs); }
+}
+
+/* ── Reduced motion / low-end devices ──────────────────────────────────────── */
+
+.lite-fx .pp-embers { display: none; }
+
+.lite-fx .pp-bg,
+.lite-fx .pp-elder-art img,
+.lite-fx .pp-confirm-art img { animation: none; }
+
+.lite-fx .pp-card:hover .pp-sheen { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .pp-embers { display: none; }
+    .pp-bg,
+    .pp-elder-art img,
+    .pp-confirm-art img,
+    .pp-shell,
+    .pp-scroll,
+    .pp-confirm,
+    .pp-card,
+    .pp-line { animation: none !important; }
+    .pp-card { opacity: 1; transform: none; }
+    .pp-card:hover, .pp-card:focus-within { transform: none; }
+    .pp-card:hover .pp-card-art img, .pp-card:focus-within .pp-card-art img { transform: scale(1.01); }
+    .pp-card:hover .pp-sheen { animation: none; }
+}
