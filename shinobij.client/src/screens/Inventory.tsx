@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { FiGrid, FiPackage } from "react-icons/fi";
 import "../styles/profile-skin.css";
+// The Chronicle card reader opened from the card tab lives in that stylesheet.
+import "../styles/chronicle-duel.css";
 import { CloseButton } from "../components/ui/CloseButton";
 import { Modal } from "../components/ui/Modal";
+import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import {
     type Character,
     type EquipmentSlot,
@@ -832,38 +835,35 @@ export function Inventory({
                                 </div>
                             )}
 
-                            {selectedTileCard && (
-                                <div className="summary-box tile-card-selected-detail">
-                                    <CloseButton
-                                        className="item-popup-close"
-                                        onClick={() => setSelectedTileCard(null)}
-                                        title="Close card details"
-                                        label="Close card details"
+                            {selectedTileCard && (() => {
+                                const clash = getChronicleCard(selectedTileCard.card.id);
+                                // Retired cards are still owned but have no catalog
+                                // entry, so there is no frame to enlarge — those keep
+                                // the plain summary box.
+                                return clash ? (
+                                    <ChronicleCardInspector
+                                        card={{ ...clash, image: selectedTileCard.card.image }}
+                                        onClose={() => setSelectedTileCard(null)}
+                                        meta={`Owned ×${selectedTileCard.count}`}
                                     />
-                                    <strong>{selectedTileCard.card.name}</strong>
-                                    {(() => {
-                                        const clash = getChronicleCard(selectedTileCard.card.id);
-                                        return (
-                                            <p className="hint">
-                                                {clash?.rarity ?? selectedTileCard.card.rarity}{" "}
-                                                {clash?.cardClass ?? "retired card"}
-                                                {clash?.cardClass === "monster"
-                                                    ? ` · Level ${clash.level} · ATK ${clash.attack} · DEF ${clash.defense}`
-                                                    : ""}{" "}
-                                                | Owned x{selectedTileCard.count}
-                                                <br />
-                                                {clash
-                                                    ? clash.cardClass === "monster"
-                                                        ? clash.monsterType === "effect"
-                                                            ? clash.effectText
-                                                            : clash.lore
-                                                        : clash.effectText
-                                                    : "This card is not part of the current Chronicle catalog."}
-                                            </p>
-                                        );
-                                    })()}
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="summary-box tile-card-selected-detail">
+                                        <CloseButton
+                                            className="item-popup-close"
+                                            onClick={() => setSelectedTileCard(null)}
+                                            title="Close card details"
+                                            label="Close card details"
+                                        />
+                                        <strong>{selectedTileCard.card.name}</strong>
+                                        <p className="hint">
+                                            {selectedTileCard.card.rarity} retired card | Owned x
+                                            {selectedTileCard.count}
+                                            <br />
+                                            This card is not part of the current Chronicle catalog.
+                                        </p>
+                                    </div>
+                                );
+                            })()}
                         </>
                     )}
                 </section>
