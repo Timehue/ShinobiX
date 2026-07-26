@@ -30,6 +30,7 @@ export type Screen =
     | "missions"
     | "arena"
     | "battleArena"
+    | "battleLog"
     | "arenaDistrict"
     | "bloodlineMaker"
     | "clan"
