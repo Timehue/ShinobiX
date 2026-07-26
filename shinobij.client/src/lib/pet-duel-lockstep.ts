@@ -42,7 +42,8 @@ import { DUEL_TPS, type DuelResult, type DuelEvent } from "./pet-duel-sim";
 import {
     createLiveCinematicDuel, createLivePartyCinematicDuel,
     stepCinematicDuel, finishCinematicDuel, applyDuelCommand, readDuelControl,
-    type CinematicDuelState, type DuelCommand, type DuelControlSnap,
+    readClashPrompt, CLASH_WINDOW_TICKS,
+    type CinematicDuelState, type DuelCommand, type DuelControlSnap, type ClashPrompt,
 } from "./pet-duel-cinematic";
 import { type LiveDuel, type DuelInputLogEntry } from "./pet-duel-live";
 import { applyDoctrineTick, type PetDoctrine, type DoctrineAssignment } from "./pet-duel-doctrine";
@@ -137,7 +138,28 @@ function sameCommand(a: DuelCommand, b: DuelCommand): boolean {
     if (a.kind === "ability" && b.kind === "ability") return a.idx === b.idx;
     if (a.kind === "stance" && b.kind === "stance") return a.stance === b.stance;
     if (a.kind === "auto" && b.kind === "auto") return a.on === b.on;
+    if (a.kind === "clash" && b.kind === "clash") return a.pick === b.pick;
     return true;   // "break" carries no payload
+}
+
+/**
+ * A PvP CLASH call has to reach the engine while the bind is still open.
+ *
+ * A client schedules at `own progress + INPUT_DELAY_TICKS + 1`, and its own
+ * progress can be up to `LOCKSTEP_LOOKAHEAD_TICKS` past the tick it is watching —
+ * so the very latest a call can land is that many ticks after the bind opened. The
+ * engine refuses a call that arrives after the window closed (safe: both clients
+ * refuse it identically, so there is no divergence) but the player would silently
+ * lose their read, which is worse than a slow prompt. Checked here rather than
+ * commented, because these three constants live in two different files.
+ */
+const CLASH_CALL_LATEST_TICK = LOCKSTEP_LOOKAHEAD_TICKS + INPUT_DELAY_TICKS + 1;
+if (CLASH_CALL_LATEST_TICK >= CLASH_WINDOW_TICKS) {
+    throw new Error(
+        `pet-duel-lockstep: a clash call can land ${CLASH_CALL_LATEST_TICK} ticks after the bind opens, `
+        + `but the bind only holds for ${CLASH_WINDOW_TICKS}. Raise CLASH_WINDOW in pet-duel-cinematic.ts `
+        + `or lower INPUT_DELAY_TICKS / LOCKSTEP_LOOKAHEAD_TICKS.`,
+    );
 }
 
 function makeLockstepDuel(
@@ -151,6 +173,9 @@ function makeLockstepDuel(
     const pendingBySeq = new Map<number, LockstepInput>();
     const applied: DuelInputLogEntry[] = [];
     const controlLog: Array<Record<string, DuelControlSnap>> = [];
+    // Same shape and same reason as controlLog: the clash prompt has to appear on
+    // the tick this client is WATCHING, not the leading edge of its buffer.
+    const clashLog: Array<Record<string, ClashPrompt>> = [];
     let safeTick = -1;
     let playbackTick = -1;
     let progressTick = -1;
@@ -163,11 +188,15 @@ function makeLockstepDuel(
 
     const recordControl = (tick: number) => {
         const row: Record<string, DuelControlSnap> = {};
+        const clashRow: Record<string, ClashPrompt> = {};
         for (const id of controlledIds) {
             const snap = readDuelControl(sim, id);
             if (snap) row[id] = snap;
+            const bind = readClashPrompt(sim, id);
+            if (bind) clashRow[id] = bind;
         }
         controlLog[tick] = row;
+        clashLog[tick] = clashRow;
     };
 
     // Sides handed over to standing orders after their player dropped, and the
@@ -309,6 +338,10 @@ function makeLockstepDuel(
         controlAt(tick: number, actorId: string) {
             const i = Math.max(0, Math.min(controlLog.length - 1, Math.floor(tick)));
             return controlLog[i]?.[actorId] ?? null;
+        },
+        clashAt(tick: number, actorId: string) {
+            const i = Math.max(0, Math.min(clashLog.length - 1, Math.floor(tick)));
+            return clashLog[i]?.[actorId] ?? null;
         },
         finishedAt: (tick: number) => sim.done && tick >= sim.snapshots.length - 1,
         outcome: () => finishCinematicDuel(sim),

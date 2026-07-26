@@ -109,6 +109,21 @@ test('a malformed or unknown command is refused', () => {
     assert.equal(bad(null).ok, false);
     assert.equal(bad({ kind: 'explode', actorId: 'player-0' }).ok, false);
     assert.equal(bad({ kind: 'ability' }).ok, false, 'a missing actorId cannot be owned by anyone');
+    // A clash read is one of exactly three calls. A malformed pick would be relayed
+    // to the peer and refused there, silently costing that player their read.
+    assert.equal(bad({ kind: 'clash', actorId: 'player-0', pick: 3 }).ok, false);
+    assert.equal(bad({ kind: 'clash', actorId: 'player-0' }).ok, false);
+});
+
+test('a clash read is relayed like any other command', () => {
+    const s = fresh();
+    reportProgress(s, 'p1', 10, NOW); reportProgress(s, 'p2', 10, NOW);
+    for (const pick of [0, 1, 2]) {
+        assert.equal(acceptInput(s, 'Ayame', 500 + pick, { kind: 'clash', actorId: 'player-0', pick }, NOW).ok, true,
+            `pick ${pick} should be accepted`);
+    }
+    assert.equal(acceptInput(s, 'Ayame', 520, { kind: 'clash', actorId: 'enemy-0', pick: 1 }, NOW).ok, false,
+        'a player cannot call the clash for their opponent');
 });
 
 test('a non-participant cannot inject commands', () => {

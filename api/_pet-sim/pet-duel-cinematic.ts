@@ -111,6 +111,98 @@ const RANGED_RANGE = 8.0;
 // exposed to a counter. This is what turns "trading in place" into lunge/dodge/punish.
 // The per-archetype dive numbers (init/mult/track/ticks) live in the MOTION table.
 const CLASH_KB = 2.2;        // symmetric bounce-apart when two committed dives collide (the clash beat)
+// ── LIVE-COLISEUM BRAWL PROFILE ────────────────────────────────────────────────
+// Multipliers applied by applyLiveBrawlProfile() to melee-identity fighters on the
+// PLAYER-CONTROLLED path only (see that function for the measurements behind them).
+// runPetDuelCinematic never touches these, so ranked / ladder / sector-war outcomes
+// and the parity test stay byte-identical.
+const LIVE_BRAWL_LUNGE_TICKS = 1.55;   // dive duration — the whiffs were timer expiries
+const LIVE_BRAWL_LUNGE_SPEED = 1.18;   // dive speed
+const LIVE_BRAWL_LUNGE_TRACK = 0.3;    // per-tick re-aim floor (a real dodge still slips it)
+const LIVE_BRAWL_REPOS_BACK = 0.62;    // shorter post-exchange break-off — stay in the pocket
+const LIVE_BRAWL_REPOS_DUR = 0.8;      // …and get back to it sooner
+const BRAWL_GRAZE = 0.6;               // extra reach a timed-out dive gets when the target did not dodge
+
+// ── CLASH — the committed-dive collision that stops the fight dead ─────────────
+// Two fighters meet in a bind, the duel FREEZES, and the player calls the read:
+// Strike / Guard / Dodge. It is a rock-paper-scissors triangle, so the answer is a
+// prediction rather than a reflex, and the payoff is a momentum swing — the winner
+// gets a free heavy blow and the loser eats an extended stagger.
+//
+//   Guard  beats Strike  — brace, and the diver bounces off it
+//   Strike beats Dodge   — they try to slip the bind, you follow through
+//   Dodge  beats Guard   — they turtle up, you take the angle for free
+//
+// Budgeted to stay PUNCTUATION (the owner asked for 1–2 a fight), not a QTE loop.
+// Live-coliseum only: the trigger is gated on `f.brawl`, which no authoritative
+// caller ever sets, so ranked / ladder / sector-war stay byte-identical.
+const CLASH_MAX_PER_DUEL = 2;
+const CLASH_MIN_TICK = Math.round(DUEL_TPS * 6);     // let the fight establish itself first
+const CLASH_COOLDOWN = Math.round(DUEL_TPS * 11);    // spacing between binds
+const CLASH_CHANCE = 0.85;                           // roll at an eligible dive contact
+const CLASH_WINDOW = Math.round(DUEL_TPS * 1.6);     // ticks the bind holds while awaiting a call
+/** The bind's length in ticks, exported so the lockstep controller can prove its
+ *  input delay fits inside it — a scheduled PvP call that lands after the window
+ *  has closed is simply refused, which is safe but silently costs a player their
+ *  read. See the budget assertion in pet-duel-lockstep.ts. */
+export const CLASH_WINDOW_TICKS = CLASH_WINDOW;
+const CLASH_MIN_HP = 0.22;                           // never bind a pet that is about to die
+const CLASH_WIN_POWER = 165;                         // the winner's payoff blow
+const CLASH_LOSER_STAGGER = Math.round(DUEL_TPS * 1.15);
+
+/** Strike 0 · Guard 1 · Dodge 2 — the call each side makes inside a bind. */
+export const CLASH_PICKS = ["strike", "guard", "dodge"] as const;
+export type ClashPick = 0 | 1 | 2;
+/** Guard→Strike→Dodge→Guard. True when `x` beats `y`. */
+const clashBeats = (x: number, y: number) =>
+    (x === 1 && y === 0) || (x === 0 && y === 2) || (x === 2 && y === 1);
+
+/** A live bind: two fighters locked together, waiting on their calls. */
+export interface ClashBind {
+    aId: string;            // the diving attacker
+    bId: string;            // the fighter it collided with
+    startT: number;
+    until: number;          // tick the bind resolves on regardless of input
+    picks: Record<string, number>;
+}
+
+/** A well-mixed roll in [0,1) for ONE fighter's clash read.
+ *
+ *  Why this exists instead of two plain rng() calls: the engine's generator is a
+ *  plain LCG, and consecutive draws off an LCG sit on a lattice. Comparing two
+ *  back-to-back draws through a rock-paper-scissors table is exactly the case that
+ *  structure breaks — measured over 1182 binds with dives split dead even (591/591),
+ *  it still handed one side 60.8% of the clash wins. Hashing a single shared salt
+ *  together with each fighter's own id decorrelates the two rolls, so the outcome is
+ *  the fair 1/3 it is supposed to be. Integer-only and deterministic. */
+function clashRoll(salt: number, id: string, t: number): number {
+    let h = (salt ^ 0x9e3779b9) >>> 0;
+    for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x85ebca6b) >>> 0;
+    h = Math.imul(h ^ (t + 0x165667b1), 0xc2b2ae35) >>> 0;
+    h ^= h >>> 15; h = Math.imul(h, 0x2545f491) >>> 0; h ^= h >>> 13;
+    return (h >>> 0) / 4294967296;
+}
+
+/** The AI's call. Deterministic and readable as personality: a bloodied pet braces,
+ *  a glass kiter slips out, a heavy brawler swings through. */
+function clashAiPick(f: Fighter, r: number): ClashPick {
+    if (f.hp / f.maxHp < 0.4) return r < 0.5 ? 1 : r < 0.8 ? 2 : 0;
+    switch (f.style.arche) {
+        case "rusher": return r < 0.55 ? 0 : r < 0.85 ? 2 : 1;
+        case "brawler": return r < 0.6 ? 0 : r < 0.8 ? 1 : 2;
+        case "defender": return r < 0.55 ? 1 : r < 0.8 ? 0 : 2;
+        case "kiter": case "support": return r < 0.5 ? 2 : r < 0.8 ? 1 : 0;
+        default: return r < 0.4 ? 0 : r < 0.7 ? 1 : 2;
+    }
+}
+
+/** The synthetic heavy blow the clash winner lands. Not a real ability: it costs
+ *  nothing, has no cooldown, and never enters an ability slot. */
+const CLASH_PAYOFF: Ability = Object.freeze({
+    name: "Clash Break", kind: "damage" as PetJutsu["kind"], accuracy: 100, cls: "melee" as AbilityClass,
+    power: CLASH_WIN_POWER, signature: false, aoe: false, range: MELEE_RANGE,
+    castTicks: 0, cdTicks: 0, cdLeft: 0, cost: 0, isMove: false,
+});
 const CRIT_HP = 0.16;        // below this HP frac, aggressive archetypes go for a desperate last-stand
 const KILL_HP = 0.18;        // foe below this HP frac → kill-shot: drop the in-out beat, go for the finish
 
@@ -177,6 +269,13 @@ let SIM_WALLS: { x: number; y: number; r: number; expiry: number; ownerId: strin
 let _stallPressure = 0;    // 0 in every fight where damage lands; ramps only in a true no-damage stand-off
 let _forcedEngage = false; // latched once a stand-off is confirmed → a decisive brawl to the finish
 let _partyMode = false;
+// Live-coliseum CLASH scratch. Mirrored to/from CinematicDuelState every tick like
+// the wall/stall globals, so a paused duel can never be corrupted by another one
+// simulating in between (a preview harness, the server replay).
+let _clash: ClashBind | null = null;
+let _clashCount = 0;
+let _lastClashTick = -CLASH_COOLDOWN;
+let _clashOn = true;
 // One team owns neutral pressure at a time. The other team may still read a
 // telegraph, dodge, and punish recovery, but it does not mirror the attacker's
 // locomotion. This turns a continuous mutual chase into authored-looking beats:
@@ -440,6 +539,12 @@ interface Fighter {
     itemsOn: boolean;
     cDodge: number; cMitigatePct: number; cEndure: number; cThornsPct: number; cLifelinePct: number; cCleanse: number;
     basicRanged: boolean;
+    /** Live-coliseum brawl profile is active on this fighter (applyLiveBrawlProfile).
+     *  false for every authoritative caller, which is what keeps ranked byte-identical. */
+    brawl: boolean;
+    /** The call this fighter has made inside an active clash bind: -1 none yet,
+     *  else a ClashPick. Reset when a bind opens. */
+    clashPick: number;
     lungeAbIdx: number;                     // >-2 while mid-pounce: which move resolves on contact (-1 = basic attack)
     lungeTgtId: string | null;
     lungeStuck: number;                     // consecutive pounce ticks with ~no progress (wall) → resolve early, don't phantom-whiff
@@ -593,6 +698,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         cDodge: ch ? ch.dodge : 0, cMitigatePct: ch ? ch.mitigate : 0, cEndure: ch ? ch.endure : 0,
         cThornsPct: ch ? ch.thorns : 0, cLifelinePct: ch ? ch.lifeline : 0, cCleanse: ch ? ch.cleanse : 0,
         basicRanged: abilities.some((a) => a.cls === "ranged" && !a.isMove),
+        brawl: false, clashPick: -1,
         lungeAbIdx: -2, lungeTgtId: null, lungeStuck: 0,
         // Player control defaults OFF — every existing caller gets the shipped AI.
         controlled: false, cmdIdx: -2, cmdLeft: 0, cmdBreak: false, stance: 1,
@@ -984,7 +1090,10 @@ function beginDodgeRetreat(f: Fighter, e: Fighter | null) {
 // Melee ability / basic resolved AT CONTACT (called by the lunge on connect, or by
 // resolveCast for the non-lunge path). Cost is paid by the caller; this only rolls
 // accuracy and applies damage to whatever is in reach around the pounce's landing.
-function resolveMeleeContact(f: Fighter, ab: Ability | null, tgtId: string | null, fighters: Fighter[], rng: () => number, t: number, events: DuelEvent[], accuracyEnabled: boolean) {
+/** `slack` widens the contact tolerance. It is passed ONLY by the live-coliseum
+ *  grazing-blow path (see the dive-expiry branch in stepFighter); every
+ *  authoritative caller leaves it at 0, so their reach test is unchanged. */
+function resolveMeleeContact(f: Fighter, ab: Ability | null, tgtId: string | null, fighters: Fighter[], rng: () => number, t: number, events: DuelEvent[], accuracyEnabled: boolean, slack = 0) {
     // Draw the accuracy roll for EVERY ability contact, independent of the (per-client,
     // localStorage) accuracy flag — else toggling the flag shifts the whole rng stream
     // and the same (pets, seed) diverges across clients. Basics (ab null) never roll.
@@ -998,7 +1107,7 @@ function resolveMeleeContact(f: Fighter, ab: Ability | null, tgtId: string | nul
         const d = Math.sqrt(dx * dx + dy * dy);
         const facingOK = f.faceX * dx + f.faceY * dy > 0;
         const range = ab ? ab.range : f.reach + 0.35;
-        if (tgt.hp > 0 && d <= range + 0.5 && facingOK) { applyDamage(f, tgt, ab, rng, t, events, false); landed = true; }
+        if (tgt.hp > 0 && d <= range + 0.5 + slack && facingOK) { applyDamage(f, tgt, ab, rng, t, events, false); landed = true; }
     }
     if (!landed) events.push({ t, type: "whiff", side: f.team, actorId: f.id });
 }
@@ -1907,6 +2016,27 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                         f.moveDx = mx / ml; f.moveDy = my / ml; f.faceX = f.moveDx; f.faceY = f.moveDy;
                     }
                     if (dd <= (ab ? ab.range : f.reach) + 0.45) {
+                        // CLASH BIND — a committed dive meets a fighter who can still answer
+                        // it. The duel freezes here and both sides call Strike / Guard / Dodge
+                        // (see the CLASH block near the top of this file). The rng draw sits
+                        // behind the `f.brawl` short-circuit, so the authoritative stream is
+                        // never touched by its presence.
+                        if (f.brawl && _clashOn && !_clash && _clashCount < CLASH_MAX_PER_DUEL
+                            && t >= CLASH_MIN_TICK && t - _lastClashTick >= CLASH_COOLDOWN
+                            && f.hp / f.maxHp > CLASH_MIN_HP && tgt.hp / tgt.maxHp > CLASH_MIN_HP
+                            && tgt.statuses.stunLeft <= 0 && tgt.state !== "dead"
+                            && rng() < CLASH_CHANCE) {
+                            _clash = { aId: f.id, bId: tgt.id, startT: t, until: t + CLASH_WINDOW, picks: {} };
+                            _clashCount++; _lastClashTick = t;
+                            clearLunge(f); clearLunge(tgt);
+                            f.state = "stagger"; f.stateLeft = CLASH_WINDOW;
+                            tgt.state = "stagger"; tgt.stateLeft = CLASH_WINDOW;
+                            f.vx = 0; f.vy = 0; tgt.vx = 0; tgt.vy = 0;
+                            f.clashPick = -1; tgt.clashPick = -1;
+                            events.push({ t, type: "stagger", side: f.team, actorId: f.id, move: "Clash Bind", targetId: tgt.id });
+                            events.push({ t, type: "stagger", side: tgt.team, actorId: tgt.id, move: "Clash Bind", targetId: f.id });
+                            break;
+                        }
                         // CLASH — the target is ALSO mid-pounce aimed back at me: two committed
                         // dives collide. Deflect symmetrically (both bounce apart + stagger, no
                         // damage) — the iconic anime collision, a pure tension beat. Tagged
@@ -1943,6 +2073,24 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                     break;
                 }
                 if (--f.stateLeft <= 0) {
+                    // GRAZING BLOW (live coliseum only). A committed dive should be beaten by
+                    // a real DODGE — not by an opponent who simply walked backwards. Measured
+                    // on the brawl path, 99% of melee whiffs were this timer expiring, at a
+                    // median gap of 2.40 against a ~2.05 contact threshold: the dive died a
+                    // body-width short and the player saw a pet lunge through its opponent and
+                    // hit nothing. If the target is still basically in front of the attacker
+                    // and did NOT slip it, the dive connects as a grazing blow instead.
+                    // Gated on `brawl`, so every authoritative caller keeps the strict test.
+                    const expTgt = f.lungeTgtId ? fighters.find((g) => g.id === f.lungeTgtId && g.hp > 0) : null;
+                    if (f.brawl && expTgt && expTgt.state !== "dodge") {
+                        const gx = expTgt.x - f.x, gy = expTgt.y - f.y;
+                        const gd = Math.sqrt(gx * gx + gy * gy);
+                        if (gd <= (ab ? ab.range : f.reach) + 0.5 + BRAWL_GRAZE && (f.faceX * gx + f.faceY * gy) > 0) {
+                            resolveMeleeContact(f, ab, f.lungeTgtId, fighters, rng, t, events, accuracyEnabled, BRAWL_GRAZE);
+                            clearLunge(f); f.state = "strike"; f.stateLeft = 2;
+                            break;
+                        }
+                    }
                     // Overshot without landing → whiff, into a long exposed recovery so the
                     // foe who dodged gets a clean counter-punch (the payoff for slipping it).
                     events.push({ t, type: "whiff", side: f.team, actorId: f.id });
@@ -2086,6 +2234,12 @@ function separateAll(fighters: Fighter[]) {
     for (let i = 0; i < fighters.length; i++) for (let j = i + 1; j < fighters.length; j++) {
         const a = fighters[i], b = fighters[j];
         if (a.hp <= 0 || b.hp <= 0) continue;
+        // A CLASH BIND is two fighters LOCKED together. The ordinary separation pass
+        // would shove them apart a little every tick and, over the length of the
+        // window, walk them out of the bind entirely — which is the one thing the beat
+        // cannot look like. The bound pair is exempt until it resolves. `_clash` is
+        // null on every authoritative path, so this is byte-identical there.
+        if (_clash && ((_clash.aId === a.id && _clash.bId === b.id) || (_clash.aId === b.id && _clash.bId === a.id))) continue;
         const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
         // Contact spacing belongs to a committed attack. If both pets are merely
         // reading/repositioning, open a visible pocket immediately instead of
@@ -2180,6 +2334,10 @@ export interface CinematicDuelState {
     partyMode: boolean;
     initiativeTeam: "player" | "enemy";
     laneInitiative: ["player" | "enemy", "player" | "enemy"];
+    clash: ClashBind | null;
+    clashCount: number;
+    lastClashTick: number;
+    clashEnabled: boolean;
 }
 
 function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean): CinematicDuelState {
@@ -2191,6 +2349,7 @@ function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boo
     // otherwise displace this duel's spawn positions.
     SIM_WALLS = [];
     _stallPressure = 0; _forcedEngage = false;
+    _clash = null; _clashCount = 0; _lastClashTick = -CLASH_COOLDOWN; _clashOn = true;
     _partyMode = fighters.length > 2;
     for (const f of fighters) { const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy; }
     const initiativeTeam: "player" | "enemy" = (seed & 1) === 0 ? "player" : "enemy";
@@ -2202,10 +2361,56 @@ function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boo
         walls: [], stallPressure: 0, forcedEngage: false, partyMode: fighters.length > 2,
         initiativeTeam,
         laneInitiative: [initiativeTeam, initiativeTeam === "player" ? "enemy" : "player"],
+        clash: null, clashCount: 0, lastClashTick: -CLASH_COOLDOWN, clashEnabled: true,
     };
 }
 
 /** Run exactly one tick. Returns false once the duel is over (or the cap is hit). */
+/** Settle an active clash bind: compare the two calls and pay out the momentum
+ *  swing. A tie is the old symmetric deflect — both bounce apart, nobody scores,
+ *  which keeps the beat a tension reset rather than a coin-flip on damage. */
+function resolveClashBind(bind: ClashBind, fighters: Fighter[], rng: () => number, t: number, events: DuelEvent[]) {
+    const a = fighters.find((g) => g.id === bind.aId);
+    const b = fighters.find((g) => g.id === bind.bId);
+    if (!a || !b || a.hp <= 0 || b.hp <= 0) return;
+    // A fighter that never called (the AI, or a player who let the window lapse) gets
+    // its archetype's read. Exactly ONE draw is taken here whatever happens, and both
+    // reads are hashed out of it (see clashRoll): the draw count is therefore
+    // independent of who called and who defaulted, so a player's choice can never
+    // shift the rng stream — which is what keeps the server's replay of the input log
+    // identical to the fight that was on screen.
+    const salt = Math.floor(rng() * 4294967296) >>> 0;
+    const pa = a.clashPick >= 0 ? a.clashPick : clashAiPick(a, clashRoll(salt, a.id, bind.startT));
+    const pb = b.clashPick >= 0 ? b.clashPick : clashAiPick(b, clashRoll(salt, b.id, bind.startT));
+    a.clashPick = -1; b.clashPick = -1;
+
+    const dx = a.x - b.x, dy = a.y - b.y, d = Math.max(1e-4, Math.sqrt(dx * dx + dy * dy));
+    if (pa === pb) {
+        const [ax, ay] = snapPos(a.x + (dx / d) * CLASH_KB, a.y + (dy / d) * CLASH_KB);
+        const [bx, by] = snapPos(b.x - (dx / d) * CLASH_KB, b.y - (dy / d) * CLASH_KB);
+        a.x = ax; a.y = ay; b.x = bx; b.y = by;
+        a.state = "stagger"; a.stateLeft = a.staggerT;
+        b.state = "stagger"; b.stateLeft = b.staggerT;
+        events.push({ t, type: "stagger", side: a.team, actorId: a.id, move: "Clash", targetId: b.id });
+        events.push({ t, type: "stagger", side: b.team, actorId: b.id, move: "Clash", targetId: a.id });
+        return;
+    }
+    const aWon = clashBeats(pa, pb);
+    const win = aWon ? a : b, lose = aWon ? b : a;
+    // Face the payoff so applyDamage's own facing test passes.
+    const fx = lose.x - win.x, fy = lose.y - win.y, fd = Math.max(1e-4, Math.sqrt(fx * fx + fy * fy));
+    win.faceX = fx / fd; win.faceY = fy / fd;
+    win.state = "strike"; win.stateLeft = 2;
+    applyDamage(win, lose, CLASH_PAYOFF, rng, t, events, false);
+    // applyDamage already staggers a target it catches idle/dashing/winding up, but a
+    // clash loser is pinned in the bind — extend it explicitly so the winner always
+    // gets the clean follow-up that makes the read worth making.
+    if (lose.hp > 0) {
+        lose.state = "stagger"; lose.stateLeft = CLASH_LOSER_STAGGER;
+        clearLunge(lose);
+    }
+}
+
 function stepDuelState(sim: CinematicDuelState): boolean {
     if (sim.done) return false;
     const t = sim.t;
@@ -2217,6 +2422,8 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     _partyMode = sim.partyMode;
     _cinematicInitiativeTeam = sim.initiativeTeam;
     _laneInitiativeTeam = sim.laneInitiative;
+    _clash = sim.clash; _clashCount = sim.clashCount; _lastClashTick = sim.lastClashTick;
+    _clashOn = sim.clashEnabled;
 
     sim.ticks = t + 1;
     if (SIM_WALLS.length) SIM_WALLS = SIM_WALLS.filter((w) => w.expiry > t);   // expire finished walls
@@ -2227,8 +2434,29 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     // persistent "second-mover" reaction edge (which skews mirror matches). The
     // pet that steps second sees the first's fresh wind-up and can react-dodge —
     // alternating averages it to ~50%. Deterministic (tick parity, no rng).
-    if ((t & 1) === 1) { for (let i = fighters.length - 1; i >= 0; i--) stepFighter(fighters[i], fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
-    else { for (const f of fighters) stepFighter(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); }
+    // CLASH BIND — while two fighters are locked, they do not act. Everything else
+    // (projectiles already in flight, damage-over-time, the other lane in a 2v2)
+    // keeps ticking, so the freeze reads as those two being locked together rather
+    // than the whole match pausing. The bind settles when both calls are in or the
+    // window lapses, whichever comes first.
+    let bound: ClashBind | null = _clash;
+    if (bound) {
+        const ca = fighters.find((g) => g.id === bound!.aId);
+        const cb = fighters.find((g) => g.id === bound!.bId);
+        if (!ca || !cb || ca.hp <= 0 || cb.hp <= 0) { _clash = null; bound = null; }
+        else if (t >= bound.until || (ca.clashPick >= 0 && cb.clashPick >= 0)) {
+            resolveClashBind(bound, fighters, rng, t, events);
+            _clash = null; bound = null;
+        } else {
+            ca.vx = 0; ca.vy = 0; cb.vx = 0; cb.vy = 0;
+            ca.stateLeft = Math.max(1, bound.until - t);
+            cb.stateLeft = Math.max(1, bound.until - t);
+        }
+    }
+    const held = bound ? new Set([bound.aId, bound.bId]) : null;
+    const stepOne = (f: Fighter) => { if (!held || !held.has(f.id)) stepFighter(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); };
+    if ((t & 1) === 1) { for (let i = fighters.length - 1; i >= 0; i--) stepOne(fighters[i]); }
+    else { for (const f of fighters) stepOne(f); }
     stepProjectiles(fighters, projectiles, rng, t, events);
     let dotDmg = 0;
     for (const f of fighters) dotDmg += tickStatuses(f);
@@ -2276,6 +2504,7 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     sim.stallPressure = _stallPressure; sim.forcedEngage = _forcedEngage;
     sim.initiativeTeam = _cinematicInitiativeTeam;
     sim.laneInitiative = _laneInitiativeTeam;
+    sim.clash = _clash; sim.clashCount = _clashCount; sim.lastClashTick = _lastClashTick;
     sim.t = t + 1;
 
     const pA = teamAlive(fighters, "player"), eA = teamAlive(fighters, "enemy");
@@ -2350,7 +2579,8 @@ export type DuelCommand =
     | { kind: "ability"; actorId: string; idx: number }
     | { kind: "break"; actorId: string }
     | { kind: "stance"; actorId: string; stance: number }
-    | { kind: "auto"; actorId: string; on: boolean };
+    | { kind: "auto"; actorId: string; on: boolean }
+    | { kind: "clash"; actorId: string; pick: number };
 
 /** What the command deck needs to draw one fighter's buttons for a given tick. */
 export interface DuelControlSnap {
@@ -2363,12 +2593,74 @@ export interface DuelControlSnap {
     abilities: Array<{ name: string; kind: PetJutsu["kind"]; cost: number; signature: boolean; cdLeft: number; cdTicks: number; isMove: boolean; support: boolean }>;
 }
 
+/** LIVE-COLISEUM ONLY — give the basic attack back its melee identity.
+ *
+ *  `buildFighter` derives `basicRanged` from "owns ANY ranged-class ability", and
+ *  `abilityClass()` calls every kind except damage/crush/lifesteal ranged. So a
+ *  brawler carrying one Freeze utility fights the entire match as a zoner. Measured
+ *  over 312 duels the coliseum produced 19.9 PROJECTILE hits per fight against 0.2
+ *  melee ones: bodies never met, the pounce never resolved, and the only body dashes
+ *  on screen were whiffs. That is the "pets trigger moves and miss each other /
+ *  dashes have no impact" complaint at its source — the fight was never melee.
+ *
+ *  Here the basic follows the pet's ARCHETYPE instead. Only a KITER keeps a ranged
+ *  basic: that is the one archetype whose classifier actually means "wants
+ *  distance" (sub === "kite", or fast+glass with a ranged kit). `support` is NOT a
+ *  range statement — `classifyArchetype` assigns it for carrying ANY heal/buff/
+ *  shield — and holding those at range was the same over-broad-classification bug
+ *  in a second coat of paint: measured across the shipped 140-pet pool, 67 pets
+ *  were held ranged and **every one of them owns a melee attack**. Not a single pet
+ *  in the game is genuinely ranged-only, so the old `!hasMelee` escape was dead
+ *  code. Melee-identity coverage 52% → 88% of the roster.
+ *
+ *  Ranged ABILITIES are untouched — a support pet still heals and shields on
+ *  cooldown, it just stops poking with projectiles in between and has to earn
+ *  contact like everything else.
+ *
+ *  Deliberately NOT applied to runPetDuelCinematic: the pet ladder and sector war
+ *  replay that path server-side, so leaving it alone keeps those outcomes — and the
+ *  parity test — byte-identical. The live client and api/pet/_duel-replay.ts both
+ *  build through the constructors below, so they always agree.
+ */
+function applyLiveBrawlProfile(fighters: Fighter[]) {
+    for (const f of fighters) {
+        const arch = classifyArchetype(f.pet, f.abilities);
+        f.basicRanged = arch === "kiter" || !f.abilities.some((a) => a.cls === "melee");
+        if (f.basicRanged) continue;   // true zoners keep their kiting identity intact
+        f.brawl = true;
+
+        // …AND THE DIVE HAS TO LAND. With melee basics restored, 99% of the resulting
+        // whiffs were the pounce TIMER expiring, and the median gap when it did was 2.40
+        // against a ~2.0 contact threshold — every dive was dying about a body-width
+        // short, which on screen is a pet lunging THROUGH its opponent and hitting
+        // nothing. A longer, faster, better-tracked dive converts those near-misses into
+        // real contact; a shorter exit beat keeps the pair in the pocket where a melee
+        // exchange is legible instead of breaking a full body-length apart after every
+        // trade. `style` is replaced, never mutated, so the checkpoint/rewind machinery
+        // (which shares it by reference) is unaffected.
+        f.style = {
+            ...f.style,
+            lungeTicks: Math.round(f.style.lungeTicks * LIVE_BRAWL_LUNGE_TICKS),
+            lungeMult: f.style.lungeMult * LIVE_BRAWL_LUNGE_SPEED,
+            lungeTrack: Math.max(f.style.lungeTrack, LIVE_BRAWL_LUNGE_TRACK),
+            reposBack: f.style.reposBack * LIVE_BRAWL_REPOS_BACK,
+            reposDur: f.style.reposDur * LIVE_BRAWL_REPOS_DUR,
+        };
+    }
+}
+
 /** Order-of-battle for the live path: which fighters obey the player. */
 export function createLiveCinematicDuel(
     playerPet: Pet, enemyPet: Pet, seed: number,
     playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
     applyItems = true, accuracyEnabled = petAccuracyEnabled(), terrain: string | null = null,
     debugTrace = false,
+    /** TEST SEAM ONLY — leave at the default. Passing false skips the brawl profile,
+     *  which exists so `pet-duel-live.test.ts` can prove that the create/step/rewind
+     *  machinery is still byte-faithful to the one-shot engine and that ALL of the
+     *  live path's divergence comes from the profile. Production and the server
+     *  replay must both use the default, or they desynchronise. */
+    brawlProfile = true,
 ): CinematicDuelState {
     // Identical construction to runPetDuelCinematic — the ONLY difference is that
     // the player's fighter accepts commands, so an "Auto"-only run reproduces the
@@ -2378,6 +2670,7 @@ export function createLiveCinematicDuel(
         buildFighter(enemyPet, "enemy", 0, 5.6, 2.6, playerPet.element, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems),
     ];
     fighters[0].controlled = true;
+    if (brawlProfile) applyLiveBrawlProfile(fighters);
     return createDuelState(fighters, seed, accuracyEnabled, debugTrace);
 }
 
@@ -2387,12 +2680,15 @@ export function createLivePartyCinematicDuel(
     enemyLead: Pet, enemyReserve: Pet | null,
     seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
     applyItems = true, accuracyEnabled = petAccuracyEnabled(), debugTrace = false,
+    /** TEST SEAM ONLY — see createLiveCinematicDuel. */
+    brawlProfile = true,
 ): CinematicDuelState {
     const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -5.6, 2.6, enemyLead.element, playerDamageMult, playerHpMult, playerReviveOnce, applyItems)];
     if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -5.0, -3.2, enemyReserve?.element ?? enemyLead.element, playerDamageMult, playerHpMult, false, applyItems));
     fighters.push(buildFighter(enemyLead, "enemy", 0, 5.6, 2.6, playerLead.element, 1, 1, false, applyItems));
     if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 5.0, -3.2, playerReserve?.element ?? playerLead.element, 1, 1, false, applyItems));
     for (const f of fighters) if (f.team === "player") f.controlled = true;
+    if (brawlProfile) applyLiveBrawlProfile(fighters);
     return createDuelState(fighters, seed, accuracyEnabled, debugTrace);
 }
 
@@ -2426,7 +2722,67 @@ export function applyDuelCommand(sim: CinematicDuelState, cmd: DuelCommand): boo
             f.controlled = !cmd.on;
             f.cmdIdx = -2; f.cmdLeft = 0; f.cmdBreak = false;
             return true;
+        case "clash": {
+            // Only accepted while this fighter is actually bound, and only once —
+            // otherwise a client could re-call after seeing the opponent commit, or
+            // append log entries the server's replay would have to reject.
+            const bind = sim.clash;
+            if (!bind || (bind.aId !== f.id && bind.bId !== f.id)) return false;
+            if (f.clashPick >= 0) return false;
+            if (cmd.pick !== 0 && cmd.pick !== 1 && cmd.pick !== 2) return false;
+            f.clashPick = cmd.pick;
+            bind.picks[f.id] = cmd.pick;
+            return true;
+        }
     }
+}
+
+/** The bind the player is being asked to answer, or null. Drives the clash prompt
+ *  in the renderer; `deadline` is the tick the window lapses on. */
+export interface ClashPrompt {
+    aId: string; bId: string;
+    /** The bound fighter this player controls. */
+    selfId: string;
+    /** The bound fighter they are locked against. */
+    foeId: string;
+    startT: number; deadline: number;
+    /** This player's call, or -1 if they have not made one. */
+    pick: number;
+    /** Whether the opposing fighter has locked a call in — NOT which one. In live
+     *  PvP the prompt needs to say "waiting for them" versus "they have committed",
+     *  and leaking the actual pick would turn a simultaneous read into a reaction
+     *  test. A player cannot change their own call once made, so knowing only THAT
+     *  the opponent has answered gives away nothing. */
+    foeCommitted: boolean;
+}
+
+/** Turn the clash bind OFF for a duel.
+ *
+ *  Live PvP (pet-duel-lockstep) uses this. A bind freezes BOTH fighters and asks
+ *  each for a read, which across two clients needs its own synchronised prompt and
+ *  proposal round-trip — and a competitive mode should not ship a beat where one
+ *  side answers and the other silently defaults. Until that exists, PvP keeps the
+ *  un-bound fight. Casual PvE (createLiveDuel) leaves it on. */
+export function setCinematicClashEnabled(sim: CinematicDuelState, on: boolean) {
+    sim.clashEnabled = on;
+    if (!on) sim.clash = null;
+}
+
+export function readClashPrompt(sim: CinematicDuelState, actorId: string): ClashPrompt | null {
+    const bind = sim.clash;
+    if (!bind) return null;
+    if (bind.aId !== actorId && bind.bId !== actorId) return null;
+    const self = sim.fighters.find((g) => g.id === actorId);
+    if (!self || !self.controlled) return null;
+    const foeId = bind.aId === actorId ? bind.bId : bind.aId;
+    const foe = sim.fighters.find((g) => g.id === foeId);
+    return {
+        aId: bind.aId, bId: bind.bId,
+        selfId: actorId, foeId,
+        startT: bind.startT, deadline: bind.until,
+        pick: self.clashPick,
+        foeCommitted: !!foe && foe.clashPick >= 0,
+    };
 }
 
 export function readDuelControl(sim: CinematicDuelState, actorId: string): DuelControlSnap | null {
@@ -2473,6 +2829,8 @@ export interface CinematicDuelCheckpoint {
     stallPressure: number; forcedEngage: boolean;
     initiativeTeam: "player" | "enemy";
     laneInitiative: ["player" | "enemy", "player" | "enemy"];
+    clash: ClashBind | null;
+    clashCount: number; lastClashTick: number; clashEnabled: boolean;
 }
 
 export function checkpointCinematicDuel(sim: CinematicDuelState): CinematicDuelCheckpoint {
@@ -2491,6 +2849,11 @@ export function checkpointCinematicDuel(sim: CinematicDuelState): CinematicDuelC
         // Copied, not aliased: the lane array is mutated in place when a 2v2 lane
         // hands its beat over, which would otherwise write through the checkpoint.
         laneInitiative: [sim.laneInitiative[0], sim.laneInitiative[1]],
+        // Same reasoning for the bind: `picks` is written into as calls arrive, so a
+        // shared reference would let a post-checkpoint call leak backwards through a
+        // rewind and desynchronise the server replay.
+        clash: sim.clash ? { ...sim.clash, picks: { ...sim.clash.picks } } : null,
+        clashCount: sim.clashCount, lastClashTick: sim.lastClashTick, clashEnabled: sim.clashEnabled,
     };
 }
 
@@ -2511,4 +2874,6 @@ export function restoreCinematicDuel(sim: CinematicDuelState, cp: CinematicDuelC
     sim.stallPressure = cp.stallPressure; sim.forcedEngage = cp.forcedEngage;
     sim.initiativeTeam = cp.initiativeTeam;
     sim.laneInitiative = [cp.laneInitiative[0], cp.laneInitiative[1]];
+    sim.clash = cp.clash ? { ...cp.clash, picks: { ...cp.clash.picks } } : null;
+    sim.clashCount = cp.clashCount; sim.lastClashTick = cp.lastClashTick; sim.clashEnabled = cp.clashEnabled;
 }

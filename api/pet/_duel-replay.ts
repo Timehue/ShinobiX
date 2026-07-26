@@ -23,6 +23,22 @@
 //     cooldown, so an ungated Break is a free signature every five seconds. The
 //     meter is a pure fold over the event log, so the server recomputes it here
 //     and drops a Break that was not paid for.
+//   * CLASH CALLS: no extra check needed here, because applyDuelCommand already
+//     gates them completely — a clash command is accepted only while that exact
+//     fighter is inside an open bind, only once per bind, and only for a pick of
+//     0/1/2. A forged or replayed clash entry therefore fails in the engine and
+//     lands in `rejected` like any other refused command.
+//
+//     Known and accepted: because the simulation is deterministic and runs on the
+//     client, a modified client can look ahead, see which read the AI is going to
+//     make, and answer to beat it. That is not new — the same client can already
+//     see the whole fight before it plays — and the exposure is bounded: this path
+//     is casual PvE, the reward is recomputed here and capped, and ranked / ladder
+//     / sector war never bind at all (they run the authoritative path, where the
+//     clash trigger is gated off by `Fighter.brawl`). Closing it properly would
+//     mean hidden server-side rolls, which this architecture deliberately does not
+//     have; it is not worth breaking replay parity for a casual-mode edge.
+//
 //   * COOLDOWN / STAMINA on an ordinary ability order: NOT rejected, on
 //     purpose. The engine already refuses to EXECUTE an unaffordable or
 //     on-cooldown move (see commandedOffensive / readySupport in
@@ -128,6 +144,19 @@ export function parseDuelInputLog(raw: unknown): DuelInputLogEntry[] | null {
                 if (typeof c.on !== 'boolean') return null;
                 out.push({ t, cmd: { kind: 'auto', actorId, on: c.on } });
                 break;
+            case 'clash': {
+                // The player's read inside a clash bind. Only 0/1/2 exist; anything
+                // else is a rewritten log, not a client we should be scoring. The
+                // engine does the rest of the gating (bind open, right fighter, one
+                // call only) — see applyDuelCommand.
+                // Checked as a NUMBER, not coerced: `Number(null)` and `Number('')`
+                // are both 0, which would quietly turn a malformed entry into a
+                // Strike read rather than rejecting the log.
+                const pick = c.pick;
+                if (pick !== 0 && pick !== 1 && pick !== 2) return null;
+                out.push({ t, cmd: { kind: 'clash', actorId, pick } });
+                break;
+            }
             default:
                 return null;
         }
