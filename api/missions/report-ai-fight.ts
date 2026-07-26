@@ -22,6 +22,7 @@ import {
     applyMissionProgressEvent,
     cleanMissionProgressReceipt,
     missionProgressReceiptKey,
+    savedAcceptedMissionIds,
 } from './_mission-progress-receipt.js';
 import {
     APEX_RECEIPT_TTL_SECONDS,
@@ -152,8 +153,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // token id dedups), and never fails the already-applied reward.
         if (!reward.replayed && sealedOpponentId) {
             const hunt = huntMissionByAiProfileId(sealedOpponentId);
-            const rc = result.character as Record<string, unknown> | undefined;
-            const acceptedIds = Array.isArray(rc?.acceptedMissionIds) ? (rc!.acceptedMissionIds as unknown[]).map(String) : [];
+            // acceptedMissionIds is a top-level save-record field, not a character
+            // one — reading it off result.character always found nothing, so the
+            // kill receipt was never stamped and no hunt could be claimed.
+            const acceptedIds = savedAcceptedMissionIds(result.record as Record<string, unknown> | undefined);
             if (hunt && acceptedIds.includes(hunt.id)) {
                 try {
                     const receiptKey = missionProgressReceiptKey(playerName, hunt.id);

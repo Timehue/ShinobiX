@@ -7,6 +7,7 @@ import {
     applyMissionProgressEvent,
     cleanMissionProgressReceipt,
     missionProgressReceiptKey,
+    savedAcceptedMissionIds,
 } from './_mission-progress-receipt.js';
 
 const FIELD_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
@@ -48,16 +49,19 @@ export function fieldRaidEvidenceId(proofId: string): string {
  * but claim on the 'hunt' path and carry no raidCount, so they're excluded.
  * Eligibility is re-checked because claim-mission re-checks it too — crediting a
  * mission the player can no longer claim would just build a dead receipt.
+ *
+ * Takes the whole save RECORD: acceptedMissionIds is a top-level field, while
+ * the eligibility gates (level, profession) read the nested character. Reading
+ * accepted ids off the character alone found nothing, so no raid was ever
+ * credited — see savedAcceptedMissionIds.
  */
 export function acceptedRaidFetchMissions(
-    character: Record<string, unknown> | null | undefined,
+    save: Record<string, unknown> | null | undefined,
 ): FieldMissionDef[] {
-    const accepted = Array.isArray(character?.acceptedMissionIds)
-        ? (character!.acceptedMissionIds as unknown[]).map(String)
-        : [];
+    const character = (save?.character ?? save) as Record<string, unknown> | null | undefined;
     const out: FieldMissionDef[] = [];
     const seen = new Set<string>();
-    for (const id of accepted) {
+    for (const id of savedAcceptedMissionIds(save)) {
         if (seen.has(id)) continue;
         seen.add(id);
         if (HUNT_MISSION_IDS.has(id)) continue;
@@ -81,7 +85,8 @@ export function acceptedRaidFetchMissions(
  */
 export async function creditFieldRaidProgress(opts: {
     playerName: string;
-    character: Record<string, unknown> | null | undefined;
+    /** The whole save record — acceptedMissionIds lives at its top level. */
+    save: Record<string, unknown> | null | undefined;
     proofId: string;
     now?: number;
 }): Promise<string[]> {
@@ -90,7 +95,7 @@ export async function creditFieldRaidProgress(opts: {
 
     const evidenceId = fieldRaidEvidenceId(proofId);
     const credited: string[] = [];
-    for (const mission of acceptedRaidFetchMissions(opts.character)) {
+    for (const mission of acceptedRaidFetchMissions(opts.save)) {
         const receiptKey = missionProgressReceiptKey(opts.playerName, mission.id);
         try {
             await withKvLock(receiptKey, async () => {
