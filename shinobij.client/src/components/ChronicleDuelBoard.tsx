@@ -19,6 +19,8 @@ import {
 import { chronicleLegalPlacements } from "../lib/chronicle-placements";
 import { isImageAvatar } from "../lib/avatar";
 import { ChronicleCardView } from "./ChronicleCardView";
+import { ChronicleCardInspector } from "./ChronicleCardInspector";
+import { Modal } from "./ui/Modal";
 
 type SideKey = "p1" | "p2";
 
@@ -154,6 +156,9 @@ export function ChronicleDuelBoard({
   } | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [zoomedCardId, setZoomedCardId] = useState<string | null>(null);
+  // Which graveyard pile is open for browsing. Piles are face-up public
+  // information in this format, so either side's is readable at any time.
+  const [graveyardView, setGraveyardView] = useState<"me" | "foe" | null>(null);
   const [forfeitArmed, setForfeitArmed] = useState(false);
   const [readyResponseId, setReadyResponseId] = useState<string | null>(null);
   const [sfxMuted, setSfxMuted] = useState(chronicleSfxMuted);
@@ -944,21 +949,31 @@ export function ChronicleDuelBoard({
             <div className="chronicle-pile-card-back" aria-hidden="true" />
             <b>{foe.deckCount}</b>
           </div>
-          <div className="chronicle-pile-zone">
+          <button
+            className="chronicle-pile-zone chronicle-pile-zone--open"
+            type="button"
+            aria-label={`Open the opponent Graveyard, ${foe.graveyard.length} ${foe.graveyard.length === 1 ? "card" : "cards"}`}
+            onClick={() => setGraveyardView("foe")}
+          >
             <span>OPPONENT GRAVEYARD</span>
             <div className="chronicle-pile-mark" aria-hidden="true">
               G
             </div>
             <b>{foe.graveyard.length}</b>
-          </div>
+          </button>
           <div className="chronicle-pile-rail__spacer" />
-          <div className="chronicle-pile-zone">
+          <button
+            className="chronicle-pile-zone chronicle-pile-zone--open"
+            type="button"
+            aria-label={`Open your Graveyard, ${me.graveyard.length} ${me.graveyard.length === 1 ? "card" : "cards"}`}
+            onClick={() => setGraveyardView("me")}
+          >
             <span>YOUR GRAVEYARD</span>
             <div className="chronicle-pile-mark" aria-hidden="true">
               G
             </div>
             <b>{me.graveyard.length}</b>
-          </div>
+          </button>
           <div className="chronicle-pile-zone player">
             <span>YOUR DECK</span>
             <div className="chronicle-pile-card-back" aria-hidden="true" />
@@ -1402,29 +1417,70 @@ export function ChronicleDuelBoard({
         </div>
       ) : null}
 
-      {zoomedCard ? (
-        <div className="chronicle-card-inspector" role="presentation">
-          <section
-            className="chronicle-card-inspector__dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${zoomedCard.name} readable card details`}
-          >
-            <button
-              className="chronicle-card-inspector__close"
-              type="button"
-              autoFocus
-              onClick={() => setZoomedCardId(null)}
-            >
-              Close
-            </button>
-            <ChronicleCardView card={zoomedCard} />
-            <p className="chronicle-card-inspector__hint">
-              Full-size rules text · Press Escape to close
-            </p>
-          </section>
-        </div>
-      ) : null}
+      {graveyardView
+        ? (() => {
+            const pile =
+              graveyardView === "me" ? me.graveyard : foe.graveyard;
+            // Reviving from your own Graveyard is a real targeting step, so
+            // while a jutsu is asking for one the pile doubles as the picker.
+            const picking = graveyardView === "me" && myTurn && targetsGraveyard;
+            return (
+              <Modal
+                open
+                onClose={() => setGraveyardView(null)}
+                size="lg"
+                className="chronicle-graveyard-modal"
+                title={`${graveyardView === "me" ? "Your" : `${foe.name}'s`} Graveyard (${pile.length})`}
+              >
+                <p className="chronicle-graveyard-modal__hint">
+                  {picking
+                    ? "Choose a legal card to bring back."
+                    : "Every card sent here, in the order it fell. Select one to read it full size."}
+                </p>
+                {pile.length ? (
+                  <div className="chronicle-collection chronicle-graveyard-modal__grid">
+                    {pile.map((id, index) => {
+                      const card = cardsById[id] ?? getChronicleCard(id);
+                      const legal = picking && legalGraveyardTarget(id);
+                      return (
+                        <button
+                          className={`chronicle-card-inspect-trigger ${legal ? "legal-target" : ""}`}
+                          key={`${id}-${index}`}
+                          type="button"
+                          aria-label={
+                            legal
+                              ? `Choose ${card?.name ?? id}`
+                              : `Read ${card?.name ?? id}`
+                          }
+                          onClick={() => {
+                            if (legal) {
+                              setInspect(null);
+                              setGraveyardIndex(index);
+                              setGraveyardView(null);
+                              return;
+                            }
+                            setZoomedCardId(id);
+                          }}
+                        >
+                          <ChronicleCardView card={card} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="chronicle-graveyard-modal__empty">
+                    Nothing has been sent here yet.
+                  </p>
+                )}
+              </Modal>
+            );
+          })()
+        : null}
+
+      <ChronicleCardInspector
+        card={zoomedCard ?? null}
+        onClose={() => setZoomedCardId(null)}
+      />
     </section>
   );
 }
