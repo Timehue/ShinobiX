@@ -88,7 +88,20 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // ~7 KB heavier, so it should land near 6,787,000 B, leaving ~18 KB of spare
 // (24.7 KB locally). Startup gates untouched — the screen is lazy, so the
 // initial graph is unchanged at 1.31 MB raw / 344.3 KB gzip.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_805_000;
+// 2026-07-25: 6.81 -> 6.82 MB. Pet Coliseum clash + brawl pass: the CLASH read
+// prompt (PetDuelClashPrompt), the clash bind/resolution in the duel engine, the
+// category-coded move banner and the clash SFX/impact wiring. All of it is in the
+// LAZY coliseum chunk — the mode is lazily loaded, so none of it is on the
+// startup path. Local build measures 6,794,208 B on top of the battle-log
+// ceiling.
+//
+// Sized by the margin rule above, NOT by the local number: the previous ceiling
+// technically passed locally with 10.8 KB spare, but at CI's ~7 KB heavier that
+// is only ~3.8 KB — well inside the band that has already produced one local
+// green / CI red. This ceiling puts CI near 6,801,000 B with ~18.8 KB of spare
+// (25.8 KB locally). Startup gates untouched — initial graph 1.31 MB raw /
+// 344.2 KB gzip, entry under its gate.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_820_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

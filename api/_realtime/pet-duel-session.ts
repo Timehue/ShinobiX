@@ -43,11 +43,13 @@ export type DuelSide = 'p1' | 'p2';
 export type DuelSessionStatus = 'pending' | 'running' | 'finished' | 'abandoned';
 
 export interface DuelCommandLike {
-    kind: 'ability' | 'break' | 'stance' | 'auto';
+    kind: 'ability' | 'break' | 'stance' | 'auto' | 'clash';
     actorId: string;
     idx?: number;
     stance?: number;
     on?: boolean;
+    /** Clash read: 0 strike | 1 guard | 2 dodge. */
+    pick?: number;
 }
 
 export interface DuelSessionInput {
@@ -159,7 +161,16 @@ export function acceptInput(
     const side = sideOf(s, name);
     if (!side) return { ok: false, reason: 'not-a-player' };
     if (!cmd || typeof cmd !== 'object') return { ok: false, reason: 'bad-command' };
-    if (cmd.kind !== 'ability' && cmd.kind !== 'break' && cmd.kind !== 'stance' && cmd.kind !== 'auto') {
+    if (cmd.kind !== 'ability' && cmd.kind !== 'break' && cmd.kind !== 'stance'
+        && cmd.kind !== 'auto' && cmd.kind !== 'clash') {
+        return { ok: false, reason: 'bad-command' };
+    }
+    // A clash read is one of exactly three calls. Everything else about the bind —
+    // that one is open, that this fighter is in it, that they have not already
+    // called — is enforced by the engine on BOTH clients identically, so it does
+    // not need re-checking here; a malformed pick, however, would be relayed to the
+    // peer and refused there, silently costing that player their read.
+    if (cmd.kind === 'clash' && cmd.pick !== 0 && cmd.pick !== 1 && cmd.pick !== 2) {
         return { ok: false, reason: 'bad-command' };
     }
     if (typeof cmd.actorId !== 'string' || !sideOwnsActor(side, cmd.actorId)) return { ok: false, reason: 'not-your-pet' };

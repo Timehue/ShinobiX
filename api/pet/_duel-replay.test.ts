@@ -63,6 +63,21 @@ test('parseDuelInputLog accepts a well-formed log and normalises it', () => {
     assert.deepEqual(parsed[0].cmd, { kind: 'ability', actorId: 'player-0', idx: 2 });
 });
 
+test('parseDuelInputLog accepts a clash read, and rejects an invented one', () => {
+    // A clash call rides the SAME input log as every other order. Before this case
+    // existed the parser hit its `default: return null` and threw away the entire
+    // log — so one clash silently cost the player the whole fight's reward.
+    const ok = parseDuelInputLog([
+        { t: 40, cmd: { kind: 'clash', actorId: 'player-0', pick: 1 } },
+    ]);
+    assert.ok(ok);
+    assert.deepEqual(ok[0].cmd, { kind: 'clash', actorId: 'player-0', pick: 1 });
+    for (const pick of [3, -1, 1.5, 'guard', null, undefined]) {
+        assert.equal(parseDuelInputLog([{ t: 40, cmd: { kind: 'clash', actorId: 'player-0', pick } }]), null,
+            `pick ${String(pick)} is not a real clash read`);
+    }
+});
+
 test('parseDuelInputLog treats a missing log as empty, not as an error', () => {
     // A watch-only duel and every pre-replay client post no log at all. Those must
     // still settle, on the sealed baseline.

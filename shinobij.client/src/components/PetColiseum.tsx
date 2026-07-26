@@ -57,9 +57,11 @@ import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
+import { commandedActorId } from "../lib/pet-duel-live";
 import type { LiveDuel, DuelCommand } from "../lib/pet-duel-live";
 import { bondCharge } from "../lib/pet-bond-meter";
 import { PetDuelCommandDeck } from "./PetDuelCommandDeck";
+import { PetDuelClashPrompt } from "./PetDuelClashPrompt";
 import { PARTY_SPOTLIGHT_COOLDOWN_SECONDS, appendCapped, boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove, selectDuelSpotlightEvent } from "../lib/pet-duel-presentation";
 import { petVisualQuality, type PetVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
@@ -1105,6 +1107,26 @@ const duelCmdKick = { shake: 0, zoom: 0 };
 // so determinism / ranked / the server replay are untouched. Set by issueCommand,
 // consumed + cleared by DuelDirector. `fromTick` bounds it so it can never run away.
 const duelCmdRush = { active: false, fromTick: 0 };
+
+/** Request a one-off camera jolt from OUTSIDE the frame loop — a player tap.
+ *
+ *  Wrapped in a function rather than assigned at the call sites. The three objects
+ *  above are module state, and writing to module state from inside a component body
+ *  is precisely what the immutability rule exists to catch; routing every write
+ *  through here keeps the one legitimate escape hatch in a single place, next to the
+ *  explanation of why it is safe. Each field is a MAX so two commands in the same
+ *  frame take the louder jolt rather than the later one. */
+function requestDuelCommandJolt(shake: number, zoom: number, fov: number) {
+    duelCmdKick.shake = Math.max(duelCmdKick.shake, shake);
+    duelCmdKick.zoom = Math.max(duelCmdKick.zoom, zoom);
+    duelFovKick.current = Math.max(duelFovKick.current, fov);
+}
+/** Fast-forward playback through the post-command staring gap (see duelCmdRush). */
+function requestDuelCommandRush(fromTick: number) {
+    duelCmdRush.active = true;
+    duelCmdRush.fromTick = fromTick;
+}
+
 function ResponsiveCamera() {
     const { camera, size } = useThree();
     useFrame(() => {
@@ -1761,6 +1783,17 @@ const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of 
 const DUEL_3D_BODY_GAP = 5.45;   // neutral guard range: enough runway for a readable approach, evade, or cast
 const DUEL_3D_CONTACT_GAP = 2.55; // committed hits enter a tight pocket; the elemental contact reaches the defender
 const DUEL_3D_READABLE_X_GAP = 2.65; // stop depth-aligned pets collapsing into one camera silhouette
+const DUEL_3D_CONTACT_X_GAP = 1.3;   // …but a committed blow is SUPPOSED to overlap silhouettes; hold only enough lane to read two bodies
+// States in which a fighter has COMMITTED to (or is absorbing) a blow. While either
+// side of a pair is in one, the neutral body gap eases down to the contact pocket —
+// see the contact-pocket note in DuelStandee's frame loop.
+const DUEL_COMMITTED_STATES: ReadonlySet<DuelState> = new Set<DuelState>(["dash", "windup", "strike", "stagger"]);
+/** How fast the pair closes into / releases out of the contact pocket (per second). */
+const DUEL_CONTACT_EASE_RATE = 9;
+/** Real seconds a player gets to call a CLASH before their pet answers on instinct.
+ *  Independent of the sim's own bind window: playback is frozen while the prompt is
+ *  up, so this is a human-comfort budget, not a simulation deadline. */
+const CLASH_ANSWER_SECONDS = 3.5;
 // ── Opening choreography (render-only) — a still ranged face-off and restrained
 // power gather. Movement begins only when the combat simulation starts.
 const INTRO_SPLASH_END = 1.05;   // s — establish the matchup without delaying the first exchange
@@ -1839,6 +1872,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
     const choKind = useRef<PetVisualState>("idle");
     const choStart = useRef(0);
     const prevSimState = useRef<DuelState>("idle");
+    const contactEase = useRef(0);   // 0 = neutral guard spacing, 1 = committed contact pocket
     const strikeStart = useRef(-999);
     const buffPoseStart = useRef(-999);
     const buffWasActive = useRef(false);
@@ -1917,6 +1951,29 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         // floor path and true facing. Presentation only — never fed back to the sim.
         const myEnemy = id.startsWith("enemy");
         const actors = snaps[i0].actors;
+
+        // ── CONTACT POCKET ──────────────────────────────────────────────────────
+        // The neutral body gap is a READABILITY device for two big silhouettes
+        // circling each other — it is not a collision volume. Enforcing it through a
+        // committed attack was the reason a landed melee blow was drawn swinging at
+        // empty air: the simulation had the pets at contact range (~2 units) and this
+        // pass shoved them back out to 5.45 every frame, so the strike animation
+        // played with the target well outside reach. While either side of the pair is
+        // committed — mid-pounce, winding up, striking, or absorbing a hit — the floor
+        // eases down to a true contact pocket so blows land ON the opponent.
+        //
+        // Eased rather than switched: a hard floor change pops the pair sideways by
+        // ~1.5 units in one frame, which reads as a teleport. The ease-in doubles as
+        // the closing motion of the attack.
+        const committedPair = DUEL_COMMITTED_STATES.has(a0.state)
+            || actors.some((o) => o.id !== id && o.state !== "dead"
+                && o.id.startsWith("enemy") !== myEnemy && DUEL_COMMITTED_STATES.has(o.state));
+        contactEase.current += ((committedPair ? 1 : 0) - contactEase.current)
+            * Math.min(1, delta * DUEL_CONTACT_EASE_RATE);
+        const ce = contactEase.current;
+        const bodyGap = DUEL_3D_BODY_GAP + (DUEL_3D_CONTACT_GAP - DUEL_3D_BODY_GAP) * ce;
+        const readableXGap = DUEL_3D_READABLE_X_GAP + (DUEL_3D_CONTACT_X_GAP - DUEL_3D_READABLE_X_GAP) * ce;
+
         let foeWX: number | null = null;   // nearest opposing fighter's world-x → legacy standee lunge target
         let foeDistance: number | null = null; // true floor distance → 3D free-roam lunge target
         let faceTargetWX: number | null = null;
@@ -1951,21 +2008,21 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                 // Preserve a modest lateral lane as well as radial spacing. Pets can
                 // be far apart in depth yet still collapse into one camera silhouette.
                 const xGap = wx - of.wx;
-                if (freeRoam3d && Math.abs(xGap) < DUEL_3D_READABLE_X_GAP) {
+                if (freeRoam3d && Math.abs(xGap) < readableXGap) {
                     const laneDir = Math.abs(xGap) > 0.15 ? Math.sign(xGap) : (myEnemy ? 1 : -1);
-                    wx += laneDir * (DUEL_3D_READABLE_X_GAP - Math.abs(xGap)) * 0.5;
+                    wx += laneDir * (readableXGap - Math.abs(xGap)) * 0.5;
                 }
                 let distance = Math.hypot(of.wx - wx, of.wz - wz);
-                if (freeRoam3d && distance < DUEL_3D_BODY_GAP) {
+                if (freeRoam3d && distance < bodyGap) {
                     // Resolve presentation-space body overlap along the actual 3D line
                     // between the pets. Both standees apply half the correction, so they
                     // remain centred on the simulation contact while their meshes stay apart.
                     const gx = wx - of.wx, gz = wz - of.wz;
                     const ux = distance > 1e-4 ? gx / distance : (myEnemy ? 1 : -1);
                     const uz = distance > 1e-4 ? gz / distance : 0;
-                    wx += ux * (DUEL_3D_BODY_GAP - distance) * 0.5;
-                    wz += uz * (DUEL_3D_BODY_GAP - distance) * 0.5;
-                    distance = DUEL_3D_BODY_GAP;
+                    wx += ux * (bodyGap - distance) * 0.5;
+                    wz += uz * (bodyGap - distance) * 0.5;
+                    distance = bodyGap;
                 }
                 if (foeDistance === null || distance < foeDistance) {
                     foeDistance = distance;
@@ -2910,6 +2967,19 @@ function DuelProjectile({ index, duel, clock, quality, native = false }: { index
 type DuelSetPieceKind = "flameBurst" | "abyssBurst" | "tidalWave" | "tornado" | "lightningStorm" | "earthBurst" | "lunarBurst" | "elemental";
 type DuelElementBurstKind = "fire" | "water" | "wind" | "lightning" | "earth" | "abyss" | "arcane";
 type DuelMoveCalloutTone = "attack" | "support" | "maneuver" | "combo";
+/** The move banner's visual grammar, keyed by what the move DOES.
+ *
+ *  This used to be keyed by side — blue for your pet, red for theirs — which meant a
+ *  heal, a shield, a sidestep and a fireball were the same banner with different
+ *  words. Owner feedback was exactly that: "you can't tell what is a buff or an
+ *  attack". Colour and glyph now carry the category, so one glance classifies the
+ *  beat; the actor's name carries the side. */
+const MOVE_CALLOUT_STYLE: Record<DuelMoveCalloutTone, { color: string; text: string; glyph: string; label: string }> = {
+    attack: { color: "#fbbf24", text: "#fef3c7", glyph: "⚔", label: "" },
+    support: { color: "#34d399", text: "#d1fae5", glyph: "▲", label: "POWER UP ·" },
+    maneuver: { color: "#a78bfa", text: "#ede9fe", glyph: "↷", label: "SHIFT ·" },
+    combo: { color: "#f472b6", text: "#fce7f3", glyph: "✦", label: "COMBO ·" },
+};
 type DuelImpactMode = "impact" | "tell" | "dodge";
 type DuelSupportKind = "heal" | "shield";
 type DuelAttackWeight = "basic" | "ability" | "heavy";
@@ -3143,7 +3213,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
-    onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone) => void;
+    onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone, who?: string) => void;
 }) {
     const { camera, size } = useThree();
     // The QA harness can open a replay at an arbitrary tick. Treat that tick as
@@ -3502,7 +3572,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                             // set-piece), so the hit/crit lands on the same beat as the
                             // shake + flash. The whole SFX bank already existed; the 3D
                             // duel simply never called it.
-                            playPetSfx(e.crit ? "crit" : "hit");
+                            // A Clash Break is the payoff for winning the read, so it
+                            // always lands with the heavy cue even when the roll was not
+                            // a crit — it is the loudest thing a player earns in the mode.
+                            playPetSfx(e.crit || e.move === "Clash Break" ? "crit" : "hit");
                             spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                             if (!spotlight) return;
                             const floor = playerHit ? 1 : 0;   // 0/1 gate for the player-agency floor
@@ -3594,7 +3667,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
                         if (spotlight && e.move && !isSig && now - lastMoveCall.current > 0.4) {
-                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
+                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack", nameById[e.actorId]);
                         }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         if (spotlight) {
@@ -3604,7 +3677,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         }
                         if (spotlight && e.combo && now - lastElementChain.current > 2.2) {
                             lastElementChain.current = now;
-                            onMoveCallout(e.combo, e.actorId.startsWith("enemy") ? "enemy" : "player", "combo");
+                            onMoveCallout(e.combo, e.actorId.startsWith("enemy") ? "enemy" : "player", "combo", nameById[e.actorId]);
                             onFlash(col, 0.22);
                         }
                         if (spotlight && e.crit) onCallout("CRITICAL!");
@@ -3734,13 +3807,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     }
                     if (spotlight && namedOpener?.move && now - lastMoveCall.current > 0.35) {
                         lastMoveCall.current = now;
-                        onMoveCallout(namedOpener.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
+                        onMoveCallout(namedOpener.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack", nameById[e.actorId]);
                     }
                     // The motion and empty contact lane should sell the evade.
                     // Keep the text as a restrained tactical caption instead of a
                     // full-screen verdict that hides the actual body performance.
                     if (spotlight) {
-                        onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver");
+                        onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver", target ? nameById[target.id] : undefined);
                         savor(0.9, 0.06);
                     }
                 } else if (e.type === "dodge" && e.actorId) {
@@ -3812,7 +3885,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     }
                     if (spotlight && now - lastMoveCall.current > 0.4) {
                         lastMoveCall.current = now;
-                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "maneuver");
+                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "maneuver", nameById[e.actorId]);
                     }
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
                     // The UNLEASH at the caster. A status cast wears its themed muzzle glow
@@ -3898,7 +3971,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         } else {
                             // A lesser named ability — the smaller banner + a short savor beat.
                             lastMoveCall.current = now;
-                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", supportCast ? "support" : "attack");
+                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", supportCast ? "support" : "attack", nameById[e.actorId]);
                             savor(supportCast ? 1.08 : 1.02, 0.035);
                         }
                     }
@@ -3949,6 +4022,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     // A recoil puff where a fighter got knocked out of its wind-up.
                     const c = findActor(snapAt, e.actorId);
                     if (c) {
+                        // THE BIND / THE DEFLECT. These are the loudest beats in the mode
+                        // and they were shipping silent — the SFX bank and the impact
+                        // system were both already here, the clash simply never called
+                        // them. Only the FIRST of the paired staggers sounds, or the
+                        // collision double-fires a frame apart and flams.
+                        const isBind = e.move === "Clash Bind";
+                        const isDeflect = e.move === "Clash";
+                        if ((isBind || isDeflect) && e.actorId < String(e.targetId ?? "")) {
+                            playPetSfx("crit");
+                            spawnShock({ x: c.x, z: c.y, color: "#ffffff", big: isBind });
+                            shake.current = Math.max(shake.current, isBind ? 1.5 : 1.1);
+                            hitStop.current = Math.max(hitStop.current, isBind ? 0.2 : 0.12);
+                        }
                         spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
                         const reaction = duelFieldToFloor(c.x, c.y);
                         // Let the white contact frame land, then reveal the knockback
@@ -6926,6 +7012,12 @@ export type PetColiseumDuelProps = {
  *  duels never stall, so the absence of the field reads as "not waiting". */
 const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).stalled === true;
 
+/** True for a LOCKSTEP (two-human) duel. Only a lockstep session carries a
+ *  watermark, so its presence is the honest structural test — the controlled ids
+ *  cannot tell the two apart, since a p1 client commands "player-0" either way. */
+const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
+    !!d && typeof (d as { safeTick?: number }).safeTick === "number";
+
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
@@ -7021,7 +7113,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
-    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone } | null>(null);  // tiered move ID
+    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone; who?: string } | null>(null);  // tiered move ID
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     useEffect(() => {
         if (!cutIn) return;
@@ -7168,6 +7260,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             move: n.move,
             style: n.style ?? "generic",
             impact: n.impact,
+            // eslint-disable-next-line react-hooks/purity -- spawnDash is only ever called from DuelDirector's useFrame (it is passed down as a prop), never during render; the wall-clock stamp is what DuelDashArc eases the authored lane against
             createdAt: performance.now(),
             duration,
             travelDuration,
@@ -7229,7 +7322,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
     const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
-    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack") => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 900 : 780); };
+    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack", who?: string) => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone, who }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 900 : 780); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string, move: string, opts?: { variant?: "command"; hold?: number }) => {
@@ -7237,9 +7330,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const id = seqRef.current++;
         setCutInQueue((queue) => appendCapped(queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move"), variant: opts?.variant, hold: opts?.hold }, partyDuel ? 2 : 1));
     };
+    // Set during render; read from the frame loop. A ref rather than the state value
+    // because advanceClock is declared above the clash block and is only ever called
+    // from DuelDirector's useFrame.
+    const clashHold = useRef(false);
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the still size-up / power-gather clock.
         if (!clock.current.playing || cutIn) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
+        // A CLASH stops playback outright while the player owns the read. Same proven
+        // mechanism as the hero cut-in: only the presentation clock is held, the
+        // simulation and its buffer are untouched, so determinism and the server
+        // replay are unaffected. It releases the moment a call is made or the
+        // real-time window lapses.
+        if (clashHold.current) return;
         clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
     // ── Command deck plumbing ────────────────────────────────────────────────
@@ -7267,11 +7370,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             // zoom). Render-only; the actual damage still resolves server/sim-side later.
             setFlash({ id: echoId, color: accent.glow, intensity: 0.5 });
             triggerMoveCallout(moveLabel, "player", "attack");
-            duelCmdKick.shake = Math.max(duelCmdKick.shake, 0.7);
-            duelCmdKick.zoom = Math.max(duelCmdKick.zoom, 1.2);
-            duelFovKick.current = Math.max(duelFovKick.current, 1.6);
+            requestDuelCommandJolt(0.7, 1.2, 1.6);
             // Fast-forward the dead standoff so the ordered move reaches the screen fast.
-            duelCmdRush.active = true; duelCmdRush.fromTick = tick;
+            requestDuelCommandRush(tick);
             // A chosen NAMED move that is ACTUALLY going to fire (not a basic poke, not a
             // move on cooldown / low stamina that will only be HELD) escalates to the full
             // anime freeze-frame cut-in — the same staging the sim uses for signatures — so
@@ -7280,21 +7381,26 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             if (cmd.idx >= 0) {
                 const ab = deckControl?.abilities[cmd.idx];
                 const readyToFire = !!ab && ab.cdLeft <= 0 && (deckControl?.stamina ?? 0) >= ab.cost;
-                if (readyToFire) triggerCutIn("player-0", moveLabel, { variant: "command", hold: 760 });
+                if (readyToFire) triggerCutIn(meId, moveLabel, { variant: "command", hold: 760 });
             }
         } else if (cmd.kind === "break") {
             setCommandEcho({ id: echoId, label: "Bond Break", tone: "signature" });
             setFlash({ id: echoId, color: "#fbbf24", intensity: 0.5 });
             // The signature call gets the hardest jolt of any command.
             triggerMoveCallout("Bond Break", "player", "attack");
-            duelCmdKick.shake = Math.max(duelCmdKick.shake, 1.1);
-            duelCmdKick.zoom = Math.max(duelCmdKick.zoom, 1.8);
-            duelFovKick.current = Math.max(duelFovKick.current, 2.4);
-            duelCmdRush.active = true; duelCmdRush.fromTick = tick;
+            requestDuelCommandJolt(1.1, 1.8, 2.4);
+            requestDuelCommandRush(tick);
         } else if (cmd.kind === "stance") {
             setCommandEcho({ id: echoId, label: `${["Press", "Balance", "Guard"][cmd.stance] ?? "Balance"} stance`, tone: "plan" });
         } else if (cmd.kind === "auto") {
             setCommandEcho({ id: echoId, label: cmd.on ? "Auto — pet decides" : "You have the reins", tone: "plan" });
+        } else if (cmd.kind === "clash") {
+            // The bind breaks the instant you call it — name the read and hit the
+            // camera, because this is the highest-stakes tap in the fight.
+            const label = ["Strike", "Guard", "Dodge"][cmd.pick] ?? "Strike";
+            setCommandEcho({ id: echoId, label: `${label}!`, tone: "signature" });
+            setFlash({ id: echoId, color: accent.glow, intensity: 0.62 });
+            requestDuelCommandJolt(1.3, 2, 2.6);
         }
         // Optimistic echo: the control log is a record of what was TRUE at each
         // played tick, so it cannot show an order issued for the tick after this
@@ -7308,7 +7414,56 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             breakPending: cmd.kind === "break" ? true : cmd.kind === "auto" && cmd.on ? false : prev.atTick === tick ? prev.breakPending : null,
         }));
     };
-    const loggedControl = live ? live.controlAt(deckTick, "player-0") : null;
+    // WHICH pet this client commands — see commandedActorId for why this is not
+    // the constant "player-0" it used to be. Derived in pet-duel-live.ts so the
+    // contract it rests on is pinned by tests rather than by this component.
+    const meId = commandedActorId(live);
+    const versusPlayer = isVersusPlayer(live);
+    const loggedControl = live ? live.controlAt(deckTick, meId) : null;
+    // ── CLASH ────────────────────────────────────────────────────────────────
+    // Read at the PLAYED tick. The sim is a look-ahead ahead, so the bind on screen
+    // has already been settled in the buffer with the pet's instinctive read; a call
+    // rewinds past it and re-simulates (see LiveDuel.clashAt). `clashAnswered` keeps
+    // the overlay up for a beat after the tap so the choice is seen to register, and
+    // `clashOpenedAt` bounds the freeze in REAL time — a player who never answers
+    // must not stall the fight forever.
+    const clash = live ? live.clashAt(deckTick, meId) : null;
+    const clashKey = clash ? `${clash.startT}` : null;
+    const [clashAnswered, setClashAnswered] = useState<{ key: string; pick: number } | null>(null);
+    // One interval owns the whole countdown: it stamps the bind it belongs to along
+    // with the start and current times, so nothing has to be written synchronously
+    // during render or from an effect body. A reading left over from a previous bind
+    // is ignored by the key check, and the first tick lands 60 ms in — so the bar
+    // starts full the moment the prompt appears.
+    const [clashTimer, setClashTimer] = useState<{ key: string; started: number; now: number } | null>(null);
+    useEffect(() => {
+        if (!clashKey) return;
+        const started = performance.now();
+        const timer = window.setInterval(() => setClashTimer({ key: clashKey, started, now: performance.now() }), 60);
+        return () => window.clearInterval(timer);
+    }, [clashKey]);
+    const clashPick = clashAnswered?.key === clashKey ? clashAnswered.pick : (clash?.pick ?? -1);
+    const clashElapsed = clashTimer && clashTimer.key === clashKey ? (clashTimer.now - clashTimer.started) / 1000 : 0;
+    // The prompt STAYS UP for as long as the bind is open, even after this player
+    // has called it. That matters in live PvP, where your call is scheduled a few
+    // ticks out and the bind does not break until your opponent has answered too —
+    // so the overlay becomes the "waiting on them" state rather than vanishing and
+    // leaving the fight looking hung.
+    const clashVisible = !!clash && !ended;
+    // …but the FREEZE only lasts while the read is still yours to make. Once you
+    // have called it, playback must resume: in PvP the simulation has to reach the
+    // tick your call was scheduled for before the bind can resolve at all, and a
+    // client that stayed frozen would deadlock the watermark against its peer.
+    // The real-time lapse is the other half of that guarantee — a player who never
+    // answers must not hold their opponent hostage.
+    const clashOpen = clashVisible && clashPick < 0 && clashElapsed < CLASH_ANSWER_SECONDS;
+    const clashRemaining = 1 - Math.min(1, clashElapsed / CLASH_ANSWER_SECONDS);
+    const answerClash = (pick: number) => {
+        if (!live || !clash || !clashKey || clashPick >= 0) return;
+        setClashAnswered({ key: clashKey, pick });
+        issueCommand({ kind: "clash", actorId: meId, pick });
+    };
+    useEffect(() => { clashHold.current = clashOpen; }, [clashOpen]);
     // Trust the optimistic echo only until playback passes the tick it was issued
     // on; from there the re-simulated log is authoritative again.
     const echo = pendingIntent.atTick >= deckTick ? pendingIntent : null;
@@ -7332,7 +7487,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     } : loggedControl;
     // The meter is folded from the VISIBLE events, so it fills in step with the
     // hits the player is watching rather than with the buffered ones.
-    const bond = live ? bondCharge(duel.events, "player-0", deckTick, bondSpentAt) : 0;
+    const bond = live ? bondCharge(duel.events, meId, deckTick, bondSpentAt) : 0;
     const finishDuel = () => {
         // A live duel owns its own outcome: the mounting screen has not seen a
         // result yet, so hand it over here for reward posting. Guarded because
@@ -7563,7 +7718,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
             {moveCallout && !cutIn && !callout && (() => {
                 const tactical = moveCallout.tone === "support" || moveCallout.tone === "maneuver";
-                const sideColor = moveCallout.side === "player" ? "#60a5fa" : "#f87171";
+                // CATEGORY drives the colour and the glyph; SIDE is a secondary cue.
+                // It used to be the other way round — every banner was simply blue for
+                // you and red for them — so a heal, a buff, a dodge and a fireball were
+                // the same object with different words, and the fight read as noise.
+                // Now a green ▲ is always something getting stronger and an amber ⚔ is
+                // always damage, whoever threw it.
+                const cat = MOVE_CALLOUT_STYLE[moveCallout.tone];
+                const sideColor = cat.color;
                 return <div key={`move-${moveCallout.id}`} style={{
                     position: "absolute",
                     left: "50%",
@@ -7576,16 +7738,25 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     padding: "4px 13px",
                     borderRadius: 999,
                     border: `1px solid ${sideColor}`,
-                    background: "rgba(8,11,22,0.78)",
-                    boxShadow: `0 5px 18px rgba(0,0,0,0.42), 0 0 14px ${sideColor}22`,
-                    color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2",
+                    background: `linear-gradient(180deg, ${sideColor}22, rgba(8,11,22,0.86))`,
+                    boxShadow: `0 5px 18px rgba(0,0,0,0.42), 0 0 16px ${sideColor}44`,
+                    color: cat.text,
                     font: tactical ? "800 clamp(12px,1.6vw,18px)/1 var(--font-display)" : "900 clamp(13px,2vw,21px)/1 var(--font-display)",
                     letterSpacing: tactical ? "0.08em" : "0.04em",
                     textShadow: "0 2px 10px #000",
                     whiteSpace: mobileQa ? "normal" : "nowrap",
                     animation: tactical ? "petDuelTacticalMove 1000ms ease-out forwards" : "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards",
                     zIndex: 12,
-                }}>{moveCallout.tone === "support" ? "POWER UP · " : moveCallout.tone === "maneuver" ? "SHIFT · " : ""}{moveCallout.text}</div>;
+                }}>
+                    <span aria-hidden style={{ marginRight: 6, opacity: 0.95 }}>{cat.glyph}</span>
+                    {/* Who threw it. "Cinder used X" is the difference between a fight
+                        you can follow and two pets flashing at each other. */}
+                    {moveCallout.who && (
+                        <span style={{ opacity: 0.66, fontWeight: 700, letterSpacing: "0.04em" }}>{moveCallout.who} · </span>
+                    )}
+                    <span style={{ opacity: 0.6, fontWeight: 700 }}>{cat.label} </span>
+                    {moveCallout.text}
+                </div>;
             })()}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
@@ -7656,12 +7827,29 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     accent={elementColor(playerPet.element)}
                     keyboard={!mobileQa && canHover}
                     compact={mobileQa}
-                    onAbility={(idx) => issueCommand({ kind: "ability", actorId: "player-0", idx }, idx === -1 ? "Strike" : deckControl?.abilities[idx]?.name)}
-                    onBreak={() => { setBondSpentAt(Math.max(0, Math.floor(clock.current.t))); issueCommand({ kind: "break", actorId: "player-0" }); }}
+                    onAbility={(idx) => issueCommand({ kind: "ability", actorId: meId, idx }, idx === -1 ? "Strike" : deckControl?.abilities[idx]?.name)}
+                    onBreak={() => { setBondSpentAt(Math.max(0, Math.floor(clock.current.t))); issueCommand({ kind: "break", actorId: meId }); }}
                     /* Stance and Auto are team-wide: in a 2v2 the deck drives the
                        lead, but a plan the player sets should govern both pets. */
                     onStance={(stance) => live.controlledIds.forEach((id) => issueCommand({ kind: "stance", actorId: id, stance }))}
                     onAuto={(on) => live.controlledIds.forEach((id) => issueCommand({ kind: "auto", actorId: id, on }))}
+                />
+            )}
+
+            {/* CLASH — the fight is frozen and waiting on this call. Rendered above the
+                deck so the read is the only thing on screen that can be answered. */}
+            {clashVisible && clash && (
+                <PetDuelClashPrompt
+                    selfName={roster.find((r) => r.id === clash.selfId)?.pet.name ?? playerPet.name}
+                    foeName={roster.find((r) => r.id === clash.foeId)?.pet.name ?? enemyPet.name}
+                    pick={clashPick}
+                    remaining={clashRemaining}
+                    foeCommitted={clash.foeCommitted}
+                    versusPlayer={versusPlayer}
+                    compact={mobileQa}
+                    keyboard={!mobileQa && canHover}
+                    accent={elementColor(roster.find((r) => r.id === clash.selfId)?.pet.element ?? playerPet.element)}
+                    onPick={answerClash}
                 />
             )}
 
