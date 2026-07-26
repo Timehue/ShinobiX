@@ -13,7 +13,6 @@ import {
   buildChronicleDeck,
   canAddChronicleCard,
   chronicleAiAction,
-  deckLimitForCard,
   displayCardsById,
   getChronicleCard,
   ownedChronicleCounts,
@@ -28,6 +27,7 @@ import { getAllTileCards } from "../data/tile-cards";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleCardView } from "../components/ChronicleCardView";
+import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
 
@@ -469,14 +469,6 @@ function Collection({
   const [monsterTier, setMonsterTier] = useState("all");
   const [element, setElement] = useState("all");
   const [inspected, setInspected] = useState<ChronicleDisplayCard | null>(null);
-  useEffect(() => {
-    if (!inspected) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setInspected(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [inspected]);
   const shown = cards.filter(
     (card) =>
       (cardClass === "all" || card.cardClass === cardClass) &&
@@ -566,26 +558,10 @@ function Collection({
           </button>
         ))}
       </div>
-      {inspected ? (
-        <div className="chronicle-card-inspector" role="presentation">
-          <section
-            className="chronicle-card-inspector__dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${inspected.name} card details`}
-          >
-            <button
-              className="chronicle-card-inspector__close"
-              type="button"
-              autoFocus
-              onClick={() => setInspected(null)}
-            >
-              Close
-            </button>
-            <ChronicleCardView card={inspected} />
-          </section>
-        </div>
-      ) : null}
+      <ChronicleCardInspector
+        card={inspected}
+        onClose={() => setInspected(null)}
+      />
     </section>
   );
 }
@@ -627,35 +603,51 @@ function DeckBuilder({
     trap: deck.filter((id) => getChronicleCard(id)?.cardClass === "trap")
       .length,
   };
+  const [inspected, setInspected] = useState<ChronicleDisplayCard | null>(null);
+  const addCard = (id: string) => {
+    if (!canAddChronicleCard(deck, id, owned)) setDeck([...deck, id]);
+  };
   return (
     <section className="chronicle-panel chronicle-deck">
       <div>
         <div className="chronicle-toolbar">
           <strong>Your cards</strong>
           <span>
-            Select up to {MAX_COPIES_PER_CARD} copies; iconic advanced cards
-            show their lower limit on the frame.
+            Tap a card to read it full size, or the + to add a copy. Up to{" "}
+            {MAX_COPIES_PER_CARD} copies; iconic advanced cards show their lower
+            limit on the frame.
           </span>
         </div>
         <div className="chronicle-collection">
-          {cards.map((card) => (
-            <ChronicleCardView
-              key={card.id}
-              card={card}
-              compact
-              disabled={
-                deck.filter((id) => id === card.id).length >=
-                  Math.min(
-                    deckLimitForCard(card.id),
-                    owned.get(card.id) ?? 0,
-                  ) || deck.length >= MAIN_DECK_SIZE
-              }
-              onClick={() => {
-                const error = canAddChronicleCard(deck, card.id, owned);
-                if (!error) setDeck([...deck, card.id]);
-              }}
-            />
-          ))}
+          {cards.map((card) => {
+            const inDeck = deck.filter((id) => id === card.id).length;
+            const blocked = canAddChronicleCard(deck, card.id, owned);
+            return (
+              <div className="chronicle-deck-slot" key={card.id}>
+                <button
+                  className="chronicle-card-inspect-trigger"
+                  type="button"
+                  aria-label={`Read ${card.name}`}
+                  onClick={() => setInspected(card)}
+                >
+                  <ChronicleCardView card={card} compact />
+                </button>
+                {inDeck > 0 ? (
+                  <span className="chronicle-deck-slot__count">×{inDeck}</span>
+                ) : null}
+                <button
+                  className="chronicle-deck-slot__add"
+                  type="button"
+                  aria-label={`Add ${card.name} to your deck`}
+                  title={blocked ?? "Add to deck"}
+                  disabled={Boolean(blocked)}
+                  onClick={() => addCard(card.id)}
+                >
+                  +
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
       <aside className="chronicle-deck__list">
@@ -689,6 +681,30 @@ function DeckBuilder({
         <button onClick={onMigrate}>Restore Migrated Deck</button>
         <button onClick={() => setDeck([])}>Clear</button>
       </aside>
+      <ChronicleCardInspector
+        card={inspected}
+        onClose={() => setInspected(null)}
+        meta={
+          inspected
+            ? `In deck ×${deck.filter((id) => id === inspected.id).length} · owned ×${owned.get(inspected.id) ?? 0}`
+            : undefined
+        }
+        actions={
+          inspected ? (
+            <button
+              className="primary"
+              type="button"
+              disabled={Boolean(canAddChronicleCard(deck, inspected.id, owned))}
+              title={
+                canAddChronicleCard(deck, inspected.id, owned) ?? "Add to deck"
+              }
+              onClick={() => addCard(inspected.id)}
+            >
+              Add to Deck
+            </button>
+          ) : null
+        }
+      />
     </section>
   );
 }
