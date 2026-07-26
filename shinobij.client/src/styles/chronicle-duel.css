@@ -1964,6 +1964,8 @@ button.chronicle-card {
   width: clamp(72px, 8vw, 112px);
 }
 .chronicle-card-inspect-trigger {
+  /* `relative` anchors the owned-copies badge to the card. */
+  position: relative;
   display: grid;
   justify-self: center;
   border: 0;
@@ -1971,6 +1973,35 @@ button.chronicle-card {
   padding: 0;
   color: inherit;
   cursor: zoom-in;
+}
+
+/* How many copies you OWN. The card's own foot prints the deck-building limit
+   ("MAX 3"), which reads like inventory but isn't — without this the collection
+   shows a wall of cards with no indication of what you actually hold. */
+.chronicle-owned-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  min-width: 26px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--chronicle-frame) 60%, #0b1118);
+  border-radius: 999px;
+  background: rgba(6, 12, 20, 0.92);
+  color: #f4e6c4;
+  font: 800 11px/1 Inter, sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+
+/* Progress through the set, so the header states plainly that this is YOUR
+   shelf rather than the catalog. */
+.chronicle-collection-progress {
+  color: #9aa3b2;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 .chronicle-card-inspect-trigger:hover .chronicle-card,
 .chronicle-card-inspect-trigger:focus-visible .chronicle-card {

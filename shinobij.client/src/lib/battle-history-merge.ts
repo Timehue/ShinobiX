@@ -20,11 +20,22 @@ export type MergedBattleRow =
 /**
  * The battleId a legacy save row refers to, if any. Older PvE entries have only
  * a local `id`, which is NOT a battleId and must not be matched against one.
+ *
+ * PvP rows carry theirs in the id itself: PvpBattleScreen records them as
+ * `pvp-<battleId>` (there is no `battleId` field on BattleHistoryEntry). Reading
+ * that prefix is what makes the dedupe actually fire — without it EVERY finished
+ * PvP fight renders twice, once from the durable server index and once from the
+ * save copy. Deriving it also fixes records ALREADY sitting in players' saves,
+ * which adding a new field could not.
  */
 export function legacyBattleId(entry: BattleHistoryEntry): string | null {
     const record = entry as unknown as Record<string, unknown>;
-    const candidate = record.battleId;
-    return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
+    // Prefer an explicit field if a future producer starts writing one.
+    const explicit = record.battleId;
+    if (typeof explicit === "string" && explicit.trim()) return explicit.trim();
+    const id = String(entry?.id ?? "").trim();
+    if (id.startsWith("pvp-") && id.length > 4) return id.slice(4);
+    return null;
 }
 
 /**
