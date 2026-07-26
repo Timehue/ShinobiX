@@ -51,6 +51,10 @@ export type ClaimMissionResult =
         requiredSystem?: string;
         requiredProfession?: string;
         requiredProfessionRank?: number;
+        // What the server's progress receipt actually holds — present when a field
+        // claim is rejected for incomplete progress. Mirror it onto local progress
+        // so an optimistic card that ran ahead of the server becomes doable again.
+        serverProgress?: { exploreCount: number; raidCount: number };
     }
     | null;
 
