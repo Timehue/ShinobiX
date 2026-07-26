@@ -188,7 +188,7 @@
    battlefield) stays visible above. Desktop keeps both panes and hides the tab
    bar. See components/BattleTabBar + lib/use-battle-tabs. */
 .battle-tabbar { display: none; }
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
   .arena-fullscreen .battle-tabbar {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1445,7 +1445,13 @@ html:has(.arena-fullscreen) .sector-banner-panel {
     }
 }
 
-@media (max-width: 800px) {
+/* Upper bound is 1023px, NOT 800px: the desktop dossier below needs three
+   columns (235 + 620 + 235 = 1090px minimum) and cannot fit a ~900px window, so
+   801-1023 previously matched NEITHER this block nor the desktop one and fell
+   through to the legacy index.css base rules. A resized desktop window or a
+   landscape small tablet landed in that dead band. The compact fighter-chip
+   layout is the correct treatment for it. */
+@media (max-width: 1023px) {
     .arena-fullscreen.pvp-battle-layout {
         padding: max(6px, env(safe-area-inset-top)) 6px max(8px, env(safe-area-inset-bottom)) !important;
         overflow-x: hidden !important;
@@ -1978,7 +1984,7 @@ html:has(.arena-fullscreen) .sector-banner-panel {
    only. Scoped to .pvp-battle-layout: Battle Towers untouched.
    ═════════════════════════════════════════════════════════════════════════ */
 
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
     .arena-fullscreen.pvp-battle-layout .combat-layout {
         height: 100% !important;
         min-height: 0 !important;
@@ -3198,7 +3204,7 @@ html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-jutsu-thumb {
 
 /* Mobile (≤800px): the compact fighter-chip layout stays as-is — this only
    keeps the command-deck icons legible and stops the jutsu cards clipping. */
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
     .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button {
         display: grid !important;
         grid-template-columns: auto auto;
@@ -3748,7 +3754,7 @@ html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-jutsu-thumb {
 .bh-state { padding: 14px; color: rgba(203, 213, 225, 0.8); }
 .bh-error { color: #f5b1a8; }
 
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
     .battle-log-screen { padding: 12px 10px 40px; }
     .bls-outcome { font-size: 21px; }
     .bt-node { width: 92px; min-height: 96px; }
