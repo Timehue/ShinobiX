@@ -561,6 +561,9 @@ function Collection({
       <ChronicleCardInspector
         card={inspected}
         onClose={() => setInspected(null)}
+        meta={
+          inspected ? `Owned ×${owned.get(inspected.id) ?? 0}` : undefined
+        }
       />
     </section>
   );
