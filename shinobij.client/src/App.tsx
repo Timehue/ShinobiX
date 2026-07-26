@@ -120,6 +120,7 @@ installAuthFetch();
 import backgroundImage from "./assets/background-image.webp";
 import { academyTrainingDummyImg, withAcademySparringPortrait } from "./lib/academy-ai-art";
 const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
+const BattleLogScreen = lazyWithRetry(() => import("./screens/BattleLogScreen").then(m => ({ default: m.BattleLogScreen })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
 const AdminLogin = lazyWithRetry(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
@@ -1432,6 +1433,9 @@ export function stringifyServerSavePayload(payload: unknown) {
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
+    // Which durable battle record the "battleLog" screen is showing. Set by the
+    // Profile battle list; the screen itself fetches from the server by id.
+    const [viewedBattleId, setViewedBattleId] = useState<string | null>(null);
     // Battle music is only ever STARTED from startBattle() (pet arena + dungeon
     // beast duel). Catch the exit here: leaving the Pet Arena fades the loop
     // out. Screen doesn't change mid-battle, so this never cuts music during a
@@ -8118,6 +8122,14 @@ export default function App() {
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onDeleteCharacter={deleteCharacter}
+                        onOpenBattle={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "battleLog" && character && viewedBattleId && (
+                    <BattleLogScreen
+                        battleId={viewedBattleId}
+                        playerName={character.name}
+                        onBack={() => setScreen("profile")}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "inventory" && character && (
@@ -8329,6 +8341,7 @@ export default function App() {
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
+                            onViewBattleRecord={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
