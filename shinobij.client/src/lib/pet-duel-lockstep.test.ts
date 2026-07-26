@@ -210,3 +210,109 @@ test("a client tracks what it has proposed until the server confirms it", () => 
     a.ingest(relay.update());
     assert.equal(a.pending().length, 0, "and retired once the server echoes it back");
 });
+
+// ── CLASH in live PvP ─────────────────────────────────────────────────────────
+//
+// A bind freezes BOTH fighters and asks each player for a read. In lockstep that
+// is only sound if the two clients agree on (a) that a bind opened, (b) at which
+// tick, and (c) how it resolved — with each call travelling as an ordinary
+// scheduled command. These tests drive two independent sessions and assert exactly
+// that.
+
+/** A MELEE-identity pet. The `pet()` helper above carries a burn, which makes it a
+ *  kiter — and the live brawl profile deliberately leaves zoners alone, so it never
+ *  closes to contact and never binds. */
+function bruiser(id: string, element: string): Pet {
+    return {
+        id, name: id, species: id, level: 20,
+        hp: 820, attack: 92, defense: 44, speed: 96,
+        element, trait: "Swift",
+        jutsus: [
+            { name: "Fang Strike", kind: "damage", power: 104, cooldown: 1 },
+            { name: "Rend", kind: "damage", power: 96, cooldown: 2 },
+            { name: "Bloodlet", kind: "lifesteal", power: 88, cooldown: 4 },
+            { name: "Ruin Fang", kind: "crush", power: 182, cooldown: 6, signature: true },
+        ],
+    } as unknown as Pet;
+}
+
+/** Run a bruiser pair, letting each side answer any bind it is shown. */
+function clashPair(seed: number, answer: { A?: number; B?: number }) {
+    const relay = makeRelay();
+    const a = createLockstepDuel(bruiser("P", "Fire"), bruiser("Q", "Water"), seed, "player", (p) => relay.accept("A", p));
+    const b = createLockstepDuel(bruiser("P", "Fire"), bruiser("Q", "Water"), seed, "enemy", (p) => relay.accept("B", p));
+    const answered = new Set<string>();
+    let playback = 0;
+    for (let round = 0; round < 4000 && !(a.settled && b.settled); round++) {
+        a.ingest(relay.update());
+        b.ingest(relay.update());
+        a.advance(playback);
+        b.advance(playback);
+        relay.report("A", a.progressTick);
+        relay.report("B", b.progressTick);
+        // Each client answers its OWN bind, exactly as the prompt would.
+        for (const [who, duel, actor, pick] of [
+            ["A", a, "player-0", answer.A], ["B", b, "enemy-0", answer.B],
+        ] as const) {
+            if (pick === undefined) continue;
+            const bind = duel.clashAt(playback, actor);
+            if (!bind || bind.pick >= 0) continue;
+            const key = `${who}:${bind.startT}`;
+            if (answered.has(key)) continue;
+            answered.add(key);
+            duel.command({ kind: "clash", actorId: actor, pick });
+        }
+        playback = Math.min(playback + 8, Math.max(0, relay.safeTick()));
+    }
+    return { a, b, relay, answered };
+}
+
+test("a clash bind opens on BOTH lockstep clients at the same tick", () => {
+    const { a, b } = clashPair(21, {});
+    const binds = (d: LockstepDuel) => d.outcome().events.filter((e) => e.move === "Clash Bind").map((e) => e.t);
+    const ba = binds(a), bb = binds(b);
+    assert.ok(ba.length > 0, "the PvP coliseum should produce clash binds");
+    assert.deepEqual(ba, bb, "both clients must see the same binds at the same ticks");
+});
+
+test("two clients answering their own clash reads converge on one fight", () => {
+    for (const [pa, pb] of [[0, 1], [1, 2], [2, 0], [1, 1]] as const) {
+        const { a, b, answered } = clashPair(21, { A: pa, B: pb });
+        assert.ok(answered.size > 0, `picks ${pa}/${pb}: at least one bind should have been answered`);
+        assert.ok(a.settled && b.settled, `picks ${pa}/${pb}: both sides should reach a result`);
+        const ra = a.outcome(), rb = b.outcome();
+        assert.equal(ra.result, rb.result, `picks ${pa}/${pb}: the clients must agree on the winner`);
+        assert.deepEqual(ra.snapshots, rb.snapshots, `picks ${pa}/${pb}: timelines must be byte-identical`);
+        assert.deepEqual(ra.events, rb.events, `picks ${pa}/${pb}: event logs must be byte-identical`);
+    }
+});
+
+test("a clash call reaches the engine — the read actually changes the fight", () => {
+    // Guard and Dodge answer a bind differently, so the fights must diverge. If the
+    // scheduled call were landing after the window closed, both would be the
+    // default-read fight and this would fail.
+    const guard = clashPair(21, { A: 1 });
+    const dodge = clashPair(21, { A: 2 });
+    assert.notDeepEqual(
+        guard.a.outcome().events, dodge.a.outcome().events,
+        "answering the bind differently must produce a different fight",
+    );
+});
+
+test("one side answering and the other ignoring it still converges", () => {
+    // The quiet side falls back to its pet's own instinctive read, which both
+    // clients compute identically from the shared sim — nothing crosses the wire.
+    const { a, b, answered } = clashPair(21, { A: 0 });
+    assert.ok(answered.size > 0, "side A should have answered at least one bind");
+    assert.ok(a.settled && b.settled, "both sides should reach a result");
+    assert.deepEqual(a.outcome().snapshots, b.outcome().snapshots, "timelines must stay byte-identical");
+    assert.deepEqual(a.outcome().events, b.outcome().events, "event logs must stay byte-identical");
+});
+
+test("a clash call is scheduled strictly past the watermark, like any other command", () => {
+    // makeRelay asserts this on every accept; this test just proves clash calls
+    // actually went through it rather than being dropped somewhere earlier.
+    const { relay } = clashPair(21, { A: 1, B: 2 });
+    const clashes = relay.inputs().filter((i) => i.cmd.kind === "clash");
+    assert.ok(clashes.length > 0, "clash calls should reach the relay as ordinary scheduled inputs");
+});

@@ -37,9 +37,9 @@ import {
 import {
     createLiveCinematicDuel, createLivePartyCinematicDuel,
     stepCinematicDuel, finishCinematicDuel, applyDuelCommand, readDuelControl,
-    checkpointCinematicDuel, restoreCinematicDuel,
+    readClashPrompt, checkpointCinematicDuel, restoreCinematicDuel,
     type CinematicDuelState, type CinematicDuelCheckpoint,
-    type DuelCommand, type DuelControlSnap,
+    type DuelCommand, type DuelControlSnap, type ClashPrompt,
 } from "./pet-duel-cinematic";
 
 /** How far the simulation stays ahead of what the player sees. Must comfortably
@@ -82,6 +82,14 @@ export interface LiveDuel {
     command(cmd: DuelCommand): void;
     /** The commanded fighter's buttons/cooldowns AS OF a played-back tick. */
     controlAt(tick: number, actorId: string): DuelControlSnap | null;
+    /** The clash bind awaiting this fighter's call AS OF a played-back tick, or null.
+     *
+     *  Read at the PLAYED tick, not the leading edge: the sim is a look-ahead ahead,
+     *  so by the time the bind reaches the screen it has already been resolved in the
+     *  buffer with the AI's default read. That is fine and is what makes the prompt
+     *  honest — issuing a clash command rewinds to the first unseen tick, where the
+     *  bind is still open, and re-simulates it with the player's call. */
+    clashAt(tick: number, actorId: string): ClashPrompt | null;
     /** True once the simulation has resolved (the player may still be watching). */
     readonly settled: boolean;
     /** True once the settled result has also been fully played back. */
@@ -104,6 +112,9 @@ function makeLiveDuel(sim: CinematicDuelState, controlledIds: string[]): LiveDue
     // One entry per SIMULATED tick, so the HUD can show the cooldowns that were
     // true at the tick currently on screen rather than the leading edge.
     const controlLog: Array<Record<string, DuelControlSnap>> = [];
+    // Same shape, same reason, for the clash bind: the prompt has to appear on the
+    // tick the player is WATCHING, which the leading edge has long since passed.
+    const clashLog: Array<Record<string, ClashPrompt>> = [];
     let playbackTick = -1;
     let directedAt = -1;                    // sim tick count the cached direction was built from
     let directed: DuelResult | null = null; // stage-directed full prefix
@@ -112,11 +123,15 @@ function makeLiveDuel(sim: CinematicDuelState, controlledIds: string[]): LiveDue
 
     const recordControl = (tick: number) => {
         const row: Record<string, DuelControlSnap> = {};
+        const clashRow: Record<string, ClashPrompt> = {};
         for (const id of controlledIds) {
             const snap = readDuelControl(sim, id);
             if (snap) row[id] = snap;
+            const bind = readClashPrompt(sim, id);
+            if (bind) clashRow[id] = bind;
         }
         controlLog[tick] = row;
+        clashLog[tick] = clashRow;
     };
 
     /** Run the sim forward until it is LOOKAHEAD_TICKS past `playbackTick`. */
@@ -194,6 +209,7 @@ function makeLiveDuel(sim: CinematicDuelState, controlledIds: string[]): LiveDue
             if (idx >= 0) {
                 restoreCinematicDuel(sim, checkpoints[idx].cp);
                 controlLog.length = Math.min(controlLog.length, checkpoints[idx].tick);
+                clashLog.length = Math.min(clashLog.length, checkpoints[idx].tick);
                 checkpoints.length = idx;
                 directed = null; directedAt = -1; visibleHead = -2;
             }
@@ -209,6 +225,10 @@ function makeLiveDuel(sim: CinematicDuelState, controlledIds: string[]): LiveDue
         controlAt(tick: number, actorId: string) {
             const i = Math.max(0, Math.min(controlLog.length - 1, Math.floor(tick)));
             return controlLog[i]?.[actorId] ?? null;
+        },
+        clashAt(tick: number, actorId: string) {
+            const i = Math.max(0, Math.min(clashLog.length - 1, Math.floor(tick)));
+            return clashLog[i]?.[actorId] ?? null;
         },
         finishedAt: (tick: number) => sim.done && tick >= sim.snapshots.length - 1,
         outcome: () => finishCinematicDuel(sim),
@@ -243,4 +263,24 @@ export function createLivePartyDuel(
     return makeLiveDuel(sim, playerReserve ? ["player-0", "player-1"] : ["player-0"]);
 }
 
-export type { DuelCommand, DuelControlSnap };
+/**
+ * WHICH fighter this client commands — the id the HUD must read its deck, Bond
+ * meter and clash prompt for.
+ *
+ * It is `controlledIds[0]` and not the constant `"player-0"`, because the engine
+ * always seats the CHALLENGER as "player": in a live PvP duel the p2 client is
+ * commanding `enemy-0` while watching it on the right. PetColiseum.tsx hard-coded
+ * "player-0", so a p2 client silently got no deck, no Bond meter and no clash
+ * prompt at all.
+ *
+ * Every PvE constructor and lockstep p1 put "player-0" first, so this returns the
+ * old constant unchanged for them — the only behaviour it alters is the p2 seat
+ * that was broken. Lives here rather than in the component so the contract it
+ * depends on ("[0] is the fighter the engine takes orders for") is pinned by
+ * tests; see pet-duel-live.test.ts.
+ */
+export function commandedActorId(duel: Pick<LiveDuel, "controlledIds"> | null | undefined): string {
+    return duel?.controlledIds[0] ?? "player-0";
+}
+
+export type { DuelCommand, DuelControlSnap, ClashPrompt };
