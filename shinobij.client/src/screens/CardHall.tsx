@@ -3,6 +3,7 @@ import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
 import {
+  CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ELEMENTS,
   CHRONICLE_ROOM_TITLE,
@@ -317,7 +318,7 @@ function CardHallInner({
         ))}
       </nav>
 
-      {tab === "collection" ? <Collection cards={ownedCards} /> : null}
+      {tab === "collection" ? <Collection cards={ownedCards} owned={ownedCounts} catalogSize={CHRONICLE_CARD_CATALOG.length} /> : null}
       {tab === "deck" ? (
         <DeckBuilder
           cards={ownedCards}
@@ -453,7 +454,16 @@ function CardHallInner({
   );
 }
 
-function Collection({ cards }: { cards: ChronicleDisplayCard[] }) {
+function Collection({
+  cards,
+  owned,
+  catalogSize,
+}: {
+  cards: ChronicleDisplayCard[];
+  /** Copies owned per card id — the Collection is YOUR shelf, not the catalog. */
+  owned: ReadonlyMap<string, number>;
+  catalogSize: number;
+}) {
   const [cardClass, setCardClass] = useState("all");
   const [rarity, setRarity] = useState("all");
   const [monsterTier, setMonsterTier] = useState("all");
@@ -480,6 +490,9 @@ function Collection({ cards }: { cards: ChronicleDisplayCard[] }) {
     <section className="chronicle-panel">
       <div className="chronicle-toolbar">
         <strong>{shown.length} cards</strong>
+        <span className="chronicle-collection-progress">
+          {cards.length} of {catalogSize} in the set
+        </span>
         <label>
           Class{" "}
           <select
@@ -541,10 +554,15 @@ function Collection({ cards }: { cards: ChronicleDisplayCard[] }) {
             className="chronicle-card-inspect-trigger"
             key={card.id}
             type="button"
-            aria-label={`Inspect ${card.name}`}
+            aria-label={`Inspect ${card.name} — you own ${owned.get(card.id) ?? 0}`}
             onClick={() => setInspected(card)}
           >
             <ChronicleCardView card={card} />
+            {/* Copies OWNED. The card foot already prints a number, but that is
+                the deck-building limit ("MAX 3") — it reads like inventory and
+                isn't, which left the collection with no signal of what you
+                actually hold. */}
+            <span className="chronicle-owned-badge">×{owned.get(card.id) ?? 0}</span>
           </button>
         ))}
       </div>

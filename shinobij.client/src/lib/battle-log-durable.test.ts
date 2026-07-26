@@ -187,6 +187,24 @@ test("legacyBattleId only reports a real battleId", () => {
     assert.equal(legacyBattleId(legacy({ battleId: "b9" } as Partial<BattleHistoryEntry>)), "b9");
 });
 
+test("legacyBattleId reads the battleId out of a PvP row's id", () => {
+    // PvpBattleScreen records `pvp-<battleId>`; there is no battleId FIELD, so
+    // without this the dedupe below can never match and every finished PvP
+    // fight renders twice.
+    assert.equal(legacyBattleId(legacy({ id: "pvp-abc123" })), "abc123");
+    assert.equal(legacyBattleId(legacy({ id: "pvp-" })), null, "prefix alone is not an id");
+});
+
+test("a finished PvP fight does NOT appear twice in Profile", () => {
+    const rows = mergeBattleHistory(
+        [summary({ battleId: "abc123" })],
+        // The save copy the client wrote for the same fight.
+        [legacy({ id: "pvp-abc123", mode: "PvP" })],
+    );
+    assert.equal(rows.length, 1, "server row and save copy must collapse to one");
+    assert.equal(rows[0].kind, "server", "the durable record is the one kept");
+});
+
 // ─── response narrowing ───────────────────────────────────────────────────────
 
 test("malformed rows are rejected rather than rendered", () => {
