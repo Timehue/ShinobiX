@@ -235,7 +235,35 @@ export function Missions({
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
-        if (result.applied === false) return alert(claimReasonMessage(result.reason, result));
+        if (result.applied === false) {
+            if (result.reason === "already-claimed-today" || result.reason === "already-claimed") {
+                // Server already paid this today — clear the card so a desynced
+                // client stops offering a dead Claim button on a finished mission.
+                setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+                setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
+                return alert(claimReasonMessage(result.reason, result));
+            }
+            if (result.serverProgress) {
+                // Self-heal the stale-claim trap, mirroring HunterBoard's hunt fix.
+                // Local explore/raid counters are optimistic; the server receipt is
+                // the truth. When they disagree the card renders "Claim Reward"
+                // forever — full bar, permanent rejection, nothing the player can
+                // do. Snap local progress back to what the server actually witnessed
+                // so the objectives relight and the work can be redone.
+                const { exploreCount, raidCount } = result.serverProgress;
+                setMissionProgress((prev) => ({
+                    ...prev,
+                    [mission.id]: Math.min(mission.exploreCount, Math.max(0, exploreCount)),
+                    [missionRaidProgressKey(mission.id)]: Math.min(raidReq, Math.max(0, raidCount)),
+                }));
+                const exploresLeft = Math.max(0, mission.exploreCount - exploreCount);
+                const raidsLeft = Math.max(0, raidReq - raidCount);
+                return alert(
+                    `The Mission Hall only logged ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} raids` : ""} for this contract, so it can't be paid yet. Your board has been corrected — explore Sector ${mission.targetSector} ${exploresLeft} more time(s)${raidsLeft > 0 ? ` and raid ${raidsLeft} more time(s)` : ""} to finish it.`,
+                );
+            }
+            return alert(claimReasonMessage(result.reason, result));
+        }
     }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);

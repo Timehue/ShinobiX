@@ -93,6 +93,15 @@ type ClaimOutcome =
         requiredSystem?: string;
         requiredProfession?: string;
         requiredProfessionRank?: number;
+        /**
+         * What the server's progress receipt ACTUALLY holds, when a field claim
+         * is rejected for incomplete progress. The client's local counters are
+         * optimistic and can run ahead of the receipt (a dropped ping, or the
+         * period when the producers never wrote one at all); without this the
+         * card is stuck rendering "Claim Reward" forever with no way to advance.
+         * Mirroring these values back onto local progress re-opens the mission.
+         */
+        serverProgress?: { exploreCount: number; raidCount: number };
     }
     | {
         applied: true;
@@ -288,11 +297,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 const progressKey = missionProgressReceiptKey(playerName, missionId);
+                const receipt = cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null));
                 const progress = validateMissionProgressReceipt(
-                    cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null)),
+                    receipt,
                     { playerName, missionId, missionType: 'field', mission: def },
                 );
-                if (!progress.ok) return { applied: false, reason: progress.reason };
+                if (!progress.ok) {
+                    // Hand back the receipt's real state so the client can resync a
+                    // card whose optimistic counters ran ahead of the server.
+                    return {
+                        applied: false,
+                        reason: progress.reason,
+                        serverProgress: {
+                            exploreCount: receipt?.exploreCount ?? 0,
+                            raidCount: receipt?.raidCount ?? 0,
+                        },
+                    };
+                }
                 progressReceiptKeyToClear = progressKey;
                 baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 scrolls = FIELD_MISSION_SCROLLS; currencyBase = def.currencyRewards;
