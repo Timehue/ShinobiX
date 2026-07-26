@@ -377,6 +377,18 @@ export function MissionArenaFight({
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu?.name ?? "the zone"}.` :
         mode === "jutsu" && selJutsu ? `Click ${enemyName} to cast ${selJutsu?.name ?? "it"}.` : "";
 
+    // `.combat-main-area` is a FIXED-track grid on every tier (battle-skin.css) and
+    // its bands are placed by `order` (AP 1, terrain 2, board 3, commands 4, …).
+    // An extra child with the default `order: 0` therefore sorts AHEAD of all of
+    // them and claims row 1, shoving every band down one track — the terrain strip
+    // inherits the board's minmax(300px, 1fr) row and the board collapses into the
+    // command bar's `auto` row (measured: 362px → 30px). Arena hit this with its
+    // rookie tip and fixed it with `has-rookie-tip`, which adds the extra track on
+    // each tier. Do the same here, and keep BOTH conditional lines in one wrapper
+    // so the grid only ever gains the single row that class reserves.
+    const showTargetingHint = myTurn && !!targetingHint;
+    const hasActionNotice = !!reject || showTargetingHint;
+
     const playerAp = myTurn ? session.activeAp : (done ? 0 : 100);
     const enemyAp = enemyActive ? session.activeAp : (done ? 0 : 100);
 
@@ -391,7 +403,7 @@ export function MissionArenaFight({
 
     return createPortal(
         <div className={`arena-fullscreen pvp-battle-layout mission-arena-fight arena-bg-${biome}`}>
-            <div className="combat-layout">
+            <div className={`combat-layout${hasActionNotice ? " has-rookie-tip" : ""}`}>
                 {/* Player dossier */}
                 <CombatSideHud
                     name={me}
@@ -546,8 +558,15 @@ export function MissionArenaFight({
 
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
 
-                    {reject && <div className="rookie-combat-tip" role="alert" style={{ borderColor: "var(--danger)" }}><strong>Can't do that</strong><span>{reject}</span></div>}
-                    {myTurn && targetingHint && <div className="combat-targeting-hint">{targetingHint}</div>}
+                    {/* ONE grid child (see hasActionNotice above) — a rejection and an
+                        armed-action hint can be on screen together, and two bare
+                        children would take two tracks the grid has not reserved. */}
+                    {hasActionNotice && (
+                        <div className="combat-action-notice">
+                            {reject && <div className="rookie-combat-tip" role="alert" style={{ borderColor: "var(--danger)" }}><strong>Can't do that</strong><span>{reject}</span></div>}
+                            {showTargetingHint && <div className="combat-targeting-hint">{targetingHint}</div>}
+                        </div>
+                    )}
 
                     <div className="basic-action-bar shinobi-command-bar">
                         <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
