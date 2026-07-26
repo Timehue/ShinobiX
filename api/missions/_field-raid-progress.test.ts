@@ -13,7 +13,23 @@ function charAt(level: number, accepted: string[]): Record<string, unknown> {
     return { level, acceptedMissionIds: accepted };
 }
 
+/** The live save shape: accepted ids top-level, level on the nested character. */
+function saveAt(level: number, accepted: string[]): Record<string, unknown> {
+    return { acceptedMissionIds: accepted, currentSector: 47, character: { level } };
+}
+
 describe('_field-raid-progress', () => {
+    it('REGRESSION: reads accepted ids off the save record, level off its character', () => {
+        // report-raid passes the whole save record. acceptedMissionIds lives at its
+        // top level while the eligibility gate reads the nested character — the old
+        // code looked for BOTH on the character, found no accepted missions, and so
+        // never credited a single raid. Every fetch-* mission stayed unclaimable.
+        const ids = acceptedRaidFetchMissions(saveAt(80, ['fetch-b-enemy-cache', 'hunt-wild-boar'])).map((m) => m.id);
+        assert.deepEqual(ids, ['fetch-b-enemy-cache']);
+        // The character-side level gate still applies through the record.
+        assert.deepEqual(acceptedRaidFetchMissions(saveAt(10, ['fetch-s-shadow-front'])), []);
+    });
+
     it('derives a receipt-legal, stable, proof-specific evidence id', () => {
         // battleIds are unconstrained strings, so the id must survive characters
         // the receipt token charset rejects (':' in particular).

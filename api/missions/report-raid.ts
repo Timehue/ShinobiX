@@ -179,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // profession, and a non-vanguard's raid is proven by the same token.
         const fetchMissionsCredited = await creditFieldRaidProgress({
             playerName,
-            character: char,
+            save: record,
             proofId: battleId ?? raidToken ?? '',
         });
 

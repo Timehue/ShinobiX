@@ -49,6 +49,56 @@ export function missionProgressEvidencePendingKey(
     return `missions:progress-evidence-pending:${playerName}:${missionId}:${kind}`;
 }
 
+/*
+ * Where the save actually keeps accepted missions and the player's sector.
+ *
+ * `acceptedMissionIds`, `missionProgress` and `currentSector` are TOP-LEVEL
+ * fields on the save RECORD — App.tsx persists them beside `character`, not
+ * inside it (see api/save/_public-save-dto.ts, which lists all three among the
+ * top-level owner-only fields, and claim-mission's applyClaimedMissionState,
+ * which correctly clears them off the record).
+ *
+ * Every progress PRODUCER used to read them off `record.character`, where they
+ * are always undefined. The result was silent and total: record-progress saw
+ * `accepted === false` and refused every explore ping, the raid and hunt-kill
+ * producers found no accepted missions to credit, and so no progress receipt
+ * was ever written for anyone. claim-mission then rejected every built-in field
+ * mission and Hunter contract with `missing-progress-receipt`, which the client
+ * renders as "Finish this mission's required field progress first" — on a card
+ * whose local counters were already full.
+ *
+ * These readers accept EITHER shape (record or bare character) so a caller that
+ * only has the character still works, and so a future save-shape change can't
+ * silently re-break the producers.
+ */
+export function savedAcceptedMissionIds(source: Record<string, unknown> | null | undefined): string[] {
+    if (!source) return [];
+    const direct = source.acceptedMissionIds;
+    if (Array.isArray(direct)) return direct.map(String);
+    const character = source.character;
+    if (character && typeof character === 'object' && !Array.isArray(character)) {
+        const nested = (character as Record<string, unknown>).acceptedMissionIds;
+        if (Array.isArray(nested)) return nested.map(String);
+    }
+    return [];
+}
+
+export function savedCurrentSector(source: Record<string, unknown> | null | undefined): number {
+    if (!source) return 0;
+    const read = (value: unknown): number | null => {
+        const sector = Math.floor(Number(value));
+        return Number.isFinite(sector) ? sector : null;
+    };
+    const direct = 'currentSector' in source ? read(source.currentSector) : null;
+    if (direct !== null) return direct;
+    const character = source.character;
+    if (character && typeof character === 'object' && !Array.isArray(character)) {
+        const nested = read((character as Record<string, unknown>).currentSector);
+        if (nested !== null) return nested;
+    }
+    return 0;
+}
+
 export function createMissionProgressEvidence(
     opts: {
         playerName: string;

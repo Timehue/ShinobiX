@@ -17,6 +17,8 @@ import {
     interactionMissionProgressEvidenceDecision,
     missionProgressReceiptKey,
     missionProgressTypeForKind,
+    savedAcceptedMissionIds,
+    savedCurrentSector,
     type MissionProgressReceipt,
 } from './_mission-progress-receipt.js';
 
@@ -97,14 +99,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const eligibility = canPlayerReceiveMission(char, mission);
             if (!eligibility.ok) return { ok: false, status: 403, body: { ok: false, recorded: false, ...missionEligibilityFailureBody(eligibility) } };
 
-            const accepted = Array.isArray(char.acceptedMissionIds)
-                && (char.acceptedMissionIds as unknown[]).map(String).includes(missionId);
+            // Accepted ids and the sector live on the RECORD, not the character —
+            // reading them off `char` made `accepted` permanently false, so this
+            // producer refused every ping and no receipt was ever minted.
+            const accepted = savedAcceptedMissionIds(record).includes(missionId);
             const existing = cleanMissionProgressReceipt(await kv.get(key));
             const decision = interactionMissionProgressEvidenceDecision({
                 accepted,
                 kind,
                 missionType,
-                sector: Math.floor(Number(char.currentSector ?? 0)),
+                sector: savedCurrentSector(record),
                 targetSector: Math.floor(Number((mission as { targetSector?: unknown }).targetSector ?? 0)),
                 currentProgress: existing?.exploreCount ?? 0,
                 progressTarget: Math.floor(Number(mission.exploreCount ?? 0)),

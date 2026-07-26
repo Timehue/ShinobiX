@@ -6,15 +6,74 @@ import {
     cleanMissionProgressEvidenceToken,
     cleanMissionProgressEventKind,
     missionProgressEvidenceBundleKey,
+    savedAcceptedMissionIds,
+    savedCurrentSector,
     validateMissionProgressEvidence,
     validateMissionProgressReceipt,
     type MissionProgressReceipt,
 } from './_mission-progress-receipt.js';
 
+/**
+ * The shape a real save actually has in Postgres: acceptedMissionIds,
+ * missionProgress and currentSector sit at the TOP LEVEL, beside `character` —
+ * never inside it. Verified against production: of 108 saves, 102 carried these
+ * fields top-level and ZERO carried them on the character.
+ */
+function liveSaveRecord(over: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+        acceptedMissionIds: ['fetch-b-enemy-cache', 'hunt-wild-boar'],
+        missionProgress: { 'fetch-b-enemy-cache': 7, 'fetch-b-enemy-cache:raids': 3 },
+        currentSector: 47,
+        character: { name: 'Dopey', level: 39 },
+        ...over,
+    };
+}
+
 function reasonOf(result: ReturnType<typeof validateMissionProgressReceipt>): string {
     assert.equal(result.ok, false);
     return result.reason;
 }
+
+describe('_mission-progress-receipt save readers', () => {
+    it('REGRESSION: reads accepted missions off the RECORD, not the character', () => {
+        // The live bug. Every progress producer (record-progress, report-raid via
+        // _field-raid-progress, report-ai-fight) read acceptedMissionIds off
+        // `record.character`, where it does not exist. `accepted` was therefore
+        // always false, no receipt was ever minted for any player, and every
+        // built-in field mission and Hunter contract failed to claim with
+        // "missing-progress-receipt" on a card whose bar was already full.
+        const record = liveSaveRecord();
+        assert.equal((record.character as Record<string, unknown>).acceptedMissionIds, undefined,
+            'fixture must match the live shape: character carries NO accepted ids');
+        assert.deepEqual(savedAcceptedMissionIds(record), ['fetch-b-enemy-cache', 'hunt-wild-boar']);
+        assert.equal(savedCurrentSector(record), 47);
+    });
+
+    it('still reads a bare character, so a caller holding only that works', () => {
+        assert.deepEqual(savedAcceptedMissionIds({ level: 39, acceptedMissionIds: ['fetch-d-supply-trail'] }), ['fetch-d-supply-trail']);
+        assert.equal(savedCurrentSector({ level: 39, currentSector: 12 }), 12);
+    });
+
+    it('prefers the record over a nested character when both carry the field', () => {
+        const record = liveSaveRecord({ character: { level: 39, acceptedMissionIds: ['stale-id'], currentSector: 3 } });
+        assert.deepEqual(savedAcceptedMissionIds(record), ['fetch-b-enemy-cache', 'hunt-wild-boar']);
+        assert.equal(savedCurrentSector(record), 47);
+    });
+
+    it('is total on missing, null and malformed saves', () => {
+        assert.deepEqual(savedAcceptedMissionIds(null), []);
+        assert.deepEqual(savedAcceptedMissionIds(undefined), []);
+        assert.deepEqual(savedAcceptedMissionIds({}), []);
+        assert.deepEqual(savedAcceptedMissionIds({ acceptedMissionIds: 'not-an-array' }), []);
+        assert.deepEqual(savedAcceptedMissionIds({ character: null }), []);
+        assert.equal(savedCurrentSector(null), 0);
+        assert.equal(savedCurrentSector({}), 0);
+        assert.equal(savedCurrentSector({ currentSector: 'nope' }), 0);
+        // Sector 0 is the village and a legitimate value — it must not be mistaken
+        // for "absent" and then resolved from a stale nested character.
+        assert.equal(savedCurrentSector({ currentSector: 0, character: { currentSector: 47 } }), 0);
+    });
+});
 
 describe('_mission-progress-receipt', () => {
     it('cleans supported progress event kinds', () => {
