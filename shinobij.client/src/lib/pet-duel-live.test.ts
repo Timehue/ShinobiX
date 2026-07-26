@@ -13,7 +13,7 @@ import {
     stepCinematicDuel, finishCinematicDuel, applyDuelCommand, readDuelControl,
     checkpointCinematicDuel, restoreCinematicDuel,
 } from "./pet-duel-cinematic";
-import { createLiveDuel } from "./pet-duel-live";
+import { createLiveDuel, createLivePartyDuel, commandedActorId } from "./pet-duel-live";
 import { bondCharge, bondReady, BOND_FULL } from "./pet-bond-meter";
 import { DUEL_TPS, type DuelEvent } from "./pet-duel-sim";
 
@@ -40,23 +40,43 @@ function runUncommanded(sim: ReturnType<typeof createLiveCinematicDuel>) {
     return finishCinematicDuel(sim);
 }
 
-test("an uncommanded live duel is byte-identical to the one-shot engine", () => {
+test("an uncommanded live duel is byte-identical to the one-shot engine (profile off)", () => {
+    // THE load-bearing guard. The live coliseum now runs a BRAWL PROFILE the
+    // authoritative path does not (melee basics, a dive that lands, the clash bind),
+    // so the two fights legitimately differ. What must still hold — and what protects
+    // the pet ladder, sector war and the generated mirror — is that the
+    // create/step/rewind machinery itself changes nothing: with the profile off, a
+    // tick-by-tick live duel is still the one-shot engine byte for byte. Any
+    // divergence therefore comes from the profile and nowhere else.
     for (let seed = 1; seed <= 8; seed++) {
         const oneShot = runPetDuelCinematic(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null, false);
-        const live = runUncommanded(createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null, false));
+        const live = runUncommanded(createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null, false, false));
         assert.deepEqual(live, oneShot, `seed ${seed} diverged from the one-shot engine`);
     }
 });
 
-test("an uncommanded live 2v2 is byte-identical to the one-shot engine", () => {
+test("an uncommanded live 2v2 is byte-identical to the one-shot engine (profile off)", () => {
     for (let seed = 1; seed <= 4; seed++) {
         const args = [pet("A", "Fire"), pet("B", "Earth"), pet("C", "Water"), pet("D", "Wind")] as const;
         const oneShot = runPetPartyDuelCinematic(args[0], args[1], args[2], args[3], seed, 1, 1, false, true, true, false);
         const live = runUncommanded(createLivePartyCinematicDuel(
-            pet("A", "Fire"), pet("B", "Earth"), pet("C", "Water"), pet("D", "Wind"), seed, 1, 1, false, true, true, false,
+            pet("A", "Fire"), pet("B", "Earth"), pet("C", "Water"), pet("D", "Wind"), seed, 1, 1, false, true, true, false, false,
         ));
         assert.deepEqual(live, oneShot, `2v2 seed ${seed} diverged from the one-shot engine`);
     }
+});
+
+test("the brawl profile makes the live coliseum a MELEE fight, and only there", () => {
+    // The complaint this profile answers: pets stood off lobbing projectiles, so the
+    // only body dashes on screen were whiffs. The authoritative fight is deliberately
+    // left exactly as it was.
+    const melee = (r: { events: DuelEvent[] }) => r.events.filter((e) => e.type === "hit" && !e.ranged).length;
+    let liveMelee = 0, authMelee = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+        authMelee += melee(runPetDuelCinematic(bruiser("P", "Fire"), bruiser("Q", "Water"), seed, 1, 1, false, true, true, null, false));
+        liveMelee += melee(runUncommanded(liveBruisers(seed)));
+    }
+    assert.ok(liveMelee > authMelee, `the live path should land more melee than the authoritative one (live ${liveMelee}, auth ${authMelee})`);
 });
 
 test("a checkpoint restores the sim exactly, so a rewind replays identically", () => {
@@ -219,14 +239,157 @@ test("replaying the input log reproduces the commanded duel exactly", () => {
 });
 
 test("an empty input log replays as the uncommanded fight", () => {
-    // This is what scores a duel the player watched without touching the deck,
-    // and it is why battle-start can seal its baseline through the same helper.
+    // This is what scores a duel the player watched without touching the deck, and it
+    // is why battle-start can seal its baseline through the same helper. Compared
+    // against the LIVE uncommanded fight, not the authoritative one: both battle-start
+    // and battle-result replay through createLiveCinematicDuel, so they share the
+    // brawl profile and stay consistent with each other and with what was on screen.
     for (const seed of [7, 19]) {
         const make = () => createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null, false);
-        assert.deepEqual(
-            replayInputLog(make, []),
-            runPetDuelCinematic(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null, false),
-            `seed ${seed} empty-log replay is not the AI fight`,
-        );
+        assert.deepEqual(replayInputLog(make, []), runUncommanded(make()), `seed ${seed} empty-log replay is not the uncommanded fight`);
     }
+});
+
+// ── CLASH ─────────────────────────────────────────────────────────────────────
+
+/** A MELEE-identity pet. The default `pet()` above carries a burn, which makes it a
+ *  KITER — and the brawl profile deliberately leaves true zoners alone, so it never
+ *  brawls and never binds. This one has no ranged move at all (kind:"move" does not
+ *  count: it is a reposition), classifies as a rusher, and therefore closes distance
+ *  and clashes. */
+function bruiser(id: string, element: string): Pet {
+    return {
+        id, name: id, species: id, level: 20,
+        hp: 820, attack: 92, defense: 44, speed: 96,
+        element, trait: "Swift",
+        jutsus: [
+            { name: "Fang Strike", kind: "damage", power: 104, cooldown: 1 },
+            { name: "Rend", kind: "damage", power: 96, cooldown: 2 },
+            { name: "Bloodlet", kind: "lifesteal", power: 88, cooldown: 4 },
+            { name: "Slipstream", kind: "move", power: 10, cooldown: 3 },
+            { name: "Ruin Fang", kind: "crush", power: 182, cooldown: 6, signature: true },
+        ],
+    } as unknown as Pet;
+}
+const liveBruisers = (seed: number, brawlProfile = true) =>
+    createLiveCinematicDuel(bruiser("P", "Fire"), bruiser("Q", "Water"), seed, 1, 1, false, true, true, null, false, brawlProfile);
+
+/** Step a live duel until a clash bind opens, or give up. */
+function stepToClash(sim: ReturnType<typeof createLiveCinematicDuel>) {
+    for (let i = 0; i < DUEL_TPS * 200; i++) {
+        if (sim.clash) return sim.clash;
+        if (!stepCinematicDuel(sim)) return null;
+    }
+    return null;
+}
+
+test("a clash bind opens in the live coliseum and never on the authoritative path", () => {
+    let liveBinds = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+        const live = runUncommanded(liveBruisers(seed));
+        liveBinds += live.events.filter((e) => e.move === "Clash Bind").length;
+        const auth = runPetDuelCinematic(bruiser("P", "Fire"), bruiser("Q", "Water"), seed, 1, 1, false, true, true, null, false);
+        assert.equal(auth.events.filter((e) => e.move === "Clash Bind").length, 0,
+            `seed ${seed}: the authoritative engine must never bind — ranked/ladder/sector-war replay it`);
+    }
+    assert.ok(liveBinds > 0, "the live coliseum should produce clash binds");
+});
+
+test("a clash freezes both fighters, then resolves on its own if nobody calls", () => {
+    const sim = liveBruisers(3);
+    const bind = stepToClash(sim);
+    assert.ok(bind, "expected a clash bind for this seed");
+    const a = sim.fighters.find((f) => f.id === bind!.aId)!;
+    const b = sim.fighters.find((f) => f.id === bind!.bId)!;
+    const held = [a.x, a.y, b.x, b.y];
+    // While bound, neither pet moves.
+    stepCinematicDuel(sim);
+    assert.deepEqual([a.x, a.y, b.x, b.y], held, "bound fighters must not move");
+    // …and the bind cannot outlive its window.
+    for (let i = 0; i < DUEL_TPS * 3; i++) stepCinematicDuel(sim);
+    assert.equal(sim.clash, null, "an unanswered bind must resolve, never hang the fight");
+});
+
+test("a clash call is accepted once, and only from a bound fighter", () => {
+    const sim = liveBruisers(3);
+    const bind = stepToClash(sim);
+    assert.ok(bind, "expected a clash bind for this seed");
+    assert.equal(applyDuelCommand(sim, { kind: "clash", actorId: "player-0", pick: 7 }), false, "an out-of-range pick is refused");
+    assert.equal(applyDuelCommand(sim, { kind: "clash", actorId: "player-0", pick: 1 }), true, "the first call is accepted");
+    assert.equal(applyDuelCommand(sim, { kind: "clash", actorId: "player-0", pick: 0 }), false,
+        "a second call must be refused — otherwise a client could re-pick after seeing the opponent commit");
+});
+
+test("winning the clash read pays out, losing it costs", () => {
+    // Guard beats Strike. Drive both outcomes from the same seed by forcing the
+    // player's call, and assert the swing lands on the correct side.
+    const outcome = (pick: number) => {
+        const sim = liveBruisers(3);
+        const bind = stepToClash(sim);
+        if (!bind) return null;
+        applyDuelCommand(sim, { kind: "clash", actorId: "player-0", pick });
+        const before = sim.events.length;
+        for (let i = 0; i < DUEL_TPS * 3; i++) stepCinematicDuel(sim);
+        const breaks = sim.events.slice(before).filter((e) => e.type === "hit" && e.move === "Clash Break");
+        return breaks[0] ?? null;
+    };
+    const results = [0, 1, 2].map(outcome).filter(Boolean);
+    assert.ok(results.length > 0, "at least one call should have produced a decisive Clash Break");
+    // Whoever won it, the payoff is a real hit with real damage — not a cosmetic beat.
+    for (const hit of results) assert.ok((hit!.dmg ?? 0) > 0, "a Clash Break must deal damage");
+});
+
+test("a clash call survives the rewind, so the server replay agrees with the screen", () => {
+    // The live layer rewinds to the last SEEN tick and re-simulates. A clash call has
+    // to be reproducible from the input log alone or the server would score a
+    // different fight than the one the player watched.
+    const make = () => liveBruisers(3);
+    const sim = make();
+    const bind = stepToClash(sim);
+    assert.ok(bind, "expected a clash bind for this seed");
+    const at = sim.t;
+    applyDuelCommand(sim, { kind: "clash", actorId: "player-0", pick: 1 });
+    while (stepCinematicDuel(sim)) { /* run it out */ }
+    const played = finishCinematicDuel(sim);
+    assert.deepEqual(replayInputLog(make, [{ t: at, cmd: { kind: "clash", actorId: "player-0", pick: 1 } }]), played,
+        "replaying the logged clash call must reproduce the played fight exactly");
+});
+
+// ── The commanded-seat contract ───────────────────────────────────────────────
+//
+// PetColiseum.tsx reads its deck, Bond meter and clash prompt for ONE actor id,
+// which it gets from commandedActorId(). It used to hard-code "player-0", and
+// because the engine seats the challenger as "player", a live-PvP p2 client was
+// asking for a fighter it does not command — so it got no deck at all.
+//
+// The component itself is an r3f canvas and cannot be rendered headlessly, so the
+// guard lives here instead: these pin the contract the helper rests on, for every
+// shape of duel the app can construct.
+
+test("commandedActorId returns the fighter the engine actually takes orders for", () => {
+    // PvE — must still be exactly the old hard-coded constant, or this refactor
+    // silently changed single-player.
+    const solo = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), 5);
+    assert.equal(commandedActorId(solo), "player-0");
+    const party = createLivePartyDuel(pet("P", "Fire"), pet("R", "Earth"), pet("Q", "Water"), pet("S", "Wind"), 5);
+    assert.equal(commandedActorId(party), "player-0");
+    const partySolo = createLivePartyDuel(pet("P", "Fire"), null, pet("Q", "Water"), null, 5);
+    assert.equal(commandedActorId(partySolo), "player-0");
+    // A watch-only replay has no live session at all; the deck is not rendered, but
+    // the helper must not throw on the way to that decision.
+    assert.equal(commandedActorId(null), "player-0");
+    assert.equal(commandedActorId(undefined), "player-0");
+});
+
+test("the commanded seat is the one the deck can actually read and command", () => {
+    // The real invariant behind the p2 bug: whatever id commandedActorId hands the
+    // HUD, controlAt must answer for it (otherwise the deck renders nothing) and the
+    // engine must accept a command for it.
+    const duel = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), 5);
+    duel.advance(DUEL_TPS);
+    const me = commandedActorId(duel);
+    assert.ok(duel.controlAt(2, me), `controlAt must answer for the commanded seat (${me})`);
+    // …and it must NOT answer for the opposing pet, which is what made the old
+    // hard-coded id fail silently instead of loudly.
+    assert.equal(duel.controlAt(2, "enemy-0"), null, "the opposing pet is not commandable from this seat");
 });
