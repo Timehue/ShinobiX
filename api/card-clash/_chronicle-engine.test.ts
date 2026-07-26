@@ -35,6 +35,7 @@ import {
   migrateLegacyDeck,
   normalSet,
   normalSummon,
+  passResponse,
   projectMatchForViewer,
   setTrap,
   startBattlePhase,
@@ -2262,6 +2263,113 @@ test("summon Traps ignore Sets and enforce their pending Monster Level cap", () 
   assert.equal(answered.ok, true);
   if (answered.ok)
     assert.equal(answered.state.responseWindow?.trigger, "onMonsterSummoned");
+});
+
+test("a Summon resolves onto the field and into the log before its Snare window opens", () => {
+  const setSnare = (
+    state: ChronicleMatch,
+    owner: ChronicleSideKey,
+    cardId: string,
+  ) => {
+    state[owner].magicTrapZones[0] = {
+      instanceId: "snare",
+      cardId,
+      owner,
+      zoneIndex: 0,
+      faceUp: false,
+      setOnTurn: 1,
+    };
+  };
+
+  const state = summonReady("tc-01");
+  const actor = state.activePlayer;
+  const defender = actor === "p1" ? "p2" : "p1";
+  state.turnNumber = 3;
+  setSnare(state, defender, "chronicle-pitfall-tag-array");
+  const handSize = state[actor].hand.length;
+  const summoned = normalSummon(state, actor, {
+    action: "normal-summon",
+    handIndex: 0,
+    zoneIndex: 0,
+  });
+  assert.equal(summoned.ok, true);
+  if (!summoned.ok) return;
+  // The Monster is standing in its zone and the Summon is already narrated by
+  // the time the responder is asked — the board never prompts for an answer to
+  // something it has not shown yet.
+  assert.equal(summoned.state[actor].monsterZones[0]?.cardId, "tc-01");
+  assert.equal(summoned.state[actor].monsterZones[0]?.faceUp, true);
+  assert.equal(summoned.state.responseWindow?.trigger, "onMonsterSummoned");
+  const summonLine = summoned.state.log.findIndex((line) =>
+    line.includes("Summons Training Dummy"),
+  );
+  const promptLine = summoned.state.log.findIndex((line) =>
+    line.includes("may respond with a set Snare"),
+  );
+  assert.ok(summonLine >= 0, "the Summon must be logged");
+  assert.ok(promptLine > summonLine, "the prompt must follow the Summon");
+
+  // Passing closes the window without replaying the Summon.
+  const passed = passResponse(summoned.state, defender);
+  assert.equal(passed.ok, true);
+  if (!passed.ok) return;
+  assert.equal(passed.state.responseWindow, null);
+  assert.equal(passed.state[actor].monsterZones[0]?.cardId, "tc-01");
+  assert.equal(passed.state[actor].hand.length, handSize - 1);
+  assert.equal(
+    passed.state.log.filter((line) => line.includes("Summons Training Dummy"))
+      .length,
+    1,
+  );
+
+  // The Snare still answers the Monster it can now see on the field.
+  const trapped = activateTrap(summoned.state, defender, 0);
+  assert.equal(trapped.ok, true);
+  if (!trapped.ok) return;
+  assert.equal(trapped.state[actor].monsterZones[0], null);
+  assert.ok(trapped.state[actor].graveyard.includes("tc-01"));
+  assert.equal(
+    trapped.state.log.filter((line) => line.includes("Summons Training Dummy"))
+      .length,
+    1,
+  );
+
+  // A Summoned Monster that seals Snares closes the window from the field it
+  // just entered, so no response opens against its own arrival.
+  const sealer = summonReady("tc-50", 1);
+  const sealActor = sealer.activePlayer;
+  const sealDefender = sealActor === "p1" ? "p2" : "p1";
+  sealer.turnNumber = 3;
+  setSnare(sealer, sealDefender, "chronicle-abyssal-pitfall");
+  const sealed = normalSummon(sealer, sealActor, {
+    action: "normal-summon",
+    handIndex: 0,
+    zoneIndex: 1,
+    tributeZoneIndexes: [0],
+  });
+  assert.equal(sealed.ok, true);
+  if (!sealed.ok) return;
+  assert.equal(sealed.state[sealActor].monsterZones[1]?.cardId, "tc-50");
+  assert.equal(sealed.state.responseWindow, null);
+
+  // Same ordering for a Tribute effect that removes back row: Stormbreaker
+  // Drake destroys the Set Snare as part of its Summon, so there is nothing
+  // left to respond with.
+  const drake = summonReady("tc-97", 1);
+  const drakeActor = drake.activePlayer;
+  const drakeDefender = drakeActor === "p1" ? "p2" : "p1";
+  drake.turnNumber = 3;
+  setSnare(drake, drakeDefender, "chronicle-abyssal-pitfall");
+  const struck = normalSummon(drake, drakeActor, {
+    action: "normal-summon",
+    handIndex: 0,
+    zoneIndex: 1,
+    tributeZoneIndexes: [0],
+  });
+  assert.equal(struck.ok, true);
+  if (!struck.ok) return;
+  assert.equal(struck.state[drakeDefender].magicTrapZones[0], null);
+  assert.equal(struck.state.responseWindow, null);
 });
 
 test("Normal Magic resolves to Graveyard and Equip remains attached", () => {

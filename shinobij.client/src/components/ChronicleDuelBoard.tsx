@@ -22,6 +22,13 @@ import { ChronicleCardView } from "./ChronicleCardView";
 
 type SideKey = "p1" | "p2";
 
+/** A response window reaches the client in the same update as the action that
+ *  opened it, so the Summon lands on the board and the "answer this?" prompt
+ *  would otherwise appear in the very same frame. One short beat lets the board
+ *  and the log read first. Small next to RESPONSE_TIMEOUT_MS (15s), so it never
+ *  meaningfully eats the responder's clock. */
+const RESPONSE_PROMPT_BEAT_MS = 700;
+
 /** Restartable one-shot animation class on a live DOM node. Imperative on
  *  purpose: motion is presentation-only and must never re-enter React state
  *  (the compiler lint forbids setState inside effect bodies). */
@@ -148,6 +155,7 @@ export function ChronicleDuelBoard({
   const [clock, setClock] = useState(() => Date.now());
   const [zoomedCardId, setZoomedCardId] = useState<string | null>(null);
   const [forfeitArmed, setForfeitArmed] = useState(false);
+  const [readyResponseId, setReadyResponseId] = useState<string | null>(null);
   const [sfxMuted, setSfxMuted] = useState(chronicleSfxMuted);
   // Opening splash: only a genuinely fresh duel (turn 1) gets the banner —
   // a resumed mid-duel board must not replay it.
@@ -318,7 +326,21 @@ export function ChronicleDuelBoard({
     return () => window.clearTimeout(timer);
   }, [forfeitArmed]);
 
+  // Arms the response prompt one beat after its window opens. The id is only
+  // written from the timer callback — never in the effect body — and a closed
+  // window stops matching on its own, so no reset write is needed.
+  const responseWindowId = state.responseWindow?.id;
+  useEffect(() => {
+    if (!responseWindowId) return;
+    const timer = window.setTimeout(
+      () => setReadyResponseId(responseWindowId),
+      RESPONSE_PROMPT_BEAT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [responseWindowId]);
+
   const logTail = state.log.at(-1);
+  const logBeforeTail = state.log.at(-2);
   useEffect(() => {
     // First render of a board (or a resumed duel) just adopts the current
     // tail — cues only fire for lines that appear while the player watches.
@@ -326,7 +348,12 @@ export function ChronicleDuelBoard({
     seenLogTail.current = logTail;
     if (primedTail === undefined || logTail === undefined) return;
     if (logTail === primedTail) return;
-    const cue = classifyChronicleLogLine(logTail);
+    // A response prompt always lands directly behind the Summon or attack that
+    // opened its window, so cue on that event instead: the prompt is an
+    // invitation, not a beat, and it must not mute what it is asking about.
+    const cue = classifyChronicleLogLine(
+      /may respond/i.test(logTail) ? (logBeforeTail ?? logTail) : logTail,
+    );
     if (cue) playChronicleSfx(cue);
     if (cue === "destroy") {
       // Imperative class toggle (not state): restarts the CSS animation
@@ -342,7 +369,7 @@ export function ChronicleDuelBoard({
       );
       return () => window.clearTimeout(timer);
     }
-  }, [logTail]);
+  }, [logTail, logBeforeTail]);
 
   useEffect(() => {
     const previous = seenStatus.current;
@@ -481,7 +508,9 @@ export function ChronicleDuelBoard({
     }
   }
 
-  const responseForMe = state.responseWindow?.responder === meKey;
+  const responseForMe =
+    state.responseWindow?.responder === meKey &&
+    readyResponseId === responseWindowId;
   return (
     <section
       className={`chronicle-table ${state.activeField ? "has-field" : ""} ${aiActing ? "ai-acting" : ""}`}

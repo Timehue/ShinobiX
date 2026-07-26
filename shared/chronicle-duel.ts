@@ -4323,20 +4323,10 @@ function eligibleTrapZones(
       );
     }),
   );
-  const pendingSummonSealsAllTraps =
-    trigger === "onMonsterSummoned" &&
-    (() => {
-      const pendingCard = cardInHand(
-        state,
-        other(responder),
-        Number(pending.handIndex),
-      );
-      return (
-        pendingCard?.cardClass === "monster" &&
-        pendingCard.monsterEffect?.kind === "sealAllTraps"
-      );
-    })();
-  if (fieldSealsAllTraps || pendingSummonSealsAllTraps) return [];
+  // A summon window opens only after the Summon has resolved, so a Monster
+  // that seals Snares is already face-up on the field by the time we look —
+  // the field check above covers the card that was just Summoned.
+  if (fieldSealsAllTraps) return [];
   if (trigger === "onAttackDeclared") {
     const attackerIndex = Number(pending.attackerZoneIndex);
     const attacker = validZone(attackerIndex, MONSTER_ZONE_COUNT)
@@ -4487,12 +4477,9 @@ function eligibleTrapZones(
     const monster = validZone(triggerZone, MONSTER_ZONE_COUNT)
       ? sideOf(state, triggerSide).monsterZones[triggerZone]
       : null;
-    const summonedCard =
-      trigger === "onMonsterSummoned"
-        ? cardInHand(state, triggerSide, Number(pending.handIndex))
-        : undefined;
-    const monsterCard =
-      summonedCard ?? (monster ? getChronicleCard(monster.cardId) : undefined);
+    // For a summon window `triggerZone` is the zone the Monster was just
+    // Summoned into, so the Level cap below reads the card off the field.
+    const monsterCard = monster ? getChronicleCard(monster.cardId) : undefined;
     if (
       card.effect.cap &&
       monsterCard?.cardClass === "monster" &&
@@ -4502,6 +4489,10 @@ function eligibleTrapZones(
     return [index];
   });
 }
+
+/** Pending-action marker for a window whose action has already resolved. Not a
+ *  client-routable action: `applyAction` rejects it like any unknown string. */
+const SUMMON_RESOLVED_ACTION = "normal-summon-resolved";
 
 function maybeOpenResponse(
   state: ChronicleMatch,
@@ -4680,6 +4671,11 @@ function validateSummon(
   return null;
 }
 
+/** A Normal Summon resolves *before* its response window opens: the Monster is
+ *  standing in its zone and the "Summons X" line is already in the log when the
+ *  opponent is asked whether to answer it. That is the order the Snares read
+ *  ("When a Monster is Summoned: destroy it" acts on a Monster that exists),
+ *  and it is the order the board shows — the summon lands, then the prompt. */
 function summonAction(
   state: ChronicleMatch,
   actor: ChronicleSideKey,
@@ -4693,10 +4689,19 @@ function summonAction(
     ...intent,
     action: setFaceDown ? "set-monster" : "normal-summon",
   };
+  const summoned = resolveSummon(state, actor, pending, setFaceDown);
+  // A Set Monster is hidden information and never opens a window; a Summon that
+  // ended the duel (deck-out on a draw effect) has nothing left to answer.
+  if (setFaceDown || !summoned.ok || summoned.state.status !== "active")
+    return summoned;
   return (
-    (!setFaceDown
-      ? maybeOpenResponse(state, actor, "onMonsterSummoned", pending, now)
-      : null) ?? resolveSummon(state, actor, pending, setFaceDown)
+    maybeOpenResponse(
+      summoned.state,
+      actor,
+      "onMonsterSummoned",
+      { ...pending, action: SUMMON_RESOLVED_ACTION },
+      now,
+    ) ?? summoned
   );
 }
 
@@ -5639,6 +5644,9 @@ function resolvePending(
   window: ChronicleResponseWindow,
 ): ChronicleResult {
   const { actor, action } = window.pendingAction;
+  // Summon windows carry an action that already resolved, so closing one —
+  // by Snare or by passing — leaves nothing further to apply.
+  if (action === SUMMON_RESOLVED_ACTION) return success(state);
   if (action === "normal-summon")
     return resolveSummon(state, actor, window.pendingAction, false);
   if (action === "set-monster")
@@ -5931,43 +5939,41 @@ function resolveTrapEffect(
     }
     return { state: next, cancelPending: true };
   }
-  // Summon-trigger effects need the summoned Monster to exist first.
+  // The Summon resolved before this window opened, so every summon-trigger
+  // effect reads the Monster where it now stands on the field.
   if (window.trigger === "onMonsterSummoned") {
-    const pendingResolved = resolvePending(next, window);
-    if (!pendingResolved.ok) return { state: next, cancelPending: true };
-    const resolved = pendingResolved.state;
     if (trapCard.effect.kind === "destroyAllMonsters")
-      destroyEveryMonsterControlledBy(resolved, ["p1", "p2"]);
+      destroyEveryMonsterControlledBy(next, ["p1", "p2"]);
     else {
       const index = Number(triggerZone);
       const target = validZone(index, MONSTER_ZONE_COUNT)
-        ? sideOf(resolved, actor).monsterZones[index]
+        ? sideOf(next, actor).monsterZones[index]
         : null;
       if (target) {
         if (trapCard.effect.kind === "weakenSummonedMonster") {
           const amount = trapCard.effect.amount ?? 800;
           target.temporaryAttack -= amount;
-          target.positionLockedUntilTurn = resolved.turnNumber;
-          resolved.log.push(
+          target.positionLockedUntilTurn = next.turnNumber;
+          next.log.push(
             `${trapCard.name} weakens the summoned Monster by ${amount} ATK and seals its position for the turn.`,
           );
         } else if (trapCard.effect.kind === "sealSummonedMonsterFaceDown") {
           target.faceUp = false;
           target.position = "defense";
-          target.lastPositionChangeTurn = resolved.turnNumber;
-          target.positionLockedUntilTurn = resolved.turnNumber + 2;
-          resolved.log.push(
+          target.lastPositionChangeTurn = next.turnNumber;
+          target.positionLockedUntilTurn = next.turnNumber + 2;
+          next.log.push(
             `${trapCard.name} seals the summoned Monster face-down in Defense Position.`,
           );
         } else if (trapCard.effect.kind === "returnOneMonsterToHand") {
-          detachEquip(resolved, actor, target);
-          sideOf(resolved, actor).hand.push(target.cardId);
-          sideOf(resolved, actor).monsterZones[index] = null;
+          detachEquip(next, actor, target);
+          sideOf(next, actor).hand.push(target.cardId);
+          sideOf(next, actor).monsterZones[index] = null;
         } else if (trapCard.effect.kind === "destroyOneMonster")
-          sendMonsterToGrave(resolved, actor, index);
+          sendMonsterToGrave(next, actor, index);
       }
     }
-    return { state: resolved, cancelPending: true };
+    return { state: next, cancelPending: true };
   }
   if (trapCard.effect.kind === "destroyOneMonster") {
     const index = Number(triggerZone);
