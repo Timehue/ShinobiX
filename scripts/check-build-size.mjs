@@ -77,7 +77,18 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // leaves CI ~15.6 KB of spare (22.6 KB locally) — an earlier draft sat 600 B
 // above the CI estimate and would have reported a false local green.
 // Startup gates untouched — initial graph 1.31 MB raw / 344.1 KB gzip.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_780_000;
+// 2026-07-25: 6.79 -> 6.81 MB. Durable battle-log UI (phases 4-9): the
+// read-only BattleLogScreen plus its action timeline, action-detail panel and
+// round accordion, the typed client contracts and fetch helpers, and the
+// Profile battle list now reading the server index. ~23 KB, all of it in the
+// LAZY battleLog screen chunk and the per-screen battle-skin CSS. Local build
+// measures 6,780,317 B — 317 B past the previous ceiling.
+//
+// Sized off CI, not the local number (see the margin rule above): CI runs
+// ~7 KB heavier, so it should land near 6,787,000 B, leaving ~18 KB of spare
+// (24.7 KB locally). Startup gates untouched — the screen is lazy, so the
+// initial graph is unchanged at 1.31 MB raw / 344.3 KB gzip.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_805_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

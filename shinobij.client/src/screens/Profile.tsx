@@ -51,6 +51,7 @@ export function Profile({
     creatorJutsus,
     creatorItems,
     onDeleteCharacter,
+    onOpenBattle,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -58,6 +59,8 @@ export function Profile({
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
     onDeleteCharacter?: () => void;
+    /** Opens the durable read-only battle record (Screen "battleLog"). */
+    onOpenBattle?: (battleId: string) => void;
 }) {
     const [feedingAura, setFeedingAura] = useState(false);
     const feedingAuraRef = useRef(false);
@@ -841,7 +844,7 @@ export function Profile({
 
             {/* ── Battle Logs tab ──────────────────────── */}
             <div className={mobileTab !== 'battlelogs' ? 'profile-tab-hidden' : ''}>
-                <BattleLogHistoryPanel character={character} />
+                <BattleLogHistoryPanel character={character} onOpenBattle={onOpenBattle} />
             </div>{/* end battle logs tab */}
 
             {/* ── Legacy tab (fully gated: no empty tab/heading when the

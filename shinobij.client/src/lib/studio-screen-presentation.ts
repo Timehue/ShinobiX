@@ -71,6 +71,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   profile: archive,
   inventory: archive,
   logbook: archive,
+  battleLog: archive,
   training: atFacility(combat, "stat-training"),
   jutsuTraining: atFacility(combat, "jutsu-training"),
   missions: atFacility(archive, "mission-hall"),

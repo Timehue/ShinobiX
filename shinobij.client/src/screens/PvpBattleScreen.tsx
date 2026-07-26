@@ -152,6 +152,7 @@ export function PvpBattleScreen({
     onLoss,
     onResolved,
     onExit,
+    onViewBattleRecord,
     onRecordBattle,
 }: {
     character: Character;
@@ -176,6 +177,8 @@ export function PvpBattleScreen({
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
     onResolved?: () => void;
     onExit?: (target: Screen) => void;
+    /** Opens the durable read-only record for a finished battle. */
+    onViewBattleRecord?: (battleId: string) => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     // Grid constants (gridWidth/gridHeight/HEX_*/X_STEP/Y_STEP/ORB/GRID_LAYER_*)
@@ -1756,6 +1759,12 @@ export function PvpBattleScreen({
                                         );
                                     })()}
                                     <div className="menu">
+                                        {/* Handoff to the DURABLE record. The live log above stays the
+                                            low-latency source during the fight; this reads the server
+                                            receipts once, on demand — we never poll them per move. */}
+                                        {onViewBattleRecord && !amSpectator && (
+                                            <button onClick={() => onViewBattleRecord(session.battleId)}>View Full Battle Record</button>
+                                        )}
                                         <button onClick={() => exitBattle("village")} disabled={pvpRewardClaimState === "claiming"}>Return to Village</button>
                                         <button onClick={() => exitBattle("worldMap")} disabled={pvpRewardClaimState === "claiming"}>World Map</button>
                                     </div>
