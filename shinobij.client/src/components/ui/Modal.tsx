@@ -19,6 +19,16 @@ export interface ModalProps {
 }
 
 /**
+ * Open-modal stack, innermost last. Every Modal listens for Escape on `window`,
+ * and `stopPropagation` does NOT stop sibling listeners on that same target —
+ * so without this, one Escape closed every nested modal at once (e.g. reading a
+ * card on top of an open Graveyard pile shut both). Only the topmost entry
+ * reacts. Registration order is mount order, so a modal opened on top of
+ * another registers later and wins.
+ */
+const openModals: string[] = [];
+
+/**
  * Canonical modal. Portals to <body> (escapes the side-rail stacking context),
  * locks body scroll, closes on Escape + backdrop click. Replaces the 6 ad-hoc
  * modal/overlay patterns previously scattered across screens.
@@ -38,6 +48,19 @@ export function Modal({
   const titleId = useId();
   useBodyScrollLock(open);
 
+  // Deliberately separate from the focus/key effect below: that one depends on
+  // `onClose`, which callers routinely pass as an inline arrow, so it re-runs
+  // on every parent render. Re-running this one would re-push an outer modal
+  // to the top of the stack while an inner one is still open.
+  useEffect(() => {
+    if (!open) return;
+    openModals.push(titleId);
+    return () => {
+      const at = openModals.indexOf(titleId);
+      if (at >= 0) openModals.splice(at, 1);
+    };
+  }, [open, titleId]);
+
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -54,6 +77,10 @@ export function Modal({
     (focusables()[0] ?? card)?.focus();
 
     function onKey(e: KeyboardEvent) {
+      // Only the topmost modal handles keys: Escape must close just the one on
+      // top, and an outer modal's focus trap must not fight the inner one for
+      // Tab while it is open.
+      if (openModals[openModals.length - 1] !== titleId) return;
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
@@ -81,7 +108,7 @@ export function Modal({
       window.removeEventListener("keydown", onKey);
       previouslyFocused?.focus();
     };
-  }, [open, onClose]);
+  }, [open, onClose, titleId]);
 
   if (!open) return null;
 

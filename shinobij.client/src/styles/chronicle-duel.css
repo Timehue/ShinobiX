@@ -1168,6 +1168,23 @@ button.chronicle-card {
   color: #8092a2;
   text-align: center;
 }
+/* Graveyard piles are buttons that open the pile reader — the <button> reset
+   keeps them visually identical to the deck zones beside them. */
+.chronicle-pile-zone--open {
+  font: inherit;
+  cursor: pointer;
+}
+.chronicle-pile-zone--open:hover,
+.chronicle-pile-zone--open:focus-visible {
+  border-color: rgba(240, 196, 99, 0.55);
+  background: rgba(18, 28, 38, 0.72);
+  color: #c3d2df;
+}
+.chronicle-pile-zone--open:hover .chronicle-pile-mark,
+.chronicle-pile-zone--open:focus-visible .chronicle-pile-mark {
+  border-color: #7d6236;
+  color: #cba86a;
+}
 .chronicle-pile-zone > span {
   font-size: 0.45rem;
   font-weight: 800;
@@ -2012,97 +2029,219 @@ button.chronicle-card {
     0 0 0 3px rgba(240, 196, 99, 0.58),
     0 18px 40px rgba(0, 0, 0, 0.66);
 }
-.chronicle-card-inspector {
-  position: fixed;
-  z-index: 1100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  overflow: auto;
-  background: rgba(1, 4, 7, 0.88);
-  padding: 24px;
-  backdrop-filter: blur(10px);
+.chronicle-mobile-card-zoom {
+  display: none;
 }
-.chronicle-card-inspector__dialog {
-  position: relative;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(225, 188, 116, 0.38);
-  border-radius: 16px;
+/* Shared full-size card reader (ChronicleCardInspector) — collection grid,
+   deck builder and the inventory Chronicle tab all open the same popup. The
+   5/7 aspect-ratio and the explicit row template have to be restated for this
+   context: a card that inherits a bare width cap without them collapses and
+   renders blank. */
+.chronicle-card-modal {
+  max-width: min(470px, 94vw);
+  border-color: rgba(225, 188, 116, 0.38);
   background:
     radial-gradient(
-      circle at 50% 22%,
+      circle at 50% 16%,
       rgba(117, 87, 49, 0.24),
-      transparent 43%
+      transparent 46%
     ),
     #080e14;
-  padding: 50px clamp(20px, 5vw, 70px) 34px;
-  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.78);
 }
-.chronicle-card-inspector__dialog .chronicle-card {
+.chronicle-card-zoom {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 16px clamp(12px, 4vw, 24px) 18px;
+}
+.chronicle-card-zoom .chronicle-card {
   grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
-  width: min(420px, 86vw);
+  /* The vh cap keeps the frame and the rules block below it on one screen at
+     laptop heights instead of forcing the dialog to scroll. */
+  width: min(390px, 74vw, 45vh);
   aspect-ratio: 5 / 7;
   padding: 15px;
   border-width: 4px;
 }
-.chronicle-card-inspector__dialog .chronicle-card__header {
+.chronicle-card-zoom__close {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #657485;
+  border-radius: 6px;
+  background: rgba(17, 27, 36, 0.92);
+  color: #e9eef3;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chronicle-card-zoom .chronicle-card__header {
   min-height: 58px;
   padding: 8px 10px 6px;
 }
-.chronicle-card-inspector__dialog .chronicle-card__name {
+.chronicle-card-zoom .chronicle-card__name {
   font-size: 1.34rem;
 }
-.chronicle-card-inspector__dialog
-  .chronicle-card.long-name
-  .chronicle-card__name {
+.chronicle-card-zoom .chronicle-card.long-name .chronicle-card__name {
   font-size: 1rem;
 }
-.chronicle-card-inspector__dialog
-  .chronicle-card.very-long-name
-  .chronicle-card__name {
+.chronicle-card-zoom .chronicle-card.very-long-name .chronicle-card__name {
   font-size: 0.86rem;
 }
-.chronicle-card-inspector__dialog .chronicle-card__class,
-.chronicle-card-inspector__dialog .chronicle-card__discipline,
-.chronicle-card-inspector__dialog .chronicle-card__line,
-.chronicle-card-inspector__dialog .chronicle-card__stats small {
+.chronicle-card-zoom .chronicle-card__class,
+.chronicle-card-zoom .chronicle-card__discipline,
+.chronicle-card-zoom .chronicle-card__line,
+.chronicle-card-zoom .chronicle-card__stats small {
   font-size: 0.64rem;
 }
-.chronicle-card-inspector__dialog .chronicle-card__text {
+.chronicle-card-zoom .chronicle-card__text {
   font-size: 0.98rem;
   line-height: 1.28;
   -webkit-line-clamp: 7;
 }
-.chronicle-card-inspector__dialog .chronicle-card__stats b {
+.chronicle-card-zoom .chronicle-card__stats b {
   font-size: 1.2rem;
 }
-.chronicle-card-inspector__hint {
-  margin: 12px 0 0;
+.chronicle-card-zoom__codex {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid #2b3947;
+  border-radius: 9px;
+  background: rgba(9, 15, 21, 0.72);
+  padding: 12px 14px;
+  text-align: center;
+}
+.chronicle-card-zoom__codex strong {
+  color: #f0d9a4;
+  font-size: 1.02rem;
+}
+.chronicle-card-zoom__taxonomy,
+.chronicle-card-zoom__limit {
   color: #8295a5;
   font-size: 0.66rem;
   letter-spacing: 0.06em;
-  text-align: center;
   text-transform: uppercase;
 }
-.chronicle-mobile-card-zoom {
-  display: none;
+.chronicle-card-zoom__stats {
+  color: #c6d3df;
+  font-size: 0.8rem;
 }
-.chronicle-card-inspector__close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  min-width: 70px;
-  min-height: 36px;
+.chronicle-card-zoom__codex p {
+  margin: 6px 0 0;
+  color: #dbe4ec;
+  font-size: 0.86rem;
+  line-height: 1.42;
+}
+.chronicle-card-zoom__meta {
+  color: #9fe0b4 !important;
+  font-size: 0.78rem !important;
+}
+.chronicle-card-zoom__lore {
+  color: #93a6b6 !important;
+  font-style: italic;
+}
+.chronicle-card-zoom__limit {
+  margin-top: 4px;
+}
+.chronicle-card-zoom__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.chronicle-card-zoom__actions button {
+  min-height: 40px;
+  padding: 0 18px;
   border: 1px solid #657485;
   border-radius: 6px;
   background: #111b24;
   color: #e9eef3;
   cursor: pointer;
 }
+.chronicle-card-zoom__actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.chronicle-card-zoom__actions button.primary {
+  border-color: rgba(240, 196, 99, 0.62);
+  background: linear-gradient(160deg, #3c3018, #191510);
+  color: #f2d79a;
+}
+/* Graveyard pile reader — opened from the pile rail during a duel. Reuses the
+   proven .chronicle-collection sizing so the frames stay legible. */
+.chronicle-graveyard-modal__hint {
+  margin: 0 0 12px;
+  color: #8295a5;
+  font-size: 0.72rem;
+  text-align: center;
+}
+.chronicle-graveyard-modal__grid {
+  gap: 14px;
+}
+.chronicle-graveyard-modal__grid .chronicle-card-inspect-trigger.legal-target
+  .chronicle-card {
+  box-shadow:
+    0 0 0 3px rgba(126, 233, 168, 0.72),
+    0 14px 34px rgba(0, 0, 0, 0.6);
+}
+.chronicle-graveyard-modal__empty {
+  margin: 0;
+  padding: 26px 0;
+  color: #6f8090;
+  text-align: center;
+}
 .chronicle-deck .chronicle-collection {
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 10px;
+}
+/* Deck-builder tile: the card body opens the reader, the corner pip is the
+   fast "add another copy" path so building 40 cards stays one click each. */
+.chronicle-deck-slot {
+  position: relative;
+  display: grid;
+  justify-self: center;
+}
+.chronicle-deck-slot__add {
+  position: absolute;
+  z-index: 4;
+  right: 3px;
+  bottom: 3px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(240, 196, 99, 0.6);
+  border-radius: 50%;
+  background: rgba(12, 18, 25, 0.92);
+  color: #f2d79a;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chronicle-deck-slot__add:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.chronicle-deck-slot__count {
+  position: absolute;
+  z-index: 4;
+  top: 3px;
+  right: 3px;
+  min-width: 20px;
+  border: 1px solid rgba(240, 196, 99, 0.5);
+  border-radius: 9px;
+  background: rgba(12, 18, 25, 0.92);
+  padding: 1px 5px;
+  color: #f2d79a;
+  font-size: 10px;
+  text-align: center;
 }
 .chronicle-toolbar {
   display: flex;
@@ -2440,17 +2579,6 @@ button.chronicle-card {
 @media (max-width: 760px) {
   .chronicle-shell {
     padding: 6px;
-  }
-  .chronicle-card-inspector {
-    padding: 8px;
-  }
-  .chronicle-card-inspector__dialog {
-    width: 100%;
-    padding: 48px 10px 24px;
-  }
-  .chronicle-card-inspector__dialog .chronicle-card {
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
-    min-height: 520px;
   }
   .chronicle-header {
     align-items: flex-start;

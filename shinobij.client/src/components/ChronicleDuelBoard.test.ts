@@ -61,6 +61,58 @@ test("duel board exposes mirrored zones, Health Points, and the active Field Car
   assert.equal((html.match(/Face-down Shinobi Journey card/g) ?? []).length, 5);
 });
 
+test("both Graveyard piles are buttons that open the pile reader", () => {
+  const state = createMatch(
+    "Akari",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    "Ren",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    () => 0,
+    1_000,
+  );
+  state.phase = "main1";
+  state.p1.graveyard.push(
+    ...CHRONICLE_CARD_CATALOG.slice(0, 3).map((card) => card.id),
+  );
+  const cardsById = Object.fromEntries(
+    CHRONICLE_CARD_CATALOG.map((card) => [card.id, card]),
+  ) as Record<string, ChronicleDisplayCard>;
+
+  const html = renderToStaticMarkup(
+    React.createElement(ChronicleDuelBoard, {
+      state: projectMatchForViewer(state, "p1"),
+      cardsById,
+      playerAvatar: "",
+      opponentAvatar: "",
+      onAction: () => undefined,
+    }),
+  );
+
+  // Piles must be real buttons, not decorative divs — clicking one is the only
+  // way to read what has been sent there.
+  assert.match(
+    html,
+    /<button[^>]*aria-label="Open your Graveyard, 3 cards"/,
+  );
+  assert.match(
+    html,
+    /<button[^>]*aria-label="Open the opponent Graveyard, 0 cards"/,
+  );
+  // Singular/plural on the count, and the pile stays closed until clicked.
+  state.p1.graveyard.length = 1;
+  const singular = renderToStaticMarkup(
+    React.createElement(ChronicleDuelBoard, {
+      state: projectMatchForViewer(state, "p1"),
+      cardsById,
+      playerAvatar: "",
+      opponentAvatar: "",
+      onAction: () => undefined,
+    }),
+  );
+  assert.match(singular, /aria-label="Open your Graveyard, 1 card"/);
+  assert.doesNotMatch(singular, /chronicle-graveyard-modal/);
+});
+
 test("face-up opponent cards are inspectable and the acting indicator renders", () => {
   const state = createMatch(
     "Akari",
