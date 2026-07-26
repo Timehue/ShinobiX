@@ -15,6 +15,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ActionReceiptCategory, DurableActionReceipt } from "../types/battle-log";
 import { actionCategory, actionLabel, BASIC_CATEGORIES } from "../types/battle-log";
+import { isFollowingEnd, scrollLeftAfterPrepend } from "../lib/timeline-scroll";
 
 export type TimelineActorFilter = "all" | "self" | "opponent";
 
@@ -132,7 +133,7 @@ export const BattleActionTimeline = memo(function BattleActionTimeline({
     const handleScroll = useCallback(() => {
         const el = scrollerRef.current;
         if (!el) return;
-        setFollowing(el.scrollLeft + el.clientWidth >= el.scrollWidth - 24);
+        setFollowing(isFollowingEnd({ scrollLeft: el.scrollLeft, scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
     }, []);
 
     // Restore position after older entries are prepended. Layout effect: runs
@@ -142,8 +143,7 @@ export const BattleActionTimeline = memo(function BattleActionTimeline({
         const anchor = prependAnchor.current;
         if (!el || !anchor) return;
         prependAnchor.current = null;
-        const grew = el.scrollWidth - anchor.scrollWidth;
-        if (grew > 0) el.scrollLeft = anchor.scrollLeft + grew;
+        el.scrollLeft = scrollLeftAfterPrepend(anchor, el.scrollWidth);
     }, [visible.length]);
 
     // Follow the newest action only when already at the end.

@@ -3470,6 +3470,23 @@ html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-jutsu-thumb {
     color: rgba(203, 213, 225, 0.85);
     font: 600 12px/1 Inter, sans-serif;
     cursor: pointer;
+    /* The label is three short words; without this the flex row wraps it into a
+       three-line column next to an oversized box. */
+    white-space: nowrap;
+}
+
+/* A bare checkbox inherits the arena chrome sizing here and renders as a large
+   empty square. Pin it to a real control size. */
+.bt-toggle input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    accent-color: #7dd3fc;
+    cursor: pointer;
 }
 
 /* Horizontal scrubber — same treatment on desktop and mobile. */
