@@ -4,7 +4,6 @@ import { baseStats, rankFromLevel } from "./stats";
 import {
     normalizeOnboardingStep,
     onboardingStepAtLeast,
-    ONBOARDING_STEP_ORDER,
     type CanonicalOnboardingStep,
 } from "./onboarding-step";
 
@@ -14,36 +13,139 @@ import {
 // bubble — same 9 beats, status-only, no duplicate action buttons) instead of
 // the old Journey Guide objectives, which repeated the coach's instructions.
 
-export type CompanionStepState = "done" | "now" | "next";
+export type CompanionStepState = "done" | "now" | "upNext" | "later";
+export type CompanionPhaseId = "prepare" | "prove" | "direction";
+
+export type CompanionPhase = {
+    id: CompanionPhaseId;
+    title: string;
+    summary: string;
+    index: number;
+    total: number;
+};
+
 export type CompanionStep = {
     id: CanonicalOnboardingStep;
     title: string;
+    detail: string;
+    phase: CompanionPhase;
+    index: number;
+    total: number;
     state: CompanionStepState;
 };
 
-const COMPANION_STEP_TITLES: [CanonicalOnboardingStep, string][] = [
-    ["training", "Start your first stat training"],
-    ["jutsu", "Train a new jutsu"],
-    ["jutsuLoadout", "Equip your jutsu loadout"],
-    ["inventory", "Equip your starter gear"],
-    ["academySpar", "Win your first spar"],
-    ["cafeteria", "Heal up in the Cafeteria"],
-    ["firstMission", "Claim the Academy Trial"],
-    ["logbook", "Open your Logbook"],
-    ["sectorReturn", "Visit a sector and return"],
+const COMPANION_PHASES: Record<CompanionPhaseId, Omit<CompanionPhase, "index" | "total">> = {
+    prepare: {
+        id: "prepare",
+        title: "Prepare",
+        summary: "Begin long-running growth and ready a complete battle kit.",
+    },
+    prove: {
+        id: "prove",
+        title: "Prove Yourself",
+        summary: "Use the real combat and reward loop in a safe Academy trial.",
+    },
+    direction: {
+        id: "direction",
+        title: "Find Direction",
+        summary: "Learn where progression lives, then step into the wider world.",
+    },
+};
+
+const COMPANION_PHASE_ORDER: CompanionPhaseId[] = ["prepare", "prove", "direction"];
+
+type CompanionStepDefinition = {
+    id: CanonicalOnboardingStep;
+    title: string;
+    detail: string;
+    phaseId: CompanionPhaseId;
+};
+
+const COMPANION_STEP_DEFINITIONS: CompanionStepDefinition[] = [
+    { id: "training", title: "Start your first stat training", detail: "Start a timer that keeps building your shinobi while you play.", phaseId: "prepare" },
+    { id: "jutsu", title: "Train a new jutsu", detail: "Learn one technique beyond your four inherited bloodline jutsu.", phaseId: "prepare" },
+    { id: "jutsuLoadout", title: "Equip your jutsu loadout", detail: "Put four techniques on the action bar you will use in battle.", phaseId: "prepare" },
+    { id: "inventory", title: "Equip your starter gear", detail: "Ready both Academy items so their combat stats apply.", phaseId: "prepare" },
+    { id: "academySpar", title: "Win your first spar", detail: "Practice AP, targeting, jutsu, and Wait against a training dummy.", phaseId: "prove" },
+    { id: "cafeteria", title: "Recover in the Cafeteria", detail: "Learn where to restore HP after a fight.", phaseId: "prove" },
+    { id: "firstMission", title: "Claim the Academy Trial", detail: "Complete the fight-to-claim reward loop at the Mission Hall.", phaseId: "prove" },
+    { id: "logbook", title: "Open your Logbook", detail: "See the persistent goals that replace tutorial instructions.", phaseId: "direction" },
+    { id: "sectorReturn", title: "Visit a sector and return", detail: "Practice safe travel before choosing your first field objective.", phaseId: "direction" },
 ];
 
 /** The tutorial checklist, or null when the tutorial isn't in a coach beat
  *  (cinematic steps and "done" both return null → panel hidden). */
-export function buildCompanionSteps(character: Character): CompanionStep[] | null {
-    const step = normalizeOnboardingStep(character.onboardingStep ?? "");
-    if (step === "done" || step === "academyIntro" || step === "starter" || step === "companionIntro") return null;
-    const current = ONBOARDING_STEP_ORDER[step];
-    return COMPANION_STEP_TITLES.map(([id, title]) => ({
-        id,
-        title,
-        state: ONBOARDING_STEP_ORDER[id] < current ? "done" : ONBOARDING_STEP_ORDER[id] === current ? "now" : "next",
+function companionPhase(phaseId: CompanionPhaseId): CompanionPhase {
+    const phase = COMPANION_PHASES[phaseId];
+    return {
+        ...phase,
+        index: COMPANION_PHASE_ORDER.indexOf(phaseId) + 1,
+        total: COMPANION_PHASE_ORDER.length,
+    };
+}
+
+export type CompanionJourney = {
+    steps: CompanionStep[];
+    current: CompanionStep;
+    completedCount: number;
+    totalCount: number;
+    phases: CompanionPhase[];
+};
+
+/** Complete presentation metadata for the nine interactive Academy beats. */
+export function buildCompanionJourney(character: Pick<Character, "onboardingStep">): CompanionJourney | null {
+    const currentStep = normalizeOnboardingStep(character.onboardingStep ?? "");
+    const currentIndex = COMPANION_STEP_DEFINITIONS.findIndex((definition) => definition.id === currentStep);
+    if (currentIndex < 0) return null;
+
+    const totalCount = COMPANION_STEP_DEFINITIONS.length;
+    const steps = COMPANION_STEP_DEFINITIONS.map((definition, index): CompanionStep => ({
+        id: definition.id,
+        title: definition.title,
+        detail: definition.detail,
+        phase: companionPhase(definition.phaseId),
+        index: index + 1,
+        total: totalCount,
+        state:
+            index < currentIndex
+                ? "done"
+                : index === currentIndex
+                    ? "now"
+                    : index === currentIndex + 1
+                        ? "upNext"
+                        : "later",
     }));
+
+    return {
+        steps,
+        current: steps[currentIndex],
+        completedCount: currentIndex,
+        totalCount,
+        phases: COMPANION_PHASE_ORDER.map(companionPhase),
+    };
+}
+
+/** Compatibility selector for the village checklist. */
+export function buildCompanionSteps(character: Pick<Character, "onboardingStep">): CompanionStep[] | null {
+    return buildCompanionJourney(character)?.steps ?? null;
+}
+
+/** Shared coach/checklist metadata so phase, step count, and "up next" copy
+ * cannot drift between the bottom speech bubble and village roadmap. */
+export function companionStepMeta(step: CanonicalOnboardingStep): {
+    current: CompanionStep;
+    upNext: CompanionStep | null;
+    completedCount: number;
+    totalCount: number;
+} | null {
+    const journey = buildCompanionJourney({ onboardingStep: step });
+    if (!journey) return null;
+    return {
+        current: journey.current,
+        upNext: journey.steps[journey.current.index] ?? null,
+        completedCount: journey.completedCount,
+        totalCount: journey.totalCount,
+    };
 }
 
 export type JourneyGuideObjective = {
