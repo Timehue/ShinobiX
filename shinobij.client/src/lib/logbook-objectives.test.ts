@@ -32,6 +32,9 @@ test("a fresh Academy Student gets the Academy Training objective first", () => 
     const objectives = buildLogbookObjectives(c);
     assert.equal(objectives[0]?.kind, "academy");
     assert.equal(objectives[0]?.title, "Academy Training");
+    const awakening = objectives[0]?.requirements.find((requirement) => requirement.label === "Awaken your first element");
+    assert.equal(awakening?.goScreen, "centralHub");
+    assert.equal(awakening?.goLabel, "Awakening Stone");
     assert.ok(!objectives.some((o) => o.kind === "exam"));
     assert.equal(currentLogbookObjective(c)?.title, "Academy Training");
 });

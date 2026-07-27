@@ -604,6 +604,17 @@ button.combat-jutsu-button,
     .next-goal-pin {
         display: none !important;
     }
+
+    /* The Academy completion choice is a one-time transition, not a routine
+       objective. Keep it visible in the center column: the compact left-rail
+       slot can fall below short desktop viewports after the full status card. */
+    .next-goal-pin.academy-handoff-pin {
+        display: grid !important;
+    }
+
+    .academy-handoff-compact {
+        display: none !important;
+    }
 }
 
 @media (max-width: 980px) {
