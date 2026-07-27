@@ -14,6 +14,7 @@
 //   - undefined / null / "" -> "done" (pre-onboarding veterans never replay)
 // Every other value passes through unchanged.
 import type { Character } from "../types/character";
+import { starterSavedBloodlines } from "../data/jutsu";
 
 export type OnboardingStep = NonNullable<Character["onboardingStep"]>;
 
@@ -26,6 +27,27 @@ export type CanonicalOnboardingStep = Exclude<OnboardingStep, "spar" | "tour" | 
 // second item is still sitting in the backpack.
 export const ACADEMY_STARTER_GEAR_TARGET = 2;
 export const ACADEMY_STARTER_GEAR_IDS = ["rustfang-kunai", "shinobi-vest"] as const;
+export const ACADEMY_JUTSU_LOADOUT_TARGET = 4;
+
+export function hasAcademyTrainedExtraJutsu(
+    character: Pick<Character, "bloodline" | "jutsuMastery">,
+): boolean {
+    const starterName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
+    const starterJutsuIds = new Set(
+        starterSavedBloodlines.find((bloodline) => bloodline.name === starterName)?.jutsus.map((jutsu) => jutsu.id) ?? [],
+    );
+    const mastery = character.jutsuMastery ?? [];
+    if (starterJutsuIds.size === 0) {
+        return mastery.length > ACADEMY_JUTSU_LOADOUT_TARGET;
+    }
+    return mastery.some((entry) => !starterJutsuIds.has(entry.jutsuId));
+}
+
+export function hasAcademyJutsuLoadoutComplete(
+    character: Pick<Character, "equippedJutsuIds">,
+): boolean {
+    return (character.equippedJutsuIds?.length ?? 0) >= ACADEMY_JUTSU_LOADOUT_TARGET;
+}
 
 export function academyEquippedItemCount(equipment: Record<string, string | undefined> | null | undefined): number {
     const equippedItemIds = new Set(Object.values(equipment ?? {}).filter((itemId): itemId is string => Boolean(itemId)));
@@ -44,6 +66,12 @@ export function normalizeOnboardingStep(
     if (step === "tour") return "training";
     if (step === "storyUnlocked") return "sectorReturn";
     return step;
+}
+
+export function isAcademyOnboardingActive(
+    step: Character["onboardingStep"] | null | "",
+): boolean {
+    return normalizeOnboardingStep(step) !== "done";
 }
 
 export const ONBOARDING_STEP_ORDER: Record<CanonicalOnboardingStep, number> = {

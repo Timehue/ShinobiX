@@ -849,7 +849,14 @@ export function CentralHub({
                 </p>
             </div>
 
-            <NextGoalPin character={character} navigate={setScreen} />
+            <NextGoalPin
+                character={character}
+                navigate={setScreen}
+                onOpenAwakening={() => {
+                    setShowAwakening(true);
+                    setAwakeningMsg("");
+                }}
+            />
 
             <div className="central-log">
                 {centralLog}
