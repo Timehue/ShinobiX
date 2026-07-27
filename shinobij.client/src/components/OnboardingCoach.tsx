@@ -39,10 +39,12 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import {
     ACADEMY_STARTER_GEAR_TARGET,
     academyEquippedItemCount,
+    hasAcademyJutsuLoadoutComplete,
     hasAcademyStarterGearEquipped,
+    hasAcademyTrainedExtraJutsu,
     normalizeOnboardingStep,
-    type CanonicalOnboardingStep,
 } from "../lib/onboarding-step";
+import { companionStepMeta } from "../lib/journey-guide";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
@@ -92,34 +94,6 @@ const skipStyle: React.CSSProperties = {
     marginLeft: "auto",
 };
 
-const stepProgress: Partial<Record<CanonicalOnboardingStep, string>> = {
-    training: "Academy Training - Step 1/9",
-    jutsu: "Academy Training - Step 2/9",
-    jutsuLoadout: "Academy Training - Step 3/9",
-    inventory: "Academy Training - Step 4/9",
-    academySpar: "Academy Training - Step 5/9",
-    cafeteria: "Academy Training - Step 6/9",
-    firstMission: "Academy Training - Step 7/9",
-    logbook: "Academy Training - Step 8/9",
-    sectorReturn: "Academy Training - Step 9/9",
-};
-
-// "Has the player actually trained a jutsu yet?"
-//
-// This used to count mastery ENTRIES (>= 4), but a brand-new character is seeded
-// with one level-1 entry per bloodline jutsu — so any bloodline granting four or
-// more jutsu made this true at creation and the lesson (Academy step 2/9) was
-// skipped before the player ever saw it. Starters all begin at level 1, so
-// "trained" means one of them has been pushed past level 1. The count-increase
-// baseline in the effect below still covers learning a brand-new jutsu.
-function hasTrainedStarterJutsu(character: Character): boolean {
-    return (character.jutsuMastery ?? []).some((mastery) => (mastery.level ?? 1) > 1);
-}
-
-function hasStarterLoadoutComplete(character: Character): boolean {
-    return (character.equippedJutsuIds?.length ?? 0) >= 4;
-}
-
 export function OnboardingCoach({
     character,
     screen,
@@ -142,6 +116,7 @@ export function OnboardingCoach({
     onStartSpar: () => void;
 }) {
     const step = normalizeOnboardingStep(character.onboardingStep);
+    const coachMeta = companionStepMeta(step);
     const [confirmingSkip, setConfirmingSkip] = useState(false);
     const jutsuBaselineRef = useRef<number | null>(null);
     const loadoutBaselineRef = useRef<number | null>(null);
@@ -161,7 +136,7 @@ export function OnboardingCoach({
             return;
         }
         const mastery = character.jutsuMastery?.length ?? 0;
-        if (hasTrainedStarterJutsu(character)) {
+        if (hasAcademyTrainedExtraJutsu(character)) {
             updateCharacter({ ...character, onboardingStep: "jutsuLoadout" });
             return;
         }
@@ -181,7 +156,7 @@ export function OnboardingCoach({
             return;
         }
         const equipped = character.equippedJutsuIds?.length ?? 0;
-        if (hasStarterLoadoutComplete(character)) {
+        if (hasAcademyJutsuLoadoutComplete(character)) {
             updateCharacter({ ...character, onboardingStep: "inventory" });
             return;
         }
@@ -329,6 +304,12 @@ export function OnboardingCoach({
     const requestSkip = () => setConfirmingSkip(true);
     const guideArt = guidePet ? petPoseImage(guidePet, sharedImages) : "";
     const guideLabel = guidePet ? `${guidePet.name} — your companion` : "Academy Guide";
+    const guideProgressLabel = coachMeta
+        ? `${guideLabel} · Phase ${coachMeta.current.phase.index}/${coachMeta.current.phase.total}: ${coachMeta.current.phase.title} · Step ${coachMeta.current.index}/${coachMeta.totalCount}`
+        : guideLabel;
+    const guideProgressPercent = coachMeta
+        ? Math.round((coachMeta.completedCount / coachMeta.totalCount) * 100)
+        : 0;
     const talking = bannerText !== null && typedCount < bannerText.length;
 
     if (confirmingSkip) {
@@ -365,13 +346,28 @@ export function OnboardingCoach({
             )}
             <div className="coach-guide-bubble">
                 <div className="coach-guide-head">
-                    <span className="coach-guide-label">{guideLabel} · {stepProgress[step]}</span>
+                    <span className="coach-guide-label">{guideProgressLabel}</span>
                     {/* Skip lives up here, clear of the primary button below, and
                         opens a confirm — so it can't be fat-fingered into ending
                         the whole tutorial. */}
                     <button className="coach-skip-link" onClick={requestSkip}>Skip</button>
                 </div>
+                {coachMeta && (
+                    <div
+                        className="coach-guide-progress"
+                        role="progressbar"
+                        aria-label={`${coachMeta.completedCount} of ${coachMeta.totalCount} Academy steps complete`}
+                        aria-valuemin={0}
+                        aria-valuemax={coachMeta.totalCount}
+                        aria-valuenow={coachMeta.completedCount}
+                    >
+                        <i style={{ width: `${guideProgressPercent}%` }} />
+                    </div>
+                )}
                 <p className="coach-guide-line">{(bannerText ?? "").slice(0, typedCount)}</p>
+                {coachMeta?.upNext && (
+                    <p className="coach-guide-next"><strong>Up next:</strong> {coachMeta.upNext.title}</p>
+                )}
                 {action && <div className="coach-guide-actions">{action}</div>}
             </div>
         </div>,
@@ -415,7 +411,7 @@ export function OnboardingCoach({
                         />
                     )}
                     <div style={{ color: "var(--gold)", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
-                        {guideLabel} · {stepProgress[step]}
+                        {guideProgressLabel}
                     </div>
                     <h2 style={{ marginTop: 0 }}>Your First Spar</h2>
                     <p style={{ lineHeight: 1.5 }}>

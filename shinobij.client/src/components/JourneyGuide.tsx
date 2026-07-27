@@ -13,7 +13,7 @@
 import { useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
-import { buildCompanionSteps } from "../lib/journey-guide";
+import { buildCompanionJourney } from "../lib/journey-guide";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { GameIcon } from "./icons/GameIcon";
 
@@ -49,18 +49,20 @@ export function JourneyGuide({
 }) {
     const storageKey = `journeyGuideCollapsed:${character.name}`;
     const [collapsed, setCollapsedState] = useState(() => readCollapsed(storageKey));
-    const steps = buildCompanionSteps(character);
+    const journey = buildCompanionJourney(character);
 
-    if (!steps) return null;
+    if (!journey) return null;
 
     const setCollapsed = (next: boolean) => {
         setCollapsedState(next);
         writeCollapsed(storageKey, next);
     };
+    const { steps, current, completedCount: doneCount } = journey;
+    const visibleSteps = steps.filter(
+        (step) => step.phase.id === current.phase.id || step.state === "upNext",
+    );
     const guidePet = character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? null;
     const guideArt = guidePet ? petPoseImage(guidePet, {}) : "";
-    const doneCount = steps.filter((s) => s.state === "done").length;
-    const current = steps.find((s) => s.state === "now");
 
     const petBadge = guideArt && (
         <img
@@ -76,7 +78,7 @@ export function JourneyGuide({
             <aside className="journey-guide journey-guide-collapsed" aria-label="Companion guidance">
                 <div>
                     <strong><GameIcon name="target" size={15} /> {guidePet?.name ?? "Academy Guide"}</strong>
-                    <span>{current?.title ?? "Academy Training"}</span>
+                    <span>Phase {current.phase.index}/{current.phase.total} · {current.phase.title} · {current.title}</span>
                 </div>
                 <button type="button" className="journey-guide-icon-btn" onClick={() => setCollapsed(false)} aria-label="Show companion guidance details">
                     +
@@ -100,7 +102,8 @@ export function JourneyGuide({
                 </button>
             </div>
             <p className="journey-guide-arrival">
-                Welcome to {character.village}. {guidePet ? `${guidePet.name} will walk you through each step below.` : "Your guide will walk you through each step below."}
+                <strong>Phase {current.phase.index}: {current.phase.title}.</strong>{" "}
+                {current.phase.summary}
             </p>
             <div className="journey-guide-progress" aria-label={`${doneCount} of ${steps.length} training steps complete`}>
                 <span>{doneCount}/{steps.length} complete</span>
@@ -109,19 +112,53 @@ export function JourneyGuide({
                 </div>
             </div>
             <ol className="journey-guide-list">
-                {steps.map((step) => (
-                    <li className={step.state === "done" ? "complete" : step.state === "now" ? "active" : ""} key={step.id}>
+                {visibleSteps.map((step) => (
+                    <li
+                        className={
+                            step.state === "done"
+                                ? "complete"
+                                : step.state === "now"
+                                    ? "active"
+                                    : step.state === "upNext"
+                                        ? "up-next"
+                                        : "later"
+                        }
+                        key={step.id}
+                    >
                         <span className="journey-guide-check" aria-hidden="true">
-                            {step.state === "done" ? "Done" : step.state === "now" ? "Now" : "Next"}
+                            {step.state === "done"
+                                ? "Done"
+                                : step.state === "now"
+                                    ? "Now"
+                                    : step.state === "upNext"
+                                        ? "Up next"
+                                        : "Later"}
                         </span>
                         <div>
                             <strong>{step.title}</strong>
+                            {(step.state === "now" || step.state === "upNext") && <small>{step.detail}</small>}
                         </div>
                     </li>
                 ))}
             </ol>
+            <ol className="journey-guide-phase-list" aria-label="Academy training phases">
+                {journey.phases.map((phase) => {
+                    const phaseState =
+                        phase.index < current.phase.index
+                            ? "done"
+                            : phase.index === current.phase.index
+                                ? "current"
+                                : "later";
+                    return (
+                        <li className={phaseState} key={phase.id}>
+                            <span>{phaseState === "done" ? "Done" : phaseState === "current" ? "Current" : "Later"}</span>
+                            <strong>{phase.index}. {phase.title}</strong>
+                        </li>
+                    );
+                })}
+            </ol>
             <div className="journey-guide-footer">
-                <span>Follow {guidePet?.name ?? "your guide"}&apos;s speech bubble below — it always points at the next step.</span>
+                <span>Follow {guidePet?.name ?? "your guide"}&apos;s speech bubble below—it owns the current action. Expand each phase as you reach it.</span>
             </div>
         </aside>
     );
