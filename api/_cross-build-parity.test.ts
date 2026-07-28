@@ -152,6 +152,18 @@ describe('parity: XP engine constants + formulas (game.ts + stats.ts ⇄ api/_xp
         assert.ok(STATS.includes(formula), 'client lib/stats.ts statBudgetAtLevel formula drifted');
         assert.ok(XPENGINE.includes(formula), 'server api/_xp-engine.ts statBudgetAtLevel formula drifted');
     });
+    it('the stat-derived level anchors match on both sides (leveling-without-xp map)', () => {
+        // The fitted LEVEL_EARNED_ANCHORS table is THE balance heart of
+        // stat-derived leveling — a one-sided tweak silently forks player level
+        // between client display and server authority. Pin the literal rows.
+        for (const row of ['[1, 0]', '[15, 2800]', '[30, 6200]', '[50, 11600]', '[80, 19600]', '[100, 27500]']) {
+            assert.ok(STATS.includes(row), `client lib/stats.ts lost anchor ${row}`);
+            assert.ok(XPENGINE.includes(row), `server api/_xp-engine.ts lost anchor ${row}`);
+        }
+        const interp = 'return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));';
+        assert.ok(STATS.includes(interp), 'client earnedForLevel interpolation drifted');
+        assert.ok(XPENGINE.includes(interp), 'server earnedForLevel interpolation drifted');
+    });
 });
 
 describe('parity: bank interest rate + cap (village-upgrades.ts + Bank.tsx ⇄ api/_bank-interest.ts)', () => {
