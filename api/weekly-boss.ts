@@ -3,7 +3,7 @@ import { kv } from './_storage.js';
 import { cors, mergePreservingImages } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { withKvLock } from './_lock.js';
-import { gainXp, type XpCharacter } from './_xp-engine.js';
+import { applyDerivedLevel, type XpCharacter } from './_xp-engine.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { bumpLegacyStats } from './_legacy-track.js';
 import { bumpEraContribution } from './_era.js';
@@ -78,6 +78,10 @@ const WEEKLY_BOSS_LIFETIME_MS = 72 * 60 * 60 * 1000;
 // they're locked out until the boss despawns and a new one spawns.
 const WEEKLY_BOSS_MAX_ATTEMPTS = 3;
 // Reward tier cutoffs by damage rank (1-indexed in the natural reading).
+// Once-per-week stat-pool grant for every contributor (leveling-without-xp
+// map §4: weekly cadence, outside the daily checklist, exactly-once via the
+// per-(week,player) credit receipt).
+const WEEKLY_BOSS_STAT_POINTS = 10;
 const TOP_CORE_COUNT = 10;  // ranks 1..10 each receive 1 Weekly Boss Core
 const TOP_KEY_COUNT = 25;   // ranks 1..25 each receive 1 Dungeon Key
 const WEEKLY_BOSS_CORE_ID = 'weekly-boss-core';
@@ -314,8 +318,12 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 name,
                 damage: dmg as number,
                 rank: i + 1,
-                ryo: Math.max(100, Math.floor(baseRyo * share * (isMvp ? 2 : 1) + 200)),
-                xp: Math.max(50, Math.floor(baseXp * share * (isMvp ? 2 : 1) + 100)),
+                // Character XP is retired (leveling-without-xp map): the old XP
+                // share folds into ryo at ~0.75:1, and every contributor gets a
+                // flat once-per-week stat-pool grant below (receipt-gated).
+                ryo: Math.max(100, Math.floor(baseRyo * share * (isMvp ? 2 : 1) + 200))
+                    + Math.floor(Math.max(50, Math.floor(baseXp * share * (isMvp ? 2 : 1) + 100)) * 0.75),
+                xp: 0,
                 gotCore: i < TOP_CORE_COUNT,
                 gotKey: i < TOP_KEY_COUNT,
                 isMvp,
@@ -376,21 +384,21 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                         : [];
                     if (entry.gotCore) currentInventory.push(WEEKLY_BOSS_CORE_ID);
                     if (entry.gotKey) currentInventory.push(DUNGEON_KEY_ID);
-                    // Credit XP through the server gainXp() port (same engine the
-                    // mission/tower credits use): a raw `char.xp += entry.xp` is
-                    // per-level progress that the client clamps to level*100 on
-                    // load, so the headline XP would be silently lost. gainXp
-                    // applies the ×3 multiplier itself (pass entry.xp directly
-                    // like the other callers), levels the character up, and
-                    // returns the leveled level/xp/maxHp/maxChakra/maxStamina/
-                    // rankTitle fields which we spread back in.
-                    const leveled = gainXp(freshChar as unknown as XpCharacter, entry.xp) as unknown as Record<string, unknown>;
+                    // Character XP is retired: every contributor gets a flat
+                    // once-per-week stat-pool grant (the weekly-boss spine
+                    // grant, +10 — outside the daily checklist, exactly-once by
+                    // the same receipt that gates this whole credit), then the
+                    // rise-only derived-level recompute picks up the ledger move.
+                    const leveled = applyDerivedLevel({
+                        ...freshChar,
+                        unspentStats: Math.max(0, Math.floor(Number(freshChar.unspentStats) || 0)) + WEEKLY_BOSS_STAT_POINTS,
+                    } as unknown as XpCharacter) as unknown as Record<string, unknown>;
                     const updated = {
                         ...fresh,
                         character: {
                             ...freshChar,
+                            unspentStats: leveled.unspentStats,
                             level: leveled.level,
-                            xp: leveled.xp,
                             maxHp: leveled.maxHp,
                             maxChakra: leveled.maxChakra,
                             maxStamina: leveled.maxStamina,

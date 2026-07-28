@@ -5,20 +5,22 @@ import {
     MAX_AI_FIGHT_XP, MAX_AI_FIGHT_RYO,
 } from './_ai-fight-reward.js';
 
+// Character XP is retired (leveling-without-xp map): raw AI wins are the
+// unlimited-repeat channel and pay ryo only — xp is always 0 in the shape.
 describe('_ai-fight-reward — daily soft-cap (P0.2b)', () => {
-    it('first win of the day pays full reward', () => {
+    it('first win of the day pays full ryo and zero xp', () => {
         const r = aiFightReward(125, 90, 1);
-        assert.deepEqual(r, { xp: 125, ryo: 90, capped: false });
+        assert.deepEqual(r, { xp: 0, ryo: 90, capped: false });
     });
 
-    it('pays full reward up to (and including) the soft cap', () => {
+    it('pays full ryo up to (and including) the soft cap', () => {
         const r = aiFightReward(100, 75, AI_FIGHT_SOFT_CAP_PER_DAY);
-        assert.deepEqual(r, { xp: 100, ryo: 75, capped: false });
+        assert.deepEqual(r, { xp: 0, ryo: 75, capped: false });
     });
 
-    it('reduces the reward past the soft cap', () => {
+    it('reduces the ryo past the soft cap', () => {
         const r = aiFightReward(100, 80, AI_FIGHT_SOFT_CAP_PER_DAY + 1);
-        assert.equal(r.xp, Math.floor(100 * AI_FIGHT_REDUCED_MULT));
+        assert.equal(r.xp, 0);
         assert.equal(r.ryo, Math.floor(80 * AI_FIGHT_REDUCED_MULT));
         assert.equal(r.capped, true);
     });
@@ -30,9 +32,10 @@ describe('_ai-fight-reward — daily soft-cap (P0.2b)', () => {
         );
     });
 
-    it('clamps the per-fight base (anti-inflation)', () => {
+    it('clamps the per-fight base (anti-inflation) and ignores the claimed xp entirely', () => {
         const r = aiFightReward(99999, 99999, 1);
-        assert.equal(r.xp, MAX_AI_FIGHT_XP);
+        assert.equal(r.xp, 0);
+        assert.ok(MAX_AI_FIGHT_XP >= 0, 'legacy clamp constant retained for old-client shapes');
         assert.equal(r.ryo, MAX_AI_FIGHT_RYO);
     });
 

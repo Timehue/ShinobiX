@@ -88,7 +88,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const startedAt = Date.now();
         const endsAt = startedAt + tier.ms;
-        const { sealedGain, sealedXp } = trustedTrainingRewards(tier);
         const saveKey = `save:${playerName}`;
         const result = await withKvLock(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
@@ -102,6 +101,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const stamina = Math.max(0, Number(character.stamina) || 0);
             if (stamina < tier.staminaCost) return { ok: false as const, status: 409, error: 'Not enough stamina.' };
 
+            // Seal inside the lock, from the LOCKED save: the growth bonus
+            // (village/elder/clan) and the era dial are server-derived — the
+            // client body contributes nothing to the amount.
+            const { sealedGain, sealedXp, bonusPct } = trustedTrainingRewards(tier, character);
             const tokenId = randomUUID().replace(/-/g, '');
             const expiresAt = startedAt + TOKEN_TTL_SECONDS * 1000;
             const activeTraining = {
@@ -114,13 +117,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(`training-active:${playerName}`, activeTraining, { ex: TOKEN_TTL_SECONDS });
             const nextCharacter = { ...character, stamina: stamina - tier.staminaCost };
             const written = await writeVersionedPlayerSave(saveKey, { ...record, activeTraining }, nextCharacter);
-            return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion };
+            return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion, sealedGain, sealedXp, bonusPct };
         }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
 
         return res.status(200).json({
             ok: true, token: result.tokenId, startedAt, endsAt, durationMs: tier.ms,
-            sealedGain, sealedXp, activeTraining: result.activeTraining,
+            sealedGain: result.sealedGain, sealedXp: result.sealedXp, bonusPct: result.bonusPct,
+            activeTraining: result.activeTraining,
             character: result.character, _saveVersion: result._saveVersion,
         });
     } catch (err) {

@@ -21,9 +21,13 @@ test('story settlement requires the exact next opponent and grants the canonical
     assert.equal(settled.ok, true);
     if (!settled.ok) return;
     assert.equal(settled.progress, 1);
-    assert.equal(settled.xp, 120);
+    // Character XP is retired: milestone 0's old 120 XP is now a one-time
+    // +3 stat-pool grant (table ÷ 40), reported via statPoints.
+    assert.equal(settled.xp, 0);
+    assert.equal(settled.statPoints, 3);
     assert.equal(settled.ryo, 75);
     assert.equal(settled.character.ryo, 175);
+    assert.equal(settled.character.unspentStats, 3);
     assert.equal(settled.character.auraDust, 15);
     assert.equal(settled.character.storyProgress, 1);
     assert.equal(settled.character.hp, 65);
@@ -78,7 +82,11 @@ test('Academy spar is a one-step canonical grant bound to its temporary opponent
     const settled = applyAcademySparSettlement(c, token(`temp-academy-spar-${Date.now()}`));
     assert.equal(settled.ok, true);
     if (!settled.ok) return;
-    assert.equal(settled.xp, 60);
+    // The teaching reward is now +20 pool points (was a one-time 60 XP) — it
+    // teaches the USER STATS panel the way the XP-bar move used to.
+    assert.equal(settled.xp, 0);
+    assert.equal(settled.statPoints, 20);
+    assert.equal(settled.character.unspentStats, 20);
     assert.equal(settled.ryo, 30);
     assert.equal(settled.character.onboardingStep, 'cafeteria');
     assert.equal(settled.character.academySparClaimed, true);

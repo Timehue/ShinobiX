@@ -27,6 +27,22 @@ export const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 export const FIELD_MISSION_SCROLLS = 3;
 export const HUNT_MISSION_SCROLLS = 3;
 
+// ── Daily-checklist stat grants (docs/leveling-without-xp-map.md §4) ────────
+// Character XP is retired: each ONCE-PER-DAY field/hunt claim pays stat-POOL
+// points instead — the "daily checklist". Flat per claim: 10 hunt + 5 fetch
+// dailies = 45/day at full unlock = the dailies slice of the daily growth
+// budget (PvP slice 18 lives in _stat-growth.ts; profession dailies stay on
+// their own profession-XP track). Repeatable combat-mission slots pay ryo
+// only. The one-time academy capstones below are outside the checklist and
+// unboosted. Pinned by the daily-checklist invariant in _mission-catalog.test.
+export const FIELD_MISSION_STAT_POINTS = 3;
+export const ACADEMY_TRIAL_STAT_POINTS = 5;
+export const ACADEMY_CHECKLIST_STAT_POINTS = 10;
+// The full-unlock daily-checklist target (dailies slice). The invariant test
+// asserts the real catalog sums to this ±10% so a new daily can't silently
+// inflate the day's growth.
+export const DAILY_PVE_GROWTH_TARGET = 45;
+
 export type CurrencyKey = 'fateShards' | 'honorSeals' | 'boneCharms' | 'auraStones' | 'auraDust' | 'mythicSeals';
 export const CURRENCY_KEYS: readonly CurrencyKey[] = [
     'fateShards', 'honorSeals', 'boneCharms', 'auraStones', 'auraDust', 'mythicSeals',

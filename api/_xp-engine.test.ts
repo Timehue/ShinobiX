@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-    gainXp, xpNeeded, maxHpForLevel, maxChakraForLevel, maxStaminaForLevel,
+    gainXp, applyDerivedLevel, earnedForLevel, levelForEarned, earnedStatPoints,
+    xpNeeded, maxHpForLevel, maxChakraForLevel, maxStaminaForLevel,
     rankFromLevel, reconcileCharacterStatBudget, effectiveCharacterXpGain,
     rankTitleForLevel, computePvpWinGains, creditPvpWinBase,
     MAX_LEVEL, CHARACTER_XP_GAIN_MULTIPLIER,
@@ -12,13 +13,14 @@ import {
 import { v2JutsuResourceCost, v2ResourceRegen, resolveJutsuDiscipline, v2PoisonOnSpend, POISON_SPEND_FACTOR } from './_combat-resources.js';
 
 // ─── Independent inline replica of the CLIENT level engine ──────────────────
-// Transcribed straight from shinobij.client/src/lib/{stats,progression,
-// character-progress}.ts + App.tsx {examLevelCap, gainXp}. This is a SEPARATE
-// copy from api/_xp-engine.ts so a transcription drift on either side fails the
-// sweep below. If the client formula changes, BOTH this replica and the port
-// must change in lockstep — that's the point (the "server == client" rule).
+// Transcribed straight from shinobij.client/src/lib/{stats,character-progress}
+// .ts. This is a SEPARATE copy from api/_xp-engine.ts so a transcription drift
+// on either side fails the sweep below. Character XP is RETIRED
+// (docs/leveling-without-xp-map.md): level derives from the earned-points
+// ledger, so the replica engine is applyDerivedLevel (rise-only + exam holds),
+// and gainXp must be exactly that recompute with the amount ignored.
 
-const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 1;
+const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_MULT = 1;
 const C_HP_CAP = 10000, C_CHAKRA_CAP = 5000, C_STAMINA_CAP = 5000;
 // combatResourcesV2 flag + pool (MUST match COMBAT_RESOURCES_V2 + the v2 pool constants in
 // constants/game.ts + api/_xp-engine.ts). When on, maxChakra/Stamina use the v2 curve.
@@ -42,15 +44,6 @@ const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) 
 const cMaxChakra = (lvl: number) => C_V2_FLAG ? cV2Pool(C_V2_CHAKRA_BASE, C_V2_CHAKRA_CAP, lvl) : Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl: number) => C_V2_FLAG ? cV2Pool(C_V2_STAMINA_BASE, C_V2_STAMINA_CAP, lvl) : Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cRankFrom = (lvl: number) => lvl >= 80 ? 'Special Jonin' : lvl >= 50 ? 'Jonin' : lvl >= 30 ? 'Chunin' : lvl >= 15 ? 'Genin' : 'Academy Student';
-const C_TOTAL_PTS = C_KEYS.reduce((t, k) => t + (C_MAX_STAT - cBase()[k]), 0);
-const C_PTS_FROM_XP = C_TOTAL_PTS - C_STARTING;
-const cStatBudgetAtLevel = (lvl: number) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return C_STARTING + Math.round(((l - 1) / (C_MAX_LEVEL - 1)) * C_PTS_FROM_XP); };
-const cBudget = (lvl: number, xp: number) => {
-    if (lvl >= C_MAX_LEVEL) return C_TOTAL_PTS;
-    const base = cStatBudgetAtLevel(lvl), next = cStatBudgetAtLevel(lvl + 1), need = cXpNeeded(lvl);
-    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
-    return Math.min(C_TOTAL_PTS, Math.round(base + (next - base) * frac));
-};
 function cReconcile(ch: Record<string, unknown>) {
     const stats = cNorm(ch.stats as Record<string, unknown>);
     // Two-axis: preserve the stored pool (mirrors the server + client reconcile).
@@ -78,34 +71,42 @@ function cExamCap(ch: Record<string, unknown>) {
     for (const g of C_GATES) if (!passed.includes(g.exam)) return g.level;
     return C_MAX_LEVEL;
 }
-function cGainXp(character: Record<string, unknown>, amount: number): Record<string, unknown> {
-    const totalAmount = cEffXp(character as { elderFocus?: unknown }, amount);
-    const levelCap = cExamCap(character);
+// Stat-derived level curve (fitted anchors — lib/stats.ts LEVEL_EARNED_ANCHORS).
+const C_ANCHORS: ReadonlyArray<readonly [number, number]> = [
+    [1, 0], [15, 2800], [30, 6200], [50, 11600], [80, 19600], [100, 27500],
+];
+function cEarnedForLevel(level: number): number {
+    const clamped = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(level)));
+    for (let i = 1; i < C_ANCHORS.length; i++) {
+        const [aL, aE] = C_ANCHORS[i - 1];
+        const [bL, bE] = C_ANCHORS[i];
+        if (clamped >= aL && clamped <= bL) return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));
+    }
+    return 0;
+}
+function cLevelForEarned(earned: number): number {
+    const pts = Math.max(0, Math.floor(earned));
+    for (let level = C_MAX_LEVEL; level >= 2; level--) if (cEarnedForLevel(level) <= pts) return level;
+    return 1;
+}
+const cEarnedPoints = (ch: Record<string, unknown>) =>
+    cAllocated(cNorm(ch.stats as Record<string, unknown>)) + Math.max(0, Math.floor(Number(ch.unspentStats) || 0));
+function cApplyDerivedLevel(character: Record<string, unknown>): Record<string, unknown> {
     let updated = cReconcile(character) as Record<string, unknown>;
-    updated = { ...updated, xp: Number(updated.level) >= C_MAX_LEVEL ? 0 : Number(updated.xp) + totalAmount };
-    while (Number(updated.level) < C_MAX_LEVEL && Number(updated.level) < levelCap && Number(updated.xp) >= cXpNeeded(Number(updated.level))) {
-        const needed = cXpNeeded(Number(updated.level));
-        const newLevel = Number(updated.level) + 1;
+    const target = Math.max(1, Math.min(cExamCap(updated), cLevelForEarned(cEarnedPoints(updated))));
+    const current = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(Number(updated.level) || 1)));
+    if (target > current) {
         updated = {
-            ...updated, xp: Number(updated.xp) - needed, level: newLevel,
-            rankTitle: cRankTitle(updated, newLevel),
-            maxHp: cMaxHp(newLevel), maxChakra: cMaxChakra(newLevel), maxStamina: cMaxStamina(newLevel),
-            hp: cMaxHp(newLevel), chakra: cMaxChakra(newLevel), stamina: cMaxStamina(newLevel),
+            ...updated, level: target, rankTitle: cRankTitle(updated, target),
+            maxHp: cMaxHp(target), maxChakra: cMaxChakra(target), maxStamina: cMaxStamina(target),
+            hp: cMaxHp(target), chakra: cMaxChakra(target), stamina: cMaxStamina(target),
         };
     }
-    if (Number(updated.level) >= levelCap && Number(updated.level) < C_MAX_LEVEL) {
-        updated = { ...updated, xp: Math.min(Number(updated.xp), cXpNeeded(Number(updated.level)) - 1) };
-    }
-    if (Number(updated.level) >= C_MAX_LEVEL) {
-        updated = { ...updated, level: C_MAX_LEVEL, xp: 0, rankTitle: cRankTitle(updated, C_MAX_LEVEL) };
-    }
-    return cReconcile(updated);
+    return updated;
 }
 
 // ─── combatResourcesV2 inline client spec ───────────────────────────────────
 // Replica of shinobij.client/src/{constants/game.ts, lib/jutsu-scaling.ts} v2 math.
-// The server (_xp-engine.ts pool constants + _combat-resources.ts cost/regen/
-// discipline) must match this; the client is a verbatim copy of the same spec.
 const cV2Lerp = (base: number, cap: number, lvl: number) => {
     const L = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(Number(lvl) || 1)));
     return Math.round(base + (cap - base) * (L - 1) / (C_MAX_LEVEL - 1));
@@ -171,28 +172,27 @@ describe('combatResourcesV2 sub-formulas match the client', () => {
 
 // ─── Sub-formula equivalence ────────────────────────────────────────────────
 describe('xp-engine sub-formulas match the client', () => {
-    it('xpNeeded / maxHp/Chakra/Stamina / rankFromLevel across all levels', () => {
+    it('curves + vitals + rank across all levels', () => {
         for (let lvl = 1; lvl <= 100; lvl++) {
-            assert.equal(xpNeeded(lvl), cXpNeeded(lvl), `xpNeeded(${lvl})`);
+            assert.equal(xpNeeded(lvl), cXpNeeded(lvl), `xpNeeded(${lvl})`); // retained legacy formula, frozen
+            assert.equal(earnedForLevel(lvl), cEarnedForLevel(lvl), `earnedForLevel(${lvl})`);
             assert.equal(maxHpForLevel(lvl), cMaxHp(lvl), `maxHp(${lvl})`);
             assert.equal(maxChakraForLevel(lvl), cMaxChakra(lvl), `maxChakra(${lvl})`);
             assert.equal(maxStaminaForLevel(lvl), cMaxStamina(lvl), `maxStamina(${lvl})`);
             assert.equal(rankFromLevel(lvl), cRankFrom(lvl), `rankFromLevel(${lvl})`);
         }
     });
-    it('effectiveCharacterXpGain applies the ×1 (real) mult + elder bonus', () => {
+    it('effectiveCharacterXpGain stays a retired-but-frozen helper (×1, elder +10%)', () => {
         assert.equal(CHARACTER_XP_GAIN_MULTIPLIER, 1);
         for (const amt of [0, 1, 75, 100, 125, 250]) {
             assert.equal(effectiveCharacterXpGain({}, amt), cEffXp({}, amt), `plain ${amt}`);
             assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, amt), cEffXp({ elderFocus: 'training' }, amt), `training ${amt}`);
         }
-        assert.equal(effectiveCharacterXpGain({}, 100), 100);
-        assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, 100), 110);
     });
 });
 
-// ─── gainXp full-object sweep vs the inline client replica ───────────────────
-describe('gainXp matches the client across a wide input sweep', () => {
+// ─── applyDerivedLevel full-object sweep vs the inline client replica ───────
+describe('applyDerivedLevel matches the client replica across a wide input sweep', () => {
     function mkChar(over: Record<string, unknown>): Record<string, unknown> {
         return {
             name: 'Sweep', level: 1, xp: 0, ryo: 1000, hp: 100, chakra: 100, stamina: 100,
@@ -202,109 +202,122 @@ describe('gainXp matches the client across a wide input sweep', () => {
     }
     it('produces an identical character object for every case', () => {
         const levels = [1, 5, 14, 15, 19, 20, 21, 38, 39, 40, 79, 80, 99, 100];
-        const xps = [0, 50, 99, 500];
-        const amounts = [0, 1, 75, 100, 125, 1000];
+        const pools = [0, 20, 500, 2800, 3933, 8630, 11600, 27500, 40000];
         const exams = [[], ['genin'], ['genin', 'chunin']];
-        const elders = [undefined, 'training', 'war'];
+        const statBumps = [0, 100, 4080];
         let cases = 0;
-        for (const level of levels) for (const xp of xps) for (const amount of amounts) for (const examsPassed of exams) for (const elderFocus of elders) {
-            const input = mkChar({ level, xp, examsPassed, ...(elderFocus ? { elderFocus } : {}) });
+        for (const level of levels) for (const unspentStats of pools) for (const examsPassed of exams) for (const bump of statBumps) {
+            const stats = bump > 0 ? { ...cBase(), strength: 10 + Math.min(2490, bump) } : {};
+            const input = mkChar({ level, unspentStats, examsPassed, stats });
             assert.deepEqual(
-                gainXp(structuredClone(input), amount),
-                cGainXp(structuredClone(input), amount),
-                `level=${level} xp=${xp} amt=${amount} exams=${examsPassed.join('+') || 'none'} elder=${elderFocus ?? 'none'}`,
+                applyDerivedLevel(structuredClone(input)),
+                cApplyDerivedLevel(structuredClone(input)),
+                `level=${level} pool=${unspentStats} exams=${examsPassed.join('+') || 'none'} bump=${bump}`,
             );
             cases++;
         }
-        assert.ok(cases >= 3000, `swept ${cases} cases`);
+        assert.ok(cases >= 1000, `swept ${cases} cases`);
+    });
+    it('gainXp is the same recompute with the amount ignored (retired XP driver)', () => {
+        for (const amount of [0, 1, 100, 60000]) {
+            const input = mkChar({ level: 1, unspentStats: 3000, examsPassed: ['genin', 'chunin'] });
+            assert.deepEqual(
+                gainXp(structuredClone(input), amount),
+                applyDerivedLevel(structuredClone(input)),
+                `amount=${amount} must be ignored`,
+            );
+        }
     });
     it('preserves unrelated fields (ryo, name, custom) untouched except on level-up vitals', () => {
         const input = { name: 'Keep', level: 1, xp: 0, ryo: 777, custom: 'x', examsPassed: ['genin', 'chunin'], stats: {} };
-        const out = gainXp(structuredClone(input), 0);
+        const out = applyDerivedLevel(structuredClone(input));
         assert.equal(out.ryo, 777);
         assert.equal(out.name, 'Keep');
         assert.equal(out.custom, 'x');
+        assert.equal(out.xp, 0, 'frozen xp field untouched');
     });
 });
 
 // ─── Hand-computed golden anchors (cross-check the transcription) ────────────
-describe('gainXp golden anchors', () => {
-    it('+0 XP only normalizes stats + preserves the stored pool (two-axis: no budget grant)', () => {
-        const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 0);
+describe('derived-level golden anchors', () => {
+    it('a fresh character (earned 20) is level 1 and keeps its pool', () => {
+        const out = applyDerivedLevel({ level: 1, xp: 0, examsPassed: [], stats: {}, unspentStats: 20 });
         assert.equal(out.level, 1);
-        assert.equal(out.xp, 0);
-        assert.equal(out.unspentStats, 0); // no stored pool → 0; leveling grants no points
-        // a stored pool carries through unchanged (points come from training + combat)
-        assert.equal(gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {}, unspentStats: 42 }, 0).unspentStats, 42);
+        assert.equal(out.unspentStats, 20);
     });
-    it('level 1 + 100 base XP (×1 = 100) climbs to level 4, xp 16', () => {
-        // Under 6·L² the early curve: xpNeeded 1..3 = 6+24+54 = 84, so 100 XP reaches
-        // L4 with 16 left over (xpNeeded(4)=96 not yet met).
-        const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
-        assert.equal(out.level, 4);
-        assert.equal(out.xp, 16);
-        assert.equal(out.maxHp, 800); // maxHpForLevel(4): 500 base + 3×100
-        assert.equal(out.hp, 800);
-        assert.equal(out.maxChakra, cMaxChakra(4)); // flag-aware (v1 248 / v2 curve)
-        assert.equal(out.maxStamina, cMaxStamina(4));
-        assert.equal(out.rankTitle, 'Academy Student');
-        assert.equal(out.unspentStats, 0); // two-axis: leveling grants no stat budget (pool preserved)
-    });
-    it('exam gate clamps level + XP (no genin exam → cap 20)', () => {
-        const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 5000);
-        assert.equal(out.level, 20);
-        assert.equal(out.xp, 2399); // clamped to xpNeeded(20)-1 = 6·20² - 1
+    it('earned 2800 → level 15 with a full vitals refill (Genin)', () => {
+        const out = applyDerivedLevel({ level: 1, hp: 3, chakra: 1, stamina: 1, examsPassed: [], stats: {}, unspentStats: 2800 });
+        assert.equal(out.level, 15);
         assert.equal(out.rankTitle, 'Genin');
-        assert.equal(out.maxHp, 2400); // maxHpForLevel(20): 500 base + 19×100
+        assert.equal(out.maxHp, maxHpForLevel(15));
+        assert.equal(out.hp, maxHpForLevel(15));
+        assert.equal(out.chakra, maxChakraForLevel(15));
+        assert.equal(out.stamina, maxStaminaForLevel(15));
     });
-    it('clamps to MAX_LEVEL and 0 xp at the top', () => {
-        // xpNeeded(99) = 58806 under 6·L², so the amount must exceed it to ding 100.
-        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 60000);
-        assert.equal(out.level, MAX_LEVEL);
-        assert.equal(out.xp, 0);
+    it('exam gate holds level at 20 (no genin exam) no matter the earned total', () => {
+        const out = applyDerivedLevel({ level: 19, examsPassed: [], stats: {}, unspentStats: 30000 });
+        assert.equal(out.level, 20);
+        assert.equal(out.rankTitle, 'Genin');
+        assert.equal(out.maxHp, 2400); // maxHpForLevel(20)
+    });
+    it('banked earned leaps on exam pass, and 27,500 with both exams reaches 100', () => {
+        assert.equal(applyDerivedLevel({ level: 20, examsPassed: ['genin'], stats: {}, unspentStats: 8000 }).level, 36);
+        const maxed = applyDerivedLevel({ level: 39, examsPassed: ['genin', 'chunin'], stats: {}, unspentStats: 27500 });
+        assert.equal(maxed.level, MAX_LEVEL);
+        assert.equal(maxed.rankTitle, 'Special Jonin');
+    });
+    it('RISE-ONLY: an unmigrated save (high level, low earned) never de-levels', () => {
+        const out = applyDerivedLevel({ level: 39, hp: 55, examsPassed: ['genin'], stats: {}, unspentStats: 100 });
+        assert.equal(out.level, 39);
+        assert.equal(out.hp, 55);
+    });
+    it('the earned ledger is the same conserved sum the sanitizer guards', () => {
+        const spent = { stats: { ...cBase(), willpower: 70 }, unspentStats: 40 };
+        const unspent = { stats: cBase(), unspentStats: 100 };
+        assert.equal(earnedStatPoints(spent), earnedStatPoints(unspent));
+        assert.equal(levelForEarned(earnedForLevel(50)), 50);
     });
 });
 
 // ─── PvP-win reward composition ──────────────────────────────────────────────
-describe('computePvpWinGains (verbatim handlePvpWin)', () => {
+describe('computePvpWinGains (XP retired — ryo + growth multiplier)', () => {
     const petChar = (trait: string | null, activePetId = 'p1') => ({
         activePetId,
         pets: trait ? [{ id: 'p1', trait }] : [{ id: 'p1' }],
     });
-    it('base win: 100 XP / 75 ryo, no trait, no deaths gate', () => {
+    it('base win: 75 ryo, growthMult 1', () => {
         const g = computePvpWinGains(petChar(null), 12);
-        assert.deepEqual({ xpGain: g.xpGain, ryoGain: g.ryoGain }, { xpGain: 100, ryoGain: 75 });
+        assert.deepEqual({ ryoGain: g.ryoGain, growthMult: g.growthMult }, { ryoGain: 75, growthMult: 1 });
     });
-    it('Swift trait → 125 XP; Lucky trait → 90 ryo', () => {
-        assert.equal(computePvpWinGains(petChar('Swift'), 12).xpGain, 125);
+    it('Swift trait → growthMult 1.25 (its old +25% XP now boosts stat growth); Lucky → 90 ryo', () => {
+        assert.equal(computePvpWinGains(petChar('Swift'), 12).growthMult, 1.25);
         assert.equal(computePvpWinGains(petChar('Swift'), 12).ryoGain, 75);
         assert.equal(computePvpWinGains(petChar('Lucky'), 12).ryoGain, 90);
-        assert.equal(computePvpWinGains(petChar('Lucky'), 12).xpGain, 100);
+        assert.equal(computePvpWinGains(petChar('Lucky'), 12).growthMult, 1);
     });
-    it('Death\'s Gate (sector 99) doubles both', () => {
+    it("Death's Gate (sector 99) doubles ryo and stat growth", () => {
         const g = computePvpWinGains(petChar(null), 99);
-        assert.deepEqual({ xpGain: g.xpGain, ryoGain: g.ryoGain }, { xpGain: 200, ryoGain: 150 });
-        const swift = computePvpWinGains(petChar('Swift'), 99);
-        assert.deepEqual({ xpGain: swift.xpGain, ryoGain: swift.ryoGain }, { xpGain: 250, ryoGain: 150 });
+        assert.deepEqual({ ryoGain: g.ryoGain, growthMult: g.growthMult }, { ryoGain: 150, growthMult: 2 });
+        assert.equal(computePvpWinGains(petChar('Swift'), 99).growthMult, 2.5);
     });
     it('inactive pet trait is ignored (only the active pet counts)', () => {
         const g = computePvpWinGains({ activePetId: 'other', pets: [{ id: 'p1', trait: 'Swift' }] }, 12);
-        assert.equal(g.xpGain, 100);
+        assert.equal(g.growthMult, 1);
+        assert.equal(g.ryoGain, 75);
     });
 });
 
 describe('creditPvpWinBase', () => {
-    it('applies gainXp then adds ryo, and the summary mirrors the credited char', () => {
-        const base = { level: 1, xp: 0, ryo: 1000, examsPassed: ['genin', 'chunin'], stats: {} };
-        const { xpGain, ryoGain } = computePvpWinGains({ activePetId: 'x', pets: [] }, 12); // 100 / 75
-        const out = creditPvpWinBase(structuredClone(base), xpGain, ryoGain);
-        const leveled = cGainXp(structuredClone(base), 100);
-        assert.equal(out.char.level, leveled.level);
-        assert.equal(out.char.xp, leveled.xp);
+    it('adds ryo, recomputes the derived level, and reports xp 0 in the summary', () => {
+        const base = { level: 1, xp: 0, ryo: 1000, examsPassed: ['genin', 'chunin'], stats: {}, unspentStats: 250 };
+        const { ryoGain } = computePvpWinGains({ activePetId: 'x', pets: [] }, 12); // 75
+        const out = creditPvpWinBase(structuredClone(base), ryoGain);
         assert.equal(out.char.ryo, 1075); // 1000 + 75
+        assert.equal(out.char.level, levelForEarned(250)); // derived from the ledger
         assert.equal(out.summary.ryo, 1075);
-        assert.equal(out.summary.level, Number(leveled.level));
-        assert.equal(out.summary.xp, Number(leveled.xp));
+        assert.equal(out.summary.xp, 0); // retired — shape kept for old clients
+        assert.equal(out.summary.level, Number(out.char.level));
+        assert.equal(out.summary.unspentStats, 250);
     });
 });
 
@@ -315,7 +328,7 @@ describe('reconcile + rankTitle edge cases', () => {
         const stats = out.stats as Record<string, number>;
         assert.equal(stats.strength, 2500); // capped at MAX_STAT
         assert.equal(stats.speed, 0);        // floored at 0
-        assert.equal(out.unspentStats, 0);   // over-allocated → 0, never negative
+        assert.equal(out.unspentStats, 0);   // never negative
     });
     it('rankTitleForLevel keeps a role title at max level but falls back below it', () => {
         assert.equal(rankTitleForLevel({ rankTitle: 'Kage', clanFounder: false }, 50), 'Jonin'); // below max → level title

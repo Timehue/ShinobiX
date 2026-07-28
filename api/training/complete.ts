@@ -7,7 +7,6 @@ import { withKvLock } from '../_lock.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { applyTrainingGrant } from './_grant.js';
 import { parseLegacyTraining } from './_legacy.js';
-import { gainXp } from '../_xp-engine.js';
 import { MAX_TRAINING_RECEIPTS, activeTrainingMatches, storedTrainingGrant } from './_session.js';
 
 interface TrainingToken {
@@ -24,8 +23,9 @@ interface TrainingRedemption {
     token: string;
     stat: string;
     gain: number;
-    xp: number;
+    xp: number; // retired (character XP removed) — always 0, kept for old-client shape
     applied: number;
+    overflow: number; // cap-truncated points rolled into the unspent pool
     cap: number;
 }
 
@@ -97,16 +97,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             let gain = Math.max(0, Math.floor(data.sealedGain));
-            let xp = Math.max(0, Math.floor(data.sealedXp));
             if (cancel) {
                 const totalMs = data.endsAt - data.startedAt;
                 const fraction = totalMs > 0 ? Math.max(0, Math.min(1, (now - data.startedAt) / totalMs)) : 1;
                 gain = Math.floor(gain * fraction);
-                xp = Math.floor(xp * fraction);
             }
-            const leveled = gainXp(character, xp) as Record<string, unknown>;
-            const grant = applyTrainingGrant(leveled, data.stat, gain, 0);
-            const redemption: TrainingRedemption = { token: redemptionToken, stat: data.stat, gain, xp, applied: grant.applied, cap: grant.cap };
+            // Character XP is retired — the sealed stat gain (with any overflow
+            // rolled into the pool) IS the level progress; applyTrainingGrant
+            // ends with the derived-level recompute.
+            const grant = applyTrainingGrant(character, data.stat, gain, 0);
+            const redemption: TrainingRedemption = { token: redemptionToken, stat: data.stat, gain, xp: 0, applied: grant.applied, overflow: grant.overflow, cap: grant.cap };
             const nextReceipts = [...receipts.filter((entry) => entry !== redemptionToken), redemptionToken].slice(-MAX_TRAINING_RECEIPTS);
             const nextCharacter = { ...grant.character, redeemedTrainingTokens: [redemption] };
             const written = await writeVersionedPlayerSave(saveKey, {

@@ -63,8 +63,14 @@ describe('stat-point entitlement', () => {
             { character: existingCharacter },
         );
         const character = out.character as Record<string, unknown>;
-        assert.deepEqual(character.stats, stats(20));
-        assert.equal(character.unspentStats, 10);
+        assert.deepEqual(character.stats, stats(20), 'forged stat jump rejected, stored stats restored');
+        // The forged pool is rejected back to the stored 10 — then the ONE-TIME
+        // ledger migration (stat-derived leveling) tops the pool up to cover the
+        // stored level: earnedForLevel(10) = 1,800, earned was 10 allocated +
+        // 10 pool = 20 → +1,780. Level stays 10, derived from that ledger.
+        assert.equal(character.unspentStats, 10 + 1780);
+        assert.equal(character.level, 10, 'level derives from the migrated ledger, not the client');
+        assert.equal(character.levelLedgerMigrated, true);
         assert.equal(character.totalStatsTrained, 10);
     });
 });

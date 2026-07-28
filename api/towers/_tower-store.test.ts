@@ -240,7 +240,9 @@ describe('Battle Towers borrowed-ally assist (capped, once per run)', () => {
         seedSave(kv, 'ally');
         const res = await settleAssistForAlly({ session: makeSession('run1', 1, 'ally'), slug: 'ally' }, { kv, lock: passLock, now });
         assert.equal(res.paid, true);
-        assert.equal(charOf(kv, 'ally').ryo, 100, '25% of sealed 400');
+        // 25% of sealed 400 ryo, plus the assist's old XP share folded to ryo
+        // at ~0.75:1 (25% of 150 xp → 37 → floor(37 × 0.75) = 27).
+        assert.equal(charOf(kv, 'ally').ryo, 100 + 27);
         const again = await settleAssistForAlly({ session: makeSession('run1', 1, 'ally'), slug: 'ally' }, { kv, lock: passLock, now });
         assert.equal(again.reason, 'assist-already-paid');
     });

@@ -16,8 +16,11 @@ export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): 
     const sector = Math.floor(Number(sectorRaw));
     if (!Number.isFinite(sector) || sector < 1 || sector > 60) return null;
     const unit = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
-    const loot: AncientChestLoot = { xp: 50 + sector * 2 };
-    if (unit() < 0.5) loot.ryo = 100 + Math.floor(unit() * 401);
+    // Character XP is retired (leveling-without-xp map): the old xp line
+    // (50 + sector·2) folds into a guaranteed ryo floor; the roll table below
+    // is unchanged. `xp` stays in the shape as 0 for old clients.
+    const loot: AncientChestLoot = { xp: 0, ryo: 40 + sector * 2 };
+    if (unit() < 0.5) loot.ryo = (loot.ryo ?? 0) + 100 + Math.floor(unit() * 401);
     const roll = unit();
     if (roll < 0.2) loot.itemId = TREATS[Math.floor(unit() * TREATS.length)];
     else if (roll < 0.55) loot.itemId = 'shinobi-vest';

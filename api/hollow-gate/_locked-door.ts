@@ -16,8 +16,10 @@ export function rollHollowLockedDoor(random: () => number, now = Date.now(), flo
     const roll = unit();
     if (roll < 0.5) {
         const floor = Math.max(1, Math.min(20, Math.floor(Number(floorRaw) || 1)));
-        const loot: NonNullable<HollowLockedDoorResult['loot']> = { xp: 100 + floor * 10, hollowShards: 5 + floor * 2 };
-        if (unit() < 0.5) loot.ryo = 100 + Math.floor(unit() * 401);
+        // Character XP is retired: the old xp line (100 + floor·10) folds into a
+        // guaranteed ryo floor. `xp` stays as 0 for old clients.
+        const loot: NonNullable<HollowLockedDoorResult['loot']> = { xp: 0, ryo: 75 + floor * 8, hollowShards: 5 + floor * 2 };
+        if (unit() < 0.5) loot.ryo = (loot.ryo ?? 0) + 100 + Math.floor(unit() * 401);
         const lootRoll = unit();
         if (lootRoll < 0.82) loot.fateShards = 1;
         else if (lootRoll < 0.95) loot.boneCharms = 1;

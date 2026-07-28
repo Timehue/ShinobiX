@@ -5,7 +5,11 @@ export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
 export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: number; ryo: number } | null {
     const sector = Math.floor(Number(sectorRaw));
     if (!Number.isFinite(sector) || sector < 1 || sector > 60) return null;
-    return { sector, xp: 20 + Math.floor(sector / 5), ryo: 10 + Math.floor(sector / 4) };
+    // Character XP is retired (leveling-without-xp map): explore is an
+    // unlimited-ish repeat channel, so the old xp line (20 + sector/5) folds
+    // into ryo instead — the discovery/loot layer stays the draw. `xp` stays in
+    // the shape as 0 for old clients.
+    return { sector, xp: 0, ryo: 10 + Math.floor(sector / 4) + 10 + Math.floor(sector / 10) };
 }
 
 export function applySectorExploreReward(character: Record<string, unknown>, sectorRaw: unknown, today: string) {

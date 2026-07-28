@@ -131,9 +131,9 @@ for what happens to the old function.
 
 The anchor cohort is defined, per the owner: **"play the game, do your dailies,
 and a little extra."** Concretely: an 8 h overnight training collect plus one
-~4 h daytime session (~244 pts), the full daily checklist (~50, §4), two or
+~4 h daytime session (~244 pts), the full daily checklist (45, §4), two or
 three serious PvP wins (~15), and the one-time spine (~1,000 pts across
-story/tower first-clears) amortizing to ~11/day — **≈ 320 pts/day → full
+story/tower first-clears) amortizing to ~11/day — **≈ 315 pts/day → full
 29,880-point cap in ~93 days.** These are **base rates** (generation 1, no
 boosts active); the growth-boost layer (§4.1) is what makes later generations
 "way shorter." Milestones for that player, with dedicated/casual around them:
@@ -157,10 +157,10 @@ and parity-pinned). The mid-table (L15–L50) must stay fitted to band capacity
 regardless, or walls come back.
 
 The daily-growth structure (§4) is the **second, independent pacing dial**:
-active-play growth is a fixed daily checklist (~50) plus a PvP slice (18) —
-~68/day base, a modest raise over the old 60/day PvP-only allowance, and now
-fillable by normal play. Folding growth into the dailies deliberately narrows
-the casual/dedicated spread, since the checklist is the same size for everyone.
+active-play growth is a fixed daily checklist (45) plus a PvP slice (18) —
+63/day base, on par with the old 60/day PvP-only allowance, and now fillable
+by normal play. Folding growth into the dailies deliberately narrows the
+casual/dedicated spread, since the checklist is the same size for everyone.
 The two dials cleanly separate **idle pace** (training rates) from
 **active-play pace** (slice sizes). This replaces XP's old "independent pacing"
 role — same knob count, one currency.
@@ -189,16 +189,18 @@ on top.* Three grant classes:
   (progress-flag / receipt-gated). Story deliberately does **not** compete with
   dailies for budget — a story day is a bonus day, which is the strongest form
   of "leaving room for story."
-- **The daily checklist (the dailies slice, target ≈ 50 pts):** stat grants
-  ride ONLY on claims that are already once-per-day — field/hunt board dailies
-  (+4 each), profession dailies (+2–3 each), festival dice (+1–5). A full
-  clear sums to `DAILY_PVE_GROWTH_TARGET ≈ 50` **by construction** — there is
-  no clamp to slam into, no "my later dailies paid zero" feel; the existing
-  once-per-day claim receipts are the idempotency guard. The checklist grows
+- **The daily checklist (the dailies slice, target = 45 pts as built):** stat
+  grants ride ONLY on claims that are already once-per-day — the 10 hunt + 5
+  fetch board dailies at **+3 each** (`FIELD_MISSION_STAT_POINTS`,
+  `api/missions/_mission-catalog.ts`). A full clear sums to
+  `DAILY_PVE_GROWTH_TARGET = 45` **by construction** — there is no clamp to
+  slam into, no "my later dailies paid zero" feel; the existing once-per-day
+  claim receipts are the idempotency guard. Profession dailies stay on their
+  own profession-XP track (a different namespace, untouched); festival dice add
+  small seasonal pool points (+1–5) on top of the target. The checklist grows
   with level as boards unlock (dailies are levelReq-gated); the invariant pins
-  the fully-unlocked sum, and early bands lean on training anyway. Exact
-  per-claim values get tuned at implementation against the live daily catalog
-  and pinned by a test: full-clear sum ∈ target ±10% — **base values; growth
+  the fully-unlocked sum, and early bands lean on training anyway. Values are
+  pinned by a test: full-clear sum ∈ target ±10% — **base values; growth
   boosts (§4.1) multiply after.**
 - **The PvP slice (18 pts = 3 serious wins × 6):** mechanics unchanged
   (`computeCombatStatGrowth`, auto+pool split, ranked 0, own
@@ -207,15 +209,15 @@ on top.* Three grant classes:
   today; flagged in §11.
 
 **Unlimited-repeat content pays ryo only** — repeatable combat-mission slots,
-arena AI wins, Endless Tower. That is the farm-bound: growth lives only on
-things you can do once (per day, or ever). Spars and plain practice stay at
-zero (standing owner directive). Daily base maximum ≈ 50 + 18 = 68 (a modest
-raise over the old 60/day allowance — part of hitting the 90-day anchor, §3),
-plus whatever one-times you unlocked that day, all multiplied by active growth
-boosts (§4.1). Surface it as a split meter — **"Daily Growth 38/50 · Combat
-12/18"** — so progress reads as bars you fill. Non-combat claims grant
-**pool-only** (`unspentStats +=`); the auto-grow-used-stats split stays
-PvP-only.
+arena AI wins, Endless Tower, tower assists, explore/chests, Hollow Gate
+(their old XP lines fold into ryo at ~0.75:1). That is the farm-bound: growth
+lives only on things you can do once (per day, or ever). Spars and plain
+practice stay at zero (standing owner directive). Daily base maximum = 45 + 18
+= 63 (on par with the old 60/day allowance), plus whatever one-times you
+unlocked that day, all multiplied by active growth boosts (§4.1). Surface it
+as a split meter — **"Daily Growth 33/45 · Combat 12/18"** — so progress reads
+as bars you fill. Non-combat claims grant **pool-only** (`unspentStats +=`);
+the auto-grow-used-stats split stays PvP-only.
 
 ### 4.1 Growth boosts — every XP-bonus in the game becomes a stat-gain bonus
 
@@ -456,10 +458,10 @@ worktree first — this touches the same engine files.
    confirmation: the standard-profile definition the fit assumes (~12 h
    effective training coverage/day). If "normal" should assume less training,
    the checklist grows to compensate.
-2. **Slice sizes:** dailies ≈ 50 / PvP 18 (base total ≈ 68 — the modest raise
-   over today's 60 is part of the 90-day fit). Consequence stands: heavy-PvP
-   players' stat growth drops **60 → 18/day** — the cost of "dailies are the
-   bulk." Confirm, or re-cut (e.g. 45/25). (§3, §4)
+2. **Slice sizes (as built):** dailies 45 / PvP 18 (base total 63, on par with
+   today's 60). Consequence stands: heavy-PvP players' stat growth drops
+   **60 → 18/day** — the cost of "dailies are the bulk." Confirm, or re-cut.
+   (§3, §4)
 3. **Per-claim numbers:** hunt/field +3–4, profession dailies +2–3, dice +1–5,
    story ~600 total, tower first-clears ~4–60/floor, weekly boss +10 — accept
    the §4 defaults (final values tuned against the live daily catalog and

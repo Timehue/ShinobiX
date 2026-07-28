@@ -1,3 +1,5 @@
+import { applyDerivedLevel } from '../_xp-engine.js';
+
 const EXAMS = ['genin', 'chunin', 'jonin', 'specialJonin'] as const;
 type ExamKey = typeof EXAMS[number];
 const n = (value: unknown) => Math.max(0, Math.floor(Number(value) || 0));
@@ -21,5 +23,10 @@ export function passRankExam(character: Record<string, unknown>, examRaw: unknow
     if (exam === 'jonin') ready = n(character.level) >= 50 && n(character.totalPvpKills) >= 10 && n(character.totalVillageRaids) >= 20 && defeated.has('builtin-ai-rogue-ninja');
     if (exam === 'specialJonin') ready = n(character.level) >= 80 && n(character.totalPvpKills) >= 100 && Boolean(leadership.isKage || leadership.isElder);
     if (!ready) return { ok: false as const, reason: 'rank-exam-requirements-incomplete' as const };
-    return { ok: true as const, alreadyPassed: false, character: { ...character, examsPassed: [...passed, exam] } };
+    // Stat-derived leveling: passing lifts the exam hold, so earned points
+    // banked while held convert to levels IMMEDIATELY (the "exam leap") — the
+    // rise-only recompute levels up, refills vitals, and re-titles in the same
+    // atomic save write as the exam stamp.
+    const lifted = applyDerivedLevel({ ...character, examsPassed: [...passed, exam] });
+    return { ok: true as const, alreadyPassed: false, character: lifted as Record<string, unknown> };
 }

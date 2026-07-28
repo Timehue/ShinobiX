@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
-import { gainXp, type XpCharacter } from '../_xp-engine.js';
+import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { kv } from '../_storage.js';
 import { consumeSingleUseToken } from '../_single-use-token.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
@@ -71,8 +71,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const result = rollFateDice(Math.random);
-                const paid = { ...character, ryo: num(character.ryo) - FATE_DICE_COST } as XpCharacter;
-                const leveled = gainXp(paid, result.reward.xp) as unknown as Record<string, unknown>;
+                // Character XP is retired: the dice grant tiny stat-pool points
+                // instead, then the rise-only derived-level recompute runs.
+                const paid = {
+                    ...character,
+                    ryo: num(character.ryo) - FATE_DICE_COST,
+                    unspentStats: Math.max(0, Math.floor(num(character.unspentStats))) + Math.max(0, Math.floor(result.reward.statPoints)),
+                } as XpCharacter;
+                const leveled = applyDerivedLevel(paid) as unknown as Record<string, unknown>;
                 const nextCharacter = {
                     ...character,
                     ...leveled,
