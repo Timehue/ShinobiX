@@ -267,6 +267,22 @@ html[data-vp="sm"] .center-game {
     padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
+/* The Battle Arena hub is much taller than one phone viewport and sits above a
+   fixed bottom nav. Give this route one explicit vertical scroller: Mobile
+   Safari can otherwise keep the document-level gesture on the fixed shell,
+   leaving a swipe to finish as a tap on the AI button beneath the finger. */
+html[data-vp="xs"] .center-game.screen-battleArena,
+html[data-vp="sm"] .center-game.screen-battleArena {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
 /* Profile panels, stat grids — must never clip their content */
 html[data-vp="xs"] .profile-page-card,
 html[data-vp="sm"] .profile-page-card,
