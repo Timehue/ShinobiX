@@ -8,8 +8,10 @@ import { strict as assert } from 'node:assert';
 import {
     CB_BASE_POOL, CB_POOL_PER_MEMBER, CB_MEMBER_CAP, CB_KILL_BONUS, CB_ASSAULTS_PER_MEMBER,
     CB_DMG_WEIGHT, CB_BREADTH_WEIGHT, CB_CLEAN_WEIGHT, CLAN_BOSSES,
+    CB_MEMBER_RYO, CB_MEMBER_TOP_SHARDS,
     clanBossPoolMax, clanBossScore, rankClanBoss, clanBossWeekId, clanBossPickId,
-    clanBossDamageDealt, clanBossAttemptsLeft, newClanBossProgress, reserveAttempt, reserveAttemptForRequest, bankAssault,
+    clanBossDamageDealt, clanBossAttemptsLeft, clanBossMemberDamage, clanBossMemberRewards,
+    newClanBossProgress, reserveAttempt, reserveAttemptForRequest, bankAssault,
     resolveClanBossDef, type ClanBossProgress, type ClanBossWeek,
 } from './_storage.js';
 
@@ -198,5 +200,98 @@ describe('applyAssault + newClanBossProgress', () => {
 
         const conflict = reserveAttemptForRequest(first.progress, { ...receipt, fingerprint: 'party-a-c' });
         assert.deepEqual(conflict, { ok: false, conflict: true });
+    });
+});
+
+// ── Personal rewards ─────────────────────────────────────────────────────────
+// Every other clan-boss reward goes to the clan treasury, so a member had no
+// individual reason to spend five wipe-by-design assaults a week. These pay the
+// player: flat ryo for taking part, Fate Shards for the clan's top damage dealers.
+
+function assault(over: Partial<ClanBossProgress['assaults'][number]> = {}) {
+    return {
+        runId: 'r1', by: 'a', party: ['a'], damage: 1000, rounds: 10,
+        wiped: true, clean: false, at: 0, ...over,
+    };
+}
+
+describe('clanBossMemberDamage — co-op damage attribution', () => {
+    it('splits an assault evenly across the party that fought it', () => {
+        // Splitting, not full credit each: joining someone else's big assault must not
+        // out-score leading your own.
+        const byMember = clanBossMemberDamage(progress({
+            assaults: [assault({ party: ['a', 'b', 'c'], damage: 900 })],
+        }));
+        assert.equal(byMember.get('a'), 300);
+        assert.equal(byMember.get('b'), 300);
+        assert.equal(byMember.get('c'), 300);
+    });
+
+    it('accumulates across assaults', () => {
+        const byMember = clanBossMemberDamage(progress({
+            assaults: [
+                assault({ party: ['a'], damage: 500 }),
+                assault({ party: ['a', 'b'], damage: 400 }),
+            ],
+        }));
+        assert.equal(byMember.get('a'), 700);
+        assert.equal(byMember.get('b'), 200);
+    });
+
+    it('ignores empty parties and non-positive damage', () => {
+        const byMember = clanBossMemberDamage(progress({
+            assaults: [
+                assault({ party: [], damage: 900 }),
+                assault({ party: ['a'], damage: 0 }),
+                assault({ party: ['b'], damage: -5 }),
+            ],
+        }));
+        assert.equal(byMember.size, 0);
+    });
+});
+
+describe('clanBossMemberRewards — participation ryo + top-5 shards', () => {
+    it('pays every participant ryo and ranks shards by personal damage', () => {
+        const rewards = clanBossMemberRewards(progress({
+            participants: ['a', 'b', 'c'],
+            assaults: [
+                assault({ party: ['a'], damage: 900 }),
+                assault({ party: ['b'], damage: 500 }),
+                assault({ party: ['c'], damage: 100 }),
+            ],
+        }));
+        assert.deepEqual(rewards.map((r) => r.slug), ['a', 'b', 'c']);
+        assert.deepEqual(rewards.map((r) => r.ryo), [CB_MEMBER_RYO, CB_MEMBER_RYO, CB_MEMBER_RYO]);
+        assert.deepEqual(rewards.map((r) => r.fateShards), [5, 4, 3]);
+    });
+
+    it('pays ryo but no shards to a member whose party dealt nothing', () => {
+        // Reserving an attempt and wiping for 0 still counts as showing up.
+        const rewards = clanBossMemberRewards(progress({ participants: ['a'], assaults: [] }));
+        assert.equal(rewards.length, 1);
+        assert.equal(rewards[0].ryo, CB_MEMBER_RYO);
+        assert.equal(rewards[0].fateShards, 0);
+    });
+
+    it('awards shards to at most the top five', () => {
+        const seven = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+        const rewards = clanBossMemberRewards(progress({
+            participants: seven,
+            assaults: seven.map((slug, i) => assault({ party: [slug], damage: (seven.length - i) * 100 })),
+        }));
+        assert.deepEqual(rewards.map((r) => r.fateShards), [...CB_MEMBER_TOP_SHARDS, 0, 0]);
+        // Not gated on the kill — chipping is the intended contribution.
+        assert.ok(rewards.every((r) => r.ryo === CB_MEMBER_RYO));
+    });
+
+    it('breaks ties deterministically so a settlement retry pays the same', () => {
+        const shape = progress({
+            participants: ['b', 'a'],
+            assaults: [assault({ party: ['a'], damage: 500 }), assault({ party: ['b'], damage: 500 })],
+        });
+        const first = clanBossMemberRewards(shape).map((r) => `${r.slug}:${r.fateShards}`);
+        const again = clanBossMemberRewards(shape).map((r) => `${r.slug}:${r.fateShards}`);
+        assert.deepEqual(first, again);
+        assert.deepEqual(first, ['a:5', 'b:4']);
     });
 });

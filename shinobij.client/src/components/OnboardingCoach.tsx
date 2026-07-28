@@ -229,7 +229,12 @@ export function OnboardingCoach({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, screen, currentSector, character.academySectorVisited]);
 
-    useBodyScrollLock(step === "academySpar");
+    // A knocked-out player gets the non-blocking banner instead of the spar modal (see
+    // the academySpar branch below), so they must keep page scroll — the Hospital's free
+    // checkout button sits below the fold on a phone, and locking scroll here would put
+    // the one recovery action out of reach.
+    const sparKnockedOut = character.hospitalized === true || character.hp <= 0;
+    useBodyScrollLock(step === "academySpar" && !sparKnockedOut);
 
     // While the bottom coaching banner is on screen, reserve space under the
     // scroll area on mobile so the current screen's OWN bottom controls (e.g.
@@ -258,11 +263,25 @@ export function OnboardingCoach({
         switch (step) {
             case "training": return "Let's grow stronger together! Start your first stat training — pick any stat and any timer.";
             case "jutsu": return "Now train one more jutsu. Pick an untrained jutsu and use the free Level 1 unlock.";
-            case "jutsuLoadout": return "Put that trained jutsu in your loadout from your Profile so it appears in battle.";
+            case "jutsuLoadout": {
+                // Every new character starts with STARTING_STAT_POINTS (20) unspent, and
+                // nothing in the tutorial mentioned them: the only prompt lives in the
+                // Daily Briefing, which is suppressed until level 5 AND tutorial-complete,
+                // and ScreenHint is gated on tutorial-complete too. So the single largest
+                // immediate power spike stayed invisible for the whole first session.
+                // This beat already sends the player to the Profile screen, which is where
+                // stats are allocated, so it is the natural place to point it out.
+                const base = "Put that trained jutsu in your loadout from your Profile so it appears in battle.";
+                const points = Math.max(0, Math.floor(Number(character.unspentStats) || 0));
+                return points > 0
+                    ? `${base} While you are there, spend your ${points} stat point${points === 1 ? "" : "s"} — they do nothing sitting unused.`
+                    : base;
+            }
             case "inventory": {
                 const equipped = academyEquippedItemCount(character.equipment);
                 return `Equip both starter items from your Inventory (${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)}/${ACADEMY_STARTER_GEAR_TARGET}). Put on the Rustfang Kunai and Shinobi Vest before the spar.`;
             }
+            case "academySpar": return "That spar knocked you out. Get patched up at the Hospital — the free checkout only takes a minute — then we'll step back onto the mat.";
             case "cafeteria": return character.hp >= character.maxHp
                 ? "You finished the spar at full HP, so there is nothing to heal. We can move on."
                 : "The spar cost you HP. Recover in the Cafeteria before we move on.";
@@ -399,6 +418,26 @@ export function OnboardingCoach({
     }
 
     if (step === "academySpar") {
+        // A knocked-out player cannot spar, so the blocking modal must stand down.
+        //
+        // This beat is the only hard full-screen overlay in onboarding, and losing the
+        // spar sets { hp: 0, hospitalized: true } and returns to the village — where the
+        // modal covered everything again, offering only "Begin Your First Spar" (which
+        // re-entered at 0 HP and lost again) or "Skip Tutorial" (which permanently ends
+        // onboarding and forfeits the Academy Trial). Hospitalized players do not regen,
+        // the one recovery hint lives in the Daily Briefing (suppressed for the whole
+        // tutorial), and paid discharge costs 2,500 ryo against 100 starting ryo. So the
+        // only exit was to abandon the tutorial.
+        //
+        // Falling back to the NON-blocking banner is what actually unsticks it: the modal
+        // is `position: fixed; inset: 0`, so it also covered the Hospital screen the
+        // player needed to reach. The banner leaves the Hospital usable (the free
+        // 60-second checkout is there), and once HP is back the modal returns for the spar.
+        if (sparKnockedOut) {
+            return renderGuideBanner(screen !== "hospital" && (
+                <button className="start-primary-btn" onClick={() => setScreen("hospital")}>Go to Hospital</button>
+            ));
+        }
         return createPortal(
             <div style={overlayStyle}>
                 <div className="card" style={cardStyle}>

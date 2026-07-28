@@ -8,6 +8,7 @@
  * the SAME deterministic replay. Preview only — no rewards.
  */
 import { useState, useEffect, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
@@ -210,9 +211,13 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
 }
 
 function Overlay({ children }: { children: React.ReactNode }) {
-    return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 210, background: "rgba(5,6,10,0.92)", display: "grid", placeItems: "center", padding: "1rem" }}>
+    // Portaled to <body> at the house z-index of 1000000. At its old 210 this
+    // full-screen lobby sat under the mobile bottom nav (1000) and the desktop rail
+    // (999999), so nav chrome punched through the overlay and stayed clickable.
+    return createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "rgba(5,6,10,0.92)", display: "grid", placeItems: "center", padding: "1rem" }}>
             {children}
-        </div>
+        </div>,
+        document.body,
     );
 }

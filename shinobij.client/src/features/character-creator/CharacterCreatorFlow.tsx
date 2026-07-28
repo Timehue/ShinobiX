@@ -10,7 +10,7 @@ import { villages } from "../../data/sectors";
 import { BLOODLINE_PRESENTATION, CREATOR_STEPS, STARTER_AVATARS, getVillageTheme } from "./characterCreatorCopy";
 import type { CreatorStep, IdentityErrors, StarterAvatarId } from "./characterCreatorTypes";
 import { hasIdentityErrors, validateIdentity } from "./characterCreatorUtils";
-import { PLAYER_PASSWORD_MAX_LENGTH } from "../../lib/player-auth-policy";
+import { PLAYER_PASSWORD_MAX_LENGTH, PLAYER_NAME_MAX_LENGTH } from "../../lib/player-auth-policy";
 import "./character-creator.css";
 
 const STEP_ORDER = CREATOR_STEPS.map((step) => step.id);
@@ -166,6 +166,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                                 <input
                                     id="cc-name"
                                     value={name}
+                                    maxLength={PLAYER_NAME_MAX_LENGTH}
                                     onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
                                     onChange={(e) => setName(e.target.value)}
                                     placeholder="Enter your shinobi name"

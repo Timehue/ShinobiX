@@ -16,6 +16,7 @@
 
 import { memo } from "react";
 import type { Character } from "../types/character";
+import { formatCompact, formatExact } from "../lib/format-number";
 import { GameIcon } from "./icons/GameIcon";
 
 export const MobileStatusHUD = memo(function MobileStatusHUD({
@@ -64,29 +65,34 @@ export const MobileStatusHUD = memo(function MobileStatusHUD({
                 </div>
             </div>
 
+            {/* Bar labels and resource chips are width-constrained, so they use the
+                shared COMPACT convention (lib/format-number) while every `title` keeps
+                the exact figure. Previously the bars rendered raw values and the
+                currencies used toLocaleString(), so two formats sat in one strip — and a
+                six-digit raw value overflowed the narrow .mthd-bar-label. */}
             <div className="mthd-bars">
-                <div className="mthd-bar mthd-bar-hp" title={`HP ${character.hp}/${character.maxHp}`}>
+                <div className="mthd-bar mthd-bar-hp" title={`HP ${formatExact(character.hp)}/${formatExact(character.maxHp)}`}>
                     <div className="mthd-bar-fill" style={{ width: `${hpPct}%` }} />
-                    <span className="mthd-bar-label">{character.hp}</span>
+                    <span className="mthd-bar-label">{formatCompact(character.hp)}</span>
                 </div>
-                <div className="mthd-bar mthd-bar-chakra" title={`Chakra ${character.chakra}/${character.maxChakra}`}>
+                <div className="mthd-bar mthd-bar-chakra" title={`Chakra ${formatExact(character.chakra)}/${formatExact(character.maxChakra)}`}>
                     <div className="mthd-bar-fill" style={{ width: `${chakraPct}%` }} />
-                    <span className="mthd-bar-label">{character.chakra}</span>
+                    <span className="mthd-bar-label">{formatCompact(character.chakra)}</span>
                 </div>
-                <div className="mthd-bar mthd-bar-stamina" title={`Stamina ${character.stamina}/${character.maxStamina}`}>
+                <div className="mthd-bar mthd-bar-stamina" title={`Stamina ${formatExact(character.stamina)}/${formatExact(character.maxStamina)}`}>
                     <div className="mthd-bar-fill" style={{ width: `${staminaPct}%` }} />
-                    <span className="mthd-bar-label">{character.stamina}</span>
+                    <span className="mthd-bar-label">{formatCompact(character.stamina)}</span>
                 </div>
             </div>
 
             <div className="mthd-resources">
-                <span className="mthd-resource mthd-ryo" title={`Ryo ${character.ryo.toLocaleString()}`}>
+                <span className="mthd-resource mthd-ryo" title={`Ryo ${formatExact(character.ryo)}`}>
                     <span className="mthd-resource-icon"><GameIcon name="ryo" size={12} style={{ display: "block" }} /></span>
-                    {character.ryo.toLocaleString()}
+                    {formatCompact(character.ryo)}
                 </span>
-                <span className="mthd-resource mthd-shards" title={`Fate Shards ${character.fateShards.toLocaleString()}`}>
+                <span className="mthd-resource mthd-shards" title={`Fate Shards ${formatExact(character.fateShards)}`}>
                     <span className="mthd-resource-icon"><GameIcon name="shard" size={12} style={{ display: "block" }} /></span>
-                    {character.fateShards.toLocaleString()}
+                    {formatCompact(character.fateShards)}
                 </span>
             </div>
         </div>
