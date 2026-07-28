@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
     xpNeeded, statBudgetAtLevel, statPointBudgetForProgress,
     reconcileCharacterStatBudget, allocatedStatPoints, normalizeStats, baseStats, STAT_KEYS,
+    earnedForLevel, levelForEarned, earnedStatPoints,
 } from './stats';
 import { statCapForLevel, perRankStatCap } from '../constants/game';
 import type { Character } from '../types/character';
@@ -143,5 +144,56 @@ describe('pacing guardrail — engaged daily-active reaches L90 in ~120-190 days
         let front = 0, back = 0;
         for (let L = 1; L < 90; L++) { const d = xpNeeded(L) / income(L); if (L <= 45) front += d; else back += d; }
         assert.ok(back > front * 2, `back ${back.toFixed(1)}d should exceed 2x front ${front.toFixed(1)}d (fast early, slow late)`);
+    });
+});
+
+describe('stat-derived level curve — earnedForLevel / levelForEarned', () => {
+    it('matches the fitted anchors', () => {
+        assert.equal(earnedForLevel(1), 0);
+        assert.equal(earnedForLevel(15), 2800);
+        assert.equal(earnedForLevel(20), 3933);
+        assert.equal(earnedForLevel(30), 6200);
+        assert.equal(earnedForLevel(39), 8630);
+        assert.equal(earnedForLevel(50), 11600);
+        assert.equal(earnedForLevel(80), 19600);
+        assert.equal(earnedForLevel(90), 23550);
+        assert.equal(earnedForLevel(100), 27500);
+        assert.equal(earnedForLevel(0), 0);   // clamps low
+        assert.equal(earnedForLevel(999), 27500); // clamps high
+    });
+    it('is strictly increasing and roundtrips through levelForEarned', () => {
+        for (let L = 1; L < 100; L++) assert.ok(earnedForLevel(L) < earnedForLevel(L + 1), `increasing at L${L}`);
+        for (let L = 1; L <= 100; L++) {
+            assert.equal(levelForEarned(earnedForLevel(L)), L, `roundtrip L${L}`);
+            if (L >= 2) assert.equal(levelForEarned(earnedForLevel(L) - 1), L - 1, `one-below L${L}`);
+        }
+        assert.equal(levelForEarned(0), 1);
+        assert.equal(levelForEarned(-5), 1);
+        assert.equal(levelForEarned(10_000_000), 100);
+    });
+    it('every rank boundary is reachable under the PREVIOUS band caps (anti-wall)', () => {
+        // A boundary needing more than ~80% of what the prior band can produce
+        // (12 stats to the per-rank cap + the 20 starting pool) is a wall — the
+        // exact failure a naive inversion of the old linear budget had at L15/L30.
+        for (const b of [15, 30, 50, 80] as const) {
+            const capacity = 20 + 12 * (statCapForLevel(b - 1) - 10);
+            assert.ok(earnedForLevel(b) <= 0.8 * capacity, `L${b}: ${earnedForLevel(b)} within 80% of ${capacity}`);
+        }
+        const fullCapacity = 20 + 12 * (2500 - 10);
+        assert.ok(earnedForLevel(100) <= 0.93 * fullCapacity, `L100 within 93% of ${fullCapacity}`);
+    });
+});
+
+describe('earnedStatPoints — the conserved allocated+pool sum', () => {
+    it('counts allocation above base plus the pool, floored at 0', () => {
+        assert.equal(earnedStatPoints({ stats: baseStats(), unspentStats: 20 }), 20); // fresh character
+        const built = { stats: { ...baseStats(), strength: 110, speed: 60 }, unspentStats: 42 };
+        assert.equal(earnedStatPoints(built), 100 + 50 + 42);
+        assert.equal(earnedStatPoints({ stats: baseStats(), unspentStats: -9 }), 0);
+    });
+    it('is conserved by an allocation-shaped spend (stats up, pool down)', () => {
+        const before = { stats: baseStats(), unspentStats: 100 };
+        const after = { stats: { ...baseStats(), willpower: 10 + 60 }, unspentStats: 40 };
+        assert.equal(earnedStatPoints(before), earnedStatPoints(after));
     });
 });
