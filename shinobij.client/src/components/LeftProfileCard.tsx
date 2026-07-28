@@ -29,7 +29,7 @@ import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,
 } from "../App";
-import { earnedForLevel, earnedStatPoints } from "../lib/stats";
+import { levelProgress } from "../lib/character-progress";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
@@ -199,22 +199,23 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                 {character.level >= MAX_LEVEL ? (
                     <div className="left-xp-label">Lv {character.level} — MAX</div>
                 ) : (() => {
-                    const earned = earnedStatPoints(character);
-                    const floor = earnedForLevel(character.level);
-                    const next = earnedForLevel(character.level + 1);
-                    const span = Math.max(1, next - floor);
-                    const into = Math.max(0, Math.min(span, earned - floor));
+                    const progress = levelProgress(character);
                     return (
                         <>
-                            <div className="left-xp-label">
-                                Lv {character.level} &nbsp;·&nbsp; {earned.toLocaleString()} / {next.toLocaleString()} pts
+                            <div
+                                className="left-xp-label"
+                                title={progress.heldBy
+                                    ? `Level ${character.level + 1} is held until you pass the ${progress.heldBy}. Points you earn now are banked.`
+                                    : "Stat points earned toward your next level — from training, your daily missions, and serious PvP."}
+                            >
+                                Lv {character.level} &nbsp;·&nbsp; {progress.label}
                             </div>
                             <div className="left-xp-bar-track">
-                                <div
-                                    className="left-xp-bar-fill"
-                                    style={{ width: `${Math.min(100, Math.round((into / span) * 100))}%` }}
-                                />
+                                <div className="left-xp-bar-fill" style={{ width: `${progress.percent}%` }} />
                             </div>
+                            {progress.heldBy && (
+                                <div className="left-xp-held">Held for the {progress.heldBy}</div>
+                            )}
                         </>
                     );
                 })()}

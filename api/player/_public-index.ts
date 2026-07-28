@@ -9,7 +9,14 @@ import { safeName } from '../_utils.js';
 import { earnedStatPoints } from '../_xp-engine.js';
 
 export const REGISTRY_KEY = 'player:registry';
-export const PUBLIC_INDEX_VERSION = 1;
+// v2: the `xp` slot changed MEANING with the XP removal — it now carries the
+// earned stat-point ledger (docs/leveling-without-xp-map.md), which tops out at
+// ~29,880, while v1 rows hold cumulative character XP that ran into the
+// millions. Bumping the version marks every v1 row stale
+// (needsPublicPlayerIndexBackfill) so dormant accounts get rebuilt from their
+// save instead of sitting permanently at the top of the "Total Stat Points
+// Earned" board on a dead number.
+export const PUBLIC_INDEX_VERSION = 2;
 
 export type PublicPlayerIndexEntry = {
     _publicIndexVersion: number;

@@ -95,7 +95,6 @@ import {
     normalizeStats,
     addToAllStats,
     maxedStats, applyStatGrowth,
-    xpNeeded,
     maxHpForLevel,
     maxChakraForLevel,
     maxStaminaForLevel,
@@ -104,7 +103,6 @@ import {
     earnedStatPoints,
     reconcileCharacterStatBudget,
 } from "./lib/stats";
-export { xpNeeded };
 import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,

@@ -3145,8 +3145,12 @@ export function Arena({
         // amount the SERVER actually granted. (XP is retired — hunts/fields pay
         // their stat points on the once-per-day CLAIM, not per fight.)
         function announceWinRewards(ryo: number) {
+            // Say where levelling actually comes from now. A veteran who used to
+            // grind the Arena for XP would otherwise just see a smaller banner
+            // and assume something broke.
+            const growthNote = " Stat points come from training, your dailies, and serious PvP.";
             const rewardNote = ryo > 0
-                ? ` +${ryo} ryo, +15 stamina.${bonusNote}`
+                ? ` +${ryo} ryo, +15 stamina.${bonusNote}${growthNote}`
                 : " No ryo was awarded for this fight.";
             setLog(`${opponentName} defeated.${rewardNote}${honorNote}${auraDustNote}${scrollNote}${raidNote}${villageWarNote}`);
             addCombatLog(`${opponentName} is defeated. ${character.name} gains ${ryo} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);

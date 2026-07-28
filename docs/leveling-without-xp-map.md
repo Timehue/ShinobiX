@@ -450,6 +450,65 @@ worktree first — this touches the same engine files.
   when the era dial is active (server env exists; UI surfacing pending); the
   split daily-growth meter ("Daily Growth 33/45 · Combat 12/18"); clan-doctrine
   term of the sealed training bonus verified against a live clan snapshot.
+
+### Post-build audit (2026-07-28) — findings and dispositions
+
+A full re-review (server grant consistency + player-facing copy) after the four
+phases landed. Fixed in the audit commit:
+
+- **Sanitizer exam-hold bypass (critical).** The derived-level recompute seeded
+  from the raw client body, whose `examsPassed` is not validated until ~440
+  lines later — so a forged `examsPassed` picked its own level cap and, because
+  the recompute is rise-only, minted a *permanent* level past both holds. Now
+  seeded from the stored exam list; covered by regression tests in
+  `api/save/_save-integrity.test.ts`.
+- **Strict-ledger burned the migration.** `levelLedgerMigrated` latched even
+  when `enforceRawSaveLedgerBoundary` reverted the top-up, stranding that player
+  below their level forever. The flag now only sticks when its effect does.
+- **Hall of Legends ranked dead data.** The board was relabelled to stat points
+  but still read the frozen `xp` field from the roster projection (0 for every
+  post-cutover character, and disagreeing with the public leaderboard).
+  `api/player/roster.ts` now serves the earned ledger in that slot, and
+  `PUBLIC_INDEX_VERSION` bumped to 2 so dormant v1 rows rebuild instead of
+  sitting on top with pre-cutover cumulative XP.
+- **Weekly boss skipped the level-up vitals refill** (max pools raised, current
+  pools not) — every other grant site spreads `leveled` wholesale.
+- **Three dead copies of the frozen AI budget formula**, with the cross-build
+  parity test pinning the two *dead* ones while the live one in `lib/ai-stats.ts`
+  went unguarded. The dead `xpNeeded` / `statBudgetAtLevel` /
+  `statPointBudgetForProgress` / `progressAfterXp` are deleted on both sides;
+  the parity pin now asserts they stay deleted.
+- **`rewardSummary`'s `xp` parameter** is gone (it could still print "+N XP"
+  from a stray argument); claim toasts lead with the shared `statPointNote`.
+- **Exam-hold UI lied.** During the L20/L39 holds the panel read "0 stat points
+  to Level 21" while nothing happened. New `levelProgress()` in
+  `lib/character-progress.ts` is the single source for every level bar and
+  reports the hold by name.
+- **Copy contradictions** in Town Hall upgrades, clan Training Grounds, the
+  Scholars doctrine (a permanent choice sold on a deleted currency), Hall of
+  Legends, the beginner guide's leveling advice, and the Missions rookie card.
+  Guide section 9 now actually explains how leveling works.
+- **Admin "Level N" testing buttons** were silently no-ops (the sanitizer
+  ignores client level writes); they now move the ledger through the admin
+  signal path.
+
+Accepted, not fixed (documented deliberately):
+
+- **Migration absorbs grants earned in the deploy window.** The top-up sets the
+  pool to exactly `earnedForLevel(storedLevel)`, so points granted between
+  deploy and that player's first sanitized save are absorbed rather than added.
+  Bounded by one save cycle, never negative (nobody de-levels), and moot at the
+  pending wipe.
+- **Respec paths don't call `applyDerivedLevel`** — safe by conservation
+  (allocated → pool is exactly neutral) plus rise-only, so level provably cannot
+  move.
+- **Training caps against the pre-grant level**, so a collect that crosses a
+  rank boundary is capped at the old rank and the remainder rolls to the pool —
+  never lost, self-corrects next session.
+- **Pool allocation still bypasses `statCapForLevel`** on the non-strict save
+  path (pre-existing; combat re-clamps via `perRankStatCap`).
+- **Admin content editors still expose `xpReward` inputs** that no longer pay.
+  Creator-content schema cleanup is its own pass.
 - **Post-soak cleanup (after wipe):** drop `xp`/`dailyTowerXp` from types + stored
   saves, delete frozen sanitizer pass-throughs, remove migration flag.
 

@@ -76,17 +76,12 @@ function allocatedStatPoints(stats: Stats): number {
     return STAT_KEYS.reduce((total, key) => total + Math.max(0, capStat(stats[key]) - base[key]), 0);
 }
 
-// ── lib/stats.ts — level / XP curve ─────────────────────────────────────────
-// Quadratic-per-level curve (the `6` is the master pacing dial; fit to real faucets
-// for ~90 days L1→90 for an engaged daily-active player). Cumulative is cubic.
-// VERBATIM port of shinobij.client/src/lib/stats.ts xpNeeded.
-export function xpNeeded(level: number): number {
-    if (level >= MAX_LEVEL) return 0;
-    return Math.round(6 * level * level);
-}
-
-// (The old cumulative-XP helpers are gone here too — the stat budget is now
-// LEVEL-based, see statBudgetAtLevel below. Mirrors the client.)
+// ── lib/stats.ts — level curve ──────────────────────────────────────────────
+// (Character XP is RETIRED — docs/leveling-without-xp-map.md. xpNeeded, the
+// cumulative-XP helpers and the level→stat-BUDGET functions are deleted on both
+// sides: level is now a function of earned stat points, see the fitted curve
+// further down. The stored `xp` field survives only as frozen rollback ballast
+// that the save sanitizer re-asserts and nothing reads.)
 
 export function maxHpForLevel(level: number): number {
     // Base HP at level 1 is 500 (starter HP); +100 per level thereafter, up to
@@ -120,35 +115,14 @@ export function rankFromLevel(level: number): string {
     return 'Academy Student';
 }
 
-// ── lib/stats.ts — stat budget ──────────────────────────────────────────────
-const TOTAL_STAT_POINTS_TO_CAP = STAT_KEYS.reduce((total, key) => total + (MAX_STAT - baseStats()[key]), 0);
-const STAT_POINTS_FROM_XP_TO_CAP = TOTAL_STAT_POINTS_TO_CAP - STARTING_STAT_POINTS;
-
-// LINEAR per-level stat budget (full cap at MAX_LEVEL). VERBATIM port of
-// shinobij.client/src/lib/stats.ts statBudgetAtLevel.
-function statBudgetAtLevel(level: number): number {
-    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    return STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP);
-}
-
-function statPointBudgetForProgress(level: number, xp: number): number {
-    if (level >= MAX_LEVEL) return TOTAL_STAT_POINTS_TO_CAP;
-    const base = statBudgetAtLevel(level);
-    const next = statBudgetAtLevel(level + 1);
-    const need = xpNeeded(level);
-    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
-    return Math.min(TOTAL_STAT_POINTS_TO_CAP, Math.round(base + (next - base) * frac));
-}
-
 // Loose character shape — the server operates on the raw KV save object.
 export type XpCharacter = Record<string, unknown>;
 
-// Two-axis progression (docs/leveling-training-redesign-plan.md): unspentStats is a
-// STORED pool — stat points come from training (direct-to-stat) + combat (the pool),
-// NOT a level budget. Mirrors shinobij.client/src/lib/stats.ts. Reconcile only
-// normalizes stats + clamps the pool ≥ 0; it never rolls back spent stats and never
-// grants points on level-up. statBudgetAtLevel / statPointBudgetForProgress stay for
-// AI stat generation + the ai-stats parity, hence retained above.
+// Two-axis progression: unspentStats is a STORED pool — stat points come from
+// training (direct-to-stat), the daily checklist + one-time content grants, and
+// combat, NOT a level budget. Mirrors shinobij.client/src/lib/stats.ts.
+// Reconcile only normalizes stats + clamps the pool ≥ 0; it never rolls back
+// spent stats and never grants points on level-up.
 export function reconcileCharacterStatBudget(character: XpCharacter): XpCharacter {
     const stats = normalizeStats(character.stats as Record<string, unknown> | undefined);
     const unspentStats = Math.max(0, Math.floor(Number(character.unspentStats) || 0));

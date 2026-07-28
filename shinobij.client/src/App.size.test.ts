@@ -168,10 +168,11 @@ import { readFileSync } from "node:fs";
 // Chronicle Showdown keeps its rules/catalog behind lazy Card Hall and battle
 // routes instead of loading it eagerly from App. See scripts/check-build-size.mjs.)
 // → 7,820 (the Hollow Gate tile resolver moved out to features/hollowGate/.)
-// → 7,795 (net −25: character XP retired — gainXp collapsed to the derived-level
-// shim, statPointsEarnedFromXp deleted, the xpNeeded re-export dropped, and the
-// XP toast/grant plumbing removed. See docs/leveling-without-xp-map.md.)
-const MAX_LINES = 7_795;
+// → 7,792 (net −28: character XP retired — gainXp collapsed to the derived-level
+// shim, statPointsEarnedFromXp deleted, the xpNeeded import/re-export dropped
+// with the curve, and the XP toast/grant plumbing removed. See
+// docs/leveling-without-xp-map.md.)
+const MAX_LINES = 7_792;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

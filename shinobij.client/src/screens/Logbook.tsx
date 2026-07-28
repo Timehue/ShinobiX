@@ -10,7 +10,7 @@ import type { SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
 import { DAILY_MISSION_LIMIT, EXAM_LEVEL_GATES, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
-import { rewardSummary } from "../lib/currency";
+import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
@@ -121,7 +121,7 @@ export function Logbook({
             updateCharacter(prev => prev ? applyServerMissionReward(prev, result, gainXp) : prev);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${result.reward.statPoints ? `+${result.reward.statPoints} Stat Pts / ` : ""}${rewardSummary(0, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
+            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
         if (result.applied === false) return alert(claimReasonMessage(result.reason, result));
@@ -340,7 +340,7 @@ export function Logbook({
                                 <CardVisual icon="📜" label={mission.name} />
                                 <span>{mission.name}</span>
                                 <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
-                                <small>Lvl {mission.levelReq} | +{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(0, boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
+                                <small>Lvl {mission.levelReq} | +{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
@@ -358,7 +358,7 @@ export function Logbook({
                         <div key={event.id} className="location-button mission-card">
                             <CardVisual image={(event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
                             <span>{event.name}</span>
-                            <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards, character)}</small>
+                            <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character)}</small>
                             <p>{event.dialogue.join(" ")}</p>
                             <div className="menu"><button onClick={() => claimRewardEvent(event)}>Claim Event Reward</button></div>
                         </div>
@@ -375,7 +375,7 @@ export function Logbook({
                                 <CardVisual image={raidAi?.image} icon={raid.icon} label={raid.name} />
                                 <span>{raid.name}</span>
                                 <small>{raid.waves} waves | Lvl {raid.levelReq} | {raid.biome}</small>
-                                <small>Boss: {raidAi?.name ?? raid.aiProfileId ?? "Default arena AI"} | Reward: {rewardSummary(0, raid.ryoReward, raid.staminaReward, raid.currencyRewards, character)}</small>
+                                <small>Boss: {raidAi?.name ?? raid.aiProfileId ?? "Default arena AI"} | Reward: {rewardSummary(raid.ryoReward, raid.staminaReward, raid.currencyRewards, character)}</small>
                                 <p>{raid.description}</p>
                                 <div className="menu"><button onClick={() => startRaid(raid)}>Start Raid</button></div>
                             </div>
@@ -405,7 +405,7 @@ export function Logbook({
                                 <CardVisual image={creatorAis.find((ai) => ai.id === mission.aiProfileId)?.image} icon={mission.rank} label={mission.name} />
                                 <span>{mission.name}</span>
                                 <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
-                                <small>Lvl {mission.levelReq} | {rewardSummary(0, boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
+                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">

@@ -142,15 +142,15 @@ describe('parity: XP engine constants + formulas (game.ts + stats.ts ⇄ api/_xp
             assert.equal(singleNum(GAME, name), singleNum(XPENGINE, name), `${name} drifted between game.ts and _xp-engine.ts`);
         });
     }
-    it('xpNeeded uses the same 6·L² curve on both sides', () => {
-        const curve = 'Math.round(6 * level * level)';
-        assert.ok(STATS.includes(curve), 'client lib/stats.ts lost the 6·L² xpNeeded curve');
-        assert.ok(XPENGINE.includes(curve), 'server api/_xp-engine.ts lost the 6·L² xpNeeded curve');
-    });
-    it('statBudgetAtLevel uses the same linear formula on both sides', () => {
-        const formula = 'STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP)';
-        assert.ok(STATS.includes(formula), 'client lib/stats.ts statBudgetAtLevel formula drifted');
-        assert.ok(XPENGINE.includes(formula), 'server api/_xp-engine.ts statBudgetAtLevel formula drifted');
+    it('the retired XP curve stays deleted on BOTH sides (no zombie leveling math)', () => {
+        // Character XP is retired (docs/leveling-without-xp-map.md). These pins
+        // used to guard the 6·L² curve and the linear stat BUDGET; both are
+        // deleted now, so the pin inverts: if either formula reappears, someone
+        // is rebuilding XP leveling next to the live earned-points curve.
+        for (const [label, src] of [['client lib/stats.ts', STATS], ['server api/_xp-engine.ts', XPENGINE]] as const) {
+            assert.ok(!src.includes('Math.round(6 * level * level)'), `${label} resurrected the 6·L² xpNeeded curve`);
+            assert.ok(!src.includes('STAT_POINTS_FROM_XP_TO_CAP'), `${label} resurrected the XP→stat-budget formula`);
+        }
     });
     it('the stat-derived level anchors match on both sides (leveling-without-xp map)', () => {
         // The fitted LEVEL_EARNED_ANCHORS table is THE balance heart of

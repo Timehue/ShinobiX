@@ -17,7 +17,7 @@ import {
     GiCalendar, GiCompass, GiTreasureMap, GiOpenBook,
 } from "react-icons/gi";
 import { GameIcon } from "../components/icons/GameIcon";
-import { rewardSummary } from "../lib/currency";
+import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
@@ -233,7 +233,7 @@ export function Missions({
             return alert(claimReasonMessage(result.reason));
         }
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        alert(`${mission.name} complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
+        alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
@@ -243,7 +243,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        alert(`Academy Trial complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character)}. Now open your Logbook to see your goals.`);
+        alert(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`);
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(mission: CreatorMission) { if (!requireServerSettlement("fieldHuntMissions")) return; if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
@@ -264,7 +264,7 @@ export function Missions({
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
+            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
         if (result.applied === false) {
@@ -367,7 +367,7 @@ export function Missions({
                 <section className="mh-section rookie-orders-card">
                     <h3 className="mh-section-title" style={{ marginTop: 0 }}><GiGraduateCap style={MH_ICON} />Rookie Orders</h3>
                     <p className="hint" style={{ marginTop: 0 }}>
-                        Build toward the level-20 Genin Exam hold with repeatable work: win combat missions, claim rewards here, then spend gains in Training and Jutsu.
+                        Build toward the level-20 Genin Exam: train stats and clear your field and hunt dailies — those are what level you. Combat missions and the Arena pay the ryo that funds your gear and jutsu.
                     </p>
                     <div className="rookie-orders-actions">
                         <button className="start-primary-btn" onClick={() => setActiveMissionTab("combat")}>

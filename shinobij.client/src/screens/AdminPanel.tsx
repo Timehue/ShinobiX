@@ -34,7 +34,7 @@ import { storylines } from "../data/storylines";
 import { storyToCreatorEvent } from "../lib/story-trigger";
 import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
-import { addToAllStats, baseStats, capStat, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, reconcileCharacterStatBudget } from "../lib/stats";
+import { addToAllStats, allocatedStatPoints, baseStats, capStat, earnedForLevel, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, normalizeStats, reconcileCharacterStatBudget } from "../lib/stats";
 import { armorQualityTiers, equipmentSlotLabel, itemSectionOptions } from "../lib/equipment";
 import { addItem, removeItem, countItem } from "../lib/inventory";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile, safeImageSource } from "../lib/shared-images";
@@ -2060,23 +2060,55 @@ export function AdminPanel({
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
-    function setLevel(level: number) {
+    // Stat-derived leveling (docs/leveling-without-xp-map.md): level is a pure
+    // function of the earned ledger, so a testing jump has to move the LEDGER —
+    // writing `level` locally would be ignored by the save sanitizer, and a
+    // client-side point grant is refused by the entitlement guard. This routes
+    // through the admin signal path (the same sanitizer bypass the player-manager
+    // editor uses), so the jump actually sticks across a refresh.
+    async function setLevel(level: number) {
         const nextLevel = Math.max(1, Math.min(MAX_LEVEL, level));
+        if (!adminPw) { alert("Admin password missing. Log out and back into admin."); return; }
+        const targetEarned = earnedForLevel(nextLevel);
+        const spent = allocatedStatPoints(normalizeStats(character.stats));
+        // Dropping BELOW what's already spent in stats can only be done by
+        // stripping the build back to base — earned points can't be un-earned.
+        const stripBuild = spent > targetEarned;
+        if (stripBuild && !(await gameConfirm(
+            `Level ${nextLevel} sits at ${targetEarned.toLocaleString()} earned points, but ${spent.toLocaleString()} are already spent in stats. Reset every stat to base and re-grant ${targetEarned.toLocaleString()} unspent points?`,
+            { danger: true, confirmLabel: `Drop to level ${nextLevel}` },
+        ))) return;
+        const nextStats = stripBuild ? baseStats() : normalizeStats(character.stats);
+        const nextUnspent = Math.max(0, targetEarned - allocatedStatPoints(nextStats));
         const nextMaxHp = maxHpForLevel(nextLevel);
         const nextMaxChakra = maxChakraForLevel(nextLevel);
         const nextMaxStamina = maxStaminaForLevel(nextLevel);
-        updateCharacter(reconcileCharacterStatBudget({
-            ...character,
+        const progression = {
+            stats: nextStats,
+            unspentStats: nextUnspent,
             level: nextLevel,
-            xp: 0,
             rankTitle: rankTitleForLevel(character, nextLevel),
-            maxHp: nextMaxHp,
-            hp: nextMaxHp,
-            maxChakra: nextMaxChakra,
-            chakra: nextMaxChakra,
-            maxStamina: nextMaxStamina,
-            stamina: nextMaxStamina,
-        }));
+            maxHp: nextMaxHp, hp: nextMaxHp,
+            maxChakra: nextMaxChakra, chakra: nextMaxChakra,
+            maxStamina: nextMaxStamina, stamina: nextMaxStamina,
+            levelLedgerMigrated: true,
+        };
+        try {
+            const key = encodeURIComponent(character.name.toLowerCase());
+            const read = await fetch(`/api/save/${key}`, { headers: { "x-admin-password": adminPw } });
+            if (!read.ok) { alert("Could not read your save — level unchanged."); return; }
+            const snap = await read.json() as Record<string, unknown>;
+            const stored = (snap.character ?? {}) as Record<string, unknown>;
+            const written = await fetch(`/api/save/${key}?signal=1`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: stringifyServerSavePayload({ ...snap, character: { ...stored, ...progression } }),
+            });
+            if (!written.ok) { alert("The server rejected the level change."); return; }
+            updateCharacter(reconcileCharacterStatBudget({ ...character, ...progression }));
+        } catch {
+            alert("Level change failed — check the admin connection and retry.");
+        }
     }
 
     function maxResources() {
@@ -2459,7 +2491,7 @@ export function AdminPanel({
                                     <p>Sector {mission.targetSector} x {mission.exploreCount} explores{missionRaidRequirement(mission) > 0 ? ` + ${missionRaidRequirement(mission)} village raids` : ""} | Level {mission.levelReq}</p>
                                     {mission.aiProfileId && <p>Battle AI: {allAdminAis.find((ai) => ai.id === mission.aiProfileId)?.name ?? mission.aiProfileId}</p>}
                                     <p>{mission.description}</p>
-                                    <p>Reward: {rewardSummary(mission.xpReward, mission.ryoReward, mission.staminaReward, mission.currencyRewards)}</p>
+                                    <p>Reward: {rewardSummary(mission.ryoReward, mission.staminaReward, mission.currencyRewards)}</p>
                                     <div className="menu">
                                         <button onClick={() => loadAdminMission(mission)}>Edit</button>
                                         <button className="danger-button" onClick={() => setCreatorMissions(creatorMissions.filter((candidate) => candidate.id !== mission.id))}>Delete</button>
@@ -2512,7 +2544,7 @@ export function AdminPanel({
                                     <p>{raid.waves} waves | {raid.biome} | Level {raid.levelReq}</p>
                                     {raid.aiProfileId && <p>Boss: {allAdminAis.find((ai) => ai.id === raid.aiProfileId)?.name ?? raid.aiProfileId}</p>}
                                     <p>{raid.description}</p>
-                                    <p>Reward: {rewardSummary(raid.xpReward, raid.ryoReward, raid.staminaReward, raid.currencyRewards)}</p>
+                                    <p>Reward: {rewardSummary(raid.ryoReward, raid.staminaReward, raid.currencyRewards)}</p>
                                     <div className="menu">
                                         <button onClick={() => loadAdminRaid(raid)}>Edit</button>
                                         <button className="danger-button" onClick={() => setCreatorRaids(creatorRaids.filter((r) => r.id !== raid.id))}>Delete</button>
@@ -3852,7 +3884,7 @@ export function AdminPanel({
                                     {selected && (
                                         <div className="summary-box">
                                             <strong>{selected.icon} {selected.name}</strong>
-                                            <p>{selected.eventKind === "visualNovel" ? "Visual Novel" : "Reward Event"} | {selected.biome} | Level {selected.levelReq} | {rewardSummary(selected.xpReward, selected.ryoReward, selected.staminaReward, selected.currencyRewards)}</p>
+                                            <p>{selected.eventKind === "visualNovel" ? "Visual Novel" : "Reward Event"} | {selected.biome} | Level {selected.levelReq} | {rewardSummary(selected.ryoReward, selected.staminaReward, selected.currencyRewards)}</p>
                                             {selected.aiProfileId && <p><strong>Battle AI:</strong> {allAdminAis.find((ai) => ai.id === selected.aiProfileId)?.name ?? selected.aiProfileId}</p>}
                                             {selected.id.startsWith("story-") && !creatorEvents.some((created) => created.id === selected.id) && <p className="hint">Built-in visual novel. Saving creates an editable imported copy.</p>}
                                             {selected.eventKind === "visualNovel" && <p><strong>VN:</strong> {selected.vnTitle}{selected.vnPages ? ` | ${selected.vnPages.length} pages` : ""}</p>}

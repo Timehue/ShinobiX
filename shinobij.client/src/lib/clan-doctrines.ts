@@ -15,7 +15,7 @@ export type ClanDoctrine = "none" | "warmonger" | "merchant" | "scholars" | "med
 export const CLAN_DOCTRINES: Array<{ id: Exclude<ClanDoctrine, "none">; name: string; icon: string; blurb: string; effect: string }> = [
     { id: "warmonger", name: "Warmonger", icon: "⚔️", blurb: "Forged for war.", effect: `+${100} clan-war HP when your clan declares war` },
     { id: "merchant", name: "Merchant", icon: "💰", blurb: "Coin over conflict.", effect: `+5% village shop discount for members` },
-    { id: "scholars", name: "Scholars", icon: "📖", blurb: "Knowledge is power.", effect: `+5% XP from training & missions for members` },
+    { id: "scholars", name: "Scholars", icon: "📖", blurb: "Knowledge is power.", effect: `+5% stat points from training & missions for members` },
     { id: "medics", name: "Medics", icon: "⛑️", blurb: "None left behind.", effect: `-5% hospital cost for members` },
 ];
 

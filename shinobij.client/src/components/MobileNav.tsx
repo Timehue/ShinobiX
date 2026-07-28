@@ -10,12 +10,12 @@
  */
 
 import { memo, useEffect, useRef, useState } from "react";
-import { earnedForLevel, earnedStatPoints } from "../lib/stats";
+import { levelProgress } from "../lib/character-progress";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
-import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
+import { isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { preloadScreen } from "../lib/screen-preload";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
@@ -73,14 +73,9 @@ export const MobileNav = memo(function MobileNav({
     }, [open]);
 
     // Level progress = earned stat points toward the next level threshold
-    // (XP is retired — leveling-without-xp map).
-    const xpPct = (() => {
-        if (character.level >= MAX_LEVEL) return 100;
-        const floor = earnedForLevel(character.level);
-        const span = Math.max(1, earnedForLevel(character.level + 1) - floor);
-        const into = Math.max(0, Math.min(span, earnedStatPoints(character) - floor));
-        return Math.min(100, Math.round((into / span) * 100));
-    })();
+    // (XP is retired — leveling-without-xp map). levelProgress also reports an
+    // exam hold, so the bar doesn't just sit silently full at 20/39.
+    const levelBar = levelProgress(character);
 
     function go(screen: Screen) {
         const now = Date.now();
@@ -157,8 +152,13 @@ export const MobileNav = memo(function MobileNav({
                         <div className="mobile-char-info">
                             <div className="mobile-char-name">{character.name}</div>
                             <div className="mobile-char-sub">Lv {character.level} · {character.rankTitle} · {character.village}</div>
-                            <div className="mobile-xp-bar-track">
-                                <div className="mobile-xp-bar-fill" style={{ width: `${xpPct}%` }} />
+                            <div
+                                className="mobile-xp-bar-track"
+                                title={levelBar.heldBy
+                                    ? `Held for the ${levelBar.heldBy} — ${levelBar.label}`
+                                    : `${levelBar.label} toward Level ${character.level + 1}`}
+                            >
+                                <div className="mobile-xp-bar-fill" style={{ width: `${levelBar.percent}%` }} />
                             </div>
                         </div>
                     </div>
