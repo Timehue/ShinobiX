@@ -538,7 +538,9 @@ export function Arena({
                     </span>
                 ))}
                 <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.45 : fx.spec.intensity === "heavy" ? 1.18 : 1)}>
-                    <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
+                    <i className="pvp-vfx-art">
+                        <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
+                    </i>
                     <i className="pvp-vfx-ring" />
                     <i className="pvp-vfx-core" />
                     <i className="pvp-vfx-cut" />

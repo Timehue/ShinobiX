@@ -1865,11 +1865,11 @@ html:has(.arena-fullscreen) .sector-banner-panel {
 
     .arena-fullscreen .pvp-combat-vfx {
         /* The battlefield fighters use a 52px logical orb. Keep mobile VFX to
-           that same footprint and neutralize the inline heavy/finisher scale;
-           otherwise the plate's own scale multiplies with its oversized image
-           and can cover several fighters or tap targets. */
+           that same footprint. Preserve a capped version of each authored
+           plate scale so status, normal, and marquee reads do not collapse
+           into one visual weight on phones. */
         --vfx-scale: 1 !important;
-        --vfx-asset-scale: 1 !important;
+        --vfx-render-scale: clamp(0.92, var(--vfx-asset-scale, 1), 1.25);
         --vfx-asset-lift: 0px !important;
         width: 52px !important;
         height: 52px !important;
@@ -1881,8 +1881,8 @@ html:has(.arena-fullscreen) .sector-banner-panel {
     }
 
     .arena-fullscreen .pvp-vfx-asset {
-        width: 100% !important;
-        height: 100% !important;
+        width: 112% !important;
+        height: 112% !important;
         opacity: 0;
     }
 
