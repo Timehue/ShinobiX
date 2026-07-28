@@ -195,6 +195,55 @@ export function reconcileCharacterStatBudget(character: Character): Character {
     return { ...character, stats, unspentStats };
 }
 
+// ── Stat-derived leveling (docs/leveling-without-xp-map.md) ──────────────────
+// Level is a pure function of total stat points EARNED: points allocated into
+// the 12 stats above base plus the unspent pool — the same conserved sum the
+// save sanitizer's preserveStatPointEntitlement guards, so level cannot be
+// forged without forging stats. The anchors are FITTED to the per-rank stat
+// caps: every rank boundary sits at ~68-78% of the previous band's earnable
+// capacity (a straight inversion of the old linear budget would wall at
+// L15/L30 — Academy can only produce 4,100 earned but the inverse demanded
+// 4,243). Piecewise-linear between anchors, rounded per level. Keep in
+// lock-step with api/_xp-engine.ts (parity-pinned by _cross-build-parity).
+export const LEVEL_EARNED_ANCHORS: ReadonlyArray<readonly [number, number]> = [
+    [1, 0],
+    [15, 2800],
+    [30, 6200],
+    [50, 11600],
+    [80, 19600],
+    [100, 27500],
+];
+
+// Total earned stat points required to BE `level` (0 at L1).
+export function earnedForLevel(level: number): number {
+    const clamped = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+    for (let i = 1; i < LEVEL_EARNED_ANCHORS.length; i++) {
+        const [aL, aE] = LEVEL_EARNED_ANCHORS[i - 1];
+        const [bL, bE] = LEVEL_EARNED_ANCHORS[i];
+        if (clamped >= aL && clamped <= bL) {
+            return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));
+        }
+    }
+    return 0;
+}
+
+// The raw curve inverse: the level `earned` total points supports. Exam holds
+// (examLevelCap) are applied by the caller — this is monotone in `earned`.
+export function levelForEarned(earned: number): number {
+    const points = Math.max(0, Math.floor(earned));
+    for (let level = MAX_LEVEL; level >= 2; level--) {
+        if (earnedForLevel(level) <= points) return level;
+    }
+    return 1;
+}
+
+// The conserved earned-points sum: allocated above base + the unspent pool.
+// Spending and respec both conserve it; only server-side grants (training,
+// combat growth, daily-checklist claims, one-time spine grants) raise it.
+export function earnedStatPoints(character: Pick<Character, "stats" | "unspentStats">): number {
+    return allocatedStatPoints(normalizeStats(character.stats)) + Math.max(0, Math.floor(character.unspentStats ?? 0));
+}
+
 // Apply a server-computed combat-use stat reward (Stage 4): add the per-stat
 // auto-growth (cap-clamped) into the stats the player used, plus the free-pool
 // points into unspentStats. The server is authoritative for the amounts (daily-
