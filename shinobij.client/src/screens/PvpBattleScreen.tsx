@@ -5,6 +5,11 @@ import { createPortal } from "react-dom";
 import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
 } from "react-icons/gi";
+// Was styles/index/16-*.css in the eager index.css manifest, so it loaded BEFORE the
+// per-screen skins. It shares 16 selectors with battle-skin.css (and 2 with
+// profile-skin.css), which override it, so it MUST stay above them here or the
+// combat jutsu bar restyles.
+import "../styles/combat-jutsu-ui.css";
 import "../styles/battle-skin.css";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
