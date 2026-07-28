@@ -19,7 +19,8 @@ export type StoryBossSettleResult = {
     ok: boolean;
     replayed?: boolean;
     progress: number;
-    xp: number;
+    xp: number; // retired (character XP removed) — servers send 0
+    statPoints?: number; // one-time milestone stat-pool grant
     ryo: number;
     auraDust: number;
     finale: boolean;

@@ -21,7 +21,8 @@ import type { Character, CurrencyRewards } from "../types/character";
 export type MissionType = "combat" | "field" | "hunt" | "apex" | "academy-trial" | "academy-checklist";
 
 export type ClaimReward = {
-    xpBoosted: number;        // base after the town-hall boost; pass to gainXp
+    xpBoosted: number;        // retired (character XP removed) — servers send 0
+    statPoints?: number;      // daily-checklist / capstone stat-pool grant
     ryo: number;
     stamina: number;
     territoryScrolls: number;
@@ -86,7 +87,12 @@ export function applyServerMissionReward(
     // Keep the reward-mirroring branch only for a rolling deploy against an
     // older backend; once every server is upgraded this fallback can be removed.
     if (result.character) return { ...character, ...result.character };
-    let next = gainXp(character, result.reward.xpBoosted);
+    // Rolling-deploy fallback: mirror the pool grant locally, then run the
+    // derived-level recompute (XP is retired — xpBoosted is always 0).
+    let next = result.reward.statPoints
+        ? { ...character, unspentStats: Math.max(0, Math.floor(character.unspentStats ?? 0)) + Math.max(0, Math.floor(result.reward.statPoints)) }
+        : character;
+    next = gainXp(next, 0);
     next = { ...next, ryo: next.ryo + result.reward.ryo };
     if (result.reward.stamina > 0) {
         next = { ...next, stamina: Math.min(next.maxStamina, next.stamina + result.reward.stamina) };

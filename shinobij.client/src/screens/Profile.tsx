@@ -7,7 +7,7 @@ import { GameIcon } from "../components/icons/GameIcon";
 const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
-import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } from "../constants/game";
+import { ANIMATED_MAX_MB, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { PatreonLink } from "../components/PatreonLink";
 import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
@@ -22,7 +22,7 @@ import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyl
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { allocatedStatPoints, capStat, xpNeeded } from "../lib/stats";
+import { allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
@@ -386,7 +386,10 @@ export function Profile({
     const disciplineLabel = playerLensDiscipline(character);
     const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
     const currentTitleLabel = character.customTitle || character.storyTitle || "";
-    const xpLabel = character.level >= MAX_LEVEL ? "MAX" : `${formatAmount(character.xp)}/${formatAmount(xpNeeded(character.level))}`;
+    // XP is retired: level progress is earned stat points vs the next threshold.
+    const xpLabel = character.level >= MAX_LEVEL
+        ? "MAX"
+        : `${formatAmount(earnedStatPoints(character))}/${formatAmount(earnedForLevel(character.level + 1))}`;
     const profileSummary = [
         `${equippedBloodlineName} defines this shinobi's combat identity.`,
         `${disciplineLabel}-focused build${ownedElements.length ? ` with ${elementsLabel} element access` : ""}.`,
@@ -402,10 +405,7 @@ export function Profile({
         {
             title: "Progress",
             rows: [
-                { label: "XP", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "toward next level", tone: "gold" },
-                ...(CHARACTER_XP_GAIN_MULTIPLIER !== 1
-                    ? [{ label: "Testing XP", value: `${CHARACTER_XP_GAIN_MULTIPLIER}x`, detail: "active", tone: "danger" as const }]
-                    : []),
+                { label: "Growth", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "stat points toward next level", tone: "gold" },
                 { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
             ],

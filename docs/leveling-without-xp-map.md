@@ -446,6 +446,10 @@ worktree first — this touches the same engine files.
 - **Phase 4 — Verify & ship:** §9 suite green, pacing sim output attached,
   adversarial review pass (engine + sanitizer + migration), patch notes
   (`data/patch-notes.ts` + docs), single merge to main, Railway self-builds.
+- **Known follow-ups (deliberately not bundled):** the "Growth Surge ×N" badge
+  when the era dial is active (server env exists; UI surfacing pending); the
+  split daily-growth meter ("Daily Growth 33/45 · Combat 12/18"); clan-doctrine
+  term of the sealed training bonus verified against a live clan snapshot.
 - **Post-soak cleanup (after wipe):** drop `xp`/`dailyTowerXp` from types + stored
   saves, delete frozen sanitizer pass-throughs, remove migration flag.
 

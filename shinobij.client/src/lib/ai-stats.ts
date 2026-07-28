@@ -7,9 +7,9 @@
  * type modules. Extracted from App.tsx (Region A, character cluster).
  */
 
-import { scaleStat, maxHpForLevel, statBudgetAtLevel, STAT_KEYS } from "./stats";
+import { scaleStat, maxHpForLevel, STAT_KEYS } from "./stats";
 import { clampNumber } from "./utils";
-import { MAX_LEVEL, MAX_STAT } from "../constants/game";
+import { MAX_LEVEL, MAX_STAT, STARTING_STAT_POINTS } from "../constants/game";
 import type { Jutsu, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import type { CreatorAi } from "../types/creator-ai";
@@ -74,13 +74,26 @@ function distributeStatBudget(budget: number, weights: Record<keyof Stats, numbe
     return STAT_KEYS.reduce((s, k) => { s[k] = scaleStat(10 + over[k]); return s; }, {} as Stats);
 }
 
-// An AI's 12-stat block is the SAME level-budget a player gets (statBudgetAtLevel),
-// distributed by archetype — so a level-L AI equals a level-L fully-allocated
-// player. The PvE difficulty band multiplier (lib/pve-difficulty.ts) is applied
-// SEPARATELY by the encounter; this returns the raw, parity-with-player block.
+// FROZEN AI stat curve (leveling-without-xp map §7): the old player linear
+// budget, kept verbatim as an AI-ONLY generator so removing character XP
+// changed ZERO PvE numbers — every enemy keeps exactly the stats it shipped
+// with. (Player level now derives from earned points on a band-fitted curve;
+// re-pointing AI at that curve would globally re-tune PvE difficulty and is
+// deliberately NOT bundled into the XP removal.)
+export function aiStatBudgetForLevel(level: number): number {
+    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+    const fullBudget = 12 * STAT_CAP_OVER_BASE;
+    return STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * (fullBudget - STARTING_STAT_POINTS));
+}
+
+// An AI's 12-stat block is the frozen linear budget above, distributed by
+// archetype — so a level-L AI equals what a level-L fully-allocated player had
+// under the old model. The PvE difficulty band multiplier
+// (lib/pve-difficulty.ts) is applied SEPARATELY by the encounter; this returns
+// the raw block.
 export function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
-    const budget = statBudgetAtLevel(safeLevel);
+    const budget = aiStatBudgetForLevel(safeLevel);
     const weights = aiArchetypeWeights(aiPrimaryJutsuType(jutsus));
     return distributeStatBudget(budget, weights);
 }

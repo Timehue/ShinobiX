@@ -17,7 +17,7 @@ export type SunscarDiceResult = {
     ok: boolean;
     error?: string;
     roll?: FateDiceSymbol[];
-    reward?: { ryo: number; xp: number; stamina: number; boneCharms: number; fateShards: number; auraStones: number };
+    reward?: { ryo: number; xp: number; statPoints?: number; stamina: number; boneCharms: number; fateShards: number; auraStones: number };
     message?: string;
     dailyUsed?: number;
     dailyCap?: number;

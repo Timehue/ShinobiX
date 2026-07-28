@@ -58,7 +58,7 @@ export function buildAcademyHandoff(character: AcademyHandoffCharacter): Academy
             secondary: {
                 label: "Take an E-Rank mission",
                 screen: "missions",
-                detail: "Repeat the fight-and-claim loop for XP and ryo.",
+                detail: "Repeat the fight-and-claim loop for ryo and daily stat points.",
             },
         };
     }
