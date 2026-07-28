@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-// Was styles/index/16-*.css in the eager index.css manifest, so it loaded BEFORE the
-// per-screen skins. It shares 16 selectors with battle-skin.css (and 2 with
-// profile-skin.css), which override it, so it MUST stay above them here or the
-// combat jutsu bar restyles.
-import "../styles/combat-jutsu-ui.css";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
 import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase,
