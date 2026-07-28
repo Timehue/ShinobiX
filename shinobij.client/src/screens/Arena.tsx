@@ -1,10 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useMemo } from "react";
-// Was styles/index/16-*.css in the eager index.css manifest, so it loaded BEFORE the
-// per-screen skins. It shares 16 selectors with battle-skin.css (and 2 with
-// profile-skin.css), which override it, so it MUST stay above them here or the
-// combat jutsu bar restyles.
-import "../styles/combat-jutsu-ui.css";
 import "../styles/battle-skin.css";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
