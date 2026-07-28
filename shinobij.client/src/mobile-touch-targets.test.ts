@@ -61,13 +61,13 @@ test('visual novel navigation and choice actions keep 44px touch targets in port
     assert.match(css, /\.vn-controls button,\s*\.vn-choice-row button\s*\{[^}]*min-height:\s*44px\s*!important/s);
 });
 
-test('mobile combat VFX stay centered within one fighter-sized footprint', () => {
+test('mobile combat VFX stay fighter-sized while preserving capped visual hierarchy', () => {
     const mobileStart = battleSkinCss.indexOf('@media (max-width: 800px)');
     const phoneStart = battleSkinCss.indexOf('@media (max-width: 420px)', mobileStart);
     assert.notEqual(mobileStart, -1, 'missing mobile battle skin');
     assert.notEqual(phoneStart, -1, 'missing phone battle skin boundary');
     const mobileCss = battleSkinCss.slice(mobileStart, phoneStart);
-    assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx\s*\{[\s\S]*?--vfx-scale:\s*1\s*!important;[\s\S]*?--vfx-asset-scale:\s*1\s*!important;[\s\S]*?width:\s*52px\s*!important;[\s\S]*?height:\s*52px\s*!important;/);
+    assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx\s*\{[\s\S]*?--vfx-scale:\s*1\s*!important;[\s\S]*?--vfx-render-scale:\s*clamp\(0\.92,\s*var\(--vfx-asset-scale,\s*1\),\s*1\.25\);[\s\S]*?width:\s*52px\s*!important;[\s\S]*?height:\s*52px\s*!important;/);
     assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx-tile\s*\{[\s\S]*?width:\s*36px\s*!important;[\s\S]*?height:\s*36px\s*!important;/);
-    assert.match(mobileCss, /\.arena-fullscreen \.pvp-vfx-asset\s*\{[\s\S]*?width:\s*100%\s*!important;[\s\S]*?height:\s*100%\s*!important;/);
+    assert.match(mobileCss, /\.arena-fullscreen \.pvp-vfx-asset\s*\{[\s\S]*?width:\s*112%\s*!important;[\s\S]*?height:\s*112%\s*!important;/);
 });
