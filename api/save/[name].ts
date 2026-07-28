@@ -617,7 +617,19 @@ export function sanitizeCharacterSave(
     const char: Record<string, unknown> = { ...inChar };
 
     // ── Free-form user text moderation ──────────────────────────────
-    // customTitle is the only character-level field a player can put
+    // The DISPLAY name is player-authored too, and was capped nowhere: `safeName`
+    // bounds the derived slug used in keys, but `character.name` rode through raw.
+    // It renders in OTHER players' UI (leaderboards, sector nameplates, chat, clan
+    // rosters), so an unbounded one breaks layout for everyone but its owner — a
+    // griefing vector on a public launch. Registration now rejects over-long names
+    // with a message; this is the authoritative backstop against a tampered client,
+    // so it truncates silently rather than erroring. Length only: the name is NOT
+    // re-derived from the slug, because a display name legitimately differs from it
+    // ("Michael Corben" → michaelcorben).
+    if (typeof char.name === 'string' && char.name.length > TEXT_LIMITS.playerName) {
+        char.name = char.name.slice(0, TEXT_LIMITS.playerName);
+    }
+    // customTitle is the other character-level field a player can put
     // arbitrary text into. Mask profanity, redact PII, cap length so a
     // tampered save can't park a slur as their public title or stuff
     // a 10 KB string into the field. On top of the profanity mask
@@ -2078,9 +2090,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         const stored = await kv.get<Record<string, unknown>>(key);
         if (stored === null) return res.status(404).end();
+
+        // Who is reading decides whether the settle is WRITTEN BACK.
+        const adminCanReadTarget = identity.admin
+            && adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req));
+        const isOwner = adminCanReadTarget || isClanSave || (!identity.admin && identity.name === name);
+
+        // Settling projects elapsed time (vitals regen, travel leases, an expired
+        // Hollow Gate run) and persisting it BUMPS `_saveVersion`.
+        //
+        // Only persist for the OWNER. Any logged-in player may read any save — PvP
+        // scouting and profile views both do — and vitals tick every second, so a
+        // foreign read of a save that was below full HP reliably wrote a new version
+        // for a player who was not part of the request and got no notification. Their
+        // very next autosave then echoed a now-stale `_baseSaveVersion`, took a 409,
+        // and the client's conflict recovery discarded local progress: an opponent
+        // opening your profile could roll your game back. It scaled with player count.
+        //
+        // `persist: false` still RETURNS the settled projection, so a foreign reader
+        // sees correct regen — only the durable write is skipped, and the owner's own
+        // next read or save persists it.
         const data = isClanSave
             ? stored
-            : (await settleSaveRecordForRead(name, stored, { persist: true })).record;
+            : (await settleSaveRecordForRead(name, stored, { persist: isOwner })).record;
 
         // Project the save by reader.
         // - Owners + authorized admins + clan saves: full save (combatOnly just
@@ -2100,9 +2132,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // achievement / lifetime-counter fields combat never reads.
         // identity.name and `name` are both safeName slugs, so a direct compare
         // correctly recognises the owner.
-        const adminCanReadTarget = identity.admin
-            && adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req));
-        const isOwner = adminCanReadTarget || isClanSave || (!identity.admin && identity.name === name);
         const combatOnly = req.query.combatOnly === '1';
         let payload: Record<string, unknown>;
         if (isOwner) {
