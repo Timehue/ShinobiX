@@ -81,8 +81,12 @@ describe("server settlement policy", () => {
 
         const app = source("../App.tsx");
         assertGuardBefore(app, "enterHollowGateShrine", "hollowGateRun", "setHollowGateRun(");
-        const befriendGuard = app.indexOf('requireServerSettlement("hollowGatePetBefriend")');
-        const befriendWrite = app.indexOf("const updated = { ...character, pets:", befriendGuard);
+        // The tile resolver was drained out of App.tsx into lib/hollow-gate-tile.ts
+        // (2026-07-28) as a verbatim move, so the befriend guard now lives there. The
+        // invariant is unchanged — only the file it has to hold in did.
+        const hollowTile = source("./hollow-gate-tile.ts");
+        const befriendGuard = hollowTile.indexOf('requireServerSettlement("hollowGatePetBefriend")');
+        const befriendWrite = hollowTile.indexOf("const updated = { ...character, pets:", befriendGuard);
         assert.ok(befriendGuard >= 0 && befriendWrite > befriendGuard, "Hollow Gate befriend must gate before adding a pet");
 
         const petYard = source("../screens/PetYard.tsx");
