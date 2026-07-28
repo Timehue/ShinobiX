@@ -23,16 +23,36 @@ export const STAT_GROWTH_KEYS = [
 ] as const;
 export type StatKey = typeof STAT_GROWTH_KEYS[number];
 
-// Small per-win base; the daily cap is the real bound. PvE grinds slightly higher
-// than casual PvP (the AI-fight faucet is the main progression path).
-export const AI_FIGHT_STAT_POINTS_PER_WIN = 8;
+// Small per-win base; the daily slice is the real bound.
 export const PVP_CASUAL_STAT_POINTS_PER_WIN = 6;
-// Hard daily ceiling on combat-granted stat points (auto + pool). ~20% of a
-// dedicated trainer's ~320/day, so combat shaves ~10-15 days off the ~90-day cap
-// timeline without becoming the main faucet.
-export const DAILY_COMBAT_STAT_CAP = 60;
+// The PvP SLICE of the daily growth budget (docs/leveling-without-xp-map.md §4):
+// three serious wins' worth. The daily-checklist slice (~50) lives on the
+// once-per-day mission claims and needs no shared counter; this key bounds only
+// combat growth so dailies stay the bulk of a day's growth. The counter charges
+// BASE points — trait/era boosts multiply the payout after slice accounting.
+export const DAILY_COMBAT_STAT_CAP = 18;
 // 60% auto-grows the stats you use; 40% drops into the pool to hand-allocate.
 export const COMBAT_USED_STAT_RATIO = 0.6;
+
+// ── Growth boosts (docs/leveling-without-xp-map.md §4.1) ────────────────────
+// Every retired XP-boost is now a stat-gain boost. STAT_GAIN_MULTIPLIER is the
+// server-env ERA DIAL (default 1): flip it on Railway so a later generation of
+// players caps far sooner — no client constant, no rebuild, surfaced to the UI
+// via grant responses. MAX_AGGREGATE_STAT_BOOST bounds the COMBINED multiplier
+// (per-source bonus × era dial) so stacking can never run away.
+export const MAX_AGGREGATE_STAT_BOOST = 2.5;
+
+export function statGainMultiplier(): number {
+    const raw = Number(process.env.STAT_GAIN_MULTIPLIER ?? 1);
+    if (!Number.isFinite(raw) || raw <= 0) return 1;
+    return Math.min(MAX_AGGREGATE_STAT_BOOST, raw);
+}
+
+/** Combined grant multiplier: (1 + bonusPct/100) × era dial, aggregate-capped. */
+export function combinedStatBoost(bonusPct: number): number {
+    const bonus = 1 + Math.max(0, bonusPct) / 100;
+    return Math.min(MAX_AGGREGATE_STAT_BOOST, bonus * statGainMultiplier());
+}
 
 const STAT_BASE = 10;
 

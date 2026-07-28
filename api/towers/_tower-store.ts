@@ -13,7 +13,7 @@
  *   - both receipts are placed INSIDE the member's failClosed save lock and rolled back
  *     if the save write fails (the receipt is on the base store, the save on the disk
  *     overlay — different backends, so rollback restores cross-store atomicity);
- *   - XP is credited through the server gainXp() (a raw char.xp += is per-level progress
+ *   - Progression is credited as stat-pool points (character XP is retired; a raw pool grant
  *     the client clamps away on load).
  *
  * kv / lock / now are INJECTABLE (default to the real ones) so the currency logic is
@@ -23,7 +23,7 @@ import { kv as realKv } from '../_storage.js';
 import { withKvLock as realWithKvLock } from '../_lock.js';
 import { mergePreservingImages, setSafeRecordValue } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { gainXp, type XpCharacter } from '../_xp-engine.js';
+import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
 import { getFloor } from './_floor-catalog.js';
@@ -155,12 +155,19 @@ function isSquadMember(session: TowerSession, slug: string): boolean {
 
 // Apply a first-clear reward + score to a character. The one-time gate is the SERVER
 // firstClearKey NX receipt (placed by the caller) — so this ALWAYS credits when reached.
-// XP is routed through the server gainXp() (levels up; raw += is clamped away on load).
+// Character XP is retired (leveling-without-xp map): the floor's old XP value converts
+// to ONE-TIME stat-pool points (xp ÷ 40, the same fold as story milestones) — outside
+// the daily checklist, non-farmable via the permanent receipt — then the rise-only
+// derived-level recompute picks the ledger move up.
 // The battleTower* arrays are DISPLAY state only (the receipt is the real gate).
 function creditFloorClear(
     char: Record<string, unknown>, reward: TowerReward, score: number, floorId: number,
 ): Record<string, unknown> {
-    const leveled = gainXp(char as XpCharacter, num(reward.xp)) as unknown as Record<string, unknown>;
+    const poolPoints = Math.max(0, Math.round(num(reward.xp) / 40));
+    const leveled = applyDerivedLevel({
+        ...char,
+        unspentStats: Math.max(0, Math.floor(num(char.unspentStats))) + poolPoints,
+    } as XpCharacter) as unknown as Record<string, unknown>;
     const cleared = Array.isArray(char.battleTowerClearedFloors) ? (char.battleTowerClearedFloors as number[]) : [];
     const claimed = Array.isArray(char.battleTowerClaimedRewards) ? (char.battleTowerClaimedRewards as string[]) : [];
     const claimKey = `floor-${floorId}`;
@@ -335,11 +342,14 @@ export async function settleAssistForAlly(
                 await kv.del(receipt).catch(() => undefined);
                 result = { paid: false, reason: 'no-save' }; return;
             }
-            const leveled = gainXp(char as XpCharacter, num(reward.xp)) as unknown as Record<string, unknown>;
+            // Assists are the repeatable channel → ryo only (the old assist XP
+            // folds into ryo at ~0.75:1); the derived-level recompute replaces
+            // the retired gainXp level-up side effect.
+            const leveled = applyDerivedLevel(char as XpCharacter) as unknown as Record<string, unknown>;
             const claimed = Array.isArray(char.battleTowerAssistRewardsClaimed) ? (char.battleTowerAssistRewardsClaimed as string[]) : [];
             const updated: Record<string, unknown> = {
                 ...leveled,
-                ryo: num(leveled.ryo) + num(reward.ryo),
+                ryo: num(leveled.ryo) + num(reward.ryo) + Math.floor(num(reward.xp) * 0.75),
                 battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
             };
             try {

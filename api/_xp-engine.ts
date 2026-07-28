@@ -281,58 +281,30 @@ export function applyDerivedLevel(character: XpCharacter): XpCharacter {
     return updated;
 }
 
-// ── App.tsx — gainXp (the driver) ───────────────────────────────────────────
-export function gainXp(character: XpCharacter, amount: number): XpCharacter {
-    const totalAmount = effectiveCharacterXpGain(character as { elderFocus?: unknown }, amount);
-    const levelCap = examLevelCap(character);
-    let updated: XpCharacter = reconcileCharacterStatBudget(character);
-    const startLevel = Number(updated.level);
-    const startXp = Number(updated.xp);
-    updated = { ...updated, level: startLevel, xp: startLevel >= MAX_LEVEL ? 0 : startXp + totalAmount };
-    while (Number(updated.level) < MAX_LEVEL && Number(updated.level) < levelCap && Number(updated.xp) >= xpNeeded(Number(updated.level))) {
-        const curLevel = Number(updated.level);
-        const needed = xpNeeded(curLevel);
-        const newLevel = curLevel + 1;
-        const nextMaxHp = maxHpForLevel(newLevel);
-        const nextMaxChakra = maxChakraForLevel(newLevel);
-        const nextMaxStamina = maxStaminaForLevel(newLevel);
-        updated = {
-            ...updated,
-            xp: Number(updated.xp) - needed,
-            level: newLevel,
-            rankTitle: rankTitleForLevel(updated, newLevel),
-            maxHp: nextMaxHp,
-            maxChakra: nextMaxChakra,
-            maxStamina: nextMaxStamina,
-            hp: nextMaxHp,
-            chakra: nextMaxChakra,
-            stamina: nextMaxStamina,
-        };
-    }
-    // If capped by exam gate, clamp XP so it doesn't overflow past the threshold.
-    if (Number(updated.level) >= levelCap && Number(updated.level) < MAX_LEVEL) {
-        updated = { ...updated, xp: Math.min(Number(updated.xp), xpNeeded(Number(updated.level)) - 1) };
-    }
-    if (Number(updated.level) >= MAX_LEVEL) {
-        updated = { ...updated, level: MAX_LEVEL, xp: 0, rankTitle: rankTitleForLevel(updated, MAX_LEVEL) };
-    }
-    return reconcileCharacterStatBudget(updated);
+// ── gainXp — RETIRED XP driver, kept as a derived-level compatibility shim ──
+// Character XP is removed (docs/leveling-without-xp-map.md): level derives from
+// the earned-points ledger, so the amount is ignored and the call collapses to
+// the rise-only derived-level recompute. Legacy grant sites can keep calling
+// this safely while they are converted; the frozen `xp` field is never touched.
+export function gainXp(character: XpCharacter, _amount: number): XpCharacter {
+    return applyDerivedLevel(character);
 }
 
-// ── PvP-win reward composition (App.tsx handlePvpWin 10365-10416) ────────────
-export type PvpWinGains = { xpGain: number; ryoGain: number; deathsGate: boolean; trait: string | null };
+// ── PvP-win reward composition ──────────────────────────────────────────────
+export type PvpWinGains = { ryoGain: number; deathsGate: boolean; trait: string | null; growthMult: number };
 
-/** The base PvP-win xp/ryo for `char`, scaled by the active pet trait and the
- *  Death's Gate (sector 99) 2× bonus. `rewardSector` comes from the session
- *  stamp; the trait is read from the winner's own (full) save. */
+/** The base PvP-win ryo for `char`, scaled by the active pet trait and the
+ *  Death's Gate (sector 99) 2× bonus. Character XP is retired — the old Swift
+ *  +25% XP and Death's Gate ×2 XP boosts now act on PvP STAT GROWTH instead
+ *  (docs/leveling-without-xp-map.md §4.1), surfaced here as `growthMult`. */
 export function computePvpWinGains(char: XpCharacter, rewardSector: unknown): PvpWinGains {
     const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
     const activePet = pets.find((p) => p && p.id === char.activePetId);
     const trait = (activePet && typeof activePet.trait === 'string') ? activePet.trait : null;
     const deathsGate = Number(rewardSector) === 99;
-    const xpGain = (trait === 'Swift' ? 125 : 100) * (deathsGate ? 2 : 1);
     const ryoGain = (trait === 'Lucky' ? 90 : 75) * (deathsGate ? 2 : 1);
-    return { xpGain, ryoGain, deathsGate, trait };
+    const growthMult = (trait === 'Swift' ? 1.25 : 1) * (deathsGate ? 2 : 1);
+    return { ryoGain, deathsGate, trait, growthMult };
 }
 
 export type PvpWinCredit = {
@@ -340,19 +312,19 @@ export type PvpWinCredit = {
     summary: { ryo: number; xp: number; level: number; rankTitle: string; maxHp: number; maxChakra: number; maxStamina: number; unspentStats: number; statGrowth?: { allocated: Record<string, number>; unspentGain: number } };
 };
 
-/** Apply the base PvP-win reward to `char`: gainXp(xpGain) then ryo += ryoGain.
- *  Returns the mutated character plus a summary of the credited fields for the
- *  client read-back. Verbatim with handlePvpWin's `gainXp` + `ryo: rewarded.ryo
- *  + ryoGain` (the territory-scroll/auraDust/kill-counter grants are NOT here —
- *  they stay client-side this phase). */
-export function creditPvpWinBase(char: XpCharacter, xpGain: number, ryoGain: number): PvpWinCredit {
-    const leveled = gainXp(char, xpGain);
+/** Apply the base PvP-win reward to `char`: ryo += ryoGain plus the rise-only
+ *  derived-level recompute (XP is retired — stat growth is credited separately
+ *  by the claim endpoint and is what actually moves the ledger). Returns the
+ *  mutated character plus a summary for the client read-back; `summary.xp`
+ *  stays in the shape as 0 so older clients keep parsing. */
+export function creditPvpWinBase(char: XpCharacter, ryoGain: number): PvpWinCredit {
+    const leveled = applyDerivedLevel(char);
     const nextChar: XpCharacter = { ...leveled, ryo: (Number(leveled.ryo) || 0) + ryoGain };
     return {
         char: nextChar,
         summary: {
             ryo: Number(nextChar.ryo) || 0,
-            xp: Number(nextChar.xp) || 0,
+            xp: 0,
             level: Number(nextChar.level) || 0,
             rankTitle: typeof nextChar.rankTitle === 'string' ? nextChar.rankTitle : '',
             maxHp: Number(nextChar.maxHp) || 0,

@@ -17,8 +17,15 @@ describe('Endless Tower server run', () => {
         const won = recordEndlessWin(char, run, 5, { hp: 50, chakra: 50, stamina: 50 })!;
         assert.deepEqual(won.reward, endlessWaveReward(5, 50)); assert.equal((won.character.endlessTowerRun as any).wave, 6); assert.equal(won.character.boneCharms, 5);
     });
-    it('cashout applies the daily XP soft cap and clears the run', () => {
+    it('cashout banks ryo only (XP retired — legacy bankedXp folds to ryo) and clears the run', () => {
+        // Character XP is gone, and with it the whole daily-XP-softcap
+        // subsystem. An in-flight run minted before the deploy may still carry
+        // bankedXp — it converts at the same ~0.75:1 fold as the wave rewards.
         const out = cashOutEndless({ level: 10, xp: 0, ryo: 100, stats: {}, lastDailyReset: '2026-07-12', dailyTowerXp: 1000 }, { runToken: 't', wave: 2, bankedRyo: 500, bankedXp: 1000, startedAt: 1 }, '2026-07-12');
-        assert.equal(out.creditedRyo, 500); assert.equal(out.character.ryo, 600); assert.equal(out.character.endlessTowerRun, null); assert.equal(out.creditedXp, 240);
+        assert.equal(out.creditedRyo, 500 + 750); assert.equal(out.character.ryo, 100 + 1250); assert.equal(out.character.endlessTowerRun, null); assert.equal(out.creditedXp, 0);
+        assert.equal(out.character.xp, 0, 'frozen xp untouched');
+        // New-model waves bank ryo only.
+        assert.equal(endlessWaveReward(3, 50).xp, 0);
+        assert.ok(endlessWaveReward(3, 50).ryo > 0);
     });
 });

@@ -6,6 +6,7 @@
 // sort on a handful of display-safe counters.
 
 import { safeName } from '../_utils.js';
+import { earnedStatPoints } from '../_xp-engine.js';
 
 export const REGISTRY_KEY = 'player:registry';
 export const PUBLIC_INDEX_VERSION = 1;
@@ -104,7 +105,9 @@ const PUBLIC_LEADERBOARD_META: Record<PublicLeaderboardBoardId, Omit<PublicLeade
     ranked: { id: 'ranked', label: 'Ranked Battle Rating', valueLabel: 'Elo', suffix: ' Elo' },
     petRanked: { id: 'petRanked', label: 'Pet Arena Rating', valueLabel: 'Pet Elo', suffix: ' Elo' },
     level: { id: 'level', label: 'Highest Level', valueLabel: 'Level', suffix: '' },
-    xp: { id: 'xp', label: 'Total XP Earned', valueLabel: 'XP', suffix: ' XP' },
+    // Board id stays 'xp' (client tab ids/deep links), but the metric is now the
+    // earned stat-point ledger — character XP is retired (leveling-without-xp map).
+    xp: { id: 'xp', label: 'Total Stat Points Earned', valueLabel: 'Points', suffix: ' pts' },
     kills: { id: 'kills', label: 'Total PvP Kills', valueLabel: 'Kills', suffix: ' kills' },
     pets: { id: 'pets', label: 'Pet Coliseum Wins', valueLabel: 'Wins', suffix: ' wins' },
     endless: { id: 'endless', label: 'Endless Tower Wins', valueLabel: 'Wins', suffix: ' wins' },
@@ -208,7 +211,13 @@ export function buildPublicPlayerIndexEntry(
         petRankedWins: publicNumber(char.petRankedWins, 0),
         petRankedLosses: publicNumber(char.petRankedLosses, 0),
         totalPvpKills: publicNumber(char.totalPvpKills, 0),
-        xp: publicNumber(char.xp, 0),
+        // Earned stat points (allocated + pool) when built from a full character;
+        // falls back to the stored entry value when re-parsing an index row
+        // (rows carry no stats object). Field name stays `xp` to avoid an index
+        // schema/backfill churn — semantics changed with the XP removal.
+        xp: char.stats && typeof char.stats === 'object'
+            ? publicNumber(earnedStatPoints(char), 0)
+            : publicNumber(char.xp, 0),
         totalPetWins: publicNumber(char.totalPetWins, 0),
         totalEndlessTowerWins: publicNumber(char.totalEndlessTowerWins, 0),
         totalVillageRaids: publicNumber(char.totalVillageRaids, 0),
