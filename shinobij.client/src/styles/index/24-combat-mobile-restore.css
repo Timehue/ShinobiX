@@ -4,9 +4,25 @@
    vertically and eat all the vertical space. Fix:
    put both HUDs side-by-side in a compact top
    strip so the hex grid gets maximum room.
+
+   BREAKPOINT: the combat mobile/desktop boundary is
+   1023/1024 and is duplicated across THREE files —
+   battle-skin.css, mission-arena-fight.css, and this
+   one. Keep all three in sync.
+
+   This file lagged at 800/801 after the other two were
+   widened. A specificity accident hid it: the compact
+   treatment in battle-skin is keyed on
+   `.arena-fullscreen.pvp-battle-layout` (two classes),
+   which outranks the plain `.arena-fullscreen` selectors
+   here — so Arena, PvP and mission fights, which all add
+   `pvp-battle-layout`, looked correct. Battle Towers does
+   NOT add that class, so tower fights alone still flipped
+   to the desktop grid at 801px while every other fight
+   stayed compact until 1024px.
    ============================================= */
 
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
   /* Rearrange: 2-col top strip [player | enemy], full-width main below */
   .arena-fullscreen .combat-layout {
     display: grid !important;
@@ -415,8 +431,9 @@
     align-items: center !important;
 }
 
-/* ── Mobile: lock arena to viewport so the grid can't overflow ── */
-@media (max-width: 800px) {
+/* ── Mobile: lock arena to viewport so the grid can't overflow ──
+   1023 to match the combat boundary at the top of this file. */
+@media (max-width: 1023px) {
     /* Fix the whole arena to the viewport height */
     .arena-fullscreen {
         height: 100dvh !important;
@@ -551,8 +568,10 @@
     color: var(--slate-600);
 }
 
-/* Mobile: make the ring a bit smaller so the AP panel doesn't get too tall */
-@media (max-width: 800px) {
+/* Mobile: make the ring a bit smaller so the AP panel doesn't get too tall.
+   1023 to match the combat boundary at the top of this file — the ring sits in
+   the AP panel, which is part of the compact layout. */
+@media (max-width: 1023px) {
     .round-timer-ring {
         width: 38px !important;
         height: 38px !important;
@@ -573,8 +592,10 @@
    and give the battlefield the leftover height.
    ===================================================== */
 
-/* Hide the top banner entirely on all combat screens */
-@media (max-width: 800px) {
+/* Hide the top banner entirely on all combat screens.
+   1023 to match the combat boundary at the top of this file — the compact layout
+   needs the vertical space the banner would take. */
+@media (max-width: 1023px) {
   .screen-arena .journey-banner,
   .screen-storyBoss .journey-banner,
   .screen-battleArena .journey-banner,
@@ -813,9 +834,13 @@
 
 /* ===== Desktop combat restore =====
    Keep the full PC battle chrome visible: title, terrain/weather strip,
-   AP bars, board, actions, and side HUDs. Phone rules below 800px still
-   own the compact mobile combat view. */
-@media (min-width: 801px) {
+   AP bars, board, actions, and side HUDs. The compact rules above still own
+   the mobile combat view below this bound.
+
+   1024 — the other half of the 1023/1024 combat boundary. This is the selector
+   set that made Battle Towers flip to the 3-column desktop dossier grid at
+   801px while every other fight stayed compact to 1024px. */
+@media (min-width: 1024px) {
     .arena-fullscreen {
         overflow: visible !important;
         height: auto !important;
@@ -897,8 +922,12 @@
 /* ===== Mobile combat scroll restore =====
    Let phone players scroll through the full command and jutsu/item controls.
    Earlier mobile combat rules lock the arena to 100dvh and hide overflow,
-   which traps content below the battlefield. */
-@media (max-width: 800px) {
+   which traps content below the battlefield.
+
+   1023 to match the combat boundary at the top of this file. This MUST track the
+   lock-to-viewport block above it: wherever the arena is pinned to 100dvh with
+   overflow hidden, this is what lets the controls below the board be reached. */
+@media (max-width: 1023px) {
     body:has(.arena-fullscreen),
     .game:has(.arena-fullscreen),
     .center-game:has(.arena-fullscreen) {
@@ -953,8 +982,13 @@
     }
 }
 
-/* Final mobile map/menu pass: keep this at EOF so it wins over older mobile patches. */
-@media (max-width: 800px) {
+/* Final mobile map/menu pass: keep this at EOF so it wins over older mobile patches.
+
+   980, NOT the 1023 combat bound above — this block is the page SHELL (document
+   scroll model plus bottom clearance for the fixed nav), so it tracks where the
+   mobile shell takes over from the desktop rail (23-mobile-shell.css), not where
+   the combat grid switches. */
+@media (max-width: 980px) {
     html,
     body,
     #root,
