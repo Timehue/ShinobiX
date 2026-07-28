@@ -87,7 +87,6 @@ type PreparedModel = {
     materials: THREE.Material[];
     uniforms: DeformUniforms[];
     clips: readonly THREE.AnimationClip[];
-    geometries: THREE.BufferGeometry[];
 };
 
 const ELEMENT_LIGHT: Record<string, string> = {
@@ -288,162 +287,11 @@ function stylizeApprovedRig(root: THREE.Group, config: PetCombatModelConfig) {
     scaleNode("Tail1", 1.31, 1.09, 1.31);
 }
 
-type TriangleComponent = {
-    root: number;
-    triangles: number;
-    bounds: THREE.Box3;
-};
-
-function weldedTriangleComponents(
-    position: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
-    index: THREE.BufferAttribute,
-    triangleOffsets: readonly number[],
-): { componentByTriangle: Map<number, number>; components: TriangleComponent[] } {
-    const parent: number[] = [];
-    const rank: number[] = [];
-    const weldedByVertex = new Map<number, number>();
-    const weldedByPosition = new Map<string, number>();
-
-    const find = (value: number): number => {
-        let root = value;
-        while (parent[root] !== root) root = parent[root];
-        let current = value;
-        while (parent[current] !== current) {
-            const next = parent[current];
-            parent[current] = root;
-            current = next;
-        }
-        return root;
-    };
-    const union = (a: number, b: number) => {
-        let rootA = find(a);
-        let rootB = find(b);
-        if (rootA === rootB) return;
-        if (rank[rootA] < rank[rootB]) [rootA, rootB] = [rootB, rootA];
-        parent[rootB] = rootA;
-        if (rank[rootA] === rank[rootB]) rank[rootA] += 1;
-    };
-    const weld = (vertex: number) => {
-        const existingVertex = weldedByVertex.get(vertex);
-        if (existingVertex !== undefined) return existingVertex;
-        // Image-to-3D exports split coincident vertices at UV and normal seams.
-        // Quantizing positions reconnects the actual surface without joining
-        // visibly separate reconstruction islands.
-        const key = `${Math.round(position.getX(vertex) * 100000)},${Math.round(position.getY(vertex) * 100000)},${Math.round(position.getZ(vertex) * 100000)}`;
-        let welded = weldedByPosition.get(key);
-        if (welded === undefined) {
-            welded = parent.length;
-            parent.push(welded);
-            rank.push(0);
-            weldedByPosition.set(key, welded);
-        }
-        weldedByVertex.set(vertex, welded);
-        return welded;
-    };
-
-    for (const offset of triangleOffsets) {
-        const a = weld(index.getX(offset));
-        const b = weld(index.getX(offset + 1));
-        const c = weld(index.getX(offset + 2));
-        union(a, b);
-        union(b, c);
-    }
-
-    const componentByTriangle = new Map<number, number>();
-    const byRoot = new Map<number, TriangleComponent>();
-    for (const offset of triangleOffsets) {
-        const vertices = [index.getX(offset), index.getX(offset + 1), index.getX(offset + 2)];
-        const root = find(weld(vertices[0]));
-        componentByTriangle.set(offset, root);
-        let component = byRoot.get(root);
-        if (!component) {
-            component = { root, triangles: 0, bounds: new THREE.Box3() };
-            byRoot.set(root, component);
-        }
-        component.triangles += 1;
-        for (const vertex of vertices) {
-            component.bounds.expandByPoint(new THREE.Vector3(position.getX(vertex), position.getY(vertex), position.getZ(vertex)));
-        }
-    }
-    return { componentByTriangle, components: [...byRoot.values()] };
-}
-
-function removeStarterSourceArtifacts(root: THREE.Group, config: PetCombatModelConfig): THREE.BufferGeometry[] {
-    const isEarth = config.visualId.startsWith("starter-earth");
-    const isEvolvedWind = config.visualId === "starter-wind-l";
-    if (!isEarth && !isEvolvedWind) return [];
-    const owned: THREE.BufferGeometry[] = [];
-    root.traverse((node) => {
-        if (!(node instanceof THREE.Mesh)) return;
-        const geometry = node.geometry.clone();
-        const position = geometry.getAttribute("position");
-        const sourceIndex = geometry.index;
-        if (!position || !sourceIndex) {
-            geometry.dispose();
-            return;
-        }
-        geometry.computeBoundingBox();
-        const bounds = geometry.boundingBox;
-        if (!bounds) {
-            geometry.dispose();
-            return;
-        }
-        const candidateOffsets: number[] = [];
-        const earthCut = bounds.min.y + (bounds.max.y - bounds.min.y) * 0.045;
-        for (let i = 0; i < sourceIndex.count; i += 3) {
-            const a = sourceIndex.getX(i);
-            const b = sourceIndex.getX(i + 1);
-            const c = sourceIndex.getX(i + 2);
-            // Both Earth exports contain a broad reconstruction floor. The true
-            // feet extend above this narrow slice, so only fully-low triangles go.
-            if (isEarth && position.getY(a) <= earthCut && position.getY(b) <= earthCut && position.getY(c) <= earthCut) continue;
-            candidateOffsets.push(i);
-        }
-
-        const { componentByTriangle, components } = weldedTriangleComponents(position, sourceIndex, candidateOffsets);
-        const totalTriangles = Math.max(1, candidateOffsets.length);
-        let keepRoots: Set<number>;
-        if (isEarth) {
-            // Once the floor is cut, the pet is the dominant closed surface. The
-            // remaining low pot/wall chunks are detached islands (10% on the
-            // evolved form, 2.2% on the base form) and must not enter combat.
-            const largest = components.reduce((best, component) => component.triangles > best.triangles ? component : best);
-            keepRoots = new Set([largest.root]);
-        } else if (isEvolvedWind) {
-            // The evolved Wind source includes a second, nearly planar 33% image
-            // card. Preserve the animal and its small detached details while
-            // removing only large components with background-card flatness.
-            keepRoots = new Set(components.filter((component) => {
-                const size = component.bounds.getSize(new THREE.Vector3());
-                const largestAxis = Math.max(size.x, size.y, size.z, 0.000001);
-                const flatness = Math.min(size.x, size.y, size.z) / largestAxis;
-                return !(component.triangles / totalTriangles > 0.1 && flatness < 0.05);
-            }).map((component) => component.root));
-        } else {
-            keepRoots = new Set(components.map((component) => component.root));
-        }
-
-        const kept: number[] = [];
-        for (const offset of candidateOffsets) {
-            const rootId = componentByTriangle.get(offset);
-            if (rootId === undefined || !keepRoots.has(rootId)) continue;
-            kept.push(sourceIndex.getX(offset), sourceIndex.getX(offset + 1), sourceIndex.getX(offset + 2));
-        }
-        geometry.setIndex(kept);
-        geometry.computeBoundingBox();
-        geometry.computeBoundingSphere();
-        node.geometry = geometry;
-        owned.push(geometry);
-    });
-    return owned;
-}
-
 function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: readonly THREE.AnimationClip[], quality: PetVisualQualityConfig, element?: string, persistentAtlas?: THREE.Texture | null): PreparedModel {
     // SkeletonUtils is required for independent SkinnedMesh bone trees. Object3D.clone
     // shares skeleton bindings and causes one fighter's animation to corrupt the other.
     const surface = cloneSkeleton(source) as THREE.Group;
     stylizeApprovedRig(surface, config);
-    const geometries = removeStarterSourceArtifacts(surface, config);
     const box = undeformedBounds(surface);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -458,9 +306,6 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
     const tint = new THREE.Color(ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd");
     const tintAmount = element === "Water" ? 0.18 : element === "Fire" ? 0.1 : element === "Earth" ? 0.14 : 0.16;
     const surfaceTint = ELEMENT_SURFACE[String(element ?? "")];
-    const clipLow = config.visualId.startsWith("starter-water") ? 0.32 : 0;
-    const floorCut = 0;
-
     surface.traverse((node) => {
         if (!(node instanceof THREE.Mesh)) return;
         // Keep the DCC-authored split normals. Recomputing after glTF has split
@@ -524,7 +369,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
                     else pbr.color.lerp(tint, tintAmount);
                 } else pbr.color.lerp(tint, tintAmount);
             }
-            patchDeformation(material, box.min.y, size.y, uniforms, clipLow, floorCut);
+            patchDeformation(material, box.min.y, size.y, uniforms);
             const uniform = uniforms[uniforms.length - 1];
             uniform.lowTint.value.set(surfaceTint?.low ?? "#ffffff");
             uniform.highTint.value.set(surfaceTint?.high ?? "#ffffff");
@@ -535,14 +380,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
         node.material = Array.isArray(node.material) ? cloned : cloned[0];
     });
 
-    // The Earth reconstruction includes a broad source-image floor island. A
-    // backface hull would outline that island as a black puddle, so the already
-    // inked texture remains its silhouette treatment while the light floor
-    // pixels are culled by the material pass above.
-    const outline = quality.outline && config.outlineScale > 1.001 && !config.visualId.startsWith("starter-earth")
-        // Clone the certified combat surface, not the untouched import. Starter
-        // source-card cleanup happens above; rebuilding the hull from `source`
-        // silently resurrected that removed geometry as a dark background slab.
+    const outline = quality.outline && config.outlineScale > 1.001
         ? cloneSkeleton(surface) as THREE.Group
         : null;
     if (outline) {
@@ -558,7 +396,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
                     side: THREE.BackSide,
                     toneMapped: false,
                 });
-                patchDeformation(material, box.min.y, size.y, uniforms, clipLow, floorCut, floorCut > 0);
+                patchDeformation(material, box.min.y, size.y, uniforms);
                 materials.push(material);
                 return material;
             });
@@ -566,17 +404,18 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
         });
     }
 
-    return { surface, outline, offset, scale, materials, uniforms, clips, geometries };
+    return { surface, outline, offset, scale, materials, uniforms, clips };
 }
 
 const normalizedClipName = (clip: THREE.AnimationClip) => clip.name.split("|").at(-1)?.toLowerCase() ?? clip.name.toLowerCase();
 const ROSTER_VISUAL_ID = /^(?:standard|rare|legendary|mythic)-\d+(?:-|$)/;
-const AUTHORED_ROSTER_CLIPS = ["idle", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "idle_2", "death"] as const;
+const RIGGED_STARTER_VISUAL_ID = /^starter-(?:fire|water|wind|lightning|earth)(?:-[rl])?$/;
+const AUTHORED_COMBAT_CLIPS = ["idle", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "idle_2", "death"] as const;
 
-function isAuthoredRosterRig(visualId: string, clips: readonly THREE.AnimationClip[]): boolean {
-    if (!ROSTER_VISUAL_ID.test(visualId)) return false;
+function isAuthoredCombatRig(visualId: string, clips: readonly THREE.AnimationClip[]): boolean {
+    if (!ROSTER_VISUAL_ID.test(visualId) && !RIGGED_STARTER_VISUAL_ID.test(visualId)) return false;
     const names = new Set(clips.map(normalizedClipName));
-    return AUTHORED_ROSTER_CLIPS.every((name) => names.has(name));
+    return AUTHORED_COMBAT_CLIPS.every((name) => names.has(name));
 }
 
 function findClip(clips: readonly THREE.AnimationClip[], candidates: readonly string[]): THREE.AnimationClip | null {
@@ -865,7 +704,6 @@ function LoadedPetModel3D({ config, frame, element }: {
         if (prepared.materials.length) {
             for (const material of prepared.materials) material.dispose();
         }
-        for (const geometry of prepared.geometries) geometry.dispose();
     }, [mixer, outlineMixer, prepared]);
 
     /* eslint-disable react-hooks/immutability -- Three.js uniforms and Object3D transforms are mutable render-loop state; mutating them inside useFrame is the R3F animation contract. */
@@ -874,9 +712,9 @@ function LoadedPetModel3D({ config, frame, element }: {
         const b = body.current;
         if (!r || !b) return;
         const f = frame.current;
-        const authoredCombatRig = isAuthoredRosterRig(config.visualId, prepared.clips);
+        const authoredCombatRig = isAuthoredCombatRig(config.visualId, prepared.clips);
         const groundedAuthoredQuadruped = authoredCombatRig && config.profile === "quadruped";
-        const aquaticSeal = config.visualId === "starter-water-r";
+        const aquaticSeal = config.visualId === "starter-water" || config.visualId === "starter-water-r";
         const t = state.clock.elapsedTime;
         const timeline = Number.isFinite(f.timeline) ? Number(f.timeline) : t;
         const timelineReset = lastTimeline.current !== null && timeline < lastTimeline.current - 0.05;
