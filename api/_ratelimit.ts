@@ -61,6 +61,20 @@ export function allow(key: string, limit: number, windowMs: number): RateLimitDe
 }
 
 /**
+ * Whether `key` still has budget, WITHOUT consuming any.
+ *
+ * For buckets that should only count SOME outcomes — e.g. failed password
+ * verifications, where a legitimate client always succeeds and never approaches the
+ * limit, so charging every attempt would punish honest traffic. Check with this,
+ * then call `allow()` only on the outcome you mean to charge for.
+ */
+export function hasBudget(key: string, limit: number): boolean {
+    const bucket = _buckets.get(key);
+    if (!bucket || bucket.resetAt < Date.now()) return true;
+    return bucket.count < limit;
+}
+
+/**
  * KV-backed rate-limit check. Uses a coarse fixed-window keyed by
  *   ratelimit:<bucket>:<clientKey>:<windowIndex>
  * windowIndex = floor(now / windowMs), so each window has its own key
@@ -122,6 +136,48 @@ export function clientKey(
 }
 
 /**
+ * How much total budget one IP gets when a bucket is keyed on a player name.
+ *
+ * Many handlers pass a name peeked from the request body BEFORE authenticating it
+ * (heartbeat, pvp/move, claim-mission, and others). That is fine for fairness —
+ * one account, one quota — but it means the key is attacker-controlled: rotating
+ * the field mints a fresh bucket per request and the per-account limit stops
+ * meaning anything.
+ *
+ * So every name-keyed check also charges an IP-keyed backstop at this multiple of
+ * the same limit. Legitimate shared connections stay comfortable — a household or
+ * dorm behind one address can run several accounts at the full per-account rate —
+ * while a single client cycling names is capped instead of unbounded. In-memory
+ * only: this is on hot paths and must not add a storage round trip.
+ *
+ * 20 rather than a tighter number on purpose. This is defence-in-depth, NOT the
+ * primary control: expensive work is guarded where it happens (the failed-password
+ * budget in _auth.ts fronts scrypt) and reward abuse is already blocked by server-side
+ * authority, per-save locks and the currency caps in the save sanitizer. What the
+ * backstop must prevent is UNBOUNDED bucket minting, and 20x does that while leaving
+ * real headroom for a shared address — the combat heartbeat alone runs at ~60/min per
+ * player, so a tighter cap could throttle a dozen housemates fighting at once.
+ */
+const IP_BACKSTOP_MULTIPLIER = 20;
+
+/**
+ * Charge the IP backstop for a name-keyed bucket. Returns the decision so callers
+ * can 429 with a real retry hint. A no-op when the bucket is already IP-keyed
+ * (`authedName` absent), since that is the same counter.
+ */
+function chargeIpBackstop(
+    req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } },
+    bucket: string,
+    limit: number,
+    windowMs: number,
+    authedName?: string | null,
+): RateLimitDecision {
+    if (!authedName) return { ok: true };
+    const ip = clientIp(req) ?? 'unknown';
+    return allow(`${bucket}:ipcap:${ip}`, limit * IP_BACKSTOP_MULTIPLIER, windowMs);
+}
+
+/**
  * Convenience: rate-limit a request against the in-memory bucket, write a
  * 429 response if blocked, return boolean indicating whether the handler
  * should continue. Synchronous — does not consult KV.
@@ -136,12 +192,20 @@ export function enforceRateLimit(
 ): boolean {
     const key = `${bucket}:${clientKey(req, authedName)}`;
     const d = allow(key, limit, windowMs);
-    if (d.ok) return true;
-    res.status(429).json({
-        error: 'Rate limit exceeded.',
-        retryAfterMs: d.retryAfterMs,
-    });
-    return false;
+    // Reject on the per-account limit BEFORE touching the shared IP backstop. Charging
+    // an already-rejected request would let one abusive account drain the budget its
+    // co-located neighbours share, turning a per-account limit into collateral lockout
+    // for everyone behind the same address.
+    if (!d.ok) {
+        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: d.retryAfterMs });
+        return false;
+    }
+    const backstop = chargeIpBackstop(req, bucket, limit, windowMs, authedName);
+    if (!backstop.ok) {
+        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: backstop.retryAfterMs });
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -176,6 +240,16 @@ export async function enforceRateLimitKv(
     const kvDecision = await allowKv(key, limit, windowMs, opts?.strict ?? false);
     if (!kvDecision.ok) {
         res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: kvDecision.retryAfterMs });
+        return false;
+    }
+    // IP backstop LAST, so only a request that would otherwise be allowed charges the
+    // budget its co-located neighbours share. Rotating the name still lands here — each
+    // fresh name passes its own per-account window and then meets this cap — so
+    // ordering costs nothing in coverage and avoids punishing an IP for requests that
+    // were already refused (see IP_BACKSTOP_MULTIPLIER).
+    const backstop = chargeIpBackstop(req, bucket, limit, windowMs, authedName);
+    if (!backstop.ok) {
+        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: backstop.retryAfterMs });
         return false;
     }
     return true;
