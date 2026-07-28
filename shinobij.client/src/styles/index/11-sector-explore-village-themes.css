@@ -51,17 +51,6 @@
     font-size: 16px !important;
 }
 
-.sector-move-controls {
-    margin-top: 4px !important;
-    gap: 3px !important;
-}
-
-    .sector-move-controls button {
-        width: 38px !important;
-        height: 28px !important;
-        font-size: 15px !important;
-    }
-
 .avatar-badge,
 .battle-avatar,
 .combat-layout {
@@ -398,56 +387,11 @@
         z-index: 11;
     }
 
-.village-cluster {
-    position: absolute;
-    width: 220px;
-    height: 220px;
-    transform: translate(-50%, -50%);
-    z-index: 20;
-    pointer-events: none;
-}
-
-    .village-cluster img {
-        position: absolute;
-        image-rendering: auto;
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,.5));
-    }
 /* MAIN CASTLE */
 
-.village-castle {
-    width: 120px;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 5;
-}
 /* HOUSES */
 
-.village-house {
-    width: 62px;
-    z-index: 3;
-}
-
-.house-a {
-    left: 12px;
-    bottom: 30px;
-}
-
-.house-b {
-    right: 18px;
-    bottom: 24px;
-}
-
-.house-c {
-    left: 78px;
-    top: 18px;
-}
 /* TOWERS */
-
-.village-tower {
-    width: 72px;
-    z-index: 4;
-}
 
 .tower-a {
     left: -12px;
@@ -460,16 +404,6 @@
 }
 /* LABEL */
 
-.village-label {
-    position: absolute;
-    bottom: -18px;
-    width: 100%;
-    text-align: center;
-    font-size: 18px;
-    font-weight: 900;
-    color: white;
-    text-shadow: 0 2px 4px black, 0 0 10px rgba(0,0,0,.8);
-}
 /* THEMES */
 
 .leaf .village-castle {
@@ -538,50 +472,6 @@
 
 .shadow .village-castle {
     filter: drop-shadow(0 0 14px rgba(168,85,247,.9));
-}
-
-.village-sector-scene {
-    position: relative;
-}
-
-.village-sector-assets {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 20;
-}
-
-    .village-sector-assets img {
-        position: absolute;
-        image-rendering: auto;
-        filter: drop-shadow(0 6px 8px rgba(0,0,0,.6));
-    }
-
-.sector-castle {
-    width: 170px;
-    left: 50%;
-    top: 38%;
-    transform: translate(-50%, -50%);
-}
-
-.sector-house {
-    width: 95px;
-}
-
-.sector-house-a {
-    left: 18%;
-    top: 56%;
-}
-
-.sector-house-b {
-    right: 18%;
-    top: 56%;
-}
-
-.sector-tower {
-    width: 90px;
-    right: 12%;
-    top: 18%;
 }
 
 .sunscar-festival {
@@ -1891,4 +1781,3 @@
     gap: 6px;
     color: #fff7d6;
 }
-

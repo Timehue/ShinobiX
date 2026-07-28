@@ -381,12 +381,6 @@ button {
     margin-top: 12px;
 }
 
-.locked-jutsu-card {
-    opacity: .72;
-    border-color: #92400e;
-    background: linear-gradient(180deg, var(--slate-800), #020617);
-}
-
 /* ── Hospital admitted banner ── */
 .hospital-admitted-banner {
     display: flex;
@@ -417,10 +411,6 @@ button {
     font-size: 2rem;
     flex-shrink: 0;
     line-height: 1;
-}
-
-.locked-jutsu-card button {
-    filter: grayscale(.35);
 }
 
 .bloodline-save-card {
@@ -847,4 +837,3 @@ button {
     flex-wrap: wrap;
     margin: 14px 0;
 }
-
