@@ -128,7 +128,7 @@ export function DungeonEncounter({
                 </div>
                 <div className="vn-reward-strip">
                     <span>Requires Level {event.levelReq}</span>
-                    <span>Clear all 3 seals: {rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                    <span>Clear all 3 seals: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
                 </div>
             </div>
         </div>

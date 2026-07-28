@@ -89,11 +89,11 @@ export const CLAN_UPGRADE_DEFS: ClanUpgradeDef[] = [
         key: "trainingGrounds",
         name: "Training Grounds",
         icon: "🥋",
-        desc: "Clan members earn more XP from stat training.",
+        desc: "Clan members earn more stat points from stat training.",
         category: "economy",
         perLevelPercent: 0.2,
         maxPercent: 10,
-        effectLabel: (lvl) => `+${(0.2 * lvl).toFixed(1)}% training XP`,
+        effectLabel: (lvl) => `+${(0.2 * lvl).toFixed(1)}% training gains`,
     },
     {
         key: "petDen",

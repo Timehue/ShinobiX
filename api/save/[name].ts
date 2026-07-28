@@ -898,13 +898,29 @@ export function sanitizeCharacterSave(
             char.unspentStats = Math.max(0, Math.floor(Number(char.unspentStats) || 0)) + (need - earnedNow);
         }
     }
-    char.levelLedgerMigrated = true;
+    // The migration only "sticks" when its effect does. Under strictLedger,
+    // enforceRawSaveLedgerBoundary re-copies level/stats/unspentStats from the
+    // stored save further down and throws the top-up away — so latching the flag
+    // here would burn the one-time migration without ever applying it, stalling
+    // that player's leveling permanently.
+    char.levelLedgerMigrated = strictLedger ? exChar.levelLedgerMigrated === true : true;
     // Level is a pure function of the validated ledger, clamped by the exam
     // holds; the client-supplied level is ignored entirely (forge-proof). The
     // rise-only recompute is seeded from the STORED level, so a save write can
     // only move level the way the server's own grant endpoints would.
     {
-        const seeded = { ...char, level: Math.max(1, Math.min(LEVEL_CAP, Math.floor(Number(exChar.level) || 1))) };
+        // SECURITY: seed the exam list from the STORED save, never from `char`.
+        // `char` is still the raw client body here — examsPassed is not validated
+        // until the exam block ~440 lines below — and examLevelCap() reads it to
+        // decide the level ceiling. Seeding from `char` would let a forged
+        // `examsPassed: ['genin','chunin']` mint a level past both exam holds,
+        // and because the recompute is rise-only that level would then be
+        // permanent even after the honest exam list is restored.
+        const seeded = {
+            ...char,
+            examsPassed: Array.isArray(exChar.examsPassed) ? exChar.examsPassed : [],
+            level: Math.max(1, Math.min(LEVEL_CAP, Math.floor(Number(exChar.level) || 1))),
+        };
         const derived = applyDerivedLevel(seeded) as Record<string, unknown>;
         char.level = derived.level;
         char.rankTitle = derived.rankTitle ?? char.rankTitle;

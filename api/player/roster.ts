@@ -8,6 +8,7 @@ import { readPublicPlayerIndex } from './_public-index-store.js';
 import { clearSleeperCamp, listSleeperCamps, setSleeperCamp, type SleeperCamp } from '../_realtime/sleeper-camps.js';
 import { parseTravelLease, settleTravelLeases, sleeperSectorForTravelLease, travelLeaseKey } from '../_realtime/travel-lease.js';
 import { cachedFor } from '../_proc-cache.js';
+import { earnedStatPoints } from '../_xp-engine.js';
 
 const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
 const FULL_ROSTER_CACHE_TTL_MS = 60_000;
@@ -121,6 +122,15 @@ function rosterProjection(character: unknown): unknown {
         }
         out[k] = v;
     }
+    // Character XP is retired (docs/leveling-without-xp-map.md): the stored
+    // `xp` field is frozen ballast that nothing earns anymore, so shipping it
+    // raw would make the Hall of Legends "Total Stat Points Earned" board rank
+    // by dead pre-cutover numbers and show 0 for every character created since.
+    // Serve the EARNED ledger in that slot instead — the same value the public
+    // leaderboard index computes (api/player/_public-index.ts) — so the two
+    // boards agree. Computed from the FULL character before `stats` is
+    // stripped, so it leaks no stat block.
+    out.xp = earnedStatPoints(src);
     return out;
 }
 
