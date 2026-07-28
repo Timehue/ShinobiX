@@ -1302,7 +1302,11 @@ export function Arena({
     }, []);
 
     useEffect(() => {
-        if (lobbyMode === "arenaDistrict") return;
+        // A pending AI is launch context for the dedicated direct-combat route
+        // (missions, hunts, story encounters). It can survive a route change or
+        // session restore, so never let it auto-start a fight from a casual hub.
+        // The Battle Arena lobby must require an explicit Start AI Battle tap.
+        if (!directCombat) return;
         if (!pendingAiProfile || battleStarted) return;
         const battleWeather = currentWeather;
         setOpponentCharacter(null);
@@ -1314,7 +1318,7 @@ export function Arena({
         // lib/pve-difficulty.ts pveDifficultyHpMultiplier.
         setEnemyHp(enemyMaxHp);
         startPrefight(enemyMaxHp, `Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
-    }, [lobbyMode, pendingAiProfile?.id, battleStarted]);
+    }, [directCombat, pendingAiProfile?.id, battleStarted]);
 
     useEffect(() => {
         if (lobbyMode === "arenaDistrict") return;
