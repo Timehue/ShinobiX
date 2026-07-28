@@ -633,10 +633,15 @@ button.combat-jutsu-button,
         padding: clamp(6px, 2vw, 12px) !important;
     }
 
-    /* ── Restore bottom clearance for the fixed mobile nav bar (≤800px).
+    /* ── Restore bottom clearance for the fixed mobile nav bar.
        This rule MUST live after the ≤980px block above because that block's
-       shorthand `padding` overwrites the bottom value set earlier.         ── */
-    @media (max-width: 800px) {
+       shorthand `padding` overwrites the bottom value set earlier.
+
+       Bound is 980px — the same width at which the rail above hides and the mobile
+       shell takes over (23-mobile-shell.css). At 800px this left 801-980px with a
+       fixed nav bar and no clearance reserved for it, so the nav sat on top of the
+       page's own bottom controls.                                          ── */
+    @media (max-width: 980px) {
         .center-game {
             padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
         }

@@ -2,8 +2,16 @@
    The mobile shell is a document-scroll page (html/body/#root scroll, .center-game
    is height:auto). That let the whole page scroll around the chat. On the tavern
    screen only, pin the chat to the viewport so the page itself can't scroll and the
-   sole scroller is .tavern-log. */
-@media (max-width: 800px) {
+   sole scroller is .tavern-log.
+
+   BREAKPOINT: 980px, not 800px. The desktop right rail / left profile card hide at
+   max-width:980px (18-mobile-safe-adaptive.css), so 981px is where the mobile shell
+   becomes the ONLY navigation. Revealing it at 800px left 801-980px — iPad portrait
+   (820/834) and every phone in landscape (852-932) — with no nav, no status HUD and
+   no logout at all. Every mobile-shell block in this file shares the 980 bound so
+   the shell always appears exactly where the rail disappears; they must move
+   together. The bottom-clearance companion rule lives in 18-mobile-safe-adaptive.css. */
+@media (max-width: 980px) {
     /* Stop the tavern screen's container from growing/scrolling. */
     .center-game.screen-tavern {
         min-height: 0 !important;
@@ -97,7 +105,8 @@
   display: none; /* hidden on desktop — LeftProfileCard covers this role */
 }
 
-@media (max-width: 800px) {
+/* 980px, matching the rail's hide bound — see the note at the top of this file. */
+@media (max-width: 980px) {
   .mobile-top-hud {
     display: flex;
     align-items: center;
@@ -416,7 +425,8 @@
 }
 .user-hub-follow-star.following { color: var(--gold); }
 
-@media (max-width: 800px) {
+/* 980px, matching the rail's hide bound — see the note at the top of this file. */
+@media (max-width: 980px) {
   /* Add bottom padding to center-game so content isn't under the nav */
   .center-game {
     padding-bottom: 70px !important;
@@ -780,7 +790,12 @@
   button {
     min-height: 44px;
   }
+}
 
+/* Landing / character-creator layout — NOT part of the mobile shell, so this keeps
+   the original 800px bound. Collapsing the creator to one column is a phone
+   treatment; a 900px tablet has the width for the multi-column grid. */
+@media (max-width: 800px) {
   .start-grid {
     grid-template-columns: 1fr !important;
     padding: 12px !important;

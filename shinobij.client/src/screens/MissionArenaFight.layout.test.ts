@@ -5,6 +5,7 @@ import test from "node:test";
 const missionSource = readFileSync(new URL("./MissionArenaFight.tsx", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
 const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
+const combatRestoreCss = readFileSync(new URL("../styles/index/24-combat-mobile-restore.css", import.meta.url), "utf8");
 
 // The combat shell places its bands in a FIXED-track grid — `.combat-main-area`
 // on desktop, `.combat-layout` on mobile (where `.combat-main-area` flattens to
@@ -78,5 +79,61 @@ test("mission fight reserves a row for its action notice instead of displacing t
     assert.ok(
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
         "battle-skin must still reserve the extra tip row on desktop, mobile, and short-mobile",
+    );
+});
+
+// The combat mobile/desktop boundary is duplicated across THREE stylesheets. The
+// test above only compared two of them, which is how 24-combat-mobile-restore.css
+// sat at 800/801 unnoticed while the other two moved to 1023/1024.
+//
+// A specificity accident masked the drift: battle-skin's compact rules are keyed on
+// `.arena-fullscreen.pvp-battle-layout` (two classes) and outrank the plain
+// `.arena-fullscreen` selectors in the restore file, so Arena, PvP and mission
+// fights — all of which add `pvp-battle-layout` — looked right. Battle Towers
+// renders a bare `.arena-fullscreen`, so tower fights alone flipped to the desktop
+// 3-column grid at 801px while every other fight stayed compact until 1024px: the
+// same window width, two different combat shells.
+test("all three combat stylesheets share one mobile/desktop boundary", () => {
+    // `.arena-fullscreen .combat-layout` is the grid definition that actually
+    // switches shells, so read the bound off the block that contains it.
+    const restoreMobileBound = (() => {
+        const anchor = combatRestoreCss.indexOf(".arena-fullscreen .combat-layout {");
+        assert.ok(anchor > 0, "combat restore must still define the mobile .combat-layout grid");
+        const bounds = [...combatRestoreCss.slice(0, anchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g)];
+        assert.ok(bounds.length, "the mobile .combat-layout grid must live inside a max-width block");
+        return Number(bounds[bounds.length - 1][1]);
+    })();
+
+    const battleSkinMobileBound = (() => {
+        const anchor = battleSkinCss.indexOf(".combat-layout.has-rookie-tip .rookie-combat-tip");
+        const bounds = [...battleSkinCss.slice(0, anchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g)];
+        return Number(bounds[bounds.length - 1][1]);
+    })();
+
+    assert.equal(
+        restoreMobileBound,
+        battleSkinMobileBound,
+        `24-combat-mobile-restore.css switches the combat grid at max-width ${restoreMobileBound}px but ` +
+        `battle-skin.css uses ${battleSkinMobileBound}px — Battle Towers (no .pvp-battle-layout class) would ` +
+        `get a different combat shell than Arena at the same window width`,
+    );
+
+    // The desktop half must be exactly one pixel above the mobile half, or the
+    // boundary either overlaps (both apply) or gaps (neither does).
+    const restoreDesktopBound = (() => {
+        const opener = /@media \(min-width:\s*(\d+)px\)\s*\{/g;
+        const found: number[] = [];
+        for (let m = opener.exec(combatRestoreCss); m !== null; m = opener.exec(combatRestoreCss)) {
+            found.push(Number(m[1]));
+        }
+        assert.ok(found.length, "combat restore must still carry a desktop min-width block");
+        return Math.max(...found);
+    })();
+
+    assert.equal(
+        restoreDesktopBound,
+        restoreMobileBound + 1,
+        `the desktop combat block opens at min-width ${restoreDesktopBound}px but the mobile block ends at ` +
+        `${restoreMobileBound}px — they must be adjacent`,
     );
 });
