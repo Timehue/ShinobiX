@@ -101,7 +101,22 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // green / CI red. This ceiling puts CI near 6,801,000 B with ~18.8 KB of spare
 // (25.8 KB locally). Startup gates untouched — initial graph 1.31 MB raw /
 // 344.2 KB gzip, entry under its gate.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_820_000;
+// 2026-07-27: 6.82 -> 6.87 MB. Card-pack opening cinematic: the pack-tear /
+// card-flip / summary overlay that replaces the old alert() after a pack
+// purchase (CardPackOpening + card-pack-reveal helpers + pack SFX cues +
+// card-pack-opening.css), and Shop now renders real ChronicleCardView faces,
+// which hoists the card component and chronicle-duel.css into a shared lazy
+// chunk used by Shop and the card screens. All of it is LAZY (Shop chunk +
+// that shared chunk) — local build measures 6,837,620 B, 17,620 B past the
+// previous ceiling.
+//
+// Sized by the margin rule above, not the local number: CI runs ~7 KB heavier
+// (Sentry instrumentation in the product chunks), landing near 6,844,600 B.
+// This ceiling leaves CI ~25 KB of spare (~32 KB locally) — a notch more than
+// the usual ~18 KB because this pass also re-hoisted shared chunks, which adds
+// build-to-build variance beyond a purely additive lazy chunk. Startup gates
+// untouched — initial graph 1.31 MB raw / 345.0 KB gzip, entry under its gate.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_870_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

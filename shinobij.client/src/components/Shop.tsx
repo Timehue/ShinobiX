@@ -6,7 +6,12 @@
  * (prices/discount formulas unchanged). getAllTileCards + the TileCard type
  * are imported back from ../App.
  */
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+// Shop is a lazy screen-level chunk, so it owns the CSS for the pack-opening
+// cinematic (component modules must stay CSS-free for node tests). The
+// chronicle-duel styles render the revealed cards themselves.
+import "../styles/chronicle-duel.css";
+import "../styles/card-pack-opening.css";
 import { getAllItems } from "../lib/items";
 import { countItem } from "../lib/inventory";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
@@ -18,6 +23,9 @@ import type { Character } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { openCardPack, type CardPackType } from "../lib/card-pack";
+import { displayCardsById, ownedChronicleCounts } from "../lib/chronicle-duel";
+import { packArtUrl } from "../lib/card-pack-reveal";
+import { CardPackOpening } from "./CardPackOpening";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
@@ -426,11 +434,28 @@ function ShopBase({
     );
 }
 
+// Base (undiscounted) pack prices — must match the storefront buttons below
+// and stay in sync with api/card-clash/_pack.ts.
+const PACK_BASE_COST: Record<CardPackType, number> = { standard: 250, epic: 10, legendary: 30 };
+
 function CardPackSection({ character, updateCharacter, currency, creatorCards, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onServerVersion?: (version: number) => void }) {
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
     const [packBusy, setPackBusy] = useState(false);
     const packBusyRef = useRef(false);
+    // A settled pack waiting to be ripped open in the cinematic. The save
+    // already owns the cards (updateCharacter ran first), so the overlay is
+    // pure presentation; ownedBefore snapshots the pre-pack collection for
+    // the NEW badges. A fresh nonce remounts the overlay per pack.
+    const [packReveal, setPackReveal] = useState<{ nonce: string; packType: CardPackType; cards: string[]; ownedBefore: Map<string, number> } | null>(null);
+    const packCardsById = useMemo(() => displayCardsById(getAllTileCards(creatorCards)), [creatorCards]);
+
+    // Warm this storefront's wrapper art while the player is still browsing so
+    // the cinematic's pack never pops in with a bare foil.
+    useEffect(() => {
+        const tiers: CardPackType[] = currency === "ryo" ? ["standard"] : ["epic", "legendary"];
+        for (const tier of tiers) new Image().src = packArtUrl(tier);
+    }, [currency]);
 
     async function openPack(packType: CardPackType, cost: number) {
         if (!requireServerSettlement("shopCardPack")) return;
@@ -442,17 +467,21 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
         packBusyRef.current = true;
         setPackBusy(true);
         try {
+            const ownedBefore = ownedChronicleCounts(character.tileCards);
             const result = await openCardPack(character.name, packType);
             if (!result.ok || !result.character || !result.cards) return alert(result.error || "Could not open the card pack.");
-            const allCards = getAllTileCards(creatorCards);
             if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
             updateCharacter(result.character);
-            alert(`Pack opened!\n• ${result.cards.map((id) => allCards.find((c) => c.id === id)?.name ?? id).join("\n• ")}`);
+            setPackReveal({ nonce: makeId(), packType, cards: result.cards, ownedBefore });
         } finally {
             packBusyRef.current = false;
             setPackBusy(false);
         }
     }
+
+    const againCost = packReveal ? packCost(PACK_BASE_COST[packReveal.packType]) : 0;
+    const packWallet = currency === "fateShards" ? character.fateShards : character.ryo;
+    const packCurrencyLabel = currency === "fateShards" ? "Fate Shards" : "ryo";
 
     // Sealed until the Chronicle Scribe event hands over the traveler's codex
     // (the server enforces the same lock on both pack-purchase endpoints).
@@ -492,6 +521,19 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
                         👑 Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
                     </button>
                 </>
+            )}
+            {packReveal && (
+                <CardPackOpening
+                    key={packReveal.nonce}
+                    packType={packReveal.packType}
+                    cards={packReveal.cards}
+                    cardsById={packCardsById}
+                    ownedBefore={packReveal.ownedBefore}
+                    onClose={() => setPackReveal(null)}
+                    onOpenAnother={() => void openPack(packReveal.packType, PACK_BASE_COST[packReveal.packType])}
+                    openAnotherLabel={`Open Another — ${againCost} ${packCurrencyLabel}`}
+                    openAnotherDisabled={packBusy || packWallet < againCost}
+                />
             )}
         </div>
     );

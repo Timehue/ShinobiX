@@ -1,0 +1,1085 @@
+/* Card-pack opening cinematic (components/CardPackOpening.tsx).
+ *
+ * Imported by components/Shop.tsx (the lazy shop chunk owns it — never import
+ * this from the component itself; node tests import component modules and
+ * cannot load CSS). Everything animates transform/opacity only, so the show
+ * stays smooth on mobile. Theme vars (--pack-accent, --pack-foil-a/b) and the
+ * card scale vars (--card-scale, --sum-scale) are set inline by the component;
+ * live tear-gesture vars (--tear-x, --tear-p, --tear-dir) are written straight
+ * to the DOM during the drag so pointermove never re-renders React.
+ */
+
+.pack-open-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000; /* above side rails (999999) + nav, below GameAlert (1000001) */
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(
+    120% 90% at 50% 28%,
+    rgba(19, 31, 43, 0.96),
+    rgba(3, 6, 10, 0.99) 72%
+  );
+  color: #eef2f6;
+  animation: packOverlayIn 0.35s ease;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none; /* container takes programmatic focus on mount */
+}
+@keyframes packOverlayIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Soft drifting embers so the black void feels alive. */
+.pack-open-dust {
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    radial-gradient(2px 2px at 18% 30%, rgba(255, 255, 255, 0.5), transparent 60%),
+    radial-gradient(1.6px 1.6px at 72% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(2.2px 2.2px at 84% 66%, rgba(255, 255, 255, 0.4), transparent 60%),
+    radial-gradient(1.4px 1.4px at 32% 78%, rgba(255, 255, 255, 0.3), transparent 60%),
+    radial-gradient(1.8px 1.8px at 55% 48%, rgba(255, 255, 255, 0.28), transparent 60%);
+  animation: packDustDrift 16s linear infinite alternate;
+}
+.pack-open-overlay.lite .pack-open-dust {
+  display: none;
+}
+@keyframes packDustDrift {
+  from {
+    transform: translateY(2%) scale(1);
+  }
+  to {
+    transform: translateY(-3%) scale(1.06);
+  }
+}
+
+/* Slow ceremonial rays behind the unopened pack. */
+.pack-open-backrays {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 130vmin;
+  height: 130vmin;
+  margin: -65vmin 0 0 -65vmin;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg,
+    transparent 0 16deg,
+    color-mix(in srgb, var(--pack-accent, #7fd4c1) 18%, transparent) 16deg 20deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  opacity: 0.34;
+  animation: packBackraysSpin 46s linear infinite;
+}
+@keyframes packBackraysSpin {
+  to {
+    transform: rotate(40deg);
+  }
+}
+
+/* Full-screen rarity pulse behind legendary/mythic flips. */
+.pack-open-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    80% 70% at 50% 46%,
+    color-mix(in srgb, var(--fx-accent, #f0c463) 26%, transparent),
+    transparent 70%
+  );
+}
+.pack-open-vignette.pulse {
+  animation: packVignettePulse 1.5s ease-out 0.25s;
+}
+@keyframes packVignettePulse {
+  0% {
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pack-open-topbar {
+  position: absolute;
+  top: max(0.6rem, env(safe-area-inset-top));
+  left: 0.9rem;
+  right: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  z-index: 6;
+}
+.pack-open-title {
+  font:
+    900 0.82rem/1.2 Georgia,
+    serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 70%, #fff);
+  text-shadow: 0 2px 6px #000;
+}
+.pack-open-count {
+  margin-left: 0.55rem;
+  color: #9fb0bf;
+  letter-spacing: 0.08em;
+}
+.pack-open-skip {
+  appearance: none;
+  border: 1px solid rgba(159, 176, 191, 0.45);
+  border-radius: 999px;
+  background: rgba(9, 14, 20, 0.72);
+  color: #c9d4de;
+  font: 700 0.78rem/1 inherit;
+  font-family: inherit;
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+}
+.pack-open-skip:hover {
+  border-color: #e8eef4;
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- the pack */
+
+.pack-open-wrap {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  animation: packDropIn 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.18);
+}
+@keyframes packDropIn {
+  from {
+    transform: translateY(-44vh) rotate(7deg) scale(0.82);
+    opacity: 0;
+  }
+}
+
+.pack-foil {
+  --tear-strip-h: 21%;
+  position: relative;
+  width: min(68vw, 292px);
+  aspect-ratio: 5 / 7.7;
+  cursor: grab;
+  animation: packFloat 3.6s ease-in-out 0.8s infinite alternate;
+  filter: drop-shadow(0 22px 34px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 0 26px color-mix(in srgb, var(--pack-accent, #7fd4c1) 22%, transparent));
+}
+.pack-foil.is-dragging {
+  animation-play-state: paused;
+  cursor: grabbing;
+}
+.pack-open-stage.is-torn .pack-foil {
+  animation: none;
+  cursor: default;
+}
+@keyframes packFloat {
+  from {
+    transform: translateY(-5px) rotate(-1deg);
+  }
+  to {
+    transform: translateY(6px) rotate(1.1deg);
+  }
+}
+
+/* Shared foil finish for body + tear strip. */
+.pack-foil__body,
+.pack-foil__tearstrip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      100deg,
+      transparent 0 26px,
+      rgba(255, 255, 255, 0.045) 26px 30px
+    ),
+    radial-gradient(
+      130% 60% at 50% 0%,
+      color-mix(in srgb, var(--pack-accent, #7fd4c1) 26%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(
+      152deg,
+      var(--pack-foil-a, #123a38),
+      var(--pack-foil-b, #050f14) 55%,
+      color-mix(in srgb, var(--pack-foil-a, #123a38) 70%, #000) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--pack-accent, #7fd4c1) 45%, #10181f);
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.55),
+    inset 0 0 34px rgba(0, 0, 0, 0.6);
+}
+.pack-foil__body {
+  top: calc(var(--tear-strip-h) - 2%);
+  bottom: 0;
+  border-radius: 6px 6px 12px 12px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  justify-items: center;
+  padding: 8% 7% 6%;
+}
+/* Full-bleed wrapper illustration (public/chronicle/packs/<tier>.webp, from
+   scripts/gen-pack-art.mjs). Sits over the foil gradient — if the file is
+   missing the gradient still reads as a finished pack. Scrims keep the
+   overlaid wordmark and ribbon legible against any art. */
+.pack-foil__art {
+  position: absolute;
+  inset: 0;
+  background: var(--pack-art, none) center 36% / cover no-repeat;
+  opacity: 0.94;
+}
+.pack-foil__art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(4, 8, 12, 0.66), rgba(4, 8, 12, 0.12) 30%, transparent 42%),
+    linear-gradient(0deg, rgba(4, 8, 12, 0.6), rgba(4, 8, 12, 0.1) 24%, transparent 34%);
+}
+.pack-foil__wordmark,
+.pack-foil__ribbon {
+  position: relative;
+  z-index: 1;
+}
+.pack-foil__tearstrip {
+  top: 0;
+  height: calc(var(--tear-strip-h) + 2.5%);
+  border-radius: 12px 12px 0 0;
+  z-index: 2;
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 80%,
+    96% 92%, 92% 80%, 88% 92%, 84% 80%, 80% 92%, 76% 80%, 72% 92%,
+    68% 80%, 64% 92%, 60% 80%, 56% 92%, 52% 80%, 48% 92%, 44% 80%,
+    40% 92%, 36% 80%, 32% 92%, 28% 80%, 24% 92%, 20% 80%, 16% 92%,
+    12% 80%, 8% 92%, 4% 80%, 0% 92%
+  );
+  transform: translateX(var(--tear-x, 0px)) rotate(calc(var(--tear-p, 0) * -6deg));
+}
+.pack-foil.is-snapping .pack-foil__tearstrip {
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.3, 1.35);
+}
+
+/* Crimped factory-seal ridges at the very top and bottom. */
+.pack-foil__crimp {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 7%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0 3px,
+    rgba(0, 0, 0, 0.38) 3px 7px
+  );
+  opacity: 0.85;
+}
+.pack-foil__tearstrip .pack-foil__crimp {
+  top: 0;
+  border-radius: 12px 12px 0 0;
+}
+.pack-foil__body .pack-foil__crimp {
+  position: absolute;
+  bottom: 0;
+  height: 5.5%;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Moving gloss highlight across the whole pack. */
+.pack-foil__sheen {
+  position: absolute;
+  inset: -6%;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.03) 54%,
+    transparent 62%
+  );
+  transform: translateX(-130%);
+  animation: packSheen 3s ease-in-out 1.2s infinite;
+}
+.pack-open-overlay.lite .pack-foil__sheen {
+  animation-duration: 5s;
+}
+@keyframes packSheen {
+  0% {
+    transform: translateX(-130%);
+  }
+  55%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+.pack-foil__wordmark {
+  margin-top: 9%;
+  text-align: center;
+  font:
+    900 clamp(0.9rem, 4.6vw, 1.18rem) / 1.18 Georgia,
+    serif;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 45%, #f4e9cf);
+  text-shadow:
+    0 2px 4px #000,
+    0 0 16px color-mix(in srgb, var(--pack-accent, #7fd4c1) 55%, transparent);
+}
+.pack-foil__wordmark small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.44em;
+  letter-spacing: 0.28em;
+  color: #b8c4cf;
+}
+.pack-foil__ribbon {
+  align-self: end;
+  margin-bottom: 9%;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pack-accent, #7fd4c1) 65%, #fff);
+  background: rgba(5, 9, 13, 0.72);
+  font:
+    800 0.66rem/1.2 Georgia,
+    serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 62%, #fff);
+  text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+}
+
+/* Perforation line + roaming tear hint. */
+.pack-foil__tearline {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: calc(var(--tear-strip-h) + 0.5%);
+  z-index: 4;
+  pointer-events: none;
+  border-top: 2px dashed color-mix(in srgb, var(--pack-accent, #7fd4c1) 80%, #fff);
+  opacity: calc(0.55 + var(--tear-p, 0) * 0.45);
+  filter: drop-shadow(0 0 5px var(--pack-accent, #7fd4c1));
+}
+.pack-foil__tearline::before {
+  content: "✂";
+  position: absolute;
+  top: -0.72em;
+  left: 0;
+  font-size: 0.95rem;
+  color: #f2f7fb;
+  text-shadow: 0 0 8px var(--pack-accent, #7fd4c1);
+  animation: packTearHint 2.3s ease-in-out infinite;
+}
+.pack-foil.is-dragging .pack-foil__tearline::before,
+.pack-open-stage.is-torn .pack-foil__tearline::before {
+  animation: none;
+  opacity: 0;
+}
+@keyframes packTearHint {
+  0%,
+  12% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    transform: translateX(min(56vw, 240px));
+    opacity: 0;
+  }
+}
+
+.pack-open-hint {
+  font-size: 0.86rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #aebecb;
+  text-shadow: 0 2px 4px #000;
+  animation: packHintPulse 2.1s ease-in-out infinite;
+}
+@keyframes packHintPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.pack-open-tearbtn {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--pack-accent, #7fd4c1) 55%, #384552);
+  border-radius: 999px;
+  background: rgba(8, 13, 19, 0.8);
+  color: #dfe8ef;
+  font: 700 0.8rem/1 inherit;
+  font-family: inherit;
+  padding: 0.55rem 1.15rem;
+  cursor: pointer;
+}
+.pack-open-tearbtn:hover {
+  border-color: var(--pack-accent, #7fd4c1);
+  color: #fff;
+}
+
+/* Tear completion: strip flies off, body drops, the stack rises. */
+.pack-open-stage.is-torn .pack-foil__tearstrip {
+  animation: packTearFly 0.75s cubic-bezier(0.35, 0, 0.75, 0.4) forwards;
+}
+@keyframes packTearFly {
+  from {
+    transform: translateX(var(--tear-x, 0px)) rotate(calc(var(--tear-p, 0) * -6deg));
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(var(--tear-dir, 1) * 120vw)) translateY(-10vh)
+      rotate(calc(var(--tear-dir, 1) * -35deg));
+    opacity: 0.85;
+  }
+}
+.pack-open-stage.is-torn .pack-foil__body {
+  animation:
+    packShake 0.34s ease,
+    packBodyOut 0.55s ease-in 0.28s forwards;
+}
+@keyframes packShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px) rotate(-0.6deg);
+  }
+  60% {
+    transform: translateX(4px) rotate(0.5deg);
+  }
+}
+@keyframes packBodyOut {
+  to {
+    transform: translateY(54px) scale(0.94);
+    opacity: 0;
+  }
+}
+.pack-open-stage.is-torn .pack-open-hint,
+.pack-open-stage.is-torn .pack-open-tearbtn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* ------------------------------------------------------------- the reveal */
+
+.pack-open-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.pack-open-stage > * {
+  grid-area: 1 / 1;
+}
+
+.pack-reveal {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+.pack-reveal__stage {
+  position: relative;
+  width: 252px;
+  height: 353px;
+  transform: scale(var(--card-scale, 1));
+}
+.pack-reveal__stage.rising {
+  animation: packStackUp 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.12) 0.3s both;
+}
+@keyframes packStackUp {
+  from {
+    transform: translateY(15vh) scale(calc(var(--card-scale, 1) * 0.72));
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(var(--card-scale, 1));
+    opacity: 1;
+  }
+}
+
+.pack-card {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.25s ease;
+}
+.pack-card[data-depth="1"] {
+  transform: translate(3px, 5px) rotate(0.8deg);
+  filter: brightness(0.8);
+}
+.pack-card[data-depth="2"] {
+  transform: translate(-2px, 9px) rotate(-0.7deg);
+  filter: brightness(0.66);
+}
+.pack-card[data-depth="3"] {
+  transform: translate(1px, 12px) rotate(0.4deg);
+  filter: brightness(0.55);
+}
+.pack-card.is-leaving {
+  animation: packCardAway 0.42s cubic-bezier(0.5, 0, 0.8, 0.4) forwards;
+  pointer-events: none;
+}
+@keyframes packCardAway {
+  to {
+    transform: translate(-72vw, 9vh) rotate(-26deg);
+    opacity: 0;
+  }
+}
+
+/* The 3D flip. The face-down side shows first; the front face is pre-rotated
+   180° so rotating the inner brings the real card around. */
+.pack-card-hit {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  perspective: 1300px;
+}
+.pack-card__inner {
+  position: relative;
+  display: block; /* spans — inline boxes ignore 3D transforms */
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.62s cubic-bezier(0.24, 0.75, 0.32, 1);
+}
+.pack-card.is-flipped .pack-card__inner {
+  transform: rotateY(180deg);
+}
+.pack-card.is-flipped .pack-card-hit {
+  cursor: pointer;
+}
+.pack-card.is-flipped {
+  animation: packCardPop 0.62s ease;
+}
+@keyframes packCardPop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  55% {
+    transform: scale(1.06);
+  }
+}
+.pack-card__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.pack-card__face.front {
+  transform: rotateY(180deg);
+}
+/* The chronicle card fills the face exactly. */
+.pack-card__face .chronicle-card {
+  width: 252px;
+}
+
+/* Anticipation: a legendary/mythic pull makes the face-down card itself glow
+   before the flip — the "wait, this one's big" beat. Box-shadow only, so it
+   never fights the depth-offset transforms. */
+.pack-card.is-charged .pack-card__face.back .chronicle-card {
+  animation: packChargedGlow 1.5s ease-in-out infinite;
+  border-color: #f0c463;
+}
+.pack-card.is-charged-mythic .pack-card__face.back .chronicle-card {
+  animation:
+    packChargedGlow 1.2s ease-in-out infinite,
+    packFxHue 4.5s linear infinite;
+  border-color: #ff875f;
+}
+@keyframes packChargedGlow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 2px #020406,
+      0 0 14px rgba(240, 196, 99, 0.45),
+      0 13px 32px rgba(0, 0, 0, 0.58);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px #020406,
+      0 0 34px rgba(240, 196, 99, 0.85),
+      0 13px 32px rgba(0, 0, 0, 0.58);
+  }
+}
+
+/* Fallback face if a pulled id is somehow missing from the display catalog. */
+.pack-card__missing {
+  display: grid;
+  place-items: center;
+  width: 252px;
+  height: 353px;
+  border: 3px solid #46535f;
+  border-radius: 11px;
+  background: linear-gradient(155deg, #1a232c, #070b10);
+  color: #cfd8e3;
+  font-weight: 700;
+}
+
+.pack-card__new {
+  position: absolute;
+  top: 10px;
+  left: -12px;
+  z-index: 6;
+  transform: rotate(-9deg);
+  background: linear-gradient(#ffeeb0, #f0c463);
+  color: #4a3305;
+  font: 900 0.64rem/1 inherit;
+  font-family: inherit;
+  letter-spacing: 0.12em;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid #fff3cf;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(240, 196, 99, 0.5);
+  animation: packNewPop 0.36s cubic-bezier(0.2, 1.7, 0.4, 1) 0.5s both;
+}
+@keyframes packNewPop {
+  from {
+    transform: rotate(-9deg) scale(0);
+    opacity: 0;
+  }
+}
+
+/* Flip flourishes — flash for everyone, ring for rare+, rays for epic+,
+   sparks scale with tier. All positioned around the card center. */
+.pack-card__fx {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.pack-fx__flash {
+  position: absolute;
+  inset: -18%;
+  border-radius: 18px;
+  background: radial-gradient(
+    60% 55% at 50% 50%,
+    color-mix(in srgb, var(--fx-accent, #fff) 55%, #fff),
+    transparent 72%
+  );
+  opacity: 0;
+  animation: packFxFlash 0.55s ease-out 0.2s;
+}
+@keyframes packFxFlash {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.pack-fx__ring {
+  position: absolute;
+  inset: 6%;
+  border-radius: 16px;
+  border: 3px solid color-mix(in srgb, var(--fx-accent, #fff) 80%, #fff);
+  opacity: 0;
+  animation: packFxRing 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) 0.24s;
+}
+@keyframes packFxRing {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+.pack-fx__rays {
+  position: absolute;
+  inset: -55%;
+  background: repeating-conic-gradient(
+    from 8deg,
+    transparent 0 13deg,
+    color-mix(in srgb, var(--fx-accent, #f0c463) 30%, transparent) 13deg 17deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 26%, transparent 66%);
+  mask-image: radial-gradient(circle, #000 26%, transparent 66%);
+  opacity: 0;
+  animation:
+    packFxRaysIn 2.6s ease-out 0.22s,
+    packFxRaysSpin 9s linear 0.22s infinite;
+}
+.pack-fx__rays.mythic {
+  animation:
+    packFxRaysIn 3.2s ease-out 0.22s,
+    packFxRaysSpin 7s linear 0.22s infinite,
+    packFxHue 3.2s linear 0.22s infinite;
+}
+@keyframes packFxRaysIn {
+  0% {
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes packFxRaysSpin {
+  to {
+    transform: rotate(60deg);
+  }
+}
+@keyframes packFxHue {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+.pack-fx__spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--ps, 4px);
+  height: var(--ps, 4px);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fx-accent, #fff) 70%, #fff);
+  box-shadow: 0 0 9px var(--fx-accent, #fff);
+  opacity: 0;
+  animation: packFxSpark var(--pt, 700ms) cubic-bezier(0.15, 0.6, 0.3, 1) var(--pd, 0ms) both;
+}
+@keyframes packFxSpark {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.15);
+    opacity: 0;
+  }
+}
+
+.pack-reveal__rarity {
+  position: absolute;
+  left: -40%;
+  right: -40%;
+  bottom: -3.4rem;
+  text-align: center;
+  font:
+    900 1.02rem/1.2 Georgia,
+    serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fx-accent, #cfd8e3);
+  text-shadow:
+    0 0 16px color-mix(in srgb, var(--fx-accent, #cfd8e3) 65%, transparent),
+    0 2px 4px #000;
+  animation: packRarityPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) 0.3s both;
+}
+@keyframes packRarityPop {
+  from {
+    transform: translateY(10px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.pack-reveal__hint {
+  margin-top: 4.6rem;
+  min-height: 1.2rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #93a5b4;
+  text-shadow: 0 2px 4px #000;
+  animation: packHintPulse 2.1s ease-in-out 0.9s infinite both;
+}
+.pack-reveal__dots {
+  display: flex;
+  gap: 7px;
+  margin-top: 0.8rem;
+  justify-content: center;
+}
+.pack-reveal__dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--pack-accent, #7fd4c1) 65%, #48555f);
+  background: rgba(10, 16, 22, 0.8);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+.pack-reveal__dots span.done {
+  background: var(--pack-accent, #7fd4c1);
+  box-shadow: 0 0 9px var(--pack-accent, #7fd4c1);
+}
+
+/* ------------------------------------------------------------ the summary */
+
+.pack-summary {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  padding: 1rem;
+  animation: packSummaryIn 0.45s ease both;
+  max-width: 100vw;
+}
+@keyframes packSummaryIn {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+}
+.pack-summary__head {
+  text-align: center;
+}
+.pack-summary__head h2 {
+  margin: 0;
+  font:
+    900 1.35rem/1.2 Georgia,
+    serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f2e7cd;
+  text-shadow:
+    0 2px 6px #000,
+    0 0 20px color-mix(in srgb, var(--pack-accent, #7fd4c1) 40%, transparent);
+}
+.pack-summary__head p {
+  margin: 0.3rem 0 0;
+  color: #9fb0bf;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pack-summary__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  max-width: min(96vw, 1180px);
+}
+.pack-summary__card {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  position: relative;
+  width: calc(252px * var(--sum-scale, 0.45));
+  height: calc(353px * var(--sum-scale, 0.45));
+  /* `backwards`, not `both`: a completed fill-both animation would keep its
+     end-keyframe transform applied forever and override the hover lift. */
+  animation: packSummaryCard 0.5s cubic-bezier(0.2, 1.1, 0.35, 1) calc(var(--i, 0) * 110ms) backwards;
+  transform: rotate(var(--fan, 0deg));
+  transition: transform 0.18s ease;
+}
+.pack-summary__card:hover,
+.pack-summary__card:focus-visible {
+  transform: translateY(-6px) rotate(var(--fan, 0deg)) scale(1.04);
+}
+.pack-summary__card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pack-accent, #7fd4c1) 80%, #fff);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+@keyframes packSummaryCard {
+  from {
+    transform: translateY(26px) rotate(var(--fan, 0deg)) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) rotate(var(--fan, 0deg)) scale(1);
+    opacity: 1;
+  }
+}
+.pack-summary__cardinner {
+  display: block;
+  width: 252px;
+  height: 353px;
+  transform: scale(var(--sum-scale, 0.45));
+  transform-origin: top left;
+  pointer-events: none; /* the button is the click target, not the card */
+}
+.pack-summary__card.aura-3 {
+  filter: drop-shadow(0 0 16px rgba(240, 196, 99, 0.55));
+}
+.pack-summary__card.aura-4 {
+  filter: drop-shadow(0 0 18px rgba(255, 135, 95, 0.6));
+  animation:
+    packSummaryCard 0.5s cubic-bezier(0.2, 1.1, 0.35, 1) calc(var(--i, 0) * 110ms) backwards,
+    packAuraPulse 2.4s ease-in-out calc(0.6s + var(--i, 0) * 110ms) infinite;
+}
+@keyframes packAuraPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 12px rgba(255, 135, 95, 0.45));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(255, 135, 95, 0.75));
+  }
+}
+.pack-summary__card .pack-card__new {
+  animation-delay: calc(0.25s + var(--i, 0) * 110ms);
+  left: -8px;
+  top: 6px;
+}
+.pack-summary__card .chronicle-card {
+  width: 252px;
+}
+.pack-summary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-top: 0.2rem;
+}
+.pack-summary__tip {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7e8f9e;
+  text-shadow: 0 2px 4px #000;
+}
+
+/* In-overlay full-size card reader (deliberately NOT the Modal-based
+   ChronicleCardInspector: a second Modal above this z-1000000 overlay would
+   re-enter the nested-Escape / stacking traps — this layer stays inside the
+   cinematic's own stacking context instead). */
+.pack-inspect {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  background: rgba(2, 5, 9, 0.82);
+  cursor: pointer;
+  animation: packOverlayIn 0.22s ease;
+}
+.pack-inspect__card {
+  width: 252px;
+  height: 353px;
+  transform: scale(var(--card-scale, 1));
+}
+.pack-inspect__card .chronicle-card {
+  width: 252px;
+}
+.pack-inspect__codex {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  /* transform scaling doesn't grow the layout box — push clear of the card */
+  margin-top: calc((var(--card-scale, 1) - 1) * 176px + 1.1rem);
+}
+.pack-inspect__codex strong {
+  font:
+    900 1.05rem/1.2 Georgia,
+    serif;
+  letter-spacing: 0.08em;
+  color: #f2e7cd;
+  text-shadow: 0 2px 5px #000;
+}
+.pack-inspect__codex span {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 70%, #fff);
+}
+.pack-inspect__codex small {
+  margin-top: 0.3rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7e8f9e;
+}
+
+.pack-btn {
+  appearance: none;
+  border-radius: 10px;
+  padding: 0.7rem 1.35rem;
+  font: 800 0.9rem/1.1 inherit;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1px solid #46535f;
+  background: linear-gradient(rgba(26, 36, 46, 0.95), rgba(12, 18, 25, 0.95));
+  color: #dfe8ef;
+}
+.pack-btn:hover:not(:disabled) {
+  color: #fff;
+  border-color: #8fa3b4;
+}
+.pack-btn.primary {
+  border-color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 75%, #fff);
+  color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 55%, #fff);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--pack-accent, #7fd4c1) 30%, transparent);
+}
+.pack-btn.primary:hover:not(:disabled) {
+  box-shadow: 0 0 26px color-mix(in srgb, var(--pack-accent, #7fd4c1) 45%, transparent);
+}
+.pack-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------- responsive */
+
+@media (max-width: 520px) {
+  .pack-foil {
+    width: min(74vw, 262px);
+  }
+  .pack-open-title {
+    font-size: 0.72rem;
+  }
+  .pack-reveal__rarity {
+    font-size: 0.9rem;
+    bottom: -3rem;
+  }
+  .pack-summary__head h2 {
+    font-size: 1.1rem;
+  }
+}
+
+/* Accessibility: no motion — everything lands in its final state instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .pack-open-overlay *,
+  .pack-open-overlay *::before,
+  .pack-open-overlay *::after {
+    animation-duration: 0.001s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+}
