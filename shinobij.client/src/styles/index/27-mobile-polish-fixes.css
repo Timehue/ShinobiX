@@ -370,20 +370,6 @@ html[data-vp="sm"] .map-instance .instance-frame > aside.instance-actions {
 }
 
 /* Let sector-instance-wrap (territory screens) also stack & fill */
-html[data-vp="xs"] .sector-instance-wrap,
-html[data-vp="sm"] .sector-instance-wrap {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    height: auto !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-    grid-template-columns: 1fr !important;
-    grid-template-areas:
-        "scene"
-        "actions" !important;
-}
-
 html[data-vp="xs"] .sector-instance-wrap .tile-scene,
 html[data-vp="sm"] .sector-instance-wrap .tile-scene {
     width: 100% !important;
@@ -497,4 +483,3 @@ html[data-vp="xl"] .banner-mobile-timers,
 html[data-vp="xxl"] .banner-mobile-timers {
     display: none !important;
 }
-

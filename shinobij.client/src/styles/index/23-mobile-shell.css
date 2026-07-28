@@ -70,14 +70,6 @@
     box-shadow: 0 0 18px rgba(250, 204, 21, .15);
 }
 
-.elder-focus-desc {
-    display: block;
-    color: var(--text-dim);
-    font-size: 0.76rem;
-    margin: 4px 0 6px;
-    line-height: 1.4;
-}
-
 .elder-card button.active {
     background: linear-gradient(135deg, rgba(180, 83, 9, .88), rgba(14, 116, 144, .7));
     border-color: rgba(250, 204, 21, .65);
@@ -990,4 +982,3 @@
     z-index: 5 !important;
   }
 }
-

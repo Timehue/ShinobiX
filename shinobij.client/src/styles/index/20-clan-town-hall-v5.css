@@ -221,12 +221,6 @@
     color: var(--slate-300);
 }
 
-.edict-active-card {
-    margin-bottom: 12px;
-    border-color: rgba(250, 204, 21, .42);
-    background: linear-gradient(135deg, rgba(113,63,18,.44), rgba(15,23,42,.72));
-}
-
 .elder-seat-grid {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
@@ -347,4 +341,3 @@
 .effects-debuff .effect-pill {
     color: var(--red-400);
 }
-

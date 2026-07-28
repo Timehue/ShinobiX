@@ -875,12 +875,6 @@ html[data-vp="md"] .left-profile-avatar {
     height: clamp(110px, 13vw, 140px) !important;
 }
 
-html[data-vp="md"] .left-nav-button {
-    padding: 6px 8px !important;
-    font-size: 0.76rem !important;
-    min-height: 32px !important;
-}
-
 html[data-vp="md"] .journey-live-stats .stat-box {
     padding: 4px 6px !important;
 }
@@ -911,4 +905,3 @@ html[data-vp="xs"] .pmtab {
     padding: 7px 1px !important;
     min-height: 38px !important;
 }
-

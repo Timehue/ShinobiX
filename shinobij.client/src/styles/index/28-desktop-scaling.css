@@ -247,10 +247,6 @@
     }
 
     /* ── Sector instance / map instance ── */
-    .instance-sidebar {
-        padding: 10px;
-    }
-
     .instance-actions {
         gap: 5px;
     }
@@ -545,10 +541,6 @@
     }
 
     /* ── Sector instance / map instance ── */
-    .instance-sidebar {
-        padding: 12px;
-    }
-
     .instance-actions {
         gap: 6px;
     }
@@ -776,11 +768,6 @@
     background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.10) 49%, transparent 62%);
     animation: scene-ray-sweep 16s linear infinite;
 }
-.scene-rays-snow    { background: linear-gradient(115deg, transparent 36%, rgba(186,230,253,.16) 49%, transparent 62%); }
-.scene-rays-volcano { background: linear-gradient(115deg, transparent 36%, rgba(255,160,80,.16) 49%, transparent 62%); }
-.scene-rays-shadow  { background: linear-gradient(115deg, transparent 36%, rgba(192,132,252,.14) 49%, transparent 62%); }
-.scene-rays-forest  { background: linear-gradient(115deg, transparent 36%, rgba(190,255,170,.14) 49%, transparent 62%); }
-.scene-rays-central { background: linear-gradient(115deg, transparent 36%, rgba(255,240,180,.18) 49%, transparent 62%); }
 @keyframes scene-ray-sweep {
     0%   { transform: translateX(-28%); opacity: 0; }
     20%  { opacity: .55; }
@@ -965,11 +952,6 @@
     filter: blur(8px);
     animation: biomeGlowPulse 9s ease-in-out infinite;
 }
-.wbg-volcano { background: radial-gradient(circle, rgba(255,120,50,.50), transparent 65%); }
-.wbg-snow    { background: radial-gradient(circle, rgba(150,210,255,.45), transparent 65%); }
-.wbg-forest  { background: radial-gradient(circle, rgba(120,220,140,.42), transparent 65%); }
-.wbg-shadow  { background: radial-gradient(circle, rgba(180,130,255,.46), transparent 65%); }
-.wbg-central { background: radial-gradient(circle, rgba(255,225,150,.40), transparent 65%); }
 @keyframes biomeGlowPulse { 0%, 100% { opacity: .38; } 50% { opacity: .62; } }
 
 .world-poi-life {
@@ -1552,4 +1534,3 @@ textarea:focus-visible,
     65% { opacity: 0.9; transform: translateX(-50%) scale(1.06, 0.94); }
 }
 html.lite-fx .hg-flame { animation: none; }
-

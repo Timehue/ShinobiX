@@ -121,40 +121,11 @@
     color: #fef3c7;
 }
 
-.combat-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-top: 10px;
-}
-
-    .combat-tabs button {
-        position: relative;
-        min-height: 36px;
-        border: 2px solid #7c3f11;
-        background: linear-gradient(180deg, #243f7c, #172d66);
-        color: #f8fafc;
-        font-weight: 800;
-    }
-
         .combat-tabs button.active {
             border-color: #ffd21f;
             color: #ffd21f;
             box-shadow: 0 0 10px rgba(255, 210, 31, .35);
         }
-
-    .combat-tabs span {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 18px;
-        height: 18px;
-        margin-left: 4px;
-        border-radius: 999px;
-        background: var(--red-600);
-        color: #fff;
-        font-size: 11px;
-    }
 
 .combat-timeline .timeline-entry strong {
     color: #ffd21f;
