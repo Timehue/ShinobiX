@@ -1,69 +1,18 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-    xpNeeded, statBudgetAtLevel, statPointBudgetForProgress,
     reconcileCharacterStatBudget, allocatedStatPoints, normalizeStats, baseStats, STAT_KEYS,
     earnedForLevel, levelForEarned, earnedStatPoints,
 } from './stats';
 import { statCapForLevel, perRankStatCap } from '../constants/game';
 import type { Character } from '../types/character';
 
-// Progression redesign guardrails (Phase 0). These pin the *design intent* of the
-// new XP curve + linear stat budget so a later reward/coefficient tweak can't
-// silently break the 90-day pacing or the "maxed at L100" guarantee.
+// Progression guardrails. These pin the *design intent* of the stat-derived
+// level curve (docs/leveling-without-xp-map.md) so a later reward/coefficient
+// tweak can't silently break the ~90-day pacing, the band-reachability
+// invariant, or the "maxed at L100" guarantee. (The old xpNeeded / stat-BUDGET
+// suites are gone with the functions they tested — character XP is retired.)
 
-const MAX_LEVEL = 100;
-const FULL_BUDGET = 12 * (2500 - 10); // 29,880
-
-describe('xpNeeded — 6·L² curve', () => {
-    it('matches the published anchors and zeroes at the cap', () => {
-        assert.equal(xpNeeded(1), 6);
-        assert.equal(xpNeeded(10), 600);
-        assert.equal(xpNeeded(20), 2400);
-        assert.equal(xpNeeded(50), 15000);
-        assert.equal(xpNeeded(90), 48600);
-        assert.equal(xpNeeded(99), 58806);
-        assert.equal(xpNeeded(100), 0);
-    });
-    it('is strictly increasing below the cap (no flat/declining levels)', () => {
-        for (let L = 1; L < MAX_LEVEL - 1; L++) assert.ok(xpNeeded(L) < xpNeeded(L + 1), `xpNeeded(${L}) < xpNeeded(${L + 1})`);
-    });
-});
-
-describe('statBudgetAtLevel — linear, maxed at L100', () => {
-    it('runs from the starting points to the full cap', () => {
-        assert.equal(statBudgetAtLevel(1), 20);
-        assert.equal(statBudgetAtLevel(50), 14799);
-        assert.equal(statBudgetAtLevel(90), 26864);
-        assert.equal(statBudgetAtLevel(100), FULL_BUDGET); // 29,880 → every stat to 2,500
-    });
-    it('clamps out-of-range levels', () => {
-        assert.equal(statBudgetAtLevel(0), 20);
-        assert.equal(statBudgetAtLevel(999), FULL_BUDGET);
-    });
-    it('is monotonic non-decreasing', () => {
-        for (let L = 1; L < MAX_LEVEL; L++) assert.ok(statBudgetAtLevel(L) <= statBudgetAtLevel(L + 1));
-    });
-});
-
-describe('statPointBudgetForProgress — interpolates within a level', () => {
-    it('equals the level budget at xp 0 and stays bounded by the next level', () => {
-        for (const L of [1, 5, 20, 50, 89]) {
-            assert.equal(statPointBudgetForProgress(L, 0), statBudgetAtLevel(L), `floor of L${L}`);
-            // mid-level never undershoots this level's budget or overshoots the next's
-            const ceil = statPointBudgetForProgress(L, xpNeeded(L) - 1);
-            assert.ok(ceil >= statBudgetAtLevel(L) && ceil <= statBudgetAtLevel(L + 1), `bounded at L${L}: ${ceil}`);
-        }
-    });
-    it('rises with in-level xp (a partial training tick still earns points)', () => {
-        // at L50 the level is large enough that one tick of xp moves the budget up
-        assert.ok(statPointBudgetForProgress(50, 0) < statPointBudgetForProgress(50, xpNeeded(50) - 1));
-    });
-    it('caps at the full budget for maxed characters', () => {
-        assert.equal(statPointBudgetForProgress(100, 0), FULL_BUDGET);
-        assert.equal(statPointBudgetForProgress(150, 0), FULL_BUDGET);
-    });
-});
 
 describe('reconcile (two-axis) — normalizes stats + preserves the stored pool, never negative', () => {
     // Two-axis model: stat points come from training (direct-to-stat) + combat (the

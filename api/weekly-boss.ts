@@ -402,6 +402,13 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                             maxHp: leveled.maxHp,
                             maxChakra: leveled.maxChakra,
                             maxStamina: leveled.maxStamina,
+                            // A level-up refills vitals to the NEW maxima. Copying
+                            // only the maxima would leave a contributor who levelled
+                            // here sitting at old-hp/new-maxHp — every other grant
+                            // site spreads `leveled` wholesale and refills.
+                            hp: leveled.hp,
+                            chakra: leveled.chakra,
+                            stamina: leveled.stamina,
                             rankTitle: leveled.rankTitle,
                             ryo: Math.max(0, Number(freshChar.ryo ?? 0)) + entry.ryo,
                             inventory: currentInventory,

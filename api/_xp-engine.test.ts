@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     gainXp, applyDerivedLevel, earnedForLevel, levelForEarned, earnedStatPoints,
-    xpNeeded, maxHpForLevel, maxChakraForLevel, maxStaminaForLevel,
+    maxHpForLevel, maxChakraForLevel, maxStaminaForLevel,
     rankFromLevel, reconcileCharacterStatBudget, effectiveCharacterXpGain,
     rankTitleForLevel, computePvpWinGains, creditPvpWinBase,
     MAX_LEVEL, CHARACTER_XP_GAIN_MULTIPLIER,
@@ -39,7 +39,6 @@ function cNorm(stats?: Record<string, unknown>) {
     return C_KEYS.reduce((n, k) => { n[k] = cCap(stats?.[k] == null ? base[k] : Number(stats[k])); return n; }, { ...base });
 }
 const cAllocated = (s: Record<string, number>) => C_KEYS.reduce((t, k) => t + Math.max(0, cCap(s[k]) - 10), 0);
-const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : Math.round(6 * lvl * lvl);
 const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
 const cMaxChakra = (lvl: number) => C_V2_FLAG ? cV2Pool(C_V2_CHAKRA_BASE, C_V2_CHAKRA_CAP, lvl) : Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl: number) => C_V2_FLAG ? cV2Pool(C_V2_STAMINA_BASE, C_V2_STAMINA_CAP, lvl) : Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
@@ -174,7 +173,6 @@ describe('combatResourcesV2 sub-formulas match the client', () => {
 describe('xp-engine sub-formulas match the client', () => {
     it('curves + vitals + rank across all levels', () => {
         for (let lvl = 1; lvl <= 100; lvl++) {
-            assert.equal(xpNeeded(lvl), cXpNeeded(lvl), `xpNeeded(${lvl})`); // retained legacy formula, frozen
             assert.equal(earnedForLevel(lvl), cEarnedForLevel(lvl), `earnedForLevel(${lvl})`);
             assert.equal(maxHpForLevel(lvl), cMaxHp(lvl), `maxHp(${lvl})`);
             assert.equal(maxChakraForLevel(lvl), cMaxChakra(lvl), `maxChakra(${lvl})`);

@@ -10,8 +10,8 @@
  */
 
 import { currentDateKey, currentMonthKey } from "./utils";
-import { rankFromLevel } from "./stats";
-import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
+import { rankFromLevel, earnedForLevel, earnedStatPoints } from "./stats";
+import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL, EXAM_LEVEL_GATES } from "../constants/game";
 import { deriveStoryTraits, DERIVED_TRAIT_LEVELS } from "./story-derive";
 import type { Character } from "../types/character";
 
@@ -118,4 +118,57 @@ function roleRankTitle(character: Character) {
 export function rankTitleForLevel(character: Character, level: number) {
     if (level < MAX_LEVEL) return rankFromLevel(level);
     return roleRankTitle(character) || "Special Jonin";
+}
+
+// ── Level progress (docs/leveling-without-xp-map.md) ────────────────────────
+// Every level bar in the game reads this so they agree, and so none of them
+// lies during a rank-exam hold. The hold is the exact moment a player asks
+// "why am I not leveling?" — earned points keep climbing past the next
+// threshold while the level is frozen, so a naive "points to next level"
+// readout would proudly report 0 while nothing happens. `heldBy` names the
+// exam instead, and the points are truthfully described as banked.
+export type LevelProgress = {
+    /** Total stat points earned — the number the level is derived from. */
+    earned: number;
+    /** Points still needed for the next level (0 when maxed or exam-held). */
+    remaining: number;
+    /** 0-100 bar fill. */
+    percent: number;
+    /** Numeric readout, e.g. "1,840 / 2,240 pts", "MAX", or "3,410 pts banked". */
+    label: string;
+    maxed: boolean;
+    /** The exam label ("Genin Exam") when the level is frozen behind it. */
+    heldBy: string | null;
+};
+
+export function levelProgress(character: Pick<Character, "level" | "stats" | "unspentStats" | "examsPassed">): LevelProgress {
+    const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(character.level ?? 1)));
+    const earned = earnedStatPoints(character);
+    if (level >= MAX_LEVEL) {
+        return { earned, remaining: 0, percent: 100, label: "MAX", maxed: true, heldBy: null };
+    }
+    const passed = character.examsPassed ?? [];
+    const gate = EXAM_LEVEL_GATES.find((g) => !passed.includes(g.exam));
+    if (gate && level >= gate.level) {
+        return {
+            earned,
+            remaining: 0,
+            percent: 100,
+            label: `${earned.toLocaleString()} pts banked`,
+            maxed: false,
+            heldBy: gate.label,
+        };
+    }
+    const floor = earnedForLevel(level);
+    const next = earnedForLevel(level + 1);
+    const span = Math.max(1, next - floor);
+    const into = Math.max(0, Math.min(span, earned - floor));
+    return {
+        earned,
+        remaining: Math.max(0, next - earned),
+        percent: Math.min(100, Math.round((into / span) * 100)),
+        label: `${earned.toLocaleString()} / ${next.toLocaleString()} pts`,
+        maxed: false,
+        heldBy: null,
+    };
 }

@@ -144,8 +144,7 @@ export const PATCH_NOTES: PatchNote[] = [
             {
                 heading: "Endless Tower",
                 body:
-                    "Still the best place to farm ryo and materials. Its daily XP now has a soft cap so it " +
-                    "complements the journey instead of skipping it.",
+                    "Still the best place to farm ryo and materials.",
             },
         ],
     },

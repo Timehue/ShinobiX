@@ -62,7 +62,7 @@ const BEGINNER: Guide = {
                 { type: "list", items: [
                     "Equip your jutsu — you already know your bloodline's techniques.",
                     "Run the E-rank Drill at the Mission Hall — a near-guaranteed win for easy ryo while you learn the ropes.",
-                    "Win a fight in the Battle Arena (vs. AI) to level up fast.",
+                    "Win a fight in the Battle Arena (vs. AI) for quick ryo while you learn how combat works.",
                     "Train a stat at the Training Grounds.",
                     "Hit Level 2 and claim your free Element Awakening at the Awakening Stone.",
                 ] },
@@ -141,7 +141,7 @@ const BEGINNER: Guide = {
                     "Hunts (Hunter Guild) are a separate pool of 20 per day — beast contracts that rank you up and drop rare materials.",
                     "Story Hall has story missions for lore and rewards.",
                 ] },
-                { type: "callout", tone: "good", label: "Habit", text: "These caps reset every day at midnight UTC. Logging in to clear your missions and hunts (40 total) is the single fastest way to level." },
+                { type: "callout", tone: "good", label: "Habit", text: "These caps reset every day at midnight UTC. Clearing your field and hunt dailies is the biggest source of stat points outside training — and stat points are your level." },
             ],
         },
         {
@@ -154,7 +154,9 @@ const BEGINNER: Guide = {
                     ["Jonin", "50"],
                     ["Special Jonin", "80"],
                 ] },
-                { type: "p", text: "The level cap is 100. Early levels come quickly — enjoy the climb." },
+                { type: "p", text: "There is no experience bar. Your level IS your stats: every stat point you earn — whether you spend it or leave it unspent — counts toward your next level, and the level follows automatically. Nothing can take those points away, so your level can never go backwards." },
+                { type: "p", text: "Points come from four places: stat training (the biggest by far — keep a timer running), claiming your field and hunt dailies, one-time story chapters and Battle Tower first clears, and winning serious PvP. Repeatable grinding — arena practice, combat missions, chests, Endless Tower — pays ryo and loot instead, so it funds your build without ever out-levelling it." },
+                { type: "p", text: "Two levels are held until you pass an exam: 20 (Genin Exam) and 39 (Chunin Exam). Points you earn during a hold are banked, not lost — pass the exam and you jump straight to where your points already put you. The level cap is 100." },
             ],
         },
         {

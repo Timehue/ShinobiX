@@ -7,7 +7,6 @@
  * Extracted from App.tsx (Region A).
  */
 
-import { displayCharacterXpGain } from "./progression";
 import type { Character, RewardCurrencyKey, CurrencyRewards } from "../types/character";
 
 export const rewardCurrencyOptions: Array<{ key: RewardCurrencyKey; label: string }> = [
@@ -67,17 +66,29 @@ function rewardAmount(value: unknown): number {
     return Number.isFinite(n) ? Math.max(0, n) : 0;
 }
 
+/**
+ * The "+N Stat Pts / " prefix a claim toast leads with when the claim paid
+ * stat points (daily field/hunt claims, one-time capstones), or "" when it
+ * paid none. Shared so every claim surface phrases the new reward the same
+ * way — see docs/leveling-without-xp-map.md.
+ */
+export function statPointNote(points: unknown): string {
+    const earned = rewardAmount(points);
+    return earned > 0 ? `+${earned} Stat Pts / ` : "";
+}
+
+// Character XP is retired (docs/leveling-without-xp-map.md), so there is no
+// longer an `xp` term here — progression rewards are stat points, surfaced by
+// statPointNote above, and this builder covers ryo/stamina/currency/loot.
 export function rewardSummaryParts(
-    xp: number,
     ryo: number,
     stamina: number,
     rewards?: CurrencyRewards,
     character?: Pick<Character, "elderFocus">,
     options: RewardSummaryOptions = {},
 ): string[] {
+    void character; // kept in the signature; no reward line varies by character now
     const parts: string[] = [];
-    const xpShown = displayCharacterXpGain(xp, character);
-    if (options.includeZero || rewardAmount(xpShown) > 0) parts.push(`+${xpShown} XP`);
     if (options.includeZero || rewardAmount(ryo) > 0) parts.push(`+${rewardAmount(ryo)} ryo`);
     if (options.includeZero || rewardAmount(stamina) > 0) parts.push(`+${rewardAmount(stamina)} stamina`);
     const currency = formatCurrencyRewards(rewards);
@@ -96,13 +107,12 @@ export function rewardSummaryParts(
 }
 
 export function rewardSummary(
-    xp: number,
     ryo: number,
     stamina: number,
     rewards?: CurrencyRewards,
     character?: Pick<Character, "elderFocus">,
     options: RewardSummaryOptions = {},
 ): string {
-    const parts = rewardSummaryParts(xp, ryo, stamina, rewards, character, options);
+    const parts = rewardSummaryParts(ryo, stamina, rewards, character, options);
     return parts.length > 0 ? parts.join(" / ") : "No direct reward";
 }

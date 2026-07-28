@@ -30,6 +30,77 @@ const sanitizeCompatible = (
     existing: Record<string, unknown> | null,
 ) => withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing));
 
+// Stat-derived leveling (docs/leveling-without-xp-map.md). The sanitizer is the
+// ONLY thing standing between a forged body and a minted level, and the
+// recompute is rise-only — so anything it gets wrong is permanent.
+describe('stat-derived level: sanitizer authority', () => {
+    const heldSave = (over: Record<string, unknown> = {}) => ({
+        name: 'Holder', level: 20, xp: 0, ryo: 0,
+        stats: {
+            strength: 10, speed: 10, intelligence: 10, willpower: 10,
+            bukijutsuOffense: 10, bukijutsuDefense: 10, taijutsuOffense: 10, taijutsuDefense: 10,
+            genjutsuOffense: 10, genjutsuDefense: 10, ninjutsuOffense: 10, ninjutsuDefense: 10,
+        },
+        unspentStats: 12_000, // far past the L20 hold's 3,933 threshold
+        examsPassed: [] as string[],
+        levelLedgerMigrated: true,
+        ...over,
+    });
+
+    it('a forged examsPassed cannot lift the level past an unpassed exam hold', () => {
+        // examsPassed is not validated until ~440 lines after the level is
+        // derived, so the derive MUST read the stored list, not the body.
+        const stored = heldSave();
+        const forged = heldSave({ examsPassed: ['genin', 'chunin'], level: 51 });
+        const out = sanitizeCompatible(wrap(forged), wrap(stored)).character as Record<string, unknown>;
+        assert.equal(out.level, 20, 'forged exam list must not mint levels past the hold');
+        assert.deepEqual(out.examsPassed, [], 'the honest stored exam list is what persists');
+    });
+
+    it('an honestly-passed exam still releases the hold', () => {
+        const stored = heldSave({ examsPassed: ['genin'] });
+        const out = sanitizeCompatible(wrap(heldSave({ examsPassed: ['genin'] })), wrap(stored)).character as Record<string, unknown>;
+        assert.equal(out.level, 39, 'banked points leap to the next hold once the exam is real');
+    });
+
+    it('ignores a client-written level in both directions', () => {
+        // Stored L15 with exactly the L15 ledger (2,800 earned), both exams passed
+        // so no hold is in play — the only thing that could move the level is the
+        // body, and it must not.
+        const settled = { examsPassed: ['genin', 'chunin'], unspentStats: 2_800, level: 15 };
+        const stored = heldSave(settled);
+        const tooHigh = sanitizeCompatible(wrap(heldSave({ ...settled, level: 99 })), wrap(stored)).character as Record<string, unknown>;
+        assert.equal(tooHigh.level, 15, 'level derives from the ledger (2,800 earned = L15), not the body');
+        const tooLow = sanitizeCompatible(wrap(heldSave({ ...settled, level: 1 })), wrap(stored)).character as Record<string, unknown>;
+        assert.equal(tooLow.level, 15, 'and a lowball level cannot de-level either');
+    });
+
+    it('strict-ledger mode does NOT burn the one-time migration flag', () => {
+        // Strict mode reverts the top-up further down; latching the flag here
+        // would strand that player below their level forever.
+        const stored = heldSave({ unspentStats: 20, levelLedgerMigrated: undefined });
+        const out = sanitizeStrict(wrap(heldSave({ unspentStats: 20, levelLedgerMigrated: undefined })), wrap(stored)).character as Record<string, unknown>;
+        assert.notEqual(out.levelLedgerMigrated, true, 'flag must not stick while its effect is reverted');
+    });
+
+    it('migrates an XP-era save up to its stored level exactly once', () => {
+        const stored = heldSave({ level: 30, unspentStats: 20, levelLedgerMigrated: undefined });
+        const first = sanitizeCompatible(wrap(heldSave({ level: 30, unspentStats: 20, levelLedgerMigrated: undefined })), wrap(stored)).character as Record<string, unknown>;
+        assert.equal(first.unspentStats, 6_200, 'topped up to earnedForLevel(30)');
+        assert.equal(first.level, 30, 'and holds the level it already had');
+        assert.equal(first.levelLedgerMigrated, true);
+        // Re-running against the migrated save must not top up a second time.
+        const second = sanitizeCompatible(wrap(first), wrap(first)).character as Record<string, unknown>;
+        assert.equal(second.unspentStats, 6_200, 'migration is one-time');
+    });
+
+    it('a brand-new first save gets no spurious top-up', () => {
+        const out = sanitizeCompatible(wrap(heldSave({ level: 1, unspentStats: 20, levelLedgerMigrated: undefined })), null).character as Record<string, unknown>;
+        assert.equal(out.level, 1);
+        assert.equal(out.unspentStats, 20, 'earnedForLevel(1) is 0 — nothing to top up');
+    });
+});
+
 describe('Chronicle Showdown save validation', () => {
     it('accepts a legal owned 40-card deck', () => {
         const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
