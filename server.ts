@@ -16,6 +16,7 @@ import './api/_force-ipv4.js';
 
 import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
 import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js';
+import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, stopPresenceSnapshots } from './api/_realtime/presence-snapshot.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
 import { closeStoragePool } from './api/_storage.js';
 import compression from 'compression';
@@ -358,6 +359,12 @@ function gracefulShutdown(code: number, reason: string): void {
     console.log(`[shutdown] draining in-flight requests (${reason})`);
     stopGameLoop();
     stopSnapshotCron();
+    // Hand the live online roster to the next process. Presence is process memory, so
+    // without this every deploy blanks the world — players vanish from each other's
+    // sectors and the online count reads 0 until each client's next heartbeat. Started
+    // before the awaits below so it is queued even if the 4s backstop fires.
+    stopPresenceSnapshots();
+    void savePresenceSnapshot().catch(() => undefined);
     // Close the realtime layer and the pg pool cleanly on the way out. Both are
     // shutdown-only and fire-and-forget under the 4s backstop below, so they can
     // only improve the exit path, never hang it:
@@ -662,18 +669,32 @@ function route(path: string, handler: AnyHandler) {
                 });
                 return;
             }
-            // Merge route params into query so Vercel-style handlers work.
-            const augmented = {
-                ...req,
-                query: { ...req.query, ...req.params },
-                headers: req.headers,
-                method: req.method,
-                body: req.body,
-                // Raw body for signature-verifying webhooks (Patreon). Only set
-                // by the dedicated webhook parser above; undefined otherwise.
-                rawBody: (req as Request & { rawBody?: Buffer }).rawBody,
-            };
-            await handler(augmented, res);
+            // Merge route params into query so Vercel-style handlers work, then pass
+            // the REAL request object through.
+            //
+            // This used to build `{ ...req, query, headers, method, body, rawBody }`.
+            // Object spread copies own enumerable properties only, so every prototype
+            // method was silently dropped — `{...req}.on` is `undefined`. That broke
+            // the one handler using request stream methods: api/pvp/stream.ts calls
+            // `req.on('close', …)` to notice a disconnect, which threw AFTER the SSE
+            // headers and first event were already sent. The client saw the stream
+            // open, marked itself connected, then received nothing more and never
+            // fired `onerror`, so it never fell back to polling — a PvP board frozen
+            // on stale state until Cloudflare's idle timeout. The response was never
+            // ended either, holding the socket and logging a Sentry exception on every
+            // connect.
+            //
+            // `query` is a getter with no setter on the Express 5 request prototype, so
+            // plain assignment throws in strict mode; define an own property to shadow
+            // it. Everything else the Vercel-style handlers read (headers, method,
+            // body, and rawBody from the webhook parser) already lives on `req`.
+            Object.defineProperty(req, 'query', {
+                value: { ...req.query, ...req.params },
+                writable: true,
+                enumerable: true,
+                configurable: true,
+            });
+            await handler(req, res);
         } catch (err) {
             next(err);
         }
@@ -1576,6 +1597,28 @@ _httpServer = server; // expose to gracefulShutdown (drain-before-exit on restar
 attachSocketServer(server);
 server.listen(PORT, () => {
     console.log(`ShinobiX API listening on port ${PORT}`);
+    // SESSION_SECRET is optional by design — without it, token issuing/verifying is
+    // disabled and auth transparently falls back to verifying the password on every
+    // request (see api/_auth.ts). That fallback works, but it is MUCH more expensive
+    // (a scrypt hash per authenticated request instead of an HMAC compare) and it
+    // silently un-does the token-first model. It is never the intended production
+    // state, and a missing value is invisible until the site is slow under load, so
+    // say so loudly at boot rather than leaving it to be discovered in an incident.
+    if (!String(process.env.SESSION_SECRET ?? '').trim()) {
+        console.error(
+            '[startup] SESSION_SECRET is NOT set. Session tokens are disabled and every '
+            + 'authenticated request will re-verify the password with scrypt. Set it in the '
+            + 'Railway environment and redeploy.',
+        );
+    }
+    // Rehydrate the online roster the previous process handed over, so a deploy does
+    // not present an empty world for a beat. Rows past the offline window are dropped
+    // on restore, and a live heartbeat always wins, so this can only ever add players
+    // who were genuinely online seconds ago.
+    void restorePresenceSnapshot()
+        .then((restored) => { if (restored > 0) console.log(`[presence] restored ${restored} online player(s) across restart`); })
+        .catch(() => undefined);
+    startPresenceSnapshots();
     // Phase 2: start the 1s in-memory presence/game tick (single instance).
     startGameLoop();
     // Vercel removal: the always-on server now runs the daily save-snapshot

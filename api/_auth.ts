@@ -14,8 +14,20 @@ import { verifyPlayerPassword } from './player-auth.js';
 import { safeName } from './_utils.js';
 import { getActiveBan } from './admin/moderation.js';
 import { kv } from './_storage.js';
+import { allow, hasBudget } from './_ratelimit.js';
+import { clientIp } from './_client-ip.js';
 
-type ReqLike = { headers: Record<string, string | string[] | undefined> };
+type ReqLike = { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } };
+
+/**
+ * Failed password verifications allowed per IP per window on the generic auth path.
+ *
+ * Sized so honest traffic never notices while an attacker is stopped after a handful
+ * of scrypt runs. In-memory and per-instance, which is exact here: Railway runs a
+ * single replica, and the point is protecting THIS process's event loop.
+ */
+const PASSWORD_FAIL_LIMIT = 12;
+const PASSWORD_FAIL_WINDOW_MS = 5 * 60_000;
 
 function headerString(req: ReqLike, key: string): string {
     const v = req.headers[key.toLowerCase()];
@@ -440,7 +452,27 @@ export async function authedPlayer(
         const name = headerName || nameFromRoute || '';
         if (!name) return null;
         const canonical = safeName(name);
-        if (!(await verifyPlayerPassword(canonical, pw))) return null;
+
+        // Cap FAILED verifies per IP before spending any CPU.
+        //
+        // verifyPlayerPassword runs scryptSync — ~100ms of fully blocking,
+        // single-threaded work. This path had no limiter of its own, so ~10 requests
+        // per second from one address saturated the event loop and stalled every other
+        // player's heartbeat and autosave behind it. Anyone could trigger it with a
+        // real player name and any wrong password.
+        //
+        // Only FAILURES are charged. A legitimate client sends a correct password, so
+        // it never approaches the budget — which matters because when SESSION_SECRET is
+        // unset this path carries ALL traffic (the documented token-less fallback), and
+        // charging every attempt would throttle honest play. An attacker's attempts all
+        // fail, so they hit the cap after a few tries and every request after that is
+        // rejected without running scrypt at all.
+        const failKey = `authpw-fail:${clientIp(req) ?? 'unknown'}`;
+        if (!hasBudget(failKey, PASSWORD_FAIL_LIMIT)) return null;
+        if (!(await verifyPlayerPassword(canonical, pw))) {
+            allow(failKey, PASSWORD_FAIL_LIMIT, PASSWORD_FAIL_WINDOW_MS);
+            return null;
+        }
         // Banned players authenticate but lose access. authedPlayer is the
         // single chokepoint for every player-only endpoint, so this one check
         // freezes the account out of every game action until the ban lifts.
