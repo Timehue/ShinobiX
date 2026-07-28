@@ -1,19 +1,32 @@
-import { gainXp } from '../_xp-engine.js';
+import { applyDerivedLevel } from '../_xp-engine.js';
 import type { AiFightToken } from '../missions/_ai-fight-token.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 
 export const STORY_LEVELS = [4, 15, 25, 35, 50, 65, 75, 85, 100] as const;
+// One-time SPINE grants (docs/leveling-without-xp-map.md §4): character XP is
+// retired, so each story milestone now pays stat-pool points (the old XP table
+// ÷ 40) outside any daily budget — one-time by construction (storyProgress
+// gates re-claims), so a story day always stacks on top of the dailies.
 export const STORY_REWARDS = [
-    { xp: 120, ryo: 75 },
-    { xp: 500, ryo: 250 },
-    { xp: 900, ryo: 500 },
-    { xp: 1400, ryo: 800 },
-    { xp: 2200, ryo: 1300 },
-    { xp: 3400, ryo: 2000 },
-    { xp: 4600, ryo: 2800 },
-    { xp: 6200, ryo: 4000 },
-    { xp: 10000, ryo: 7500 },
+    { statPoints: 3, ryo: 75 },
+    { statPoints: 13, ryo: 250 },
+    { statPoints: 23, ryo: 500 },
+    { statPoints: 35, ryo: 800 },
+    { statPoints: 55, ryo: 1300 },
+    { statPoints: 85, ryo: 2000 },
+    { statPoints: 115, ryo: 2800 },
+    { statPoints: 155, ryo: 4000 },
+    { statPoints: 250, ryo: 7500 },
 ] as const;
+
+// Grant one-time stat-pool points and recompute the derived level in one step.
+function grantPoolPoints(character: PlayerCharacter, points: number): PlayerCharacter {
+    const granted = {
+        ...character,
+        unspentStats: Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + Math.max(0, Math.floor(points)),
+    };
+    return applyDerivedLevel(granted) as PlayerCharacter;
+}
 
 export const LIBERATOR_TITLES: Record<string, string> = {
     'Stormveil Village': 'Stormbreaker',
@@ -27,7 +40,7 @@ export function storyOpponentId(village: string, level: number): string {
 }
 
 export type StorySettlement =
-    | { ok: true; character: PlayerCharacter; progress: number; xp: number; ryo: number; auraDust: number; finale: boolean; title?: string }
+    | { ok: true; character: PlayerCharacter; progress: number; xp: number; statPoints: number; ryo: number; auraDust: number; finale: boolean; title?: string }
     | { ok: false; status: number; error: string };
 
 export function applyAcademySparSettlement(character: PlayerCharacter, token: AiFightToken): StorySettlement {
@@ -41,7 +54,9 @@ export function applyAcademySparSettlement(character: PlayerCharacter, token: Ai
     if (!/^temp-academy-spar-\d{10,16}$/.test(String(token.opponentId ?? ''))) {
         return { ok: false, status: 409, error: 'AI fight token does not match the Academy spar.' };
     }
-    const leveled = gainXp(character, 60) as PlayerCharacter;
+    // The teaching reward: +20 pool points (replacing the old one-time 60 XP)
+    // teaches the USER STATS panel the way the XP bar move used to.
+    const leveled = grantPoolPoints(character, 20);
     const maxHp = Math.max(1, Number(leveled.maxHp) || 1);
     const next: PlayerCharacter = {
         ...leveled,
@@ -52,7 +67,7 @@ export function applyAcademySparSettlement(character: PlayerCharacter, token: Ai
         onboardingStep: 'cafeteria',
         academySparClaimed: true,
     };
-    return { ok: true, character: next, progress: 0, xp: 60, ryo: 30, auraDust: 0, finale: false };
+    return { ok: true, character: next, progress: 0, xp: 0, statPoints: 20, ryo: 30, auraDust: 0, finale: false };
 }
 
 export function applyStoryBossSettlement(
@@ -71,7 +86,7 @@ export function applyStoryBossSettlement(
         return { ok: false, status: 409, error: 'AI fight token does not match the current story boss.' };
     }
     const reward = STORY_REWARDS[progress];
-    const leveled = gainXp(character, reward.xp) as PlayerCharacter;
+    const leveled = grantPoolPoints(character, reward.statPoints);
     const maxHp = Math.max(1, Number(leveled.maxHp) || 1);
     const maxStamina = Math.max(0, Number(leveled.maxStamina) || 0);
     const maxChakra = Math.max(0, Number(leveled.maxChakra) || 0);
@@ -97,5 +112,5 @@ export function applyStoryBossSettlement(
             inventory: inventory.includes('hollow-gate-key') ? inventory : [...inventory, 'hollow-gate-key'],
         } : {}),
     };
-    return { ok: true, character: next, progress: progress + 1, xp: reward.xp, ryo: reward.ryo, auraDust: 12, finale, ...(title ? { title } : {}) };
+    return { ok: true, character: next, progress: progress + 1, xp: 0, statPoints: reward.statPoints, ryo: reward.ryo, auraDust: 12, finale, ...(title ? { title } : {}) };
 }

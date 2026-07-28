@@ -237,17 +237,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let updatedAttacker = aChar;
             let ryoGained = 0;
-            let xpGained = 0;
+            const xpGained = 0; // character XP retired — kept in the response shape for old clients
             let sealsGained = 0;
 
             if (rewardEligible) {
-                // Base ryo + XP — same primitives the live PvP winner uses,
-                // scaled by the existing repeat-opponent decay.
-                const { xpGain, ryoGain } = computePvpWinGains(aChar as never, targetSector);
+                // Base ryo — same primitives the live PvP winner uses, scaled by
+                // the existing repeat-opponent decay. (Character XP is retired;
+                // sleeper kills deliberately grant NO stat growth — that stays a
+                // serious-fight reward on the live claim path.)
+                const { ryoGain } = computePvpWinGains(aChar as never, targetSector);
                 const decay = await recordPairWinAndDecay(attackerSlug, targetSlug);
-                xpGained = Math.max(0, Math.floor(xpGain * decay));
                 ryoGained = Math.max(0, Math.floor(ryoGain * decay));
-                const credit = creditPvpWinBase(aChar as never, xpGained, ryoGained);
+                const credit = creditPvpWinBase(aChar as never, ryoGained);
                 updatedAttacker = credit.char as unknown as Record<string, unknown>;
 
                 // PvP kill credit (server-side; the live path applies this on the

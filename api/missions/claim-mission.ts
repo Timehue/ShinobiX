@@ -4,7 +4,8 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { gainXp } from '../_xp-engine.js';
+import { applyDerivedLevel } from '../_xp-engine.js';
+import { combinedStatBoost } from '../_stat-growth.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { utcDateKey, reportNewbieEvent } from './_progress.js';
 import { recordEconomyTxn } from '../_economy.js';
@@ -24,6 +25,7 @@ import {
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import {
     APEX_REWARD,
+    APEX_STAT_POINTS,
     apexClaimableWeeks,
     apexClaimedThisWeek,
     apexKillReceiptKey,
@@ -35,6 +37,9 @@ import {
     huntMissionById,
     ACADEMY_TRIAL,
     ACADEMY_CHECKLIST,
+    FIELD_MISSION_STAT_POINTS,
+    ACADEMY_TRIAL_STAT_POINTS,
+    ACADEMY_CHECKLIST_STAT_POINTS,
     missionRewardBonusPct,
     boostAmount,
     hasDailyMissionSlot,
@@ -226,7 +231,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const bonusPct = missionRewardBonusPct(char);
 
             // ── Resolve mission + per-type eligibility ──────────────────────
-            let baseXp = 0, baseRyo = 0, baseStamina = 0;
+            // baseXp is retired (leveling-without-xp map): the progression payout
+            // is baseStatPoints — pool points on ONCE-PER-DAY claims (the daily
+            // checklist: field/hunt) and one-time capstones (apex, academy).
+            // Repeatable combat-mission slots pay ryo only (the farm-bound).
+            let baseRyo = 0, baseStamina = 0;
+            let baseStatPoints = 0;
+            let boostStatPoints = false; // true only for daily-checklist claims
             let scrolls = 0;
             let items: string[] = [];
             let currencyBase: Partial<Record<CurrencyKey, number>> | undefined;
@@ -287,7 +298,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const consumed = await kv.del(tokenKey);
                     if (consumed <= 0 && !hasLegacyFlag) return { applied: false, reason: 'not-queued' };
                 }
-                baseXp = def.xp; baseRyo = def.ryo; scrolls = def.territoryScrolls;
+                // Repeatable combat-mission slots are the unlimited-repeat channel:
+                // ryo/scrolls only, no stat points (the once-per-day checklist and
+                // training are where growth lives).
+                baseRyo = def.ryo; scrolls = def.territoryScrolls;
                 combat = { aiProfileId: def.aiProfileId, missionKey: def.key };
                 completion = 'daily';
             } else if (missionType === 'field') {
@@ -315,7 +329,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                 }
                 progressReceiptKeyToClear = progressKey;
-                baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
+                baseRyo = def.ryoReward; baseStamina = def.staminaReward;
+                baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
                 scrolls = FIELD_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 completion = 'daily';
             } else if (missionType === 'hunt') {
@@ -333,7 +348,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 );
                 if (!progress.ok) return { applied: false, reason: progress.reason };
                 progressReceiptKeyToClear = progressKey;
-                baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
+                baseRyo = def.ryoReward; baseStamina = def.staminaReward;
+                baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
                 scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
@@ -354,7 +370,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (receipt) { settledWeek = week; break; }
                 }
                 if (!settledWeek) return { applied: false, reason: 'missing-hunt-kill-receipt' };
-                baseXp = APEX_REWARD.xp; baseRyo = APEX_REWARD.ryo; baseStamina = APEX_REWARD.stamina;
+                baseRyo = APEX_REWARD.ryo; baseStamina = APEX_REWARD.stamina;
+                baseStatPoints = APEX_STAT_POINTS; // weekly capstone — outside the daily checklist, unboosted
                 currencyBase = { fateShards: APEX_REWARD.fateShards };
                 scrolls = HUNT_MISSION_SCROLLS;
                 completion = 'total';
@@ -363,7 +380,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } else if (missionType === 'academy-trial') {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed) return { applied: false, reason: 'already-claimed' };
-                baseXp = ACADEMY_TRIAL.xp; baseRyo = ACADEMY_TRIAL.ryo; baseStamina = ACADEMY_TRIAL.stamina;
+                baseRyo = ACADEMY_TRIAL.ryo; baseStamina = ACADEMY_TRIAL.stamina;
+                baseStatPoints = ACADEMY_TRIAL_STAT_POINTS; // one-time onboarding, unboosted
                 completion = 'total';
                 academyTrialClaimed = true;
             } else {
@@ -371,7 +389,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // daily cap, doesn't count toward mission totals (completion 'none'),
                 // grants a small premium (Fate Shards) bonus from the sealed catalog.
                 if (char.academyChecklistClaimed) return { applied: false, reason: 'already-claimed' };
-                baseXp = ACADEMY_CHECKLIST.xp; baseRyo = ACADEMY_CHECKLIST.ryo; baseStamina = ACADEMY_CHECKLIST.stamina;
+                baseRyo = ACADEMY_CHECKLIST.ryo; baseStamina = ACADEMY_CHECKLIST.stamina;
+                baseStatPoints = ACADEMY_CHECKLIST_STAT_POINTS; // one-time graduation capstone, unboosted
                 currencyBase = { fateShards: ACADEMY_CHECKLIST.fateShards };
                 completion = 'none';
                 academyChecklistClaimed = true;
@@ -383,12 +402,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // ── Compute server-authoritative amounts ────────────────────────
             // huntRankBonusPct is 0 for every non-hunt claim, so this only lifts hunts.
-            const xpBoosted = boostAmount(baseXp, bonusPct + huntRankBonusPct);
             const ryoBoosted = boostAmount(baseRyo, bonusPct + huntRankBonusPct);
             const staminaBoosted = baseStamina > 0 ? boostAmount(baseStamina, bonusPct) : 0;
+            // Daily-checklist grants are boosted by the same mission bonuses that
+            // used to boost mission XP, plus the era dial (aggregate-capped);
+            // one-time capstones pay their fixed value.
+            const statPointsGranted = baseStatPoints > 0
+                ? Math.max(0, Math.round(baseStatPoints * (boostStatPoints ? combinedStatBoost(bonusPct + huntRankBonusPct) : 1)))
+                : 0;
 
             // ── Apply onto the saved character ──────────────────────────────
-            let next = gainXp(char, xpBoosted) as SaveChar;
+            // Character XP is retired: the stat-pool grant moves the earned
+            // ledger, then the rise-only derived-level recompute picks it up.
+            let next: SaveChar = { ...char };
+            if (statPointsGranted > 0) {
+                next = { ...next, unspentStats: Math.max(0, Math.floor(Number(next.unspentStats) || 0)) + statPointsGranted };
+            }
+            next = applyDerivedLevel(next) as SaveChar;
             next = { ...next, ryo: Number(next.ryo ?? 0) + ryoBoosted };
             if (staminaBoosted > 0) {
                 const maxStamina = Number(next.maxStamina ?? 0);
@@ -460,7 +490,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 applied: true,
                 saveVersion: Number(updated._saveVersion ?? 0),
                 reward: {
-                    xpBoosted,
+                    xpBoosted: 0, // retired — kept in the shape for old clients
+                    statPoints: statPointsGranted,
                     ryo: ryoBoosted,
                     stamina: staminaBoosted,
                     territoryScrolls: scrolls,

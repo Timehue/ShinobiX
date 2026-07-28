@@ -68,13 +68,15 @@ test('node ids are bounded and encounter receipts include kind to prevent boss r
 });
 
 test('server reward table preserves the shipped floor scaling and profession rules', () => {
+    // Character XP retired: the old xp line folds into ryo at ~0.75:1
+    // (battle 380 + 105 = 485; boss 2400 + 450 = 2850 base before depth).
     assert.deepEqual(hollowGateCombatReward(1, 'battle'), {
-        xp: 140, ryo: 380, auraDust: 5, honorSeals: 0, boneCharms: 0,
+        xp: 0, ryo: 485, auraDust: 5, honorSeals: 0, boneCharms: 0,
         fateShards: 0, hollowShards: 0, fragments: 0, veils: 0,
     });
     const boss = hollowGateCombatReward(5, 'boss', 'vanguard');
-    assert.equal(boss.xp, 1080);
-    assert.equal(boss.ryo, 4320);
+    assert.equal(boss.xp, 0);
+    assert.equal(boss.ryo, Math.floor(2850 * 1.8)); // depth ×1.8 on floor 5
     assert.equal(boss.auraDust, 54);
     assert.equal(boss.honorSeals, 120);
     assert.equal(boss.boneCharms, 14);

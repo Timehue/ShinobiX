@@ -4,18 +4,21 @@ import { applySectorExploreReward, DAILY_SECTOR_EXPLORE_LIMIT, sectorExploreRewa
 
 describe('sector exploration settlement', () => {
     it('uses the canonical sector formula and rejects out-of-world sectors', () => {
-        assert.deepEqual(sectorExploreReward(25), { sector: 25, xp: 25, ryo: 16 });
+        // Character XP retired: the old xp line (20 + sector/5) folds into ryo
+        // — sector 25: ryo (10+6) + (10+2) = 28, xp always 0.
+        assert.deepEqual(sectorExploreReward(25), { sector: 25, xp: 0, ryo: 28 });
         assert.equal(sectorExploreReward(0), null);
         assert.equal(sectorExploreReward(61), null);
     });
 
-    it('commits XP, ryo, and counters from stored state', () => {
+    it('commits ryo and counters from stored state (xp retired, level derived)', () => {
         const result = applySectorExploreReward({ level: 1, xp: 0, ryo: 5, totalTilesExplored: 8 }, 10, '2026-07-12');
         assert.equal(result.ok, true);
         if (!result.ok) return;
-        assert.equal(result.reward.xp, 22);
-        assert.equal(result.reward.ryo, 12);
-        assert.equal(result.character.ryo, 17);
+        assert.equal(result.reward.xp, 0);
+        assert.equal(result.reward.ryo, (10 + 2) + (10 + 1)); // sector 10: 12 + 11 = 23
+        assert.equal(result.character.ryo, 5 + 23);
+        assert.equal(result.character.xp, 0, 'frozen xp untouched');
         assert.equal(result.character.totalTilesExplored, 9);
         assert.equal(result.character.dailyTilesExplored, 1);
     });

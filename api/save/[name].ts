@@ -27,6 +27,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
+import { applyDerivedLevel, earnedForLevel, earnedStatPoints } from '../_xp-engine.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
 import { maxLoadout, maxPets, isPatreonSubscriber, isPresetAvatar } from '../_entitlements.js';
@@ -348,8 +349,6 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
     inventory: ['rustfang-kunai', 'shinobi-vest'], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
     equipment: {},
 };
-
-const MAX_LEVEL_GAIN = 5;
 
 const STRICT_SERVER_LEDGER_CHARACTER_FIELDS = [
     'level', 'xp', 'experience', 'ryo', 'bankRyo',
@@ -755,19 +754,15 @@ export function sanitizeCharacterSave(
 
     const strictLedger = strictRawSaveLedgerEnabled();
 
-    // Keep legacy bounded progression writable during the server-settlement
-    // migration. Strict mode turns the generic save route into persistence-only.
-    const exLevel = Math.max(1, Number(exChar.level ?? 1));
-    const inLevel = Math.max(1, Number(char.level ?? 1));
-    const boundedLevel = Math.min(LEVEL_CAP, Math.max(exLevel, Math.min(inLevel, exLevel + MAX_LEVEL_GAIN)));
-    char.level = strictLedger || inLevel - exLevel > MAX_LEVEL_GAIN ? Math.min(LEVEL_CAP, exLevel) : boundedLevel;
-    const exXp = Math.max(0, Number(exChar.xp ?? 0));
-    const inXp = Math.max(0, Number(char.xp ?? 0));
-    if (strictLedger || inXp - exXp > 100) char.xp = exXp;
+    // Character XP is retired (leveling-without-xp map): `xp` is FROZEN — always
+    // re-asserted from the stored save (kept only as pre-wipe rollback ballast) —
+    // and `level` is no longer client-writable AT ALL: it is recomputed
+    // server-side from the validated stat ledger after the stat-entitlement step
+    // below. The old +5-levels / +100-xp per-save allowances are gone with the
+    // trust surface they bounded.
+    char.xp = Math.max(0, Number(exChar.xp ?? 0));
     if (exChar.experience !== undefined) {
-        const exExperience = Math.max(0, Number(exChar.experience) || 0);
-        const inExperience = Math.max(0, Number(char.experience) || 0);
-        if (strictLedger || inExperience - exExperience > 100) char.experience = exExperience;
+        char.experience = Math.max(0, Number(exChar.experience) || 0);
     } else delete char.experience;
 
     // Wallet values may decrease through existing client-side sinks, but all
@@ -889,6 +884,36 @@ export function sanitizeCharacterSave(
         const statEntitlement = preserveStatPointEntitlement(char, exChar);
         char.stats = statEntitlement.stats;
         char.unspentStats = statEntitlement.unspentStats;
+    }
+    // ── Stat-derived level (leveling-without-xp map) ────────────────────────
+    // One-time ledger migration: an XP-era save whose earned points don't yet
+    // cover its stored level gets the difference as pool points, so nobody
+    // de-levels and nobody's progress silently stalls until earned catches up.
+    // Computed from the STORED level + the entitlement-validated ledger only.
+    if (!exChar.levelLedgerMigrated) {
+        const storedLevel = Math.max(1, Math.min(LEVEL_CAP, Math.floor(Number(exChar.level) || 1)));
+        const earnedNow = earnedStatPoints(char);
+        const need = earnedForLevel(storedLevel);
+        if (earnedNow < need) {
+            char.unspentStats = Math.max(0, Math.floor(Number(char.unspentStats) || 0)) + (need - earnedNow);
+        }
+    }
+    char.levelLedgerMigrated = true;
+    // Level is a pure function of the validated ledger, clamped by the exam
+    // holds; the client-supplied level is ignored entirely (forge-proof). The
+    // rise-only recompute is seeded from the STORED level, so a save write can
+    // only move level the way the server's own grant endpoints would.
+    {
+        const seeded = { ...char, level: Math.max(1, Math.min(LEVEL_CAP, Math.floor(Number(exChar.level) || 1))) };
+        const derived = applyDerivedLevel(seeded) as Record<string, unknown>;
+        char.level = derived.level;
+        char.rankTitle = derived.rankTitle ?? char.rankTitle;
+        char.maxHp = derived.maxHp ?? char.maxHp;
+        char.maxChakra = derived.maxChakra ?? char.maxChakra;
+        char.maxStamina = derived.maxStamina ?? char.maxStamina;
+        char.hp = derived.hp ?? char.hp;
+        char.chakra = derived.chakra ?? char.chakra;
+        char.stamina = derived.stamina ?? char.stamina;
     }
     char.totalStatsTrained = Math.max(0, Math.floor(Number(exChar.totalStatsTrained) || 0));
     if (Array.isArray(exChar.redeemedTrainingTokens)) char.redeemedTrainingTokens = exChar.redeemedTrainingTokens;

@@ -23,11 +23,14 @@ export const APEX_MIN_LEVEL = 70;
 
 /** ⚖ Purse — once per ISO week, on its own slot (never a daily hunt). */
 export const APEX_REWARD = {
-    xp: 3_000,
+    xp: 3_000, // retired (character XP removed) — kept for old-client display shapes
     ryo: 8_000,
     stamina: 40,
     fateShards: 3,
 } as const;
+// Weekly capstone stat-pool grant (leveling-without-xp map §4): one-time per
+// week by the apexWeekClaimed stamp, outside the daily checklist, unboosted.
+export const APEX_STAT_POINTS = 25;
 
 export type ApexBeastDef = { baseAiId: string; apexAiId: string; level: number; statBonus: number; hp: number };
 

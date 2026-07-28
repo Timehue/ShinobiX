@@ -653,8 +653,10 @@ describe('full game simulation harness', () => {
             } else if (mode === 3) {
                 char.currentSector = ((char.currentSector + 7) % 144) + 1;
             } else if (mode === 4) {
-                const gains = { xpGain: 100 + (step % 5) * 10, ryoGain: 75 + (step % 3) * 5 };
-                const credited = creditPvpWinBase(char, gains.xpGain, gains.ryoGain).char as SimCharacter;
+                // Character XP is retired — the base PvP credit is ryo + the
+                // derived-level recompute (stat growth is a separate slice).
+                const gains = { ryoGain: 75 + (step % 3) * 5 };
+                const credited = creditPvpWinBase(char, gains.ryoGain).char as SimCharacter;
                 record(credited, gains.ryoGain, 'pvp.win', step);
                 char = credited;
             } else if (mode === 5 && char.ryo >= 45) {

@@ -5,12 +5,12 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
-import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
+import { computePvpWinGains, creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
 import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
+import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
@@ -292,7 +292,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // transient loser-save read miss; the winner can retry the claim.
                 const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
                 if (!loserRecord?.character) return undefined;
-                const { xpGain, ryoGain } = computePvpWinGains(char, session.rewardSector);
+                const { ryoGain, growthMult } = computePvpWinGains(char, session.rewardSector);
                 const sid = pvpSettlementId('base', battleId);
                 const decision = inspectPvpCredit(char, sid, 'base');
                 if (decision.fresh) {
@@ -308,9 +308,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // lost. The loser is a confirmed real player (guarded above),
                     // so the pair-decay always applies.
                     const decay = await recordPairWinAndDecay(winnerSlug, loserSlug);
-                    const dXp = Math.max(0, Math.floor(xpGain * decay));
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
-                    const credit = creditPvpWinBase(char, dXp, dRyo);
+                    const credit = creditPvpWinBase(char, dRyo);
                     let finalChar: Record<string, unknown> = credit.char;
                     let summary = credit.summary;
                     // Stage 4: casual PvP grants a small, daily-capped combat stat
@@ -330,14 +329,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const spentToday = Number((await kv.get<number>(budgetKey)) ?? 0);
                         const remaining = Math.max(0, DAILY_COMBAT_STAT_CAP - spentToday);
                         const statsNow = (finalChar.stats ?? {}) as Record<string, number>;
-                        const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, PVP_CASUAL_STAT_POINTS_PER_WIN, remaining);
-                        if (g.spent > 0) {
-                            await kv.set(budgetKey, spentToday + g.spent, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                        // The slice ledger charges BASE points; boosts multiply the
+                        // payout after slice accounting (map §4.1): the retired Swift
+                        // +25% / Death's Gate ×2 XP bonuses (growthMult) and the era
+                        // dial scale what's granted, not what's charged.
+                        const baseEarned = Math.max(0, Math.min(PVP_CASUAL_STAT_POINTS_PER_WIN, remaining));
+                        const boosted = Math.round(baseEarned * growthMult * statGainMultiplier());
+                        const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, boosted, boosted);
+                        if (baseEarned > 0 && g.spent > 0) {
+                            await kv.set(budgetKey, spentToday + baseEarned, { ex: 25 * 60 * 60 }).catch(() => undefined);
                             const newStats: Record<string, number> = { ...statsNow };
                             for (const [k, v] of Object.entries(g.allocated)) newStats[k] = (Number(newStats[k]) || 0) + (v ?? 0);
                             const newUnspent = (Number(finalChar.unspentStats) || 0) + g.unspentGain;
                             finalChar = { ...finalChar, stats: newStats, unspentStats: newUnspent };
-                            summary = { ...summary, unspentStats: newUnspent, statGrowth: { allocated: g.allocated as Record<string, number>, unspentGain: g.unspentGain } };
+                            // Stat growth moved the earned ledger — recompute the
+                            // derived level (rise-only) so a boundary crossing lands
+                            // in the same atomic write.
+                            finalChar = applyDerivedLevel(finalChar) as Record<string, unknown>;
+                            summary = {
+                                ...summary,
+                                level: Number(finalChar.level) || summary.level,
+                                rankTitle: typeof finalChar.rankTitle === 'string' ? finalChar.rankTitle : summary.rankTitle,
+                                maxHp: Number(finalChar.maxHp) || summary.maxHp,
+                                maxChakra: Number(finalChar.maxChakra) || summary.maxChakra,
+                                maxStamina: Number(finalChar.maxStamina) || summary.maxStamina,
+                                unspentStats: newUnspent,
+                                statGrowth: { allocated: g.allocated as Record<string, number>, unspentGain: g.unspentGain },
+                            };
                         }
                     }
                     const month = new Date().toISOString().slice(0, 7);

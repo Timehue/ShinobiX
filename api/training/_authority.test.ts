@@ -24,13 +24,31 @@ test('training start debits trusted stamina and persists a versioned save', () =
 });
 
 test('training rewards ignore forged client modifiers and only one live lease can start', () => {
-    assert.doesNotMatch(start, /trainingBonusPct|warMult/);
     const requestStart = client.indexOf("fetch('/api/training/start'");
     const requestEnd = client.indexOf('const data = await res.json()', requestStart);
     const startCall = client.slice(requestStart, requestEnd);
     assert.doesNotMatch(startCall, /trainingBonusPct|warMult/, 'the start request must not send client reward modifiers');
+    // The growth bonus is sealed INSIDE the save lock from the LOCKED character
+    // (village/elder/clan fields on the save) — never from the request body.
+    assert.match(start, /trustedTrainingRewards\(tier, character\)/);
     const tier = TRAINING_TIERS[0];
-    assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 6, sealedXp: 20 });
+    const prevMult = process.env.STAT_GAIN_MULTIPLIER;
+    try {
+        delete process.env.STAT_GAIN_MULTIPLIER;
+        // No character → no bonus; character XP is retired so sealedXp is 0.
+        assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 6, sealedXp: 0, bonusPct: 0 });
+        // Server-derived bonus: village Training 50 (×0.25 = 12.5%) + elder
+        // training focus (+10%) → ×1.225 on the 15m tier's base 6 → 7.
+        const boosted = trustedTrainingRewards(tier, {
+            villageUpgrades: { training: 50 }, elderFocus: 'training',
+        });
+        assert.equal(boosted.bonusPct, 22.5);
+        assert.equal(boosted.sealedGain, 7);
+        assert.equal(boosted.sealedXp, 0);
+    } finally {
+        if (prevMult === undefined) delete process.env.STAT_GAIN_MULTIPLIER;
+        else process.env.STAT_GAIN_MULTIPLIER = prevMult;
+    }
 
     const active = { token: 'abc123', startedAt: 1_000, endsAt: 2_000, expiresAt: 10_000 };
     assert.deepEqual(normalizeActiveTrainingSession(active), active);
@@ -48,7 +66,10 @@ test('training completion credits the save once with a durable receipt', () => {
     assert.match(complete, /receipts\.includes\(token\)/);
     assert.match(complete, /writeVersionedPlayerSave/);
     assert.match(complete, /_trainingReceipts: nextReceipts/);
-    assert.match(complete, /gainXp\(/);
+    // Character XP is retired: completion applies the sealed stat grant (with
+    // the derived-level recompute inside) and never calls the old XP driver.
+    assert.match(complete, /applyTrainingGrant\(character/);
+    assert.doesNotMatch(complete, /gainXp\(/);
     assert.ok(MAX_TRAINING_RECEIPTS >= 256);
     assert.match(complete, /activeTraining: null/);
     assert.match(complete, /activeTrainingMatches\(record\.activeTraining, token\)/, 'a stale completion cannot clear a newly-started session');

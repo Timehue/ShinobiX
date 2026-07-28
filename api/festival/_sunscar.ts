@@ -7,7 +7,8 @@ export type FateDiceSymbol = typeof FATE_DICE_SYMBOLS[number];
 
 export type FateDiceReward = {
     ryo: number;
-    xp: number;
+    xp: number; // retired (character XP removed) — always 0, kept for old-client shape
+    statPoints: number; // small stat-pool grants (bounded by FATE_DICE_DAILY_CAP + the ryo cost)
     stamina: number;
     boneCharms: number;
     fateShards: number;
@@ -44,7 +45,7 @@ function randInt(rand: () => number, min: number, max: number): number {
 }
 
 function emptyReward(): FateDiceReward {
-    return { ryo: 0, xp: 0, stamina: 0, boneCharms: 0, fateShards: 0, auraStones: 0 };
+    return { ryo: 0, xp: 0, statPoints: 0, stamina: 0, boneCharms: 0, fateShards: 0, auraStones: 0 };
 }
 
 export function utcDateKey(now = Date.now()): string {
@@ -67,24 +68,26 @@ export function rollFateDice(rand: () => number = Math.random): FateDiceRoll {
         reward.fateShards = randInt(rand, 1, 3);
         message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
     } else if (roll.includes('scorpion')) {
+        // Character XP is retired — the dice's old XP lines are now tiny
+        // stat-pool grants (seasonal flavor, bounded by the daily cap + cost).
         reward.ryo = 10;
-        reward.xp = 15;
+        reward.statPoints = 1;
         message = 'The scorpion strikes. A harsh lesson leaves you with scraps.';
     } else if (roll.includes('coin')) {
         reward.ryo = 100;
-        reward.xp = 20;
+        reward.statPoints = 1;
         message = 'Coins flash beneath the desert sun. Fortune smiles on you.';
     } else if (roll.includes('blade')) {
         reward.stamina = 30;
-        reward.xp = 25;
+        reward.statPoints = 2;
         message = 'Blade omen. Your body surges with fighting spirit.';
     } else if (roll.includes('moon')) {
-        reward.xp = 75;
+        reward.statPoints = 5;
         reward.ryo = 25;
         message = 'Moon omen. A strange luck follows you through the night.';
     } else {
         reward.ryo = 40;
-        reward.xp = 10;
+        reward.statPoints = 1;
         message = 'Small fortune. The sands give a little back.';
     }
 

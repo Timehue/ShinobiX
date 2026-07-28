@@ -56,7 +56,11 @@ export function storyCombatRewardFingerprint(village: string, progressIndex: num
         village,
         progressIndex,
         opponentId: storyOpponentId(village, STORY_LEVELS[progressIndex] ?? 0),
-        xp: reward?.xp ?? 0,
+        // Fingerprint key name kept as `xp` for shape stability; the value is
+        // now the milestone's stat-point grant. A binding minted BEFORE the XP
+        // removal will fingerprint differently and settle as reward-drift once
+        // — the player re-fights that milestone (one-time deploy cost).
+        xp: reward?.statPoints ?? 0,
         ryo: reward?.ryo ?? 0,
     })).digest('hex');
 }

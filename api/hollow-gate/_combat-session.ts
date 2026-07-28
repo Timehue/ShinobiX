@@ -133,8 +133,10 @@ export function hollowGateCombatReward(floorRaw: number, kind: HollowGateCombatK
     const boss = kind === 'boss';
     const ambush = kind === 'ambush';
     const depthMult = boss ? 1 + Math.max(0, floor - 1) * 0.2 : 1;
+    // Character XP is retired (leveling-without-xp map): the old xp line
+    // (600/220/140 × depth) folds into ryo at ~0.75:1; loot lines unchanged.
     const baseXp = boss ? 600 : ambush ? 220 : 140;
-    const baseRyo = boss ? 2400 : ambush ? 900 : 380;
+    const baseRyo = (boss ? 2400 : ambush ? 900 : 380) + Math.floor(baseXp * 0.75);
     const baseDust = boss ? 30 : ambush ? 10 : 5;
     const encounterHonor = boss ? Math.floor(25 * depthMult) : 0;
     // The shipped final-clear modal paid these in addition to the boss drop.
@@ -142,7 +144,7 @@ export function hollowGateCombatReward(floorRaw: number, kind: HollowGateCombatK
     // totals here instead of trusting a second client-side reward click.
     const clearHonor = boss ? 75 : 0;
     return {
-        xp: Math.floor(baseXp * depthMult),
+        xp: 0, // retired — kept in the shape for old clients
         ryo: Math.floor(baseRyo * depthMult),
         auraDust: Math.floor(baseDust * depthMult),
         honorSeals: profession === 'vanguard' ? encounterHonor + clearHonor : 0,
