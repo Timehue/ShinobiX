@@ -76,7 +76,6 @@ import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib
 import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR, setHollowGateMaxFloor } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
-import "../styles/combat-jutsu-ui.css";
 
 // The 10 starter-evolution templates (`starter-<element>-r`/`-l`) ship their
 // canonical portrait as a bundled static file at /pet-evos/<id>.webp — the same
