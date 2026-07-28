@@ -167,7 +167,7 @@ import { readFileSync } from "node:fs";
 // → 8,441 (net −18: extracted the clan-war "tilecards" fallback-deck build +
 // Chronicle Showdown keeps its rules/catalog behind lazy Card Hall and battle
 // routes instead of loading it eagerly from App. See scripts/check-build-size.mjs.)
-const MAX_LINES = 8_441;
+const MAX_LINES = 7_820;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
