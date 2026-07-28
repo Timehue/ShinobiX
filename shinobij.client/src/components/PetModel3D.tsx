@@ -10,6 +10,7 @@ import { bindPetAtlasTexture, copyPetAtlasSampling, lockPetAtlas } from "../lib/
 import { readPetGlbAtlas } from "../lib/pet-glb-atlas";
 import { attackClipWindow, motionOwnsLocomotion, resolveCombatBodyFacing } from "../lib/pet-combat-performance";
 import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
+import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 
 export type PetModelMotion =
     | "idle"
@@ -248,22 +249,6 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
     material.needsUpdate = true;
 }
 
-function undeformedBounds(root: THREE.Group): THREE.Box3 {
-    // Box3.setFromObject evaluates SkinnedMesh vertices. Some FBX→glTF animal rigs
-    // carry a 100× armature conversion and that path applies the scale twice, yielding
-    // a 500-unit box for a 5-unit shark. Geometry bounds transformed by matrixWorld are
-    // the stable bind-pose bounds we need for presentation normalization.
-    const result = new THREE.Box3();
-    root.updateWorldMatrix(true, true);
-    root.traverse((node) => {
-        if (!(node instanceof THREE.Mesh)) return;
-        if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
-        if (!node.geometry.boundingBox) return;
-        result.union(node.geometry.boundingBox.clone().applyMatrix4(node.matrixWorld));
-    });
-    return result;
-}
-
 function stylizeApprovedRig(root: THREE.Group, config: PetCombatModelConfig) {
     if (!config.visualId.startsWith("starter-fire")) return;
     const scaleNode = (name: string, x: number, y = x, z = x) => {
@@ -292,12 +277,29 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
     // shares skeleton bindings and causes one fighter's animation to corrupt the other.
     const surface = cloneSkeleton(source) as THREE.Group;
     stylizeApprovedRig(surface, config);
-    const box = undeformedBounds(surface);
+    const presentationBounds = stablePetModelPresentationBounds(surface);
+    const box = presentationBounds.fit;
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    const offset: [number, number, number] = [-center.x, -box.min.y, -center.z];
+    const offset: [number, number, number] = [-center.x, -presentationBounds.groundY, -center.z];
     const fitSize = config.fit === "longest" ? Math.max(size.x, size.y, size.z) : size.y;
     const scale = config.targetHeight / Math.max(0.001, fitSize);
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("modelbounds") === "1") {
+        const skinned = new THREE.Box3().setFromObject(surface, true);
+        const diagnostic = {
+            visualId: config.visualId,
+            raw: presentationBounds.raw.getSize(new THREE.Vector3()).toArray(),
+            fit: size.toArray(),
+            groundY: presentationBounds.groundY,
+            skinned: skinned.getSize(new THREE.Vector3()).toArray(),
+            scale,
+        };
+        (window as Window & { __PET_MODEL_BOUNDS__?: Record<string, typeof diagnostic> }).__PET_MODEL_BOUNDS__ ??= {};
+        (window as Window & { __PET_MODEL_BOUNDS__?: Record<string, typeof diagnostic> }).__PET_MODEL_BOUNDS__![config.visualId] = diagnostic;
+        document.documentElement.dataset.petModelBounds = JSON.stringify(
+            (window as Window & { __PET_MODEL_BOUNDS__?: Record<string, typeof diagnostic> }).__PET_MODEL_BOUNDS__,
+        );
+    }
     const materials: THREE.Material[] = [];
     // Fighter materials are isolated, but GLTFLoader remains the sole owner of
     // their baked colour atlases. Cloning/disposing the Texture wrapper broke
