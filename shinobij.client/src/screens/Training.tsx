@@ -9,6 +9,11 @@
 import type React from "react";
 import { serverNow } from "../lib/server-clock";
 import { useState, useEffect, useRef } from "react";
+// Was styles/index/16-*.css in the eager index.css manifest, so it loaded BEFORE the
+// per-screen skins. It shares 16 selectors with battle-skin.css (and 2 with
+// profile-skin.css), which override it, so it MUST stay above them here or the
+// combat jutsu bar restyles.
+import "../styles/combat-jutsu-ui.css";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
 import { gameConfirm } from "../components/GameAlert";
