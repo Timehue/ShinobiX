@@ -25,7 +25,6 @@ import { consumeHollowGateServerSecondWind, hollowGateAugmentEffects } from "./h
 import { tryHollowGateSecondWind } from "./hollow-gate-shards";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
 import { isPetOnExpedition } from "./pet";
-import { effectiveCharacterXpGain } from "./progression";
 import { requireServerSettlement } from "./server-settlement-gate";
 import type { Pet, PetRarity } from "../types/pet";
 import type {
