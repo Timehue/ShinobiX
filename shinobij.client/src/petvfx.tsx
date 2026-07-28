@@ -116,7 +116,7 @@ function Harness() {
             ...base,
             element,
             id: rosterBattlePet?.id ?? (model3dMode ? "starter-fire" : "generic-ai-pet-emberlynx"),
-            name: rosterBattlePet?.name ?? (model3dMode ? "Ember Wolf" : "Emberlynx"),
+            name: rosterBattlePet?.name ?? (model3dMode ? (legendaryModelMode ? "Inferno Fenrir" : "Ember Wolf") : "Emberlynx"),
             hp: quickDemoMode ? 520 : Math.max(1100, base.hp ?? 0),
             attack: quickDemoMode ? Math.max(150, base.attack ?? 0) : Math.max(110, base.attack ?? 0),
             speed: Math.max(88, base.speed ?? 0),
@@ -131,7 +131,7 @@ function Harness() {
                 : jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }, { name: "Stone Ward", kind: "barrier", power: 60, cooldown: 3, currentCooldown: 0 })),
         };
     }, [model3dMode, rosterBattlePet, legendaryModelMode, quickDemoMode]);
-    const duelEnemy = useMemo(() => liveAiEnemy ? ({ ...liveAiEnemy, hp: quickDemoMode ? 520 : liveAiEnemy.hp }) : ({ ...harnessPet(7, { element: model3dMode ? "Water" : "Lightning" }), id: model3dMode ? "starter-water" : "generic-ai-pet-guardhound", name: model3dMode ? "Tidal Selkie" : "Guardhound", hp: quickDemoMode ? 520 : 1200, attack: quickDemoMode ? 160 : 115, speed: 84,
+    const duelEnemy = useMemo(() => liveAiEnemy ? ({ ...liveAiEnemy, hp: quickDemoMode ? 520 : liveAiEnemy.hp }) : ({ ...harnessPet(7, { element: model3dMode ? "Water" : "Lightning" }), id: model3dMode ? "starter-water" : "generic-ai-pet-guardhound", name: model3dMode ? (legendaryModelMode ? "Abyssal Leviathan" : "Tidal Selkie") : "Guardhound", hp: quickDemoMode ? 520 : 1200, attack: quickDemoMode ? 160 : 115, speed: 84,
         ...(model3dMode ? { evolutionStage: legendaryModelMode ? 2 as const : 1 as const, rarity: legendaryModelMode ? "legendary" as const : "rare" as const } : {}),
         jutsus: model3dMode
             ? jts(

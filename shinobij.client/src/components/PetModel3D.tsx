@@ -642,10 +642,11 @@ export function LegacyAnimePetAccents({ config }: { config: PetCombatModelConfig
     return null;
 }
 
-function LoadedPetModel3D({ config, frame, element }: {
+function LoadedPetModel3D({ config, frame, element, showIdentity = true }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
+    showIdentity?: boolean;
 }) {
     const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
     const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
@@ -1087,7 +1088,7 @@ function LoadedPetModel3D({ config, frame, element }: {
                 <group scale={prepared.scale}>
                     <primitive object={prepared.surface} position={prepared.offset} dispose={null} />
                 </group>
-                <PetIdentityEffects3D config={config} frame={frame} quality={quality} elementColor={lightColor} />
+                {showIdentity && <PetIdentityEffects3D config={config} frame={frame} quality={quality} elementColor={lightColor} />}
             </group>
             {quality.dynamicPetLight && <pointLight ref={aura} color={lightColor} intensity={0} distance={3.2} decay={2} position={[0, config.targetHeight * 0.55, 0]} />}
         </group>
@@ -1097,10 +1098,11 @@ function LoadedPetModel3D({ config, frame, element }: {
 /** Approved textured GLBs are the production combat bodies. Their dense surface
  * detail reads far more cleanly than the earlier primitive-built prototypes; the
  * shared deformation rig supplies combat motion until authored skeletal clips land. */
-export function PetModel3D({ config, frame, element }: {
+export function PetModel3D({ config, frame, element, showIdentity = true }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
+    showIdentity?: boolean;
 }) {
-    return <LoadedPetModel3D config={config} frame={frame} element={element} />;
+    return <LoadedPetModel3D config={config} frame={frame} element={element} showIdentity={showIdentity} />;
 }

@@ -66,6 +66,10 @@ import { PARTY_SPOTLIGHT_COOLDOWN_SECONDS, appendCapped, boundedBurstStep, duelA
 import { petVisualQuality, type PetVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
+import { duelCameraComposition } from "../lib/pet-duel-camera";
+import { resolvePetDuelVisualLayers } from "../lib/pet-duel-visual-layers";
+import { petCombatFamilyPresentation } from "../lib/pet-combat-family";
+import { petDisplayName } from "../lib/pet";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -1131,8 +1135,8 @@ function ResponsiveCamera() {
     const { camera, size } = useThree();
     useFrame(() => {
         const aspect = size.width / Math.max(1, size.height);
-        const baseFov = aspect < 0.8 ? 60 : aspect < 1.2 ? 47 : CAM_FOV;
-        const fov = baseFov - duelFovKick.current;   // narrower FOV = zoom-in punch (decayed by DuelDirector)
+        const composition = duelCameraComposition(aspect);
+        const fov = composition.fov - duelFovKick.current;   // narrower FOV = zoom-in punch (decayed by DuelDirector)
         const cam = camera as THREE.PerspectiveCamera;
         if (Math.abs(cam.fov - fov) > 0.001) {
             // eslint-disable-next-line react-hooks/immutability -- the r3f camera is a mutable three.js object; per-frame mutation inside useFrame is the library's idiomatic pattern (same as CameraRig's position writes)
@@ -1812,8 +1816,8 @@ function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
  *  on the floor with a real contact shadow, driven by the interpolated duel tick
  *  stream + the anime strike choreography (ability-distinct strikes, recoil,
  *  status tints, KO topple). Same grounded rig as the round renderer's Standee. */
-function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, dashCue }: {
-    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean; dashCue?: DuelDashCue;
+function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, dashCue, showIdentity }: {
+    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean; dashCue?: DuelDashCue; showIdentity: boolean;
 }) {
     const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
     const poses = usePetPoses(petVisualId(pet), mirror);
@@ -2448,7 +2452,14 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         mf.desperate = desperate;
         mf.statuses = st;
         mf.victorious = victorious;
-        mf.moveStyle = activeHeroMove?.style ?? "generic";
+        // Even a neutral pause carries species intent: a wolf circles, a stag
+        // braces, and a turtle withdraws. Named moves temporarily override this
+        // baseline with their authored hero package.
+        mf.moveStyle = activeHeroMove?.style ?? petHeroMoveStyle({
+            petId: pet.id,
+            petName: pet.name,
+            profile: combatModel?.profile,
+        });
         mf.moveName = activeHeroMove?.move;
         const battleTimeline = (clock.current.intro ?? 0) >= INTRO_TOTAL
             ? INTRO_TOTAL + clock.current.t / DUEL_TPS
@@ -2510,7 +2521,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                                 </mesh>
                             </Billboard>
                         )}>
-                            <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} />
+                            <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} />
                         </Suspense>
                     </group>
                 ) : (
@@ -2527,7 +2538,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                 )}
                 <Html position={[0, combatModel ? combatModel.targetHeight + 0.5 : L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
-                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {pet.name}</div>
+                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {petDisplayName(pet)}</div>
                         <div style={{ position: "relative", width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpChip} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#fbbf24", opacity: 0.75 }} />
                             <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
@@ -2544,7 +2555,55 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
     );
 }
 
-// ── Travelling-projectile textures + body ────────────────────────────────────
+// ── Signature model portrait ─────────────────────────────────────────────────
+// The live model portrait sits beside the move title without entering the main
+// arena Canvas, so signature hit-stop and the combat camera remain independent.
+/** Signature portrait for approved 3D pets. Reusing the actual combat body keeps
+ * evolved and roster identities coherent when legacy 2D pose art depicts an
+ * older species design. Unapproved pets retain the established artwork path. */
+function DuelCutInModelPortrait({ pet, config, style, move, mirror }: {
+    pet: Pet;
+    config: NonNullable<ReturnType<typeof petCombatModel>>;
+    style: PetHeroMoveStyle;
+    move: string;
+    mirror: boolean;
+}) {
+    const frame = useRef<PetModelFrame>({
+        ...DEFAULT_PET_MODEL_FRAME,
+        motion: "windup",
+        casting: true,
+        moveStyle: style,
+        moveName: move,
+        timeline: 0.85,
+        faceX: mirror ? -1 : 1,
+    });
+    useEffect(() => {
+        frame.current.moveStyle = style;
+        frame.current.moveName = move;
+        frame.current.faceX = mirror ? -1 : 1;
+    }, [mirror, move, style]);
+    const cameraDistance = Math.max(4.5, config.targetHeight * 1.85);
+    return (
+        <div className="pet-cutin-model" aria-label={`${petDisplayName(pet)} combat model`}>
+            <Canvas
+                dpr={[1, 1.35]}
+                camera={{ position: [0, 0, cameraDistance], fov: 32, near: 0.1, far: 30 }}
+                gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+                style={{ width: "100%", height: "100%", background: "transparent" }}
+            >
+                <ambientLight intensity={1.8} />
+                <directionalLight position={mirror ? [-3, 4, 5] : [3, 4, 5]} intensity={3.1} color="#fff4dc" />
+                <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={1.7} color={elementColor(pet.element).glow} />
+                <group position={[0, -config.targetHeight * 0.5, 0]} rotation={[0, mirror ? -0.34 : 0.34, 0]}>
+                    <Suspense fallback={null}>
+                        <PetModel3D config={config} frame={frame} element={pet.element} />
+                    </Suspense>
+                </group>
+            </Canvas>
+        </div>
+    );
+}
+
 // White-luminance shapes (the material `color` tints them) for the element-
 // distinct flying attacks: a round fire/water orb, a wind crescent blade, a
 // jagged lightning bolt, a faceted earth boulder. Lazy singletons (one each),
@@ -3184,7 +3243,7 @@ function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; cont
     return { durationSec: 1.86, contactDelayMs: 180 };
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     /** False while a live duel is still simulating — see the end check below. */
@@ -3205,6 +3264,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     spawnSetPiece: (n: { actorId?: string; targetId?: string; fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => void;
     elementById: Record<string, string | null | undefined>;
     nameById: Record<string, string>;
+    speciesNameById: Record<string, string>;
+    petIdById: Record<string, string>;
     profileById: Record<string, PetCombatModelProfile | undefined>;
     ultById: Record<string, string>;
     heroMoveById: Record<string, string>;
@@ -3386,7 +3447,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                 const defender = findActor(contactSnap, cue.targetId);
                 if (!attacker || !landing || Math.hypot(landing.x - attacker.x, landing.y - attacker.y) < 0.42) continue;
                 const dashColor = elementColor(elementById[cue.actorId]).base;
-                const style = petHeroMoveStyle({ petName: nameById[cue.actorId], move: cue.move, profile: profileById[cue.actorId] });
+                const style = petHeroMoveStyle({ petId: petIdById[cue.actorId], petName: speciesNameById[cue.actorId], move: cue.move, profile: profileById[cue.actorId] });
                 spawnDash({
                     actorId: cue.actorId,
                     fromX: attacker.x,
@@ -3501,7 +3562,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // again, bleaching every hit toward white beside the textured
                         // pets and making distinct elements look like the same VFX.
                         const col = elementColor(e.element).base;
-                        const heroStyle = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
+                        const heroStyle = petHeroMoveStyle({ petId: petIdById[e.actorId], petName: speciesNameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
                         const followsUltimate = !!e.move && duel.events.some((u) => u.type === "ultimate" && u.actorId === e.actorId && u.move === e.move && u.t < e.t && e.t - u.t <= Math.round(DUEL_TPS * 2));
                         const authoredDashContact = attackDashBeats.some((cue) => cue.outcome === "hit" && cue.resolveTick === e.t && cue.actorId === e.actorId && cue.targetId === e.targetId);
                         let setPieceOwnsContact = false;
@@ -3721,7 +3782,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         const priorCast = [...duel.events].reverse().find((candidate) => candidate.actorId === e.actorId
                             && candidate.type === "cast" && candidate.move && candidate.t <= e.t
                             && e.t - candidate.t <= Math.round(DUEL_TPS * 1.1));
-                        const style = petHeroMoveStyle({ petName: nameById[e.actorId], move: priorCast?.move, kind: priorCast?.kind ?? e.kind, profile: profileById[e.actorId] });
+                        const style = petHeroMoveStyle({ petId: petIdById[e.actorId], petName: speciesNameById[e.actorId], move: priorCast?.move, kind: priorCast?.kind ?? e.kind, profile: profileById[e.actorId] });
                         spawnPowerUp({ x: c.x, z: c.y, color: style.startsWith("kitsune") ? "#8f62ff" : color, actorId: c.id, style });
                         const buffPos = duelFieldToFloor(c.x, c.y);
                         camAim.current = [buffPos.wx * 1.14, 1.32, CAM_LOOK[2] + buffPos.wz * 0.52];
@@ -3847,7 +3908,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     // floor ring is needed because this is not an impact.
                     const runner = findActor(snapAt, e.actorId);
                     if (runner) {
-                        const style = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
+                        const style = petHeroMoveStyle({ petId: petIdById[e.actorId], petName: speciesNameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
                         if (spotlight && style !== "generic") {
                             const arrivalTick = Math.min(maxT, e.t + Math.round(DUEL_TPS * 0.52));
                             const arrival = findActor(snaps[arrivalTick], e.actorId);
@@ -3895,7 +3956,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
                     const supportCast = e.type === "cast" && classifyMoveChoreo(e.kind, true) === "support";
-                    const castHeroStyle = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
+                    const castHeroStyle = petHeroMoveStyle({ petId: petIdById[e.actorId], petName: speciesNameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
                     const powerUpCast = e.type === "cast" && (e.kind === "buff" || e.kind === "haste");
                     const majorLaneWasBusy = majorVfxBusy();
                     const foldedUltimateCast = e.type === "cast" && !!e.move && duel.events.some((ultimate) => ultimate.type === "ultimate" && ultimate.actorId === e.actorId && ultimate.move === e.move && ultimate.t <= e.t && e.t - ultimate.t <= Math.round(DUEL_TPS * 0.65));
@@ -4153,22 +4214,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // shot. Preserve the camera pitch while pulling the physical camera back;
         // relying on FOV alone produced severe fisheye and still cropped the pets.
         const viewportAspect = size.width / Math.max(1, size.height);
-        const portraitPull = viewportAspect < 0.8 ? (0.8 - viewportAspect) * 27 : 0;
-        const portraitCutScale = viewportAspect < 0.8 ? 0.32 : 1;
+        const responsiveShot = duelCameraComposition(viewportAspect);
         // A hit can set zoomKick, shotDolly, camDollyBias and a positional Z bias
         // on the same frame. Treat them as one authored camera move and clamp the
         // result, otherwise the combined push crops a fighter and the giant VFX.
         const requestedCinematicZ = -(zk + db + heldShotDolly) + pb[2];
-        const maxPushIn = viewportAspect < 0.8 ? 0.52 : 0.88;
-        const maxPullBack = viewportAspect < 0.8 ? 1.9 : 4.2;
-        const safeCinematicZ = THREE.MathUtils.clamp(requestedCinematicZ, -maxPushIn, maxPullBack);
+        const safeCinematicZ = THREE.MathUtils.clamp(requestedCinematicZ, -responsiveShot.maxPushIn, responsiveShot.maxPullBack);
         const desiredEye: [number, number, number] = [
-            CAM_POS[0] + midX * 0.24 + pb[0] * portraitCutScale,
+            CAM_POS[0] + midX * 0.24 + pb[0] * responsiveShot.cinematicScale,
             // Portrait needs horizontal room much more than extra elevation. Pull
             // mostly backward so both silhouettes and their Html nameplates stay
             // inside the narrow frame without turning the arena into a fisheye view.
-            DUEL_CAMERA_Y + pb[1] * portraitCutScale + portraitPull * 0.42,
-            camDolly.current + safeCinematicZ * portraitCutScale + koPull.current + portraitPull * 1.38,
+            DUEL_CAMERA_Y + pb[1] * responsiveShot.cinematicScale + responsiveShot.elevation,
+            camDolly.current + safeCinematicZ * responsiveShot.cinematicScale + koPull.current + responsiveShot.pullBack,
         ];
         const eyeResponse = (camBiasHold.current > 0 || shotDollyHold.current > 0) ? 10.5 : 6.2;
         const eyeAlpha = 1 - Math.exp(-eyeResponse * Math.min(delta, 1 / 15));
@@ -4549,10 +4607,15 @@ function cachedHeroMoveStrokes(style: PetHeroMoveStyle, quality: PetVisualQualit
     const key = `${style}:${quality}`;
     const cached = HERO_MOVE_STROKE_CACHE.get(key);
     if (cached) return cached;
-    const water = style.startsWith("selkie") || style === "serpentine-surge";
-    const pounce = style === "kitsune-eclipse-pounce" || style === "selkie-tail-strike" || style === "quadruped-rush";
+    const water = style.startsWith("selkie") || style === "serpentine-surge" || style === "amphibious-slide";
+    const pounce = style === "kitsune-eclipse-pounce"
+        || style === "selkie-tail-strike"
+        || style === "quadruped-rush"
+        || style === "pouncer-stalk"
+        || style === "pack-hunter-pressure"
+        || style === "charger-drive";
     const avian = style === "avian-dive";
-    const heavy = style === "heavy-slam";
+    const heavy = style === "heavy-slam" || style === "armored-counter" || style === "burrow-grapple";
     const biped = style === "biped-combo";
     const count = quality === "low" ? 2 : quality === "medium" ? 3 : 4;
     const geometries = Object.freeze(Array.from({ length: count }, (_, index) => makeAnimeStrokeGeometry(
@@ -4630,7 +4693,14 @@ function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, 
     // Rebuilding TubeGeometry synchronously on each hit was the largest visible
     // CPU hitch in effect-heavy exchanges.
     const curves = useMemo(() => cachedElementVolumeCurves(kind, phase, curveCount), [curveCount, kind, phase]);
-    const heroStrokes = useMemo(() => cachedHeroMoveStrokes(heroStyle, quality.id), [heroStyle, quality.id]);
+    // Ordinary contacts already own curved element volumes, particles, body
+    // posing and camera response. The extruded hero cards are reserved for a
+    // true signature set piece; layering them onto buffs, hits or dashes created
+    // fighter-sized opaque wedges that read as broken model geometry.
+    const heroStrokes = useMemo(
+        () => phase === "signature" ? cachedHeroMoveStrokes(heroStyle, quality.id) : [],
+        [heroStyle, phase, quality.id],
+    );
     const particleDummy = useMemo(() => new THREE.Object3D(), []);
     const particleGeometry = useMemo<THREE.BufferGeometry>(() => {
         if (kind === "water") return new THREE.IcosahedronGeometry(signature ? 0.13 : 0.085, 0);
@@ -4655,7 +4725,7 @@ function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, 
     // Named abilities occupy the missing middle tier: clearly larger than a basic
     // contact, but still well below an arena-owning tsunami or tornado.
     const basePhaseScale = signature ? 1.8 : aftermath ? (big ? 1.34 : 1.04) : phase === "dash" ? (big ? 1.34 : 0.86) : big ? 1.56 : 0.98;
-    const phaseScale = basePhaseScale * (heroMove ? phase === "dash" ? 1.34 : 1.42 : 1);
+    const phaseScale = basePhaseScale * (heroMove ? phase === "dash" ? 1.18 : 1.28 : 1);
     const register = (material: (THREE.Material & { opacity: number }) | null, index: number, baseOpacity: number) => {
         if (!material) return;
         material.userData.baseOpacity = baseOpacity;
@@ -5218,12 +5288,16 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
     // phrase. `generic` remains reserved for an unprofiled 2D fallback.
     const heroDash = style !== "generic";
     const palette = useMemo(() => duelFxPalette(kind, color), [kind, color]);
-    const ribbonOuter = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.72, (impact ? 0.32 : 0.22) * (heroDash ? 1.55 : 1)), [cue, impact, heroDash]);
-    const ribbonInner = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.73, (impact ? 0.12 : 0.085) * (heroDash ? 1.6 : 1)), [cue, impact, heroDash]);
-    const ribbonLeft = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.7, (impact ? 0.105 : 0.075) * (heroDash ? 1.35 : 1), impact ? -0.36 : -0.26), [cue, impact, heroDash]);
-    const ribbonRight = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.7, (impact ? 0.105 : 0.075) * (heroDash ? 1.35 : 1), impact ? 0.36 : 0.26), [cue, impact, heroDash]);
-    const contactOuter = useMemo(() => makeDashContactGeometry(cue, heroDash ? 0.2 : 0.14, -0.7), [cue, heroDash]);
-    const contactInner = useMemo(() => makeDashContactGeometry(cue, heroDash ? 0.085 : 0.06, 0.55), [cue, heroDash]);
+    // A trail is punctuation, never a second fighter-sized silhouette. Earlier
+    // hero multipliers stacked four half-body ribbons, oversized motes, two
+    // contact tubes and a `big` element volume; from the portrait camera this
+    // became the long cyan/red wedge that hid both animals.
+    const ribbonOuter = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.72, (impact ? 0.28 : 0.19) * (heroDash ? 1.15 : 1)), [cue, impact, heroDash]);
+    const ribbonInner = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.73, (impact ? 0.105 : 0.075) * (heroDash ? 1.2 : 1)), [cue, impact, heroDash]);
+    const ribbonLeft = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.7, (impact ? 0.08 : 0.06) * (heroDash ? 1.1 : 1), impact ? -0.29 : -0.22), [cue, impact, heroDash]);
+    const ribbonRight = useMemo(() => makeDashRibbonGeometry(cue, FLOOR_Y + 0.7, (impact ? 0.08 : 0.06) * (heroDash ? 1.1 : 1), impact ? 0.29 : 0.22), [cue, impact, heroDash]);
+    const contactOuter = useMemo(() => makeDashContactGeometry(cue, heroDash ? 0.16 : 0.13, -0.7), [cue, heroDash]);
+    const contactInner = useMemo(() => makeDashContactGeometry(cue, heroDash ? 0.068 : 0.055, 0.55), [cue, heroDash]);
     const moteDummy = useMemo(() => new THREE.Object3D(), []);
     const moteGeometry = useMemo<THREE.BufferGeometry>(() => {
         if (kind === "fire" || kind === "abyss") return new THREE.ConeGeometry(0.16, 0.68, 7);
@@ -5242,7 +5316,7 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
         contactInner.dispose();
         moteGeometry.dispose();
     }, [contactInner, contactOuter, moteGeometry, ribbonInner, ribbonLeft, ribbonOuter, ribbonRight]);
-    const moteCount = quality.id === "low" ? (heroDash ? 9 : 7) : quality.id === "medium" ? (heroDash ? (impact ? 15 : 13) : impact ? 12 : 9) : heroDash ? (impact ? 24 : 20) : impact ? 17 : 12;
+    const moteCount = quality.id === "low" ? (heroDash ? 4 : 3) : quality.id === "medium" ? (heroDash ? (impact ? 8 : 7) : impact ? 7 : 5) : heroDash ? (impact ? 14 : 11) : impact ? 10 : 8;
     useEffect(() => {
         const mesh = wakeMesh.current;
         if (!mesh) return;
@@ -5260,7 +5334,7 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
         // Draw a moving tail behind the pet instead of leaving a static beam
         // across the whole route. The moving head now makes the travel readable.
         const headSegments = Math.max(0, Math.min(36, Math.ceil(travelP * 36)));
-        const tailSegments = impact ? 18 : 13;
+        const tailSegments = impact ? 12 : 9;
         const startSegment = Math.max(0, headSegments - tailSegments);
         ribbonOuter.setDrawRange(startSegment * 6, Math.max(0, headSegments - startSegment) * 6);
         ribbonInner.setDrawRange(startSegment * 6, Math.max(0, headSegments - startSegment) * 6);
@@ -5269,10 +5343,10 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
         trailMats.current.forEach((material, index) => {
             if (!material) return;
             const layerOpacity = index === 0
-                ? (heroDash ? 0.42 : 0.24)
+                ? (heroDash ? 0.28 : 0.22)
                 : index === 1
-                    ? (heroDash ? 0.84 : 0.58)
-                    : (heroDash ? 0.58 : 0.38);
+                    ? (heroDash ? 0.62 : 0.52)
+                    : (heroDash ? 0.38 : 0.32);
             material.opacity = Math.min(1, elapsed / 0.055) * linger * layerOpacity;
         });
         const wake = wakeMesh.current;
@@ -5286,7 +5360,7 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
                 moteDummy.rotation.set(index * 0.42, Math.atan2(ahead[0] - at[0], ahead[2] - at[2]), elapsed * (4.2 + index * 0.18));
                 const taper = Math.max(0.18, 1 - index / moteCount * 0.58);
                 const pulse = 0.82 + Math.sin(elapsed * 15 + index) * 0.12;
-                moteDummy.scale.setScalar((impact ? 1.34 : 1.02) * (heroDash ? 1.34 : 1) * taper * pulse);
+                moteDummy.scale.setScalar((impact ? 1.18 : 0.96) * (heroDash ? 1.1 : 1) * taper * pulse);
             } else {
                 moteDummy.position.set(0, -50, 0);
                 moteDummy.rotation.set(0, 0, 0);
@@ -5315,30 +5389,38 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
     const impactDelay = Math.max(0, cue.contactTick - cue.startTick) / DUEL_TPS;
     return (
         <group>
-            <mesh geometry={ribbonOuter} renderOrder={28}>
-                <meshToonMaterial ref={(material) => { trailMats.current[0] = material; }} color={palette.dark} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
-            </mesh>
+            {quality.id !== "low" && (
+                <mesh geometry={ribbonOuter} renderOrder={28}>
+                    <meshToonMaterial ref={(material) => { trailMats.current[0] = material; }} color={palette.dark} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                </mesh>
+            )}
             <mesh geometry={ribbonInner} renderOrder={29}>
                 <meshToonMaterial ref={(material) => { trailMats.current[1] = material; }} color={palette.accent} emissive={palette.body} emissiveIntensity={0.18} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
             </mesh>
-            <mesh geometry={ribbonLeft} renderOrder={29}>
-                <meshToonMaterial ref={(material) => { trailMats.current[2] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
-            </mesh>
-            <mesh geometry={ribbonRight} renderOrder={29}>
-                <meshToonMaterial ref={(material) => { trailMats.current[3] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.1} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
-            </mesh>
+            {quality.id === "high" && (
+                <>
+                    <mesh geometry={ribbonLeft} renderOrder={29}>
+                        <meshToonMaterial ref={(material) => { trailMats.current[2] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.12} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={ribbonRight} renderOrder={29}>
+                        <meshToonMaterial ref={(material) => { trailMats.current[3] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.1} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </>
+            )}
             <instancedMesh ref={wakeMesh} args={[moteGeometry, undefined, moteCount]} frustumCulled={false} renderOrder={30}>
                 <meshToonMaterial ref={wakeMat} color="#ffffff" vertexColors emissive={palette.accent} emissiveIntensity={0.14} transparent opacity={0} depthWrite={kind === "earth"} />
             </instancedMesh>
             <group ref={contactGroup} visible={false}>
-                <mesh geometry={contactOuter} renderOrder={34}>
-                    <meshToonMaterial ref={(material) => { contactMats.current[0] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} />
-                </mesh>
+                {quality.id !== "low" && (
+                    <mesh geometry={contactOuter} renderOrder={34}>
+                        <meshToonMaterial ref={(material) => { contactMats.current[0] = material; }} color={palette.body} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0} depthWrite={false} />
+                    </mesh>
+                )}
                 <mesh geometry={contactInner} renderOrder={35}>
                     <meshToonMaterial ref={(material) => { contactMats.current[1] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
                 </mesh>
             </group>
-            {impact && <DuelElementVolume at={[cue.impactAt[0], FLOOR_Y + 0.08, cue.impactAt[2]]} kind={kind} color={color} big heading={Math.atan2(cue.impactAt[0] - cue.to[0], cue.impactAt[2] - cue.to[2])} phase="dash" quality={quality} heroStyle={style} delay={impactDelay} onDone={() => undefined} />}
+            {impact && <DuelElementVolume at={[cue.impactAt[0], FLOOR_Y + 0.08, cue.impactAt[2]]} kind={kind} color={color} big={false} heading={Math.atan2(cue.impactAt[0] - cue.to[0], cue.impactAt[2] - cue.to[2])} phase="dash" quality={quality} heroStyle={style} delay={impactDelay} onDone={() => undefined} />}
         </group>
     );
 }
@@ -7029,6 +7111,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [dpr, setDpr] = useState(dprBase);
     const perfQa = useMemo(() => new URLSearchParams(window.location.search).get("petPerf") === "1", []);
     const mobileQa = useMemo(() => new URLSearchParams(window.location.search).get("mobileqa") === "1", []);
+    const visualLayers = useMemo(() => resolvePetDuelVisualLayers(new URLSearchParams(window.location.search).get("petLayers")), []);
     // Keyboard shortcuts on the command deck are offered only where there is a real
     // pointer; on touch they would just be dead hint glyphs cluttering the buttons.
     const canHover = useMemo(() => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(pointer: fine)").matches, []);
@@ -7068,6 +7151,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     }, [playerPet, enemyPet, playerReservePet, enemyReservePet]);
     const partyDuel = roster.length > 2;
     const freeRoam3d = useMemo(() => roster.every((fighter) => petCombatModel(fighter.pet) !== null), [roster]);
+    const playerFamily = useMemo(() => petCombatFamilyPresentation({
+        name: playerPet.name,
+        profile: petCombatModel(playerPet)?.profile,
+    }), [playerPet]);
+    const enemyFamily = useMemo(() => petCombatFamilyPresentation({
+        name: enemyPet.name,
+        profile: petCombatModel(enemyPet)?.profile,
+    }), [enemyPet]);
     const debugAi = useMemo(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugAI") === "1", []);
     // 3D coliseum scene textures (curved wall + lit floor) — same as the round
     // renderer, so the duel inherits the grounded look the owner liked.
@@ -7126,7 +7217,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         return () => window.clearTimeout(timer);
     }, [commandEcho]);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
-    const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
+    // Keep the canonical species name separate from the player's display name:
+    // animation classification must survive nicknames, while commentary and HUD
+    // should honor the companion identity the player paid to set.
+    const speciesNameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
+    const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, petDisplayName(r.pet)])) as Record<string, string>, [roster]);
+    const petIdById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.id])) as Record<string, string>, [roster]);
     const profileById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, petCombatModel(r.pet)?.profile])) as Record<string, PetCombatModelProfile | undefined>, [roster]);
     const ultById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate"])) as Record<string, string>, [roster]);
     // Each pet's HERO move — its signature jutsu if flagged, else its strongest by power —
@@ -7552,20 +7648,20 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 .pet-duel-hero-cutin.player .pet-cutin-motif { left: 3%; }
                 .pet-duel-hero-cutin.enemy .pet-cutin-motif { right: 3%; }
                 .pet-duel-hero-cutin .pet-cutin-portrait { position: relative; z-index: 2; filter: drop-shadow(0 14px 20px rgba(0,0,0,.68)); }
-                .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar { width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); overflow: visible; }
+                .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-model { width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); overflow: visible; }
                 .pet-duel-hero-cutin .pet-cutin-portrait > img { display: block; width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); object-fit: contain; }
                 .pet-duel-hero-cutin .pet-cutin-text { position: relative; z-index: 2; max-width: min(52vw,760px); gap: 8px; }
                 .pet-duel-hero-cutin .pet-cutin-pet { font-size: clamp(12px,1.5vw,19px); color: var(--hero-glow); text-shadow: 0 0 16px var(--hero-glow); }
                 .pet-duel-hero-cutin .pet-cutin-move { font-size: clamp(30px,5.4vw,68px); white-space: normal; text-wrap: balance; text-shadow: 0 0 18px var(--hero-glow),0 5px 14px #000; }
                 .pet-duel-hero-cutin .pet-cutin-kicker { color: #fff4c7; font: 900 clamp(10px,1.1vw,14px)/1 var(--font-display); letter-spacing: .24em; text-transform: uppercase; }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; }
-                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait > img { width: 145px; height: 145px; }
+                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; }
-                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } }
+                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
+            {visualLayers.post && <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />}
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
@@ -7577,54 +7673,54 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <PerformanceMonitor onDecline={() => setDpr(quality.dpr[0])} onIncline={() => setDpr(dprBase)} flipflops={3} onFallback={() => setDpr(quality.dpr[0])} />
                 <Arena floor={floor} backdrop={backdrop} big />
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
-                <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />
+                {visualLayers.post && <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />}
                 {roster.map((r) => (
-                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} />
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity} />
                 ))}
-                {Array.from({ length: 8 }).map((_, i) => (
+                {visualLayers.elements && Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} quality={quality} native={freeRoam3d} />
                 ))}
-                {impacts.map((im) => (
+                {visualLayers.impacts && impacts.map((im) => (
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} mode={im.mode} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
-                {elementBursts.map((burst) => (
+                {visualLayers.elements && elementBursts.map((burst) => (
                     <DuelElementVolume key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} heading={burst.heading} phase="contact" quality={quality} heroStyle={burst.style} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
                 ))}
-                {aftermathFx.map((fx) => (
+                {visualLayers.aftermath && aftermathFx.map((fx) => (
                     <DuelElementVolume key={fx.id} at={fx.pos} kind={fx.kind} color={fx.color} big={fx.big} phase="aftermath" quality={quality} onDone={() => setAftermathFx((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
-                {supportFx.map((fx) => (
+                {visualLayers.elements && supportFx.map((fx) => (
                     <DuelSupportEffect key={fx.id} at={fx.pos} color={fx.color} kind={fx.kind} actorId={fx.actorId} duel={duel} clock={clock} onDone={() => setSupportFx((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
-                {shocks.map((s) => (
+                {visualLayers.impacts && shocks.map((s) => (
                     <DuelShockwaveV2 key={s.id} at={s.pos} color={s.color} big={s.big} quality={quality} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
                 ))}
                 {/* Accumulating scorch marks (crit/KO) + transient foot-dust — the floor remembers the fight. */}
-                {scorches.map((s) => (
+                {visualLayers.aftermath && scorches.map((s) => (
                     <mesh key={s.id} position={s.pos} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-2}>
                         <planeGeometry args={[s.w, s.w]} />
                         <meshBasicMaterial map={shadowTexture()} color="#241a12" transparent opacity={0.5} depthWrite={false} toneMapped={false} />
                     </mesh>
                 ))}
-                {dusts.map((d) => (
+                {visualLayers.impacts && dusts.map((d) => (
                     <DustPuff key={d.id} at={d.at} onDone={() => setDusts((p) => p.filter((x) => x.id !== d.id))} />
                 ))}
-                {powerUps.map((power) => (
+                {visualLayers.elements && powerUps.map((power) => (
                     <DuelPowerUpAura key={power.id} at={power.pos} color={power.color} quality={quality} actorId={power.actorId} duel={duel} clock={clock} heroStyle={power.style} onDone={() => setPowerUps((p) => p.filter((x) => x.id !== power.id))} />
                 ))}
-                {trails.map((tr) => (
+                {visualLayers.trails && trails.map((tr) => (
                     <DuelMeleeTrail key={tr.id} at={tr.pos} toward={tr.toward} kind={tr.kind} color={tr.color} weight={tr.weight} heroStyle={tr.style} native={freeRoam3d} onDone={() => setTrails((p) => p.filter((x) => x.id !== tr.id))} />
                 ))}
-                {dashFx.map((dash) => (
+                {visualLayers.trails && dashFx.map((dash) => (
                     <DuelDashEffectV2 key={dash.id} cue={dash} clock={clock} quality={quality} onDone={() => setDashFx((p) => p.filter((x) => x.id !== dash.id))} />
                 ))}
-                {pressureFx.map((pressure) => (
+                {visualLayers.elements && pressureFx.map((pressure) => (
                     <DuelPressureClashV2 key={pressure.id} from={pressure.from} to={pressure.to} leftColor={pressure.leftColor} rightColor={pressure.rightColor} leftKind={pressure.leftKind} rightKind={pressure.rightKind} quality={quality} onDone={() => setPressureFx((p) => p.filter((x) => x.id !== pressure.id))} />
                 ))}
-                {setPieces.map((piece) => (
+                {visualLayers.elements && setPieces.map((piece) => (
                     <DuelSignatureSetPiece key={piece.id} kind={piece.kind} from={piece.from} to={piece.to} targetId={piece.targetId} duel={duel} clock={clock} color={piece.color} quality={quality} onDone={() => setSetPieces((p) => p.filter((x) => x.id !== piece.id))} />
                 ))}
-                {fxList.map((fx) => (
+                {visualLayers.impacts && fxList.map((fx) => (
                     <FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
                 {numbers.map((l) => (
@@ -7632,8 +7728,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
-                <BloomFx />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                {visualLayers.post && <BloomFx />}
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
 
@@ -7642,9 +7738,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {intro && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
-                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>{playerPet.name}</span>
+                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>
+                            {petDisplayName(playerPet)}
+                            <small style={{ display: "block", marginTop: 5, color: "#dbeafe", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{playerFamily.label} · {playerFamily.tell}</small>
+                        </span>
                         <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
-                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>{enemyPet.name}</span>
+                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>
+                            {petDisplayName(enemyPet)}
+                            <small style={{ display: "block", marginTop: 5, color: "#fee2e2", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{enemyFamily.label} · {enemyFamily.tell}</small>
+                        </span>
                     </div>
                 </div>
             )}
@@ -7655,21 +7757,34 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {cutIn && (() => {
                 const isEnemy = cutIn.side === "enemy";
                 const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
-                const cutPoseId = posedId(cutIn.pet.id);
+                const cutInModel = petCombatModel(cutIn.pet);
+                const cutPoseId = cutInModel ? null : posedId(cutIn.pet.id);
                 const isCommand = cutIn.variant === "command";
-                const lunarHero = /kitsune|eclipse/i.test(cutIn.pet.name);
-                const tidalHero = /selkie|tidal/i.test(cutIn.pet.name);
+                const cutInStyle = petHeroMoveStyle({
+                    petId: cutIn.pet.id,
+                    petName: cutIn.pet.name,
+                    move: cutIn.move,
+                    profile: cutInModel?.profile,
+                });
+                const lunarHero = cutInStyle.startsWith("kitsune-");
+                const tidalHero = cutInStyle.startsWith("selkie-");
+                const cutInFamily = petCombatFamilyPresentation({
+                    name: cutIn.pet.name,
+                    profile: cutInModel?.profile,
+                });
                 // A commanded move borrows the same freeze-frame staging but names itself
                 // honestly ("Your Order") — the marquee "Anime Break" wording stays reserved
                 // for the sim's actual signature reveal.
-                const heroMotif = isCommand ? "▶" : lunarHero ? "☾" : tidalHero ? "≋" : "✦";
-                const heroKicker = isCommand ? "Your Order" : lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : "Anime Break";
+                const heroMotif = isCommand ? "▶" : lunarHero ? "☾" : tidalHero ? "≋" : cutInFamily.motif;
+                const heroKicker = isCommand ? "Your Order" : lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : `Anime Break · ${cutInFamily.label}`;
                 return (
                     <div className={`pet-cutin pet-duel-hero-cutin ${cutIn.side}`} key={`cutin-${cutIn.id}`} style={{ ["--hero-glow" as string]: elementGlow, boxShadow: `inset 0 0 90px ${elementBase}55` } as React.CSSProperties}>
                         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}42, transparent 44%)`, mixBlendMode: "screen" }} />
                         <span className="pet-cutin-motif" aria-hidden="true">{heroMotif}</span>
                         <div className="pet-cutin-portrait">
-                            {cutPoseId ? (
+                            {cutInModel ? (
+                                <DuelCutInModelPortrait pet={cutIn.pet} config={cutInModel} style={cutInStyle} move={cutIn.move} mirror={isEnemy} />
+                            ) : cutPoseId ? (
                                 <img src={poseUrl(cutPoseId, "cast")} alt={cutIn.pet.name} style={{ transform: isEnemy ? "scaleX(-1)" : undefined }} />
                             ) : (
                                 <PetBattleAvatar pet={cutIn.pet} side={cutIn.side} active sharedImages={sharedImages} visualState="rangedCast" />
@@ -7677,7 +7792,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         </div>
                         <div className="pet-cutin-text">
                             <span className="pet-cutin-kicker">{heroKicker}</span>
-                            <span className="pet-cutin-pet">{cutIn.pet.name}</span>
+                            <span className="pet-cutin-pet">{petDisplayName(cutIn.pet)}</span>
                             <span className="pet-cutin-move">{cutIn.move}!</span>
                         </div>
                     </div>

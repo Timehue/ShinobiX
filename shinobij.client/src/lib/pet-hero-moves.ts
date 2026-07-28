@@ -1,5 +1,6 @@
 import type { DuelEvent } from "./pet-duel-sim";
 import type { PetCombatModelProfile } from "./pet-3d-models";
+import { petCombatFamily } from "./pet-combat-family";
 
 export type PetHeroMoveStyle =
     | "generic"
@@ -13,7 +14,19 @@ export type PetHeroMoveStyle =
     | "biped-combo"
     | "avian-dive"
     | "serpentine-surge"
-    | "heavy-slam";
+    | "heavy-slam"
+    | "pouncer-stalk"
+    | "pack-hunter-pressure"
+    | "charger-drive"
+    | "burrow-grapple"
+    | "armored-counter"
+    | "amphibious-slide"
+    | "hopper-spring"
+    | "reptile-snap"
+    | "rodent-scramble"
+    | "primate-combo"
+    | "aquatic-undertow"
+    | "dragon-overrun";
 
 export type PetHeroMoveWindow = Readonly<{
     start: number;
@@ -59,7 +72,10 @@ export function petHeroMoveStyle({
     const technique = normalize(move);
     const moveKind = normalize(kind);
     const kitsune = id.startsWith("mythic-0") || pet.includes("eclipse kitsune");
-    const selkie = id.startsWith("starter-water") || pet.includes("tidal selkie");
+    // The starter keeps its persistent `starter-water` id through evolution.
+    // Key the bespoke Selkie performance from the actual form name so Abyssal
+    // Leviathan correctly graduates into the dragon package.
+    const selkie = pet.includes("tidal selkie");
 
     if (kitsune) {
         if (/phantom|phase|shadow step|feint/.test(technique) || moveKind === "move") return "kitsune-shadow-step";
@@ -72,6 +88,19 @@ export function petHeroMoveStyle({
         if (/riptide fang|tail|flipper|fang/.test(technique) || moveKind === "damage" || moveKind === "crush") return "selkie-tail-strike";
         return "selkie-surf";
     }
+    const family = petCombatFamily({ name: petName, profile });
+    if (family === "pouncer") return "pouncer-stalk";
+    if (family === "pack-hunter") return "pack-hunter-pressure";
+    if (family === "charger") return "charger-drive";
+    if (family === "burrow-grappler") return "burrow-grapple";
+    if (family === "armored") return "armored-counter";
+    if (family === "amphibious") return "amphibious-slide";
+    if (family === "hopper") return "hopper-spring";
+    if (family === "reptilian") return "reptile-snap";
+    if (family === "rodent") return "rodent-scramble";
+    if (family === "primate") return "primate-combo";
+    if (family === "aquatic") return "aquatic-undertow";
+    if (family === "dragon") return "dragon-overrun";
     if (profile === "quadruped") return "quadruped-rush";
     if (profile === "biped") return "biped-combo";
     if (profile === "avian") return "avian-dive";
@@ -227,6 +256,147 @@ export function petHeroBodyPose({
         scaleY: striking ? 0.96 : 1,
         scaleZ: winding ? 0.94 : striking ? 1.08 : 1,
     };
+    if (style === "pouncer-stalk") {
+        const stalk = motion === "idle" ? 0.5 + Math.sin(timeline * 2.4) * 0.5 : 0;
+        return {
+            lift: motion === "dash" ? dashArc * 0.11 : striking ? attackPulse * 0.105 : 0,
+            pitch: winding ? -0.24 : striking ? 0.12 + attackPulse * 0.2 : motion === "idle" ? -0.035 - stalk * 0.025 : 0,
+            roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.08 : striking ? -attackPulse * 0.04 : 0,
+            yaw: motion === "idle" ? Math.sin(timeline * 1.75) * 0.035 : 0,
+            drive: striking ? attackPulse * 0.165 : motion === "dash" ? dashArc * 0.045 : winding ? -0.06 : 0,
+            scaleX: striking ? 0.96 : 1,
+            scaleY: winding ? 0.9 : striking ? 1.075 : motion === "idle" ? 0.985 : 1,
+            scaleZ: winding ? 0.88 : striking ? 1.19 : motion === "dash" ? 1.12 : motion === "idle" ? 1.025 : 1,
+        };
+    }
+    if (style === "pack-hunter-pressure") {
+        const circle = motion === "idle" ? Math.sin(timeline * 2.1) : 0;
+        return {
+            lift: motion === "dash" ? dashArc * 0.075 : striking ? attackPulse * 0.055 : 0,
+            pitch: winding ? -0.13 : striking ? 0.09 + attackPulse * 0.13 : 0,
+            roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.11 : circle * 0.018,
+            yaw: motion === "idle" ? circle * 0.075 : winding ? -0.12 : striking ? attackPulse * 0.24 : 0,
+            drive: striking ? attackPulse * 0.13 : motion === "dash" ? dashArc * 0.055 : 0,
+            scaleX: striking ? 1.035 : 1,
+            scaleY: winding ? 0.94 : striking ? 1.045 : 1,
+            scaleZ: winding ? 0.93 : striking || motion === "dash" ? 1.11 : 1,
+        };
+    }
+    if (style === "charger-drive") return {
+        lift: striking ? attackPulse * 0.035 : motion === "dash" ? dashArc * 0.045 : 0,
+        pitch: winding ? -0.19 : striking ? -0.08 + attackPulse * 0.18 : motion === "dash" ? -0.12 : 0,
+        roll: striking ? -attackPulse * 0.025 : 0,
+        yaw: winding ? Math.sin(timeline * 10) * 0.018 : 0,
+        drive: striking ? attackPulse * 0.19 : motion === "dash" ? dashArc * 0.08 : winding ? -0.075 : 0,
+        scaleX: winding ? 1.07 : striking ? 1.04 : 1,
+        scaleY: winding ? 0.88 : striking ? 1.08 : 1,
+        scaleZ: winding ? 0.9 : striking || motion === "dash" ? 1.2 : 1,
+    };
+    if (style === "burrow-grapple") return {
+        lift: striking ? attackPulse * 0.13 : motion === "dodge" ? dashArc * 0.06 : 0,
+        pitch: winding ? -0.24 : striking ? 0.18 + attackPulse * 0.14 : 0,
+        roll: motion === "dodge" ? Math.sin(dashP * Math.PI * 2) * 0.18 : striking ? attackPulse * 0.09 : 0,
+        yaw: winding ? -0.1 : striking ? attackPulse * 0.22 : 0,
+        drive: striking ? attackPulse * 0.12 : winding ? -0.035 : 0,
+        scaleX: winding ? 1.09 : striking ? 1.05 : 1,
+        scaleY: winding ? 0.82 : striking ? 1.16 : 1,
+        scaleZ: winding ? 0.94 : striking ? 1.08 : 1,
+    };
+    if (style === "armored-counter") {
+        const brace = winding || casting;
+        return {
+            lift: striking ? attackPulse * 0.025 : 0,
+            pitch: brace ? -0.12 : striking ? 0.08 + attackPulse * 0.09 : 0,
+            roll: striking ? -attackPulse * 0.025 : 0,
+            yaw: striking ? attackPulse * 0.055 : 0,
+            drive: striking ? attackPulse * 0.135 : brace ? -0.025 : 0,
+            scaleX: brace ? 1.12 : striking ? 1.1 : 1,
+            scaleY: brace ? 0.84 : striking ? 1.12 : 1,
+            scaleZ: brace ? 0.94 : striking ? 1.09 : 1,
+        };
+    }
+    if (style === "amphibious-slide") return {
+        lift: motion === "dash" ? dashArc * 0.065 : striking ? attackPulse * 0.035 : 0,
+        pitch: motion === "dash" || motion === "run" ? -0.13 : winding ? -0.07 : striking ? attackPulse * 0.06 : 0,
+        roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.16 : motion === "run" ? Math.sin(timeline * 7) * 0.055 : striking ? attackPulse * 0.17 : 0,
+        yaw: winding ? -0.13 : striking ? -0.1 + attackPulse * 0.38 : 0,
+        drive: striking ? attackPulse * 0.085 : motion === "dash" ? dashArc * 0.05 : 0,
+        scaleX: striking ? 1.065 : 1,
+        scaleY: motion === "dash" ? 0.93 : striking ? 0.98 : 1,
+        scaleZ: motion === "dash" || motion === "run" ? 1.12 : striking ? 1.09 : 1,
+    };
+    if (style === "hopper-spring") {
+        const listen = motion === "idle" ? 0.5 + Math.sin(timeline * 3.1) * 0.5 : 0;
+        return {
+            lift: motion === "dash" ? dashArc * 0.19 : striking ? attackPulse * 0.15 : listen * 0.012,
+            pitch: winding ? -0.2 : motion === "dash" ? -0.08 + dashP * 0.18 : striking ? attackPulse * 0.16 : 0,
+            roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.055 : 0,
+            yaw: motion === "idle" ? Math.sin(timeline * 2.2) * 0.045 : striking ? attackPulse * 0.1 : 0,
+            drive: striking ? attackPulse * 0.14 : motion === "dash" ? dashArc * 0.055 : winding ? -0.07 : 0,
+            scaleX: winding ? 1.05 : 1,
+            scaleY: winding ? 0.8 : motion === "dash" || striking ? 1.14 : 1,
+            scaleZ: winding ? 0.93 : motion === "dash" || striking ? 1.12 : 1,
+        };
+    }
+    if (style === "reptile-snap") {
+        const freeze = motion === "idle" ? Math.max(0, Math.sin(timeline * 0.85)) : 0;
+        return {
+            lift: motion === "dash" ? dashArc * 0.045 : striking ? attackPulse * 0.035 : 0,
+            pitch: winding ? -0.1 : striking ? -0.035 + attackPulse * 0.13 : 0,
+            roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.09 : striking ? attackPulse * 0.07 : 0,
+            yaw: winding ? -0.18 : striking ? -0.15 + attackPulse * 0.48 : motion === "idle" ? freeze * 0.025 : 0,
+            drive: striking ? attackPulse * 0.155 : motion === "dash" ? dashArc * 0.065 : 0,
+            scaleX: striking ? 1.08 : 1,
+            scaleY: winding ? 0.92 : striking ? 1.035 : 1,
+            scaleZ: winding ? 0.91 : striking || motion === "dash" ? 1.17 : 1,
+        };
+    }
+    if (style === "rodent-scramble") {
+        const juke = motion === "idle" ? Math.sin(timeline * 4.6) : 0;
+        return {
+            lift: motion === "dash" ? dashArc * 0.075 : striking ? attackPulse * 0.065 : 0,
+            pitch: winding ? -0.14 : striking ? attackPulse * 0.11 : motion === "dash" ? -0.09 : 0,
+            roll: motion === "dash" ? Math.sin(dashP * Math.PI * 4) * 0.12 : juke * 0.022,
+            yaw: motion === "dash" ? Math.sin(dashP * Math.PI * 4) * 0.16 : motion === "idle" ? juke * 0.07 : striking ? attackPulse * 0.28 : 0,
+            drive: striking ? attackPulse * 0.105 : motion === "dash" ? dashArc * 0.05 : 0,
+            scaleX: winding ? 1.07 : striking ? 1.04 : 1,
+            scaleY: winding ? 0.86 : striking ? 1.08 : 1,
+            scaleZ: winding ? 0.95 : motion === "dash" || striking ? 1.1 : 1,
+        };
+    }
+    if (style === "primate-combo") return {
+        lift: motion === "dash" ? dashArc * 0.11 : striking ? attackPulse * 0.075 : 0,
+        pitch: winding ? -0.095 : striking ? -0.025 + attackPulse * 0.13 : recovering ? -0.04 : 0,
+        roll: winding ? -0.09 : striking ? -0.14 + attackPulse * 0.31 : motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.09 : 0,
+        yaw: winding ? -0.16 : striking ? -0.12 + attackPulse * 0.55 : 0,
+        drive: striking ? attackPulse * 0.145 : motion === "dash" ? dashArc * 0.045 : 0,
+        scaleX: winding ? 1.06 : striking ? 1.1 : 1,
+        scaleY: winding ? 0.91 : striking ? 1.07 : 1,
+        scaleZ: winding ? 0.94 : striking ? 1.08 : 1,
+    };
+    if (style === "aquatic-undertow") return {
+        lift: motion === "dash" ? dashArc * 0.09 : striking ? attackPulse * 0.045 : 0,
+        pitch: motion === "dash" ? -0.1 + dashP * 0.12 : winding ? 0.045 : striking ? -0.08 + attackPulse * 0.12 : 0,
+        roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.2 : striking ? attackPulse * 0.22 : 0,
+        yaw: winding ? -0.2 : motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.24 : striking ? -0.18 + attackPulse * 0.46 : 0,
+        drive: striking ? attackPulse * 0.11 : motion === "dash" ? dashArc * 0.05 : 0,
+        scaleX: striking ? 1.11 : 1,
+        scaleY: winding ? 0.95 : striking ? 1.04 : 1,
+        scaleZ: winding ? 0.9 : motion === "dash" || striking ? 1.16 : 1,
+    };
+    if (style === "dragon-overrun") {
+        const loom = winding || casting;
+        return {
+            lift: motion === "dash" ? dashArc * 0.115 : striking ? attackPulse * 0.085 : loom ? 0.025 : 0,
+            pitch: loom ? -0.14 : motion === "dash" ? -0.1 : striking ? 0.04 + attackPulse * 0.16 : 0,
+            roll: motion === "dash" ? Math.sin(dashP * Math.PI * 2) * 0.08 : striking ? -attackPulse * 0.045 : 0,
+            yaw: loom ? Math.sin(timeline * 2.6) * 0.055 : striking ? attackPulse * 0.14 : 0,
+            drive: striking ? attackPulse * 0.19 : motion === "dash" ? dashArc * 0.075 : loom ? -0.06 : 0,
+            scaleX: loom ? 1.1 : striking ? 1.11 : 1,
+            scaleY: loom ? 0.9 : striking ? 1.13 : 1,
+            scaleZ: loom ? 0.91 : motion === "dash" || striking ? 1.2 : 1,
+        };
+    }
     if (style === "quadruped-rush") return {
         lift: motion === "dash" ? dashArc * 0.085 : striking ? attackPulse * 0.055 : 0,
         pitch: winding ? -0.12 : striking ? 0.1 + attackPulse * 0.12 : recovering ? -0.035 : motion === "dash" ? -0.08 : 0,
