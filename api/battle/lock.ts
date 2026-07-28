@@ -136,6 +136,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Only the matching battleId clears the lock. A mismatch is a stale
             // / replayed report → no-op success (don't clear someone else's
             // freshly-started fight).
+            // Echoed back to the client when the defeat below rewrites the save.
+            // Bumping the stored version WITHOUT telling the client leaves its
+            // `_baseSaveVersion` stale, so its very next autosave takes a 409 and the
+            // conflict path replaces local state with the server snapshot — i.e. a few
+            // seconds of play silently reverts. This is the highest-frequency instance
+            // of that bug because it fires on PvE defeats. The client adopts any
+            // `_saveVersion` in a response body monotonically (authFetch's
+            // observeSaveVersion → SAVE_VERSION_EVENT), so returning it is sufficient.
+            const resolved: { version: number | null } = { version: null };
             if (existing && existing.battleId === battleId) {
                 if (outcome === 'loss') {
                     // Cleared-state defeat: the client returned to a locked fight
@@ -156,7 +165,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 ...fresh,
                                 character: { ...freshChar, hp: 0, hospitalized: true },
                             };
-                            await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion(updated), fresh));
+                            const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
+                            const nextVersion = Number(versioned._saveVersion);
+                            if (Number.isFinite(nextVersion)) resolved.version = nextVersion;
+                            await kv.set(`save:${playerName}`, mergePreservingImages(versioned, fresh));
                         }
                         await kv.del(key).catch(() => undefined);
                     });
@@ -164,7 +176,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(key).catch(() => undefined);
                 }
             }
-            return res.status(200).json({ ok: true });
+            return res.status(200).json({
+                ok: true,
+                ...(resolved.version !== null ? { _saveVersion: resolved.version } : {}),
+            });
         }
 
         return res.status(400).json({ error: 'Unknown action.' });
