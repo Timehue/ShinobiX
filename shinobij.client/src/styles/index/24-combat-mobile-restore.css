@@ -1296,12 +1296,6 @@
     color: var(--text-dim);
     font-size: 0.72rem;
 }
-.notice-post-meta {
-    color: var(--text-muted);
-    font-size: 0.68rem;
-    margin-left: auto;
-    white-space: nowrap;
-}
 .notice-post p {
     margin: 0;
     font-size: 0.82rem;
@@ -1310,23 +1304,3 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
-.notice-post-form {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
-    background: var(--slate-900);
-    border: 1px solid var(--slate-700);
-    border-radius: 8px;
-    padding: 10px 12px;
-}
-.notice-post-form label {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    margin-bottom: 2px;
-}
-.notice-post-form textarea {
-    resize: vertical;
-    min-height: 64px;
-}
-

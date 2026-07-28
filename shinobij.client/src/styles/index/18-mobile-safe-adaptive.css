@@ -5,10 +5,6 @@
     background-position: center 70% !important;
 }
 
-.journey-banner-img {
-    object-position: center 70% !important;
-}
-
 /* Give the main middle screen a tiny breathing space without shifting the side panels. */
 .center-game {
     padding-top: clamp(8px, 1.3vh, 16px) !important;
@@ -184,10 +180,6 @@
         position: relative !important;
     }
 
-    .journey-banner-img {
-        object-position: center 35% !important;
-    }
-
     .journey-live-stats {
         display: none !important;
     }
@@ -315,11 +307,6 @@ button.combat-jutsu-button,
         box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.85), 0 0 14px rgba(250, 204, 21, 0.45) !important;
     }
 
-.combat-jutsu-arm-click {
-    display: none !important;
-    pointer-events: none !important;
-}
-
 .combat-jutsu-help {
     z-index: 50 !important;
     pointer-events: auto !important;
@@ -374,13 +361,6 @@ button.combat-jutsu-button,
     background-size: auto 100% !important;
     background-position: left center !important;
     background-repeat: no-repeat !important;
-}
-
-.journey-banner-img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: contain !important;
-    object-position: left center !important;
 }
 
 .journey-live-stats {
@@ -491,10 +471,6 @@ button.combat-jutsu-button,
     height: 100% !important;
     max-height: none !important;
     min-height: min(76dvh, 820px) !important;
-}
-
-.sector-instance-wrap .sector-move-controls {
-    flex-shrink: 0 !important;
 }
 
 .arena-fullscreen {
@@ -830,4 +806,3 @@ button.combat-jutsu-button,
         font-size: 7px !important;
     }
 }
-

@@ -398,18 +398,6 @@
     align-content: start !important;
 }
 
-.combat-equipped-items-row {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(118px, 150px)) !important;
-    gap: 7px !important;
-    align-items: start !important;
-    margin-top: 8px !important;
-    padding: 6px !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(52, 211, 153, 0.22) !important;
-    background: rgba(6, 78, 59, 0.2) !important;
-}
-
 .combat-item-card-wrap {
     max-width: 150px !important;
 }
@@ -458,10 +446,6 @@
         inset 0 0 14px rgba(251, 146, 60, 0.45),
         0 0 14px rgba(251, 146, 60, 0.65) !important;
     filter: saturate(1.3) brightness(1.12);
-}
-
-.combat-no-jutsu-note {
-    margin-top: 8px !important;
 }
 
 .combat-item-effect-box {
@@ -668,40 +652,6 @@
     color: #bfdbfe !important;
 }
 
-.combat-jutsu-effect-box {
-    padding: 8px !important;
-    border-radius: 5px !important;
-    background: rgba(203, 213, 225, 0.12) !important;
-    border: 1px solid rgba(203, 213, 225, 0.12) !important;
-}
-
-    .combat-jutsu-effect-box > strong {
-        display: block !important;
-        margin-bottom: 5px !important;
-        color: #ffffff !important;
-    }
-
-    .combat-jutsu-effect-box em {
-        color: #fef3c7 !important;
-    }
-
-.combat-jutsu-effect-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 3px 10px !important;
-}
-
-    .combat-jutsu-effect-grid span {
-        color: var(--slate-200) !important;
-        line-height: 1.25 !important;
-    }
-
-.combat-jutsu-effect-box p {
-    margin: 6px 0 0 !important;
-    color: #dbeafe !important;
-    line-height: 1.35 !important;
-}
-
 .combat-jutsu-card-wrap {
     position: relative !important;
 }
@@ -709,29 +659,6 @@
 .combat-jutsu-button {
     pointer-events: none !important;
 }
-
-.combat-jutsu-arm-click {
-    position: absolute !important;
-    inset: 0 !important;
-    z-index: 20 !important;
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    cursor: pointer !important;
-    pointer-events: auto !important;
-    appearance: none !important;
-}
-
-    .combat-jutsu-arm-click:hover {
-        transform: none !important;
-        filter: none !important;
-        box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.9), 0 0 14px rgba(250, 204, 21, 0.55) !important;
-    }
 
 .combat-jutsu-help {
     position: absolute !important;

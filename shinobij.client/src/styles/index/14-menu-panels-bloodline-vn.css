@@ -384,22 +384,6 @@ textarea {
     text-shadow: 0 2px 5px #000, 0 0 12px rgba(56, 189, 248, 0.8) !important;
 }
 
-.left-avatar-upload-btn {
-    position: absolute !important;
-    bottom: 2px !important;
-    right: 2px !important;
-    background: rgba(0,0,0,0.65) !important;
-    border-radius: 50% !important;
-    width: 22px !important;
-    height: 22px !important;
-    display: grid !important;
-    place-items: center !important;
-    font-size: 0.7rem !important;
-    cursor: pointer !important;
-    line-height: 1 !important;
-    border: 1px solid rgba(255,255,255,0.2) !important;
-}
-
 .left-profile-name,
 .left-profile-rank,
 .left-profile-stat {
@@ -791,13 +775,6 @@ textarea {
     color: var(--red-400);
     margin: 0 0 4px;
     letter-spacing: 0.04em;
-}
-
-.territory-village-tag {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #a78bfa;
-    margin: 4px 0 0;
 }
 
 /* ── Ancient Chest ───────────────────────────────────────── */

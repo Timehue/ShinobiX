@@ -32,16 +32,6 @@
     font-weight: 900;
 }
 
-.forest-region {
-    left: 10%;
-    top: 11%;
-}
-
-.volcano-region {
-    right: 8%;
-    top: 11%;
-}
-
 .snow-region {
     left: 10%;
     bottom: 10%;
@@ -50,89 +40,6 @@
 .shadow-region {
     right: 8%;
     bottom: 10%;
-}
-
-.central-city {
-    position: absolute;
-    z-index: 6;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    background: #020617;
-    border: 2px solid var(--gold);
-    border-radius: 14px;
-    padding: 14px 18px;
-    color: #fef3c7;
-    font-weight: 900;
-    font-size: 21px;
-    box-shadow: 0 0 28px rgba(250,204,21,.45);
-}
-
-.anime-route {
-    position: absolute;
-    z-index: 4;
-    height: 6px;
-    border-radius: 999px;
-    background: repeating-linear-gradient(90deg, var(--gold-300) 0 10px, #a16207 10px 18px);
-    box-shadow: 0 0 12px rgba(250,204,21,.55);
-    transform-origin: left center;
-}
-
-.route-a {
-    width: 34%;
-    left: 20%;
-    top: 27%;
-    transform: rotate(35deg);
-}
-
-.route-b {
-    width: 34%;
-    left: 50%;
-    top: 50%;
-    transform: rotate(-35deg);
-}
-
-.route-c {
-    width: 34%;
-    left: 21%;
-    top: 78%;
-    transform: rotate(-38deg);
-}
-
-.route-d {
-    width: 34%;
-    left: 50%;
-    top: 50%;
-    transform: rotate(38deg);
-}
-
-.anime-location {
-    position: absolute;
-    z-index: 8;
-    transform: translate(-50%, -50%);
-    display: grid;
-    justify-items: center;
-    gap: 4px;
-}
-
-    .anime-location button {
-        min-width: 130px;
-        padding: 8px 10px;
-        background: rgba(2,6,23,.9);
-        border: 1px solid var(--cyan);
-        font-size: 12px;
-    }
-
-.location-icon {
-    display: block;
-    font-size: 26px;
-}
-
-.small-map-button {
-    min-width: 62px !important;
-    background: linear-gradient(#991b1b, #450a0a) !important;
-    font-size: 11px;
-    padding: 5px 8px !important;
 }
 
 .hex-world-map {
@@ -155,114 +62,12 @@
         display: none;
     }
 
-.world-travel-point {
-    width: 64px;
-    height: 54px;
-    margin-left: -4px;
-    margin-top: -1px;
-    clip-path: polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0% 50%);
-    border: 1px solid rgba(120, 80, 36, .78);
-    border-radius: 0;
-    padding: 3px 5px;
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 1px;
-    color: #1f2937;
-    background: linear-gradient(135deg, #fee9ba, #ffc39d);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
-    text-shadow: none;
-}
-
-    .world-travel-point:nth-child(20n+11),
-    .world-travel-point:nth-child(20n+12),
-    .world-travel-point:nth-child(20n+13),
-    .world-travel-point:nth-child(20n+14),
-    .world-travel-point:nth-child(20n+15),
-    .world-travel-point:nth-child(20n+16),
-    .world-travel-point:nth-child(20n+17),
-    .world-travel-point:nth-child(20n+18),
-    .world-travel-point:nth-child(20n+19),
-    .world-travel-point:nth-child(20n+20) {
-        transform: translateX(29px);
-    }
-
-    .world-travel-point:hover {
-        filter: brightness(1.08);
-        transform: translateY(-1px);
-        box-shadow: 0 0 18px rgba(250,204,21,.55), inset 0 1px 0 rgba(255,255,255,.65);
-    }
-
-    .world-travel-point:nth-child(20n+11):hover,
-    .world-travel-point:nth-child(20n+12):hover,
-    .world-travel-point:nth-child(20n+13):hover,
-    .world-travel-point:nth-child(20n+14):hover,
-    .world-travel-point:nth-child(20n+15):hover,
-    .world-travel-point:nth-child(20n+16):hover,
-    .world-travel-point:nth-child(20n+17):hover,
-    .world-travel-point:nth-child(20n+18):hover,
-    .world-travel-point:nth-child(20n+19):hover,
-    .world-travel-point:nth-child(20n+20):hover {
-        transform: translateX(29px) translateY(-1px);
-    }
-
-    .world-travel-point span {
-        font-size: 18px;
-        font-weight: 900;
-        color: var(--slate-900);
-    }
-
-    .world-travel-point small {
-        max-width: 44px;
-        overflow: hidden;
-        color: #111827;
-        font-size: 9px;
-        font-weight: 900;
-        line-height: 1.05;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-.world-forest {
-    background: linear-gradient(135deg, #fef08a, #fddc8a);
-}
-
-.world-volcano {
-    background: linear-gradient(135deg, #ffd0a6, #ffb389);
-}
-
-.world-snow {
-    background: linear-gradient(135deg, #fff7b2, #dbeafe);
-}
-
-.world-shadow {
-    background: linear-gradient(135deg, #ffd7b5, #c4b5fd);
-}
-
-.world-central {
-    background: linear-gradient(135deg, var(--gold-300), #fbbf24);
-}
-
 .world-village,
 .world-central,
 .world-event {
     border-color: #7c2d12;
     box-shadow: 0 0 14px rgba(250,204,21,.35), inset 0 0 0 2px rgba(255,255,255,.25);
 }
-
-.world-village {
-    background: linear-gradient(135deg, #fee2b3, #fb923c);
-}
-
-.world-central {
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    color: #f8fafc;
-}
-
-    .world-central span,
-    .world-central small {
-        color: #f8fafc;
-    }
 
 .sector-card {
     display: grid;
@@ -288,41 +93,6 @@
     .sector-stage p {
         margin: 0;
     }
-
-.sector-node {
-    width: 132px;
-    height: 112px;
-    display: grid;
-    place-items: center;
-    clip-path: polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0% 50%);
-    background: linear-gradient(135deg, #fee9ba, #ffc39d);
-    border: 3px solid #7c2d12;
-    color: #111827;
-    font-size: 42px;
-    font-weight: 900;
-    text-shadow: none;
-}
-
-.sector-forest .sector-node {
-    background: linear-gradient(135deg, #fef08a, #fddc8a);
-}
-
-.sector-volcano .sector-node {
-    background: linear-gradient(135deg, #ffd0a6, #ff9f80);
-}
-
-.sector-snow .sector-node {
-    background: linear-gradient(135deg, #fff7b2, #dbeafe);
-}
-
-.sector-shadow .sector-node {
-    background: linear-gradient(135deg, #ffd7b5, #c4b5fd);
-}
-
-.sector-central .sector-node {
-    background: linear-gradient(135deg, var(--success), #15803d);
-    color: #f8fafc;
-}
 
 .atlas-world-map {
     height: min(76vw, 860px, calc(100dvh - 20px));
@@ -853,21 +623,6 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     box-shadow: inset 0 0 18px rgba(0,0,0,.45);
 }
 
-.instance-sidebar {
-    display: grid;
-    align-content: start;
-    gap: 7px;
-    text-align: center;
-    font-size: 12px;
-}
-
-    .instance-sidebar p {
-        margin: 0;
-        padding: 5px;
-        background: rgba(2,6,23,.55);
-        border: 1px solid rgba(250,204,21,.35);
-    }
-
 .portrait-badge {
     width: 82px;
     height: 82px;
@@ -1002,25 +757,6 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     background: linear-gradient(135deg, var(--gold) 0 50%, #16a34a 50%);
 }
 
-.scene-hotbar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    padding: 7px;
-    background: linear-gradient(#7f1d1d, #be123c);
-    border-top: 3px solid var(--gold-2);
-}
-
-    .scene-hotbar span {
-        padding: 7px 4px;
-        text-align: center;
-        background: #1e3a8a;
-        border: 2px solid #f8fafc;
-        color: #f8fafc;
-        font-size: 11px;
-        font-weight: 900;
-    }
-
 .instance-actions {
     display: grid;
     align-content: start;
@@ -1046,17 +782,6 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         background-position: center 100%;
     }
 
-    .journey-overlay {
-        padding: 16px 22px;
-    }
-
-    .journey-left h1 {
-        font-size: 42px;
-    }
-
-    .journey-left p {
-        font-size: 14px;
-    }
 }
 
 .right-menu-panel {
@@ -1104,4 +829,3 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     flex: 0 0 auto;
     opacity: 0.85;
 }
-
