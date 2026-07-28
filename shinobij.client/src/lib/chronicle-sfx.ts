@@ -16,7 +16,15 @@ export type ChronicleSfx =
   | "attack"
   | "destroy"
   | "victory"
-  | "defeat";
+  | "defeat"
+  // Card-pack opening cinematic (components/CardPackOpening.tsx).
+  | "pack-tear"
+  | "pack-pop"
+  | "card-flip"
+  | "reveal-rare"
+  | "reveal-epic"
+  | "reveal-legendary"
+  | "reveal-mythic";
 
 const MUTE_KEY = "chronicleSfx.v1";
 
@@ -147,6 +155,48 @@ export function playChronicleSfx(kind: ChronicleSfx): void {
       case "defeat":
         tone(ctx, "triangle", 392, 370, 0, 0.18, 0.08);
         tone(ctx, "triangle", 311, 233, 0.18, 0.3, 0.08);
+        break;
+      case "pack-tear":
+        // Foil ripping: two overlapping bright noise shreds + a low drop.
+        noiseBurst(ctx, 0, 0.14, 0.2, 3400);
+        noiseBurst(ctx, 0.06, 0.2, 0.14, 2400);
+        tone(ctx, "sine", 300, 90, 0.02, 0.18, 0.1);
+        break;
+      case "pack-pop":
+        // The card stack popping free of the sleeve.
+        noiseBurst(ctx, 0, 0.1, 0.09, 2000);
+        tone(ctx, "triangle", 320, 620, 0, 0.12, 0.09);
+        tone(ctx, "sine", 640, 980, 0.08, 0.12, 0.06);
+        break;
+      case "card-flip":
+        tone(ctx, "sine", 700, 1150, 0, 0.06, 0.05);
+        noiseBurst(ctx, 0, 0.04, 0.03, 4200);
+        break;
+      case "reveal-rare":
+        tone(ctx, "triangle", 880, 1320, 0, 0.09, 0.06);
+        tone(ctx, "sine", 1760, 1980, 0.07, 0.1, 0.04);
+        break;
+      case "reveal-epic":
+        tone(ctx, "square", 520, 1040, 0, 0.12, 0.04);
+        tone(ctx, "triangle", 1040, 1560, 0.1, 0.14, 0.06);
+        tone(ctx, "sine", 2080, 2340, 0.2, 0.12, 0.035);
+        break;
+      case "reveal-legendary":
+        // Rising major arpeggio with an air-sparkle tail.
+        tone(ctx, "triangle", 523, 523, 0, 0.1, 0.07);
+        tone(ctx, "triangle", 659, 659, 0.09, 0.1, 0.07);
+        tone(ctx, "triangle", 784, 784, 0.18, 0.1, 0.075);
+        tone(ctx, "triangle", 1046, 1568, 0.27, 0.24, 0.085);
+        noiseBurst(ctx, 0.27, 0.18, 0.045, 6000);
+        break;
+      case "reveal-mythic":
+        // The big one: wider climb, brighter shimmer, longer tail.
+        tone(ctx, "triangle", 392, 392, 0, 0.09, 0.07);
+        tone(ctx, "triangle", 523, 523, 0.08, 0.09, 0.07);
+        tone(ctx, "triangle", 659, 659, 0.16, 0.09, 0.075);
+        tone(ctx, "triangle", 784, 1568, 0.24, 0.3, 0.09);
+        tone(ctx, "sine", 2093, 3136, 0.3, 0.24, 0.05);
+        noiseBurst(ctx, 0.24, 0.26, 0.055, 7200);
         break;
     }
   } catch {
