@@ -47,19 +47,35 @@ test("Monster cards render the complete physical TCG information hierarchy", () 
   assert.doesNotMatch(html, />COUNTER</);
 });
 
-test("generated Monster lore uses Shinobi Journey flavor text instead of roster copy", () => {
+test("Monster lore is the card's own epic line — no stamped boilerplate or meta copy", () => {
   const solarGodBeast = getChronicleCard("tc-142");
   assert.ok(solarGodBeast);
   assert.equal(solarGodBeast.cardClass, "monster");
   assert.equal(
     solarGodBeast.lore,
-    "A fragment of the sun. In the world of Shinobi Journey, its fire chakra blazes through every strike.",
+    "A fragment of the sun that fell burning, and refused to go out.",
   );
 
   for (const card of CHRONICLE_CARD_CATALOG) {
     assert.doesNotMatch(card.lore, /ShinobiX/i);
     assert.doesNotMatch(card.lore, /enters the Chronicle|established roster/i);
+    // The Chronicle records the world, never the game: the old element-stamp
+    // sentence and the retired tile-game strategy notes must never come back.
+    assert.doesNotMatch(card.lore, /In the world of|its \w+ chakra/i);
+    assert.doesNotMatch(
+      card.lore,
+      /\b(corner|top-left|top-row|bottom-row|side|lane) card\b|multi-flips|flipper/i,
+    );
   }
+
+  // Humans print as SHINOBI on the card face, never BEAST.
+  const forgottenKage = getChronicleCard("tc-129");
+  assert.ok(forgottenKage);
+  assert.equal(forgottenKage.name, "Forgotten Kage");
+  assert.equal(forgottenKage.cardClass === "monster" && forgottenKage.family, "Shinobi");
+  const monk = getChronicleCard("tc-87");
+  assert.ok(monk);
+  assert.equal(monk.cardClass === "monster" && monk.family, "Shinobi");
 });
 
 test("Field Jutsu and Snare cards have explicit, distinct physical card identities", () => {
