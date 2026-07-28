@@ -22,11 +22,21 @@ describe('_sunscar', () => {
         assert.deepEqual(result.reward, {
             ryo: 0,
             xp: 0,
+            statPoints: 0,
             stamina: 0,
             boneCharms: 10,
             fateShards: 5,
             auraStones: 5,
         });
+    });
+
+    it('the dice pay tiny stat-pool points where they used to pay XP', () => {
+        // moon (no triple, no scorpion/coin/blade in the roll): +5 pool points.
+        const values = [0.7, 0.7, 0.9]; // moon, moon, star → includes moon
+        const result = rollFateDice(() => values.shift() ?? 0);
+        assert.equal(result.reward.xp, 0);
+        assert.equal(result.reward.statPoints, 5);
+        assert.equal(result.reward.ryo, 25);
     });
 
     it('sanitizes Miraa wagers to the allowed bet ladder', () => {

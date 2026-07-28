@@ -7,7 +7,11 @@ describe('Hollow Gate locked-door authority', () => {
         const chestValues = [0.1, 0.4, 0.5, 0.1, 0.5]; let chestIndex = 0;
         const chest = rollHollowLockedDoor(() => chestValues[chestIndex++] ?? 0.5, 1, 5);
         assert.equal(chest.outcome, 'chest');
-        assert.equal(chest.loot?.xp, 150);
+        // Character XP retired: the old xp line (100 + floor·10) is now a
+        // guaranteed ryo floor (75 + floor·8); this sequence also wins the
+        // 50% bonus ryo roll (0.4 → +100+floor(0.5·401)=+300).
+        assert.equal(chest.loot?.xp, 0);
+        assert.equal(chest.loot?.ryo, (75 + 40) + 100 + 200);
         assert.equal(chest.loot?.hollowShards, 15);
         assert.equal(rollHollowLockedDoor(() => 0.6).outcome, 'trap');
         for (const [roll, rarity] of [[0.8, 'rare'], [0.995, 'legendary'], [0.999, 'mythic']] as const) {

@@ -131,11 +131,18 @@ describe('raw save server-ledger boundary', () => {
 
         const result = sanitizeCompatible(incoming, existing);
         const out = result.character as Record<string, unknown>;
-        assert.equal(out.level, 21, 'normal level-up must persist');
-        assert.equal(out.xp, 65, 'AI/story XP must persist');
+        // Stat-derived leveling: the client's level/xp writes are IGNORED —
+        // xp is frozen from the stored save and level derives from the
+        // validated stat ledger. The one-time migration tops the pool up to
+        // cover the stored level (earnedForLevel(20) = 3,933; earned was
+        // 22 allocated + 3 pool = 25 → +3,908 pool), so the derived level
+        // lands exactly back on the stored 20 (also the genin exam hold).
+        assert.equal(out.level, 20, 'client level writes are ignored; level derives from the ledger');
+        assert.equal(out.xp, 40, 'xp is frozen from the stored save (retired currency)');
+        assert.equal(out.levelLedgerMigrated, true, 'one-time ledger migration stamps the save');
         assert.equal(out.ryo, 575, 'bounded PvE ryo must persist');
         assert.deepEqual(out.stats, { strength: 22, speed: 20 }, 'earned/allocated stats must persist');
-        assert.equal(out.unspentStats, 3, 'level-up allocation pool must persist');
+        assert.equal(out.unspentStats, 3 + 3908, 'the spend persists and the migration top-up lands in the pool');
         assert.deepEqual(out.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 30 }], 'battle mastery must persist');
         assert.deepEqual(out.inventory, ['sword', 'story-loot'], 'world loot must persist');
         assert.equal((out.pets as Array<Record<string, unknown>>)[0]?.id, 'story-pet', 'bounded pet progression must persist');
