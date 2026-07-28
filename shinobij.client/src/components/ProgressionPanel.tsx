@@ -20,6 +20,7 @@ import {
     normalizeStats,
     rankFromLevel,
 } from "../lib/stats";
+import { levelProgress } from "../lib/character-progress";
 import { nextRankBand, cappedStatCount } from "../lib/rank-progression";
 import "./ProgressionPanel.css";
 
@@ -35,12 +36,8 @@ export function ProgressionPanel({ character }: { character: Character }) {
     const spent = allocatedStatPoints(normalizeStats(character.stats));
     const unspent = Math.max(0, character.unspentStats ?? 0);
     const earned = spent + unspent;
-    const levelFloor = earnedForLevel(level);
+    const progress = levelProgress(character);
     const nextThreshold = earnedForLevel(level + 1);
-    const levelSpan = Math.max(1, nextThreshold - levelFloor);
-    const intoLevel = Math.max(0, Math.min(levelSpan, earned - levelFloor));
-    const levelPct = maxed ? 100 : Math.min(100, Math.round((intoLevel / levelSpan) * 100));
-    const ptsRemaining = maxed ? 0 : Math.max(0, nextThreshold - earned);
 
     const cap = statCapForLevel(level);
     const uncapped = cap >= MAX_STAT;
@@ -62,12 +59,16 @@ export function ProgressionPanel({ character }: { character: Character }) {
             <div className="prog-block">
                 <div className="prog-row">
                     <span className="prog-label">Level {level}{maxed ? "" : ` / ${MAX_LEVEL}`}</span>
-                    <span className="prog-value">{maxed ? "MAX LEVEL" : `${earned.toLocaleString()} / ${nextThreshold.toLocaleString()} pts`}</span>
+                    <span className="prog-value">{maxed ? "MAX LEVEL" : progress.label}</span>
                 </div>
                 {!maxed && (
                     <>
-                        <div className="prog-bar-track"><div className="prog-bar-fill" style={{ width: `${levelPct}%` }} /></div>
-                        <div className="prog-sub">{ptsRemaining.toLocaleString()} stat points to Level {level + 1} — earn them training, doing your dailies, and in serious PvP.</div>
+                        <div className="prog-bar-track"><div className="prog-bar-fill" style={{ width: `${progress.percent}%` }} /></div>
+                        <div className="prog-sub">
+                            {progress.heldBy
+                                ? <>Level {level + 1} is held until you pass the <strong>{progress.heldBy}</strong> — the points you earn now are banked and apply the moment you pass.</>
+                                : <>{progress.remaining.toLocaleString()} stat points to Level {level + 1} — earn them training, doing your dailies, and in serious PvP.</>}
+                        </div>
                     </>
                 )}
             </div>

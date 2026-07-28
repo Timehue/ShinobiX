@@ -114,7 +114,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // their own labels.
     const isZeroRewardVn = !isStoryChapterEvent
         && event.eventKind === "visualNovel"
-        && !event.xpReward && !event.ryoReward && !event.staminaReward && !event.currencyRewards;
+        // `xpReward` is deliberately NOT part of this check any more: character
+        // XP is retired, so a scene carrying only an xpReward now pays literally
+        // nothing — counting it would show a "Claim Reward" button that hands
+        // over an empty reward line.
+        && !event.ryoReward && !event.staminaReward && !event.currencyRewards;
     // Story interludes ("story-interlude-*") and road events ("story-road-*"):
     // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
     // only from choices). The choice itself is the payoff, recorded server-side,
@@ -236,7 +240,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                                     ? "Your choice is recorded. The story remembers."
                                     : isStoryChapterEvent
                                         ? "Defeat the chapter boss in Story Hall to earn stat points and ryo."
-                                        : `Reward: ${rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
+                                        : `Reward: ${rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}`}
                 </span>
             </div>
         </div>
@@ -325,7 +329,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                             ? <span>Chapter reward: paid when the boss falls — choose your answer above.</span>
                             : <>
                                 <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
-                                <span>Reward: {rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                                <span>Reward: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
                             </>}
                     </div>
                 )}

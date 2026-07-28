@@ -5,7 +5,7 @@ import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
 import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NAMES, HUNT_MIN_RANK, type MissionRank } from "../constants/hunter";
 import { FIELD_MISSION_STAT_POINTS } from "../constants/game";
-import { rewardSummary } from "../lib/currency";
+import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
@@ -119,7 +119,7 @@ export function HunterBoard({
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
             clearHuntQuality(mission.id);
-            alert(`${mission.name} complete! ${result.reward.statPoints ? `+${result.reward.statPoints} Stat Pts / ` : ""}${rewardSummary(0, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
+            alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
         if (result.applied === false) {
@@ -196,7 +196,7 @@ export function HunterBoard({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-            alert(`Apex Contract complete! ${result.reward.statPoints ? `+${result.reward.statPoints} Stat Pts / ` : ""}${rewardSummary(0, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
+            alert(`Apex Contract complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
         if (result.applied === false) alert(claimReasonMessage(result.reason, result));
@@ -319,7 +319,7 @@ export function HunterBoard({
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>
                                                     <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
-                                                    <small>+{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(0, boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards, character)}</small>
+                                                    <small>+{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards, character)}</small>
                                                     {mission.itemRewards && (
                                                         <div className="hunt-drops" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
                                                             <span style={{ opacity: .7, fontSize: 11 }}>Drops:</span>

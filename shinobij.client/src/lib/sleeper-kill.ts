@@ -91,7 +91,8 @@ export async function strikeDownSleeper(opts: {
         setPlayerRoster(prev => prev.map(p => p.name.toLowerCase() === opponent.name.toLowerCase() ? { ...p, currentSector: 0 } : p));
 
         const r = data.reward;
-        const gains = r ? [r.ryo ? `+${r.ryo} ryo` : "", r.xp ? `+${r.xp} XP` : "", r.seals ? `+${r.seals} Honor Seals` : ""].filter(Boolean).join(", ") : "";
+        // Character XP is retired — a sleeper kill pays ryo (+ Vanguard seals).
+        const gains = r ? [r.ryo ? `+${r.ryo} ryo` : "", r.seals ? `+${r.seals} Honor Seals` : ""].filter(Boolean).join(", ") : "";
         alert(`💤 You struck down ${r?.target ?? opponent.name}! They've been sent to the hospital.`
             + (gains ? `\n${gains}` : (r && !r.rewardEligible ? "\n(No rewards — same household/device.)" : "")));
     } catch {
