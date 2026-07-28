@@ -145,6 +145,10 @@ export const DAILY_MISSION_LIMIT = 20;
 // Hunter Guild contracts have their own daily pool, separate from the
 // mission limit above — a player gets 20 missions AND 20 hunts per day.
 export const DAILY_HUNT_LIMIT = 20;
+// Daily-checklist stat grant per once-per-day field/hunt claim (leveling-
+// without-xp map §4). Mirror of api/missions/_mission-catalog.ts
+// FIELD_MISSION_STAT_POINTS — display only; the server seals the real grant.
+export const FIELD_MISSION_STAT_POINTS = 3;
 
 // ── Item IDs (special / shared) ──────────────────────────────────────────
 export const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";

@@ -21,6 +21,41 @@ export type PatchNote = {
 
 export const PATCH_NOTES: PatchNote[] = [
     {
+        version: "2026.07.28-stat-leveling",
+        date: "July 28, 2026",
+        title: "Levels Now Come From Your Stats",
+        intro:
+            "Character XP is gone. Your level now rises directly from the stat points you earn — " +
+            "training, your daily field and hunt missions, story milestones, and serious PvP all " +
+            "feed one number, and that number IS your level. Nothing you had was lost: every " +
+            "veteran save was topped up so your level and your points now agree.",
+        sections: [
+            {
+                heading: "One number, one journey",
+                body:
+                    "Every stat point you earn — trained, granted, or banked in your unspent pool — counts " +
+                    "toward your next level. The old XP bar is now a stat-points bar, and level-ups still " +
+                    "fully restore you. Rank exams work exactly as before: level 20 and level 39 hold until " +
+                    "you pass, but points you earn while held are BANKED — pass the exam and you leap forward.",
+            },
+            {
+                heading: "Your dailies are the daily engine",
+                body:
+                    "Each field and hunt daily now pays stat points on claim (boosted by your Town Hall and " +
+                    "Hunter Rank), story chapters and Battle Tower first-clears grant one-time point bundles, " +
+                    "the weekly boss pays every contributor, and serious PvP wins keep growing the stats you " +
+                    "fight with. Repeatable grinds pay ryo — growth lives on the things you can only do once.",
+            },
+            {
+                heading: "Old XP boosts got stronger, not deleted",
+                body:
+                    "Everything that used to boost XP now boosts stat growth itself: the Town Hall training " +
+                    "bonus and Elder focus speed up training gains for real, mission-reward bonuses boost " +
+                    "your daily checklist, and Swift or a Death's Gate win boosts your PvP stat growth.",
+            },
+        ],
+    },
+    {
         version: "2026.07.02-legacy",
         date: "July 2, 2026",
         title: "The Legacy System",

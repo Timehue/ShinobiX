@@ -28,9 +28,8 @@ import {
     getActiveAuraSphereBonuses,
     dailyMissionsCompleted,
     dailyHuntsCompleted,
-    xpNeeded,
-    gainXp,
 } from "../App";
+import { earnedForLevel, earnedStatPoints } from "../lib/stats";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
@@ -111,7 +110,6 @@ export const LeftProfileCard = memo(function LeftProfileCard({
 // Memo'd + owns the useSharedNow tick so the timer rows refresh once a second.
 export const ProfileCardBody = memo(function ProfileCardBody({
     character,
-    updateCharacter,
     currentSector,
     setScreen,
     activeTraining,
@@ -195,31 +193,31 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                 </div>
             </div>
 
-            {/* XP bar */}
+            {/* Level progress bar — earned stat points toward the next level
+                (XP is retired; levels derive from training + daily growth). */}
             <div className="left-xp-section">
                 {character.level >= MAX_LEVEL ? (
                     <div className="left-xp-label">Lv {character.level} — MAX</div>
-                ) : (
-                    <>
-                        <div className="left-xp-label">
-                            Lv {character.level} &nbsp;·&nbsp; {formatRatio(character.xp, xpNeeded(character.level))} XP
-                        </div>
-                        <div className="left-xp-bar-track">
-                            <div
-                                className="left-xp-bar-fill"
-                                style={{ width: `${Math.min(100, Math.round((character.xp / xpNeeded(character.level)) * 100))}%` }}
-                            />
-                        </div>
-                        {character.xp >= xpNeeded(character.level) && (
-                            <button
-                                className="left-levelup-btn"
-                                onClick={() => updateCharacter(gainXp(character, 0))}
-                            >
-                                ⬆️ Level Up!
-                            </button>
-                        )}
-                    </>
-                )}
+                ) : (() => {
+                    const earned = earnedStatPoints(character);
+                    const floor = earnedForLevel(character.level);
+                    const next = earnedForLevel(character.level + 1);
+                    const span = Math.max(1, next - floor);
+                    const into = Math.max(0, Math.min(span, earned - floor));
+                    return (
+                        <>
+                            <div className="left-xp-label">
+                                Lv {character.level} &nbsp;·&nbsp; {earned.toLocaleString()} / {next.toLocaleString()} pts
+                            </div>
+                            <div className="left-xp-bar-track">
+                                <div
+                                    className="left-xp-bar-fill"
+                                    style={{ width: `${Math.min(100, Math.round((into / span) * 100))}%` }}
+                                />
+                            </div>
+                        </>
+                    );
+                })()}
             </div>
 
             {/* "What's next" breadcrumb, tucked under the XP bar (desktop rail).

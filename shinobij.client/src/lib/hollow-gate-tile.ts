@@ -323,15 +323,16 @@ export function resolveHollowGateTile(
             return;
         }
         case "chest": {
-            const ryoGain = 80 + Math.floor(Math.random() * 200);
-            const xpGain = 25 + Math.floor(Math.random() * 30);
+            // XP retired (docs/leveling-without-xp-map.md): the old client-rolled
+            // 25-54 XP folds into the ryo roll instead — chests stay purely loot.
+            const ryoGain = 110 + Math.floor(Math.random() * 200);
             const auraDustGain = Math.random() < 0.4 ? 5 + Math.floor(Math.random() * 8) : 0;
             // Hollow Gate Shrine chests always yield aura stones and bone charms.
             const auraStoneGain = 1 + Math.floor(Math.random() * 10);  // 1..10
             const boneCharmGain = 5 + Math.floor(Math.random() * 11);  // 5..15
             const keyGain = Math.random() < 0.3 ? 1 : 0;
             const shardGain = hollowShardDrop(hollowGateRun.floor, "chest");
-            const leveled = gainXp(character, xpGain);
+            const leveled = gainXp(character, 0);
             setCharacter({
                 ...leveled,
                 ryo: leveled.ryo + ryoGain,
@@ -342,11 +343,11 @@ export function resolveHollowGateTile(
             });
             // Chests also refill the Torch of Reiki by 2.
             const torchRefill = 2;
-            pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms, +${shardGain} Hollow Shards${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
+            pushHollowGateLog(`Chest opened. +${ryoGain} ryo${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms, +${shardGain} Hollow Shards${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
             markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
             setHollowGateEvent({
                 title: "Shrine Offering Chest",
-                body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms\n+${shardGain} Hollow Shards${keyGain ? "\n+1 Shrine Key" : ""}`,
+                body: `${flavor}\n\n+${ryoGain} ryo${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms\n+${shardGain} Hollow Shards${keyGain ? "\n+1 Shrine Key" : ""}`,
                 kind: "chest",
                 choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
             });
@@ -539,10 +540,10 @@ export function resolveHollowGateTile(
                         const loot = result.loot;
                         setCharacter((prev) => {
                             if (!prev) return prev;
-                            const leveled = gainXp(prev, loot.xp);
+                            const leveled = gainXp(prev, 0); // XP retired — the server rolls ryo instead
                             return { ...leveled, ryo: leveled.ryo + (loot.ryo ?? 0), fateShards: (leveled.fateShards ?? 0) + (loot.fateShards ?? 0), boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0), auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0), auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0), hollowShards: (leveled.hollowShards ?? 0) + loot.hollowShards };
                         });
-                        const lines = [`+${effectiveCharacterXpGain(character, loot.xp)} XP`];
+                        const lines: string[] = [];
                         if (loot.ryo) lines.push(`+${loot.ryo} ryo`); if (loot.fateShards) lines.push(`+${loot.fateShards} Fate Shard`);
                         if (loot.boneCharms) lines.push(`+${loot.boneCharms} Bone Charm`); if (loot.auraStones) lines.push(`+${loot.auraStones} Aura Stone`); if (loot.auraDust) lines.push(`+${loot.auraDust} Aura Dust`);
                         lines.push(`+${loot.hollowShards} Hollow Shards`);

@@ -229,7 +229,7 @@ export function WeeklyBossArena({
                 <div><GiTrophy style={WB_ICON} /><strong>Rewards at despawn</strong></div>
                 <div>· Top 10 by damage → <strong style={{ color: "var(--gold)" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "var(--blue-400)" }}>1 Dungeon Key</strong> each</div>
-                <div>· Every contributor → ryo + XP share by damage (MVP = top 1 gets <strong>×2</strong>)</div>
+                <div>· Every contributor → a ryo share by damage + 10 stat points (MVP = top 1 gets <strong>×2</strong> ryo)</div>
                 <div style={{ marginTop: 4, color: "var(--text-dim)" }}>
                     {roaming
                         ? "Find the boss roaming the World Map and challenge it where it stands — each fight adds your damage to the leaderboard. "
@@ -331,7 +331,7 @@ export function WeeklyBossArena({
                 <div style={{ background: "rgba(15,118,110,0.18)", border: "1px solid rgba(74,222,128,0.4)", borderRadius: 6, padding: "0.6rem 0.8rem", margin: "0.8rem 0 0.4rem", fontSize: "0.85rem" }}>
                     <strong style={{ color: "var(--green-400)" }}>✓ Rewards distributed.</strong> You earned:
                     <ul style={{ margin: "4px 0 0 18px" }}>
-                        <li>+{mySummary.ryo.toLocaleString()} ryo · +{mySummary.xp.toLocaleString()} XP{mySummary.isMvp ? " (MVP ×2)" : ""}</li>
+                        <li>+{mySummary.ryo.toLocaleString()} ryo · +10 stat points{mySummary.isMvp ? " (MVP ×2 ryo)" : ""}</li>
                         {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
                         {mySummary.gotKey && <li>+1 Dungeon Key (top 25)</li>}
                     </ul>

@@ -100,8 +100,8 @@ import {
     maxChakraForLevel,
     maxStaminaForLevel,
     rankFromLevel,
-    statPointBudgetForProgress,
-    progressAfterXp,
+    levelForEarned,
+    earnedStatPoints,
     reconcileCharacterStatBudget,
 } from "./lib/stats";
 export { xpNeeded };
@@ -340,7 +340,6 @@ import {
 } from "./lib/utils";
 
 import {
-    effectiveCharacterXpGain,
     rankedDelta, applyServerBaseReward, type PvpWinBaseSummary,
 } from "./lib/progression";
 
@@ -761,12 +760,6 @@ export function setHollowGateBossFloorRewardMult(v: number) { HOLLOW_GATE_BOSS_F
  * Safe to call repeatedly — already-claimed IDs are tracked in claimedWarCrateIds.
  */
 
-export function statPointsEarnedFromXp(character: Character, amount: number) {
-    const before = statPointBudgetForProgress(character.level, character.xp);
-    const after = progressAfterXp(character.level, character.xp, effectiveCharacterXpGain(character, amount));
-    return Math.max(0, statPointBudgetForProgress(after.level, after.xp) - before);
-}
-
 // normalizeStats / allocatedStatPoints / formatStatName /
 // reconcileCharacterStatBudget / scaleStat moved to ./lib/stats.
 
@@ -799,38 +792,32 @@ function examLevelCap(character: Character): number {
     return MAX_LEVEL;
 }
 
-export function gainXp(character: Character, amount: number): Character {
-    const totalAmount = effectiveCharacterXpGain(character, amount);
-    const levelCap = examLevelCap(character);
-    let updated: Character = reconcileCharacterStatBudget(character);
-    updated = { ...updated, xp: updated.level >= MAX_LEVEL ? 0 : updated.xp + totalAmount };
-    while (updated.level < MAX_LEVEL && updated.level < levelCap && updated.xp >= xpNeeded(updated.level)) {
-        const needed = xpNeeded(updated.level);
-        const newLevel = updated.level + 1;
-        const nextMaxHp = maxHpForLevel(newLevel);
-        const nextMaxChakra = maxChakraForLevel(newLevel);
-        const nextMaxStamina = maxStaminaForLevel(newLevel);
-        updated = {
-            ...updated,
-            xp: updated.xp - needed,
-            level: newLevel,
-            rankTitle: rankTitleForLevel(updated, newLevel),
-            maxHp: nextMaxHp,
-            maxChakra: nextMaxChakra,
-            maxStamina: nextMaxStamina,
-            hp: nextMaxHp,
-            chakra: nextMaxChakra,
-            stamina: nextMaxStamina,
-        };
-    }
-    // If capped by exam gate, clamp XP so it doesn't overflow past the level threshold
-    if (updated.level >= levelCap && updated.level < MAX_LEVEL) {
-        updated = { ...updated, xp: Math.min(updated.xp, xpNeeded(updated.level) - 1) };
-    }
-    if (updated.level >= MAX_LEVEL) {
-        updated = { ...updated, level: MAX_LEVEL, xp: 0, rankTitle: rankTitleForLevel(updated, MAX_LEVEL) };
-    }
-    return reconcileCharacterStatBudget(updated);
+// gainXp — RETIRED XP driver, kept as a derived-level compatibility shim.
+// Character XP is removed (docs/leveling-without-xp-map.md): level derives from
+// the earned-points ledger (lib/stats levelForEarned/earnedStatPoints), so the
+// amount is ignored and this collapses to the RISE-ONLY recompute the server
+// runs (api/_xp-engine.ts applyDerivedLevel). Rise-only matters here too: a
+// pre-migration save (old XP-era level above its earned-derived level) must
+// never de-level locally — the server's one-time migration tops the pool up on
+// its next save write. The frozen `xp` field is never touched.
+export function gainXp(character: Character, _amount: number): Character {
+    const updated: Character = reconcileCharacterStatBudget(character);
+    const target = Math.max(1, Math.min(examLevelCap(updated), levelForEarned(earnedStatPoints(updated))));
+    if (target <= updated.level) return updated;
+    const nextMaxHp = maxHpForLevel(target);
+    const nextMaxChakra = maxChakraForLevel(target);
+    const nextMaxStamina = maxStaminaForLevel(target);
+    return {
+        ...updated,
+        level: target,
+        rankTitle: rankTitleForLevel(updated, target),
+        maxHp: nextMaxHp,
+        maxChakra: nextMaxChakra,
+        maxStamina: nextMaxStamina,
+        hp: nextMaxHp,
+        chakra: nextMaxChakra,
+        stamina: nextMaxStamina,
+    };
 }
 
 // Honor Seals are exclusively a Vanguard reward. Every grant site (PvP,
@@ -1034,7 +1021,9 @@ export { normalizeJutsu };
 
 export function normalizeCharacter(parsed: Character): Character {
     const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(parsed.level ?? 1)));
-    const xp = level >= MAX_LEVEL ? 0 : Math.max(0, Math.min(xpNeeded(level), Math.floor(parsed.xp ?? 0)));
+    // Character XP is retired: the field is frozen ballast (pre-wipe rollback
+    // insurance) — carry it through untouched instead of curve-clamping it.
+    const xp = Math.max(0, Math.floor(parsed.xp ?? 0));
     const currentMonth = currentMonthKey();
     const expectedMaxHp = maxHpForLevel(level);
     const expectedMaxChakra = maxChakraForLevel(level);
@@ -5231,7 +5220,7 @@ export default function App() {
         setCharacter((current) => current ? { ...current, endlessTowerRun: null } : current);
     }
 
-    // Retreat & bank: convert banked ryo/xp into actual progress, clear the run.
+    // Retreat & bank: convert banked ryo into actual progress, clear the run.
     function bankEndlessRewards() {
         if (!character) return;
         const run = character.endlessTowerRun;
@@ -5242,8 +5231,8 @@ export default function App() {
             setCharacter({ ...character, endlessTowerRun: null });
             return;
         }
-        // Credit via gainXp + daily tower-XP soft cap (a raw xp+= would be clamped
-        // away by the new curve, and uncapped tower XP would bypass the level curve).
+        // XP retired: waves bank ryo only (legacy in-flight bankedXp converts
+        // to ryo inside applyTowerCashOut); gainXp is the derived-level shim.
         setCharacter(applyTowerCashOut(character, run, currentDateKey(), gainXp));
         setEndlessBattleActive(false);
         setEndlessBattleWave(0);
@@ -5442,7 +5431,7 @@ export default function App() {
                     }
                 }).catch(() => undefined);
             }
-            const leveled = gainXp(character, event.xpReward);
+            const leveled = gainXp(character, 0); // XP retired — derived-level recompute only
             const isRewardEvent = event.eventKind !== "visualNovel";
             const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
                 ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
@@ -5791,7 +5780,7 @@ export default function App() {
                     kind: pendingArenaStoryBattle.kind,
                 }),
             });
-            const data = await response.json().catch(() => ({})) as { character?: Character; error?: string; xp?: number; ryo?: number; auraDust?: number; finale?: boolean; _saveVersion?: number };
+            const data = await response.json().catch(() => ({})) as { character?: Character; error?: string; xp?: number; statPoints?: number; ryo?: number; auraDust?: number; finale?: boolean; _saveVersion?: number };
             if (!response.ok || !data.character) throw new Error(data.error || "The story reward could not be verified.");
             latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, data._saveVersion);
             setCharacter(data.character);
@@ -5804,7 +5793,8 @@ export default function App() {
             }
             // Only the Academy spar still reaches this Arena branch — storyBoss
             // fights are sealed server sessions hosted inside StoryHall now.
-            return `Sparring match won! +${data.xp ?? 60} XP, +${data.ryo ?? 30} ryo.`;
+            // XP is retired: the spar's teaching reward is stat-pool points.
+            return `Sparring match won! +${data.statPoints ?? 20} stat points, +${data.ryo ?? 30} ryo.`;
         }
 
         if (pendingArenaStoryBattle.kind === "dungeonAi") {
@@ -5828,9 +5818,10 @@ export default function App() {
         }
 
         const { event, battle } = pendingArenaStoryBattle;
-        const xpReward = battle?.xpReward ?? event.xpReward;
         const ryoReward = battle?.ryoReward ?? event.ryoReward;
-        const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
+        // XP is retired — the event's legacy xpReward is ignored; gainXp is the
+        // derived-level recompute shim.
+        const leveled = gainXp({ ...character, hp: survivingHp }, 0);
         const isRewardEvent = event.eventKind !== "visualNovel";
         const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
             ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
@@ -5867,9 +5858,8 @@ export default function App() {
         }
         setCharacter(nextCharacter);
         setPendingAiProfileId("");
-        const displayedXpReward = effectiveCharacterXpGain(character, xpReward);
         const kageFinaleBonus = event.kageFinale && event.village === character.village ? ", +1 Hollow Gate Key" : "";
-        return `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo${kageFinaleBonus}. Event reward claimed.`;
+        return `${battle?.bossName ?? event.name} defeated. +${ryoReward} ryo${kageFinaleBonus}. Event reward claimed.`;
     }
 
     function continuePendingArenaStoryBattle() {
@@ -6493,11 +6483,11 @@ export default function App() {
     ];
     function searchHollowGateHiddenChamber() {
         if (!hollowGateHiddenChamber || !character) return;
-        const xp = 60 + Math.floor(Math.random() * 50);
-        const dust = 10 + Math.floor(Math.random() * 15);
-        const leveled = gainXp(character, xp);
+        // XP retired: the tablet's old 60-109 XP folds into Aura Dust instead.
+        const dust = 18 + Math.floor(Math.random() * 20);
+        const leveled = gainXp(character, 0);
         setCharacter({ ...leveled, auraDust: (leveled.auraDust ?? 0) + dust });
-        pushHollowGateLog(`You decipher the Ancient Tablet. +${effectiveCharacterXpGain(character, xp)} XP, +${dust} Aura Dust.`);
+        pushHollowGateLog(`You decipher the Ancient Tablet. +${dust} Aura Dust.`);
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
     }
 
@@ -7584,7 +7574,8 @@ export default function App() {
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
                         const deathsGate = rewardSector === 99;
                         const activeTrait = getActivePetTrait(character);
-                        const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGate ? 2 : 1);
+                        // XP retired — Swift/Death's Gate now boost server-side stat
+                        // growth instead; ryo stays the client-visible base line.
                         const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGate ? 2 : 1);
                         const ratingGain = context?.mode === "ranked" && opponent
                             ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
@@ -7609,8 +7600,8 @@ export default function App() {
                         const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                        // Spars grant NOTHING (no XP/stats/ryo/currency/scrolls/kills); ranked = no stats.
-                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
+                        // Spars grant NOTHING (no stats/ryo/currency/scrolls/kills); ranked = no stats.
+                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, 0);
                         if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
                         const rewarded = grantTerritoryScrolls(leveled, isFriendlyDuel ? 0 : 5);
                         // Vanguard rewards (Honor Seals + profession XP + all the

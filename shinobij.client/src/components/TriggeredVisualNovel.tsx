@@ -235,8 +235,8 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                                 : isStoryInterlude
                                     ? "Your choice is recorded. The story remembers."
                                     : isStoryChapterEvent
-                                        ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
-                                        : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
+                                        ? "Defeat the chapter boss in Story Hall to earn stat points and ryo."
+                                        : `Reward: ${rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
                 </span>
             </div>
         </div>
@@ -325,7 +325,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                             ? <span>Chapter reward: paid when the boss falls — choose your answer above.</span>
                             : <>
                                 <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
-                                <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                                <span>Reward: {rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
                             </>}
                     </div>
                 )}
