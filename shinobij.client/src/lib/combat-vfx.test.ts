@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
     COMBAT_VFX_REGISTRY,
     resolveCombatVfxSpec,
@@ -311,4 +311,67 @@ test("asset manifest keeps element, offense discipline, and tag lanes distinct",
     assert.equal(COMBAT_VFX_ASSETS.burn.discipline, "status");
     assert.equal(COMBAT_VFX_ASSETS.poisonCloud.discipline, "status");
     assert.equal(COMBAT_VFX_ASSETS.ko.role, "finisher");
+});
+
+test("high-tier fire art keeps the target readable", () => {
+    const fire = COMBAT_VFX_ASSETS.fire60;
+    assert.equal(fire.filename, "fire60-smart.webp");
+    assert.ok(fire.tags.includes("Read: Open flame spiral"));
+    assert.ok(fire.assetScale <= 1.35, "fire spiral must not swallow the fighter or adjacent tiles");
+    assert.ok(fire.opacity < 1, "underlying fighter should remain visible through the effect");
+});
+
+test("marquee and finisher plates stay inside their readability budgets", () => {
+    for (const key of ["fire60", "water60", "wind60", "lightning60", "earth60"] as const) {
+        const asset = COMBAT_VFX_ASSETS[key];
+        assert.ok(asset.assetScale <= 1.5, `${key} must frame one fighter instead of covering the board`);
+        assert.ok(asset.opacity < 1, `${key} must leave the target readable`);
+    }
+    assert.ok(COMBAT_VFX_ASSETS.poisonCloud.assetScale <= 1.45, "area cloud must not hide its affected tiles");
+    assert.ok(COMBAT_VFX_ASSETS.namedWeapon.assetScale <= 1.35, "named weapon hit must remain directional");
+    assert.ok(COMBAT_VFX_ASSETS.heavy.assetScale <= 1.35, "heavy hit must remain local to its impact");
+    assert.ok(COMBAT_VFX_ASSETS.ko.assetScale <= 1.3, "KO may be largest, but must not cover adjacent fighters");
+});
+
+test("status plates are compact and visually distinct from their attack families", () => {
+    assert.equal(COMBAT_VFX_ASSETS.burn.filename, "burn-status-smart.webp");
+    assert.notEqual(COMBAT_VFX_ASSETS.burn.filename, COMBAT_VFX_ASSETS.magma.filename);
+    assert.equal(COMBAT_VFX_ASSETS.wound.filename, "wound-status-smart.webp");
+    assert.notEqual(COMBAT_VFX_ASSETS.wound.filename, COMBAT_VFX_ASSETS.blood.filename);
+    assert.equal(COMBAT_VFX_ASSETS.spark.filename, "spark-status-smart.webp");
+    assert.notEqual(COMBAT_VFX_ASSETS.spark.filename, COMBAT_VFX_ASSETS.lightning.filename);
+    for (const key of ["burn", "wound", "spark"] as const) {
+        assert.ok(COMBAT_VFX_ASSETS[key].assetScale <= 1.15, `${key} status must remain smaller than its attack`);
+        assert.ok(COMBAT_VFX_ASSETS[key].opacity <= 0.82, `${key} status must not hide the fighter`);
+    }
+});
+
+test("PvP and PvE render the same authored motion wrapper", () => {
+    for (const screen of ["../screens/PvpBattleScreen.tsx", "../screens/Arena.tsx"]) {
+        const source = readFileSync(new URL(screen, import.meta.url), "utf8");
+        assert.match(source, /className="pvp-vfx-art"/, screen);
+        assert.match(source, /pvp-vfx-asset-\$\{asset\.plane\}/, screen);
+    }
+});
+
+test("combat CSS assigns material-specific motion instead of one generic bloom", () => {
+    const css = readFileSync(new URL("../styles/index/28-desktop-scaling.css", import.meta.url), "utf8");
+    for (const motion of ["spiral", "fluid", "vortex", "thunder", "slam", "cut", "ward", "status"]) {
+        assert.match(css, new RegExp(`@keyframes pvp-vfx-motion-${motion}`), motion);
+    }
+    assert.match(css, /\.pvp-vfx-lightning60 \.pvp-vfx-art/);
+    assert.match(css, /\.pvp-vfx-namedWeapon \.pvp-vfx-art/);
+    assert.doesNotMatch(css, /\.pvp-vfx-heavy \.pvp-vfx-art/, "intensity must not override a material's motion profile");
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pvp-vfx-art\s*\{[\s\S]*?animation:\s*none/);
+});
+
+test("authoritative PvP timings stay synchronized with the client registry", () => {
+    const server = readFileSync(new URL("../../../api/pvp/move.ts", import.meta.url), "utf8");
+    for (const key of ["fire60", "water60", "wind60", "lightning60", "earth60", "ko"] as const) {
+        assert.match(
+            server,
+            new RegExp(`${key}: \\{ durationMs: ${COMBAT_VFX_REGISTRY[key].durationMs}, maxParticles:`),
+            key,
+        );
+    }
 });

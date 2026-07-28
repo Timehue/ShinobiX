@@ -68,15 +68,15 @@ type RelativeVfxEvent = Omit<CombatVfxTarget, 'target'> & { who: 'self' | 'opp' 
 // `COMBAT_VFX_REGISTRY` in shinobij.client/src/lib/combat-vfx.ts.
 const VFX_DEFAULTS: Record<CombatVfxKey, { durationMs: number; maxParticles: number }> = {
     fire: { durationMs: 850, maxParticles: 20 },
-    fire60: { durationMs: 1250, maxParticles: 24 },
+    fire60: { durationMs: 1050, maxParticles: 24 },
     water: { durationMs: 900, maxParticles: 18 },
-    water60: { durationMs: 1250, maxParticles: 24 },
+    water60: { durationMs: 1100, maxParticles: 24 },
     wind: { durationMs: 780, maxParticles: 16 },
-    wind60: { durationMs: 1250, maxParticles: 24 },
+    wind60: { durationMs: 1000, maxParticles: 24 },
     lightning: { durationMs: 700, maxParticles: 18 },
-    lightning60: { durationMs: 1150, maxParticles: 24 },
+    lightning60: { durationMs: 900, maxParticles: 24 },
     earth: { durationMs: 900, maxParticles: 16 },
-    earth60: { durationMs: 1250, maxParticles: 24 },
+    earth60: { durationMs: 1050, maxParticles: 24 },
     blood: { durationMs: 850, maxParticles: 18 },
     shadow: { durationMs: 930, maxParticles: 16 },
     poison: { durationMs: 950, maxParticles: 16 },
@@ -102,7 +102,7 @@ const VFX_DEFAULTS: Record<CombatVfxKey, { durationMs: number; maxParticles: num
     weapon: { durationMs: 550, maxParticles: 8 },
     namedWeapon: { durationMs: 780, maxParticles: 14 },
     heavy: { durationMs: 780, maxParticles: 16 },
-    ko: { durationMs: 1230, maxParticles: 24 },
+    ko: { durationMs: 1050, maxParticles: 24 },
 };
 function vfxEvent(
     who: 'self' | 'opp',

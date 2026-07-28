@@ -9,7 +9,7 @@ export type JutsuVisualEffectOption = {
 };
 
 export const JUTSU_VISUAL_EFFECT_OPTIONS: readonly JutsuVisualEffectOption[] = [
-    { key: "fire60", label: "Fire Engulf", shortLabel: "Fire", description: "Opponent is engulfed in flames.", group: "New Elemental" },
+    { key: "fire60", label: "Fire Spiral", shortLabel: "Fire", description: "Flame arcs spiral around an open, readable target.", group: "New Elemental" },
     { key: "wind60", label: "Tornado Trap", shortLabel: "Wind", description: "Opponent is trapped inside a tornado.", group: "New Elemental" },
     { key: "water60", label: "Water Bubble", shortLabel: "Water", description: "Opponent is enclosed by a water sphere.", group: "New Elemental" },
     { key: "lightning60", label: "Lightning Strike", shortLabel: "Lightning", description: "Opponent is struck by branching lightning.", group: "New Elemental" },
