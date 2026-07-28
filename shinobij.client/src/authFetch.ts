@@ -64,6 +64,23 @@ function clearPersistedPassword(): void {
     }
 }
 
+/**
+ * The session password, held in MEMORY ONLY — never sessionStorage, never
+ * localStorage. `clearPersistedPassword` above exists to purge the old durable
+ * copies, and durable plaintext must never come back (audit M5).
+ *
+ * This variable is what makes the documented SESSION_SECRET-unset fallback real.
+ * In that mode the server issues no token at all, and the request interceptor
+ * attaches a credential only when one is in hand — so with the password discarded
+ * (it used to be an ignored parameter) a player could log in "successfully" and then
+ * have EVERY authenticated request 401. Registration was worse: the account existed
+ * server-side but its first save failed, so a refresh found nothing and cleared it.
+ *
+ * Memory-only means a refresh costs a re-login, never a lockout — which is exactly
+ * the failure mode the auth model promises. Dropped as soon as a token supersedes it.
+ */
+let _memPassword: string | null = null;
+
 function getActiveToken(): string | null {
     try {
         return sessionStorage.getItem(ACTIVE_TOKEN_KEY)
@@ -91,10 +108,15 @@ export function setActiveToken(token: string | null): void {
         // safely stored above, so a storage failure can never strand us with
         // neither credential.
         clearPersistedPassword();
+        // The token supersedes the password as the credential, so drop the in-memory
+        // copy too. A later token expiry then surfaces the re-auth modal rather than
+        // silently falling back to a password the player never re-confirmed.
+        _memPassword = null;
         // A fresh token re-arms the expiry notice so a future expiry can prompt
         // re-login again. (#14)
         _sessionExpiredNotified = false;
         _consecutive401s = 0;
+        _first401At = 0;
     } catch {
         /* storage disabled — ignore */
     }
@@ -201,8 +223,17 @@ export function isActiveTokenExpired(): boolean {
 // logged-in player. So: if the token is genuinely past its expiry, surface it
 // immediately; otherwise require several consecutive failures, since any single
 // successful response proves the session is alive and resets the count.
+//
+// The count alone is not enough, because it is RATE-dependent. The heartbeat fires
+// once per second during combat, so three consecutive failures meant a ~3-second
+// storage blip put a blocking, full-screen re-auth modal over an active fight —
+// while the same blip on a 20s idle cadence would have been ignored for a minute.
+// Requiring a sustained DURATION as well makes the tolerance mean the same thing on
+// every code path: a real outage still surfaces, a brief hiccup never does.
 const TRANSIENT_401_TOLERANCE = 3;
+const TRANSIENT_401_GRACE_MS = 15_000;
 let _consecutive401s = 0;
+let _first401At = 0;
 
 /**
  * Adopt a server-minted replacement token if the response carried one. Applied
@@ -241,8 +272,12 @@ function observeSaveVersion(response: Response): Response {
  * interceptor's token-only player authentication. Read fresh at connect /
  * reconnect time. No-op-safe if storage is unavailable.
  */
-export function getSocketAuth(): { token: string | null; name: string | null; password: null } {
-    return { token: getActiveToken(), name: getActivePlayer(), password: null };
+export function getSocketAuth(): { token: string | null; name: string | null; password: string | null } {
+    // Mirrors the HTTP interceptor, INCLUDING the no-token password fallback. This
+    // returned a hard-coded `password: null`, so presence-socket's own
+    // `if (!token && password)` branch was unreachable and realtime presence could
+    // never connect when the server issues no tokens.
+    return { token: getActiveToken(), name: getActivePlayer(), password: _memPassword };
 }
 
 function isApiUrl(input: string | URL | Request): boolean {
@@ -275,10 +310,14 @@ function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL):
  *   - after a successful registration → setActivePlayer(name, password)
  *   - on logout / clear               → setActivePlayer(null)
  *
- * The password argument remains for source compatibility with older call sites
- * but is intentionally ignored. Pass `null` for name to clear the identity.
+ * `password` is retained IN MEMORY only (see `_memPassword`) and is used solely as
+ * the credential when the server issues no session token. Callers that already hold
+ * a token should pass `undefined`. Pass `null` for name to clear the identity.
  */
-export function setActivePlayer(name: string | null, _password?: string | null): void {
+export function setActivePlayer(name: string | null, password?: string | null): void {
+    // Outside the try: storage being unavailable must not stop the in-memory
+    // credential from being set, or private-mode browsers lose the fallback too.
+    _memPassword = name !== null && typeof password === 'string' && password.length > 0 ? password : null;
     try {
         clearPersistedPassword();
         if (name === null) {
@@ -377,6 +416,13 @@ export function installAuthFetch(): void {
         if (activeName && token) {
             if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
             if (!newHeaders.has('x-player-token')) newHeaders.set('x-player-token', token);
+        } else if (activeName && _memPassword) {
+            // No token — the documented SESSION_SECRET-unset fallback. Without this
+            // branch a token-less session carries NO credential and every
+            // authenticated request 401s, which made login "succeed" into an unusable
+            // account. The password is memory-only, so this lasts the tab's lifetime.
+            if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
+            if (!newHeaders.has('x-player-password')) newHeaders.set('x-player-password', _memPassword);
         }
         newInit.headers = newHeaders;
 
@@ -395,9 +441,13 @@ export function installAuthFetch(): void {
         if (token && !isAuthEndpoint(input)) {
             if (response.status !== 401) {
                 _consecutive401s = 0; // the session demonstrably still works
+                _first401At = 0;
             } else {
                 _consecutive401s += 1;
-                if (isTokenExpired(token) || _consecutive401s >= TRANSIENT_401_TOLERANCE) {
+                if (_first401At === 0) _first401At = Date.now();
+                // Both gates: enough failures AND long enough to rule out a blip.
+                const sustained = Date.now() - _first401At >= TRANSIENT_401_GRACE_MS;
+                if (isTokenExpired(token) || (_consecutive401s >= TRANSIENT_401_TOLERANCE && sustained)) {
                     notifySessionExpired();
                 }
             }

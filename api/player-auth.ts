@@ -12,7 +12,7 @@ import { withKvLock } from './_lock.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import { recordBetaMetric } from './_beta-metrics.js';
 import { newRegistrationsDisabled } from './_launch-controls.js';
-import { isCleanPlayerName } from './_text-moderation.js';
+import { isCleanPlayerName, TEXT_LIMITS } from './_text-moderation.js';
 import crypto from 'crypto';
 
 // Usernames reserved for the protected admin account. New `register` requests
@@ -195,10 +195,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // Rate-limit auth actions by IP: 20 attempts per 15 minutes. KV-backed so
-    // attackers can't hop serverless instances to reset the counter.
-    if (!(await enforceRateLimitKv(req, res, 'player-auth', 20, 15 * 60_000))) return;
-
+    // Parse the body BEFORE rate-limiting so the limiter can bucket per action.
+    // This is only JSON.parse — no storage, no hashing — so it cannot be abused for
+    // load, and every expensive path (scrypt verification in particular) still sits
+    // behind the limiter below.
     let body: unknown;
     try {
         body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -215,6 +215,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         oldPassword?: string;
         newPassword?: string;
     };
+
+    // Rate-limit auth by IP, KV-backed so an attacker can't hop instances to reset
+    // the counter. Keyed on IP and NOT on the supplied name: the name is
+    // unauthenticated at this point, so trusting it would let an attacker mint a
+    // fresh budget per request and defeat the limit entirely.
+    //
+    // PER ACTION, because IP keying means one internet connection shares one budget.
+    // A single 20-attempt budget spanning register + verify + change was small enough
+    // that a group of friends signing up together from one household, dorm, or
+    // carrier-NAT address exhausted it collectively — and each of them was then told
+    // their password was wrong (the client reported 429 as a credential failure).
+    // Splitting the buckets means a login is never blocked by someone else's
+    // registration attempts, and the budgets are sized for real group behaviour:
+    // logins retry on typos, registrations retry on taken names.
+    const AUTH_BUDGETS: Record<string, number> = { verify: 40, register: 25, change: 15, delete: 10 };
+    const authAction = typeof action === 'string' ? action : 'unknown';
+    const authBudget = AUTH_BUDGETS[authAction] ?? 20;
+    // `strict` so a storage outage degrades to the per-instance limiter instead of
+    // failing OPEN — this is the one endpoint where fail-open means unlimited scrypt,
+    // and scrypt is ~100ms of blocking CPU per attempt on a single-threaded server.
+    if (!(await enforceRateLimitKv(
+        req, res, `player-auth:${authAction}`, authBudget, 15 * 60_000, undefined, { strict: true },
+    ))) return;
 
     if (typeof name !== 'string' || !name) {
         return res.status(400).json({ ok: false, error: 'Missing name.' });
@@ -248,6 +271,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // collapses to '' and would write the bare `auth:` / `save:` keys.
         if (!safeName(name)) {
             return res.status(400).json({ ok: false, error: 'Pick a name with at least one letter or number.' });
+        }
+
+        // Bound the DISPLAY name. Only the derived slug was capped (safeName), so a
+        // registration could store an arbitrarily long `character.name` that then
+        // rendered in OTHER players' leaderboards, nameplates, chat and clan rosters —
+        // breaking their layout. Rejected with a message here; the save sanitizer
+        // truncates as a backstop against a tampered client.
+        if (name.trim().length > TEXT_LIMITS.playerName) {
+            return res.status(400).json({
+                ok: false,
+                error: `Names are at most ${TEXT_LIMITS.playerName} characters.`,
+            });
         }
 
         // Names are public identity, so reject blocked terms outright instead
