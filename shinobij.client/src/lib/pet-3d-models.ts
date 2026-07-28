@@ -14,34 +14,48 @@ export type PetCombatModelConfig = {
     outlineScale: number;
 };
 
-// Ember uses the efficient animated wolf as its anatomical base. Identity comes
-// from the authored ninja/element treatment in PetModel3D, not primitive spikes.
+/** Cache revision shared by all 15 starter production GLBs. */
+export const STARTER_MODEL_ASSET_REVISION = "20260728-grounded-meshopt-v2";
+
 const MODEL_URL_OVERRIDES: Readonly<Record<string, string>> = {
-    "starter-fire-r": "/pet-models/ember-wolf-rigged.gltf",
-    "starter-fire-l": "/pet-models/ember-wolf-rigged.gltf",
     // Rebuilt from a seal-specific three-quarter reference. The first rare-water
     // reconstruction inherited the source sprite's upright mascot silhouette and
     // read as a round dolphin/blob in battle; this candidate has a full horizontal
     // torso, separate front/rear flippers and a readable tail.
-    "starter-water-r": "/pet-models/starter-water-r.glb?v=20260719-selkie-final",
-    // The evolved Earth reconstruction contains a source planter fused into
-    // the animal surface, so a safe topology trim cannot remove it without
-    // taking the legs with it. Use the clean approved Earth guardian base at a
-    // larger heroic scale; its evolved identity still comes from visualId VFX.
-    "starter-earth-l": "/pet-models/starter-earth-r.glb",
+    "starter-water-r": "/pet-models/starter-water-r.glb",
 };
 
 const MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = {
+    "starter-fire": "quadruped",
     "starter-fire-r": "quadruped",
     "starter-fire-l": "quadruped",
+    "starter-water": "serpentine",
     "starter-water-r": "serpentine",
     "starter-water-l": "serpentine",
+    "starter-wind": "avian",
     "starter-wind-r": "avian",
     "starter-wind-l": "avian",
+    "starter-lightning": "quadruped",
     "starter-lightning-r": "quadruped",
     "starter-lightning-l": "quadruped",
+    "starter-earth": "heavy",
     "starter-earth-r": "heavy",
     "starter-earth-l": "heavy",
+};
+
+const MODEL_TARGET_HEIGHTS: Readonly<Record<string, number>> = {
+    "starter-fire": 2.05,
+    "starter-fire-r": 3.3,
+    "starter-fire-l": 3.55,
+    "starter-water": 1.5,
+    "starter-wind": 1.8,
+    "starter-lightning": 2.05,
+    "starter-earth": 1.95,
+};
+
+const MODEL_FIT_OVERRIDES: Readonly<Record<string, PetCombatModelConfig["fit"]>> = {
+    "starter-fire-r": "longest",
+    "starter-fire-l": "longest",
 };
 
 export const PET_COMBAT_MODEL_IDS = Object.freeze(Object.keys(MODEL_PROFILES));
@@ -58,16 +72,16 @@ export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity"
     const profile = MODEL_PROFILES[visualId];
     if (!profile) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
-    const isFireRig = visualId.startsWith("starter-fire");
     const isRareWaterSelkie = visualId === "starter-water-r";
+    const targetHeight = MODEL_TARGET_HEIGHTS[visualId];
     return {
         visualId,
-        url: overrideUrl ?? `/pet-models/${visualId}.glb`,
+        url: `${overrideUrl ?? `/pet-models/${visualId}.glb`}?v=${STARTER_MODEL_ASSET_REVISION}`,
         profile,
-        targetHeight: isFireRig ? (visualId.endsWith("-l") ? 3.55 : 3.3) : isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35,
-        fit: isRareWaterSelkie ? "height" : isFireRig || profile === "serpentine" ? "longest" : "height",
+        targetHeight: targetHeight ?? (isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35),
+        fit: MODEL_FIT_OVERRIDES[visualId] ?? (isRareWaterSelkie ? "height" : profile === "serpentine" ? "longest" : "height"),
         yawOffset: 0,
-        outlineScale: isFireRig ? 1.018 : 1.026,
+        outlineScale: 1.026,
     };
 }
 

@@ -15,7 +15,7 @@ function rosterSort(left, right) {
 
 async function buildSheets(sourceDirectory, prefix, sortFiles, suffix = "-sheet.png") {
     const files = (await readdir(sourceDirectory)).filter((file) => file.endsWith(suffix)).sort(sortFiles);
-    if (!files.length) throw new Error(`${prefix}: no four-angle renders found in ${sourceDirectory}`);
+    if (!files.length) throw new Error(`${prefix}: no QA renders found in ${sourceDirectory}`);
     const cellWidth = 640;
     const cellHeight = 360;
     const columns = 4;
@@ -44,7 +44,10 @@ async function buildSheets(sourceDirectory, prefix, sortFiles, suffix = "-sheet.
 }
 
 await mkdir(outputRoot, { recursive: true });
-const roster = await buildSheets(resolve(auditRoot, "four-angle"), "roster", (left, right) => rosterSort(left.replace(/-sheet\.png$/u, ""), right.replace(/-sheet\.png$/u, "")));
-const starters = await buildSheets(resolve(auditRoot, "starter-four-angle"), "starters", (left, right) => left.localeCompare(right));
-const motion = await buildSheets(resolve(auditRoot, "screens/run-motion"), "motion", (left, right) => rosterSort(left.replace(/-run\.png$/u, ""), right.replace(/-run\.png$/u, "")), "-run.png");
-console.log(`Built ${roster.length} roster, ${starters.length} starter, and ${motion.length} motion contact sheets in ${outputRoot}`);
+const rosterAngles = await buildSheets(resolve(auditRoot, "four-angle"), "roster-angle", (left, right) => rosterSort(left.replace(/-sheet\.png$/u, ""), right.replace(/-sheet\.png$/u, "")));
+const rosterMotions = await buildSheets(resolve(auditRoot, "motion-sheets"), "roster-motion", (left, right) => rosterSort(left.replace(/-motion\.png$/u, ""), right.replace(/-motion\.png$/u, "")), "-motion.png");
+const starterAngles = await buildSheets(resolve(auditRoot, "starter-four-angle"), "starter-angle", (left, right) => left.localeCompare(right));
+const starterMotions = await buildSheets(resolve(auditRoot, "starter-motion-sheets"), "starter-motion", (left, right) => left.localeCompare(right), "-motion.png");
+console.log(
+    `Built ${rosterAngles.length} roster-angle, ${rosterMotions.length} roster-motion, ${starterAngles.length} starter-angle, and ${starterMotions.length} starter-motion contact sheets in ${outputRoot}`,
+);

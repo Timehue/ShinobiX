@@ -91,6 +91,68 @@ function unionFind(size) {
     return { find, union };
 }
 
+function rigMetrics(glb, id, expectedJointCount) {
+    invariant(glb.json.skins?.length === 1, `${id}: production skeleton missing`);
+    const skin = glb.json.skins[0];
+    invariant(Array.isArray(skin.joints) && skin.joints.length >= 2, `${id}: skeleton joint list is missing`);
+    if (expectedJointCount !== undefined) {
+        invariant(skin.joints.length === expectedJointCount, `${id}: expected ${expectedJointCount} bones, found ${skin.joints.length}`);
+    }
+    invariant(new Set(skin.joints).size === skin.joints.length, `${id}: skeleton contains duplicate joints`);
+    for (const nodeIndex of skin.joints) {
+        invariant(Number.isInteger(nodeIndex) && glb.json.nodes?.[nodeIndex], `${id}: skeleton references a missing node`);
+    }
+    const inverseBind = glb.json.accessors?.[skin.inverseBindMatrices];
+    invariant(inverseBind?.type === "MAT4" && inverseBind.componentType === 5126, `${id}: inverse bind matrices are missing or malformed`);
+    invariant(inverseBind.count === skin.joints.length, `${id}: inverse bind count does not match the skeleton`);
+
+    invariant(glb.json.animations?.length === expectedClips.size, `${id}: reviewed eight-clip set missing`);
+    const clipNames = glb.json.animations.map((clip) => clip.name);
+    invariant(new Set(clipNames).size === expectedClips.size, `${id}: animation clip names are duplicated`);
+    invariant(clipNames.every((name) => expectedClips.has(name)), `${id}: required animation clip missing`);
+    const durations = {};
+    for (const animation of glb.json.animations) {
+        invariant(animation.channels?.length > 0 && animation.samplers?.length > 0, `${id}/${animation.name}: animation data is empty`);
+        let clipStart = Infinity;
+        let clipEnd = -Infinity;
+        for (const channel of animation.channels) {
+            const sampler = animation.samplers[channel.sampler];
+            invariant(sampler, `${id}/${animation.name}: channel references a missing sampler`);
+            invariant(Number.isInteger(channel.target?.node) && glb.json.nodes?.[channel.target.node], `${id}/${animation.name}: channel target node is missing`);
+            invariant(["translation", "rotation", "scale"].includes(channel.target.path), `${id}/${animation.name}: unsupported animation target path`);
+            const input = glb.json.accessors?.[sampler.input];
+            const output = glb.json.accessors?.[sampler.output];
+            invariant(input?.type === "SCALAR" && input.componentType === 5126 && input.count >= 2, `${id}/${animation.name}: invalid keyframe time stream`);
+            const expectedOutputType = channel.target.path === "rotation" ? "VEC4" : "VEC3";
+            const validOutputEncoding = output?.componentType === 5126
+                || (
+                    channel.target.path === "rotation"
+                    && [5120, 5122].includes(output?.componentType)
+                    && output?.normalized === true
+                );
+            invariant(
+                output?.type === expectedOutputType && validOutputEncoding && output.count >= input.count,
+                `${id}/${animation.name}: invalid keyframe value stream`,
+            );
+            const start = input.min?.[0];
+            const end = input.max?.[0];
+            invariant(Number.isFinite(start) && Number.isFinite(end) && end > start, `${id}/${animation.name}: invalid keyframe duration`);
+            clipStart = Math.min(clipStart, start);
+            clipEnd = Math.max(clipEnd, end);
+        }
+        const duration = clipEnd - clipStart;
+        invariant(duration >= 0.05 && duration <= 20, `${id}/${animation.name}: unreasonable ${duration.toFixed(3)}s duration`);
+        durations[animation.name] = Number(duration.toFixed(4));
+    }
+    return {
+        skins: 1,
+        bones: skin.joints.length,
+        inverseBindMatrices: inverseBind.count,
+        animations: clipNames,
+        durations,
+    };
+}
+
 function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
     invariant(glb.json.meshes?.length === 1, `${id}: expected one pet mesh`);
     const primitive = glb.json.meshes[0]?.primitives?.[0];
@@ -98,6 +160,14 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
     const positionAccessor = glb.json.accessors?.[primitive.attributes?.POSITION];
     const indexAccessor = glb.json.accessors?.[primitive.indices];
     invariant(positionAccessor && indexAccessor, `${id}: position or index stream missing`);
+    const normalAccessor = glb.json.accessors?.[primitive.attributes?.NORMAL];
+    const uvAccessor = glb.json.accessors?.[primitive.attributes?.TEXCOORD_0];
+    invariant(normalAccessor?.type === "VEC3" && normalAccessor.count === positionAccessor.count, `${id}: normals are missing or incomplete`);
+    invariant(uvAccessor?.type === "VEC2" && uvAccessor.count === positionAccessor.count, `${id}: texture coordinates are missing or incomplete`);
+    invariant([5121, 5123, 5125].includes(indexAccessor.componentType), `${id}: triangle index type is invalid`);
+    if (requireRig) {
+        invariant(Number.isInteger(primitive.attributes?.WEIGHTS_0) && Number.isInteger(primitive.attributes?.JOINTS_0), `${id}: skin weight streams are missing`);
+    }
     const positionView = glb.json.bufferViews?.[positionAccessor.bufferView];
     const indexView = glb.json.bufferViews?.[indexAccessor.bufferView];
     const meshoptCompressed = (positionView?.buffer ?? 0) !== 0 || (indexView?.buffer ?? 0) !== 0
@@ -126,6 +196,7 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
         };
     }
     const positions = accessorReader(glb, primitive.attributes?.POSITION);
+    const normals = accessorReader(glb, primitive.attributes?.NORMAL);
     const indices = accessorReader(glb, primitive.indices);
     invariant(positions.accessor.count >= minimumVertices && positions.accessor.count <= 60_000, `${id}: unreasonable vertex budget`);
     invariant(indices.accessor.count % 3 === 0, `${id}: index count is not triangular`);
@@ -134,6 +205,7 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
         for (let axis = 0; axis < 3; axis += 1) {
             const value = positions.value(index, axis);
             invariant(Number.isFinite(value), `${id}: non-finite vertex position`);
+            invariant(Number.isFinite(normals.value(index, axis)), `${id}: non-finite vertex normal`);
             bounds.min[axis] = Math.min(bounds.min[axis], value);
             bounds.max[axis] = Math.max(bounds.max[axis], value);
         }
@@ -171,10 +243,6 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
     let maxJoint = null;
     let tailWeightedVertexRatio = null;
     if (requireRig) {
-        invariant(glb.json.skins?.length === 1, `${id}: production skeleton missing`);
-        invariant(glb.json.animations?.length === 8, `${id}: reviewed eight-clip set missing`);
-        const clipNames = new Set(glb.json.animations.map((clip) => clip.name));
-        invariant([...expectedClips].every((name) => clipNames.has(name)), `${id}: required animation clip missing`);
         const weights = accessorReader(glb, primitive.attributes?.WEIGHTS_0);
         const joints = accessorReader(glb, primitive.attributes?.JOINTS_0);
         const tailJointSlots = new Set(glb.json.skins[0].joints
@@ -262,7 +330,7 @@ async function colorMetrics(payload, id, minimumBytes) {
     };
 }
 
-async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices = 8_000 }) {
+async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices = 8_000, expectedJointCount }) {
     const id = basename(path, ".glb");
     const file = await readFile(path);
     const glb = parseGlb(file, id);
@@ -273,28 +341,16 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
     return {
         id,
         fileBytes: file.byteLength,
+        rig: {
+            required: requireRig,
+            ...(requireRig ? rigMetrics(glb, id, expectedJointCount) : {
+                skins: glb.json.skins?.length ?? 0,
+                bones: glb.json.skins?.[0]?.joints?.length ?? 0,
+                animations: glb.json.animations?.map((clip) => clip.name) ?? [],
+            }),
+        },
         geometry: geometryMetrics(glb, id, requireRig, minimumVertices),
         color: await colorMetrics(await embeddedImage(glb, id), id, minimumAtlasBytes),
-    };
-}
-
-async function auditEmberWolf() {
-    const id = "ember-wolf-rigged";
-    const document = JSON.parse(await readFile(resolve(modelRoot, `${id}.gltf`), "utf8"));
-    invariant(document.meshes?.length === 1 && document.skins?.length === 1, `${id}: mesh or rig missing`);
-    invariant(document.animations?.length >= 8, `${id}: authored animation set missing`);
-    invariant(document.materials?.length >= 1, `${id}: authored materials missing`);
-    const colors = document.materials.map((material) => material.pbrMetallicRoughness?.baseColorFactor?.slice(0, 3)).filter(Boolean);
-    invariant(colors.length === document.materials.length, `${id}: material color missing`);
-    const luminances = colors.map(([red, green, blue]) => red * 0.2126 + green * 0.7152 + blue * 0.0722);
-    invariant(Math.max(...luminances) - Math.min(...luminances) >= 0.2, `${id}: authored tonal separation is missing`);
-    return {
-        id,
-        meshes: document.meshes.length,
-        skins: document.skins.length,
-        animations: document.animations.map((clip) => clip.name),
-        materialColors: colors,
-        runtimeIdentityPalette: ["#651a35", "#ff8a45"],
     };
 }
 
@@ -302,18 +358,25 @@ async function main() {
     const rosterFiles = (await readdir(rosterRoot)).filter((file) => file.endsWith(".glb")).sort();
     invariant(rosterFiles.length === 140, `expected 140 roster GLBs, found ${rosterFiles.length}`);
     const starterForms = [
-        { visualId: "starter-earth-l", asset: "starter-earth-r.glb" },
+        { visualId: "starter-earth", asset: "starter-earth.glb" },
+        { visualId: "starter-earth-l", asset: "starter-earth-l.glb" },
         { visualId: "starter-earth-r", asset: "starter-earth-r.glb" },
-        { visualId: "starter-fire-l", asset: "ember-wolf-rigged.gltf" },
-        { visualId: "starter-fire-r", asset: "ember-wolf-rigged.gltf" },
+        { visualId: "starter-fire", asset: "starter-fire.glb" },
+        { visualId: "starter-fire-l", asset: "starter-fire-l.glb" },
+        { visualId: "starter-fire-r", asset: "starter-fire-r.glb" },
+        { visualId: "starter-lightning", asset: "starter-lightning.glb" },
         { visualId: "starter-lightning-l", asset: "starter-lightning-l.glb" },
         { visualId: "starter-lightning-r", asset: "starter-lightning-r.glb" },
+        { visualId: "starter-water", asset: "starter-water.glb" },
         { visualId: "starter-water-l", asset: "starter-water-l.glb" },
         { visualId: "starter-water-r", asset: "starter-water-r.glb" },
+        { visualId: "starter-wind", asset: "starter-wind.glb" },
         { visualId: "starter-wind-l", asset: "starter-wind-l.glb" },
         { visualId: "starter-wind-r", asset: "starter-wind-r.glb" },
     ];
-    const starterGlbAssets = [...new Set(starterForms.map((entry) => entry.asset).filter((asset) => asset.endsWith(".glb")))].sort();
+    invariant(starterForms.every(({ visualId, asset }) => asset === `${visualId}.glb`), "starter forms must not use shared or substituted production assets");
+    const starterGlbAssets = [...new Set(starterForms.map((entry) => entry.asset))].sort();
+    invariant(starterGlbAssets.length === 15, `expected 15 distinct starter GLB assets, found ${starterGlbAssets.length}`);
     const roster = [];
     const starters = [];
     // The color atlas is now stored as WebP (was PNG). A 2048² WebP for these
@@ -324,21 +387,25 @@ async function main() {
     // colorMetrics (opaque-pixel, lumaDeviation, coloredPixelRatio), which is
     // format-independent and far stronger than any byte count.
     for (const file of rosterFiles) roster.push(await auditGlb(resolve(rosterRoot, file), { requireRig: true, minimumAtlasBytes: 40_000 }));
-    // Starter forms are deliberately leaner than the rigged 140-pet roster for
-    // mobile combat. Keep the roster's 8k production floor while allowing the
-    // reviewed low-poly Selkie silhouette to certify at 6k+ vertices.
-    for (const file of starterGlbAssets) starters.push(await auditGlb(resolve(modelRoot, file), { requireRig: false, minimumAtlasBytes: 4_000, minimumVertices: 6_000 }));
+    // Starter forms are deliberately leaner than the 140-pet roster for mobile
+    // combat, but every base and evolved starter must carry the same reviewed
+    // 21-bone/eight-clip authored combat contract.
+    for (const file of starterGlbAssets) starters.push(await auditGlb(resolve(modelRoot, file), {
+        requireRig: true,
+        minimumAtlasBytes: 4_000,
+        minimumVertices: 6_000,
+        expectedJointCount: 21,
+    }));
     const report = {
         generatedAt: new Date().toISOString(),
-        productionVisualForms: 150,
-        distinctProductionAssets: 140 + starterGlbAssets.length + 1,
+        productionVisualForms: 155,
+        distinctProductionAssets: 140 + starterGlbAssets.length,
         roster,
         starters,
         starterForms,
-        runtimeSourceArtifactCleanup: ["starter-earth-l", "starter-earth-r", "starter-wind-l"],
-        retiredSourceImports: ["starter-earth-l.glb", "starter-fire-l.glb", "starter-fire-r.glb"],
-        emberWolf: await auditEmberWolf(),
-        possibleDuplicateAnatomy: roster.filter((entry) => entry.geometry.possibleDuplicateAnatomy).map((entry) => ({ id: entry.id, dominantComponentRatio: entry.geometry.dominantComponentRatio, secondComponentRatio: entry.geometry.secondComponentRatio })),
+        runtimeSourceArtifactCleanup: [],
+        sharedStarterSubstitutions: [],
+        possibleDuplicateAnatomy: [...roster, ...starters].filter((entry) => entry.geometry.possibleDuplicateAnatomy).map((entry) => ({ id: entry.id, dominantComponentRatio: entry.geometry.dominantComponentRatio, secondComponentRatio: entry.geometry.secondComponentRatio })),
         tailAnatomyExceptions: [...tailWeightExceptions].map(([id, reason]) => ({ id, reason })),
         unexpectedMissingTailWeights: roster
             .filter((entry) => entry.geometry.tailWeightedVertexRatio === 0 && !tailWeightExceptions.has(entry.id))

@@ -19,7 +19,7 @@
 // Setup (one-time, not a committed dependency — keeps it out of the Railway build):
 //   npm install --no-save @gltf-transform/cli@4.4.1
 // Usage:
-//   node scripts/compress-pet-glbs.mjs [--dry-run]
+//   node scripts/compress-pet-glbs.mjs [--dry-run] [--production-pets]
 
 import { readdirSync, statSync, renameSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -29,6 +29,7 @@ import { tmpdir } from 'node:os';
 const ROOT = resolve(import.meta.dirname, '..');
 const MODELS_DIR = join(ROOT, 'shinobij.client', 'public', 'pet-models');
 const DRY_RUN = process.argv.includes('--dry-run');
+const PRODUCTION_PETS = process.argv.includes('--production-pets');
 
 // Invoke the CLI's JS entry directly through `node` — not the .cmd/.ps1 shims and
 // not npx — so it works regardless of shell and survives spaces in the repo path.
@@ -63,7 +64,13 @@ function extensionsUsed(file) {
     }
 }
 
-const files = findGlbs(MODELS_DIR).sort();
+const files = findGlbs(MODELS_DIR)
+    .filter((file) => {
+        if (!PRODUCTION_PETS) return true;
+        const relative = file.slice(MODELS_DIR.length + 1).replaceAll('\\', '/');
+        return /^roster\/[^/]+\.glb$/u.test(relative) || /^starter-[^/]+\.glb$/u.test(relative);
+    })
+    .sort();
 console.log(`Found ${files.length} GLB(s) under ${MODELS_DIR}\n`);
 
 let beforeTotal = 0, afterTotal = 0, processed = 0, skipped = 0, failed = 0;
