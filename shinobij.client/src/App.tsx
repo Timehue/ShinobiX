@@ -19,7 +19,8 @@ import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notif
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
-import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
+import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightGate } from "./lib/save-flight";
+import { authRateLimitMessage, requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { resolveDungeonWardenPortrait, storyRoadBattlePortrait } from "./lib/ai-fight-art";
@@ -2838,9 +2839,9 @@ export default function App() {
     // Fetch full server player list (includes offline players from registry)
     useEffect(() => {
         if (!character?.name) return;
-        async function fetchRoster(fresh = false) {
+        async function fetchRoster() {
             try {
-                const res = await fetch(fresh ? `/api/player/roster?fresh=${Date.now()}` : '/api/player/roster');
+                const res = await fetch('/api/player/roster');
                 if (!res.ok) return;
                 const data = await res.json() as { players?: ServerPlayerSummary[] };
                 if (data.players?.length) {
@@ -2870,15 +2871,13 @@ export default function App() {
                 }
             } catch { /* silently skip */ }
         }
-        fetchRoster(currentSector >= 1);
-        // Poll at the roster endpoint's CDN TTL (s-maxage=60). The old 5-min
-        // cadence left the search's 🟢/⚫ online dot up to 5 min stale, so a
-        // player who was actually online showed "Offline". Polling every 60s
-        // makes the dot as fresh as the cache allows; because the response is
-        // CDN-cached for 60s, the extra client polls are absorbed by the edge
-        // (the serverless function still runs ~once per 60s globally), so this
-        // is a freshness win at negligible origin cost.
-        const id = setInterval(fetchRoster, 60000); // refresh every 60s (matches CDN TTL)
+        fetchRoster();
+        // Poll every 60s to keep the search's 🟢/⚫ online dot fresh. Do NOT add a
+        // cache-buster: this used to send `?fresh=<Date.now()>` outside the village,
+        // forcing every poll past the CDN to the origin — the most amplified request in
+        // the game, re-serialising EVERY player's save each time. The response is already
+        // ≤60s stale by design (the server's process cache bakes the online flags in).
+        const id = setInterval(fetchRoster, 60000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
@@ -3634,7 +3633,9 @@ export default function App() {
         // Keep the version ref current so the next autosave doesn't echo a stale
         // base version and spuriously conflict.
         if (echoVersion) {
-            if (typeof saveData?._saveVersion === "number") latestSaveVersionRef.current = saveData._saveVersion;
+            // Monotonic — see the note in persistSave: an in-flight mutation elsewhere
+            // may already have advanced the ref past this reply.
+            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, saveData?._saveVersion);
             // #25: this immediate save just committed `characterToSave` at the
             // version we advanced above. If no NEWER local change has landed since
             // (live ref still points at the saved object), clear the dirty flag and
@@ -3736,7 +3737,7 @@ export default function App() {
         if (!character?.name) return;
         const result = await queueCombatMissionClaim(character.name, missionKey);
         if (!result) return alert("Your mission win couldn't be registered with the server, so there's no reward to claim in the Mission Hall. You'll need to run the mission again.");
-        if (result.saveVersion !== undefined) latestSaveVersionRef.current = result.saveVersion;
+        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result.saveVersion);
     }
 
     function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
@@ -4402,6 +4403,7 @@ export default function App() {
     // Guard so we only run one conflict-recovery refetch at a time even if
     // multiple autosave timers fire 409s in close succession.
     const conflictRefetchInFlightRef = useRef<boolean>(false);
+    const saveFlightRef = useRef(createSaveFlightGate());
     // #23: surface a banner when a save is persistently rejected (a payload too
     // large [413] or a sustained 5xx) so the player knows before they refresh —
     // persistSave otherwise retries silently forever. Cleared on the next success.
@@ -4434,6 +4436,9 @@ export default function App() {
     // persistSave re-arms it on failure so the next tick retries. Base64 image
     // strings are stripped from the body (server stores them separately).
     async function persistSave(snap: NonNullable<typeof latestSaveRef.current>) {
+        // Single-flight (lib/save-flight): two autosaves must never race one base version.
+        if (saveFlightRef.current.busy()) { charDirtyRef.current = true; return; }
+        return saveFlightRef.current.run(async () => {
         const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
         const accountName = snap.name;
         try {
@@ -4452,7 +4457,9 @@ export default function App() {
             if (res.ok) {
                 try {
                     const data = await res.json() as { _saveVersion?: number };
-                    if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
+                    // MONOTONIC: a claim/trade/settle landing mid-flight may already have advanced
+                    // the ref. Assigning verbatim walks it BACK → next autosave 409s → work lost.
+                    latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, data._saveVersion);
                 } catch { /* server may return 200 with empty body; ignore */ }
                 // Mirror to localStorage so the next login can paint instantly.
                 writeSavePreview(accountName, { ...snap.payload, _saveVersion: latestSaveVersionRef.current });
@@ -4463,16 +4470,18 @@ export default function App() {
                 // and re-arm the dirty flag so the next tick retries. A 413 (too
                 // large) or a sustained streak won't self-recover, so surface a
                 // banner rather than retrying invisibly forever (#23).
+                // Streak threshold lives in lib/save-flight (why 2, not 4/6).
                 console.warn(`[autosave] server rejected save (status ${res.status})`);
                 charDirtyRef.current = true;
                 saveFailCountRef.current += 1;
-                if (res.status === 413 || saveFailCountRef.current >= 4) setSaveBlocked(true);
+                if (res.status === 413 || saveFailCountRef.current >= SAVE_FAILURE_BANNER_THRESHOLD) setSaveBlocked(true);
             }
         } catch {
             charDirtyRef.current = true; // restore so next tick retries
             saveFailCountRef.current += 1;
-            if (saveFailCountRef.current >= 6) setSaveBlocked(true);
+            if (saveFailCountRef.current >= SAVE_FAILURE_BANNER_THRESHOLD) setSaveBlocked(true);
         }
+        });
     }
 
     // Dirty-tracking: only auto-save when character state actually changed locally.
@@ -4808,8 +4817,12 @@ export default function App() {
                     }
                     return;
                 }
+                if (authRes.status === 429) { alert(authRateLimitMessage(authData)); return; }
                 if (authRes.ok) {
-                    authOk = authData.ok === true && typeof authData.token === 'string' && authData.token.length > 0;
+                    // Token presence is NOT part of the verdict: issuePlayerToken returns
+                    // null when SESSION_SECRET is unset (the documented password fallback,
+                    // as in createPlayerAccount). Requiring it rejected correct passwords.
+                    authOk = authData.ok === true;
                     authVerified = true;
                     // Store the session token so every later /api/ request uses
                     // the cheap HMAC path instead of re-running scrypt server-side.
@@ -4843,7 +4856,7 @@ export default function App() {
         }
 
         if (!authOk) {
-            alert("Player name or password is incorrect.");
+            alert("Player name or password is incorrect.\n\nCheck for typos and capitals in your name. If you've forgotten your password, ask a moderator on Discord (discord.gg/bCQGs8r6SK) to verify your character and reset it.");
             return;
         }
 
@@ -7620,6 +7633,7 @@ export default function App() {
                                                             onboardingStep: "academyIntro",
                                                         };
                                                     });
+                                                    starterPetCommitRef.current = null; // else the replay pass sees this resolved-false promise and never retries
                                                     alert(result.error ?? "Your companion choice was not saved. Please choose again.");
                                                     return false;
                                                 }
@@ -7638,6 +7652,7 @@ export default function App() {
                                                         onboardingStep: "academyIntro",
                                                     };
                                                 });
+                                                starterPetCommitRef.current = null; // same retry reset as the rejected-result path above
                                                 alert("Your companion choice could not reach the server. Please choose again.");
                                                 return false;
                                             });

@@ -532,9 +532,14 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     </div>
 
                     {/* ── Shop overlay — the shopkeeper scene IS the panel backdrop;
-                        holds the Quartermaster items + the relic shelf. ── */}
+                        holds the Quartermaster items + the relic shelf.
+
+                        z-index 1000000 is the house value for full-screen overlays. At its
+                        previous 1200 this cleared the mobile bottom nav (1000) but still sat
+                        under the desktop nav rail (999999), which punched through the shop's
+                        right edge and stayed clickable. ── */}
                     {shopOpen && !fight && (
-                    <div onClick={() => setShopOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(2,4,10,0.8)", display: "grid", placeItems: "center", padding: 12 }}>
+                    <div onClick={() => setShopOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "rgba(2,4,10,0.8)", display: "grid", placeItems: "center", padding: 12 }}>
                         <div onClick={(e) => e.stopPropagation()} style={{ width: "min(840px, 96vw)", maxHeight: "94vh", display: "flex", flexDirection: "column", borderRadius: 14, border: "1px solid #6d28d9", boxShadow: "0 24px 70px rgba(0,0,0,0.7)", overflow: "hidden", backgroundColor: "#0a0914", backgroundImage: gauntletShop ? `linear-gradient(rgba(8,6,16,0.46) 0%, rgba(8,6,16,0.88) 32%, rgba(8,6,16,0.96) 100%), url(${gauntletShop})` : "none", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" }}>
                             {/* Title bar (transparent — the panel backdrop shows the shopkeeper) */}
                             <div style={{ position: "relative", padding: "16px 20px 10px", flexShrink: 0 }}>

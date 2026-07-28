@@ -1,5 +1,5 @@
 import { playerSlug } from "../../lib/utils";
-import { playerPasswordPolicyError } from "../../lib/player-auth-policy";
+import { playerNamePolicyError, playerPasswordPolicyError } from "../../lib/player-auth-policy";
 import type { IdentityErrors } from "./characterCreatorTypes";
 
 export function validateIdentity({ name, password, confirmPassword }: {
@@ -9,8 +9,9 @@ export function validateIdentity({ name, password, confirmPassword }: {
 }): IdentityErrors {
     const errors: IdentityErrors = {};
 
-    if (name.trim().length < 3) {
-        errors.name = "Pick a shinobi name with at least 3 characters.";
+    const nameError = playerNamePolicyError(name);
+    if (nameError) {
+        errors.name = nameError;
     } else if (!playerSlug(name)) {
         errors.name = "Use at least one letter or number so your save can be found later.";
     }

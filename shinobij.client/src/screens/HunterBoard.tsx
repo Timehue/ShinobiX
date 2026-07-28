@@ -29,6 +29,7 @@ import { gainXp } from "../App";
 import { rankUpHunterServer } from "../lib/hunter-rank-api";
 import { countItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { gameConfirm } from "../components/GameAlert";
 
 export function HunterBoard({
     character,
@@ -159,8 +160,11 @@ export function HunterBoard({
      * from a contract they no longer want (or a rare receipt desync the self-heal
      * above didn't catch).
      */
-    function abandonHunt(mission: CreatorMission) {
-        if (!confirm(`Abandon "${mission.name}"? You'll lose your tracking progress on this contract.`)) return;
+    // gameConfirm, not the bare global confirm(): the native dialog renders raw browser
+    // chrome over the game and skips the focus trap / scroll lock the themed one has.
+    // Marked danger — abandoning discards tracking progress.
+    async function abandonHunt(mission: CreatorMission) {
+        if (!await gameConfirm(`Abandon "${mission.name}"? You'll lose your tracking progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;
         setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
         setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
         clearHuntQuality(mission.id);
@@ -346,7 +350,7 @@ export function HunterBoard({
                                                             ? <button onClick={() => claimHunt(mission)}>Claim Reward</button>
                                                             : <button onClick={() => { setSectorReopen(leadSector); setScreen("worldMap"); }}>Go To Sector {leadSector}</button>
                                                         }
-                                                        <button className="danger-button" onClick={() => abandonHunt(mission)}>Give Up</button>
+                                                        <button className="danger-button" onClick={() => void abandonHunt(mission)}>Give Up</button>
                                                     </>
                                                 }
                                             </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { Character } from "../types/character";
@@ -86,6 +86,39 @@ export function Missions({
     const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
         character.profession ? "profession" : "combat"
     );
+
+    // One claim at a time, across every claim button on this screen.
+    //
+    // The buttons had no in-flight guard, and the eligibility checks inside each
+    // handler read state that only updates AFTER the await — so a double-tap (easy on
+    // a phone) fired two requests. Rewards are server-authoritative, so nothing was
+    // ever paid twice; what the player saw was worse than a dupe. The first reply
+    // alerted "mission complete, +240 XP" and the second alerted the already-claimed
+    // rejection, and because alerts are queued blocking modals they read in sequence
+    // as "your reward was taken back".
+    //
+    // The guard is a REF, not just state: React state updates are asynchronous, so two
+    // taps in the same tick would both see the old value. The ref flips synchronously;
+    // `claimingKey` exists only to drive the disabled state and label.
+    //
+    // It is also deliberately global rather than per-mission: every claim mutates the
+    // same character and the same daily-mission counter, so two different claims in
+    // flight together can both pass hasDailyMissionSlot.
+    const claimInFlightRef = useRef(false);
+    const [claimingKey, setClaimingKey] = useState<string | null>(null);
+    const runClaim = useCallback(async (key: string, claim: () => Promise<void>) => {
+        if (claimInFlightRef.current) return;
+        claimInFlightRef.current = true;
+        setClaimingKey(key);
+        try {
+            await claim();
+        } finally {
+            // Always clear, including on throw — a stuck flag would disable every
+            // claim button for the rest of the session.
+            claimInFlightRef.current = false;
+            setClaimingKey(null);
+        }
+    }, []);
 
     async function startMissionBattle(mission: CombatMission) {
         if (character.level < mission.min) return alert(`Requires level ${mission.min}.`);
@@ -321,8 +354,12 @@ export function Missions({
                     <p style={{ margin: "0 0 12px", color: "var(--slate-300)", fontSize: 13 }}>
                         Reward: small XP, ryo, and stamina. This does not use one of today's mission slots.
                     </p>
-                    <button className="start-primary-btn" onClick={() => { void claimAcademyTrial(); }}>
-                        Claim Academy Trial Reward
+                    <button
+                        className="start-primary-btn"
+                        disabled={claimingKey !== null}
+                        onClick={() => { void runClaim("academy-trial", claimAcademyTrial); }}
+                    >
+                        {claimingKey === "academy-trial" ? "Claiming…" : "Claim Academy Trial Reward"}
                     </button>
                 </section>
             )}
@@ -412,7 +449,13 @@ export function Missions({
                                     </div>
                                 </div>
                                 {claimable
-                                    ? <button className="mh-combat-btn mh-claim-btn" onClick={() => { void claimCombatMission(mission); }}>✅ Claim Reward</button>
+                                    ? <button
+                                        className="mh-combat-btn mh-claim-btn"
+                                        disabled={claimingKey !== null}
+                                        onClick={() => { void runClaim(`combat:${mission.key}`, () => claimCombatMission(mission)); }}
+                                    >
+                                        {claimingKey === `combat:${mission.key}` ? "Claiming…" : "✅ Claim Reward"}
+                                    </button>
                                     : <button
                                         className="mh-combat-btn"
                                         disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
@@ -484,7 +527,14 @@ export function Missions({
                                                 {!accepted
                                                     ? <button onClick={() => acceptFetchMission(mission)}>Accept Mission</button>
                                                     : complete
-                                                        ? <button className="mh-claim-btn" onClick={() => { void claimFetchMission(mission); }}>✅ Claim Reward</button>
+                                                        ? <button
+                                                            className="mh-claim-btn"
+                                                            disabled={claimingKey !== null}
+                                                            // eslint-disable-next-line react-hooks/refs -- runClaim only touches claimInFlightRef INSIDE its async body, which runs on click, never during render. The rule loses track here because this button sits two .map() levels deep; the structurally identical combat-mission button above passes cleanly.
+                                                            onClick={() => { void runClaim(`field:${mission.id}`, () => claimFetchMission(mission)); }}
+                                                        >
+                                                            {claimingKey === `field:${mission.id}` ? "Claiming…" : "✅ Claim Reward"}
+                                                        </button>
                                                         : <button onClick={() => setScreen("worldMap")}><GiTreasureMap style={MH_ICON} />Go to Sector {mission.targetSector}</button>}
                                                 {mission.aiProfileId && (
                                                     <button onClick={() => startCreatorMissionBattle(mission)}><GiCrossedSwords style={MH_ICON} />Battle AI</button>

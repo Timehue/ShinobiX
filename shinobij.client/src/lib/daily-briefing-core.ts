@@ -78,6 +78,32 @@ const ONBOARDING_TARGET: Record<string, { screen: Screen; label: string }> = {
 };
 
 /**
+ * Missions that make a normal session feel complete, as opposed to the hard daily
+ * cap. The cap (20) is deliberately generous headroom for a long session, NOT a
+ * target — but the briefing used to render progress as `3/20`, which reads to
+ * someone with half an hour as seventeen unfinished chores every single day.
+ * Framing progress against a reachable session goal keeps the same information
+ * without turning the cap into a debt.
+ */
+export const SESSION_MISSION_GOAL = 5;
+
+/** Progress copy for the mission recommendation: session-goal framing, not cap framing. */
+export function missionProgressDetail(done: number, cap: number): string {
+    const safeDone = Math.max(0, Math.floor(Number(done) || 0));
+    const safeCap = Math.max(1, Math.floor(Number(cap) || 1));
+    const goal = Math.min(SESSION_MISSION_GOAL, safeCap);
+    if (safeDone >= goal) {
+        // Past a normal session: now the cap IS the useful number, because the only
+        // thing left to communicate is remaining headroom for a long run.
+        return `${safeDone}/${safeCap} missions today — already a strong session, with room to keep going.`;
+    }
+    const left = goal - safeDone;
+    return safeDone === 0
+        ? `A few missions makes a solid session — there's XP and ryo waiting.`
+        : `${safeDone} done today — ${left} more rounds out a good session.`;
+}
+
+/**
  * Ordered list of suggested next actions, most impactful first. The modal shows
  * the top few. Order encodes priority: blockers (hospital) → tutorial → wasted
  * potential (unspent points, idle training) → daily content → growth → explore.
@@ -127,9 +153,10 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
         // a hunt and then routing to Missions sent players somewhere the mission
         // they were just told to run does not exist. Route by what we named.
         const m = i.recommendedMissionName;
+        const detail = missionProgressDetail(i.missionsDone, i.missionCap);
         out.push(m
-            ? { id: "mission", icon: "📜", title: `Recommended: ${m}`, detail: `You've done ${i.missionsDone}/${i.missionCap} missions today — there's XP and ryo waiting.`, cta: "Go to the Hunter Board", screen: "hunting" }
-            : { id: "mission", icon: "📜", title: "Run a mission", detail: `You've done ${i.missionsDone}/${i.missionCap} missions today — there's XP and ryo waiting.`, cta: "Go to Missions", screen: "missions" });
+            ? { id: "mission", icon: "📜", title: `Recommended: ${m}`, detail, cta: "Go to the Hunter Board", screen: "hunting" }
+            : { id: "mission", icon: "📜", title: "Run a mission", detail, cta: "Go to Missions", screen: "missions" });
     }
 
     if (i.jutsuTrainingIdle && i.hasJutsu) {

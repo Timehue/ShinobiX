@@ -348,10 +348,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
         );
 
-        // The process cache owns the 60s freshness window. Keep the shared
-        // edge TTL at one second so the total contract remains about the same
-        // as the previous 60s edge-only policy instead of stacking two minutes.
-        res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=10');
+        // Two caches sit in front of this: the 60s process cache above (which owns the
+        // expensive all-save projection AND bakes in the online flags) and the shared
+        // edge cache here.
+        //
+        // The edge TTL was 1s, chosen so the two wouldn't "stack" to two minutes of
+        // staleness. The cost of that choice was that essentially every client poll
+        // reached the origin — 150+ players polling once a minute, each forcing a
+        // re-serialise and re-gzip of the whole roster on a single-threaded process.
+        //
+        // 30s is the compromise: worst-case staleness is 90s instead of 120s, while the
+        // edge now absorbs most polls. This response is a player DIRECTORY (names,
+        // levels, villages, an online dot) — live sector positions come from the
+        // presence socket, not from here — so tens of seconds of staleness is not
+        // player-visible. `stale-while-revalidate` keeps the edge serving instantly
+        // while it refreshes in the background.
+        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
         return res.status(200).json({ players: cachedPlayers });
     } catch (err) {
         console.error('[roster]', err);
