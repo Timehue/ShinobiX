@@ -1,21 +1,28 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { aiStatsForLevel } from './ai-stats';
-import { statBudgetAtLevel, STAT_KEYS } from './stats';
+import { aiStatsForLevel, aiStatBudgetForLevel } from './ai-stats';
+import { STAT_KEYS } from './stats';
 import type { Jutsu } from '../types/combat';
 
-// Phase 1b: AI stats are the SAME level-budget a player gets, distributed by
-// archetype — so a level-L AI mirrors a level-L fully-allocated player, and a
-// level-100 AI is fully maxed.
+// The AI curve is FROZEN at the old linear player budget (leveling-without-xp
+// map §7) so removing character XP changed zero PvE numbers. These anchors pin
+// the frozen values themselves — they must NOT drift with the player level
+// curve.
 
 const j = (type: string): Jutsu => ({ type } as unknown as Jutsu);
 const sumOverBase = (s: Record<string, number>) => STAT_KEYS.reduce((t, k) => t + (s[k] - 10), 0);
 
-describe('aiStatsForLevel — spends the full level budget (player parity)', () => {
-    it('total allocated points equal statBudgetAtLevel at every sampled level', () => {
+describe('aiStatsForLevel — spends the full FROZEN budget', () => {
+    it('the frozen curve keeps the shipped anchors (20 → 29,880 linear)', () => {
+        assert.equal(aiStatBudgetForLevel(1), 20);
+        assert.equal(aiStatBudgetForLevel(50), 14799);
+        assert.equal(aiStatBudgetForLevel(90), 26864);
+        assert.equal(aiStatBudgetForLevel(100), 29880);
+    });
+    it('total allocated points equal the frozen budget at every sampled level', () => {
         for (const L of [1, 10, 20, 50, 80, 95]) {
             const stats = aiStatsForLevel(L, [j('Ninjutsu')]);
-            assert.equal(sumOverBase(stats), statBudgetAtLevel(L), `budget spent @L${L}`);
+            assert.equal(sumOverBase(stats), aiStatBudgetForLevel(L), `budget spent @L${L}`);
         }
     });
     it('higher level → strictly more total stats', () => {

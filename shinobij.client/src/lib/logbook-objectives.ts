@@ -115,7 +115,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
     const showEarlyChapters = academyPathOpen && !hasGeninExamPassed && character.level < 20;
     if (showEarlyChapters) {
         const firstStepsRequirements: ObjectiveRequirement[] = [
-            { label: "Reach level 3", progress: character.level, target: 3, detail: "Run rookie missions for XP", goScreen: "missions", goLabel: "Go Missions" },
+            { label: "Reach level 3", progress: character.level, target: 3, detail: "Train stats and run your dailies — every point levels you", goScreen: "training", goLabel: "Go Train" },
             { label: "Win 3 AI battles", progress: totalAiKills, target: 3, detail: "Combat missions count after you claim them", goScreen: "missions", goLabel: "Go Combat" },
             { label: "Complete 3 missions", progress: totalMissionsCompleted, target: 3, detail: "Return to Mission Hall to claim rewards", goScreen: "missions", goLabel: "Go Missions" },
             { label: "Train 18 stat points", progress: statsTrained, target: 18, detail: "Three short sessions is enough", goScreen: "training", goLabel: "Go Train" },
@@ -151,7 +151,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 summary: "Step outside the village carefully and learn how field work feeds progression.",
                 unlockLevel: 5,
                 requirements: [
-                    { label: "Reach level 7", progress: character.level, target: 7, detail: "Rookie missions are the fastest early XP", goScreen: "missions", goLabel: "Go Missions" },
+                    { label: "Reach level 7", progress: character.level, target: 7, detail: "Keep training running and clear your field/hunt dailies", goScreen: "training", goLabel: "Go Train" },
                     { label: "Scout 5 world map tiles", progress: totalTilesExplored, target: 5, detail: "Explore safely and return for rewards", goScreen: "worldMap", goLabel: "Open World Map" },
                     { label: "Complete 5 missions", progress: totalMissionsCompleted, target: 5, detail: "Combat and field claims both count", goScreen: "missions", goLabel: "Go Missions" },
                     { label: "Win 5 AI battles", progress: totalAiKills, target: 5, detail: "Use Basic Attack, jutsu, then Wait when AP is low", goScreen: "missions", goLabel: "Go Combat" },
@@ -170,7 +170,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                     unlockLevel: 10,
                     requirements: [
                         { label: "Choose a profession", progress: character.profession ? 1 : 0, target: 1, detail: "Unlocks at level 13: Healer, Vanguard, or Pet Tamer", goScreen: "professionPicker", goLabel: "Pick Path" },
-                        { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "missions", goLabel: "Earn XP" },
+                        { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "training", goLabel: "Earn Points" },
                         { label: "Complete 10 missions", progress: totalMissionsCompleted, target: 10, detail: "Claim rewards back at Mission Hall", goScreen: "missions", goLabel: "Go Missions" },
                         { label: "Win 10 AI battles", progress: totalAiKills, target: 10, detail: "Rookie combat missions are safe practice", goScreen: "missions", goLabel: "Go Combat" },
                         { label: "Train 120 stat points", progress: statsTrained, target: 120, detail: "Short or long timers both count", goScreen: "training", goLabel: "Go Train" },
@@ -188,11 +188,11 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             id: "exam-genin",
             kind: "exam",
             title: "Genin Exam",
-            summary: "You are at the level-20 XP hold. Pass this exam to keep leveling toward Chunin.",
+            summary: "You are at the level-20 hold. Pass this exam to keep leveling toward Chunin.",
             examKey: "genin",
             unlockLevel: 20,
             requirements: [
-                { label: "Reach the Genin exam gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "missions", goLabel: "Earn XP" },
+                { label: "Reach the Genin exam gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
                 { label: "Train 400 stats", progress: statsTrained, target: 400, goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete 20 missions", progress: totalMissionsCompleted, target: 20, goScreen: "missions", goLabel: "Go Missions" },
@@ -207,11 +207,11 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             id: "exam-chunin",
             kind: "exam",
             title: "Chunin Exam",
-            summary: "You are at the level-39 XP hold. Pass this exam to continue leveling toward Jonin.",
+            summary: "You are at the level-39 hold. Pass this exam to continue leveling toward Jonin.",
             examKey: "chunin",
             unlockLevel: 39,
             requirements: [
-                { label: "Reach the Chunin exam gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "missions", goLabel: "Earn XP" },
+                { label: "Reach the Chunin exam gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
                 { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
                 { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
                 { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },

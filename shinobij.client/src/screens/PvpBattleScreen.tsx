@@ -43,6 +43,7 @@ import {
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
 import { postPvpRewardClaim } from "../lib/pvp-reward-claim";
+import { earnedStatPoints } from "../lib/stats";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -51,6 +52,13 @@ import { postPvpRewardClaim } from "../lib/pvp-reward-claim";
 // smooth continuous walk.
 const PATH_STEP_MS = 130;
 const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
+
+// XP retired: the HUD "power" dossier stat is total earned stat points
+// (allocated above base + any unspent pool the combat snapshot carries).
+function pvpEarnedPoints(character: unknown): number | undefined {
+    if (!character || typeof character !== "object") return undefined;
+    return earnedStatPoints(character as Pick<Character, "stats" | "unspentStats">);
+}
 
 /**
  * Tween a fighter's *displayed* tile from its previous cell to `targetPos` along
@@ -1411,7 +1419,7 @@ export function PvpBattleScreen({
                     statuses={me.statuses}
                     isActive={isMyTurn && !done}
                     level={me.character?.level as number | undefined}
-                    power={me.character?.xp as number | undefined}
+                    power={pvpEarnedPoints(me.character)}
                 />
 
                 <main className={`combat-main-area bt-${battleTabs.tab}`}>
@@ -1750,11 +1758,12 @@ export function PvpBattleScreen({
                                     )}
                                     {!amSpectator && iWon && pvpRewardClaimState === "confirmed" && (() => {
                                         const deathsGate = currentSector === 99;
-                                        const xp = 100 * (deathsGate ? 2 : 1);
                                         const ryo = 75 * (deathsGate ? 2 : 1);
+                                        // XP retired — serious wins grow your stats instead
+                                        // (server-credited, daily-capped).
                                         return (
                                             <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
-                                                +{xp} XP · +{ryo} Ryo · +15 Honor Seals · +6 Aura Dust{deathsGate ? " · ?? 2× bonus!" : ""}
+                                                +{ryo} Ryo · Stat growth credited · +15 Honor Seals · +6 Aura Dust{deathsGate ? " · ?? 2× bonus!" : ""}
                                             </p>
                                         );
                                     })()}
@@ -2059,7 +2068,7 @@ export function PvpBattleScreen({
                     statuses={opp.statuses}
                     isActive={!isMyTurn && !done}
                     level={opp.character?.level as number | undefined}
-                    power={opp.character?.xp as number | undefined}
+                    power={pvpEarnedPoints(opp.character)}
                 />
             </div>
 

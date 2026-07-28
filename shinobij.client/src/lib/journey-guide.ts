@@ -227,7 +227,7 @@ export function buildJourneyGuide(character: Character): JourneyGuideState {
             id: "mission",
             title: "Claim a first mission reward",
             detail: claimedFirstMission
-                ? "You have claimed an early mission reward. Repeat missions for XP and ryo."
+                ? "You have claimed an early mission reward. Repeat missions for ryo and daily stat points."
                 : "After a mission fight, come back to the Mission Hall and claim the posted reward.",
             actionLabel: "Open Mission Hall",
             screen: "missions",

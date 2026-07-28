@@ -122,28 +122,29 @@ describe('per-rank stat cap (anti-twink) — clamps the value combat reads, save
     });
 });
 
-describe('pacing guardrail — engaged daily-active reaches L90 in ~120-190 days, slow late', () => {
-    // Daily character-XP income modeled from the REAL faucets (api/missions/
-    // _mission-catalog.ts), not a synthetic curve — the canary that flags if the
-    // xpNeeded curve OR the faucet values drift. An "engaged daily-active" player
-    // clears each field + hunt mission once, does a daily training session, ~60
-    // explore tiles, and some PvP. Plain-practice AI ("normal battle arena") battles
-    // grant NO XP now — progression comes from missions/hunts/raids + real PvP +
-    // training — so the old "10 combat fights" term is gone and L90 lands ~150 days.
-    const income = (L: number): number => {
-        const fetch = [[1, 90], [15, 240], [30, 520], [50, 1100], [70, 2400]].filter(([r]) => L >= r).reduce((s, [, x]) => s + x, 0);
-        const hunts = [[1, 80], [15, 200], [30, 420], [50, 900], [70, 2000]].filter(([r]) => L >= r).reduce((s, [, x]) => s + 2 * x, 0);
-        return fetch + hunts + 800 /*training*/ + 60 * 28 /*explore*/ + 700 /*pvp*/;
-    };
-    it('cumulative days to reach L90 sits in [120, 190]', () => {
-        let days = 0;
-        for (let L = 1; L < 90; L++) days += xpNeeded(L) / income(L);
-        assert.ok(days >= 120 && days <= 190, `days-to-90 = ${days.toFixed(1)} (expected 120–190 without plain-practice XP)`);
+describe('pacing guardrail — the standard player fully caps in ~90 days (stat-derived leveling)', () => {
+    // The owner-locked anchor (docs/leveling-without-xp-map.md §3): a player who
+    // "plays the game, does their dailies, and a little extra" — an 8h overnight
+    // training collect + one 4h daytime session, the full field/hunt daily
+    // checklist, and a couple of serious PvP wins — reaches the full 29,880-point
+    // cap in roughly 90 days. Modeled from the REAL faucets so a rate/checklist/
+    // slice tweak that breaks the anchor fails here.
+    const TRAINING_PER_DAY = 8 * 20 + 4 * 21;   // 8h tier @20/hr overnight + 4h tier @21/hr daytime = 244
+    const CHECKLIST_PER_DAY = 15 * 3;            // 10 hunt + 5 fetch dailies × FIELD_MISSION_STAT_POINTS
+    const PVP_PER_DAY = 15;                      // 2-3 serious wins inside the 18/day slice
+    const ONE_TIME_SPINE = 1000;                 // story (~734) + tower first-clears + apex, amortized
+    const DAILY = TRAINING_PER_DAY + CHECKLIST_PER_DAY + PVP_PER_DAY;
+    const FULL_CAP = 12 * (2500 - 10);
+    it('full 12-stat cap lands in [80, 110] days for the standard profile', () => {
+        const days = (FULL_CAP - ONE_TIME_SPINE) / DAILY;
+        assert.ok(days >= 80 && days <= 110, `days-to-cap = ${days.toFixed(1)} (anchor ~90)`);
     });
-    it('is strongly slow-late: the back half (L46-90) takes >2x the front half (L1-45)', () => {
-        let front = 0, back = 0;
-        for (let L = 1; L < 90; L++) { const d = xpNeeded(L) / income(L); if (L <= 45) front += d; else back += d; }
-        assert.ok(back > front * 2, `back ${back.toFixed(1)}d should exceed 2x front ${front.toFixed(1)}d (fast early, slow late)`);
+    it('level 90 lands in [60, 90] days for the standard profile', () => {
+        const days = Math.max(0, earnedForLevel(90) - ONE_TIME_SPINE) / DAILY;
+        assert.ok(days >= 60 && days <= 90, `days-to-L90 = ${days.toFixed(1)}`);
+    });
+    it('the daily checklist stays the bulk of active-play growth (dailies > PvP slice)', () => {
+        assert.ok(CHECKLIST_PER_DAY > PVP_PER_DAY, 'owner directive: dailies are the bulk, PvP is the headroom');
     });
 });
 

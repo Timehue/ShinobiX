@@ -93,7 +93,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
         { id: "petRanked",   label: "Pet Rating",   icon: "paw" },
         { id: "level",       label: "Level",        icon: "chakra" },
         { id: "kills",       label: "Kill Streaks", icon: "sword" },
-        { id: "xp",          label: "Most XP",      icon: "bolt" },
+        { id: "xp",          label: "Most Points",  icon: "bolt" },
         { id: "clans",       label: "Top Clans",    icon: "sigil" },
         { id: "pets",        label: "Pet Wins",     icon: "paw" },
         { id: "endless",     label: "Endless",      icon: "chakra" },
@@ -110,7 +110,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "petRanked": return "Pet Arena Rating (Elo)";
             case "level": return "Highest Level";
             case "kills": return "Total PvP Kills";
-            case "xp": return "Total XP Earned";
+            case "xp": return "Total Stat Points Earned";
             case "pets": return "Pet Coliseum Wins";
             case "endless": return "Endless Tower - Waves Survived";
             case "villageWars": return "Village War Raids Completed";

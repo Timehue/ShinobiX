@@ -25,10 +25,9 @@ import {
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
-import { boostAmount, getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
+import { getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
 import { formatStatName } from "../lib/stats";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { useWarLossDebuff } from "../lib/war-debuff";
@@ -36,7 +35,7 @@ import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
-import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP } from "../constants/game";
+import { JUTSU_TRAINING_CAP } from "../constants/game";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
 import type { Character } from "../types/character";
@@ -62,8 +61,6 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         const id = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(id);
     }, []);
-    // -10% stat-training XP while the village is "demoralized" from a war loss.
-    const warDebuff = useWarLossDebuff(character.village);
     const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
         strength:         { label: "Strength",      icon: <GiBiceps /> },
         speed:            { label: "Speed",          icon: <GiSprint /> },
@@ -122,9 +119,8 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         const remaining = Math.max(0, activeTraining.endsAt - serverNow());
         const progress = totalMs > 0 ? Math.min(1, Math.max(0, 1 - remaining / totalMs)) : 1;
         const proratedGain = Math.floor(activeTraining.statGain * progress);
-        const proratedXp = Math.floor(activeTraining.xp * progress);
         try {
-            if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}${proratedXp > 0 ? `, ${proratedXp} XP` : ""}). Stamina already spent is not refunded.`))) return;
+            if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}). Stamina already spent is not refunded.`))) return;
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token, cancel: true }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be cancelled.'));
@@ -169,12 +165,12 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         <div className="card">
             <BackToVillageButton onClick={onBack} label="← Back" />
             <h2>Training Grounds</h2>
-            <p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>
+            <p>Stamina: {character.stamina}/{character.maxStamina} · Growth Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong></p>
 
             <div className="training-guide-panel">
                 <strong>Training Plan</strong>
                 <ul>
-                    <li>Training raises the selected stat and grants a small amount of character XP.</li>
+                    <li>Training raises the selected stat directly — and every point you earn counts toward your next level.</li>
                     <li>Start with Strength or Speed if you want a simple first pick.</li>
                     <li>Choose 15m while learning; longer timers run longer and show their exact gain below.</li>
                     <li>You can return to the village while training runs, then come back to collect.</li>
@@ -233,9 +229,10 @@ export function Training({ character, updateCharacter, activeTraining, setActive
             <h3>Choose Timer</h3>
             <div className="location-grid">
                 {timers.map((timer) => {
-                    const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
-                    const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
-                    const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
+                    // XP retired — the growth bonus now boosts the STAT gain
+                    // itself. Mirror the server seal exactly (trainingStatGain
+                    // with the save-derived bonus; no client-only multipliers).
+                    const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus)));
                     const disabledReason = trainingBusy
                         ? "Training action is being saved."
                         : activeTraining
@@ -253,7 +250,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                         >
                             <span className="tile-icon">{timer.icon}</span>
                             <span>{trainingBusy ? "Saving…" : `Start ${timer.label}`}</span>
-                            <small>+{gain} {formatStatName(selectedStat)} · +{effectiveXp} XP</small>
+                            <small>+{gain} {formatStatName(selectedStat)}</small>
                         </button>
                     );
                 })}

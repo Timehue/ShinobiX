@@ -823,13 +823,13 @@ export function CentralHub({
         {
             name: "Weekly Boss",
             icon: <GiOgre size={34} />,
-            text: "Server-wide rampage — boss has unlimited HP and despawns in 24h. Top 10 by damage earn a Weekly Boss Core, top 25 earn a Dungeon Key, MVP gets 2× ryo + XP.",
+            text: "Server-wide rampage — boss has unlimited HP and despawns in 24h. Top 10 by damage earn a Weekly Boss Core, top 25 earn a Dungeon Key, MVP gets 2× ryo; every contributor banks stat points.",
             action: () => setScreen("weeklyBoss"),
         },
         {
             name: "Celestial Tower",
             icon: <GiStoneTower size={34} />,
-            text: "Endless PvE climb — fight scaling AI until you fall. Banked ryo & XP lost on death, but kill milestones (Bone Charms / Fate Shards) and 10-kill rest stops are yours to keep.",
+            text: "Endless PvE climb — fight scaling AI until you fall. Banked ryo lost on death, but kill milestones (Bone Charms / Fate Shards) and 10-kill rest stops are yours to keep.",
             action: () => setShowCelestialPanel(true),
         },
     ];
@@ -980,8 +980,8 @@ export function CentralHub({
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
                             <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
-                            <div>· Win → bank ryo &amp; XP, advance to the next wave with whatever HP you have left.</div>
-                            <div>· Die → all banked ryo/XP is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
+                            <div>· Win → bank ryo, advance to the next wave with whatever HP you have left.</div>
+                            <div>· Die → all banked ryo is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
                             <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
                             <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
                             <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
@@ -993,7 +993,7 @@ export function CentralHub({
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
                                 <span className="celestial-option-icon"><GiStoneTower /></span>
                                 <strong>Enter Celestial Tower</strong>
-                                <small>Fight until you fall. Banked ryo/XP lost on death — milestones survive.</small>
+                                <small>Fight until you fall. Banked ryo lost on death — milestones survive.</small>
                             </button>
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setScreen("battleTowers"); }}>
                                 <span className="celestial-option-icon"><GiCrossedSwords /></span>

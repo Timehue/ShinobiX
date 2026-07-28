@@ -81,7 +81,9 @@ export const APEX_ROSTER: readonly ApexBeast[] = [
  */
 export const APEX_RYO = 8_000;
 export const APEX_FATE_SHARDS = 3;
-export const APEX_XP = 3_000;
+// Weekly capstone stat-pool grant (XP retired — mirrors api/missions/
+// _apex-contract.ts APEX_STAT_POINTS; display only, server seals the grant).
+export const APEX_STAT_POINTS = 25;
 export const APEX_STAMINA = 40;
 
 /** ISO-8601 week key, e.g. "2026-W30". Rotation and the weekly claim share it. */

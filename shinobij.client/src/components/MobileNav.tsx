@@ -10,7 +10,7 @@
  */
 
 import { memo, useEffect, useRef, useState } from "react";
-import { xpNeeded } from "../App";
+import { earnedForLevel, earnedStatPoints } from "../lib/stats";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
@@ -72,9 +72,15 @@ export const MobileNav = memo(function MobileNav({
         return () => document.removeEventListener("keydown", onKey);
     }, [open]);
 
-    const xpPct = character.level >= MAX_LEVEL
-        ? 100
-        : Math.min(100, Math.round((character.xp / xpNeeded(character.level)) * 100));
+    // Level progress = earned stat points toward the next level threshold
+    // (XP is retired — leveling-without-xp map).
+    const xpPct = (() => {
+        if (character.level >= MAX_LEVEL) return 100;
+        const floor = earnedForLevel(character.level);
+        const span = Math.max(1, earnedForLevel(character.level + 1) - floor);
+        const into = Math.max(0, Math.min(span, earnedStatPoints(character) - floor));
+        return Math.min(100, Math.round((into / span) * 100));
+    })();
 
     function go(screen: Screen) {
         const now = Date.now();

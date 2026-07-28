@@ -200,7 +200,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
         { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
         { id: "kills",       label: "Kill Streaks",  icon: <GiDaggers /> },
-        { id: "xp",          label: "Most XP",       icon: <GiUpgrade /> },
+        { id: "xp",          label: "Most Points",   icon: <GiUpgrade /> },
         { id: "clans",       label: "Top Clans",     icon: <GiBlackFlag /> },
         { id: "pets",        label: "Pet Wins",      icon: <GiPawPrint /> },
         { id: "gauntlet",    label: "Gauntlet",      icon: <GiGauntlet /> },
@@ -319,9 +319,9 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                 )}
                 {tab === "xp" && (
                     <>
-                        <p className="hol-board-label">Total XP Earned</p>
+                        <p className="hol-board-label">Total Stat Points Earned</p>
                         {sortedTop(c => c.xp).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.xp} suffix=" XP" village={c.village} />
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.xp} suffix=" pts" village={c.village} />
                         ))}
                     </>
                 )}

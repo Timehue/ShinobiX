@@ -5,7 +5,7 @@ import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
-import { DAILY_MISSION_LIMIT } from "../constants/game";
+import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import type { MissionRank } from "../constants/hunter";
 import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
@@ -20,7 +20,6 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
-import { displayCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
@@ -352,7 +351,7 @@ export function Missions({
                         <li>✅ Unlocked / equipped a jutsu</li>
                     </ul>
                     <p style={{ margin: "0 0 12px", color: "var(--slate-300)", fontSize: 13 }}>
-                        Reward: small XP, ryo, and stamina. This does not use one of today's mission slots.
+                        Reward: stat points, ryo, and stamina. This does not use one of today's mission slots.
                     </p>
                     <button
                         className="start-primary-btn"
@@ -444,7 +443,6 @@ export function Missions({
                                         <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>
                                     </div>
                                     <div className="mh-combat-rewards">
-                                        <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{displayCharacterXpGain(boostAmount(mission.xp, missionRewardBonus))} XP</span>
                                         <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>
@@ -509,7 +507,7 @@ export function Missions({
                                                 </div>
                                             </div>
                                             <div className="mh-fetch-rewards">
-                                                <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{displayCharacterXpGain(boostAmount(mission.xpReward, missionRewardBonus))} XP</span>
+                                                <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />+{FIELD_MISSION_STAT_POINTS} Stat Pts</span>
                                                 <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
                                             </div>
                                             {accepted && (

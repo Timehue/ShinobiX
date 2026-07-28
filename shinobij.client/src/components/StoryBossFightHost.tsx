@@ -90,7 +90,7 @@ export function StoryBossFightHost({
                             ? <p className="story-fight-complete-rewards">This story reward was already collected.</p>
                             : (
                                 <p className="story-fight-complete-rewards">
-                                    +{result.xp} XP · +{result.ryo} ryo · +{result.auraDust} Aura Dust
+                                    +{result.statPoints ?? 0} stat points · +{result.ryo} ryo · +{result.auraDust} Aura Dust
                                     {result.title ? <span className="story-fight-complete-title">Title earned: {result.title}</span> : null}
                                     {result.finale && !result.replayed ? <span className="story-fight-complete-title">The Hollow Gate Key is yours.</span> : null}
                                 </p>
