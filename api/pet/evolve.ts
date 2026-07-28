@@ -81,8 +81,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const updatedChar = { ...char, pets: nextPets, inventory: nextInventory };
             const updated = { ...record, character: updatedChar };
-            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), record));
-            return { ok: true as const, pet: evolved, stage: check.nextStage };
+            // Return the new version: bumping it without telling the client leaves the
+            // client's `_baseSaveVersion` stale, so its next autosave 409s and the
+            // conflict path replaces local state with the server snapshot (progress
+            // silently reverts). authFetch adopts any `_saveVersion` in a response body
+            // monotonically, so including it here is enough.
+            const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
+            await kv.set(saveKey, mergePreservingImages(versioned, record));
+            const nextVersion = Number(versioned._saveVersion);
+            return {
+                ok: true as const,
+                pet: evolved,
+                stage: check.nextStage,
+                ...(Number.isFinite(nextVersion) ? { _saveVersion: nextVersion } : {}),
+            };
         }, { failClosed: true });
 
         if ('error' in result) {
