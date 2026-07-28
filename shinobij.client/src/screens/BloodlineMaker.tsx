@@ -320,9 +320,13 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     // training. Because each custom bloodline has distinct jutsu ids, both
     // mastery sets coexist harmlessly (you can only equip the accessible ones).
     // The target's jutsu get level-1 mastery only the first time (when unmastered).
-    function equipStoredBloodline(target: SavedBloodline) {
+    // gameConfirm, not window.confirm: the native dialog renders raw browser chrome
+    // over the game (and on mobile is attributed to the site, which reads as a phishing
+    // prompt). GameAlert's themed confirm has a focus trap, scroll lock and Escape
+    // handling, and every other confirmation in the game already uses it.
+    async function equipStoredBloodline(target: SavedBloodline) {
         if (target.id === character.equippedBloodlineId) return;
-        if (!window.confirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`)) return;
+        if (!await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" })) return;
         const outgoing = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
         const outgoingJutsuIds = new Set(outgoing?.jutsus.map((j) => j.id) ?? []);
         const masteredIds = new Set((character.jutsuMastery ?? []).map((m) => m.jutsuId));
@@ -594,7 +598,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     ))}
                     {renderPointTotal()}
                     <button onClick={saveBloodline} disabled={overLimit} style={overLimit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>Save Bloodline</button>
-                    {savedBloodlines.length > 0 && <><h3>Saved <small className="hint">({savedBloodlines.length}/{maxStoredBloodlines(character)} stored{!isPatreonSubscriber(character) ? " — link Patreon to store 2 & swap" : ""})</small></h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}{b.id === character.equippedBloodlineId ? <p className="hint">✓ Equipped</p> : <button onClick={() => equipStoredBloodline(b)}>Equip</button>}</div>)}</>}
+                    {savedBloodlines.length > 0 && <><h3>Saved <small className="hint">({savedBloodlines.length}/{maxStoredBloodlines(character)} stored{!isPatreonSubscriber(character) ? " — link Patreon to store 2 & swap" : ""})</small></h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}{b.id === character.equippedBloodlineId ? <p className="hint">✓ Equipped</p> : <button onClick={() => void equipStoredBloodline(b)}>Equip</button>}</div>)}</>}
                 </div>
             )}
 

@@ -24,6 +24,15 @@
 import type { OnlinePlayer, OnlineStateStore, PresenceUpsert } from './types.js';
 import { safeName } from '../_utils.js';
 
+/** One persisted presence row — identity and position only, no character blob. */
+export type PresenceSnapshotRow = {
+    name: string;
+    displayName: string;
+    sector: number;
+    lastSeenAt: number;
+    connectedAt: number;
+};
+
 // A player is considered offline if not seen within this window. Clients keepalive
 // every ~20s (socket ping + HTTP reconcile), so a 60s window evicts an active peer
 // after a SINGLE missed beat — the root of the sector "pop in/out" flicker. 90s
@@ -210,6 +219,60 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             out.push(p);
         }
         return out;
+    }
+
+    /**
+     * Minimal presence rows for persisting across a process restart.
+     *
+     * Identity + sector + timestamps ONLY — deliberately NOT the `character` blob.
+     * Restoring exact display data is not worth the write amplification (200 players ×
+     * a slim character every snapshot); the point is that the world is not EMPTY for
+     * the first beat after a deploy. Each player's next heartbeat (~20s) refills the
+     * display fields anyway.
+     */
+    snapshot(): PresenceSnapshotRow[] {
+        const now = this.now();
+        const rows: PresenceSnapshotRow[] = [];
+        for (const [, p] of this.players) {
+            if (!this.isFresh(p, now)) continue;
+            rows.push({ name: p.name, displayName: p.displayName, sector: p.sector, lastSeenAt: p.lastSeenAt, connectedAt: p.connectedAt });
+        }
+        return rows;
+    }
+
+    /**
+     * Rehydrate rows saved by `snapshot()`. Rows already past the offline window are
+     * dropped, so a snapshot older than OFFLINE_AFTER_MS restores nothing rather than
+     * resurrecting ghosts. Never overwrites a live entry — a player whose heartbeat
+     * already landed on the new process is fresher than any snapshot.
+     */
+    restore(rows: readonly PresenceSnapshotRow[]): number {
+        const now = this.now();
+        let restored = 0;
+        for (const row of rows) {
+            const key = canon(String(row?.name ?? ''));
+            if (!key || this.players.has(key)) continue;
+            const lastSeenAt = Number(row.lastSeenAt) || 0;
+            if (now - lastSeenAt > this.offlineAfterMs) continue;
+            const sector = Number.isFinite(Number(row.sector)) ? Math.max(0, Math.floor(Number(row.sector))) : 0;
+            this.players.set(key, {
+                name: key,
+                displayName: String(row.displayName || row.name || key),
+                sector,
+                character: null,
+                lastSeenAt,
+                connectedAt: Number(row.connectedAt) || lastSeenAt,
+                pendingAttacker: null,
+                travelUntil: null,
+                travelFrom: null,
+                travelTo: null,
+                travelTile: null,
+                inBattle: false,
+            } as OnlinePlayer);
+            this.addToSector(key, sector);
+            restored++;
+        }
+        return restored;
     }
 
     listSector(sector: number): OnlinePlayer[] {

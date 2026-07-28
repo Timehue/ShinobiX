@@ -32,6 +32,18 @@ export const TEXT_LIMITS = {
     clanName: 32,
     clanMotto: 120,
     customTitle: 32,
+    /**
+     * Player DISPLAY name. 32 to match `safeName`'s SAFE_NAME_MAX_LEN, which already
+     * truncates the derived slug used in every `save:`/`presence:` key — so a longer
+     * display name could only ever disagree with the identity it maps to.
+     *
+     * This was previously unbounded at every layer: no `maxLength` on the creator
+     * input, no ceiling in client validation, no check at registration, and no clamp
+     * in the save sanitizer. Only the KEY was capped. A display name is rendered in
+     * other players' UI — leaderboards, sector nameplates, chat, clan rosters — so an
+     * unbounded one is a griefing vector that breaks layout for everyone but its owner.
+     */
+    playerName: 32,
     noticeTitle: 80,
     noticeBody: 600,
     chatMessage: 500,

@@ -21,6 +21,7 @@
 
 import { memo, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
+import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
 import {
     useSharedNow,
     petTrainingOptions,
@@ -141,7 +142,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     <RankBadge rating={character.rankedRating ?? 1000} showRating size="xs" />
                 </div>
             )}
-            <div className="left-profile-stat">HP {character.hp}/{character.maxHp}</div>
+            <div className="left-profile-stat" title={`HP ${formatExact(character.hp)}/${formatExact(character.maxHp)}`}>HP {formatRatio(character.hp, character.maxHp)}</div>
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>
             <div className="left-profile-stat">Sector {currentSector}</div>
@@ -163,7 +164,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                             <GameIcon name={c.icon} size={14} style={{ color: c.iconColor, display: "block", margin: "0 auto" }} />
                         </span>
                         <span className="left-currency-label">{c.label}</span>
-                        <span className="left-currency-value" style={c.valueColor ? { color: c.valueColor } : undefined}>{c.value.toLocaleString()}</span>
+                        <span className="left-currency-value" title={formatExact(c.value)} style={c.valueColor ? { color: c.valueColor } : undefined}>{formatCompact(c.value)}</span>
                     </div>
                 ))}
             </div>
@@ -201,7 +202,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                 ) : (
                     <>
                         <div className="left-xp-label">
-                            Lv {character.level} &nbsp;·&nbsp; {character.xp} / {xpNeeded(character.level)} XP
+                            Lv {character.level} &nbsp;·&nbsp; {formatRatio(character.xp, xpNeeded(character.level))} XP
                         </div>
                         <div className="left-xp-bar-track">
                             <div

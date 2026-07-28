@@ -189,3 +189,71 @@ test('remove forgets the player', () => {
     assert.equal(store.get('rill'), null);
     assert.equal(store.size(), 0);
 });
+
+// ── Snapshot / restore across a process restart ──────────────────────────────
+// Presence is process memory, so every deploy blanked the online roster: players
+// vanished from each other's sectors and the online count read 0 until each
+// client's next heartbeat. These pin the handover semantics.
+
+test('snapshot carries identity and position but never the character blob', () => {
+    const { store } = makeStore();
+    store.upsert({ name: 'Rill', sector: 7, character: { level: 42, avatarImage: 'data:image/webp;base64,AAAA' } });
+
+    const rows = store.snapshot();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].name, 'rill');
+    assert.equal(rows[0].displayName, 'Rill');
+    assert.equal(rows[0].sector, 7);
+    // The blob is what would make this write expensive at 200 players; the next
+    // heartbeat (~20s) refills display data anyway.
+    assert.equal('character' in rows[0], false);
+});
+
+test('restore brings players back into their sector on a fresh store', () => {
+    const { store } = makeStore();
+    store.upsert({ name: 'Rill', sector: 7, character: { level: 1 } });
+    store.upsert({ name: 'Nyne', sector: 7, character: { level: 2 } });
+    const rows = store.snapshot();
+
+    // A brand-new process: empty store, same clock.
+    const fresh = new MemoryOnlineStateStore({ offlineAfterMs: 60_000, now: () => 1_000 });
+    assert.equal(fresh.list().length, 0, 'a new process starts empty — the bug being fixed');
+    assert.equal(fresh.restore(rows), 2);
+    assert.equal(fresh.list().length, 2);
+    assert.deepEqual(fresh.listSector(7).map((p) => p.name).sort(), ['nyne', 'rill']);
+});
+
+test('restore drops rows already past the offline window instead of resurrecting ghosts', () => {
+    const { store, advance } = makeStore(60_000);
+    store.upsert({ name: 'Rill', sector: 3, character: null });
+    const rows = store.snapshot();
+
+    advance(120_000); // snapshot is now older than the offline window
+    const fresh = new MemoryOnlineStateStore({ offlineAfterMs: 60_000, now: () => 121_000 });
+    assert.equal(fresh.restore(rows), 0);
+    assert.equal(fresh.list().length, 0);
+});
+
+test('restore never overwrites a live heartbeat that already landed', () => {
+    const { store } = makeStore();
+    store.upsert({ name: 'Rill', sector: 3, character: null });
+    const rows = store.snapshot();
+
+    // New process where Rill has ALREADY reconnected, in a different sector.
+    const fresh = new MemoryOnlineStateStore({ offlineAfterMs: 60_000, now: () => 1_000 });
+    fresh.upsert({ name: 'Rill', sector: 9, character: { level: 5 } });
+    assert.equal(fresh.restore(rows), 0, 'a live entry is fresher than any snapshot');
+    assert.equal(fresh.get('rill')?.sector, 9);
+});
+
+test('restore ignores malformed rows without throwing', () => {
+    const fresh = new MemoryOnlineStateStore({ offlineAfterMs: 60_000, now: () => 1_000 });
+    const bad = [
+        { name: '', displayName: '', sector: 1, lastSeenAt: 1_000, connectedAt: 1_000 },
+        { name: '!!!', displayName: '?', sector: 1, lastSeenAt: 1_000, connectedAt: 1_000 },
+        { name: 'ok', displayName: 'Ok', sector: Number.NaN, lastSeenAt: 1_000, connectedAt: 1_000 },
+    ];
+    assert.doesNotThrow(() => fresh.restore(bad));
+    // The NaN sector must land somewhere real rather than creating a NaN bucket.
+    assert.equal(fresh.get('ok')?.sector, 0);
+});

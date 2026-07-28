@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+    SESSION_MISSION_GOAL,
     buildRecommendations,
     dailyLoginRyo,
+    missionProgressDetail,
     recommendedMission,
     type RecoInput,
 } from "./daily-briefing-core";
@@ -153,4 +155,42 @@ test("a brand-new low level still gets a D-rank mission suggestion", () => {
     });
     const mission = recos.find((r) => r.id === "mission");
     assert.ok(mission);
+});
+
+// ── Session-goal framing ─────────────────────────────────────────────────────
+// The briefing used to render mission progress as `3/20`. The 20 is a generous
+// HEADROOM cap for a long session, not a target, but shown that way it reads to a
+// half-hour player as seventeen unfinished chores every single day.
+
+test("mission progress is framed against a reachable session goal, not the daily cap", () => {
+    // A fresh session must not lead with the cap at all.
+    const none = missionProgressDetail(0, 20);
+    assert.doesNotMatch(none, /20/, "an untouched day must not present the cap as a target");
+    assert.match(none, /solid session/);
+
+    // Part-way through, the remaining count is to the SESSION goal, not the cap.
+    const some = missionProgressDetail(3, 20);
+    assert.match(some, /3 done today/);
+    assert.match(some, new RegExp(`${SESSION_MISSION_GOAL - 3} more`));
+    assert.doesNotMatch(some, /20/, "the cap must not reappear as the shortfall");
+});
+
+test("past a normal session the cap becomes useful headroom instead of a debt", () => {
+    const heavy = missionProgressDetail(12, 20);
+    assert.match(heavy, /12\/20/, "a heavy player still sees real remaining headroom");
+    assert.match(heavy, /strong session/);
+});
+
+test("mission progress copy survives nonsense inputs and tiny caps", () => {
+    // A cap below the session goal must clamp, never promise more than exists.
+    assert.match(missionProgressDetail(2, 2), /2\/2/);
+    assert.match(missionProgressDetail(-5, 0), /solid session|strong session/);
+    assert.doesNotMatch(missionProgressDetail(0, 20), /NaN|undefined/);
+});
+
+test("the mission recommendation uses the session-goal copy", () => {
+    const recos = buildRecommendations({ ...SETTLED, hasMissionSlot: true, missionsDone: 0, missionCap: 20 });
+    const mission = recos.find((r) => r.id === "mission");
+    assert.ok(mission, "a free mission slot must still recommend a mission");
+    assert.equal(mission.detail, missionProgressDetail(0, 20));
 });

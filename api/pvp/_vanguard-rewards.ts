@@ -30,7 +30,26 @@ const PET_ESCORT_SEAL_BONUS = 1.05;
 // PvP balance instead of duplicating the numbers. Adding `export` is the only
 // change here; the grant logic below is untouched.
 export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
-export const DAILY_SEAL_CAP = 50;
+/**
+ * Honor Seals a Vanguard may earn per day (plus up to +15 from mastery).
+ *
+ * Raised 50 → 150. Honor Seals are the Vanguard's whole economy: they buy jutsu
+ * mastery levels 31-50 via /api/jutsu/train-with-seals, and the seated Kage spends
+ * 10,000 of them to open the village's Hollow Gate. At 50/day that unlock was ~200
+ * days of flawless play for the single best-placed player on the server, which put an
+ * endgame activity out of reach for a launch season rather than merely far away.
+ *
+ * The per-target cap below is what actually keeps this honest — the daily ceiling is
+ * not the anti-abuse control, PER_TARGET_DAILY_CAP is. You cannot farm one willing
+ * friend for 150; reaching the ceiling needs a genuinely wide spread of opponents, and
+ * levelGapMult() already zeroes seals for anyone punching 20+ levels down.
+ *
+ * NOTE for tuning: on a 100-200 player server the binding constraint is likely
+ * OPPONENT AVAILABILITY, not this number — at 3 seals per target you need ~50 distinct
+ * valid targets in a day to hit 150. Raising PER_TARGET_DAILY_CAP would move the real
+ * rate more, but that is the dial that enables friend-farming, so it is left alone.
+ */
+export const DAILY_SEAL_CAP = 150;
 export const PER_TARGET_DAILY_CAP = 3;
 export const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
 const MIN_FIGHT_DURATION_MS = 15_000;

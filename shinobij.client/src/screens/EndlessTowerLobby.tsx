@@ -1,6 +1,40 @@
+import { useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import { endlessWaveReward } from "../lib/endless-tower";
 import { endlessEntryCost } from "../lib/entry-fee";
+
+/**
+ * Fire an action at most once per short window.
+ *
+ * Entering charges a ryo entry fee and banking commits the run's rewards, and both
+ * were bare `onClick={handler}` — so a double-tap (easy on a phone) ran them twice.
+ * The ref flips synchronously, unlike state, so both taps of a same-tick double-tap
+ * cannot get through.
+ *
+ * The lock releases itself rather than latching on first use: these handlers normally
+ * navigate away and unmount this screen, but if one fails to, a permanently disabled
+ * button would leave the player stuck in the lobby with no way to start a run.
+ */
+const ACTION_LOCK_MS = 1500;
+
+function useOneShotAction(): [boolean, (action: () => void) => void] {
+    const lockedRef = useRef(false);
+    const [locked, setLocked] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+    return [locked, (action: () => void) => {
+        if (lockedRef.current) return;
+        lockedRef.current = true;
+        setLocked(true);
+        timerRef.current = setTimeout(() => {
+            lockedRef.current = false;
+            setLocked(false);
+        }, ACTION_LOCK_MS);
+        action();
+    }];
+}
 
 // ─── Endless Tower Lobby ──────────────────────────────────────────────────────
 // Shows run state (current wave, banked rewards, best wave) and lets the player
@@ -16,6 +50,7 @@ export function EndlessTowerLobby({
     onBank: () => void;
     onBack: () => void;
 }) {
+    const [actionLocked, runOnce] = useOneShotAction();
     const run = character.endlessTowerRun;
     const inProgress = !!run && run.wave > 1;
     const nextWave = run?.wave ?? 1;
@@ -51,14 +86,16 @@ export function EndlessTowerLobby({
             <div style={{ display: "grid", gridTemplateColumns: inProgress ? "1fr 1fr" : "1fr", gap: "0.6rem", marginTop: "1rem" }}>
                 <button
                     style={{ padding: "0.8rem 1rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "var(--green-400)", fontWeight: 700 }}
-                    onClick={onEnter}
+                    disabled={actionLocked}
+                    onClick={() => runOnce(onEnter)}
                 >
                     {inProgress ? `▶ Resume — Floor ${nextWave}` : `▶ Enter Tower (Floor 1)${entryCost > 0 ? ` — ${entryCost.toLocaleString()} ryo` : " — free today"}`}
                 </button>
                 {inProgress && (
                     <button
                         style={{ padding: "0.8rem 1rem", background: "linear-gradient(#3a3a1a,#201a0a)", borderColor: "var(--gold)", fontWeight: 700 }}
-                        onClick={onBank}
+                        disabled={actionLocked}
+                        onClick={() => runOnce(onBank)}
                     >
                         💰 Retreat &amp; Bank
                     </button>

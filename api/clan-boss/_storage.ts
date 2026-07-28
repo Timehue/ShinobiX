@@ -84,6 +84,62 @@ export function clanBossEngagedXp(damage: number): number {
     return Math.min(CB_ENGAGED_XP_CAP, CB_ENGAGED_XP_FLOOR + Math.floor(d * CB_ENGAGED_XP_PER_DMG));
 }
 
+// ── PERSONAL rewards (paid to the member, not the clan treasury) ──
+//
+// Every reward above goes to the CLAN. That gave an individual member no reason to
+// show up: five assaults a week, each DESIGNED to end in a wipe (see
+// CB_ASSAULT_HP_CAP), and nothing lands in their own pocket. So participation now pays
+// the player directly, and the clan's best damage dealers get a small premium cut.
+//
+// Deliberately NOT gated on the clan slaying the boss — chipping is the intended
+// contribution, so turning up is what gets paid.
+export const CB_MEMBER_RYO = 2500;
+/** Fate Shards for the clan's top 5 personal damage dealers, best first. */
+export const CB_MEMBER_TOP_SHARDS = [5, 4, 3, 2, 1] as const;
+
+/**
+ * Personal damage per member, derived from the assault log.
+ *
+ * An assault is a co-op fight and the engine records one damage number for the party,
+ * so a member's share is that damage split evenly across the party that fought it.
+ * Splitting (rather than crediting each member the full amount) keeps the ranking
+ * honest: joining someone else's big assault should not out-score leading your own.
+ *
+ * The log is capped at CB_ASSAULT_LOG_CAP (200) while a full 25-member roster can only
+ * spend 125 assaults a week, so the cap never truncates a real week's history.
+ */
+export function clanBossMemberDamage(p: ClanBossProgress): Map<string, number> {
+    const byMember = new Map<string, number>();
+    for (const assault of p.assaults ?? []) {
+        const party = (assault.party ?? []).filter((slug) => typeof slug === 'string' && slug.length > 0);
+        if (party.length === 0) continue;
+        const damage = Math.max(0, Number(assault.damage) || 0);
+        if (damage <= 0) continue;
+        const share = damage / party.length;
+        for (const slug of party) byMember.set(slug, (byMember.get(slug) ?? 0) + share);
+    }
+    return byMember;
+}
+
+/**
+ * What each participating member earns: flat ryo for taking part, plus Fate Shards for
+ * the top CB_MEMBER_TOP_SHARDS.length damage dealers. Ties break on slug so the split
+ * is deterministic and a settlement retry pays the same players the same amounts.
+ */
+export function clanBossMemberRewards(p: ClanBossProgress): Array<{ slug: string; ryo: number; fateShards: number; damage: number }> {
+    const byMember = clanBossMemberDamage(p);
+    // Anyone who ATTEMPTED counts for ryo even if their party dealt no damage.
+    for (const slug of p.participants ?? []) if (!byMember.has(slug)) byMember.set(slug, 0);
+
+    const ordered = [...byMember.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+    return ordered.map(([slug, damage], index) => ({
+        slug,
+        ryo: CB_MEMBER_RYO,
+        fateShards: damage > 0 ? (CB_MEMBER_TOP_SHARDS[index] ?? 0) : 0,
+        damage,
+    }));
+}
+
 export const CB_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ─────────────────────────────────────────────────────────────────────────────
