@@ -353,6 +353,17 @@ function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: 
                 <button type="button" className="landing-auth-secondary" onClick={onCreateAccount}>
                     Create a New Shinobi
                 </button>
+
+                {/* There is no self-service password reset: accounts are name + password
+                    only, with no email or other ownership signal on file, so a reset has
+                    to go through a moderator who can verify the character. Saying so here
+                    is the difference between a locked-out player asking for help and one
+                    who assumes the game ate their account. */}
+                <p className="start-hint landing-auth-help">
+                    Forgotten your password? Ask a moderator on{" "}
+                    <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Discord</a>{" "}
+                    to verify your character and reset it.
+                </p>
             </div>
         </div>
     );
