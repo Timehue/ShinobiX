@@ -18,7 +18,7 @@ describe('sector exploration settlement', () => {
         assert.equal(result.reward.xp, 0);
         assert.equal(result.reward.ryo, (10 + 2) + (10 + 1)); // sector 10: 12 + 11 = 23
         assert.equal(result.character.ryo, 5 + 23);
-        assert.equal(result.character.xp, 0, 'frozen xp untouched');
+        assert.equal((result.character as Record<string, unknown>).xp, 0, 'frozen xp untouched');
         assert.equal(result.character.totalTilesExplored, 9);
         assert.equal(result.character.dailyTilesExplored, 1);
     });

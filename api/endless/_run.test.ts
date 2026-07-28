@@ -23,7 +23,7 @@ describe('Endless Tower server run', () => {
         // bankedXp — it converts at the same ~0.75:1 fold as the wave rewards.
         const out = cashOutEndless({ level: 10, xp: 0, ryo: 100, stats: {}, lastDailyReset: '2026-07-12', dailyTowerXp: 1000 }, { runToken: 't', wave: 2, bankedRyo: 500, bankedXp: 1000, startedAt: 1 }, '2026-07-12');
         assert.equal(out.creditedRyo, 500 + 750); assert.equal(out.character.ryo, 100 + 1250); assert.equal(out.character.endlessTowerRun, null); assert.equal(out.creditedXp, 0);
-        assert.equal(out.character.xp, 0, 'frozen xp untouched');
+        assert.equal((out.character as Record<string, unknown>).xp, 0, 'frozen xp untouched');
         // New-model waves bank ryo only.
         assert.equal(endlessWaveReward(3, 50).xp, 0);
         assert.ok(endlessWaveReward(3, 50).ryo > 0);
