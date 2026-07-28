@@ -15,8 +15,7 @@
 import type { Character } from "../types/character";
 import { MAX_LEVEL, MAX_STAT, statCapForLevel } from "../constants/game";
 import {
-    xpNeeded,
-    statBudgetAtLevel,
+    earnedForLevel,
     allocatedStatPoints,
     normalizeStats,
     rankFromLevel,
@@ -27,18 +26,21 @@ import "./ProgressionPanel.css";
 export function ProgressionPanel({ character }: { character: Character }) {
     const level = character.level;
     const maxed = level >= MAX_LEVEL;
-    const need = xpNeeded(level);
-    const xp = Math.max(0, Math.floor(character.xp ?? 0));
-    const xpPct = maxed || need <= 0 ? 100 : Math.min(100, Math.round((xp / need) * 100));
-    const xpRemaining = maxed || need <= 0 ? 0 : Math.max(0, need - xp);
 
     // Earned = spent + unspent so the three numbers always add up AND "Unspent"
     // matches the authoritative budget the allocation widget lets you spend
-    // (character.unspentStats), even on a not-yet-reconciled save.
+    // (character.unspentStats), even on a not-yet-reconciled save. XP is
+    // retired: this SAME earned sum is now what levels you (leveling-without-xp
+    // map) — the level bar below reads it directly.
     const spent = allocatedStatPoints(normalizeStats(character.stats));
     const unspent = Math.max(0, character.unspentStats ?? 0);
     const earned = spent + unspent;
-    const nextLevelGrant = maxed ? 0 : statBudgetAtLevel(level + 1) - statBudgetAtLevel(level);
+    const levelFloor = earnedForLevel(level);
+    const nextThreshold = earnedForLevel(level + 1);
+    const levelSpan = Math.max(1, nextThreshold - levelFloor);
+    const intoLevel = Math.max(0, Math.min(levelSpan, earned - levelFloor));
+    const levelPct = maxed ? 100 : Math.min(100, Math.round((intoLevel / levelSpan) * 100));
+    const ptsRemaining = maxed ? 0 : Math.max(0, nextThreshold - earned);
 
     const cap = statCapForLevel(level);
     const uncapped = cap >= MAX_STAT;
@@ -56,21 +58,21 @@ export function ProgressionPanel({ character }: { character: Character }) {
                 <span className="prog-rank-badge">{rankFromLevel(level)}</span>
             </header>
 
-            {/* Leveling — pace */}
+            {/* Leveling — earned stat points ARE the level curve now */}
             <div className="prog-block">
                 <div className="prog-row">
                     <span className="prog-label">Level {level}{maxed ? "" : ` / ${MAX_LEVEL}`}</span>
-                    <span className="prog-value">{maxed ? "MAX LEVEL" : `${xp.toLocaleString()} / ${need.toLocaleString()} XP`}</span>
+                    <span className="prog-value">{maxed ? "MAX LEVEL" : `${earned.toLocaleString()} / ${nextThreshold.toLocaleString()} pts`}</span>
                 </div>
                 {!maxed && (
                     <>
-                        <div className="prog-bar-track"><div className="prog-bar-fill" style={{ width: `${xpPct}%` }} /></div>
-                        <div className="prog-sub">{xpRemaining.toLocaleString()} XP to Level {level + 1}</div>
+                        <div className="prog-bar-track"><div className="prog-bar-fill" style={{ width: `${levelPct}%` }} /></div>
+                        <div className="prog-sub">{ptsRemaining.toLocaleString()} stat points to Level {level + 1} — earn them training, doing your dailies, and in serious PvP.</div>
                     </>
                 )}
             </div>
 
-            {/* Power — stat budget */}
+            {/* Power — the same earned ledger, split spent vs unspent */}
             <div className="prog-block">
                 <div className="prog-budget-grid">
                     <div className="prog-budget-cell">
@@ -89,7 +91,7 @@ export function ProgressionPanel({ character }: { character: Character }) {
                 <div className="prog-sub">
                     {maxed
                         ? "Fully grown — every stat can reach the cap."
-                        : `Each level grants ~${nextLevelGrant.toLocaleString()} more stat point${nextLevelGrant === 1 ? "" : "s"}.`}
+                        : `Every point you earn counts toward your level — Level ${level + 1} unlocks at ${nextThreshold.toLocaleString()} total.`}
                 </div>
             </div>
 

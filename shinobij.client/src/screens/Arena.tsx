@@ -60,7 +60,7 @@ import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { minActionCost } from "../lib/combat-affordability";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
-import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
+import { earnedStatPoints, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
 import { beastPortrait } from "../data/hunter-art";
@@ -86,7 +86,7 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { postPlayerChallengeNotice } from "../lib/player-api";
 import { boostAmount } from "../lib/village-upgrades";
-import { effectiveCharacterXpGain, rankedDelta } from "../lib/progression";
+import { rankedDelta } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
@@ -3062,7 +3062,9 @@ export function Arena({
             return;
         }
         const activeTrait = getActivePetTrait(character);
-        const xpGain = activeTrait === "Swift" ? 125 : 100;
+        // XP is retired — AI wins pay ryo only (the legacy xp field rides the
+        // report payload as 0 for shape compatibility).
+        const xpGain = 0;
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
         const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
@@ -3102,16 +3104,12 @@ export function Arena({
                     // Report what the server actually paid, not what we predicted.
                     // A null `data` means the token was missing or the report was
                     // refused — that grants nothing, and the banner must say so.
-                    const grantedXp = Number(data?.xp);
                     const grantedRyo = Number(data?.ryo);
-                    announceWinRewards(
-                        Number.isFinite(grantedXp) ? grantedXp : 0,
-                        Number.isFinite(grantedRyo) ? grantedRyo : 0,
-                    );
+                    announceWinRewards(Number.isFinite(grantedRyo) ? grantedRyo : 0);
                 })
                 .catch(() => {
                     updateCharacter({ ...base, hp: playerHp });
-                    announceWinRewards(0, 0);
+                    announceWinRewards(0);
                 });
             aiFightTokenPromiseRef.current = null;
         } else {
@@ -3135,7 +3133,7 @@ export function Arena({
             onHuntBeastDefeated?.(pendingAiProfile?.id ?? "");
         }
 
-        const bonusNote = activeTrait === "Swift" ? " (Swift +25% XP)" : activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
+        const bonusNote = activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
         const honorNote = honorSealGain > 0 ? ` +${honorSealGain} Honor Seals.` : "";
         const auraDustNote = auraDustGain > 0 ? ` +${auraDustGain} Aura Dust.` : "";
         setBattleEnded(true);
@@ -3143,23 +3141,23 @@ export function Arena({
         const scrollNote = ` +${territoryScrollReward} Territory Control Scroll.`;
         const raidNote = territoryRaidDamage?.ownerClan ? ` Sector ${currentSector} HP -${territoryRaidDamageAmount}.` : territoryRaidDamage ? ` Sector ${currentSector} control broken.` : "";
         const villageWarNote = "";
-        const effectiveXpGain = effectiveCharacterXpGain(character, xpGain);
         // Hoisted so the report-ai-fight `.then` above can call it with the
-        // amounts the SERVER actually granted.
-        function announceWinRewards(xp: number, ryo: number) {
-            const rewardNote = xp > 0 || ryo > 0
-                ? ` +${xp} XP, +${ryo} ryo, +15 stamina.${bonusNote}`
-                : " No XP or ryo was awarded for this fight.";
+        // amount the SERVER actually granted. (XP is retired — hunts/fields pay
+        // their stat points on the once-per-day CLAIM, not per fight.)
+        function announceWinRewards(ryo: number) {
+            const rewardNote = ryo > 0
+                ? ` +${ryo} ryo, +15 stamina.${bonusNote}`
+                : " No ryo was awarded for this fight.";
             setLog(`${opponentName} defeated.${rewardNote}${honorNote}${auraDustNote}${scrollNote}${raidNote}${villageWarNote}`);
-            addCombatLog(`${opponentName} is defeated. ${character.name} gains ${xp} XP, ${ryo} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);
+            addCombatLog(`${opponentName} is defeated. ${character.name} gains ${ryo} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);
         }
         // Under server-auth these numbers are only a PREDICTION: report-ai-fight
-        // caps XP/ryo and a profession can substitute the payout, so the banner
+        // caps ryo and a profession can substitute the payout, so the banner
         // used to promise rewards the server had already refused. Announce the
         // win now, and let announceWinRewards (called from the report response)
         // restate the line with the amounts actually granted.
         if (!aiFightServerAuthEnabled()) {
-            announceWinRewards(effectiveXpGain, ryoGain);
+            announceWinRewards(ryoGain);
         } else {
             setLog(`${opponentName} defeated. Tallying rewards…`);
         }
@@ -5727,7 +5725,7 @@ export function Arena({
                     statuses={displayStatuses(playerStatuses)}
                     isActive={activeActor === "player"}
                     level={character.level}
-                    power={character.xp}
+                    power={earnedStatPoints(character)}
                 />
 
                 <main className={`combat-main-area bt-${battleTabs.tab}`}>

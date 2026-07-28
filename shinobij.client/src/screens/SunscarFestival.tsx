@@ -7,7 +7,6 @@ const SF_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import type { Character } from "../types/character";
 import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
-import { effectiveCharacterXpGain } from "../lib/progression";
 import { CardClashDuel } from "./CardClashDuel";
 import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
 import { FATE_DICE_GLYPHS, rollFateDice, startMiraaWager, reportMiraaWager } from "../lib/sunscar-festival";
@@ -115,7 +114,7 @@ export function SunscarFestival({
                 res.reward.fateShards > 0 && `+${res.reward.fateShards} Fate Shards`,
                 res.reward.auraStones > 0 && `+${res.reward.auraStones} Aura Stones`,
                 res.reward.ryo > 0 && `+${res.reward.ryo} ryo`,
-                res.reward.xp > 0 && `+${effectiveCharacterXpGain(character, res.reward.xp)} XP`,
+                (res.reward.statPoints ?? 0) > 0 && `+${res.reward.statPoints} stat points`,
                 res.reward.stamina > 0 && `+${res.reward.stamina} stamina`,
             ].filter(Boolean).join(", ");
             setFestivalLog(`Kael: ${res.message ?? "The dice settle."} ${parts}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? 5} spins today)`);

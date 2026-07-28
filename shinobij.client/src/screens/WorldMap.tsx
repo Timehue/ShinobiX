@@ -88,7 +88,6 @@ import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, splitDialogueLine } from "../lib/vn";
-import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { getAllItems } from "../lib/items";
@@ -2316,13 +2315,11 @@ export function WorldMap({
     }, [selectedSector, sectorPlayerPos, currentSector, isTraveling]);
 
     function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
-        // Always: XP scaled to sector
-        const xp = 50 + Math.floor(sector * 2);
-
-        // 50%: Ryo 100–500
-        const ryo = Math.random() < 0.5
-            ? 100 + Math.floor(Math.random() * 401)
-            : undefined;
+        // XP retired: the old xp line (50 + sector·2) is a guaranteed ryo floor
+        // now (40 + sector·2), mirroring api/world/_chest.ts.
+        const xp = 0;
+        const ryo = 40 + Math.floor(sector * 2)
+            + (Math.random() < 0.5 ? 100 + Math.floor(Math.random() * 401) : 0);
 
         // Loot slot roll (item, card, or currency)
         const lootRoll = Math.random();
@@ -2368,7 +2365,7 @@ export function WorldMap({
     }
 
     function claimChest(loot: ChestLoot) {
-        const leveled = gainXp(character, loot.xp);
+        const leveled = gainXp(character, 0); // XP retired — derived-level recompute only
         const newInventory = loot.itemId && (stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId))
             ? [...character.inventory, loot.itemId]
             : character.inventory;
@@ -2472,9 +2469,10 @@ export function WorldMap({
             return;
         }
 
-        const xpReward = 20 + Math.floor(sector / 5);
-        const ryoReward = 10 + Math.floor(sector / 4);
-        const leveled = gainXp(exploredCharacter, xpReward);
+        // XP retired: the old explore xp line folds into ryo (mirrors
+        // api/world/_explore.ts); gainXp is the derived-level recompute shim.
+        const ryoReward = 10 + Math.floor(sector / 4) + 10 + Math.floor(sector / 10);
+        const leveled = gainXp(exploredCharacter, 0);
 
         recordMissionExplore(sector);
         updateCharacter({
@@ -2482,7 +2480,7 @@ export function WorldMap({
             ryo: leveled.ryo + ryoReward,
         });
 
-        alert("Sector " + sector + " explored. +" + effectiveCharacterXpGain(character, xpReward) + " XP and +" + ryoReward + " ryo.");
+        alert("Sector " + sector + " explored. +" + ryoReward + " ryo.");
     }
     function huntSector(sector: number) {
         if (sector < 1 || sector > 60) {
@@ -2671,10 +2669,10 @@ export function WorldMap({
             setSelectedCreatorEvent(event);
             return;
         }
-        const leveled = gainXp(character, event.xpReward);
+        const leveled = gainXp(character, 0); // XP retired — legacy xpReward ignored
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
-        alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character));
+        alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
         // A roaming giver's scene can end here as well as through onCancel (a
@@ -2695,10 +2693,10 @@ export function WorldMap({
         // Rift VNs (giver report / at-the-rift): accept + descend are handled in
         // onChoice; completing the scene just closes it.
         if (event.id.startsWith(RIFT_GIVER_PREFIX) || isRiftDescentEventId(event.id)) { setSelectedCreatorEvent(null); return; }
-        const leveled = gainXp(character, event.xpReward);
+        const leveled = gainXp(character, 0); // XP retired — legacy xpReward ignored
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
-        alert(event.name + " complete. " + rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character) + ".");
+        alert(event.name + " complete. " + rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards, character) + ".");
         setSelectedCreatorEvent(null);
     }
     if (activePetEncounter && !petVnDone) {
@@ -2938,7 +2936,7 @@ export function WorldMap({
         const canBack = creatorEventLine > 0 || creatorEventPage > 0;
         function previousLine() { if (creatorEventLine > 0) return setCreatorEventLine((index) => index - 1); if (creatorEventPage > 0) { const previousPage = pages[creatorEventPage - 1]; setCreatorEventPage((index) => index - 1); setCreatorEventLine(Math.max(0, (previousPage.dialogue.length || 1) - 1)); } }
         function nextLine() { if (creatorEventLine < pageDialogue.length - 1) return setCreatorEventLine((index) => index + 1); if (creatorEventPage < pages.length - 1) { setCreatorEventPage((index) => index + 1); setCreatorEventLine(0); return; } completeCreatorEvent(event); }
-        return <div className="card cinematic-card"><div className="visual-novel admin-vn-play"><div className="vn-header"><div><p className="act-label">ADMIN VISUAL NOVEL EVENT</p><h2>{page.title || event.vnTitle || event.name}</h2></div><div className="vn-progress">Page {creatorEventPage + 1}/{pages.length} | Line {creatorEventLine + 1}/{Math.max(1, pageDialogue.length)}</div></div><div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}><div className="vn-backdrop"><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div><div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div><div className="vn-scene-card">{page.scene || event.vnScene || "An admin-created scene unfolds across the shinobi world."}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={!canBack} onClick={previousLine}>Back</button><button onClick={nextLine}>{creatorEventPage === pages.length - 1 && creatorEventLine >= pageDialogue.length - 1 ? "Complete Event" : "Next"}</button></div></div></div><div className="vn-choice-row"><button onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); }}>Replay Scene</button><button onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); }}>Battle in {biomeLabel(event.biome)}</button><button onClick={() => completeCreatorEvent(event)}>Claim Reward</button></div><div className="vn-reward-strip"><span>Requirement: Level {event.levelReq}</span><span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span></div></div></div>;
+        return <div className="card cinematic-card"><div className="visual-novel admin-vn-play"><div className="vn-header"><div><p className="act-label">ADMIN VISUAL NOVEL EVENT</p><h2>{page.title || event.vnTitle || event.name}</h2></div><div className="vn-progress">Page {creatorEventPage + 1}/{pages.length} | Line {creatorEventLine + 1}/{Math.max(1, pageDialogue.length)}</div></div><div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}><div className="vn-backdrop"><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div><div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div><div className="vn-scene-card">{page.scene || event.vnScene || "An admin-created scene unfolds across the shinobi world."}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={!canBack} onClick={previousLine}>Back</button><button onClick={nextLine}>{creatorEventPage === pages.length - 1 && creatorEventLine >= pageDialogue.length - 1 ? "Complete Event" : "Next"}</button></div></div></div><div className="vn-choice-row"><button onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); }}>Replay Scene</button><button onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); }}>Battle in {biomeLabel(event.biome)}</button><button onClick={() => completeCreatorEvent(event)}>Claim Reward</button></div><div className="vn-reward-strip"><span>Requirement: Level {event.levelReq}</span><span>Reward: {rewardSummary(0, event.ryoReward, event.staminaReward, event.currencyRewards)}</span></div></div></div>;
     }
     if (activeChest && !chestVnDone) {
         const biome = biomeForSector(selectedSector ?? 40);
@@ -3031,9 +3029,7 @@ export function WorldMap({
         const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
-        const rewards: { icon: ReactNode; label: string; sub: string }[] = [
-            { icon: <GameIcon name="medal" size={22} />, label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
-        ];
+        const rewards: { icon: ReactNode; label: string; sub: string }[] = [];
         if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
         if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
         if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
@@ -4477,7 +4473,7 @@ export function WorldMap({
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
                     const sectorTitle = sector.id === 99
-                        ? "Death's Gate - PvP zone: 2x XP, Ryo & Jutsu XP, 5% Bone Charm on win"
+                        ? "Death's Gate - PvP zone: 2x Ryo, stat growth & Jutsu XP, 5% Bone Charm on win"
                         : huntTrail
                             ? `${huntTrail.mission.name} trail | Sector ${sector.id}`
                             : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
@@ -4683,9 +4679,7 @@ export function WorldMap({
                 const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
                 const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
                 const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
-                const rewards: { icon: ReactNode; label: string; sub: string }[] = [
-                    { icon: <GameIcon name="medal" size={22} />, label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
-                ];
+                const rewards: { icon: ReactNode; label: string; sub: string }[] = [];
                 if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
                 if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
                 if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });

@@ -61,7 +61,7 @@ const BEGINNER: Guide = {
             blocks: [
                 { type: "list", items: [
                     "Equip your jutsu — you already know your bloodline's techniques.",
-                    "Run the E-rank Drill at the Mission Hall — a near-guaranteed win for easy XP and ryo while you learn the ropes.",
+                    "Run the E-rank Drill at the Mission Hall — a near-guaranteed win for easy ryo while you learn the ropes.",
                     "Win a fight in the Battle Arena (vs. AI) to level up fast.",
                     "Train a stat at the Training Grounds.",
                     "Hit Level 2 and claim your free Element Awakening at the Awakening Stone.",
@@ -122,7 +122,7 @@ const BEGINNER: Guide = {
         {
             heading: "7 · Training",
             blocks: [
-                { type: "p", text: "Stat Training (Training Grounds) — pick a stat and a duration. When the timer finishes you gain XP and stat points. Only one training runs at a time, and you can cancel early for partial credit." },
+                { type: "p", text: "Stat Training (Training Grounds) — pick a stat and a duration. When the timer finishes the stat rises directly, and every point you earn counts toward your next level. Only one training runs at a time, and you can cancel early for partial credit." },
                 { type: "table", head: ["Duration", "Stat points (base)"], rows: [
                     ["15 minutes", "+1"],
                     ["1 hour", "+3"],
@@ -137,7 +137,7 @@ const BEGINNER: Guide = {
             heading: "8 · Missions & Hunts — your daily bread",
             blocks: [
                 { type: "list", items: [
-                    "Missions (Mission Hall) come in ranks E → D → C → B → A → S — start with the E-rank Drill (a guaranteed-win trainer for levels 1-5). Up to 20 per day. Your main source of XP and ryo.",
+                    "Missions (Mission Hall) come in ranks E → D → C → B → A → S — start with the E-rank Drill (a guaranteed-win trainer for levels 1-5). Up to 20 per day. Your main source of ryo; field and hunt dailies also pay stat points on claim.",
                     "Hunts (Hunter Guild) are a separate pool of 20 per day — beast contracts that rank you up and drop rare materials.",
                     "Story Hall has story missions for lore and rewards.",
                 ] },
@@ -711,9 +711,9 @@ const HOLLOWGATE: Guide = {
             heading: "4 · Other Endgame Loops",
             blocks: [
                 { type: "h", text: "Weekly Boss" },
-                { type: "p", text: "A world boss the whole server fights together, with a few attempts per spawn and damage tracked on a shared leaderboard. Rewards are tiered by contribution and pay out when the boss falls: the top damage dealers earn a rare Weekly Boss Core, the next tier earns a Dungeon Key, and everyone who contributed shares ryo + XP — the #1 MVP earns double." },
+                { type: "p", text: "A world boss the whole server fights together, with a few attempts per spawn and damage tracked on a shared leaderboard. Rewards are tiered by contribution and pay out when the boss falls: the top damage dealers earn a rare Weekly Boss Core, the next tier earns a Dungeon Key, and everyone who contributed shares ryo plus a weekly stat-point grant — the #1 MVP earns double ryo." },
                 { type: "h", text: "Endless Tower" },
-                { type: "p", text: "An infinite survival gauntlet of escalating waves with no daily limit. Each wave pays ryo + XP that grows as you climb; every 5th wave drops premium materials, and every 10th wave restores 33% of your HP and 50% of your chakra and stamina. Your wave winnings bank as you go, but you lose the banked ryo/XP if you're defeated — retreat any time to lock in your haul. Milestone materials are yours to keep either way." },
+                { type: "p", text: "An infinite survival gauntlet of escalating waves with no daily limit. Each wave pays ryo that grows as you climb; every 5th wave drops premium materials, and every 10th wave restores 33% of your HP and 50% of your chakra and stamina. Your wave winnings bank as you go, but you lose the banked ryo if you're defeated — retreat any time to lock in your haul. Milestone materials are yours to keep either way." },
                 { type: "h", text: "Ranked PvP & Raids" },
                 { type: "p", text: "Ranked PvP is a skill ladder — win to climb your rating, lose and it dips, with a separate pet ranked ladder. Vanguards run Raids on enemy villages and players for Honor Seals and profession XP (a daily cap applies; higher Vanguard ranks earn bonus ryo and extra seals). Top ratings are immortalized in the Hall of Legends." },
             ],

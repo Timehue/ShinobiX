@@ -134,7 +134,7 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
     }
 
     if (i.level >= 20 && !examsPassed.has("genin")) {
-        out.push({ id: "genin-exam", icon: "🎓", title: "Pass the Genin Exam", detail: "Level 20 is an XP hold. Clear the Logbook exam to keep leveling toward Chunin.", cta: "Open Logbook", screen: "logbook" });
+        out.push({ id: "genin-exam", icon: "🎓", title: "Pass the Genin Exam", detail: "Level 20 is a level hold. Clear the Logbook exam to keep leveling toward Chunin.", cta: "Open Logbook", screen: "logbook" });
     } else if (i.level >= 15 && i.level < 20 && !examsPassed.has("genin")) {
         out.push({ id: "genin-prep", icon: "📘", title: "Prepare for the Genin Exam", detail: "You are Genin now. Train, claim missions, and watch the level-20 exam gate.", cta: "Review Logbook", screen: "logbook" });
     } else if (i.level >= 13 && i.level < 15) {
@@ -142,9 +142,9 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
     }
 
     if (i.level >= 39 && examsPassed.has("genin") && !examsPassed.has("chunin")) {
-        out.push({ id: "chunin-exam", icon: "📜", title: "Pass the Chunin Exam", detail: "Level 39 is an XP hold. Finish the Chunin requirements to keep advancing.", cta: "Open Logbook", screen: "logbook" });
+        out.push({ id: "chunin-exam", icon: "📜", title: "Pass the Chunin Exam", detail: "Level 39 is a level hold. Finish the Chunin requirements to keep advancing.", cta: "Open Logbook", screen: "logbook" });
     } else if (i.level >= 37 && examsPassed.has("genin") && !examsPassed.has("chunin")) {
-        out.push({ id: "chunin-prep", icon: "📜", title: "Chunin gate is close", detail: "Level 39 holds XP until the Chunin Exam is done, so check the requirements now.", cta: "Review Logbook", screen: "logbook" });
+        out.push({ id: "chunin-prep", icon: "📜", title: "Chunin gate is close", detail: "Level 39 holds your level until the Chunin Exam is done, so check the requirements now.", cta: "Review Logbook", screen: "logbook" });
     }
 
     if (i.hasMissionSlot && !i.hospitalized) {

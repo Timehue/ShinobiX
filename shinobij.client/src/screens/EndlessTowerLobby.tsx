@@ -78,7 +78,6 @@ export function EndlessTowerLobby({
                     <div style={{ color: "var(--green-400)", fontWeight: 700, marginBottom: "0.3rem" }}>Run in progress</div>
                     <div style={{ fontSize: "0.95rem" }}>Floor: <strong>{run.wave}</strong></div>
                     <div style={{ fontSize: "0.95rem" }}>Banked ryo: <strong style={{ color: "var(--gold)" }}>{run.bankedRyo.toLocaleString()}</strong></div>
-                    <div style={{ fontSize: "0.95rem" }}>Banked xp: <strong style={{ color: "#a78bfa" }}>{run.bankedXp.toLocaleString()}</strong></div>
                 </div>
             ) : (
                 <div style={{ color: "var(--text-dim)", fontStyle: "italic", padding: "0.6rem 0" }}>No active run.</div>
@@ -102,7 +101,7 @@ export function EndlessTowerLobby({
                 )}
             </div>
             <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginTop: "0.8rem" }}>
-                Next reward preview: {preview.ryo.toLocaleString()} ryo, {preview.xp.toLocaleString()} xp{preview.isMilestone ? " (milestone!)" : ""}.
+                Next reward preview: {preview.ryo.toLocaleString()} ryo{preview.isMilestone ? " (milestone!)" : ""}.
             </p>
             <button className="back-btn" style={{ marginTop: "0.6rem" }} onClick={onBack}>× Back to Central</button>
         </div>
