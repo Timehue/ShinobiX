@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { Biome, WeatherType, Screen } from "../types/core";
@@ -216,15 +217,21 @@ export function Logbook({
     return (
         <div className="card logbook-screen">
             <h2>Logbook</h2>
-            {ceremonyTitle && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9000, padding: 16 }}>
+            {/* Rank-up celebration. Portaled to <body> at z-index 1000000, which is the
+                house convention for any full-screen overlay: the desktop nav rail sits at
+                999999, so this used to draw BEHIND the rail at its old z-index of 9000 —
+                and passing a rank exam is one of the game's few marquee moments. Portaling
+                also escapes the .logbook-screen card's own stacking/overflow context. */}
+            {ceremonyTitle && createPortal(
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000000, padding: 16 }}>
                     <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
                         <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
                         <h2 style={{ marginTop: 0 }}>{ceremonyTitle} Passed!</h2>
                         <p>{ceremonyBody}</p>
                         <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremonyTitle(null)}>Continue →</button>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
             <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
             {academyChecklist && (

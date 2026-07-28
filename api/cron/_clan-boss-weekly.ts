@@ -16,10 +16,12 @@ import { announce } from '../_announce.js';
 import { addClanXpServer, scaledClanXp } from '../clan/_mission-catalog.js';
 import {
     CB_REWARDS, CB_PARTICIPATION_REWARD, CB_WEEK_MS, CLAN_BOSS_BY_ID,
-    clanBossArchiveKey, clanBossDamageDealt, clanBossEngagedXp, clanBossPickId,
+    clanBossArchiveKey, clanBossDamageDealt, clanBossEngagedXp, clanBossMemberRewards, clanBossPickId,
     clanBossWeekId, clanBossWeekKey, clanSlug,
     rankClanBoss, type ClanBossProgress, type ClanBossWeek,
 } from '../clan-boss/_storage.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
+import { mergePreservingImages } from '../_utils.js';
 
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
 
@@ -117,6 +119,13 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
             }
         }
 
+        // Personal payouts for every clan that fought, podium or not — the clan rewards
+        // above are treasury-only and gave individual members nothing to show for a
+        // week of assaults. Per-member receipts make a retry safe.
+        for (const progress of progressList) {
+            if (!(await creditMemberRewards(progress, week.weekId))) return false;
+        }
+
         await kv.set(clanBossArchiveKey(week.weekId), {
             // Keep every clan's placement (small server) so each can see its own result.
             weekId: week.weekId, bossId: week.bossId, endedAt: now, standings: ranked.slice(0, 50),
@@ -134,6 +143,48 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
         await kv.set(clanBossWeekKey(week.weekId), { ...fresh, settled: true });
         return true;
     }, { failClosed: true });
+}
+
+/**
+ * Pay the PERSONAL side of the weekly boss: flat ryo to everyone who assaulted, plus
+ * Fate Shards to the clan's top damage dealers.
+ *
+ * Every other clan-boss reward lands in the clan treasury, which left an individual
+ * member with no reason to spend five wipe-by-design assaults a week. Not gated on the
+ * kill — chipping is the intended contribution.
+ *
+ * Idempotent per member per week via a flag on the member's own save record, so a
+ * settlement retry (any single failure keeps the week open) never double-pays. Returns
+ * false if any member could not be credited, which keeps the week open for that retry.
+ */
+async function creditMemberRewards(progress: ClanBossProgress, weekId: string): Promise<boolean> {
+    const rewards = clanBossMemberRewards(progress);
+    for (const reward of rewards) {
+        if (reward.ryo <= 0 && reward.fateShards <= 0) continue;
+        const saveKey = `save:${reward.slug}`;
+        const ok = await withKvLock(saveKey, async () => {
+            const rec = await kv.get<Record<string, unknown>>(saveKey);
+            const character = rec?.character as Record<string, unknown> | undefined;
+            // A member who left the game (no save) is skipped, not retried forever.
+            if (!rec || !character) return true;
+            const claimed = Array.isArray(character.clanBossWeeksPaid)
+                ? (character.clanBossWeeksPaid as unknown[]).filter((v): v is string => typeof v === 'string')
+                : [];
+            if (claimed.includes(weekId)) return true;
+            const nextChar = {
+                ...character,
+                ryo: Math.max(0, Number(character.ryo) || 0) + reward.ryo,
+                fateShards: Math.max(0, Number(character.fateShards) || 0) + reward.fateShards,
+                // Keep the last few weeks only — this is a dedupe ledger, not history.
+                clanBossWeeksPaid: [...claimed, weekId].slice(-8),
+            };
+            const versioned = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar });
+            await kv.set(saveKey, mergePreservingImages(versioned, rec));
+            return true;
+        }, { failClosed: true });
+        if (!ok) return false;
+    }
+    return true;
 }
 
 async function creditClanTreasury(clanName: string, reward: ClanBossReward, weekId: string): Promise<boolean> {

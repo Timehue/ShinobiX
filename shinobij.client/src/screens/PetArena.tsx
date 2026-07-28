@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useRef, Suspense } from "react";
+import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
@@ -1656,13 +1657,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
                 </Suspense>
             )}
-            {arenaCountdown && (
-                <div style={{ position: "fixed", inset: 0, zIndex: 215, background: "rgba(5,6,10,0.94)", display: "grid", placeItems: "center" }}>
+            {/* Portaled to <body> at the house z-index of 1000000. At its old 215 this
+                full-screen countdown rendered UNDER both the mobile bottom nav (1000) and
+                the desktop rail (999999), so the 6rem numeral was partly covered right as
+                the fight began. */}
+            {arenaCountdown && createPortal(
+                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "rgba(5,6,10,0.94)", display: "grid", placeItems: "center" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ color: "var(--text-dim)", letterSpacing: "0.25em", fontSize: "0.85rem", marginBottom: 10 }}>BATTLE STARTS IN</div>
                         <div style={{ fontSize: "6rem", fontWeight: 800, color: "var(--gold-300)", textShadow: "0 0 30px rgba(250,204,21,0.45)", lineHeight: 1 }}>{arenaCountdown.secs}</div>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </div>
     );
