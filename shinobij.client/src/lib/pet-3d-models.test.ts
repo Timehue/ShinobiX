@@ -1,34 +1,36 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PET_COMBAT_MODEL_IDS, hasPetCombatModel, petCombatModel } from "./pet-3d-models.ts";
+import { PET_COMBAT_MODEL_IDS, STARTER_MODEL_ASSET_REVISION, hasPetCombatModel, petCombatModel } from "./pet-3d-models.ts";
 import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, ROSTER_MODEL_PROFILES } from "./pet-3d-roster.ts";
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
 
+test("all five base starter forms have a combat model at their canonical path", () => {
+    assert.equal(PET_COMBAT_MODEL_IDS.length, 15);
+    for (const element of ["fire", "water", "wind", "lightning", "earth"]) {
+        const base = petCombatModel(pet(`starter-${element}`, 0));
+        const rare = petCombatModel(pet(`starter-${element}`, 1, "rare"));
+        assert.equal(base?.url, `/pet-models/starter-${element}.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+        assert.ok((base?.targetHeight ?? Infinity) < (rare?.targetHeight ?? 0));
+    }
+});
+
 test("all ten evolved starter forms have a combat model", () => {
-    assert.equal(PET_COMBAT_MODEL_IDS.length, 10);
     for (const element of ["fire", "water", "wind", "lightning", "earth"]) {
         const rare = petCombatModel(pet(`starter-${element}`, 1, "rare"));
         const legendary = petCombatModel(pet(`starter-${element}`, 2, "legendary"));
-        if (element === "fire") {
-            assert.equal(rare?.url, "/pet-models/ember-wolf-rigged.gltf");
-            assert.equal(legendary?.url, "/pet-models/ember-wolf-rigged.gltf");
-        } else if (element === "earth") {
-            assert.equal(rare?.url, "/pet-models/starter-earth-r.glb");
-            assert.equal(legendary?.url, "/pet-models/starter-earth-r.glb");
-        } else if (element === "water") {
-            assert.equal(rare?.url, "/pet-models/starter-water-r.glb?v=20260719-selkie-final");
-            assert.equal(legendary?.url, "/pet-models/starter-water-l.glb");
+        if (element === "water") {
+            assert.equal(rare?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(legendary?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
         } else {
-            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb`);
-            assert.equal(legendary?.url, `/pet-models/starter-${element}-l.glb`);
+            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(legendary?.url, `/pet-models/starter-${element}-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
         }
         assert.ok((legendary?.targetHeight ?? 0) > (rare?.targetHeight ?? 0));
     }
 });
 
-test("base starters and unrelated pets keep the safe standee fallback", () => {
-    assert.equal(petCombatModel(pet("starter-fire", 0)), null);
+test("unrelated unmodeled pets keep the safe standee fallback", () => {
     assert.equal(hasPetCombatModel(pet("unmodeled-event-pet")), false);
 });
 
@@ -53,6 +55,6 @@ test("timestamped encounter clones retain their canonical combat model", () => {
 });
 
 test("legacy evolved saves infer the model from rarity", () => {
-    assert.equal(petCombatModel(pet("starter-water", undefined, "rare"))?.url, "/pet-models/starter-water-r.glb?v=20260719-selkie-final");
-    assert.equal(petCombatModel(pet("starter-water", undefined, "legendary"))?.url, "/pet-models/starter-water-l.glb");
+    assert.equal(petCombatModel(pet("starter-water", undefined, "rare"))?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("starter-water", undefined, "legendary"))?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
 });
