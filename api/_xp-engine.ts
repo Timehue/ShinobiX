@@ -205,6 +205,82 @@ function examLevelCap(character: XpCharacter): number {
     return MAX_LEVEL;
 }
 
+// ── lib/stats.ts — stat-derived leveling (docs/leveling-without-xp-map.md) ──
+// Level is a pure function of total stat points EARNED (allocated above base +
+// the unspent pool — the conserved sum preserveStatPointEntitlement guards).
+// Anchors FITTED to the per-rank caps (straight inversion of the linear budget
+// walls at L15/L30). VERBATIM port of shinobij.client/src/lib/stats.ts;
+// parity-pinned by _cross-build-parity.test.ts + _level-curve.test.ts.
+export const LEVEL_EARNED_ANCHORS: ReadonlyArray<readonly [number, number]> = [
+    [1, 0],
+    [15, 2800],
+    [30, 6200],
+    [50, 11600],
+    [80, 19600],
+    [100, 27500],
+];
+
+// Total earned stat points required to BE `level` (0 at L1).
+export function earnedForLevel(level: number): number {
+    const clamped = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+    for (let i = 1; i < LEVEL_EARNED_ANCHORS.length; i++) {
+        const [aL, aE] = LEVEL_EARNED_ANCHORS[i - 1];
+        const [bL, bE] = LEVEL_EARNED_ANCHORS[i];
+        if (clamped >= aL && clamped <= bL) {
+            return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));
+        }
+    }
+    return 0;
+}
+
+// The raw curve inverse: the level `earned` total points supports. Exam holds
+// (examLevelCap) are applied by the caller — monotone in `earned`.
+export function levelForEarned(earned: number): number {
+    const points = Math.max(0, Math.floor(earned));
+    for (let level = MAX_LEVEL; level >= 2; level--) {
+        if (earnedForLevel(level) <= points) return level;
+    }
+    return 1;
+}
+
+// The conserved earned-points sum off the raw save shape.
+export function earnedStatPoints(character: XpCharacter): number {
+    const stats = normalizeStats(character.stats as Record<string, unknown> | undefined);
+    const pool = Math.max(0, Math.floor(Number(character.unspentStats) || 0));
+    return allocatedStatPoints(stats) + pool;
+}
+
+// Recompute the character's level from the earned-points ledger, clamped by the
+// exam holds. RISE-ONLY by design: an unmigrated save (old XP-era level above
+// its earned-derived level) must never de-level when a grant endpoint touches
+// it before the one-time sanitizer migration tops its pool up — the migration
+// (api/save/[name].ts) is the only place the two are reconciled downward-safe.
+// A level-up refills vitals to the new maxima, exactly like the old per-level
+// gainXp loop's final state.
+export function applyDerivedLevel(character: XpCharacter): XpCharacter {
+    let updated = reconcileCharacterStatBudget(character);
+    const earned = earnedStatPoints(updated);
+    const target = Math.max(1, Math.min(examLevelCap(updated), levelForEarned(earned)));
+    const current = Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(updated.level) || 1)));
+    if (target > current) {
+        const nextMaxHp = maxHpForLevel(target);
+        const nextMaxChakra = maxChakraForLevel(target);
+        const nextMaxStamina = maxStaminaForLevel(target);
+        updated = {
+            ...updated,
+            level: target,
+            rankTitle: rankTitleForLevel(updated, target),
+            maxHp: nextMaxHp,
+            maxChakra: nextMaxChakra,
+            maxStamina: nextMaxStamina,
+            hp: nextMaxHp,
+            chakra: nextMaxChakra,
+            stamina: nextMaxStamina,
+        };
+    }
+    return updated;
+}
+
 // ── App.tsx — gainXp (the driver) ───────────────────────────────────────────
 export function gainXp(character: XpCharacter, amount: number): XpCharacter {
     const totalAmount = effectiveCharacterXpGain(character as { elderFocus?: unknown }, amount);
