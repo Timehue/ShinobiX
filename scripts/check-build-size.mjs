@@ -116,7 +116,17 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // the usual ~18 KB because this pass also re-hoisted shared chunks, which adds
 // build-to-build variance beyond a purely additive lazy chunk. Startup gates
 // untouched — initial graph 1.31 MB raw / 345.0 KB gzip, entry under its gate.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_870_000;
+// 2026-07-28: 6.87 -> 6.88 MB. Chronicle card lore rewrite: all 150 tile-card
+// descriptions replaced with real per-card lore lines (the old ones were
+// retired tile-game strategy notes plus a five-sentence element stamp, now
+// deleted from chronicle-duel.ts), family taxonomy fix, and the Forgotten
+// Kage rename. Net +7.8 KB of catalog strings; rebased onto the Hollow Gate
+// drain, the local build measures 6,850,228 B. Sized by the margin rule: CI
+// lands near 6,857,200 B, and the previous ceiling would have left it ~13 KB —
+// near the band that has already produced a local green / CI red. This ceiling
+// gives CI ~23 KB of spare (~30 KB locally). Startup gates untouched — initial
+// graph 1.32 MB raw / 345.9 KB gzip, entry under its gate.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_880_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
