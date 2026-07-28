@@ -206,16 +206,4 @@
         background-position: center 100%;
     }
 
-    .journey-overlay {
-        padding: 16px 22px;
-    }
-
-    .journey-left h1 {
-        font-size: 42px;
-    }
-
-    .journey-left p {
-        font-size: 14px;
-    }
 }
-

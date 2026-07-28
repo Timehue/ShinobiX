@@ -14,64 +14,9 @@
 }
 /* TOP BAR */
 
-.village-topbar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 14px 30px;
-    background: rgba(0, 0, 0, 0.65);
-    border-bottom: 2px solid #d8a13a;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 100;
-}
-
-.village-title {
-    font-size: 42px;
-    font-weight: bold;
-    color: #d8a13a;
-}
-
-.village-stats {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    color: white;
-    font-size: 18px;
-}
 /* VILLAGE BUTTONS */
 
-.village-btn {
-    position: absolute;
-    width: 150px;
-    height: 90px;
-    background: rgba(0, 0, 0, 0.82);
-    border: 2px solid #d8a13a;
-    border-radius: 18px;
-    color: white;
-    font-size: 20px;
-    font-weight: bold;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-    .village-btn:hover {
-        transform: none;
-        box-shadow: 0 0 20px #d8a13a;
-    }
 /* BUTTON POSITIONS */
-
-.townhall {
-    top: 140px;
-    left: 50%;
-    transform: translateX(-50%);
-}
 
 .arena {
     top: 280px;
@@ -368,40 +313,6 @@
 }
 /* BOTTOM MENU */
 
-.village-bottom-menu {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 110px;
-    background: rgba(0, 0, 0, 0.88);
-    border-top: 2px solid #d8a13a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 14px;
-    overflow-x: auto;
-    padding: 10px;
-}
-
-    .village-bottom-menu button {
-        min-width: 130px;
-        height: 85px;
-        background: linear-gradient(to bottom, #162544, #0a1325);
-        border: 2px solid #274b88;
-        border-radius: 14px;
-        color: white;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-
-        .village-bottom-menu button:hover {
-            transform: scale(1.05);
-            border-color: #d8a13a;
-        }
-
 .journey-banner {
     height: 100%;
     display: flex;
@@ -409,47 +320,6 @@
     align-items: center;
     padding: 15px;
     background: linear-gradient( 90deg, rgba(5,8,18,0.88) 0%, rgba(5,8,18,0.55) 50%, rgba(5,8,18,0.88) 100% );
-}
-
-.journey-left h1 {
-    font-size: 72px;
-    margin: 0;
-    color: #ffc83d;
-    text-shadow: 0 0 20px rgba(255,200,61,0.4);
-}
-
-.journey-left p {
-    margin-top: 10px;
-    font-size: 20px;
-    color: #d8e3ff;
-}
-
-.banner-buttons {
-    display: flex;
-    gap: 12px;
-    margin-top: 24px;
-}
-
-    .banner-buttons button {
-        padding: 12px 22px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.1);
-        background: rgba(15,20,40,0.9);
-        color: white;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.25s ease;
-    }
-
-        .banner-buttons button:hover {
-            transform: translateY(-2px);
-            background: #1d2d55;
-            box-shadow: 0 0 18px rgba(100,150,255,0.4);
-        }
-
-.journey-right {
-    display: flex;
-    gap: 5px;
 }
 
 .stat-box {
@@ -482,44 +352,6 @@
     margin-top: 0 !important;
 }
 
-.journey-overlay {
-    min-height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 16px 28px;
-    background: linear-gradient( 90deg, rgba(5, 8, 18, 0.86), rgba(5, 8, 18, 0.45), rgba(5, 8, 18, 0.82) ) !important;
-}
-
-.journey-left {
-    flex: 1;
-}
-
-    .journey-left h1 {
-        color: #ffd34d;
-        text-shadow: 0 4px 14px black;
-    }
-
-    .journey-left p {
-        color: #dbeafe;
-        font-weight: 700;
-        text-shadow: 0 2px 8px black;
-    }
-
-.journey-right {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 12px;
-    align-items: center;
-}
-
-.banner-buttons {
-    display: flex;
-    gap: 12px;
-    margin-top: 20px;
-}
-
 .stat-box {
     min-width: 120px;
 }
@@ -536,15 +368,4 @@
     display: flex;
     gap: 10px;
     z-index: 5;
-}
-
-.hero-banner {
-    width: 100%;
-    height: 200px;
-    background-image: url("../../assets/shinobi-banner.webp");
-    background-size: contain; /* shows full image */
-    background-repeat: no-repeat;
-    background-position: center;
-    border-radius: 18px;
-    overflow: hidden;
 }

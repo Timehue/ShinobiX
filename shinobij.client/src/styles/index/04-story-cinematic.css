@@ -22,14 +22,6 @@
     font-style: italic;
 }
 
-.dialogue-box {
-    margin-top: 16px;
-    padding: 16px;
-    border-left: 4px solid var(--cyan);
-    background: rgba(2,6,23,.72);
-    border-radius: 12px;
-}
-
 .visual-novel {
     display: grid;
     gap: 12px;

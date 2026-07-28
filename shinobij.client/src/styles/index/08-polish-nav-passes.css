@@ -155,11 +155,6 @@ button {
     background: linear-gradient(90deg, #2b1408, #111827 42%, #2b1408);
 }
 
-.scene-hotbar span {
-    border-radius: 4px;
-    background: linear-gradient(180deg, rgba(255,255,255,.11), transparent), linear-gradient(#204891, #172554);
-}
-
 .portrait-badge {
     border-radius: 8px;
     box-shadow: 0 0 24px rgba(56,189,248,.22);
@@ -291,23 +286,6 @@ button {
     padding: 8px !important;
     max-height: 300px !important;
     overflow-y: auto !important;
-}
-
-.jutsu-card-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)) !important;
-    gap: 7px !important;
-}
-
-.shinobi-jutsu-card {
-    min-height: 138px !important;
-    padding: 4px !important;
-    border-radius: 8px !important;
-    background: #f8fafc !important;
-    border: 2px solid var(--slate-800) !important;
-    color: var(--slate-900) !important;
-    display: grid !important;
-    grid-template-rows: 78px 20px 16px 16px 18px !important;
 }
 
 /* =========================================================
