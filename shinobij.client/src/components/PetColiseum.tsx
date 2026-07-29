@@ -54,7 +54,7 @@ import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted, playPetSfx, primePetSfx } from "../lib/pet-sfx";
 import { isAudioMuted, setAudioMuted, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
 import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pet-coliseum-flag";
-import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
+import { petCloseupPresentationModel, petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
@@ -2588,17 +2588,20 @@ function DuelCutInModelPortrait({ pet, config, style, move, mirror }: {
     return (
         <div className="pet-cutin-model" aria-label={`${petDisplayName(pet)} combat model`}>
             <Canvas
-                dpr={[1, 1.35]}
+                dpr={[1, 2]}
                 camera={{ position: [0, 0, cameraDistance], fov: 32, near: 0.1, far: 30 }}
                 gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
                 style={{ width: "100%", height: "100%", background: "transparent" }}
+                onCreated={({ gl }) => {
+                    gl.toneMappingExposure = 0.82;
+                }}
             >
-                <ambientLight intensity={1.8} />
-                <directionalLight position={mirror ? [-3, 4, 5] : [3, 4, 5]} intensity={3.1} color="#fff4dc" />
-                <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={1.7} color={elementColor(pet.element).glow} />
+                <ambientLight intensity={0.76} color="#d8e5ff" />
+                <directionalLight position={mirror ? [-3, 4, 5] : [3, 4, 5]} intensity={1.7} color="#fff4dc" />
+                <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={0.68} color={elementColor(pet.element).glow} />
                 <group position={[0, -config.targetHeight * 0.5, 0]} rotation={[0, mirror ? -0.34 : 0.34, 0]}>
                     <Suspense fallback={null}>
-                        <PetModel3D config={config} frame={frame} element={pet.element} />
+                        <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} />
                     </Suspense>
                 </group>
             </Canvas>
@@ -7958,8 +7961,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {cutIn && (() => {
                 const isEnemy = cutIn.side === "enemy";
                 const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
-                const cutInModel = petCombatModel(cutIn.pet);
-                const cutPoseId = cutInModel ? null : posedId(cutIn.pet.id);
+                const cutInModel = petCloseupPresentationModel(cutIn.pet);
+                const cutPoseId = cutInModel ? null : posedId(petVisualId(cutIn.pet));
                 const cutInStyle = petHeroMoveStyle({
                     petId: cutIn.pet.id,
                     petName: cutIn.pet.name,
