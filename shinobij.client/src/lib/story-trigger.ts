@@ -117,7 +117,9 @@ export function interludeChosenTrait(character: Character, interludeId: string):
  * lowest eligible interlude (level + minProgress gates). When both are pending,
  * the lower levelReq fires first so the narrative stays in order.
  *
- * Interludes are consumed by COMPLETION, not by firing: an interlude is done
+ * Milestones are consumed only by storyProgress (a sealed boss win), never by
+ * merely opening their VN. Interludes are consumed by COMPLETION, not by firing:
+ * an interlude is done
  * when its id was recorded in triggeredEvents at completion OR the player owns
  * one of its choice traits (the double-guard prevents re-choosing after a
  * refresh). `dismissed` is the caller's session-only skip list, so a refresh
@@ -133,7 +135,7 @@ export function nextStoryTrigger(character: Character, triggeredEvents: string[]
         const index = storyLine.findIndex((s) => s.levelReq === step.levelReq);
         if (index >= 0) {
             const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
-            if (!triggeredEvents.includes(eventId)) {
+            if (!dismissed.includes(eventId)) {
                 milestone = { eventId, base: storyToCreatorEvent(step, village, index), returnScreen: "storyHall" };
             }
         }

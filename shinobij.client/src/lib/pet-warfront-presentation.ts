@@ -19,18 +19,18 @@ const WARFRONT_BUDGETS: Readonly<Record<PetVisualQuality, WarfrontPresentationBu
         houndRigDistance: 0,
     }),
     medium: Object.freeze({
-        hollowHoundRigs: 3,
-        laneHoundRigs: 4,
+        hollowHoundRigs: 2,
+        laneHoundRigs: 3,
         squadCameras: false,
         squadCameraRenderEvery: 3,
-        houndRigDistance: 25,
+        houndRigDistance: 22,
     }),
     high: Object.freeze({
-        hollowHoundRigs: 6,
-        laneHoundRigs: 8,
+        hollowHoundRigs: 4,
+        laneHoundRigs: 6,
         squadCameras: true,
         squadCameraRenderEvery: 2,
-        houndRigDistance: 34,
+        houndRigDistance: 28,
     }),
 });
 
@@ -64,4 +64,31 @@ export function shouldRenderWarfrontHoundRig(
     return index >= 0
         && index < rigBudget
         && distanceToCamera <= maxDistance;
+}
+
+/**
+ * Keep a pooled render slot attached to the same simulation id until that id
+ * disappears. Indexing directly into a filtered mob array makes every later
+ * slot jump to a different creature whenever an earlier mob dies.
+ */
+export function reconcileWarfrontMobSlots(
+    current: readonly (number | null)[],
+    availableIds: readonly number[],
+    capacity = current.length,
+): Array<number | null> {
+    const live = new Set(availableIds);
+    const next = Array.from({ length: capacity }, (_, index) => {
+        const id = current[index];
+        return id !== null && id !== undefined && live.has(id) ? id : null;
+    });
+    const claimed = new Set(next.filter((id): id is number => id !== null));
+    let open = 0;
+    for (const id of availableIds) {
+        if (claimed.has(id)) continue;
+        while (open < next.length && next[open] !== null) open++;
+        if (open >= next.length) break;
+        next[open] = id;
+        claimed.add(id);
+    }
+    return next;
 }

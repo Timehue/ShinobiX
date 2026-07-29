@@ -152,7 +152,7 @@ const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ def
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
 const HunterBoard = lazyWithRetry(() => import("./screens/HunterBoard").then(m => ({ default: m.HunterBoard })));
 const Missions = lazyWithRetry(() => import("./screens/Missions").then(m => ({ default: m.Missions })));
-const StoryHall = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryHall })));
+const StoryHall = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryArchiveHall })));
 const StoryBoss = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryBoss })));
 const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
@@ -3903,9 +3903,9 @@ export default function App() {
             // custom dialogue, etc.), then overlay any KV-stored images.
             const edited = creatorEvents.find(e => e.id === next.eventId);
             const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
-            // Interludes are consumed at COMPLETION (once a choice is made), not at
-            // fire time — a refresh mid-scene must re-offer the beat, not lose it.
-            if (!next.eventId.startsWith("story-interlude-")) setTriggeredEvents(ids => ids.includes(next.eventId) ? ids : [...ids, next.eventId]);
+            // Opening a story beat never consumes it. Chapter milestones advance
+            // only after the sealed boss win; interludes persist after a recorded
+            // choice. A close is session-only and a refresh offers the beat again.
             setActiveTriggeredEvent(vnEvent);
             setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
             setTriggerPage(0);
@@ -6824,7 +6824,12 @@ export default function App() {
                         lineIndex={triggerLine}
                         setPageIndex={setTriggerPage}
                         setLineIndex={setTriggerLine}
-                        onCancel={() => { if (activeTriggeredEvent.id.startsWith("story-interlude-")) dismissedStoryScenesRef.current.add(activeTriggeredEvent.id); setActiveTriggeredEvent(null); }}
+                        onCancel={() => {
+                            if (/^story-(?:interlude-|[^-].*-\d+-\d+$)/.test(activeTriggeredEvent.id)) {
+                                dismissedStoryScenesRef.current.add(activeTriggeredEvent.id);
+                            }
+                            setActiveTriggeredEvent(null);
+                        }}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
                         onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
@@ -7249,20 +7254,6 @@ export default function App() {
                     <StoryHall
                         character={character}
                         setScreen={setScreen}
-                        creatorEvents={creatorEvents}
-                        sharedImages={sharedImages}
-                        onStartVisualNovel={(event) => {
-                            const alreadyRead = triggeredEvents.includes(event.id);
-                            if (!alreadyRead) {
-                                setTriggeredEvents((ids) => ids.includes(event.id) ? ids : [...ids, event.id]);
-                            }
-                            setActiveTriggeredEvent(alreadyRead
-                                ? { ...event, xpReward: 0, ryoReward: 0, staminaReward: 0, currencyRewards: undefined }
-                                : event);
-                            setActiveTriggerReturnScreen("storyHall");
-                            setTriggerPage(0);
-                            setTriggerLine(0);
-                        }}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}

@@ -2,6 +2,7 @@ import type { Biome } from "../types/core";
 import type {
     CreatorEvent,
     VnActorEntrance,
+    VnActorPose,
     VnAtmosphere,
     VnBackgroundMotion,
     VnCinematicDirection,
@@ -15,6 +16,7 @@ import type {
 import { sanitizeVnDirection } from "./vn-cinematic-authoring";
 import {
     isPremiumVnEvent,
+    resolveStoryActorPose,
     resolveStorywideActorImage,
     resolveStorywideDirection,
 } from "./vn-storywide-direction";
@@ -32,6 +34,8 @@ export type ResolvedVnPresentation = {
     tone: VnTone;
     atmosphere: Exclude<VnAtmosphere, "auto">;
     actorEntrance: Exclude<VnActorEntrance, "auto">;
+    leftActorPose: VnActorPose;
+    rightActorPose: VnActorPose;
     impact: VnImpact;
     titleCard: boolean;
     ambience: Exclude<NonNullable<VnCinematicDirection["ambience"]>, "auto">;
@@ -247,11 +251,14 @@ export function resolveVnPresentation(input: {
     const pilot = pilotDirection(event.id, pageIndex);
     const pilotLine = pilot?.lineDirections?.[lineIndex];
     const storywide = resolveStorywideDirection(event, page, pageIndex);
-    const authored = sanitizeVnDirection({
+    const pageAuthored = sanitizeVnDirection({
         ...storywide,
         ...pilot,
         ...event.cinematic,
         ...page.cinematic,
+    });
+    const authored = sanitizeVnDirection({
+        ...pageAuthored,
         ...pilotLine,
         ...page.lines?.[lineIndex]?.cinematic,
     });
@@ -272,6 +279,9 @@ export function resolveVnPresentation(input: {
     const actorEntrance = reducedMotion
         ? "fade"
         : resolveAuto(authored.actorEntrance, pageIndex === 0 ? "fade" : "none");
+    const automaticActorPose = isPremiumVnEvent(event.id)
+        ? resolveStoryActorPose(event, page)
+        : "neutral";
 
     return {
         mode,
@@ -284,6 +294,10 @@ export function resolveVnPresentation(input: {
         tone: authored.tone ?? toneFor(event.biome),
         atmosphere,
         actorEntrance,
+        // Actor art is intentionally locked at page scope. A line may change
+        // camera, grade, or impact, but it never causes a cutout to flicker.
+        leftActorPose: pageAuthored.leftActorPose ?? automaticActorPose,
+        rightActorPose: pageAuthored.rightActorPose ?? automaticActorPose,
         impact: reducedMotion ? "none" : (authored.impact ?? "none"),
         titleCard: Boolean(authored.titleCard ?? pageIndex === 0),
         ambience: resolveAuto(authored.ambience, event.id.startsWith("story-road-") ? "road" : "village"),
@@ -292,6 +306,17 @@ export function resolveVnPresentation(input: {
     };
 }
 
-export function resolveCinematicActorImage(eventId: string, actorName: string, fallback: string): string {
-    return resolveStorywideActorImage(eventId, actorName) ?? fallback;
+export function resolveCinematicActorImage(
+    eventId: string,
+    actorName: string,
+    fallback: string,
+    pose: VnActorPose = "neutral",
+    authoredImage?: string,
+): string {
+    // A page-specific actor image is deliberate story direction (not a generic
+    // fallback). Preserve transformations such as the Hollow Kage finales and
+    // admin-published actor overrides.
+    return authoredImage?.trim()
+        || resolveStorywideActorImage(eventId, actorName, pose)
+        || fallback;
 }
