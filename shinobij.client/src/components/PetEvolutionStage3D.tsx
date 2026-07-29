@@ -1,8 +1,8 @@
 /*
  * Pet evolution cutscene — the 3D STAGE (a shinobi summoning ground).
  *
- * Both forms are the game's REAL rigged combat GLBs (the same models the Pet
- * Coliseum fights with, via petCombatModel + PetModel3D), standing on a glowing
+ * Closeup-approved forms use the game's real rigged combat GLBs (the same models
+ * the Pet Coliseum fights with), standing on a glowing
  * fuinjutsu summoning seal. The outgoing form blows out to a white silhouette as
  * it charges into the chakra pillar; the evolved form emerges, takes a true 360°
  * turntable — real geometry, so edge-on is fine — and lands facing the player as
@@ -37,7 +37,7 @@ import {
     ringBurst,
     floorRayIntensity,
 } from "../lib/pet-evolution-cutscene";
-import { petCombatModel } from "../lib/pet-3d-models";
+import { petCloseupPresentationModel } from "../lib/pet-3d-models";
 import { petVisualId } from "../data/pet-evolutions";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME } from "./PetModel3D";
 import {
@@ -667,8 +667,8 @@ function SceneLights({ phase, element }: { phase: EvolutionPhase; element?: stri
 }
 
 // ── The pet as a REAL 3D MODEL, with a material-level WHITE-OUT ───────────────
-// Both the base (old) and evolved (new) forms are the game's actual combat GLBs,
-// doing a TRUE 360° turntable (real models, so edge-on is fine). The `whiteness`
+// Closeup-approved old/new forms use their combat GLBs and perform a true 360°
+// turntable. Unapproved hero-closeup assets use their evolution standee. The `whiteness`
 // curve drives each mesh's material to a pure white glow (the classic before/after
 // silhouette): the old form blows out to white going into the pillar, the new form
 // spins white inside it, then its COLOUR floods back in on the reveal. PetModel3D
@@ -739,7 +739,7 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
     const modelG = useRef<THREE.Group>(null);  // white-out target
     // The evolved pet drives its own model; the old form is the same pet at stage 0.
     const config = useMemo(
-        () => petCombatModel(isNew ? pet : priorForm(pet, oldVisualId)),
+        () => petCloseupPresentationModel(isNew ? pet : priorForm(pet, oldVisualId)),
         [pet, isNew, oldVisualId],
     );
     const scl = useRef(isNew ? 0.0001 : 1);
@@ -789,14 +789,19 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
     });
 
     if (!config) {
-        // No approved GLB → 2D standee fallback so the beat still lands.
+        // No closeup-approved GLB → use the form's approved evolution standee.
         return <EvoStandee visualId={petVisualId(isNew ? pet : priorForm(pet, oldVisualId))} element={element} isNew={isNew} phase={phase} reduced={reduced} />;
     }
     return (
         <group ref={group}>
             <group ref={scaleG}>
                 <group ref={modelG}>
-                    <PetModel3D config={config} frame={frame} element={pet.element ?? element ?? undefined} />
+                    <PetModel3D
+                        config={config}
+                        frame={frame}
+                        element={pet.element ?? element ?? undefined}
+                        showIdentity={false}
+                    />
                 </group>
             </group>
         </group>
@@ -811,10 +816,10 @@ function hasWebGL(): boolean {
 }
 
 /**
- * The evolution stage. The OLD form dissolves as a 2D standee; the EVOLVED form
- * emerges as the game's REAL rigged 3D combat model and does a true 360° turntable
- * on the ninja summoning-seal stage, revealed in colour as the lights blaze. The
- * caller still overlays the DOM chakra pillar, flash, names and controls.
+ * The evolution stage. Approved forms use their real rigged combat models;
+ * closeup-rejected forms use their evolution standees so the reveal stays clean.
+ * Both run on the ninja summoning-seal stage as the lights blaze. The caller
+ * still overlays the DOM chakra pillar, flash, names and controls.
  */
 export function PetEvolutionStage3D({
     phase, pet, oldVisualId, element, oldImage, newImage, reduced,
@@ -852,7 +857,10 @@ export function PetEvolutionStage3D({
             dpr={[1, 2]}
             style={{ width: "100%", height: "100%", background: "transparent" }}
             camera={{ position: [0, 2.7, 11.4], fov: 38 }}
-            onCreated={({ camera }) => camera.lookAt(0, 1.7, 0)}
+            onCreated={({ camera, gl }) => {
+                gl.toneMappingExposure = 0.82;
+                camera.lookAt(0, 1.7, 0);
+            }}
         >
             {/* No postprocessing Bloom on purpose: a fullscreen pass on a TRANSPARENT
                 canvas hazes the canvas RECTANGLE (a visible "box"). Lights + additive
@@ -863,9 +871,8 @@ export function PetEvolutionStage3D({
             <SummoningSeal phase={phase} element={element} />
             <DataMotes phase={phase} element={element} />
             <UpRays phase={phase} element={element} />
-            {/* Both forms are real 3D models with a material white-out: the base
-                blows out to white going in, the evolved spins white then floods
-                to colour on the reveal. */}
+            {/* Approved forms use the 3D material white-out; standee fallbacks run
+                the same phase choreography without exposing a rejected closeup. */}
             <Suspense fallback={null}>
                 <EvoModel pet={pet} isNew={false} oldVisualId={oldVisualId} element={element} phase={phase} reduced={reduced} />
                 <EvoModel pet={pet} isNew oldVisualId={oldVisualId} element={element} phase={phase} reduced={reduced} />
