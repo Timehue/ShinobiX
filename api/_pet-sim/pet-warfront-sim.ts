@@ -320,7 +320,7 @@ export const WF_COIN_GUARD = 250;
 interface WfCore { x: number; y: number; hp: number; alive: boolean; sinceHit: number }
 interface WfMob { id: number; side: Team | "hollow"; elite: boolean; lane: WfLaneId; x: number; y: number; hp: number; maxHp: number; toward: Team; route: Array<[number, number]>; wpIdx: number; attackCd: number; chaseId: string | null }
 interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; phase: 1 | 2 | 3; calmTicks: number }
-interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number; boonCd: number; ally: Team | null; allyLeft: number }
+interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number; boonCd: number; ally: Team | null; allyLeft: number; targetId: string | null }
 
 // ── Snapshots + events (the renderer contract) ───────────────────────────────
 export interface WfActorSnap {
@@ -483,7 +483,7 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
         },
         boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, phase: 1, calmTicks: 0 },
         minis: WF_PADS.map((pad, i) => ({
-            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, boonCd: WARFRONT_TPS * (2 + i), ally: null, allyLeft: 0,
+            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, boonCd: WARFRONT_TPS * (2 + i), ally: null, allyLeft: 0, targetId: null,
         })) as unknown as WfState["minis"],
         mobs: [], mobSeq: 0, mobTimer: WARFRONT_TPS * 10, mobFlip: false, waveTimer: WARFRONT_TPS * 8,
         coins: { blue: 150, red: 150 }, coinFrac: 0,
@@ -787,6 +787,10 @@ function nearestEnemy(st: WfState, p: WfPet, maxD = 6.5): WfPet | null {
         if (q.hp / q.maxHp < 0.4) score -= 1.8;   // finish the bloodied
         if (p.role === "assassin" && (q.role === "sage" || q.role === "tracker")) score -= 2.6;
         if (p.role === "defender" && q.role === "assassin") score -= 1.2;  // peel the diver
+        // Target hysteresis: keep a valid duel for a small scoring advantage.
+        // Without it, two similarly-scored enemies trade places every tick and
+        // the pet oscillates between headings instead of committing to combat.
+        if (q.id === p.duelId) score -= 1.15;
         if (score < bs) { bs = score; best = q; }
     }
     if (!best) return null;
@@ -1221,7 +1225,7 @@ function petTick(st: WfState, p: WfPet) {
                     }
                     if (m.hp <= 0 && m.alive) {
                         // RECRUITED, not despawned — it fights for the slayer's team.
-                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0; m.boonCd = WARFRONT_TPS * 2;
+                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0; m.boonCd = WARFRONT_TPS * 2; m.targetId = null;
                         st.coins[p.team] += WF_COIN_MINI;
                         p.coinsEarned += WF_COIN_MINI;
                         grantXp(st, p, 180);
@@ -1531,19 +1535,23 @@ function bossTick(st: WfState) {
     if (b.phase === 2 && b.hp <= WARDEN_HP * 0.35) {
         phaseBurst(3, 6.5, 0.9, 4);
     }
-    // BARON RULES: engage pets INSIDE the arena ring, or whoever is attacking
-    // him (targetId is set by the pets' warden-damage branch). Never roams.
+    // BARON RULES: keep a valid locked attacker, otherwise acquire the nearest
+    // pet inside the arena ring. The old nearest-first scan swapped targets on
+    // almost every crossing and made the Warden's body/rig snap between pets.
     let tgt: WfPet | null = null, td = WF_LAIR.r - 0.8;
-    for (const p of st.pets) {
-        if (p.state === "respawning") continue;
-        const d = hyp2(p.x - b.x, p.y - b.y);
-        if (d < td) { td = d; tgt = p; }
-    }
-    if (!tgt && b.targetId) {
+    if (b.targetId) {
         const attacker = st.pets.find((p) => p.id === b.targetId && p.state !== "respawning");
         if (attacker) {
             const d = hyp2(attacker.x - b.x, attacker.y - b.y);
             if (d < WARDEN_LEASH + 1.5) { tgt = attacker; td = d; }
+        }
+    }
+    if (!tgt) {
+        td = WF_LAIR.r - 0.8;
+        for (const p of st.pets) {
+            if (p.state === "respawning") continue;
+            const d = hyp2(p.x - b.x, p.y - b.y);
+            if (d < td) { td = d; tgt = p; }
         }
     }
     if (b.windUp > 0) {
@@ -1637,11 +1645,39 @@ function miniStrike(st: WfState, m: WfMini, q: WfPet, mult: number) {
     }
 }
 
+function miniTarget(
+    st: WfState,
+    m: WfMini,
+    hostile: (pet: WfPet) => boolean,
+    acquireRadius: number,
+    lockRadius: number,
+): { pet: WfPet | null; distance: number } {
+    if (m.targetId) {
+        const locked = st.pets.find((pet) =>
+            pet.id === m.targetId
+            && pet.state !== "respawning"
+            && hostile(pet));
+        if (locked) {
+            const distance = hyp2(locked.x - m.x, locked.y - m.y);
+            if (distance < lockRadius) return { pet: locked, distance };
+        }
+    }
+    let pet: WfPet | null = null;
+    let distance = acquireRadius;
+    for (const candidate of st.pets) {
+        if (candidate.state === "respawning" || !hostile(candidate)) continue;
+        const d = hyp2(candidate.x - m.x, candidate.y - m.y);
+        if (d < distance) { distance = d; pet = candidate; }
+    }
+    m.targetId = pet?.id ?? null;
+    return { pet, distance };
+}
+
 function miniTick(st: WfState, m: WfMini) {
     if (!m.alive) {
         m.spawnIn--;
         if (m.spawnIn <= 0) {
-            m.alive = true; m.hp = MINI_HP;
+            m.alive = true; m.hp = MINI_HP; m.targetId = null;
             // Respawn at a JITTERED den in the quadrant (deterministic — the
             // seeded rng), so the camp reads wild, not scripted.
             const [px2, py2] = WF_PADS[m.padIdx];
@@ -1659,7 +1695,7 @@ function miniTick(st: WfState, m: WfMini) {
     // fight. (Deterministic; no structure damage — its value is winning fights.)
     if (m.ally) {
         m.allyLeft--;
-        if (m.allyLeft <= 0) { m.alive = false; m.ally = null; m.spawnIn = MINI_RESPAWN; return; }
+        if (m.allyLeft <= 0) { m.alive = false; m.ally = null; m.spawnIn = MINI_RESPAWN; m.targetId = null; return; }
         m.hp = Math.min(MINI_HP, m.hp + 0.4);   // slow sustain so it lasts the tour
         if (m.attackCd > 0) m.attackCd--;
         if (m.boonCd > 0) m.boonCd--;
@@ -1692,12 +1728,9 @@ function miniTick(st: WfState, m: WfMini) {
             st.events.push({ t: st.t, type: "miniboon", padIdx: m.padIdx, team: m.ally, kind, x: quant(m.x), y: quant(m.y) });
         }
         const foeT = other(m.ally);
-        let tgt: WfPet | null = null, td = 10;
-        for (const q of st.pets) {
-            if (q.team !== foeT || q.state === "respawning") continue;
-            const d = hyp2(q.x - m.x, q.y - m.y);
-            if (d < td) { td = d; tgt = q; }
-        }
+        const acquired = miniTarget(st, m, (pet) => pet.team === foeT, 10, 12);
+        const tgt = acquired.pet;
+        const td = acquired.distance;
         if (tgt) {
             m.faceX = tgt.x >= m.x ? 1 : -1;
             if (td <= 1.9) { if (m.attackCd <= 0) { m.attackCd = MINI_CD; miniStrike(st, m, tgt, 1.3); } }
@@ -1740,12 +1773,12 @@ function miniTick(st: WfState, m: WfMini) {
     // pets off the final base race (it was flipping a decisive match to a clock
     // verdict). They still bite minions and roar; they just don't divert pets.
     const aggroR = st.t > WARFRONT_TPS * WF_PHASE_SUDDEN ? (provoked ? 6.5 : 0) : (provoked ? 6.5 : MINI_AGGRO);
-    let tgt: WfPet | null = null, td = aggroR;
-    if (homeD < 8) for (const p of st.pets) {
-        if (p.state === "respawning") continue;
-        const d = hyp2(p.x - m.x, p.y - m.y);
-        if (d < td) { td = d; tgt = p; }
-    }
+    const acquired = homeD < 8
+        ? miniTarget(st, m, () => true, aggroR, Math.max(aggroR, 7.5))
+        : { pet: null, distance: aggroR };
+    const tgt = acquired.pet;
+    const td = acquired.distance;
+    if (!tgt && homeD >= 8) m.targetId = null;
     if (tgt && m.sigCd <= 0) {
         m.sigCd = WARFRONT_TPS * 8;
         if (m.padIdx === 0) {
@@ -1920,12 +1953,27 @@ function mobsTick(st: WfState) {
             continue;
         }
         // 2) Enemy pet close by (hollow raiders hate everyone).
-        let tgt: WfPet | null = null, td = m.chaseId ? MOB_CHASE : MOB_AGGRO;
-        for (const pp of st.pets) {
-            if (pp.state === "respawning") continue;
-            if (m.side !== "hollow" && pp.team === m.side) continue;
-            const d = hyp2(pp.x - m.x, pp.y - m.y);
-            if (d < td) { td = d; tgt = pp; }
+        let tgt: WfPet | null = null, td = MOB_AGGRO;
+        // Stay on the same valid quarry through the wider chase radius. Merely
+        // widening the nearest-enemy scan still changed targets every tick.
+        if (m.chaseId) {
+            const locked = st.pets.find((pet) =>
+                pet.id === m.chaseId
+                && pet.state !== "respawning"
+                && (m.side === "hollow" || pet.team !== m.side));
+            if (locked) {
+                const d = hyp2(locked.x - m.x, locked.y - m.y);
+                if (d < MOB_CHASE) { tgt = locked; td = d; }
+            }
+        }
+        if (!tgt) {
+            td = MOB_AGGRO;
+            for (const pp of st.pets) {
+                if (pp.state === "respawning") continue;
+                if (m.side !== "hollow" && pp.team === m.side) continue;
+                const d = hyp2(pp.x - m.x, pp.y - m.y);
+                if (d < td) { td = d; tgt = pp; }
+            }
         }
         m.chaseId = tgt ? tgt.id : null;
         if (tgt) {
@@ -2011,7 +2059,7 @@ function mobsTick(st: WfState) {
     }
 }
 
-// ── Body separation (pets only — mobs may clump; it reads as a horde) ────────
+// ── Crowd separation ─────────────────────────────────────────────────────────
 function mobSeparation(st: WfState) {
     for (let i = 0; i < st.mobs.length; i++) {
         for (let j = i + 1; j < st.mobs.length; j++) {
@@ -2051,6 +2099,24 @@ function separation(st: WfState) {
                 tryMove(a, -nx * push, -ny * push);
                 tryMove(b, nx * push, ny * push);
             }
+        }
+    }
+}
+
+function miniSeparation(st: WfState) {
+    const livePets = st.pets.filter((pet) => pet.state !== "respawning" && pet.dashLeft <= 0);
+    for (const mini of st.minis) {
+        if (!mini.alive) continue;
+        for (const pet of livePets) {
+            const dx = pet.x - mini.x, dy = pet.y - mini.y;
+            const d = hyp2(dx, dy);
+            if (d <= 1e-6 || d >= 1.05) continue;
+            const push = Math.min(0.12, (1.05 - d) * 0.45);
+            const nx = dx / d, ny = dy / d;
+            const [pc, pr] = cellOf(pet.x + nx * push, pet.y + ny * push);
+            if (wfCellWalkable(pc, pr)) { pet.x += nx * push; pet.y += ny * push; }
+            const [mc, mr] = cellOf(mini.x - nx * push, mini.y - ny * push);
+            if (wfCellWalkable(mc, mr)) { mini.x -= nx * push; mini.y -= ny * push; }
         }
     }
 }
@@ -2176,12 +2242,15 @@ function tick(st: WfState) {
         : [...st.pets.filter((p) => p.team === "red"), ...st.pets.filter((p) => p.team === "blue")];
     for (const p of petOrder) petTick(st, p);
     separation(st);
-    mobSeparation(st);
     const structOrder: readonly Team[] = firstBlue ? ["blue", "red"] : ["red", "blue"];
     for (const team of structOrder) { statueTick(st, team, 0); statueTick(st, team, 1); guardianTick(st, team, 0); guardianTick(st, team, 1); }
     bossTick(st);
     for (const m of st.minis) miniTick(st, m);
     mobsTick(st);
+    // Resolve spacing after movement so the presented frame never captures the
+    // one-tick pile-up produced by mobs/minibosses stepping into one another.
+    mobSeparation(st);
+    miniSeparation(st);
     for (const m of st.mobs) {
         const [mc2, mr2] = cellOf(m.x, m.y);
         if (!wfCellWalkable(mc2, mr2)) {

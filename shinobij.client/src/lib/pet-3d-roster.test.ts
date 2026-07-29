@@ -175,6 +175,9 @@ test("only explicitly reviewed roster models leave quarantine", () => {
     assert.equal(approvedRosterCombatModel({ id: "mythic-2", name: "Ancient Frost Titan" })?.profile, "heavy");
     assert.equal(approvedRosterCombatModel({ id: "mythic-3", name: "Solar Stag" })?.profile, "quadruped");
     assert.equal(approvedRosterCombatModel({ id: "mythic-4", name: "Abyssal Oni Hound" })?.profile, "quadruped");
+    const hollowHound = approvedRosterCombatModel({ id: "hollow-hound-encounter-1234567890123", name: "Hollow Hound Alpha" });
+    assert.equal(hollowHound?.visualId, "mythic-4", "the separate Hollow identity still resolves the approved Oni rig");
+    assert.match(hollowHound?.url ?? "", /\/mythic-4\.glb\?/);
     assert.equal(approvedRosterCombatModel({ id: "mythic-5", name: "Vermillion Suzaku" })?.profile, "avian");
     assert.equal(approvedRosterCombatModel({ id: "mythic-6", name: "Azure Ryujin" })?.profile, "serpentine");
     assert.equal(approvedRosterCombatModel({ id: "mythic-7", name: "Turtle Duck" })?.profile, "biped");

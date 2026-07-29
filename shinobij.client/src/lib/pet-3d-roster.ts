@@ -1,5 +1,9 @@
 import type { Pet } from "../types/pet";
 import type { PetCombatModelConfig, PetCombatModelProfile } from "./pet-3d-models";
+import {
+    HOLLOW_HOUND_MODEL_SOURCE_ID,
+    isHollowHoundEncounterId,
+} from "../../../shared/hollow-gate-contract";
 
 /** Models only enter this list after generation, mesh-budget validation,
  * multi-angle review, and an in-battle pass. Keeping approval in source makes a
@@ -40,6 +44,7 @@ const COLISEUM_MODEL_ALIASES: Readonly<Record<string, string>> = {
 };
 
 function approvedModelId(id: string): string {
+    if (isHollowHoundEncounterId(id)) return HOLLOW_HOUND_MODEL_SOURCE_ID;
     // Encounter/PvP snapshots can append a timestamp while preserving the
     // canonical pet identity. Match the same suffix rule as battle-sprite art.
     const canonicalId = id.replace(/-\d{10,}$/, "");

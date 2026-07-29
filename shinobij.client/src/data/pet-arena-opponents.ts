@@ -6,11 +6,7 @@
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
 import { applyPetTraitBonuses } from "../lib/pet-balance";
-import {
-    HOLLOW_HOUND_ALPHA_NAME,
-    HOLLOW_HOUND_FLOOR_NAMES,
-    HOLLOW_HOUND_NAME,
-} from "../../../shared/hollow-gate-contract";
+import { isHollowHoundEncounterPet } from "../../../shared/hollow-gate-contract";
 
 export type PetArenaOpponent = {
     owner: string;
@@ -146,16 +142,9 @@ export const genericPetArenaOpponents: PetArenaOpponent[] = [
 // opponent is one of these. Any real-player opponent (ranked / clan battle /
 // PvP challenge / casual-vs-player) is excluded, so mastery never touches PvP.
 const GENERIC_PET_OPPONENT_IDS = new Set(genericPetArenaOpponents.map((o) => o.pet.id));
-const HOLLOW_HOUND_NAMES = new Set<string>([
-    HOLLOW_HOUND_NAME,
-    HOLLOW_HOUND_ALPHA_NAME,
-    ...HOLLOW_HOUND_FLOOR_NAMES,
-    ...HOLLOW_HOUND_FLOOR_NAMES.map((name) => `Elite ${name}`),
-    ...HOLLOW_HOUND_FLOOR_NAMES.map((name) => `Ambushing ${name}`),
-]);
 export function isGenericPetOpponent(pet: Pet | null | undefined): boolean {
     return !!pet && (
         GENERIC_PET_OPPONENT_IDS.has(pet.id)
-        || (HOLLOW_HOUND_NAMES.has(pet.name) && /^mythic-4-\d{10,}$/.test(pet.id))
+        || isHollowHoundEncounterPet(pet)
     );
 }

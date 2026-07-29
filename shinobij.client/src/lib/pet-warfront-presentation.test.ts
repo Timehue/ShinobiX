@@ -4,6 +4,7 @@ import {
     adaptWarfrontPresentationBudget,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontMvpId,
     warfrontPresentationBudget,
 } from "./pet-warfront-presentation.ts";
 
@@ -50,4 +51,12 @@ test("mob slot reconciliation ignores duplicate ids and respects capacity", () =
         reconcileWarfrontMobSlots([4, null], [4, 4, 5, 6], 2),
         [4, 5],
     );
+});
+
+test("MVP scoring recognizes decisive kills, assists, and economy", () => {
+    assert.equal(warfrontMvpId([
+        { id: "damage-only", dmg: 2200, kills: 0, assists: 0, coins: 100 },
+        { id: "closer", dmg: 1500, kills: 2, assists: 2, coins: 500 },
+    ]), "closer");
+    assert.equal(warfrontMvpId([]), null);
 });

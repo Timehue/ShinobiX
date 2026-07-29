@@ -52,7 +52,7 @@ import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted, playPetSfx, primePetSfx } from "../lib/pet-sfx";
-import { isAudioMuted, setAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
+import { duckBattleMusic, isAudioMuted, setAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
 import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pet-coliseum-flag";
 import { petCloseupPresentationModel, petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
@@ -72,6 +72,7 @@ import {
     appendCapped,
     boundedBurstStep,
     duelAttackDashBeats,
+    duelFinisherOutcome,
     duelHeroCutEligible,
     duelHeroCutEventIndexes,
     duelMoveOutcome,
@@ -88,13 +89,14 @@ import { petCombatFamilyPresentation } from "../lib/pet-combat-family";
 import { petDisplayName } from "../lib/pet";
 import { petDuelBroadcastRead, petDuelRecap } from "../lib/pet-duel-broadcast";
 import { HOLLOW_HOUND_SURFACE } from "../lib/pet-model-surface";
+import { isHollowHoundEncounterPet } from "../../../shared/hollow-gate-contract";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
 const FX_Y = 1.0; // mid-body height for impacts / casts
 
 function hollowHoundSurface(pet: Pick<Pet, "id" | "name">) {
-    return /^mythic-4-\d{10,}$/.test(pet.id)
+    return isHollowHoundEncounterPet(pet)
         ? HOLLOW_HOUND_SURFACE
         : undefined;
 }
@@ -1135,6 +1137,7 @@ const duelCmdKick = { shake: 0, zoom: 0 };
 // so determinism / ranked / the server replay are untouched. Set by issueCommand,
 // consumed + cleared by DuelDirector. `fromTick` bounds it so it can never run away.
 const duelCmdRush = { active: false, fromTick: 0 };
+const duelCmdFocus = { actorId: "", targetId: "", color: "#fbbf24", expiresAt: 0 };
 
 /** Request a one-off camera jolt from OUTSIDE the frame loop — a player tap.
  *
@@ -1153,6 +1156,12 @@ function requestDuelCommandJolt(shake: number, zoom: number, fov: number) {
 function requestDuelCommandRush(fromTick: number) {
     duelCmdRush.active = true;
     duelCmdRush.fromTick = fromTick;
+}
+function requestDuelCommandFocus(actorId: string, targetId: string, color: string, durationMs = 820) {
+    duelCmdFocus.actorId = actorId;
+    duelCmdFocus.targetId = targetId;
+    duelCmdFocus.color = color;
+    duelCmdFocus.expiresAt = performance.now() + durationMs;
 }
 
 function ResponsiveCamera() {
@@ -3026,6 +3035,54 @@ function NativeProjectileBody({ visual, quality }: { visual: ProjectileVisual; q
 /** One in-flight projectile — an element-distinct flying attack (fireball /
  *  water ball / wind cut / rock throw / lightning bolt) that points where it's
  *  going. Driven by the sim's homing projectile in `snapshots[t].projectiles`. */
+function DuelCommandFocusMarker({ duel, clock }: { duel: DuelResult; clock: { current: DuelClock } }) {
+    const group = useRef<THREE.Group>(null);
+    const material = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame((state) => {
+        const root = group.current;
+        if (!root) return;
+        const remaining = duelCmdFocus.expiresAt - performance.now();
+        if (remaining <= 0 || !duelCmdFocus.targetId) {
+            root.visible = false;
+            return;
+        }
+        const tick = Math.max(0, Math.min(duel.snapshots.length - 1, Math.floor(clock.current.t)));
+        const target = findActor(duel.snapshots[tick], duelCmdFocus.targetId);
+        if (!target || target.hp <= 0) {
+            root.visible = false;
+            return;
+        }
+        const floor = duelFieldToFloor(target.x, target.y);
+        const pulse = 1 + Math.sin(state.clock.elapsedTime * 15) * 0.075;
+        root.visible = true;
+        root.position.set(floor.wx, FLOOR_Y + 0.055, floor.wz);
+        root.scale.setScalar(pulse);
+        if (material.current) {
+            material.current.color.set(duelCmdFocus.color);
+            material.current.opacity = Math.min(0.82, remaining / 260);
+        }
+    });
+    return (
+        <group ref={group} visible={false}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.88, 0.038, 8, 48]} />
+                <meshBasicMaterial ref={material} color="#fbbf24" transparent opacity={0.72} depthWrite={false} toneMapped={false} />
+            </mesh>
+            {[
+                [0, 0, -1.03, 0],
+                [0, 0, 1.03, 0],
+                [-1.03, 0, 0, Math.PI / 2],
+                [1.03, 0, 0, Math.PI / 2],
+            ].map(([x, y, z, rotation], index) => (
+                <mesh key={index} position={[x, y + 0.018, z]} rotation={[0, rotation, 0]}>
+                    <boxGeometry args={[0.32, 0.035, 0.055]} />
+                    <meshBasicMaterial color="#fff7d6" transparent opacity={0.88} depthWrite={false} toneMapped={false} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
 function DuelProjectile({ index, duel, clock, quality, native = false }: { index: number; duel: DuelResult; clock: { current: DuelClock }; quality: PetVisualQualityConfig; native?: boolean }) {
     const grp = useRef<THREE.Group>(null);
     const inner = useRef<THREE.Group>(null);
@@ -3301,7 +3358,7 @@ function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; cont
     return { durationSec: 1.86, contactDelayMs: 180 };
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onClashResult }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onClashResult, onFinisher }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     /** False while a live duel is still simulating — see the end check below. */
@@ -3333,6 +3390,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
     onClashResult: (winnerId: string | null, loserId: string | null) => void;
+    onFinisher: (actorId: string, targetId: string, move: string | undefined, resolveTick: number) => void;
     onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone, who?: string, element?: string | null) => void;
 }) {
     const { camera, size } = useThree();
@@ -3355,6 +3413,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
     const heroCutActors = useRef<Set<string>>(new Set()); // every showcase fighter earns one marquee reveal
+    const finisherResolveTicks = useRef<Set<number>>(new Set());
     const lastElementChain = useRef(-999);           // elemental payoff banner throttle
     const partyMode = (duel.snapshots[0]?.actors.length ?? 0) > 2;
     const spotlightUntil = useRef(0);                // one global 2v2 spectacle lane; local combat continues underneath
@@ -3594,6 +3653,29 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
             for (const e of crossedEvents) {
                 const spotlight = !partyMode || e === spotlightEvent;
                 const snapAt = snaps[Math.min(maxT, e.t)];
+                if (spotlight && (e.type === "windup" || e.type === "cast" || e.type === "ultimate")) {
+                    const openerIndex = duel.events.indexOf(e);
+                    const finisher = duelFinisherOutcome(duel.events, snaps, openerIndex);
+                    if (finisher && !finisherResolveTicks.current.has(finisher.resolveTick)) {
+                        finisherResolveTicks.current.add(finisher.resolveTick);
+                        onFinisher(e.actorId, finisher.targetId, e.move, finisher.resolveTick);
+                        const attacker = findActor(snapAt, e.actorId);
+                        const targetAtContact = findActor(snaps[Math.min(maxT, finisher.resolveTick)], finisher.targetId);
+                        if (attacker && targetAtContact) {
+                            const ap = duelFieldToFloor(attacker.x, attacker.y);
+                            const tp = duelFieldToFloor(targetAtContact.x, targetAtContact.y);
+                            camAim.current = [lerp(ap.wx, tp.wx, 0.28) * 0.92, 1.24, CAM_LOOK[2] + lerp(ap.wz, tp.wz, 0.28) * 0.48];
+                            camAimHold.current = Math.max(camAimHold.current, 0.72);
+                            camPosBias.current = [ap.wx <= tp.wx ? -1.05 : 1.05, -0.88, -0.94];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.64);
+                            shotDolly.current = Math.max(shotDolly.current, 1.42);
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.68);
+                        }
+                        // A brief held breath before a known lethal contact creates
+                        // contrast; the resolving hit and KO still own the explosion.
+                        savor(0.34, 0.34);
+                    }
+                }
                 if (e.type === "hit" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
@@ -4159,6 +4241,12 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         spawnDust({ x: dead.x, z: dead.y });
                         const fallen = duelFieldToFloor(dead.x, dead.y);
                         const survivor = snapAt.actors.find((actor) => actor.hp > 0 && actor.id !== dead.id);
+                        spawnShock({
+                            x: dead.x,
+                            z: dead.y,
+                            color: elementColor(survivor ? elementById[survivor.id] : elementById[dead.id]).base,
+                            big: true,
+                        });
                         const standing = survivor ? duelFieldToFloor(survivor.x, survivor.y) : fallen;
                         const pairX = (fallen.wx + standing.wx) * 0.5;
                         const pairZ = (fallen.wz + standing.wz) * 0.5;
@@ -4282,6 +4370,23 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // Depth separation matters just as much as left/right separation now that
         // the tactical camera exposes the entire floor instead of flattening it.
         const spread = cn > 1 ? Math.max(xmax - xmin, (zmax - zmin) * 1.35) : 4;
+        // A command briefly owns the camera before the authoritative windup takes
+        // over. Frame the pet from its side of the axis with the selected target
+        // still readable, creating order -> acknowledgement -> execution.
+        if (performance.now() < duelCmdFocus.expiresAt && camSnap) {
+            const commander = findActor(camSnap, duelCmdFocus.actorId);
+            const target = findActor(camSnap, duelCmdFocus.targetId);
+            if (commander && target && commander.hp > 0 && target.hp > 0) {
+                const cp = duelFieldToFloor(commander.x, commander.y);
+                const tp = duelFieldToFloor(target.x, target.y);
+                camAim.current = [lerp(cp.wx, tp.wx, 0.32) * 0.9, 1.34, CAM_LOOK[2] + lerp(cp.wz, tp.wz, 0.32) * 0.48];
+                camAimHold.current = Math.max(camAimHold.current, 0.08);
+                camPosBias.current = [cp.wx <= tp.wx ? -0.72 : 0.72, -0.42, -0.52];
+                camBiasHold.current = Math.max(camBiasHold.current, 0.08);
+                shotDolly.current = Math.max(shotDolly.current, 0.74);
+                shotDollyHold.current = Math.max(shotDollyHold.current, 0.08);
+            }
+        }
         // Neutral look eases to the live midpoint; a cut HOLDS its own aim until camAimHold decays.
         if (camAimHold.current > 0) camAimHold.current = Math.max(0, camAimHold.current - delta);
         else {
@@ -7213,7 +7318,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
     useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     useEffect(() => {
-        if (!isAudioMuted()) startBattleMusic(battleMusicTheme);
+        if (!isAudioMuted()) {
+            setBattleMusicIntensity("calm");
+            startBattleMusic(battleMusicTheme);
+        }
         return () => stopBattleMusic();
     }, [battleMusicTheme]);
     // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
@@ -7256,16 +7364,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         atTick: number; stance: number | null; auto: boolean | null; orderedIdx: number | null; breakPending: boolean | null;
     }>({ atTick: -1, stance: null, auto: null, orderedIdx: null, breakPending: null });
     const duel = live ? (liveView ?? EMPTY_DUEL) : staticDuel;
-    const hollowHoundHpRatio = useMemo(() => {
-        if (battleMusicTheme !== "hollow-gate" || duel.snapshots.length === 0) return 1;
+    const battlePressureRatio = useMemo(() => {
+        if (duel.snapshots.length === 0) return 1;
         const snapshot = duel.snapshots[Math.min(duel.snapshots.length - 1, Math.max(0, deckTick))];
-        const hound = snapshot?.actors.find((actor) => actor.id === "enemy-0");
-        return hound ? Math.max(0, Math.min(1, hound.hp / Math.max(1, hound.maxHp))) : 1;
-    }, [battleMusicTheme, duel.snapshots, deckTick]);
+        if (!snapshot?.actors.length) return 1;
+        return snapshot.actors.reduce(
+            (lowest, actor) => Math.min(lowest, Math.max(0, Math.min(1, actor.hp / Math.max(1, actor.maxHp)))),
+            1,
+        );
+    }, [duel.snapshots, deckTick]);
     useEffect(() => {
-        if (battleMusicTheme !== "hollow-gate") return;
-        setBattleMusicIntensity(hollowHoundHpRatio <= 0.35 ? "climax" : hollowHoundHpRatio <= 0.7 ? "pressure" : "calm");
-    }, [battleMusicTheme, hollowHoundHpRatio]);
+        setBattleMusicIntensity(battlePressureRatio <= 0.32 ? "climax" : battlePressureRatio <= 0.68 ? "pressure" : "calm");
+    }, [battlePressureRatio]);
     const roster = useMemo(() => {
         const r: Array<{ id: string; pet: Pet; mirror: boolean }> = [{ id: "player-0", pet: playerPet, mirror: false }];
         if (playerReservePet) r.push({ id: "player-1", pet: playerReservePet, mirror: false });
@@ -7332,6 +7442,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // anything?" into "I just called that shot." Purely presentational.
     const [commandEcho, setCommandEcho] = useState<{ id: number; label: string; tone: "attack" | "signature" | "plan" } | null>(null);
     const [clashResult, setClashResult] = useState<{ id: number; winner: string | null; loser: string | null; side: "player" | "enemy" | "draw" } | null>(null);
+    const [finisherCue, setFinisherCue] = useState<{ id: number; actorId: string; targetId: string; move?: string; side: "player" | "enemy" } | null>(null);
+    const finisherTimer = useRef<number | null>(null);
+    const crowdTimer = useRef<number | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
@@ -7359,6 +7472,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     }, [commandAck]);
     useEffect(() => () => {
         if (tacticCommitTimer.current !== null) window.clearTimeout(tacticCommitTimer.current);
+        if (finisherTimer.current !== null) window.clearTimeout(finisherTimer.current);
+        if (crowdTimer.current !== null) window.clearTimeout(crowdTimer.current);
     }, []);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     // Keep the canonical species name separate from the player's display name:
@@ -7588,6 +7703,24 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setClashResult(next);
         window.setTimeout(() => setClashResult((current) => current?.id === id ? null : current), 1850);
     };
+    const triggerFinisher = (actorId: string, targetId: string, move: string | undefined) => {
+        const id = seqRef.current++;
+        if (finisherTimer.current !== null) window.clearTimeout(finisherTimer.current);
+        // One beat owns the screen: clear informational overlays before the
+        // finishing windup rather than stacking them beneath a larger banner.
+        setCommandEcho(null);
+        setMoveCallout(null);
+        setAnnounce(null);
+        setCombo(null);
+        setCallout(null);
+        setFinisherCue({ id, actorId, targetId, move, side: actorId.startsWith("enemy") ? "enemy" : "player" });
+        duckBattleMusic(0.16, 860);
+        playPetSfx("finisher");
+        finisherTimer.current = window.setTimeout(() => {
+            setFinisherCue((current) => current?.id === id ? null : current);
+            finisherTimer.current = null;
+        }, 1450);
+    };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string, move: string) => {
@@ -7633,11 +7766,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         seqRef.current += 1;
         const echoId = seqRef.current;
         const accent = elementColor(playerPet.element);
+        const visibleSnapshot = duel.snapshots[Math.min(duel.snapshots.length - 1, tick)];
+        const commandedActor = visibleSnapshot ? findActor(visibleSnapshot, cmd.actorId) : null;
+        const commandTarget = visibleSnapshot?.actors.find((actor) => actor.hp > 0 && actor.team !== commandedActor?.team);
+        const stageCommandFocus = () => {
+            if (commandTarget) requestDuelCommandFocus(cmd.actorId, commandTarget.id, accent.glow);
+            duckBattleMusic(0.38, 620);
+            playPetSfx("command");
+        };
         if (cmd.kind === "ability") {
             const moveLabel = cmd.idx === -1 ? "Strike" : (moveName ?? "Attack");
             setCommandEcho({ id: echoId, label: `ORDERED · ${moveLabel}`, tone: "attack" });
             setCommandAck({ id: echoId, actorIds: [cmd.actorId] });
-            playPetSfx("move");
+            stageCommandFocus();
             requestDuelCommandJolt(0.14, 0.18, 0.2);
             requestDuelCommandRush(tick);
             // The button owns confirmation, not the release cinematic. A Clash,
@@ -7649,12 +7790,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             const moveLabel = moveName ?? "Technique";
             setCommandEcho({ id: echoId, label: `CALLED · ${moveLabel}`, tone: "signature" });
             setCommandAck({ id: echoId, actorIds: [cmd.actorId] });
-            playPetSfx("move");
+            stageCommandFocus();
             requestDuelCommandJolt(0.18, 0.24, 0.26);
             requestDuelCommandRush(tick);
         } else if (cmd.kind === "break") {
             setCommandEcho({ id: echoId, label: "BOND BREAK · READY", tone: "signature" });
             setCommandAck({ id: echoId, actorIds: [cmd.actorId] });
+            stageCommandFocus();
             playPetSfx("buff");
             setFlash({ id: echoId, color: "#fbbf24", intensity: 0.14 });
             requestDuelCommandJolt(0.22, 0.28, 0.32);
@@ -7806,16 +7948,22 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setAnnounce(null);
         setMoveCallout(null);
         setClashResult(null);
+        setFinisherCue(null);
         setPowerUps([]);
         setTrails([]);
         setDashFx([]);
         setPressureFx([]);
         setSetPieces([]);
+        duckBattleMusic(0.24, 1050);
         if (duel.result === "win") playPetSfx("victory");
+        crowdTimer.current = window.setTimeout(() => {
+            playPetSfx("crowd");
+            crowdTimer.current = null;
+        }, 320);
         resultTimer.current = window.setTimeout(() => {
             setResultVisible(true);
             stopBattleMusic();
-        }, 1350);
+        }, 2350);
     };
     const replay = () => {
         if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
@@ -7824,6 +7972,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         clock.current.t = Math.max(0, initialTick);
         clock.current.playing = false;
         duelCmdRush.active = false;
+        duelCmdFocus.expiresAt = 0;
         setPaused(false);
         setEnded(false);
         setResultVisible(false);
@@ -7848,6 +7997,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setAnnounce(null);
         setMoveCallout(null);
         setClashResult(null);
+        setFinisherCue(null);
         if (!isAudioMuted()) startBattleMusic(battleMusicTheme);
         setRunId((r) => r + 1);
     };
@@ -7933,6 +8083,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 }
                 @keyframes petBroadcastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
                 @keyframes petWinnerHold { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.72); } 28% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } 42%,100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+                @keyframes petFinisherFrame { 0% { opacity:0; transform:scaleY(.15); } 18% { opacity:1; transform:scaleY(1); } 78% { opacity:1; } 100% { opacity:0; transform:scaleY(.82); } }
+                @keyframes petFinisherTitle { 0% { opacity:0; transform:translateY(12px) scale(1.3); letter-spacing:.32em; } 24% { opacity:1; transform:translateY(0) scale(1); letter-spacing:.16em; } 78% { opacity:1; } 100% { opacity:0; transform:translateY(-5px) scale(1.02); } }
                 @keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petSignatureCue { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); } 20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
                 @keyframes petHeroMotif { 0% { opacity: 0; transform: scale(1.65) rotate(-22deg); } 24% { opacity: .2; transform: scale(.94) rotate(4deg); } 100% { opacity: .08; transform: scale(1.08) rotate(0deg); } }
@@ -8012,6 +8164,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity && !ended} acknowledgingCommand={commandAck?.actorIds.includes(r.id) ?? false} />
                 ))}
+                <DuelCommandFocusMarker duel={duel} clock={clock} />
                 {visualLayers.elements && Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} quality={quality} native={freeRoam3d} />
                 ))}
@@ -8063,7 +8216,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onClashResult={triggerClashResult} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onClashResult={triggerClashResult} onFinisher={triggerFinisher} />
                 {visualLayers.post && <BloomFx />}
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
@@ -8127,6 +8280,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                                 <div style={{ marginTop: 7, color: "#fcd34d", font: `800 ${mobileQa ? 8 : 10}px/1.25 Inter,sans-serif`, letterSpacing: ".035em" }}>
                                     Scout read: {petDisplayName(enemyPet)} fights as {enemyFamily.label.toLowerCase()} — {enemyFamily.tell}.
                                 </div>
+                                {audioMuted && (
+                                    <button
+                                        type="button"
+                                        onClick={toggleAudio}
+                                        style={{ marginTop: 9, padding: mobileQa ? "6px 10px" : "7px 13px", borderRadius: 999, border: "1px solid rgba(251,191,36,.72)", background: "linear-gradient(180deg,rgba(120,53,15,.84),rgba(69,26,3,.88))", color: "#fef3c7", boxShadow: "0 0 18px rgba(245,158,11,.18)", font: `900 ${mobileQa ? 8 : 10}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }}
+                                    >
+                                        🔊 Enable cinematic audio
+                                    </button>
+                                )}
                                 <div role="group" aria-label="Opening tactic" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: mobileQa ? 6 : 10, marginTop: 13 }}>
                                     {PET_OPENING_TACTICS.map((tactic) => {
                                         const selected = openingTactic === tactic.stance;
@@ -8233,7 +8395,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {flash && (
                 <div key={`flash-${flash.id}`} style={{ position: "absolute", inset: 0, background: flash.color, opacity: 0, mixBlendMode: "screen", pointerEvents: "none", animation: "petDuelFlash 340ms ease-out forwards", ["--fp" as string]: flash.intensity } as React.CSSProperties} />
             )}
-            {callout && !cutIn && (() => {
+            {finisherCue && !ended && !cutIn && (
+                <div key={`finisher-${finisherCue.id}`} style={{ position: "absolute", inset: 0, zIndex: 24, pointerEvents: "none", animation: "petFinisherFrame 1450ms cubic-bezier(.16,.84,.24,1) both" }}>
+                    <div style={{ position: "absolute", inset: "0 0 auto", height: mobileQa ? 42 : 58, background: "linear-gradient(#02040b,rgba(2,4,11,.94))", borderBottom: `2px solid ${finisherCue.side === "player" ? "#fbbf24" : "#fb7185"}`, boxShadow: `0 8px 30px ${finisherCue.side === "player" ? "#f59e0b44" : "#e11d4844"}` }} />
+                    <div style={{ position: "absolute", inset: "auto 0 0", height: mobileQa ? 42 : 58, background: "linear-gradient(rgba(2,4,11,.94),#02040b)", borderTop: `2px solid ${finisherCue.side === "player" ? "#fbbf24" : "#fb7185"}`, boxShadow: `0 -8px 30px ${finisherCue.side === "player" ? "#f59e0b44" : "#e11d4844"}` }} />
+                    <div style={{ position: "absolute", top: mobileQa ? 52 : 72, left: "50%", transform: "translateX(-50%)", width: "min(720px,88vw)", textAlign: "center", animation: "petFinisherTitle 1450ms cubic-bezier(.16,.84,.24,1) both" }}>
+                        <div style={{ color: finisherCue.side === "player" ? "#fde68a" : "#fecdd3", font: `900 ${mobileQa ? 18 : 26}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".16em", textTransform: "uppercase", textShadow: "0 3px 12px #000,0 0 18px currentColor" }}>Finishing Window</div>
+                        <div style={{ marginTop: 6, color: "#f8fafc", font: `800 ${mobileQa ? 9 : 11}px/1 Inter,sans-serif`, letterSpacing: ".14em", textTransform: "uppercase", textShadow: "0 2px 8px #000" }}>
+                            {nameById[finisherCue.actorId] ?? "A fighter"} commits {finisherCue.move ? `· ${finisherCue.move}` : "· final strike"}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {callout && !cutIn && !finisherCue && (() => {
                 const minor = callout.text === "MISS";
                 return <div key={`callout-${callout.id}`} style={{
                     position: "absolute",
@@ -8256,12 +8430,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     zIndex: 13,
                 }}>{callout.text}</div>;
             })()}
-            {combo && combo.n >= 2 && !cutIn && !callout && (
+            {combo && combo.n >= 2 && !cutIn && !callout && !finisherCue && (
                 <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "18%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(24px,4vw,44px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
             )}
             {/* Named-move flash — the ability's name slams in on cast/hit (signatures
                 use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
-            {moveCallout && !cutIn && !callout && (() => {
+            {moveCallout && !cutIn && !callout && !finisherCue && (() => {
                 const tactical = moveCallout.tone === "support" || moveCallout.tone === "maneuver";
                 // CATEGORY drives the colour and the glyph; SIDE is a secondary cue.
                 // It used to be the other way round — every banner was simply blue for
@@ -8309,14 +8483,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             })()}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
-            {announce && !ended && !cutIn && !callout && !moveCallout && (
+            {announce && !ended && !cutIn && !callout && !moveCallout && !finisherCue && (
                 <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", width: mobileQa ? "calc(100% - 24px)" : "max-content", maxWidth: "84%", boxSizing: "border-box", textAlign: "center", pointerEvents: "none", padding: mobileQa ? "7px 12px" : "7px 22px", borderRadius: mobileQa ? 18 : 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: mobileQa ? "800 14px/1.2 var(--font-display)" : "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: mobileQa ? "normal" : "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
             {/* Command echo — the player's order, named the instant it is issued so a
                 tap reads as a called shot. Sits above the deck on the player's side,
                 clear of the centre broadcast line. */}
-            {commandEcho && !ended && !cutIn && (() => {
+            {commandEcho && !ended && !cutIn && !finisherCue && (() => {
                 const accent = elementColor(playerPet.element);
                 const sig = commandEcho.tone === "signature";
                 const plan = commandEcho.tone === "plan";
@@ -8402,7 +8576,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 result screen so they never compete with an authored beat — and once
                 the fight has SETTLED, because Replay then re-plays a decided match
                 and a deck whose buttons no longer do anything is worse than none. */}
-            {live && !live.settled && !ended && !cutIn && !intro && (
+            {live && !live.settled && !ended && !cutIn && !intro && !finisherCue && (
                 <PetDuelCommandDeck
                     control={deckControl}
                     petName={petDisplayName(playerPet)}
@@ -8446,7 +8620,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
             {ended && !resultVisible && (
                 <div style={{ position: "absolute", inset: 0, zIndex: 30, pointerEvents: "none", background: "radial-gradient(circle at 50% 58%,transparent 0%,rgba(3,7,18,.18) 55%,rgba(3,7,18,.62) 100%)" }}>
-                    <div style={{ position: "absolute", left: "50%", top: "32%", transform: "translate(-50%,-50%)", width: "min(760px,90vw)", textAlign: "center", animation: "petWinnerHold 1350ms cubic-bezier(.16,.84,.24,1) both" }}>
+                    <div style={{ position: "absolute", left: "50%", top: "32%", transform: "translate(-50%,-50%)", width: "min(760px,90vw)", textAlign: "center", animation: "petWinnerHold 2100ms cubic-bezier(.16,.84,.24,1) both" }}>
                         <div style={{ color: "#fde68a", font: "900 11px/1 Inter,system-ui,sans-serif", letterSpacing: ".28em", textTransform: "uppercase", textShadow: "0 2px 8px #000" }}>The Coliseum has spoken</div>
                         <div style={{ marginTop: 8, color: duel.result === "win" ? "#bbf7d0" : duel.result === "loss" ? "#fecaca" : "#fef3c7", font: `900 ${mobileQa ? 38 : 64}px/.9 var(--font-display),Inter,system-ui,sans-serif`, textTransform: "uppercase", textShadow: "0 0 28px currentColor,0 5px 18px #000" }}>
                             {battleWinnerName ? battleWinnerName : "No victor"}
