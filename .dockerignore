@@ -49,6 +49,7 @@ shinobij.client/public/pet-models/*
 # Hollow Warfront runtime prop/boss GLBs — MUST ship in the Docker image or the
 # 3D stage 404s them (SPA index.html) and crashes. Mirror of the .gitignore allow.
 !shinobij.client/public/pet-models/gate-warden.glb
+!shinobij.client/public/pet-models/gate-warden-rigged.glb
 !shinobij.client/public/pet-models/ward-totem.glb
 !shinobij.client/public/pet-models/wf-boulder.glb
 !shinobij.client/public/pet-models/wf-lantern.glb
