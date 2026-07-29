@@ -1,14 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, sectorExitById, sectorExits } from '../shared/sector-links.js';
+import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, sectorExitById, sectorExits } from '../shared/sector-links.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
-    // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart link.
-    assert.equal(SECTOR_ROAD_PAIRS.length, 83);
+    // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart
+    // link − the 4 Hollow Temple roads removed when 57 became map-travel-only.
+    assert.equal(SECTOR_ROAD_PAIRS.length, 79);
     assert.equal(SECTOR_EXITS.length, SECTOR_ROAD_PAIRS.length * 2);
 
     for (let sector = 1; sector <= 60; sector += 1) {
         const exits = sectorExits(sector);
+        if (NON_WALKABLE_SECTORS.includes(sector)) {
+            assert.equal(exits.length, 0, `map-travel-only sector ${sector} has no roads`);
+            continue;
+        }
         assert.ok(exits.length >= 2 && exits.length <= 5, `sector ${sector} has ${exits.length} exits`);
         assert.equal(new Set(exits.map((exit) => exit.tile)).size, exits.length, `sector ${sector} exit tiles are unique`);
         for (const exit of exits) {
@@ -22,6 +27,7 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
     }
 
     assert.equal(sectorExits(99).length, 0);
+    assert.equal(sectorExits(57).length, 0, 'the Hollow Temple is not walkable');
 
     const reached = new Set<number>([1]);
     const queue = [1];
@@ -33,5 +39,6 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
             queue.push(exit.destinationSector);
         }
     }
-    assert.equal(reached.size, 60, 'all standard sectors are connected by roads');
+    // 60 standard sectors minus the map-travel-only Hollow Temple.
+    assert.equal(reached.size, 59, 'every walkable sector is connected by roads');
 });

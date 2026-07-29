@@ -5,7 +5,7 @@ import {
     sectorArtKey, sectorBiomeOf, sectorName, FESTIVAL_SECTOR, VILLAGE_OUTSKIRTS,
     OUTSKIRTS_SECTORS, CASTLE_SECTORS,
 } from '../shared/sector-geo.js';
-import { SECTOR_POINTS, SECTOR_ROAD_PAIRS, SECTOR_EXITS, sectorExits } from '../shared/sector-links.js';
+import { SECTOR_POINTS, SECTOR_ROAD_PAIRS, SECTOR_EXITS, NON_WALKABLE_SECTORS, sectorExits } from '../shared/sector-links.js';
 import { SHRINE_DEFS } from '../shared/shrines.js';
 import { HOME_SECTORS, CENTRAL_SECTORS, NON_WAR_SPECIAL_SECTORS } from './_war-map-sectors.js';
 
@@ -28,6 +28,17 @@ const OLD_ROAD_PAIRS: ReadonlyArray<readonly [number, number]> = [
 ];
 // The one deliberately NEW road (old numbering: Upper Terraces 22 ↔ Canal Heart 27).
 const ADDED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [[22, 27]];
+// Deliberately REMOVED 2026-07-29: the Hollow Temple (new 57 / old 18) became
+// map-travel-only, like Death's Gate — owner ruling "treat the hollow gate like
+// the pvp zone, you can't just normal travel to it". Its approach road survives
+// (55 Waymarker Road, 56 Pilgrim's Approach), only the final step is gated.
+// Listed in OLD numbering like the rest of this snapshot. Old 18 = the Hollow
+// Temple (new 57); its four old neighbours were 12 (new 55 Waymarker Road),
+// 13 (new 56 Pilgrim's Approach), 14 (new 52 Festival Grounds) and 17 (new 25
+// Fallswood).
+const REMOVED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [
+    [12, 18], [13, 18], [14, 18], [17, 18],
+];
 
 const OLD_HOME_SECTORS: Record<string, readonly number[]> = {
     'Moonshadow Village': [11, 19, 15, 4, 5, 6, 16, 8],
@@ -76,11 +87,17 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
     const adj = new Map<number, number[]>(WILD_IDS.map((id) => [id, []]));
     for (const [a, b] of SECTOR_ROAD_PAIRS) {
         assert.notEqual(a, b);
-        assert.ok(a !== 99 && b !== 99, 'sector 99 stays map-travel-only');
+        for (const special of NON_WALKABLE_SECTORS) {
+            assert.ok(a !== special && b !== special, `sector ${special} stays map-travel-only`);
+        }
         adj.get(a)!.push(b);
         adj.get(b)!.push(a);
     }
     for (const [id, links] of adj) {
+        if (NON_WALKABLE_SECTORS.includes(id)) {
+            assert.equal(links.length, 0, `map-travel-only sector ${id} carries no roads`);
+            continue;
+        }
         assert.ok(links.length >= 2 && links.length <= 5, `sector ${id} has ${links.length} roads (want 2-5)`);
         assert.equal(new Set(links).size, links.length, `sector ${id} has duplicate roads`);
     }
@@ -90,7 +107,8 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
         const cur = queue.shift()!;
         for (const nx of adj.get(cur) ?? []) if (!seen.has(nx)) { seen.add(nx); queue.push(nx); }
     }
-    assert.equal(seen.size, 60, 'road graph is connected across all 60 sectors');
+    // 60 standard sectors minus the map-travel-only Hollow Temple (57).
+    assert.equal(seen.size, 59, 'road graph is connected across every walkable sector');
 
     for (const exit of SECTOR_EXITS) {
         const reverse = sectorExits(exit.destinationSector).find((e) => e.destinationSector === exit.sector);
@@ -99,13 +117,24 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
     }
 });
 
-test('renumbering preserved every road (and added only the approved Stormveil link)', () => {
+test('renumbering preserved every road (bar the approved add and the gated Hollow Temple)', () => {
     const expected = new Set<string>();
     for (const [a, b] of [...OLD_ROAD_PAIRS, ...ADDED_ROADS_OLD]) {
         expected.add(norm(OLD_TO_NEW_SECTOR[a]!, OLD_TO_NEW_SECTOR[b]!));
     }
+    for (const [a, b] of REMOVED_ROADS_OLD) {
+        const key = norm(OLD_TO_NEW_SECTOR[a]!, OLD_TO_NEW_SECTOR[b]!);
+        assert.ok(expected.delete(key), `removed road ${a}-${b} existed in the old world`);
+    }
     const actual = new Set(SECTOR_ROAD_PAIRS.map(([a, b]) => norm(a, b)));
     assert.deepEqual([...actual].sort(), [...expected].sort());
+    // Every removed road touched the Hollow Temple and nothing else.
+    for (const [a, b] of REMOVED_ROADS_OLD) {
+        assert.ok(
+            OLD_TO_NEW_SECTOR[a] === 57 || OLD_TO_NEW_SECTOR[b] === 57,
+            `removed road ${a}-${b} is a Hollow Temple road`,
+        );
+    }
 });
 
 test('war-map home sectors are the same PLACES as before the renumbering', () => {

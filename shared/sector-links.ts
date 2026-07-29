@@ -14,58 +14,80 @@ export type SectorExit = {
 };
 
 // Positions use the 2026-07 REGION-BLOCK numbering (shared/sector-geo.ts holds
-// the id → place registry and the old↔new mapping). Coordinates are unchanged
-// per PLACE — they were tuned against the painted world map and stay valid.
+// the id → place registry and the old↔new mapping).
+//
+// Re-tuned 2026-07-29 against the NEW 16:9 world keyart (1672×941). Every
+// region was moved onto the terrain that matches its name — the harbour block
+// onto the stilt piers, the deepwood onto the NW forest cliffs, the glacier
+// block onto the NE snowfield, the violet block onto the SE blossom forest,
+// the Midlands ring + The Gates onto the central keep and its farmland, the
+// festival block onto the southern desert outpost and the Lavafront onto the
+// northern ash. Region blocks were remapped as WHOLE UNITS (an affine fit of
+// each region's old bounding box onto its new terrain box) so each region's
+// internal topology — and therefore every derived exit direction — is
+// preserved rather than reshuffled.
 export const SECTOR_POINTS: readonly SectorPoint[] = [
-    // Stormveil Harbor (1-8)
-    { id: 1, x: 14, y: 89 }, { id: 2, x: 9, y: 69 }, { id: 3, x: 16, y: 64 }, { id: 4, x: 24, y: 62 },
-    { id: 5, x: 31, y: 73 }, { id: 6, x: 24, y: 74 }, { id: 7, x: 7, y: 80 }, { id: 8, x: 16, y: 75 },
-    // Ashen Leaf Deepwood (9-16)
-    { id: 9, x: 14, y: 33 }, { id: 10, x: 8, y: 26 }, { id: 11, x: 15, y: 19 }, { id: 12, x: 24, y: 16 },
-    { id: 13, x: 31, y: 18 }, { id: 14, x: 32, y: 30 }, { id: 15, x: 22, y: 27 }, { id: 16, x: 26, y: 38 },
-    // Moonshadow Wilds (17-25)
-    { id: 17, x: 79, y: 79 }, { id: 18, x: 69, y: 63 }, { id: 19, x: 76, y: 58 }, { id: 20, x: 84, y: 58 },
-    { id: 21, x: 91, y: 62 }, { id: 22, x: 91, y: 74 }, { id: 23, x: 72, y: 73 }, { id: 24, x: 84, y: 71 },
-    { id: 25, x: 70, y: 84 },
-    // Frostfang Reach (26-33)
-    { id: 26, x: 76, y: 31 }, { id: 27, x: 92, y: 31 }, { id: 28, x: 77, y: 13 }, { id: 29, x: 84, y: 14 },
-    { id: 30, x: 80, y: 19 }, { id: 31, x: 84, y: 34 }, { id: 32, x: 88, y: 21 }, { id: 33, x: 67, y: 26 },
-    // Frost Border (34-35)
-    { id: 34, x: 73, y: 47 }, { id: 35, x: 69, y: 37 },
-    // The Midlands (36-45)
-    { id: 36, x: 39, y: 33 }, { id: 37, x: 46, y: 36 }, { id: 38, x: 34, y: 41 }, { id: 39, x: 37, y: 51 },
-    { id: 40, x: 30, y: 55 }, { id: 41, x: 37, y: 63 }, { id: 42, x: 43, y: 70 }, { id: 43, x: 63, y: 59 },
-    { id: 44, x: 66, y: 48 }, { id: 45, x: 44, y: 79 },
-    // The Castle City (46-51)
-    { id: 46, x: 54, y: 48 }, { id: 47, x: 44, y: 47 }, { id: 48, x: 48, y: 55 }, { id: 49, x: 55, y: 58 },
-    { id: 50, x: 49, y: 64 }, { id: 51, x: 58, y: 50 },
-    // Festival Grounds (52-54)
-    { id: 52, x: 62, y: 91 }, { id: 53, x: 38, y: 80 }, { id: 54, x: 44, y: 91 },
-    // The Hollow Road (55-57)
-    { id: 55, x: 59, y: 69 }, { id: 56, x: 54, y: 85 }, { id: 57, x: 61, y: 80 },
-    // The Lavafront (58-60) + Death's Gate (99). 58 sits among the dark
-    // bastions on the ash north of the castle spire in the 2026-07 keyart
-    // (same derived exit directions as the pre-nudge spot).
-    { id: 58, x: 54, y: 29 }, { id: 59, x: 62, y: 37 }, { id: 60, x: 56, y: 24 },
-    { id: 99, x: 51, y: 10 },
+    // Stormveil Harbor (1-8) — the SW stilt harbour
+    { id: 1, x: 15, y: 82 }, { id: 2, x: 9, y: 66 }, { id: 3, x: 14, y: 63 }, { id: 4, x: 21, y: 61 },
+    { id: 5, x: 28, y: 70 }, { id: 6, x: 21, y: 71 }, { id: 7, x: 6, y: 76 }, { id: 8, x: 14, y: 72 },
+    // Ashen Leaf Deepwood (9-16) — the NW forest cliffs
+    { id: 9, x: 13, y: 28 }, { id: 10, x: 7, y: 21 }, { id: 11, x: 14, y: 14 }, { id: 12, x: 22, y: 11 },
+    { id: 13, x: 29, y: 13 }, { id: 14, x: 30, y: 25 }, { id: 15, x: 20, y: 22 }, { id: 16, x: 24, y: 33 },
+    // Moonshadow Wilds (17-25) — the SE violet forest
+    { id: 17, x: 85, y: 77 }, { id: 18, x: 75, y: 59 }, { id: 19, x: 82, y: 54 }, { id: 20, x: 89, y: 54 },
+    { id: 21, x: 93, y: 58 }, { id: 22, x: 93, y: 70 }, { id: 23, x: 78, y: 70 }, { id: 24, x: 89, y: 68 },
+    { id: 25, x: 76, y: 82 },
+    // Frostfang Reach (26-33) — the NE glacier
+    { id: 26, x: 76, y: 28 }, { id: 27, x: 93, y: 28 }, { id: 28, x: 77, y: 11 }, { id: 29, x: 85, y: 12 },
+    { id: 30, x: 81, y: 17 }, { id: 31, x: 85, y: 31 }, { id: 32, x: 89, y: 19 }, { id: 33, x: 67, y: 23 },
+    // Frost Border (34-35) — where the ice meets the green
+    { id: 34, x: 73, y: 42 }, { id: 35, x: 66, y: 35 },
+    // The Midlands (36-45) — the green ring around the keep
+    { id: 36, x: 36, y: 26 }, { id: 37, x: 43, y: 29 }, { id: 38, x: 33, y: 36 }, { id: 39, x: 36, y: 46 },
+    { id: 40, x: 28, y: 50 }, { id: 41, x: 36, y: 58 }, { id: 42, x: 43, y: 65 }, { id: 43, x: 67, y: 54 },
+    { id: 44, x: 66, y: 46 }, { id: 45, x: 44, y: 74 },
+    // The Castle City (46-51) — The Gates, at the map's heart
+    { id: 46, x: 52, y: 36 }, { id: 47, x: 44, y: 42 }, { id: 48, x: 49, y: 50 }, { id: 49, x: 57, y: 53 },
+    { id: 50, x: 50, y: 59 }, { id: 51, x: 61, y: 45 },
+    // Festival Grounds (52-54) — the southern desert outpost
+    { id: 52, x: 57, y: 88 }, { id: 53, x: 33, y: 80 }, { id: 54, x: 47, y: 86 },
+    // The Hollow Road (55-57) — the pilgrim road to the obelisk. 57 (Hollow
+    // Temple) is the gate itself and is deliberately OFF the road graph below.
+    { id: 55, x: 59, y: 60 }, { id: 56, x: 57, y: 72 }, { id: 57, x: 67, y: 61 },
+    // The Lavafront (58-60) + Death's Gate (99) — the northern ash and the cone
+    { id: 58, x: 43, y: 21 }, { id: 59, x: 57, y: 26 }, { id: 60, x: 52, y: 14 },
+    { id: 99, x: 47, y: 8 },
 ];
 
 // Frozen geographic roads — the same 82 place-to-place roads as before the
 // renumbering (remapped id-for-id), plus the Upper Terraces ↔ Canal Heart
-// link (3-8) that closed Stormveil's one internal gap. Every standard sector
-// has 2-5 connections, the graph is connected, and special Sector 99 stays
-// map-travel-only.
+// link (3-8) that closed Stormveil's one internal gap, MINUS the four roads
+// that used to run to the Hollow Temple (see below). Every walkable sector has
+// 2-5 connections and the walkable graph is connected.
+//
+// TWO sectors are deliberately OFF this graph and are reachable only by map
+// travel (never by walking an edge) — see NON_WALKABLE_SECTORS:
+//   * 99 Death's Gate  — the PvP arena, special since launch.
+//   * 57 Hollow Temple — the Hollow Gate itself (owner ruling 2026-07-29:
+//     "treat the hollow gate like the pvp zone, you can't just normal travel
+//     to it"). Its approach road survives — 55 Waymarker Road and 56 Pilgrim's
+//     Approach still walk right up to it, and 56 still holds the Hollow Warden
+//     Shrine — but the last step onto the temple is gated, so the roads
+//     25-57 / 52-57 / 55-57 / 56-57 were removed.
 export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     [1, 7], [1, 8], [2, 3], [2, 8], [3, 4], [3, 8], [4, 40], [5, 6], [5, 53], [6, 8], [7, 8],
     [9, 10], [9, 15], [10, 11], [11, 12], [11, 15], [12, 13], [13, 14], [14, 15], [14, 16], [14, 36],
     [16, 38], [17, 23], [17, 24], [17, 25], [18, 19], [18, 23], [18, 43], [19, 20], [20, 21], [21, 22],
-    [21, 24], [22, 24], [23, 25], [25, 52], [25, 57], [26, 31], [26, 33], [26, 35], [27, 31], [27, 32], [28, 29],
+    [21, 24], [22, 24], [23, 25], [25, 52], [26, 31], [26, 33], [26, 35], [27, 31], [27, 32], [28, 29],
     [28, 30], [29, 30], [29, 32], [30, 32], [33, 35], [33, 60], [34, 35], [34, 44], [35, 59], [36, 37],
     [36, 38], [37, 58], [38, 39], [39, 40], [39, 47], [40, 41], [41, 42], [42, 45], [42, 50], [43, 49],
     [43, 51], [43, 55], [44, 51], [45, 53], [45, 54], [46, 47], [46, 48], [46, 51], [47, 48], [48, 49],
-    [48, 50], [49, 50], [49, 51], [50, 55], [52, 56], [52, 57], [54, 56], [55, 57], [56, 57], [58, 59],
+    [48, 50], [49, 50], [49, 51], [50, 55], [52, 56], [54, 56], [58, 59],
     [58, 60],
 ];
+
+/** Sectors that exist on the map but carry no roads: map travel only. */
+export const NON_WALKABLE_SECTORS: readonly number[] = [57, 99];
 
 const GRID_WIDTH = 12;
 const POINT_BY_ID = new Map(SECTOR_POINTS.map((point) => [point.id, point]));
