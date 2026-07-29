@@ -2054,7 +2054,7 @@ export function WorldMap({
         { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, art: moonshadowLandmarkArt },
         { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 49.5, y: 81, art: hollowGateLandmarkArt },
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 49, y: 80, art: hollowGateLandmarkArt },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
