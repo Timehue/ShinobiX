@@ -23,7 +23,9 @@ import { cloneEncounterPet } from "./pet-balance";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain, HollowGateVariant } from "../types/character";
 import type { Pet, PetRarity } from "../types/pet";
 import {
+    HOLLOW_HOUND_MODEL_SOURCE_ID,
     HOLLOW_HOUND_NAME as SHARED_HOLLOW_HOUND_NAME,
+    hollowHoundEncounterId,
     hollowGateHoundName,
     type HollowGateHoundKind,
 } from "../../../shared/hollow-gate-contract";
@@ -972,7 +974,7 @@ export function pickHollowGateEncounterPet(pets: Pet[], rarity: PetRarity): Pet 
     return null;
 }
 
-export const HOLLOW_HOUND_TEMPLATE_ID = "mythic-4";
+export const HOLLOW_HOUND_TEMPLATE_ID = HOLLOW_HOUND_MODEL_SOURCE_ID;
 export const HOLLOW_HOUND_NAME = SHARED_HOLLOW_HOUND_NAME;
 
 /** Stable, Date-shaped seed for a sealed pet encounter. A refresh must replay
@@ -1007,7 +1009,7 @@ export function buildHollowHoundOpponent(
     const difficulty = Math.min(1.06, 0.90 + Math.max(0, floor - 1) * 0.04);
     return {
         ...oniHound,
-        id: `${HOLLOW_HOUND_TEMPLATE_ID}-${encounterId}`,
+        id: hollowHoundEncounterId(encounterId),
         name: hollowGateHoundName(floor, encounterKind),
         rarity: activePet.rarity,
         level: Math.max(1, activePet.level),

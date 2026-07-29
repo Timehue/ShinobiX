@@ -301,6 +301,7 @@ function Harness() {
                     theme={((): WfTheme => { const t = PARAMS.get("theme") as WfTheme | null; return t && WF_THEMES[t] ? t : "central"; })()}
                     autoBuy={((): WfBuyPolicy => { const p = PARAMS.get("autobuy"); return p === "balanced" || p === "offense" || p === "defense" ? p : "off"; })()}
                     stance={((): WfStance => { const s = PARAMS.get("stance"); return s === "siege" || s === "jungle" || s === "headhunt" || s === "turtle" ? s : "balanced"; })()}
+                    playbackRate={Math.max(0.1, Math.min(30, Number(PARAMS.get("wfspeed")) || 1))}
                     onExit={() => { }}
                 />
             )}

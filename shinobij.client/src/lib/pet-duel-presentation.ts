@@ -1,4 +1,4 @@
-import { DUEL_TPS, type DuelEvent } from "./pet-duel-sim";
+import { DUEL_TPS, type DuelEvent, type DuelSnapshot } from "./pet-duel-sim";
 
 export type DuelPlanarPoint = readonly [number, number];
 
@@ -173,6 +173,31 @@ export function duelMoveOutcome(
         if (MOVE_OPENERS.has(event.type) && event.move && event.move !== opener.move) break;
     }
     return { kind: "none", event: null };
+}
+
+export type DuelFinisherOutcome = {
+    hit: DuelEvent;
+    targetId: string;
+    resolveTick: number;
+};
+
+/**
+ * Identify an opener whose authoritative payoff knocks its target out. This is
+ * presentation look-ahead only: it lets the camera and mix create anticipation
+ * without guessing, changing damage, or promising a finisher that will miss.
+ */
+export function duelFinisherOutcome(
+    events: readonly DuelEvent[],
+    snapshots: readonly DuelSnapshot[],
+    openerIndex: number,
+): DuelFinisherOutcome | null {
+    const outcome = duelMoveOutcome(events, openerIndex);
+    const hit = outcome.kind === "hit" ? outcome.event : null;
+    if (!hit?.targetId) return null;
+    const target = snapshots[Math.min(snapshots.length - 1, Math.max(0, hit.t))]
+        ?.actors.find((actor) => actor.id === hit.targetId);
+    if (!target || target.hp > 0) return null;
+    return { hit, targetId: hit.targetId, resolveTick: hit.t };
 }
 
 /**

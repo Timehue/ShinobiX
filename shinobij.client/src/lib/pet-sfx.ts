@@ -8,7 +8,7 @@
 type PetSfxKind =
     | "hit" | "crit" | "ko" | "heal" | "buff" | "dot"
     | "debuff" | "movelock" | "dodge" | "shield" | "move" | "victory"
-    | "superEffective";
+    | "superEffective" | "command" | "finisher" | "crowd";
 
 import { isAudioMuted } from "./pet-music";
 
@@ -213,6 +213,23 @@ export function playPetSfx(kind: PetSfxKind): void {
                 tone(c, { type: "sine", from: 200, to: 32, dur: 0.6, gain: 0.5, attack: 0.001 });
                 tone(c, { type: "sine", from: 80, to: 24, dur: 0.8, gain: 0.42, attack: 0.002 });
                 noise(c, { dur: 0.55, gain: 0.32, type: "lowpass", freq: 700 });
+                break;
+            case "command":
+                // Tactile order click, rising acknowledgement, then a low pulse
+                // that hands the scene from the UI to the pet.
+                noise(c, { dur: 0.025, gain: 0.24, type: "highpass", freq: 4200 });
+                tone(c, { type: "triangle", from: 240, to: 520, dur: 0.16, gain: 0.18, attack: 0.002 });
+                tone(c, { type: "sine", from: 92, to: 62, dur: 0.24, gain: 0.2, delay: 0.08, attack: 0.002 });
+                break;
+            case "finisher":
+                // Pre-impact danger swell. Contact and KO supply the crack/boom.
+                tone(c, { type: "sawtooth", from: 72, to: 190, dur: 0.34, gain: 0.12, attack: 0.018 });
+                noise(c, { dur: 0.3, gain: 0.09, type: "bandpass", freq: 900, q: 2.2 });
+                break;
+            case "crowd":
+                // Broad filtered roar during the unobstructed winner hold.
+                noise(c, { dur: 0.48, gain: 0.22, type: "bandpass", freq: 620, q: 0.55 });
+                noise(c, { dur: 0.36, gain: 0.11, type: "highpass", freq: 1800, delay: 0.08 });
                 break;
             case "heal":
                 tone(c, { type: "sine", from: 523, to: 784, dur: 0.30, gain: 0.20 });
