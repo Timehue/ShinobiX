@@ -43,26 +43,13 @@ test("AI obeys phases and yields when the human must act", () => {
     () => 0,
   );
   assert.equal(session.state.activePlayer, "p1");
-  assert.equal(session.state.phase, "draw");
-  assert.equal(
-    applyPlayerAction(session, { action: "advance-phase" }, 1_100).ok,
-    true,
-  );
-  assert.equal(session.state.phase, "standby");
-  assert.equal(
-    applyPlayerAction(session, { action: "advance-phase" }, 1_200).ok,
-    true,
-  );
   assert.equal(session.state.phase, "main1");
   assert.equal(
     applyPlayerAction(session, { action: "enter-end-phase" }, 1_300).ok,
     true,
   );
-  assert.equal(session.state.phase, "end");
-  const ended = applyPlayerAction(session, { action: "end-turn" }, 2_000);
-  assert.equal(ended.ok, true);
   assert.equal(session.state.activePlayer, "p1");
-  assert.equal(session.state.phase, "draw");
+  assert.equal(session.state.phase, "main1");
   assert.equal(session.state.status, "active");
   assert.ok(
     session.state.p2.monsterZones.some(Boolean),
@@ -298,12 +285,12 @@ test("AI turns emit per-move step snapshots the client can replay", () => {
   // AI steps, but ending the player's turn must replay the Keeper's full
   // turn one action at a time.
   assert.equal(steps.length, 0);
-  applyPlayerAction(session, { action: "advance-phase" }, 1_100);
-  applyPlayerAction(session, { action: "advance-phase" }, 1_200);
-  applyPlayerAction(session, { action: "enter-end-phase" }, 1_300);
   const collected: ChronicleProjection[] = [];
-  const ended = applyPlayerAction(session, { action: "end-turn" }, 2_000, (state) =>
-    captureAiStep(collected, state),
+  const ended = applyPlayerAction(
+    session,
+    { action: "enter-end-phase" },
+    1_300,
+    (state) => captureAiStep(collected, state),
   );
   assert.equal(ended.ok, true);
   assert.ok(collected.length >= 3, "AI turn produced step-by-step snapshots");
