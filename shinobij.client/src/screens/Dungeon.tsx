@@ -53,8 +53,8 @@ export function DungeonEncounter({
     setLineIndex: (index: number | ((index: number) => number)) => void;
     onStartAiFight: () => void;
     onTileWin: () => void;
-    onPetWin: () => void;
-    onLeave: () => void;
+    onPetWin: () => void | Promise<void>;
+    onLeave: () => void | Promise<void>;
     sharedImages?: Record<string, string>;
 }) {
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : hiddenDungeonVnEvent.vnPages!;
@@ -135,7 +135,7 @@ export function DungeonEncounter({
     );
 }
 
-export function DungeonPetBattle({ character, updateCharacter: _updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
+export function DungeonPetBattle({ character, updateCharacter: _updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void | Promise<void>; onLeave: () => void | Promise<void>; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
     const defaultPetId = character.activePetId ?? character.pets[0]?.id ?? "";
     const [chosenPetId, setChosenPetId] = useState(defaultPetId);
     const selectedPet = character.pets.find((pet) => pet.id === chosenPetId) ?? character.pets[0];

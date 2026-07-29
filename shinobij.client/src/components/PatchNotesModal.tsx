@@ -29,12 +29,31 @@ const MIN_LEVEL = 5; // don't interrupt brand-new onboarding; matches DailyBrief
 export function PatchNotesModal({ character }: { character: Character }) {
     // Decide the one-time auto-popup at mount (lazy init, not an effect): show
     // the latest unseen note once per device to any established player.
-    const [open, setOpen] = useState<boolean>(() => {
+    const [autoOpenPending, setAutoOpenPending] = useState<boolean>(() => {
         if (!LATEST_PATCH_NOTE || character.level < MIN_LEVEL) return false;
         let lastSeen: string | null;
         try { lastSeen = window.localStorage?.getItem(SEEN_KEY) ?? null; } catch { lastSeen = null; }
         return lastSeen !== LATEST_PATCH_NOTE.version;
     });
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        if (!autoOpenPending) return;
+        function openWhenClear() {
+            if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+            setAutoOpenPending(false);
+            setOpen(true);
+        }
+        function onDailyBriefingClosed() {
+            window.requestAnimationFrame(openWhenClear);
+        }
+        const frame = window.requestAnimationFrame(openWhenClear);
+        window.addEventListener("shinobix:daily-briefing-closed", onDailyBriefingClosed);
+        return () => {
+            window.cancelAnimationFrame(frame);
+            window.removeEventListener("shinobix:daily-briefing-closed", onDailyBriefingClosed);
+        };
+    }, [autoOpenPending]);
 
     // Manual re-open from any "What's New" button.
     useEffect(() => {

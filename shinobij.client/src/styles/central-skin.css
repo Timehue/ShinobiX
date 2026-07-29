@@ -135,6 +135,30 @@
     background: rgba(5,9,18,0.85) !important;
     backdrop-filter: blur(6px);
 }
+
+/* Central uses the canonical Modal for focus trapping, Escape handling, scroll
+   lock, and top-layer portal behavior. The feature panels keep their own visual
+   chrome inside this transparent shell. */
+.ui-modal-card.central-dialog-shell {
+    width: min(94vw, 860px);
+    max-width: 860px;
+    max-height: 92vh;
+    padding: 0;
+    overflow: auto;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.ui-modal-card.central-dialog-shell--wide {
+    width: min(96vw, 1120px);
+    max-width: 1120px;
+}
+
+.ui-modal-card.central-dialog-shell--crafter {
+    width: min(96vw, 1240px);
+    max-width: 1240px;
+}
 .celestial-panel {
     background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
     border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;

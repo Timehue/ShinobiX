@@ -193,11 +193,23 @@ export type TowerFloorMeta = {
     map: { width: number; height: number };
 };
 
+async function towerJson<T>(res: Response): Promise<T> {
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) {
+        throw new Error('The Battle Towers API is unavailable. Run the full game server instead of the client-only preview.');
+    }
+    try {
+        return await res.json() as T;
+    } catch {
+        throw new Error('The Battle Towers server returned an unreadable response.');
+    }
+}
+
 /** The public floor-catalog metadata for the lobby picker. */
 export async function fetchTowerFloors(): Promise<TowerFloorMeta[]> {
     const res = await fetch('/api/towers/floors');
     if (!res.ok) throw new Error(`Request failed (${res.status})`);
-    const data = await res.json() as { floors: TowerFloorMeta[] };
+    const data = await towerJson<{ floors: TowerFloorMeta[] }>(res);
     return data.floors;
 }
 
@@ -211,7 +223,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
         const err = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(err.error || `Request failed (${res.status})`);
     }
-    return res.json() as Promise<T>;
+    return towerJson<T>(res);
 }
 
 /** Begin a run: host + optional allies (slugs) + the host's client-computed loadout extras.
@@ -250,7 +262,7 @@ export async function fetchTowerState(runId: string, playerName: string): Promis
         const err = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(err.error || `Request failed (${res.status})`);
     }
-    const data = await res.json() as { session: TowerSession };
+    const data = await towerJson<{ session: TowerSession }>(res);
     return data.session;
 }
 
