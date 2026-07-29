@@ -152,8 +152,10 @@ import { bumpHuntQuality, readHuntQuality } from "../lib/hunt-run-state";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
-import { SECTOR_ART_AMBIENCE } from "../data/sector-ambience";
+import { FESTIVAL_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
+import { WorldRoadsOverlay } from "../components/WorldRoadsOverlay";
+import "../components/world-map-charting.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
@@ -184,7 +186,8 @@ function sectorBackgroundImage(sector: number) {
 
     // Bespoke per-sector vista (scripts/gen-sector-art.mjs) — every wild sector
     // paints its own place on the world map; theme art below is the fallback.
-    if (SECTOR_SCENE_SECTORS.has(sector)) return `/sector-scenes/s${sector}.webp`;
+    // Art files keep their pre-renumbering names: resolve via sectorArtKey.
+    if (SECTOR_SCENE_SECTORS.has(sectorArtKey(sector))) return `/sector-scenes/s${sectorArtKey(sector)}.webp`;
 
     const village = villageForOutskirtsSector(sector);
     if (village) return villagePageImage(village);
@@ -209,7 +212,8 @@ function sectorBackgroundImage(sector: number) {
 function sectorDepthImage(sector: number): string | undefined {
     if (sector === 99) return undefined;
     // Per-sector depth pairs with the per-sector vista, so they always line up.
-    if (SECTOR_SCENE_SECTORS.has(sector) && SECTOR_SCENE_DEPTH_SECTORS.has(sector)) return `/sector-depth/s${sector}.webp`;
+    const artKey = sectorArtKey(sector);
+    if (SECTOR_SCENE_SECTORS.has(artKey) && SECTOR_SCENE_DEPTH_SECTORS.has(artKey)) return `/sector-depth/s${artKey}.webp`;
     if (villageForOutskirtsSector(sector)) return undefined;
     const theme = sectorImageTheme(sector);
     return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
@@ -219,8 +223,9 @@ function sectorDepthImage(sector: number): string | undefined {
 // variants chosen deterministically per sector so same-biome sectors aren't identical.
 function sectorMapUrl(biome: Biome, seed: number): string | undefined {
     // Bespoke per-sector floor (the seed IS the sector number at every call site);
-    // the shared per-biome variants below remain as fallback.
-    if (SECTOR_FLOOR_SECTORS.has(seed)) return `/sector-map/s${seed}.webp`;
+    // the shared per-biome variants below remain as fallback. Art files keep
+    // their pre-renumbering names — resolve through sectorArtKey.
+    if (SECTOR_FLOOR_SECTORS.has(sectorArtKey(seed))) return `/sector-map/s${sectorArtKey(seed)}.webp`;
     const n = SECTOR_MAP[biome] ?? 0;
     if (!n) return undefined;
     const v = ((seed % n) + n) % n;
@@ -232,8 +237,9 @@ function sectorMapUrl(biome: Biome, seed: number): string | undefined {
 // volcano-territory sector that paints as forest). Outskirts mirror their village.
 function ambienceBiomeForSector(sector: number): Biome {
     if (sector === 99) return "volcano";
-    // With bespoke per-sector art, ambience follows its painted region.
-    if (SECTOR_SCENE_SECTORS.has(sector) && SECTOR_ART_AMBIENCE[sector]) return SECTOR_ART_AMBIENCE[sector];
+    // With bespoke per-sector art, ambience follows its painted region — which
+    // is now exactly the sector's gameplay biome (shared/sector-geo.ts).
+    if (SECTOR_SCENE_SECTORS.has(sectorArtKey(sector))) return biomeForWorldSector(sector);
     const village = villageForOutskirtsSector(sector);
     if (village === "Frostfang Village") return "snow";
     if (village === "Moonshadow Village") return "shadow";
@@ -397,6 +403,9 @@ export function WorldMap({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
+    // Direction the player walked in from on an edge crossing — drives the brief
+    // slide-in on the sector board (cleared right after the animation plays).
+    const [sectorEnterDir, setSectorEnterDir] = useState<"north" | "east" | "south" | "west" | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
@@ -2104,12 +2113,9 @@ export function WorldMap({
     }
 
     function biomeForSector(sector: number): Biome {
-        if (sector === 99) return "volcano"; // Death's Gate — cursed volcanic frontier
-        if (sector >= 56) return "central"; // Central meadow
-        if (sector <= 20) return "shadow";  // Moonshadow shadow territory
-        if (sector <= 35) return "forest";  // Stormveil forest territory
-        if (sector <= 45) return "volcano"; // Ashen Leaf volcano territory
-        return "snow";                      // Frostfang snow territory
+        // Table-driven from the shared geography registry (one source of truth
+        // with the server's biomeForSettledSector).
+        return biomeForWorldSector(sector);
     }
 
     // Sector adjacent to each home village (used for Outskirts)
@@ -2168,9 +2174,9 @@ export function WorldMap({
         }
     }
     function prefetchTravelDestination(sector: number) {
-        // Sector 35 leaves the world map for the Sunscar Festival screen — warm its
-        // lazy chunk (not the sector scene, which isn't shown on that arrival).
-        if (sector === 35) {
+        // The festival sector leaves the world map for the Sunscar Festival screen —
+        // warm its lazy chunk (not the sector scene, which isn't shown on that arrival).
+        if (sector === FESTIVAL_SECTOR) {
             void import("./SunscarFestival").catch(() => {});
             return;
         }
@@ -2215,6 +2221,13 @@ export function WorldMap({
                 // turns their drift into the timer (see lib/travel-mask). The server
                 // keeps its own absolute arrivalAt for the lease and attackability.
                 const travelMs = travelMaskMs(data.travelMs);
+                if (travelMs <= 0) {
+                    // Instant edge crossing: no mask at all — the board's
+                    // directional slide-in is the whole transition.
+                    setSelectedVillageTerritory(null);
+                    arrive(data.arrivalTile);
+                    return;
+                }
                 const arrivalAt = Date.now() + travelMs;
                 setPendingTravel({ destinationSector: sector, arrivalAt });
                 setTravelingUntil(arrivalAt);
@@ -2238,7 +2251,7 @@ export function WorldMap({
     }
     function triggerTravelPoint(sector: number) {
         beginSectorTravel(sector, () => {
-        if (sector === 35) {
+        if (sector === FESTIVAL_SECTOR) {
             setCurrentBiome("volcano");
             setCurrentWeather(weatherForSector(sector, "volcano"));
             setCurrentSector(sector);
@@ -2264,6 +2277,7 @@ export function WorldMap({
             setCurrentWeather(weatherForSector(exit.destinationSector, destinationBiome));
             setCurrentSector(exit.destinationSector);
             setSelectedSector(exit.destinationSector);
+            setSectorEnterDir(exit.direction);
         }, {
             mode: "edge",
             originSector: exit.sector,
@@ -2314,6 +2328,29 @@ export function WorldMap({
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [selectedSector, sectorPlayerPos, currentSector, isTraveling]);
+
+    // Clear the edge-crossing slide class right after its animation plays.
+    useEffect(() => {
+        if (!sectorEnterDir) return;
+        const timer = window.setTimeout(() => setSectorEnterDir(null), 460);
+        return () => window.clearTimeout(timer);
+    }, [sectorEnterDir]);
+
+    // Warm every adjacent sector's art while the player stands here, so an
+    // INSTANT edge crossing lands on already-loaded floors (there is no travel
+    // mask left to hide a fetch behind).
+    useEffect(() => {
+        if (!selectedSector || selectedSector === FESTIVAL_SECTOR) return;
+        for (const exit of roadExitsForSector(selectedSector)) {
+            const dest = exit.destinationSector;
+            preloadImg(sectorMapUrl(biomeForSector(dest), dest));
+            preloadImg(sectorBackgroundImage(dest));
+            preloadImg(sectorDepthImage(dest));
+        }
+        // preload helpers are stable component-scope declarations; re-running on
+        // their identities would just repeat cached no-op preloads.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedSector]);
 
     function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
         // XP retired: the old xp line (50 + sector·2) is a guaranteed ryo floor
@@ -3210,13 +3247,13 @@ export function WorldMap({
                     <main className="tile-scene sector-stage-panel">
                         <div className="scene-title sector-scene-title">
                             <div>
-                                <strong>Sector {selectedSector}</strong>
-                                <span>{biomeLabel(biome)} | {weatherEffects[sectorWeather].name}</span>
+                                <strong>{sectorName(selectedSector) ?? `Sector ${selectedSector}`}</strong>
+                                <span>Sector {selectedSector} · {sectorRegionName(selectedSector)} | {biomeLabel(biome)} | {weatherEffects[sectorWeather].name}</span>
                             </div>
                             <small>R{sectorTileRow} C{sectorTileCol}{sectorIsCurrent ? " | Present" : " | Scouting"}</small>
                         </div>
 
-                        <div className="pixel-map walkable-sector-map sector-image-map">
+                        <div className={`pixel-map walkable-sector-map sector-image-map${sectorEnterDir ? ` sector-enter-${sectorEnterDir}` : ""}`}>
                             {/* Living sector: a panning biome backdrop + atmosphere
                                 behind, then 3D depth-particles, then 2D biome ambience
                                 (snow/embers/petals/leaves/weather) in front. Ambience
@@ -3270,10 +3307,10 @@ export function WorldMap({
                                         type="button"
                                         key={index}
                                         title={roadExit
-                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Road"} to Sector ${roadExit.destinationSector}`
+                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Road"} to ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
                                             : otherHere.length > 0 ? otherHere.map(p => `${p.name} (Lv ${p.level})`).join(", ") : undefined}
                                         aria-label={roadExit
-                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Move to road for"} Sector ${roadExit.destinationSector}`
+                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Move to road for"} ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
                                             : isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
                                         className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${isPlayer && roadExit && sectorIsCurrent ? "sector-road-exit-ready" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
                                         onClick={() => {
@@ -3908,7 +3945,8 @@ export function WorldMap({
                                 <span className={`sector-biome-token sector-biome-${biome}`}>{biomeLabel(biome)}</span>
                                 <span>{weatherEffects[sectorWeather].name}</span>
                             </div>
-                            <h3>Sector {selectedSector}</h3>
+                            <h3>{sectorName(selectedSector) ?? `Sector ${selectedSector}`}</h3>
+                            <small className="sector-panel-sub">Sector {selectedSector} · {sectorRegionName(selectedSector)}</small>
                             <p>{weatherEffects[sectorWeather].effect}</p>
                         </header>
 
@@ -4464,6 +4502,9 @@ export function WorldMap({
                 ].map((g) => (
                     <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
                 ))}
+                {/* The road graph + region name plates — the connective tissue
+                    that makes the scattered sector markers read as one world. */}
+                <WorldRoadsOverlay />
                 <div className="sea-label sea-north">Hoppo Sea</div>
                 <div className="sea-label sea-east">Rimawari Ocean</div>
                 <div className="sea-label sea-south">Zubunure Sea</div>
@@ -4483,8 +4524,8 @@ export function WorldMap({
                     const sectorTitle = sector.id === 99
                         ? "Death's Gate - PvP zone: 2x Ryo, stat growth & Jutsu XP, 5% Bone Charm on win"
                         : huntTrail
-                            ? `${huntTrail.mission.name} trail | Sector ${sector.id}`
-                            : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
+                            ? `${huntTrail.mission.name} trail | ${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id})`
+                            : `${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id}) | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
                     return (
                     <button
                         key={sector.id}
@@ -4500,10 +4541,12 @@ export function WorldMap({
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
                         title={currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle}
-                        aria-label={currentSector === sector.id ? `You are here, Sector ${sector.id}` : `Travel to Sector ${sector.id}`}
+                        aria-label={currentSector === sector.id
+                            ? `You are here, ${sectorName(sector.id) ?? `Sector ${sector.id}`}`
+                            : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
+                        {sector.id === 99 ? "💀" : sector.id === FESTIVAL_SECTOR ? "☀️" : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}

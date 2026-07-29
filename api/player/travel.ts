@@ -17,6 +17,18 @@ import { clearTravelLease, setTravelLease } from '../_realtime/travel-lease.js';
 // turns any clock drift between the two machines into the mask it shows.
 export const WORLD_TRAVEL_MS = 3_000;
 
+// Walking across a road exit into the ADJACENT sector is INSTANT (owner call:
+// walking is free movement; only map fast-travel wears the timed mask). The
+// lease is still minted with arrivalAt = now so every arrival keeps flowing
+// through the same authoritative machinery — presence settle, anti-teleport,
+// footfall — and the battle lock + the exit-tile check + the 30/min rate limit
+// remain the real guards. WORLD_TRAVEL_EDGE_MS is a server dial to reintroduce
+// a delay without a code change if live feel ever wants one (0..WORLD_TRAVEL_MS).
+const EDGE_MS_RAW = Number(process.env.WORLD_TRAVEL_EDGE_MS ?? 0);
+export const WORLD_TRAVEL_EDGE_MS = Number.isFinite(EDGE_MS_RAW)
+    ? Math.min(WORLD_TRAVEL_MS, Math.max(0, Math.floor(EDGE_MS_RAW)))
+    : 0;
+
 export function isPlayableWorldSector(value: unknown): value is number {
     return typeof value === 'number'
         && Number.isInteger(value)
@@ -82,7 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), travelMs: 0, arrivalTile });
     }
 
-    const arrivalAt = Date.now() + WORLD_TRAVEL_MS;
+    const travelMs = mode === 'edge' ? WORLD_TRAVEL_EDGE_MS : WORLD_TRAVEL_MS;
+    const arrivalAt = Date.now() + travelMs;
     const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
     if (!started) return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
     try {
@@ -103,5 +116,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         player: toPlayerRecord(started),
     });
 
-    return res.status(200).json({ ok: true, destinationSector, arrivalAt, travelMs: WORLD_TRAVEL_MS, arrivalTile });
+    return res.status(200).json({ ok: true, destinationSector, arrivalAt, travelMs, arrivalTile });
 }
