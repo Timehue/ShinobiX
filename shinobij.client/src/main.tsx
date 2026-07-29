@@ -23,6 +23,9 @@ const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ de
 const IntroCinematicPreview = import.meta.env.DEV
     ? lazy(() => import('./features/intro-cinematic/IntroCinematicPreview.tsx').then((m) => ({ default: m.IntroCinematicPreview })))
     : null
+const CinematicVnPreview = import.meta.env.DEV
+    ? lazy(() => import('./features/cinematic-vn/CinematicVnPreview.tsx').then((m) => ({ default: m.CinematicVnPreview })))
+    : null
 
 initSentry()
 applyLiteFxClass()
@@ -37,10 +40,15 @@ const legalSlug = (() => {
     try { return legalPageForPath(window.location.pathname); } catch { return null; }
 })()
 const introPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'intro'
+const cinematicVnPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'vn'
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
-        {introPreview && IntroCinematicPreview ? (
+        {cinematicVnPreview && CinematicVnPreview ? (
+            <Suspense fallback={null}>
+                <CinematicVnPreview />
+            </Suspense>
+        ) : introPreview && IntroCinematicPreview ? (
             <Suspense fallback={null}>
                 <IntroCinematicPreview />
             </Suspense>

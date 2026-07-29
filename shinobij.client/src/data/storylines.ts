@@ -5,13 +5,13 @@
  * villageBiomeMap, storyAiId).
  *
  * Pure data and pure transformations — no closures, no React, no side
- * effects. Imports StoryStep + CreatorEvent types from App.tsx until
- * those move to types/ in a later pass.
+ * effects. StoryStep + CreatorEvent live in types/vn so this large prose
+ * module stays independent from the App component graph.
  *
  * Extracted from App.tsx.
  */
 
-import type { CreatorEvent, StoryStep } from "../App";
+import type { CreatorEvent, StoryStep } from "../types/vn";
 import type { Character } from "../types/character";
 import { bossScaleByLevel, storyAiId } from "./story-boss-meta";
 import { villageBiomeMap } from "./village-biomes";
@@ -615,7 +615,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "I've kept this village alive for thirty years. I'm not stepping aside because one plan worked for one night.",
                 "The board is blank, and the debt is due. Last slate in Stormveil, Jonin. It's yours.",
                 "Show me what fights when the reasons are free."
-            ]), image: "/scenes/story/story-stormveil-village-100-8.webp", leftName: "Player", rightName: "Kage Raiko Veyr", rightImage: "/portraits/kage-raiko-veyr-hollow.webp", choices: [
+            ]), image: "/scenes/story/story-stormveil-village-100-8.webp", leftName: "Player", rightName: "Kage Raiko Veyr", rightImage: "/portraits/cinematic/storywide/kage-raiko-veyr-hollow.webp", choices: [
                 { text: "Show him the quiet storm.", nextPage: 4, requireTrait: "sv88-better-storm-carried" },
                 { text: "Let Mira say her mother's reason.", nextPage: 9, requireTrait: "sv88-better-storm-deferred" },
                 { text: "Let Vanta answer for the ninth share.", nextPage: 14, requireTrait: "sv92-witness-present" },
@@ -1319,7 +1319,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "I've held these shears for thirty years. I don't know how to put them down, and I still don't trust anyone else to get this village through winter.",
                 "If you want them, take them from me.",
                 "Show me what replaces this."
-            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/kage-hoshina-enju-hollow.webp", choices: [
+            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/cinematic/storywide/kage-hoshina-enju-hollow.webp", choices: [
                 { text: "Show her the better winter.", nextPage: 5, requireTrait: "al88-better-winter-carried" },
                 { text: "Let the Reeds show her the better winter.", nextPage: 10, requireTrait: "al88-better-winter-deferred" },
                 { text: "Let Mori answer for his charts.", nextPage: 15, requireTrait: "al92-mori-present" },
@@ -1879,7 +1879,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Forty-one struck names are waiting outside. The meter is at zero.",
                 "If you want to change the Count, take it from me.",
                 "Show me what holds when nothing is holding it."
-            ]), image: "/scenes/story/story-frostfang-village-100-8.webp", leftName: "Player", rightName: "Kage Kael Whitefang", rightImage: "/portraits/kage-kael-whitefang-hollow.webp", choices: [
+            ]), image: "/scenes/story/story-frostfang-village-100-8.webp", leftName: "Player", rightName: "Kage Kael Whitefang", rightImage: "/portraits/cinematic/storywide/kage-kael-whitefang-hollow.webp", choices: [
                 { text: "Show him the better Roll: Dren's lanterns found a man with no mark and no vault.", nextPage: 6, requireTrait: "ff88-better-roll-carried" },
                 { text: "Let Yura answer Dren's Roll.", nextPage: 11, requireTrait: "ff88-better-roll-deferred" },
                 { text: "Let Sova read the litany backwards.", nextPage: 15, requireTrait: "ff92-witness-present" },
@@ -2443,7 +2443,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The buyer arrives tonight. I won't give it the Mirror, and I won't let you crack the glass because you hope the village can survive it.",
                 "The Mirror holds everyone, %name. Everyone but you.",
                 "If you want it opened, go through me."
-            ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", leftName: "Player", rightName: "Kage Sable Nocturne", rightImage: "/portraits/kage-sable-nocturne-hollow.webp", choices: [
+            ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", leftName: "Player", rightName: "Kage Sable Nocturne", rightImage: "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp", choices: [
                 { text: "Show her the better truth.", nextPage: 3, requireTrait: "ms88-better-truth-ready", forbidTrait: "ms88-nyx-proof-deferred" },
                 { text: "Let Nyx say her own name.", nextPage: 9, requireTrait: "ms88-better-truth-deferred" },
                 { text: "Let Iro read the buyer's manifest.", nextPage: 16, requireTrait: "ms92-witness-present" },

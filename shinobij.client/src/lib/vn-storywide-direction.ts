@@ -1,9 +1,10 @@
-import type { CreatorEvent, VnCinematicDirection } from "../types/vn";
+import type { CreatorEvent, VnActorPose, VnCinematicDirection } from "../types/vn";
 
 type VnPage = NonNullable<CreatorEvent["vnPages"]>[number];
 
 export type StoryVillageKey = "stormveil" | "ashen" | "frostfang" | "moonshadow";
 export type StorySceneFamily = "civic" | "intimate" | "threshold" | "sanctum";
+export type StorySceneVariant = "standard" | "crisis" | "aftermath";
 
 export const STORYWIDE_ENVIRONMENTS: Record<StoryVillageKey, Record<StorySceneFamily, string>> = {
     stormveil: {
@@ -32,6 +33,35 @@ export const STORYWIDE_ENVIRONMENTS: Record<StoryVillageKey, Record<StorySceneFa
     },
 };
 
+export const STORYWIDE_ENVIRONMENT_VARIANTS: Record<
+    StoryVillageKey,
+    Record<Exclude<StorySceneVariant, "standard">, string>
+> = {
+    stormveil: {
+        crisis: "/scenes/story/cinematic/storywide/stormveil-blackout.webp",
+        aftermath: "/scenes/story/cinematic/storywide/stormveil-aftermath.webp",
+    },
+    ashen: {
+        crisis: "/scenes/story/cinematic/storywide/ashen-ashfall.webp",
+        aftermath: "/scenes/story/cinematic/storywide/ashen-aftermath.webp",
+    },
+    frostfang: {
+        crisis: "/scenes/story/cinematic/storywide/frostfang-whiteout.webp",
+        aftermath: "/scenes/story/cinematic/storywide/frostfang-aftermath.webp",
+    },
+    moonshadow: {
+        crisis: "/scenes/story/cinematic/storywide/moonshadow-blackout.webp",
+        aftermath: "/scenes/story/cinematic/storywide/moonshadow-aftermath.webp",
+    },
+};
+
+export const STORYWIDE_CLIMAX_ENVIRONMENTS: Record<StoryVillageKey, string> = {
+    stormveil: "/scenes/story/cinematic/storywide/stormveil-climax-blank-board.webp",
+    ashen: "/scenes/story/cinematic/storywide/ashen-climax-rootfire.webp",
+    frostfang: "/scenes/story/cinematic/storywide/frostfang-climax-meter-zero.webp",
+    moonshadow: "/scenes/story/cinematic/storywide/moonshadow-climax-black-glass.webp",
+};
+
 export const STORYWIDE_ACTORS: Record<string, string> = {
     "mira volt": "/portraits/cinematic/storywide/mira-volt.webp",
     "kage raiko veyr": "/portraits/cinematic/storywide/kage-raiko-veyr.webp",
@@ -52,6 +82,119 @@ export const STORYWIDE_ACTORS: Record<string, string> = {
     "sable nocturne": "/portraits/cinematic/storywide/kage-sable-nocturne.webp",
     "shade-master iro": "/portraits/cinematic/storywide/shade-master-iro.webp",
     "shade master iro": "/portraits/cinematic/storywide/shade-master-iro.webp",
+};
+
+export const STORYWIDE_ACTOR_VARIANTS: Record<string, Partial<Record<VnActorPose, string>>> = {
+    "mira volt": {
+        neutral: "/portraits/cinematic/storywide/mira-volt-neutral.webp",
+        tense: STORYWIDE_ACTORS["mira volt"],
+        grieving: "/portraits/cinematic/storywide/mira-volt-grieving.webp",
+    },
+    "toma reed": {
+        resolute: "/portraits/cinematic/storywide/toma-reed-resolute.webp",
+    },
+    "elder vanta": {
+        solemn: "/portraits/cinematic/storywide/elder-vanta-solemn.webp",
+    },
+    "elder mori": {
+        solemn: "/portraits/cinematic/storywide/elder-mori-solemn.webp",
+    },
+    "kage hoshina enju": {
+        tense: "/portraits/cinematic/storywide/kage-hoshina-enju-tense.webp",
+    },
+    "hoshina enju": {
+        tense: "/portraits/cinematic/storywide/kage-hoshina-enju-tense.webp",
+    },
+    "captain yura": {
+        injured: "/portraits/cinematic/storywide/captain-yura-injured.webp",
+        defiant: "/portraits/cinematic/storywide/captain-yura-defiant.webp",
+    },
+    "elder sova": {
+        solemn: "/portraits/cinematic/storywide/elder-sova-solemn.webp",
+    },
+    nyx: {
+        neutral: "/portraits/cinematic/storywide/nyx-neutral.webp",
+        tense: STORYWIDE_ACTORS.nyx,
+        resolute: "/portraits/cinematic/storywide/nyx-resolute.webp",
+    },
+    "kage sable nocturne": {
+        neutral: "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp",
+        tense: "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp",
+    },
+    "sable nocturne": {
+        neutral: "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp",
+        tense: "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp",
+    },
+    "shade-master iro": {
+        tense: "/portraits/cinematic/storywide/shade-master-iro-tense.webp",
+        solemn: "/portraits/cinematic/storywide/shade-master-iro-solemn.webp",
+    },
+    "shade master iro": {
+        tense: "/portraits/cinematic/storywide/shade-master-iro-tense.webp",
+        solemn: "/portraits/cinematic/storywide/shade-master-iro-solemn.webp",
+    },
+};
+
+/*
+ * Hand-authored hero beats. Ordinary pages use a quiet, mostly static baseline;
+ * these pages earn the camera move, impact, semantic cue, and expression swap.
+ */
+export const MAJOR_STORY_DIRECTIONS: Readonly<Record<string, VnCinematicDirection>> = {
+    "stormveil:the kage in the square": { shot: "wide", focus: "left", backgroundMotion: "push", transition: "crossfade", tone: "warm", atmosphere: "rain", impact: "soft", cue: "reveal" },
+    "stormveil:vanta reads the wax": { shot: "detail", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "rain", leftActorPose: "solemn", cue: "paper" },
+    "stormveil:eleven pipes": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "hollow", atmosphere: "motes", impact: "soft", cue: "reveal" },
+    "stormveil:the missing chalk line": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", cue: "reveal" },
+    "stormveil:the rescued slates": { shot: "wide", focus: "center", backgroundMotion: "drift", tone: "elegy", atmosphere: "rain", leftActorPose: "grieving", cue: "paper" },
+    "stormveil:the routing mark": { shot: "detail", focus: "center", backgroundMotion: "push", tone: "danger", atmosphere: "rain", cue: "omen" },
+    "stormveil:fees waived": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "rain", titleCard: true, cue: "omen" },
+    "stormveil:the surge valve": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "whip", tone: "danger", atmosphere: "rain", impact: "heavy", cue: "battle" },
+    "stormveil:the village climbs": { shot: "wide", focus: "center", backgroundMotion: "pan-right", transition: "dip-black", tone: "elegy", atmosphere: "rain", titleCard: true, cue: "title" },
+    "stormveil:the man becoming weather": { shot: "close", focus: "left", backgroundMotion: "push", tone: "danger", atmosphere: "rain", leftActorPose: "tense", impact: "soft", cue: "reveal" },
+    "stormveil:her daughter says the why": { shot: "close", focus: "left", backgroundMotion: "none", transition: "crossfade", tone: "elegy", atmosphere: "rain", leftActorPose: "grieving", cue: "reveal" },
+    "stormveil:vanta opens the books": { shot: "medium", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "rain", leftActorPose: "solemn", cue: "paper" },
+    "stormveil:the blank board": { backgroundImage: STORYWIDE_CLIMAX_ENVIRONMENTS.stormveil, shot: "wide", focus: "center", backgroundMotion: "push", transition: "whiteout", tone: "danger", atmosphere: "rain", rightActorPose: "tense", impact: "heavy", cue: "battle" },
+
+    "ashen:mori counts": { shot: "detail", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "solemn", cue: "paper" },
+    "ashen:aren reed": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "resolute", cue: "reveal" },
+    "ashen:the second feeding": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "hollow", atmosphere: "embers", impact: "soft", cue: "omen" },
+    "ashen:the question": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "tense", cue: "reveal" },
+    "ashen:the manifest under the ash": { shot: "detail", focus: "center", backgroundMotion: "none", tone: "cold", atmosphere: "embers", cue: "paper" },
+    "ashen:the bellows": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "embers", impact: "soft", cue: "omen" },
+    "ashen:the detainment lists": { shot: "wide", focus: "left", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "embers", titleCard: true, cue: "omen" },
+    "ashen:the detention rows": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "whip", tone: "danger", atmosphere: "embers", impact: "heavy", cue: "battle" },
+    "ashen:frost-fall": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "elegy", atmosphere: "embers", titleCard: true, cue: "title" },
+    "ashen:the vessel": { shot: "close", focus: "left", backgroundMotion: "push", tone: "danger", atmosphere: "embers", leftActorPose: "tense", impact: "soft", cue: "reveal" },
+    "ashen:this part is ours": { shot: "close", focus: "left", backgroundMotion: "none", tone: "warm", atmosphere: "motes", leftActorPose: "resolute", cue: "reveal" },
+    "ashen:mori reads the pattern": { shot: "medium", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "embers", leftActorPose: "solemn", cue: "paper" },
+    "ashen:the shears on the anvil": { backgroundImage: STORYWIDE_CLIMAX_ENVIRONMENTS.ashen, shot: "wide", focus: "center", backgroundMotion: "push", transition: "whiteout", tone: "danger", atmosphere: "embers", rightActorPose: "tense", impact: "heavy", cue: "battle" },
+
+    "frostfang:the corrected man": { shot: "close", focus: "left", backgroundMotion: "push", tone: "cold", atmosphere: "snow", impact: "soft", cue: "reveal" },
+    "frostfang:the deep script": { shot: "detail", focus: "center", backgroundMotion: "push", tone: "hollow", atmosphere: "snow", cue: "reveal" },
+    "frostfang:returned to the count": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "snow", cue: "omen" },
+    "frostfang:the pen gets lighter": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "defiant", cue: "reveal" },
+    "frostfang:the confiscated kits": { shot: "detail", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "snow", leftActorPose: "injured", cue: "paper" },
+    "frostfang:self-injury, filed": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "snow", impact: "soft", cue: "omen" },
+    "frostfang:the white silence": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "cold", atmosphere: "snow", titleCard: true, cue: "omen" },
+    "frostfang:the alpha guard": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "whip", tone: "danger", atmosphere: "snow", impact: "heavy", cue: "battle" },
+    "frostfang:the open ledgers": { shot: "wide", focus: "center", backgroundMotion: "pan-left", transition: "dip-black", tone: "cold", atmosphere: "snow", titleCard: true, cue: "title" },
+    "frostfang:the man fused to the door": { shot: "close", focus: "left", backgroundMotion: "push", tone: "danger", atmosphere: "snow", leftActorPose: "tense", impact: "soft", cue: "reveal" },
+    "frostfang:she answers his roll": { shot: "close", focus: "left", backgroundMotion: "none", tone: "cold", atmosphere: "snow", leftActorPose: "defiant", cue: "reveal" },
+    "frostfang:the litany, backwards": { shot: "medium", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "snow", leftActorPose: "solemn", cue: "paper" },
+    "frostfang:the meter at zero": { backgroundImage: STORYWIDE_CLIMAX_ENVIRONMENTS.frostfang, shot: "wide", focus: "center", backgroundMotion: "push", transition: "whiteout", tone: "danger", atmosphere: "snow", rightActorPose: "tense", impact: "heavy", cue: "battle" },
+
+    "moonshadow:the kage's mercy": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", cue: "reveal" },
+    "moonshadow:the prepaid buyer": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "hollow", atmosphere: "mist", cue: "omen" },
+    "moonshadow:the counterparty": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "hollow", atmosphere: "mist", impact: "soft", cue: "reveal" },
+    "moonshadow:the report she kept": { shot: "detail", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", cue: "paper" },
+    "moonshadow:the copied names": { shot: "detail", focus: "center", backgroundMotion: "drift", tone: "elegy", atmosphere: "mist", cue: "paper" },
+    "moonshadow:naming it": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "resolute", cue: "reveal" },
+    "moonshadow:the night of open files": { shot: "wide", focus: "center", backgroundMotion: "pan-right", transition: "dip-black", tone: "hollow", atmosphere: "mist", titleCard: true, cue: "omen" },
+    "moonshadow:the veiled hand grandmaster": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "whip", tone: "danger", atmosphere: "mist", impact: "heavy", cue: "battle" },
+    "moonshadow:the black moon": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "hollow", atmosphere: "mist", titleCard: true, cue: "title" },
+    "moonshadow:the woman and the tank": { shot: "close", focus: "left", backgroundMotion: "push", tone: "hollow", atmosphere: "mist", leftActorPose: "tense", impact: "soft", cue: "reveal" },
+    "moonshadow:her own name": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "resolute", cue: "reveal" },
+    "moonshadow:iro reads the manifest": { shot: "medium", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "mist", leftActorPose: "solemn", cue: "paper" },
+    "moonshadow:the glass and the notice": { backgroundImage: STORYWIDE_CLIMAX_ENVIRONMENTS.moonshadow, shot: "wide", focus: "center", backgroundMotion: "push", transition: "whiteout", tone: "danger", atmosphere: "mist", rightActorPose: "tense", impact: "heavy", cue: "battle" },
 };
 
 const FAMILY_KEYWORDS: Record<StorySceneFamily, readonly string[]> = {
@@ -85,6 +228,8 @@ function normalizedStoryText(event: CreatorEvent, page: VnPage): string {
         page.title,
         page.scene,
         page.speaker,
+        ...page.dialogue,
+        ...(page.lines?.map((line) => line.text) ?? []),
     ].filter(Boolean).join(" ").toLowerCase();
 }
 
@@ -121,7 +266,49 @@ export function resolveStorySceneFamily(event: CreatorEvent, page: VnPage, pageI
     return DEFAULT_FAMILY_CYCLE[Math.abs(pageIndex) % DEFAULT_FAMILY_CYCLE.length];
 }
 
-function villageDirection(village: StoryVillageKey, family: StorySceneFamily): VnCinematicDirection {
+const AFTERMATH_PATTERNS = [
+    /\baftermath\b/,
+    /\bafter (?:the )?(?:attack|battle|blizzard|breach|fight|fire|siege|storm)\b/,
+    /\b(?:rebuild|rebuilding|recovery|repair|ruins?|wreckage)\b/,
+    /\b(?:battle|storm|siege) (?:is|was) over\b/,
+] as const;
+
+const CRISIS_PATTERNS = [
+    /\b(?:alarm|ambush|ashfall|attack|battle|blackout|blizzard|breach|eruption|execution|fire|invasion|siege|storm|whiteout)\b/,
+    /\bunder attack\b/,
+    /\b(?:burning|collapsing|evacuate|evacuation)\b/,
+] as const;
+
+const INJURY_PATTERNS = [
+    /\b(?:bandaged|bleeding|bloodied|bruised|hurt|injured|limping|scarred|wounded)\b/,
+    /\b(?:broken|cracked) (?:arm|bone|rib|shoulder)\b/,
+] as const;
+
+const TENSION_PATTERNS = [
+    ...CRISIS_PATTERNS,
+    /\b(?:betrayal|danger|duel|enemy|executioner|fight|guardian|hostage|kill|threat|trial)\b/,
+    /\bweapons? drawn\b/,
+] as const;
+
+export function resolveStorySceneVariant(event: CreatorEvent, page: VnPage): StorySceneVariant {
+    const text = normalizedStoryText(event, page);
+    if (AFTERMATH_PATTERNS.some((pattern) => pattern.test(text))) return "aftermath";
+    if (CRISIS_PATTERNS.some((pattern) => pattern.test(text))) return "crisis";
+    return "standard";
+}
+
+export function resolveStoryActorPose(event: CreatorEvent, page: VnPage): VnActorPose {
+    const text = normalizedStoryText(event, page);
+    if (INJURY_PATTERNS.some((pattern) => pattern.test(text))) return "injured";
+    if (TENSION_PATTERNS.some((pattern) => pattern.test(text))) return "tense";
+    return "neutral";
+}
+
+function villageDirection(
+    village: StoryVillageKey,
+    family: StorySceneFamily,
+    variant: StorySceneVariant,
+): VnCinematicDirection {
     const atmosphere = village === "ashen" ? "embers"
         : village === "frostfang" ? "snow"
             : village === "moonshadow" ? "mist"
@@ -135,13 +322,21 @@ function villageDirection(village: StoryVillageKey, family: StorySceneFamily): V
             : "interior";
 
     return {
-        backgroundImage: STORYWIDE_ENVIRONMENTS[village][family],
+        backgroundImage: variant === "standard"
+            ? STORYWIDE_ENVIRONMENTS[village][family]
+            : STORYWIDE_ENVIRONMENT_VARIANTS[village][variant],
         shot: family === "intimate" ? "medium" : family === "sanctum" ? "close" : "wide",
         focus: "speaker",
-        backgroundMotion: family === "threshold" ? "pan-right" : family === "sanctum" ? "push" : "drift",
+        // Motion is punctuation, not wallpaper. Ordinary dialogue holds still;
+        // crises and aftermaths earn a restrained move.
+        backgroundMotion: variant === "crisis" ? "push" : variant === "aftermath" ? "drift" : "none",
         backgroundPosition: "50% 50%",
-        transition: "crossfade",
-        tone: family === "sanctum" ? "danger" : tone,
+        transition: variant === "crisis" ? "dip-black" : "crossfade",
+        tone: variant === "crisis" || family === "sanctum"
+            ? "danger"
+            : variant === "aftermath"
+                ? "elegy"
+                : tone,
         atmosphere,
         actorEntrance: "none",
         impact: "none",
@@ -166,9 +361,10 @@ export function resolveStorywideDirection(
     const opening = pageIndex === 0;
     const ending = pageIndex === pageCount - 1;
     const village = storyVillageKey(event, page);
+    const major = village ? MAJOR_STORY_DIRECTIONS[`${village}:${page.title.trim().toLowerCase()}`] : undefined;
 
     if (opening || ending || !village) {
-        return {
+        const baseline: VnCinematicDirection = {
             shot: opening ? "wide" : "medium",
             focus: "speaker",
             backgroundMotion: opening ? "push" : "drift",
@@ -178,16 +374,31 @@ export function resolveStorywideDirection(
             ambience: opening ? "village" : "auto",
             cue: opening ? "title" : "none",
         };
+        return major ? { ...baseline, ...major } : baseline;
     }
 
-    return villageDirection(village, resolveStorySceneFamily(event, page, pageIndex));
+    const baseline = villageDirection(
+        village,
+        resolveStorySceneFamily(event, page, pageIndex),
+        resolveStorySceneVariant(event, page),
+    );
+    return major ? { ...baseline, ...major } : baseline;
 }
 
 export function isPremiumVnEvent(eventId: string): boolean {
     return eventId.startsWith("story-");
 }
 
-export function resolveStorywideActorImage(eventId: string, actorName: string): string | undefined {
+export function resolveStorywideActorImage(
+    eventId: string,
+    actorName: string,
+    pose: VnActorPose = "neutral",
+): string | undefined {
     if (!isPremiumVnEvent(eventId)) return undefined;
-    return STORYWIDE_ACTORS[actorName.trim().toLowerCase()];
+    const key = actorName.trim().toLowerCase();
+    const variants = STORYWIDE_ACTOR_VARIANTS[key];
+    return variants?.[pose]
+        ?? (pose === "injured" ? variants?.tense : undefined)
+        ?? variants?.neutral
+        ?? STORYWIDE_ACTORS[key];
 }

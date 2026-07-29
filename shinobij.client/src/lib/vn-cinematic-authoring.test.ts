@@ -42,9 +42,11 @@ test("runtime sanitization drops unsupported persisted enum values", () => {
         mode: "cinematic",
         shot: "ultra-close",
         tone: "cold",
+        leftActorPose: "tense",
+        rightActorPose: "panicked",
         backgroundPosition: "-4% 20%",
     });
-    assert.deepEqual(clean, { mode: "cinematic", tone: "cold" });
+    assert.deepEqual(clean, { mode: "cinematic", tone: "cold", leftActorPose: "tense" });
 });
 
 test("automatic-only authoring metadata compacts away for backward compatibility", () => {

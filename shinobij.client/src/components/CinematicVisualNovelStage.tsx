@@ -1,6 +1,7 @@
 import {
     useCallback,
     useEffect,
+    useId,
     useMemo,
     useRef,
     useState,
@@ -12,6 +13,12 @@ import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { playVnCue, startVnAmbience, stopVnAmbience } from "../lib/vn-cinematic-sfx";
+import {
+    duckVnScore,
+    resolveVnScoreKey,
+    startVnScore,
+    stopVnScore,
+} from "../lib/vn-cinematic-score";
 import type { ResolvedVnPresentation } from "../lib/vn-presentation";
 
 type Actor = {
@@ -24,6 +31,17 @@ type Actor = {
 };
 
 type TextSpeed = "normal" | "fast" | "instant";
+type TextSize = "default" | "large" | "xlarge";
+type Contrast = "standard" | "high";
+
+function initialAutoRead(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+        return window.localStorage.getItem("vnAutoRead.v1") === "1";
+    } catch {
+        return false;
+    }
+}
 
 function initialTextSpeed(): TextSpeed {
     if (typeof window === "undefined") return "normal";
@@ -46,12 +64,69 @@ function titleForSpeed(speed: TextSpeed): string {
     return "Text: Instant";
 }
 
+function initialTextSize(): TextSize {
+    if (typeof window === "undefined") return "default";
+    try {
+        const saved = window.localStorage.getItem("vnTextSize.v1");
+        if (saved === "large" || saved === "xlarge") return saved;
+    } catch { /* private mode */ }
+    return "default";
+}
+
+function nextTextSize(size: TextSize): TextSize {
+    if (size === "default") return "large";
+    if (size === "large") return "xlarge";
+    return "default";
+}
+
+function titleForTextSize(size: TextSize): string {
+    if (size === "large") return "Text size: Large";
+    if (size === "xlarge") return "Text size: Extra large";
+    return "Text size: Default";
+}
+
+function initialContrast(): Contrast {
+    if (typeof window === "undefined") return "standard";
+    try {
+        return window.localStorage.getItem("vnContrast.v1") === "high" ? "high" : "standard";
+    } catch {
+        return "standard";
+    }
+}
+
+const FOCUSABLE_SELECTOR = [
+    "button:not([disabled])",
+    "a[href]",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function focusableElements(root: HTMLElement): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        .filter((element) => element.getClientRects().length > 0 && element.getAttribute("aria-hidden") !== "true");
+}
+
 function ActorPortrait({ actor }: { actor: Actor }) {
     const [failedSource, setFailedSource] = useState("");
+    const [aspect, setAspect] = useState<"tall" | "square" | "wide">("tall");
     const showImage = Boolean(actor.image) && failedSource !== actor.image;
 
     return showImage
-        ? <img src={actor.image} alt="" onError={() => setFailedSource(actor.image)} />
+        ? (
+            <img
+                src={actor.image}
+                alt=""
+                className={`cvn-avatar-${aspect}`}
+                onLoad={(event) => {
+                    const { naturalWidth, naturalHeight } = event.currentTarget;
+                    const ratio = naturalHeight > 0 ? naturalWidth / naturalHeight : 0;
+                    setAspect(ratio >= 1.18 ? "wide" : ratio >= .78 ? "square" : "tall");
+                }}
+                onError={() => setFailedSource(actor.image)}
+            />
+        )
         : <span aria-hidden="true">{actor.initials}</span>;
 }
 
@@ -62,6 +137,15 @@ function AudioIcon({ muted }: { muted: boolean }) {
             {muted
                 ? <path d="m17 9 4 6m0-6-4 6" />
                 : <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />}
+        </svg>
+    );
+}
+
+function SettingsIcon() {
+    return (
+        <svg className="cvn-settings-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+            <path d="M12 8.1a3.9 3.9 0 1 0 0 7.8 3.9 3.9 0 0 0 0-7.8Z" />
+            <path d="m19.4 13.5 1.4 1.1-1.9 3.3-1.7-.7a8 8 0 0 1-1.7 1l-.2 1.8h-3.8l-.2-1.8a8 8 0 0 1-1.7-1l-1.7.7L6 14.6l1.4-1.1a8.6 8.6 0 0 1 0-2L6 10.4l1.9-3.3 1.7.7a8 8 0 0 1 1.7-1l.2-1.8h3.8l.2 1.8a8 8 0 0 1 1.7 1l1.7-.7 1.9 3.3-1.4 1.1a8.6 8.6 0 0 1 0 2Z" />
         </svg>
     );
 }
@@ -112,13 +196,21 @@ export function CinematicVisualNovelStage({
     const reduced = prefersReducedMotion();
     const liteFx = isLowEndMobile();
     const [speed, setSpeed] = useState<TextSpeed>(initialTextSpeed);
+    const [textSize, setTextSize] = useState<TextSize>(initialTextSize);
+    const [contrast, setContrast] = useState<Contrast>(initialContrast);
+    const [autoRead, setAutoRead] = useState(initialAutoRead);
     const textKey = `${eventId}:${pageIndex}:${lineIndex}:${spoken}`;
     const [typed, setTyped] = useState<{ key: string; count: number }>({ key: "", count: 0 });
     const [muted, setMuted] = useState(isAudioMuted);
+    const [settingsOpenKey, setSettingsOpenKey] = useState("");
     const cuePlayedRef = useRef("");
     const lastCompleteRef = useRef(0);
     const rootRef = useRef<HTMLDivElement>(null);
+    const settingsMenuId = useId();
     const immersive = surface === "immersive";
+    const settingsKey = `${eventId}:${pageIndex}`;
+    const settingsOpen = settingsOpenKey === settingsKey;
+    const scoreKey = useMemo(() => resolveVnScoreKey(eventId, eventLabel), [eventId, eventLabel]);
 
     useBodyScrollLock(immersive);
 
@@ -160,23 +252,61 @@ export function CinematicVisualNovelStage({
     const fireCue = useCallback(() => {
         if (effectiveCue === "none" || isAudioMuted() || cuePlayedRef.current === cueKey) return;
         cuePlayedRef.current = cueKey;
+        duckVnScore(effectiveCue);
         playVnCue(effectiveCue);
     }, [cueKey, effectiveCue]);
 
     useEffect(() => {
         startVnAmbience(presentation.ambience);
+        startVnScore(scoreKey);
         fireCue();
-    }, [fireCue, presentation.ambience]);
+    }, [fireCue, presentation.ambience, scoreKey]);
 
-    useEffect(() => () => stopVnAmbience(700), []);
+    useEffect(() => () => {
+        stopVnAmbience(700);
+        stopVnScore(900);
+    }, []);
 
     const completeTyping = useCallback(() => {
         lastCompleteRef.current = Date.now();
         setTyped({ key: textKey, count: spoken.length });
     }, [spoken.length, textKey]);
 
+    const cycleTextSpeed = useCallback(() => {
+        setSpeed((current) => {
+            const next = nextTextSpeed(current);
+            try { window.localStorage.setItem("vnTextSpeed.v1", next); } catch { /* private mode */ }
+            return next;
+        });
+    }, []);
+
+    const cycleTextSize = useCallback(() => {
+        setTextSize((current) => {
+            const next = nextTextSize(current);
+            try { window.localStorage.setItem("vnTextSize.v1", next); } catch { /* private mode */ }
+            return next;
+        });
+    }, []);
+
+    const toggleContrast = useCallback(() => {
+        setContrast((current) => {
+            const next = current === "standard" ? "high" : "standard";
+            try { window.localStorage.setItem("vnContrast.v1", next); } catch { /* private mode */ }
+            return next;
+        });
+    }, []);
+
+    const toggleAutoRead = useCallback(() => {
+        setAutoRead((current) => {
+            const next = !current;
+            try { window.localStorage.setItem("vnAutoRead.v1", next ? "1" : "0"); } catch { /* private mode */ }
+            return next;
+        });
+    }, []);
+
     const advance = useCallback(() => {
         startVnAmbience(presentation.ambience);
+        startVnScore(scoreKey);
         fireCue();
         if (!typingDone) {
             completeTyping();
@@ -184,14 +314,56 @@ export function CinematicVisualNovelStage({
         }
         if (!allowStageAdvance || Date.now() - lastCompleteRef.current < 240) return;
         onAdvance();
-    }, [allowStageAdvance, completeTyping, fireCue, onAdvance, presentation.ambience, typingDone]);
+    }, [allowStageAdvance, completeTyping, fireCue, onAdvance, presentation.ambience, scoreKey, typingDone]);
+
+    useEffect(() => {
+        if (!autoRead || !typingDone || !allowStageAdvance || settingsOpen) return;
+        const readingDelay = Math.min(6_800, Math.max(2_600, 1_400 + spoken.length * 32));
+        const timer = window.setTimeout(() => {
+            if (!document.hidden) advance();
+        }, readingDelay);
+        return () => window.clearTimeout(timer);
+    }, [advance, allowStageAdvance, autoRead, settingsOpen, spoken.length, textKey, typingDone]);
 
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             if (event.defaultPrevented) return;
+            const root = rootRef.current;
+            if (!immersive && root && !root.contains(document.activeElement)) return;
+            if (event.key === "Tab" && immersive) {
+                if (!root) return;
+                const focusable = focusableElements(root);
+                if (!focusable.length) {
+                    event.preventDefault();
+                    root.focus();
+                    return;
+                }
+                const active = document.activeElement;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (active === root || !(active instanceof Node) || !root.contains(active)) {
+                    event.preventDefault();
+                    (event.shiftKey ? last : first).focus();
+                    return;
+                }
+                if (event.shiftKey && active === first) {
+                    event.preventDefault();
+                    last.focus();
+                    return;
+                }
+                if (!event.shiftKey && active === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+                return;
+            }
             if ((event.target as HTMLElement | null)?.closest?.("button, input, textarea, select")) return;
             if (event.key === "Escape") {
                 event.preventDefault();
+                if (settingsOpen) {
+                    setSettingsOpenKey("");
+                    return;
+                }
                 onCancel();
                 return;
             }
@@ -202,7 +374,7 @@ export function CinematicVisualNovelStage({
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [advance, onCancel]);
+    }, [advance, immersive, onCancel, settingsOpen]);
 
     const actorClass = (side: "left" | "right", actor: Actor) => [
         "cvn-actor",
@@ -221,6 +393,9 @@ export function CinematicVisualNovelStage({
         `focus-${presentation.focus}`,
         `transition-${presentation.transition}`,
         `impact-${presentation.impact}`,
+        `text-${textSize}`,
+        `contrast-${contrast}`,
+        eventId.toLowerCase().includes("moonshadow") ? "is-moonshadow" : "",
         reduced ? "is-reduced" : "",
         liteFx ? "is-lite" : "",
     ].filter(Boolean).join(" ");
@@ -241,7 +416,13 @@ export function CinematicVisualNovelStage({
             aria-modal={immersive ? "true" : undefined}
             aria-label={`${pageTitle} visual novel scene`}
             onPointerDown={(event) => {
-                if ((event.target as HTMLElement).closest("button, input, textarea, select, a")) return;
+                rootRef.current?.focus({ preventScroll: true });
+                const target = event.target as HTMLElement;
+                if (settingsOpen && !target.closest(".cvn-settings-wrap")) {
+                    setSettingsOpenKey("");
+                    return;
+                }
+                if (target.closest("button, input, textarea, select, a")) return;
                 advance();
             }}
         >
@@ -270,12 +451,8 @@ export function CinematicVisualNovelStage({
                     </span>
                     <button
                         type="button"
-                        className="cvn-quiet-control"
-                        onClick={() => {
-                            const next = nextTextSpeed(speed);
-                            setSpeed(next);
-                            try { window.localStorage.setItem("vnTextSpeed.v1", next); } catch { /* private mode */ }
-                        }}
+                        className="cvn-quiet-control cvn-desktop-setting"
+                        onClick={cycleTextSpeed}
                     >
                         {titleForSpeed(speed)}
                     </button>
@@ -288,9 +465,13 @@ export function CinematicVisualNovelStage({
                             const nextMuted = !muted;
                             setAudioMuted(nextMuted);
                             setMuted(nextMuted);
-                            if (nextMuted) stopVnAmbience(250);
+                            if (nextMuted) {
+                                stopVnAmbience(250);
+                                stopVnScore(250);
+                            }
                             else {
                                 startVnAmbience(presentation.ambience);
+                                startVnScore(scoreKey);
                                 fireCue();
                             }
                         }}
@@ -300,13 +481,65 @@ export function CinematicVisualNovelStage({
                     {onUseClassicReader && (
                         <button
                             type="button"
-                            className="cvn-quiet-control"
+                            className="cvn-quiet-control cvn-mode-control cvn-desktop-setting"
                             title="Use the lightweight classic visual-novel reader"
                             onClick={onUseClassicReader}
                         >
                             Classic
                         </button>
                     )}
+                    <div className="cvn-settings-wrap">
+                        <button
+                            type="button"
+                            className="cvn-icon-control cvn-settings-toggle"
+                            aria-label="Visual novel settings"
+                            aria-expanded={settingsOpen}
+                            aria-controls={settingsMenuId}
+                            onClick={() => {
+                                setSettingsOpenKey((openKey) => openKey === settingsKey ? "" : settingsKey);
+                            }}
+                        >
+                            <SettingsIcon />
+                        </button>
+                        {settingsOpen && (
+                            <div id={settingsMenuId} className="cvn-settings-menu" role="group" aria-label="Reading settings">
+                                <span className="cvn-settings-progress">
+                                    Page {pageIndex + 1}/{pageCount} · Line {lineIndex + 1}/{lineCount}
+                                </span>
+                                <button type="button" onClick={cycleTextSpeed}>
+                                    {titleForSpeed(speed)}
+                                </button>
+                                <button type="button" onClick={cycleTextSize}>
+                                    {titleForTextSize(textSize)}
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-pressed={contrast === "high"}
+                                    onClick={toggleContrast}
+                                >
+                                    Contrast: {contrast === "high" ? "High" : "Standard"}
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-pressed={autoRead}
+                                    onClick={toggleAutoRead}
+                                >
+                                    Auto-read: {autoRead ? "On" : "Off"}
+                                </button>
+                                {onUseClassicReader && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSettingsOpenKey("");
+                                            onUseClassicReader();
+                                        }}
+                                    >
+                                        Classic reader
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     <button type="button" className="cvn-skip" onClick={onCancel}>Skip</button>
                 </div>
             </header>
@@ -345,6 +578,16 @@ export function CinematicVisualNovelStage({
                 </p>
                 <div className="cvn-dialogue-footer">
                     {renderFooter(typingDone)}
+                    {autoRead && typingDone && allowStageAdvance && (
+                        <button
+                            type="button"
+                            className="cvn-auto-status"
+                            title="Turn auto-read off"
+                            onClick={toggleAutoRead}
+                        >
+                            Auto
+                        </button>
+                    )}
                     {!typingDone && <span className="cvn-tap-hint">Tap to reveal the line</span>}
                 </div>
             </section>
