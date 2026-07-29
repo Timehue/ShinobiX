@@ -182,15 +182,15 @@ export function Arena({
     sharedImages?: Record<string, string>;
     endlessBattleActive?: boolean;
     endlessBattleWave?: number;
-    onEndlessWin?: (wave: number, aiFightToken: string, vitals: { hp: number; chakra: number; stamina: number }) => void;
-    onEndlessBattleEnd?: () => void;
+    onEndlessWin?: (wave: number, aiFightToken: string, vitals: { hp: number; chakra: number; stamina: number }) => void | Promise<void>;
+    onEndlessBattleEnd?: () => void | Promise<void>;
     pendingStoryBattle?: PendingArenaStoryBattle | null;
     onPendingStoryBattleWin?: (survivingHp: number, aiFightToken?: string) => string | Promise<string>;
     onPendingStoryBattleContinue?: (
         result?: "win" | "loss" | "fled",
         survivingHp?: number,
     ) => void | Promise<void>;
-    onDungeonFail?: () => void;
+    onDungeonFail?: () => void | Promise<void>;
     onWeeklyBossLogDamage?: (damageDealt: number, damageEvents?: WeeklyBossDamageProofEvent[]) => void;
     onMissionRaidComplete?: (sector: number, battleId?: string) => void;
     onHuntBeastDefeated?: (defeatedAiId: string) => void;
@@ -888,6 +888,7 @@ export function Arena({
     // no reset is needed.
     const [logging, setLogging] = useState(false);
     const [storySettlementPending, setStorySettlementPending] = useState(false);
+    const [endlessSettlementPending, setEndlessSettlementPending] = useState(false);
     const weeklyBossDamageEventsRef = useRef<WeeklyBossDamageProofEvent[]>([]);
     function recordWeeklyBossDamage(amount: number, source: string) {
         if (!isWeeklyBossFight) return;
@@ -6476,15 +6477,18 @@ export function Arena({
                                 <button
                                     className="admin-button"
                                     style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
+                                    disabled={endlessSettlementPending}
                                     onClick={() => {
+                                        if (endlessSettlementPending) return;
+                                        setEndlessSettlementPending(true);
                                         const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
-                                        void tokenRequest.then((token) => {
+                                        void tokenRequest.then(async (token) => {
+                                            await onEndlessWin?.(endlessBattleWave, token, { hp: playerHp, chakra: character.chakra, stamina: character.stamina });
                                             aiFightTokenPromiseRef.current = null;
-                                            onEndlessWin?.(endlessBattleWave, token, { hp: playerHp, chakra: character.chakra, stamina: character.stamina });
-                                        });
+                                        }).catch(() => undefined).finally(() => setEndlessSettlementPending(false));
                                     }}
                                 >
-                                    <GiNextButton style={ARENA_ICON} />Next Wave
+                                    <GiNextButton style={ARENA_ICON} />{endlessSettlementPending ? "Verifying..." : "Next Wave"}
                                 </button>
                             </>
                         ) : endlessBattleActive && battleResult === "loss" ? (
@@ -6498,10 +6502,31 @@ export function Arena({
                                     You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated.
                                 </p>
                                 <div className="menu">
-                                    <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { onEndlessBattleEnd?.(); setScreen("hospital"); }}>
-                                        <GiFirstAidKit style={ARENA_ICON} />Go to Hospital
+                                    <button
+                                        style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
+                                        disabled={endlessSettlementPending}
+                                        onClick={() => {
+                                            if (endlessSettlementPending) return;
+                                            setEndlessSettlementPending(true);
+                                            void Promise.resolve(onEndlessBattleEnd?.())
+                                                .then(() => setScreen("hospital"))
+                                                .catch(() => undefined)
+                                                .finally(() => setEndlessSettlementPending(false));
+                                        }}
+                                    >
+                                        <GiFirstAidKit style={ARENA_ICON} />{endlessSettlementPending ? "Settling..." : "Go to Hospital"}
                                     </button>
-                                    <button onClick={() => { onEndlessBattleEnd?.(); setScreen("centralHub"); }}>
+                                    <button
+                                        disabled={endlessSettlementPending}
+                                        onClick={() => {
+                                            if (endlessSettlementPending) return;
+                                            setEndlessSettlementPending(true);
+                                            void Promise.resolve(onEndlessBattleEnd?.())
+                                                .then(() => setScreen("centralHub"))
+                                                .catch(() => undefined)
+                                                .finally(() => setEndlessSettlementPending(false));
+                                        }}
+                                    >
                                         Return to Central
                                     </button>
                                 </div>
@@ -6541,8 +6566,18 @@ export function Arena({
                                         <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             Your Dungeon Key was consumed by the failed run. You return to your village empty-handed.
                                         </p>
-                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => onDungeonFail?.()}>
-                                            <GiVillage style={ARENA_ICON} />Return to Village
+                                        <button
+                                            style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
+                                            disabled={storySettlementPending}
+                                            onClick={() => {
+                                                if (storySettlementPending) return;
+                                                setStorySettlementPending(true);
+                                                void Promise.resolve(onDungeonFail?.())
+                                                    .catch(() => undefined)
+                                                    .finally(() => setStorySettlementPending(false));
+                                            }}
+                                        >
+                                            <GiVillage style={ARENA_ICON} />{storySettlementPending ? "Closing Run..." : "Return to Village"}
                                         </button>
                                     </>
                                 ) : battleResult === "loss" && pendingStoryBattle?.kind === "hollowGateShrine" ? (

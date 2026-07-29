@@ -77,6 +77,17 @@
     -webkit-backdrop-filter: blur(3px);
     animation: db-fade 0.18s ease-out;
 }
+
+.ui-modal-card.daily-briefing-modal-shell {
+    width: min(96vw, 960px);
+    max-width: 960px;
+    max-height: 94vh;
+    padding: 0;
+    overflow: auto;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
 @keyframes db-fade { from { opacity: 0; } to { opacity: 1; } }
 
 .daily-briefing-card {
