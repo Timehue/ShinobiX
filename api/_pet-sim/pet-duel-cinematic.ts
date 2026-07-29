@@ -52,7 +52,7 @@ import {
 import {
     DUEL_TPS, ARENA_X, ARENA_Y, elementMult, terrainPetMult, KIND_ACCURACY,
     type DuelResult, type DuelSnapshot, type DuelActorSnap, type DuelProjSnap,
-    type DuelEvent, type DuelState, type DuelAiState,
+    type DuelEvent, type DuelState, type DuelAiState, type DuelPerfectRole,
 } from "./pet-duel-sim.js";
 
 // ── Tunables (own copies; balance numbers mirror the shipped engine so outcomes
@@ -82,11 +82,11 @@ const STAM_REGEN = 22 / DUEL_TPS;
 const COST_BASIC = 12;
 const COST_DODGE = 20;
 /** Live-only tactical resource. A full meter buys one guaranteed technique call. */
-export const DUEL_COMMAND_FULL = 300;
-const DUEL_COMMAND_START = 75;
-const DUEL_COMMAND_HIT_GAIN = 38;
-const DUEL_COMMAND_HURT_GAIN = 22;
-const DUEL_COMMAND_DODGE_GAIN = 52;
+export const DUEL_COMMAND_FULL = 420;
+const DUEL_COMMAND_START = 60;
+const DUEL_COMMAND_HIT_GAIN = 45;
+const DUEL_COMMAND_HURT_GAIN = 26;
+const DUEL_COMMAND_DODGE_GAIN = 65;
 const CRIT_CHANCE = 0.12;
 const DMG_SCALE = 1.5;
 const TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 1.4);
@@ -390,6 +390,14 @@ interface Ability {
     castTicks: number; cdTicks: number; cdLeft: number; cost: number;
     isMove: boolean;   // a kind:"move" ability (Dash/Rush/Lunge) — a REPOSITION, never an attack (see decide())
 }
+const COUNTER_KINDS = new Set<PetJutsu["kind"]>(["stun", "freeze", "confuse", "movelock", "slow", "debuff", "crush", "push", "pull", "mark", "taunt"]);
+export function duelPerfectRoleForMove(move: Pick<PetJutsu, "kind">): DuelPerfectRole {
+    if (move.kind === "move") return "shift";
+    if (abilityClass(move.kind) === "support") return "rally";
+    if (COUNTER_KINDS.has(move.kind)) return "counter";
+    return "punish";
+}
+
 function buildAbility(j: PetJutsu): Ability {
     const cls = abilityClass(j.kind);
     const base = Math.max(Math.round(DUEL_TPS * 0.8), Math.round((j.cooldown || 0) * 1.2 * DUEL_TPS));
@@ -564,6 +572,9 @@ interface Fighter {
     cmdLeft: number;                        // ticks the order stays queued before it lapses
     cmdBreak: boolean;                      // Bond Break pending — unleash the signature now
     cmdTechnique: boolean;                  // earned command-window call; owns the next combat beat
+    perfectRole: DuelPerfectRole | null;    // authoritative payoff carried from the call to contact
+    perfectEvadeLeft: number;               // Shift's brief invulnerable reposition window
+    perfectDamageBoost: boolean;            // Shift empowers the next landed attack
     commandCharge: number;                  // 0..DUEL_COMMAND_FULL, live path only
     stance: number;                         // 0 aggressive · 1 balanced · 2 guarded
 }
@@ -710,12 +721,13 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         lungeAbIdx: -2, lungeTgtId: null, lungeStuck: 0,
         // Player control defaults OFF — every existing caller gets the shipped AI.
         controlled: false, cmdIdx: -2, cmdLeft: 0, cmdBreak: false,
-        cmdTechnique: false, commandCharge: DUEL_COMMAND_START, stance: 1,
+        cmdTechnique: false, perfectRole: null, perfectEvadeLeft: 0, perfectDamageBoost: false,
+        commandCharge: DUEL_COMMAND_START, stance: 1,
     };
 }
 
 // ── Projectiles ─────────────────────────────────────────────────────────────────
-interface Projectile { id: number; ownerId: string; team: "player" | "enemy"; targetId: string; abilityIdx: number; x: number; y: number; speed: number; ttl: number; element?: string | null; kind: PetJutsu["kind"]; }
+interface Projectile { id: number; ownerId: string; team: "player" | "enemy"; targetId: string; abilityIdx: number; x: number; y: number; speed: number; ttl: number; element?: string | null; kind: PetJutsu["kind"]; perfectRole?: DuelPerfectRole; }
 
 // ── Targeting ────────────────────────────────────────────────────────────────────
 function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
@@ -801,10 +813,15 @@ function elementalPayoff(att: Fighter, tgt: Fighter): { mult: number; combo?: st
     return { mult: 1 };
 }
 
-function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => number, t: number, events: DuelEvent[], viaProjectile: boolean) {
+function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => number, t: number, events: DuelEvent[], viaProjectile: boolean, perfectRole?: DuelPerfectRole) {
     if (tgt.hp <= 0) return;
-    const crit = rng() < att.critChance;
-    if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id }); return; }
+    const critRoll = rng();
+    const crit = perfectRole === "punish" || critRoll < att.critChance;
+    if (tgt.perfectEvadeLeft > 0) {
+        events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id, targetId: att.id, perfect: "shift", verdict: "PHASE SHIFT" });
+        return;
+    }
+    if (!perfectRole && tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id }); return; }
     const powerScale = ab ? ab.power / 100 : 1;
     const buff = att.statuses.buffLeft > 0 ? 1 + att.statuses.buffMag : 1;
     const matchup = elementMult(att.element, tgt.element);
@@ -812,6 +829,8 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     // harder and its clean openings matter, while resisted hits feel resisted.
     const matchupRead = matchup > 1 ? 1.45 : matchup < 1 ? 0.55 : 1;
     let mult = matchup * matchupRead * (crit ? 1.6 : 1) * Math.max(0.3, buff);
+    if (perfectRole === "punish") mult *= 1.12;
+    if (att.perfectDamageBoost) mult *= 1.2;
     const elemental = elementalPayoff(att, tgt);
     mult *= elemental.mult;
     if (att.statuses.wallPenaltyLeft > 0) mult *= 0.5;   // barrier caster's OFFENSE halved while its wall stands (the visible cost)
@@ -830,8 +849,20 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }
     tgt.hp -= dmg;
     att.supportCastLocked = false;
-    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile, move: ab ? ab.name : undefined, signature: ab ? ab.signature : undefined, combo: elemental.combo });
+    const verdict = perfectRole === "punish" ? "GUARD BROKEN" : perfectRole === "counter" ? "ACTION BROKEN" : undefined;
+    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile, move: ab ? ab.name : undefined, signature: ab ? ab.signature : undefined, combo: elemental.combo, perfect: perfectRole, verdict });
+    if (att.perfectDamageBoost) att.perfectDamageBoost = false;
     if (ab) applyOnHit(att, tgt, ab);
+    if (perfectRole === "punish") {
+        tgt.statuses.buffLeft = Math.max(tgt.statuses.buffLeft, Math.round(DUEL_TPS * 2));
+        tgt.statuses.buffMag = Math.min(tgt.statuses.buffMag, -0.18);
+    } else if (perfectRole === "counter") {
+        clearLunge(tgt);
+        tgt.pendingIdx = -2; tgt.pendingTargetId = null;
+        tgt.vx = 0; tgt.vy = 0;
+        tgt.statuses.stunLeft = Math.max(tgt.statuses.stunLeft, Math.round(DUEL_TPS * 0.7));
+        tgt.state = "stagger"; tgt.stateLeft = Math.max(tgt.stateLeft, Math.round(DUEL_TPS * 0.7));
+    }
     if (ab && ab.kind === "lifesteal" && att.hp > 0) att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
     if (dmg > 0) {
         if (tgt.itemsOn && tgt.cThornsPct > 0 && att.hp > 0) {
@@ -939,9 +970,9 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
     f.pendingIdx = idx; f.pendingTargetId = targetId;
     f.state = "windup"; f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
     f.vx = 0; f.vy = 0;
-    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name, targetId });
-    else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });
-    else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage", move: idx >= 0 ? f.abilities[idx].name : undefined, targetId });
+    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name, targetId, perfect: f.perfectRole ?? undefined });
+    else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name, perfect: f.perfectRole ?? undefined });
+    else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage", move: idx >= 0 ? f.abilities[idx].name : undefined, targetId, perfect: f.perfectRole ?? undefined });
 }
 function payAbilityCost(f: Fighter, ab: Ability | null) {
     if (ab) { ab.cdLeft = ab.cdTicks; f.stamina -= ab.cost; } else { f.basicCdLeft = f.basicCdT; f.stamina -= COST_BASIC; }
@@ -1107,7 +1138,8 @@ function resolveMeleeContact(f: Fighter, ab: Ability | null, tgtId: string | nul
     // localStorage) accuracy flag — else toggling the flag shifts the whole rng stream
     // and the same (pets, seed) diverges across clients. Basics (ab null) never roll.
     const accRoll = ab ? rng() : 1;
-    if (accuracyEnabled && ab && accRoll >= ab.accuracy / 100) { events.push({ t, type: "whiff", side: f.team, actorId: f.id }); return; }
+    const perfectRole = f.perfectRole ?? undefined;
+    if (!perfectRole && accuracyEnabled && ab && accRoll >= ab.accuracy / 100) { events.push({ t, type: "whiff", side: f.team, actorId: f.id }); return; }
     const primary = fighters.find((g) => g.id === tgtId);
     const hitList = ab && ab.aoe ? fighters.filter((g) => g.team !== f.team && g.hp > 0) : primary ? [primary] : [];
     let landed = false;
@@ -1116,8 +1148,9 @@ function resolveMeleeContact(f: Fighter, ab: Ability | null, tgtId: string | nul
         const d = Math.sqrt(dx * dx + dy * dy);
         const facingOK = f.faceX * dx + f.faceY * dy > 0;
         const range = ab ? ab.range : f.reach + 0.35;
-        if (tgt.hp > 0 && d <= range + 0.5 + slack && facingOK) { applyDamage(f, tgt, ab, rng, t, events, false); landed = true; }
+        if (tgt.hp > 0 && (perfectRole || (d <= range + 0.5 + slack && facingOK))) { applyDamage(f, tgt, ab, rng, t, events, false, perfectRole); landed = true; }
     }
+    if (landed && perfectRole) f.perfectRole = null;
     if (!landed) events.push({ t, type: "whiff", side: f.team, actorId: f.id });
 }
 // Only called for RANGED / SUPPORT now — melee goes through the lunge (see stepFighter).
@@ -1125,13 +1158,30 @@ function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
     const idx = f.pendingIdx;
     const ab = idx >= 0 ? f.abilities[idx] : null;
     payAbilityCost(f, ab);
-    if (ab && ab.cls === "support") { castSupport(f, ab, fighters, t, events); return; }
+    if (ab && ab.cls === "support") {
+        castSupport(f, ab, fighters, t, events);
+        if (f.perfectRole === "rally") {
+            const beneficiary = pickAlly(f, fighters);
+            const s = beneficiary.statuses;
+            s.burnLeft = 0; s.burnDmg = 0; s.halfHeal = false;
+            s.stunLeft = 0; s.slowLeft = 0; s.rootLeft = 0;
+            s.marked = false; s.tauntById = null;
+            if (s.buffMag < 0) { s.buffLeft = 0; s.buffMag = 0; }
+            const aegis = Math.max(1, Math.round(beneficiary.maxHp * 0.12));
+            s.shieldHp = quant(s.shieldHp + aegis);
+            events.push({ t, type: "shield", side: f.team, actorId: f.id, targetId: beneficiary.id, dmg: aegis, perfect: "rally", verdict: "CLEANSE + AEGIS" });
+            f.perfectRole = null;
+        }
+        return;
+    }
     const accRoll = ab ? rng() : 1;   // always draw for abilities → rng stream is accuracy-flag-independent (see resolveMeleeContact)
-    if (accuracyEnabled && ab && accRoll >= ab.accuracy / 100) { events.push({ t, type: "whiff", side: f.team, actorId: f.id }); return; }
+    const perfectRole = f.perfectRole ?? undefined;
+    if (!perfectRole && accuracyEnabled && ab && accRoll >= ab.accuracy / 100) { events.push({ t, type: "whiff", side: f.team, actorId: f.id }); return; }
     if (ab && ab.cls === "ranged") {
         const targets = ab.aoe ? fighters.filter((g) => g.team !== f.team && g.hp > 0) : [fighters.find((g) => g.id === f.pendingTargetId && g.hp > 0)].filter(Boolean) as Fighter[];
-        for (const tgt of targets) projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: idx, x: f.x, y: f.y, speed: 0.56, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: ab.kind });
-        events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind, move: ab.name });
+        for (const tgt of targets) projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: idx, x: f.x, y: f.y, speed: perfectRole ? 0.72 : 0.56, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: ab.kind, perfectRole });
+        events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind, move: ab.name, perfect: perfectRole });
+        if (perfectRole) f.perfectRole = null;
         return;
     }
     if (!ab && f.basicRanged) {
@@ -1154,17 +1204,17 @@ function stepProjectiles(fighters: Fighter[], projectiles: Projectile[], rng: ()
             // A pet mid-DODGE can slip an incoming projectile too (not just melee) — a
             // fast evader weaves through the shot. Speed-gated; keeps ranged from being
             // un-missable vs mobile foes. Deterministic (state + positions, no flag).
-            if (tgt.state === "dodge" && d <= 2.0) {
+            if (!p.perfectRole && tgt.state === "dodge" && d <= 2.0) {
                 const ev = clamp(0.10 + (tgt.spd - owner.spd) * 0.0020, 0, 0.6);
                 if (rng() < ev) { events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id }); projectiles.splice(i, 1); continue; }
             }
-            if (d <= 0.7) { const ab = owner.abilities[p.abilityIdx] ?? null; applyDamage(owner, tgt, ab, rng, t, events, true); projectiles.splice(i, 1); continue; }
+            if (d <= 0.7) { const ab = owner.abilities[p.abilityIdx] ?? null; applyDamage(owner, tgt, ab, rng, t, events, true, p.perfectRole); projectiles.splice(i, 1); continue; }
             if (d > 1e-6) {
                 const nextX = p.x + (dx / d) * p.speed, nextY = p.y + (dy / d) * p.speed;
                 // A target that reaches cover after the shot was fired can still break
                 // the homing line. The projectile visibly dies on the prop instead of
                 // ghosting through it and invalidating the tactical retreat.
-                if (arenaCoverAt(nextX, nextY, 0.12)) {
+                if (!p.perfectRole && arenaCoverAt(nextX, nextY, 0.12)) {
                     events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id, targetId: owner.id, move: "Cover" });
                     projectiles.splice(i, 1);
                     continue;
@@ -1448,6 +1498,7 @@ function maneuverName(f: Fighter): string {
 }
 function beginManeuver(f: Fighter, e: Fighter, idx: number, t: number, events: DuelEvent[]) {
     const ab = f.abilities[idx];
+    const perfectShift = f.perfectRole === "shift";
     if (!f.routeActive || Math.hypot(f.routeX - f.x, f.routeY - f.y) < 3.2) assignArenaDestination(f, e);
     const dx = f.routeX - f.x, dy = f.routeY - f.y;
     const d = Math.max(1e-4, Math.hypot(dx, dy));
@@ -1476,12 +1527,18 @@ function beginManeuver(f: Fighter, e: Fighter, idx: number, t: number, events: D
     f.vx = 0; f.vy = 0;
     // A movement skill is a short anime range-shift, not a second walk cycle.
     // It covers a meaningful pocket, pivots, and returns control quickly.
-    f.maneuverTotal = clamp(Math.round(d / Math.max(1e-4, f.maxSpeed * 2.55)), Math.round(DUEL_TPS * 0.34), Math.round(DUEL_TPS * 0.6));
+    f.maneuverTotal = clamp(Math.round(d / Math.max(1e-4, f.maxSpeed * (perfectShift ? 3.25 : 2.55))), Math.round(DUEL_TPS * 0.34), Math.round(DUEL_TPS * 0.6));
     f.maneuverLeft = f.maneuverTotal;
     f.reposManeuverUsed = true;
     f.reposLeft = 0;
     f.commit = 0;
-    events.push({ t, type: "maneuver", side: f.team, actorId: f.id, targetId: e.id, kind: "move", move: ab.name || maneuverName(f) });
+    if (perfectShift) {
+        f.perfectEvadeLeft = Math.max(f.perfectEvadeLeft, Math.round(DUEL_TPS * 0.8));
+        f.perfectDamageBoost = true;
+    }
+    events.push({ t, type: "maneuver", side: f.team, actorId: f.id, targetId: e.id, kind: "move", move: ab.name || maneuverName(f), perfect: perfectShift ? "shift" : undefined, verdict: perfectShift ? "PHASE SHIFT" : undefined });
+    if (f.controlled && f.cmdIdx === idx) { f.cmdIdx = -2; f.cmdLeft = 0; f.cmdTechnique = false; }
+    if (perfectShift) f.perfectRole = null;
 }
 function beginEngageManeuver(f: Fighter, e: Fighter, idx: number, desiredRange: number, t: number, events: DuelEvent[]): boolean {
     const dx = e.x - f.x, dy = e.y - f.y;
@@ -1963,12 +2020,14 @@ function tickStatuses(f: Fighter): number {
     if (s.rootLeft > 0) s.rootLeft--;
     if (s.wallPenaltyLeft > 0) s.wallPenaltyLeft--;
     if (s.buffLeft > 0 && --s.buffLeft <= 0) s.buffMag = 0;
+    if (f.perfectEvadeLeft > 0) f.perfectEvadeLeft--;
     // A player order lapses if the pet never gets a window to use it, so an
     // unreachable or permanently-blocked command can't freeze it out of its own AI.
     // A pending Bond Break is exempt: the meter was already spent on it.
     if (f.controlled && f.cmdLeft > 0 && --f.cmdLeft <= 0) {
         f.cmdIdx = -2;
         f.cmdTechnique = false;
+        f.perfectRole = null;
     }
     return dot;
 }
@@ -2051,7 +2110,9 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                         // kiter's stray melee slips), PLUS a speed floor: a pet clearly faster
                         // than its prey corrects onto it so its commitment isn't wasted vs a
                         // walker — but a real dodge (a fast perpendicular hop) still slips it.
-                        const trackEff = clamp(f.style.lungeTrack + (f.spd - tgt.spd) * 0.0015, f.style.lungeTrack, 0.34);
+                        const trackEff = f.perfectRole
+                            ? 0.72
+                            : clamp(f.style.lungeTrack + (f.spd - tgt.spd) * 0.0015, f.style.lungeTrack, 0.34);
                         const mx = f.moveDx * (1 - trackEff) + (ddx / dd) * trackEff;
                         const my = f.moveDy * (1 - trackEff) + (ddy / dd) * trackEff;
                         const ml = Math.max(1e-4, Math.sqrt(mx * mx + my * my));
@@ -2063,7 +2124,7 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                         // (see the CLASH block near the top of this file). The rng draw sits
                         // behind the `f.brawl` short-circuit, so the authoritative stream is
                         // never touched by its presence.
-                        if (f.brawl && _clashOn && !_clash && _clashCount < CLASH_MAX_PER_DUEL
+                        if (!f.perfectRole && f.brawl && _clashOn && !_clash && _clashCount < CLASH_MAX_PER_DUEL
                             && t >= CLASH_MIN_TICK && t - _lastClashTick >= CLASH_COOLDOWN
                             && f.hp / f.maxHp > CLASH_MIN_HP && tgt.hp / tgt.maxHp > CLASH_MIN_HP
                             && tgt.statuses.stunLeft <= 0 && tgt.state !== "dead"
@@ -2110,7 +2171,7 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                     // whole timer into a phantom whiff + long recovery (terrain, not a dodge).
                     const bt = f.lungeTgtId ? fighters.find((g) => g.id === f.lungeTgtId && g.hp > 0) : null;
                     const bd = bt ? Math.sqrt((bt.x - f.x) * (bt.x - f.x) + (bt.y - f.y) * (bt.y - f.y)) : 1e9;
-                    if (bt && bd <= (ab ? ab.range : f.reach) + 0.45) { resolveMeleeContact(f, ab, f.lungeTgtId, fighters, rng, t, events, accuracyEnabled); clearLunge(f); f.state = "strike"; f.stateLeft = 2; }
+                    if (bt && (f.perfectRole || bd <= (ab ? ab.range : f.reach) + 0.45)) { resolveMeleeContact(f, ab, f.lungeTgtId, fighters, rng, t, events, accuracyEnabled); clearLunge(f); f.state = "strike"; f.stateLeft = 2; }
                     else { clearLunge(f); f.state = "recover"; f.stateLeft = Math.max(1, f.recovT); }   // short recover — no dodge happened
                     break;
                 }
@@ -2124,6 +2185,11 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                     // and did NOT slip it, the dive connects as a grazing blow instead.
                     // Gated on `brawl`, so every authoritative caller keeps the strict test.
                     const expTgt = f.lungeTgtId ? fighters.find((g) => g.id === f.lungeTgtId && g.hp > 0) : null;
+                    if (f.perfectRole && expTgt) {
+                        resolveMeleeContact(f, ab, f.lungeTgtId, fighters, rng, t, events, accuracyEnabled);
+                        clearLunge(f); f.state = "strike"; f.stateLeft = 2;
+                        break;
+                    }
                     if (f.brawl && expTgt && expTgt.state !== "dodge") {
                         const gx = expTgt.x - f.x, gy = expTgt.y - f.y;
                         const gd = Math.sqrt(gx * gx + gy * gy);
@@ -2171,7 +2237,7 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                 if (target && distance <= contact) {
                     resolveMeleeContact(f, wab, f.pendingTargetId, fighters, rng, t, events, accuracyEnabled);
                     f.state = "strike"; f.stateLeft = 2;
-                } else if (target && distance <= f.style.lungeInit + contact) {
+                } else if (target && (f.perfectRole || distance <= f.style.lungeInit + contact)) {
                     // The pet already earned an attack pocket before winding up. If
                     // the defender slips backward during the tell, finish with one
                     // short committed pounce. This is part of the strike—not the old
@@ -2180,7 +2246,9 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                     f.moveDx = dx / len; f.moveDy = dy / len;
                     f.faceX = f.moveDx; f.faceY = f.moveDy;
                     f.lungeAbIdx = f.pendingIdx; f.lungeTgtId = f.pendingTargetId;
-                    f.lungeStuck = 0; f.state = "dash"; f.stateLeft = f.style.lungeTicks;
+                    f.lungeStuck = 0; f.state = "dash";
+                    const perfectTravel = Math.ceil(distance / Math.max(1e-4, f.maxSpeed * f.style.lungeMult)) + 4;
+                    f.stateLeft = f.perfectRole ? Math.max(f.style.lungeTicks, perfectTravel) : f.style.lungeTicks;
                 } else {
                     events.push({ t, type: "whiff", side: f.team, actorId: f.id, move: wab?.name });
                     f.state = "recover"; f.stateLeft = Math.max(1, f.recovT);
@@ -2192,7 +2260,7 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                         .sort((a, b) => Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(b.x - f.x, b.y - f.y))[0]
                     : null;
                 const enemyGap = nearestEnemy ? Math.hypot(nearestEnemy.x - f.x, nearestEnemy.y - f.y) : Infinity;
-                if (supportCast && nearestEnemy && enemyGap < SUPPORT_CAST_CLEARANCE - 0.35) {
+                if (supportCast && !f.perfectRole && nearestEnemy && enemyGap < SUPPORT_CAST_CLEARANCE - 0.35) {
                     // The cast began in a safe pocket, but the opponent invaded the
                     // tell before payoff. Abort without spending the move and turn
                     // that pressure into another readable disengage instead of a
@@ -2789,6 +2857,7 @@ export function applyDuelCommand(sim: CinematicDuelState, cmd: DuelCommand): boo
             f.cmdIdx = cmd.idx;
             f.cmdLeft = Math.round(DUEL_TPS * 1.5);
             f.cmdTechnique = true;
+            f.perfectRole = duelPerfectRoleForMove(ab);
             f.commandCharge = 0;
             return true;
         }
@@ -2804,7 +2873,7 @@ export function applyDuelCommand(sim: CinematicDuelState, cmd: DuelCommand): boo
             // "Auto" hands the fight back to the AI mid-duel: clear any standing
             // order so the brain is not still executing the last command.
             f.controlled = !cmd.on;
-            f.cmdIdx = -2; f.cmdLeft = 0; f.cmdBreak = false; f.cmdTechnique = false;
+            f.cmdIdx = -2; f.cmdLeft = 0; f.cmdBreak = false; f.cmdTechnique = false; f.perfectRole = null;
             return true;
         case "clash": {
             // Only accepted while this fighter is actually bound, and only once —
