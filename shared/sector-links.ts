@@ -51,43 +51,59 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 50, x: 50, y: 59 }, { id: 51, x: 61, y: 45 },
     // Festival Grounds (52-54) — the southern desert outpost
     { id: 52, x: 57, y: 88 }, { id: 53, x: 33, y: 80 }, { id: 54, x: 47, y: 86 },
-    // The Hollow Road (55-57) — the pilgrim road to the obelisk. 57 (Hollow
-    // Temple) is the gate itself and is deliberately OFF the road graph below.
+    // The Hollow Road (55-57) — the pilgrim road past the obelisk. 57 sits
+    // beside the shrine so the Hollow Gate landmark crest can own it visually.
     { id: 55, x: 59, y: 60 }, { id: 56, x: 57, y: 72 }, { id: 57, x: 67, y: 61 },
     // The Lavafront (58-60) + Death's Gate (99) — the northern ash and the cone
     { id: 58, x: 43, y: 21 }, { id: 59, x: 57, y: 26 }, { id: 60, x: 52, y: 14 },
     { id: 99, x: 47, y: 8 },
+    // The 2026-07-29 expansion (61-66) — sited on the emptiest LAND on the
+    // keyart (verified against the art's own pixels, so none of them sits in
+    // the sea) and kept clear of the existing pins and the POI plaques.
+    { id: 61, x: 16, y: 45 },   // Westfurrow Fields  — west farmland
+    { id: 62, x: 10, y: 52 },   // Greycliff Landing  — west coast road
+    { id: 63, x: 67, y: 92 },   // Tallgrass Bend     — south of the outpost
+    { id: 64, x: 65, y: 74 },   // Lantern Vigil      — off the pilgrim road
+    { id: 65, x: 92, y: 44 },   // Eastwind Cirque    — the far eastern snows
+    { id: 66, x: 62, y: 8 },    // Emberspine Ridge   — deep in the ash
 ];
 
 // Frozen geographic roads — the same 82 place-to-place roads as before the
 // renumbering (remapped id-for-id), plus the Upper Terraces ↔ Canal Heart
-// link (3-8) that closed Stormveil's one internal gap, MINUS the four roads
-// that used to run to the Hollow Temple (see below). Every walkable sector has
-// 2-5 connections and the walkable graph is connected.
+// link (3-8) that closed Stormveil's one internal gap. Every walkable sector
+// has 2-5 connections and the walkable graph is connected.
 //
-// TWO sectors are deliberately OFF this graph and are reachable only by map
-// travel (never by walking an edge) — see NON_WALKABLE_SECTORS:
-//   * 99 Death's Gate  — the PvP arena, special since launch.
-//   * 57 Hollow Temple — the Hollow Gate itself (owner ruling 2026-07-29:
-//     "treat the hollow gate like the pvp zone, you can't just normal travel
-//     to it"). Its approach road survives — 55 Waymarker Road and 56 Pilgrim's
-//     Approach still walk right up to it, and 56 still holds the Hollow Warden
-//     Shrine — but the last step onto the temple is gated, so the roads
-//     25-57 / 52-57 / 55-57 / 56-57 were removed.
+// NOTE (2026-07-29): sector 57 Hollow Temple was briefly taken off this graph
+// on the assumption that it WAS the Hollow Gate POI. It isn't — the Hollow Gate
+// is a landmark crest that opens the rift menu (already key-gated) and never
+// travels to a sector, while 57 is an ordinary wild sector on the pilgrim road.
+// Its four roads were restored.
 export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     [1, 7], [1, 8], [2, 3], [2, 8], [3, 4], [3, 8], [4, 40], [5, 6], [5, 53], [6, 8], [7, 8],
     [9, 10], [9, 15], [10, 11], [11, 12], [11, 15], [12, 13], [13, 14], [14, 15], [14, 16], [14, 36],
     [16, 38], [17, 23], [17, 24], [17, 25], [18, 19], [18, 23], [18, 43], [19, 20], [20, 21], [21, 22],
-    [21, 24], [22, 24], [23, 25], [25, 52], [26, 31], [26, 33], [26, 35], [27, 31], [27, 32], [28, 29],
+    [21, 24], [22, 24], [23, 25], [25, 52], [25, 57], [26, 31], [26, 33], [26, 35], [27, 31], [27, 32], [28, 29],
     [28, 30], [29, 30], [29, 32], [30, 32], [33, 35], [33, 60], [34, 35], [34, 44], [35, 59], [36, 37],
     [36, 38], [37, 58], [38, 39], [39, 40], [39, 47], [40, 41], [41, 42], [42, 45], [42, 50], [43, 49],
     [43, 51], [43, 55], [44, 51], [45, 53], [45, 54], [46, 47], [46, 48], [46, 51], [47, 48], [48, 49],
-    [48, 50], [49, 50], [49, 51], [50, 55], [52, 56], [54, 56], [58, 59],
+    [48, 50], [49, 50], [49, 51], [50, 55], [52, 56], [52, 57], [54, 56], [55, 57], [56, 57], [58, 59],
     [58, 60],
+    // The 2026-07-29 expansion — each new sector joins the network by two roads
+    // to its nearest established neighbours, so it is reachable on foot and has
+    // the minimum degree of 2. No existing road was touched.
+    [16, 61], [40, 61],   // Westfurrow Fields — the deepwood edge and the terraces
+    [61, 62], [2, 62],    // Greycliff Landing — the farmland and the north docks
+    [52, 63], [25, 63],   // Tallgrass Bend    — the festival basin and Fallswood
+    [56, 64], [23, 64],   // Lantern Vigil     — the pilgrim road and Moongrotto
+    [27, 65], [31, 65],   // Eastwind Cirque   — the glacier shelves
+    [60, 66], [33, 66],   // Emberspine Ridge  — the forecourt and Cinderfrost
 ];
 
-/** Sectors that exist on the map but carry no roads: map travel only. */
-export const NON_WALKABLE_SECTORS: readonly number[] = [57, 99];
+/**
+ * Sectors that exist on the map but carry no roads: reachable by map travel
+ * only, never by walking an edge. Death's Gate is the PvP arena.
+ */
+export const NON_WALKABLE_SECTORS: readonly number[] = [99];
 
 const GRID_WIDTH = 12;
 const POINT_BY_ID = new Map(SECTOR_POINTS.map((point) => [point.id, point]));

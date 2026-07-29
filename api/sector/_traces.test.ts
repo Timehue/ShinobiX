@@ -15,6 +15,7 @@ import {
     type TrailSign,
 } from './_traces.js';
 import { shrineForSector, shrineById, shrineTier, SHRINE_DEFS, SHRINE_TIERS } from '../../shared/shrines.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 const NOW = 1_752_600_000_000; // 2025-07-15T18:40Z-ish, fixed for determinism
 
@@ -77,9 +78,9 @@ describe('sector traces — footfall + sector guard', () => {
         assert.equal(footfallKey(42, Date.UTC(2026, 6, 16, 12)), 'world:footfall:42:2026-07-16');
     });
 
-    it('trace sectors are the wild 1-60 only', () => {
-        assert.ok(isTraceSector(1) && isTraceSector(60));
-        for (const bad of [0, 61, 99, -3, 4.5, NaN, 'x', null]) assert.ok(!isTraceSector(bad), `${String(bad)} should be rejected`);
+    it('trace sectors are the wild sectors only', () => {
+        assert.ok(isTraceSector(1) && isTraceSector(60) && isTraceSector(MAX_WILD_SECTOR));
+        for (const bad of [0, MAX_WILD_SECTOR + 1, 99, -3, 4.5, NaN, 'x', null]) assert.ok(!isTraceSector(bad), `${String(bad)} should be rejected`);
     });
 });
 

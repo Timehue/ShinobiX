@@ -1,4 +1,5 @@
 import { biomeForWorldSector, worldSectorOptions } from "../data/sectors";
+import { isWildSector, FESTIVAL_SECTOR } from "../../../shared/sector-geo";
 import type { CreatorMission } from "../types/missions";
 
 export function huntRequiredTracks(mission: Pick<CreatorMission, "exploreCount">): number {
@@ -26,7 +27,10 @@ function trailCandidates(targetSector: number): number[] {
     const target = cleanSector(targetSector);
     const biome = biomeForWorldSector(target);
     const sameBiome = worldSectorOptions
-        .filter((sector) => sector >= 1 && sector <= 60 && sector !== 35)
+        // Skip the festival sector — it is an event stage, not huntable ground.
+        // (This used to read `!== 35`, the festival's PRE-renumbering id, which
+        // has meant "Glacier Bridge" since the 2026-07 reorg.)
+        .filter((sector) => isWildSector(sector) && sector !== FESTIVAL_SECTOR)
         .filter((sector) => sector !== target && biomeForWorldSector(sector) === biome)
         .sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
     return sameBiome.length > 0 ? sameBiome : [target];

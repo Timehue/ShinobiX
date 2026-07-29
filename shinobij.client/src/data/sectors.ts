@@ -20,12 +20,13 @@
 
 import type { Biome } from "../types/core";
 import { biomeWeatherTables } from "./world";
-import { sectorBiomeOf, sectorRegionLabel, VILLAGE_OUTSKIRTS } from "../../../shared/sector-geo";
+import { sectorBiomeOf, sectorRegionLabel, VILLAGE_OUTSKIRTS, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 
 export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
 
-// 60 standard sectors plus sector 99 (the special lava arena slot).
-export const worldSectorOptions = [...Array.from({ length: 60 }, (_, index) => index + 1), 99];
+// Every standard sector plus sector 99 (the special lava arena slot). The count
+// lives in shared/sector-geo.ts so adding a sector reaches every consumer.
+export const worldSectorOptions = [...WILD_SECTOR_IDS, 99];
 
 /** Default weather for a biome — first entry of its rotation table. */
 export function weatherForBiome(biome: Biome) {
