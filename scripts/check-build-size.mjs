@@ -157,7 +157,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Local product code measures 7,061,952 B. The Arena and Pet Coliseum remain
 // lazy; the unchanged startup gates stay green at 1.34 MB raw / 354.5 KB gzip.
 // The ceiling leaves the normal ~16 KB after the observed ~7 KB CI variance.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_085_000;
+// 2026-07-29: 7.085 -> 7.135 MB. The Pet Coliseum command-impact pass and
+// Tactical Pet Arena broadcast polish add command focus/finish presentation,
+// dedicated duel audio cues, deterministic finisher framing, and Warfront
+// tactical callouts. CI measures the resulting product graph at ~6.78 MiB;
+// the initial graph remains 1.34 MiB raw / 355.8 KiB gzip. The feature code is
+// lazy, and the entry, initial-graph, gzip, per-chunk, and CSS gates below stay
+// unchanged. This leaves only the normal narrow release-variance margin.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_135_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
