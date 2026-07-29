@@ -63,7 +63,22 @@ import type { LiveDuel, DuelCommand } from "../lib/pet-duel-live";
 import { bondCharge } from "../lib/pet-bond-meter";
 import { PetDuelCommandDeck } from "./PetDuelCommandDeck";
 import { PetDuelClashPrompt } from "./PetDuelClashPrompt";
-import { PARTY_SPOTLIGHT_COOLDOWN_SECONDS, appendCapped, boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove, selectDuelSpotlightEvent } from "../lib/pet-duel-presentation";
+import {
+    PARTY_SPOTLIGHT_COOLDOWN_SECONDS,
+    PET_DUEL_COMMAND_CATCHUP_SCALE,
+    PET_DUEL_COMMAND_CATCHUP_SECONDS,
+    PET_DUEL_NEUTRAL_PLAYBACK_SCALE,
+    PET_OPENING_TACTICS,
+    appendCapped,
+    boundedBurstStep,
+    duelAttackDashBeats,
+    duelHeroCutEligible,
+    duelHeroCutEventIndexes,
+    duelMoveOutcome,
+    petDuelImpactStrength,
+    precedingNamedMove,
+    selectDuelSpotlightEvent,
+} from "../lib/pet-duel-presentation";
 import { petVisualQuality, type PetVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
@@ -1844,8 +1859,8 @@ function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
  *  on the floor with a real contact shadow, driven by the interpolated duel tick
  *  stream + the anime strike choreography (ability-distinct strikes, recoil,
  *  status tints, KO topple). Same grounded rig as the round renderer's Standee. */
-function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, dashCue, showIdentity }: {
-    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean; dashCue?: DuelDashCue; showIdentity: boolean;
+function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, dashCue, showIdentity, acknowledgingCommand }: {
+    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean; dashCue?: DuelDashCue; showIdentity: boolean; acknowledgingCommand: boolean;
 }) {
     const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
     const poses = usePetPoses(petVisualId(pet), mirror);
@@ -2251,7 +2266,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                     // Damage fractions are usually small, so feeding them through
                     // directly produced a barely visible flinch. Remap them into a
                     // readable recoil range and give crits a decisive snap.
-                    rp = Math.min(1.25, 0.48 + it.power * 1.55 + (it.crit ? 0.24 : 0));
+                    rp = petDuelImpactStrength(it.power, it.crit);
                     break;
                 }
             }
@@ -2386,9 +2401,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         // Keep vertical anticipation/hops, but give horizontal ownership to one
         // system. An authored dash owns all three axes because its S-route has its
         // own hop arc.
-        const presentationChoX = (freeRoam3d || routeOwnsPosition) ? 0 : choX.current;
+        // A landed hit must move the creature, not only brighten its material.
+        // The deterministic floor position remains authoritative; this short,
+        // damage-scaled root displacement releases during recovery.
+        const reactionOwnsPosition = basePose === "recoil" && !routeOwnsPosition;
+        const presentationChoX = reactionOwnsPosition ? choX.current * 0.58 : (freeRoam3d || routeOwnsPosition) ? 0 : choX.current;
         const presentationChoY = routeOwnsPosition ? 0 : choY.current;
-        const presentationChoZ = (freeRoam3d || routeOwnsPosition) ? 0 : choZ.current;
+        const presentationChoZ = reactionOwnsPosition ? choZ.current * 0.58 : (freeRoam3d || routeOwnsPosition) ? 0 : choZ.current;
         g.position.set(wx + presentationChoX, FLOOR_Y + Math.max(0, presentationChoY) + bob, wz + presentationChoZ);
         if (combatModel) {
             const settle = 1 - Math.exp(-16 * Math.min(delta, 1 / 15));
@@ -2406,6 +2425,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         let cat = poseCategory(DUEL_STATE_POSE[a0.state]);
         if (sizingUp) cat = "cast";   // the buff / power-up sprite pose during the size-up
         if (buffPosing) cat = "cast";
+        if (acknowledgingCommand && a0.state === "idle") cat = poses?.hasMove ? "windup" : "cast";
         // Generated ATTACK SEQUENCE: a windup frame during the wind-up, then
         // lunge→impact→recover across the strike pulse (melee only) — so the
         // creature really swings. Falls back to the single "attack" pose for pets
@@ -2465,6 +2485,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                     // lane. Leaving the simulator's one-tick strike here made the
                     // fox instantly change from gallop to idle at its new position.
                     ? "recover"
+                : acknowledgingCommand && a0.state === "idle"
+                    ? "windup"
                 : striking
                 ? "strike"
                 : a0.state === "idle" && moving ? "run" : a0.state;
@@ -2475,6 +2497,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         mf.faceX = faceWX;
         mf.faceZ = faceWZ;
         mf.hit = flash.current;
+        mf.impactPower = recoilPow.current;
         const atTerminal = clock.current.t >= snaps.length - 1 - 0.001;
         const winnerTeam = myEnemy ? "enemy" : "player";
         const defeated = atTerminal && duel.winner !== null && duel.winner !== winnerTeam;
@@ -3321,7 +3344,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     const endHold = useRef(0);
     const shake = useRef(0);
     const hitStop = useRef(0);
-    const timeScale = useRef(1.45);   // brisk opening release; authored beats temporarily slow this lane
+    const timeScale = useRef(PET_DUEL_NEUTRAL_PLAYBACK_SCALE);
     const zoomKick = useRef(0);    // transient dolly-IN punch on heavy hits (decays)
     const koPull = useRef(0);      // camera pull-BACK on KO (eases out slowly)
     const comboN = useRef(0);      // consecutive-hit combo counter
@@ -3420,10 +3443,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // attack itself. Anime action feels fast because setup/repositioning is
         // economical while anticipation, contact, and reaction are deliberately
         // readable—not because every phase runs at one uniformly high speed.
-        // Presentation target: this 1,424-tick showcase should land near 38 s,
-        // not the previous 56.7 s. Neutral geography moves briskly while the
-        // authored tells, contacts and signatures still own readable wall time.
-        const BASE_SCALE = 1.72;
+        // Neutral play is deliberately only a little faster than real time.
+        // Readability now wins over the old runtime target; empty travel can still
+        // catch up gently after a command without turning the exchange into a skip.
+        const BASE_SCALE = PET_DUEL_NEUTRAL_PLAYBACK_SCALE;
         // Limit simulation catch-up to one 30 Hz step per rendered frame. A slow
         // GPU frame now slows the replay gracefully instead of skipping across a
         // dash or named-move release. This does not alter deterministic combat.
@@ -3437,14 +3460,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
         // playing (those ARE the payoff — don't skip them), so it only compresses the
         // eventless staring gap.
         const rushing = duelCmdRush.active && hitStop.current <= 0 && !authoredDashInFlight && !majorVfxBusy();
-        let phraseScale = rushing ? Math.max(timeScale.current, 4.0) : timeScale.current;
-        if (authoredDashInFlight) phraseScale = Math.min(phraseScale, 1.08);
-        if (majorVfxBusy()) phraseScale = Math.min(phraseScale, 0.92);
+        let phraseScale = rushing ? Math.max(timeScale.current, PET_DUEL_COMMAND_CATCHUP_SCALE) : timeScale.current;
+        if (authoredDashInFlight) phraseScale = Math.min(phraseScale, 1.02);
+        if (majorVfxBusy()) phraseScale = Math.min(phraseScale, 0.88);
         // Cap the amount of *simulation time* exposed by one render frame. The
         // previous delta cap was applied before playback scaling, so neutral play
-        // could still jump 1.72 simulation ticks in a single 30 fps frame. The rush
-        // lifts the cap so the fast-forward can actually move (~4× real-time).
-        const maxTickAdvance = rushing ? 3.0 : authoredDashInFlight ? 0.78 : majorVfxBusy() ? 0.82 : 1.05;
+        // could jump across a pose in one 30 fps frame. Catch-up receives only a
+        // modest allowance and remains well below the old 4× skip.
+        const maxTickAdvance = rushing ? 1.15 : authoredDashInFlight ? 0.74 : majorVfxBusy() ? 0.78 : 0.96;
         let dt = Math.min(frameDelta * phraseScale, maxTickAdvance / DUEL_TPS);
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
         if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 1 - Math.exp(-7.2 * frameDelta));
@@ -3464,7 +3487,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         && (e.type === "windup" || e.type === "cast" || e.type === "hit" || e.type === "ultimate"))
                     || e.type === "ko"
                     || (e.type === "hit" && e.crit));
-                if (reachedBeat || cur - duelCmdRush.fromTick > DUEL_TPS * 4) duelCmdRush.active = false;
+                if (reachedBeat || cur - duelCmdRush.fromTick > DUEL_TPS * PET_DUEL_COMMAND_CATCHUP_SECONDS) duelCmdRush.active = false;
             }
             const spotlightCandidate = partyMode ? selectDuelSpotlightEvent(crossedEvents) : null;
             const spotlightEvent = spotlightCandidate
@@ -3617,7 +3640,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // when their balance damage is modest. This keeps presentation
                         // weight independent from tuning and prevents special moves
                         // looking like recolored basic attacks.
-                        const cinematicBurst = spotlight && (impactHeavy || !!e.move);
+                        // Large contact volumes are reserved for genuinely heavy
+                        // outcomes. A named but lightly tuned move still gets its
+                        // authored color/shape, just not a screen-filling explosion.
+                        const cinematicBurst = spotlight && (impactHeavy || !!e.signature || !!e.perfect);
                         // Contact is followed by a persistent world-space residue.
                         // This supplies the missing payoff after the projectile or
                         // dash disappears: scorched flame tongues, water ripples,
@@ -3634,9 +3660,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // techniques already include their collision payoff; stacking
                         // a burst, shockwave, sprite, and residue on that same frame was
                         // the main source of the choppy "three VFX in a row" rhythm.
-                        if (!longFormOwnsContact) {
+                        const playerHit = e.actorId.startsWith("player");
+                        const contactNeedsVolume = impactHeavy || !!e.move || playerHit;
+                        if (!longFormOwnsContact && contactNeedsVolume) {
                             if (fxKey) spawnFx({ x: a.x, z: a.y, key: fxKey, scale: spotlight ? (impactHeavy ? 2.9 : 1.9) : 1.25, dur: spotlight && impactHeavy ? 540 : 360 });
-                            else spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: spotlight && (cinematicBurst || heroStyle !== "generic"), heading, style: heroStyle });
+                            else spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: cinematicBurst, heading, style: heroStyle });
                             if (spotlight && e.crit) {
                                 const aftermath = { x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: cinematicBurst };
                                 scheduleDirectorCue(() => spawnAftermath(aftermath), 180);
@@ -3663,7 +3691,6 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // So a player-side contact gets a feedback FLOOR (a guaranteed
                         // contact flash + a touch more shake/hit-stop) even when its
                         // balance damage is small. Render-only; the sim is untouched.
-                        const playerHit = e.actorId.startsWith("player");
                         if (e.move === "Clash Break") onClashResult(e.actorId, e.targetId ?? null);
                         const contactFeedback = () => {
                             // Sound rides the contact frame (immediate, or delayed with a
@@ -7311,7 +7338,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone; who?: string; element?: string | null } | null>(null);  // tiered move ID
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     const [tacticLocked, setTacticLocked] = useState(!live || live.settled);
-    const [openingTactic, setOpeningTactic] = useState(1);
+    const [openingTactic, setOpeningTactic] = useState<0 | 1 | 2 | null>(null);
+    const [tacticCommitting, setTacticCommitting] = useState(false);
+    const tacticCommitTimer = useRef<number | null>(null);
+    const [commandAck, setCommandAck] = useState<{ id: number; actorIds: readonly string[] } | null>(null);
     useEffect(() => {
         if (!cutIn) return;
         const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1320);
@@ -7322,6 +7352,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const timer = window.setTimeout(() => setCommandEcho((cur) => (cur && cur.id === commandEcho.id ? null : cur)), 1050);
         return () => window.clearTimeout(timer);
     }, [commandEcho]);
+    useEffect(() => {
+        if (!commandAck) return;
+        const timer = window.setTimeout(() => setCommandAck((current) => current?.id === commandAck.id ? null : current), 680);
+        return () => window.clearTimeout(timer);
+    }, [commandAck]);
+    useEffect(() => () => {
+        if (tacticCommitTimer.current !== null) window.clearTimeout(tacticCommitTimer.current);
+    }, []);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     // Keep the canonical species name separate from the player's display name:
     // animation classification must survive nicknames, while commentary and HUD
@@ -7383,7 +7421,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number; style?: PetHeroMoveStyle }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setElementBursts((arr) => appendCapped(arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0, style: n.style ?? "generic" }, partyDuel ? 2 : 3));
+        setElementBursts((arr) => appendCapped(arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0, style: n.style ?? "generic" }, partyDuel ? 1 : 2));
     };
     const spawnAftermath = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => {
         const id = seqRef.current++;
@@ -7564,7 +7602,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const clashHold = useRef(false);
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the still size-up / power-gather clock.
-        if (!clock.current.playing || cutIn) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
+        if (!clock.current.playing || cutIn) {
+            // The tactical briefing is a real decision screen, not a countdown.
+            // Hold the face-off composition until the player explicitly locks in,
+            // then restart the authored opening from frame zero.
+            if (live && !tacticLocked) clock.current.intro = Math.min(clock.current.intro ?? 0, INTRO_PAUSE_END * 0.58);
+            else clock.current.intro = (clock.current.intro ?? 0) + delta;
+            return;
+        }
         // A CLASH stops playback outright while the player owns the read. Same proven
         // mechanism as the hero cut-in: only the presentation clock is held, the
         // simulation and its buffer are untouched, so determinism and the server
@@ -7582,24 +7627,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         live.command(cmd);
         const tick = Math.max(0, Math.floor(clock.current.t));
         setLiveView(live.advance(tick));
-        // Instant agency read: name the order in the play area and pop a short flash
-        // in the pet's own colour the moment it is issued, so a tap is felt, not just
-        // registered. Stance/Auto are quieter (a plan, not a strike); an ability or
-        // Bond Break gets the louder treatment.
+        // Acknowledge the decision immediately, but reserve premium feedback for
+        // the authoritative windup and contact. This keeps cause and effect honest:
+        // the button says "order received"; the pet and opponent sell the result.
         seqRef.current += 1;
         const echoId = seqRef.current;
         const accent = elementColor(playerPet.element);
         if (cmd.kind === "ability") {
             const moveLabel = cmd.idx === -1 ? "Strike" : (moveName ?? "Attack");
-            setCommandEcho({ id: echoId, label: moveLabel, tone: "attack" });
+            setCommandEcho({ id: echoId, label: `ORDERED · ${moveLabel}`, tone: "attack" });
+            setCommandAck({ id: echoId, actorIds: [cmd.actorId] });
             playPetSfx("move");
-            // EVERY move choice lands as a felt beat the instant you tap — not a silent
-            // queue that waits on the sim. The name slams in, the screen flashes the pet's
-            // colour, and the CAMERA jolts + punches in (bridged to DuelDirector's shake/
-            // zoom). Render-only; the actual damage still resolves server/sim-side later.
-            setFlash({ id: echoId, color: accent.glow, intensity: 0.5 });
-            requestDuelCommandJolt(0.7, 1.2, 1.6);
-            // Fast-forward the dead standoff so the ordered move reaches the screen fast.
+            requestDuelCommandJolt(0.14, 0.18, 0.2);
             requestDuelCommandRush(tick);
             // The button owns confirmation, not the release cinematic. A Clash,
             // target change, or other authoritative event can still intervene
@@ -7608,19 +7647,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             // world-space VFX, contact sound, and damage on one honest timeline.
         } else if (cmd.kind === "technique") {
             const moveLabel = moveName ?? "Technique";
-            setCommandEcho({ id: echoId, label: `CALL · ${moveLabel}`, tone: "signature" });
-            playPetSfx("buff");
-            setFlash({ id: echoId, color: accent.glow, intensity: 0.64 });
-            triggerMoveCallout(moveLabel, "player", "attack", petDisplayName(playerPet), playerPet.element);
-            requestDuelCommandJolt(1.15, 1.9, 2.5);
+            setCommandEcho({ id: echoId, label: `CALLED · ${moveLabel}`, tone: "signature" });
+            setCommandAck({ id: echoId, actorIds: [cmd.actorId] });
+            playPetSfx("move");
+            requestDuelCommandJolt(0.18, 0.24, 0.26);
             requestDuelCommandRush(tick);
         } else if (cmd.kind === "break") {
-            setCommandEcho({ id: echoId, label: "Bond Break", tone: "signature" });
+            setCommandEcho({ id: echoId, label: "BOND BREAK · READY", tone: "signature" });
+            setCommandAck({ id: echoId, actorIds: [cmd.actorId] });
             playPetSfx("buff");
-            setFlash({ id: echoId, color: "#fbbf24", intensity: 0.5 });
-            // The signature call gets the hardest jolt of any command.
-            triggerMoveCallout("Bond Break", "player", "attack", petDisplayName(playerPet), playerPet.element);
-            requestDuelCommandJolt(1.1, 1.8, 2.4);
+            setFlash({ id: echoId, color: "#fbbf24", intensity: 0.14 });
+            requestDuelCommandJolt(0.22, 0.28, 0.32);
             requestDuelCommandRush(tick);
         } else if (cmd.kind === "stance") {
             setCommandEcho({ id: echoId, label: `${["Press", "Balance", "Guard"][cmd.stance] ?? "Balance"} stance`, tone: "plan" });
@@ -7660,11 +7697,26 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // the constant "player-0" it used to be. Derived in pet-duel-live.ts so the
     // contract it rests on is pinned by tests rather than by this component.
     const meId = commandedActorId(live);
-    const chooseOpeningTactic = (stance: number) => {
-        if (!live || tacticLocked) return;
+    const chooseOpeningTactic = (stance: 0 | 1 | 2) => {
+        if (!live || tacticLocked || tacticCommitting) return;
         setOpeningTactic(stance);
-        live.controlledIds.forEach((id) => issueCommand({ kind: "stance", actorId: id, stance }));
-        setTacticLocked(true);
+        playPetSfx("move");
+    };
+    const confirmOpeningTactic = () => {
+        if (!live || tacticLocked || tacticCommitting || openingTactic === null) return;
+        setTacticCommitting(true);
+        clock.current.intro = 0;
+        live.controlledIds.forEach((id) => issueCommand({ kind: "stance", actorId: id, stance: openingTactic }));
+        const selected = PET_OPENING_TACTICS[openingTactic];
+        const id = seqRef.current++;
+        setCommandAck({ id, actorIds: [...live.controlledIds] });
+        setCommandEcho({ id, label: `${selected.name.toUpperCase()} PLAN LOCKED`, tone: "plan" });
+        setFlash({ id, color: selected.color, intensity: 0.18 });
+        tacticCommitTimer.current = window.setTimeout(() => {
+            setTacticLocked(true);
+            setTacticCommitting(false);
+            tacticCommitTimer.current = null;
+        }, 720);
     };
     const versusPlayer = isVersusPlayer(live);
     const loggedControl = live ? live.controlAt(deckTick, meId) : null;
@@ -7844,6 +7896,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             : null;
     const broadcast = useMemo(() => petDuelBroadcastRead(duel, deckTick), [deckTick, duel]);
     const recap = useMemo(() => petDuelRecap(duel), [duel]);
+    const selectedOpeningTactic = openingTactic === null ? null : PET_OPENING_TACTICS[openingTactic];
 
     return createPortal((
         <div data-testid="pet-duel-root" className={mobileQa ? "pet-duel-mobile-qa" : undefined} style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: 200, width: mobileQa ? 390 : "100vw", height: mobileQa ? "min(844px,100vh)" : "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
@@ -7957,7 +8010,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
                 {visualLayers.post && <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />}
                 {roster.map((r) => (
-                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity && !ended} />
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity && !ended} acknowledgingCommand={commandAck?.actorIds.includes(r.id) ?? false} />
                 ))}
                 {visualLayers.elements && Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} quality={quality} native={freeRoam3d} />
@@ -8066,27 +8119,53 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                             </span>
                         </div>
                         {live && !tacticLocked && (
-                            <div style={{ width: mobileQa ? "calc(100% - 24px)" : "min(590px,82vw)", margin: "clamp(22px,5vh,48px) auto 0", padding: mobileQa ? "13px" : "16px 18px", borderRadius: 18, background: "linear-gradient(145deg,rgba(5,10,24,.96),rgba(2,5,14,.94))", border: "1px solid rgba(147,197,253,.42)", boxShadow: "0 18px 46px rgba(0,0,0,.68)", textAlign: "center", pointerEvents: "auto", animation: "petDuelBriefIn 620ms cubic-bezier(.16,.84,.24,1) both" }}>
-                                <div style={{ color: "#fff", font: `900 ${mobileQa ? 13 : 15}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".16em", textTransform: "uppercase" }}>Brief Your Pet</div>
-                                <div style={{ marginTop: 6, color: "#94a3b8", font: "700 10px/1.3 Inter,sans-serif" }}>This tactic shapes the whole fight. Live commands are earned during combat.</div>
-                                <div role="group" aria-label="Opening tactic" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: mobileQa ? 6 : 9, marginTop: 13 }}>
-                                    {[
-                                        { name: "Pressure", hint: "Close distance · commit", color: "#f87171" },
-                                        { name: "Adaptive", hint: "Trust its judgement", color: "#93c5fd" },
-                                        { name: "Counter", hint: "Hold range · read", color: "#5eead4" },
-                                    ].map((tactic, stance) => (
+                            <div style={{ width: mobileQa ? "calc(100% - 20px)" : "min(760px,90vw)", margin: "clamp(16px,3vh,30px) auto 0", padding: mobileQa ? "12px" : "17px 20px 19px", borderRadius: 18, background: "linear-gradient(145deg,rgba(5,10,24,.97),rgba(2,5,14,.96))", border: "1px solid rgba(147,197,253,.42)", boxShadow: "0 18px 46px rgba(0,0,0,.68)", textAlign: "center", pointerEvents: "auto", animation: "petDuelBriefIn 620ms cubic-bezier(.16,.84,.24,1) both" }}>
+                                <div style={{ color: "#fff", font: `900 ${mobileQa ? 13 : 16}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".16em", textTransform: "uppercase" }}>Choose the Fight Plan</div>
+                                <div style={{ marginTop: 7, color: "#a9b8cd", font: `700 ${mobileQa ? 9 : 11}px/1.35 Inter,sans-serif` }}>
+                                    Select a plan, review its advantage and risk, then lock it in. The fight will wait for you.
+                                </div>
+                                <div style={{ marginTop: 7, color: "#fcd34d", font: `800 ${mobileQa ? 8 : 10}px/1.25 Inter,sans-serif`, letterSpacing: ".035em" }}>
+                                    Scout read: {petDisplayName(enemyPet)} fights as {enemyFamily.label.toLowerCase()} — {enemyFamily.tell}.
+                                </div>
+                                <div role="group" aria-label="Opening tactic" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: mobileQa ? 6 : 10, marginTop: 13 }}>
+                                    {PET_OPENING_TACTICS.map((tactic) => {
+                                        const selected = openingTactic === tactic.stance;
+                                        return (
                                         <button
                                             key={tactic.name}
                                             type="button"
-                                            onClick={() => chooseOpeningTactic(stance)}
-                                            aria-pressed={openingTactic === stance}
-                                            style={{ minWidth: 0, minHeight: mobileQa ? 54 : 62, padding: mobileQa ? "7px 5px" : "9px 8px", borderRadius: 12, border: `1.5px solid ${tactic.color}`, background: `linear-gradient(180deg,${tactic.color}28,rgba(4,8,18,.95))`, color: tactic.color, boxShadow: `inset 0 -2px 0 ${tactic.color}88,0 5px 16px rgba(0,0,0,.4)`, cursor: "pointer" }}
+                                            onClick={() => chooseOpeningTactic(tactic.stance)}
+                                            aria-pressed={selected}
+                                            disabled={tacticCommitting}
+                                            style={{ minWidth: 0, minHeight: mobileQa ? 75 : 94, padding: mobileQa ? "8px 5px" : "11px 10px", borderRadius: 12, border: `${selected ? 2.5 : 1.5}px solid ${tactic.color}`, background: selected ? `linear-gradient(180deg,${tactic.color}48,rgba(4,8,18,.97))` : `linear-gradient(180deg,${tactic.color}1f,rgba(4,8,18,.95))`, color: tactic.color, boxShadow: selected ? `inset 0 -3px 0 ${tactic.color},0 0 24px ${tactic.color}55,0 8px 20px rgba(0,0,0,.48)` : `inset 0 -2px 0 ${tactic.color}66,0 5px 16px rgba(0,0,0,.4)`, transform: selected ? "translateY(-3px)" : undefined, cursor: tacticCommitting ? "default" : "pointer", transition: "transform 150ms ease,border-width 150ms ease,box-shadow 150ms ease,background 150ms ease" }}
                                         >
-                                            <strong style={{ display: "block", font: `900 ${mobileQa ? 10 : 12}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".06em", textTransform: "uppercase" }}>{tactic.name}</strong>
-                                            <span style={{ display: "block", marginTop: 6, color: "#cbd5e1", font: `700 ${mobileQa ? 8 : 9}px/1.2 Inter,sans-serif` }}>{tactic.hint}</span>
+                                            <span aria-hidden style={{ display: "block", font: `900 ${mobileQa ? 13 : 17}px/1 Inter,sans-serif` }}>{tactic.glyph}</span>
+                                            <strong style={{ display: "block", marginTop: 5, font: `900 ${mobileQa ? 9 : 12}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".06em", textTransform: "uppercase" }}>{tactic.name}</strong>
+                                            <span style={{ display: "block", marginTop: 6, color: "#dbe5f1", font: `700 ${mobileQa ? 7 : 9}px/1.25 Inter,sans-serif` }}>{tactic.short}</span>
                                         </button>
-                                    ))}
+                                    );})}
                                 </div>
+                                <div aria-live="polite" style={{ minHeight: mobileQa ? 58 : 78, marginTop: 10, padding: mobileQa ? "8px 9px" : "10px 13px", borderRadius: 12, textAlign: "left", background: selectedOpeningTactic ? `${selectedOpeningTactic.color}12` : "rgba(15,23,42,.58)", border: `1px solid ${selectedOpeningTactic ? `${selectedOpeningTactic.color}55` : "rgba(148,163,184,.2)"}` }}>
+                                    {selectedOpeningTactic ? (
+                                        <>
+                                            <div style={{ color: "#e5edf7", font: `700 ${mobileQa ? 8 : 10}px/1.35 Inter,sans-serif` }}>{selectedOpeningTactic.behavior}</div>
+                                            <div style={{ display: "grid", gridTemplateColumns: mobileQa ? "1fr" : "1fr 1fr", gap: mobileQa ? 3 : 12, marginTop: 7, font: `800 ${mobileQa ? 7 : 9}px/1.3 Inter,sans-serif` }}>
+                                                <span style={{ color: "#86efac" }}>ADVANTAGE · {selectedOpeningTactic.strength}</span>
+                                                <span style={{ color: "#fca5a5" }}>RISK · {selectedOpeningTactic.tradeoff}</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div style={{ color: "#94a3b8", textAlign: "center", font: `800 ${mobileQa ? 8 : 10}px/1.35 Inter,sans-serif` }}>Choose a plan to see how it changes your pet’s decisions.</div>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={confirmOpeningTactic}
+                                    disabled={!selectedOpeningTactic || tacticCommitting}
+                                    style={{ width: "100%", minHeight: mobileQa ? 40 : 46, marginTop: 10, border: `1.5px solid ${selectedOpeningTactic?.color ?? "#475569"}`, borderRadius: 11, background: selectedOpeningTactic ? `linear-gradient(180deg,${selectedOpeningTactic.color}dd,${selectedOpeningTactic.color}88)` : "rgba(30,41,59,.78)", color: selectedOpeningTactic ? "#050914" : "#718096", boxShadow: selectedOpeningTactic ? `0 7px 22px ${selectedOpeningTactic.color}3d,inset 0 1px rgba(255,255,255,.35)` : "none", font: `900 ${mobileQa ? 10 : 12}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".12em", textTransform: "uppercase", cursor: selectedOpeningTactic && !tacticCommitting ? "pointer" : "default" }}
+                                >
+                                    {tacticCommitting ? `${selectedOpeningTactic?.name ?? "Plan"} locked — take your stance` : selectedOpeningTactic ? `Lock In ${selectedOpeningTactic.name}` : "Select a Plan"}
+                                </button>
                             </div>
                         )}
                     </div>
