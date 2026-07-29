@@ -476,7 +476,7 @@ const PETS: Guide = {
                     "Casual duels against other players' pets.",
                     "The ranked pet ladder (a separate Elo from your shinobi rank).",
                     "Clan War pet challenges.",
-                    "Wild Hollow Beasts inside the Hollow Gate.",
+                    "Tactical Hollow Hound duels inside the Hollow Gate.",
                 ] },
             ],
         },
@@ -517,12 +517,12 @@ const CARDCLASH: Guide = {
             heading: "2 · Turn Phases",
             blocks: [
                 { type: "list", items: [
-                    "Draw Phase: draw one card.",
-                    "Standby Phase: resolve effects that wait for this phase.",
+                    "Draw Phase: draw one card automatically.",
+                    "Standby Phase: automatically resolve effects that wait for this phase.",
                     "Main Phase 1: Normal Summon or Set one Monster, change legal positions, and activate or Set Jutsu and Snares.",
-                    "Battle Phase: choose attacks and answer legal Snare windows. The first player cannot battle on the first turn.",
+                    "Battle Phase: choose attacks and answer legal Snare windows. Target badges include visible effects and elemental advantage before hidden Snares. With Smart Phase Assist enabled, Battle finishes after every legal attacker is spent.",
                     "Main Phase 2: make another legal Main Phase action after battle.",
-                    "End Phase: resolve end effects and pass the turn.",
+                    "End Phase: choosing End Turn resolves end effects and passes the turn automatically.",
                 ] },
             ],
         },
@@ -685,8 +685,8 @@ const HOLLOWGATE: Guide = {
             blocks: [
                 { type: "list", items: [
                     "Enter with a Hollow Gate Key (consumed on a fresh run). You get up to 2 fresh runs per day; resuming a run already in progress is free.",
-                    "Explore a generated 15×11 grid with fog of war, climbing 5 floors to the final boss — the Hollow Gate Warden.",
-                    "Along the way: shinobi battles, elite fights, traps, treasure chests, wild Hollow Beasts to befriend (a key source of pets), and card showdowns.",
+                    "Explore a generated 25×17 grid with fog of war, descending 5 floors to the Hollow Hound Alpha.",
+                    "Every combat node lets you fight a Hollow Hound with mission-style shinobi PvE or send your active pet into a tactical Oni Hound duel. Traps, treasure, sealed doors, and shrine chambers shape the route.",
                 ] },
                 { type: "callout", tone: "warn", label: "Watch the Threat meter", text: "A Threat meter rises as you move — fill it and you get ambushed, so don't wander aimlessly. Take efficient routes and grab what matters." },
             ],

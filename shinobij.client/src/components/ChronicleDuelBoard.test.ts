@@ -55,8 +55,11 @@ test("duel board exposes mirrored zones, Health Points, and the active Field Car
   assert.match(html, /8,000 <small>HP<\/small>/);
   assert.match(html, /Akari portrait/);
   assert.match(html, /Ren portrait/);
-  assert.match(html, /Enlarge Volcano/);
-  assert.match(html, /Open readable card/);
+  assert.match(html, /data-field="volcano"/);
+  assert.match(html, /chronicle-atmosphere/);
+  // The reader is now a contextual drawer instead of a permanently occupied
+  // desktop column. The Field card itself remains the inspect trigger.
+  assert.doesNotMatch(html, /chronicle-card-detail-panel open/);
   assert.doesNotMatch(html, /Life Points|>LP</);
   assert.equal((html.match(/Face-down Shinobi Journey card/g) ?? []).length, 5);
 });
@@ -188,8 +191,14 @@ test("turn countdown renders only for timed PvP duels; forfeit requires arming",
   // First forfeit click only arms; the initial render never shows the confirm.
   assert.match(untimed, />Forfeit</);
   assert.doesNotMatch(untimed, /Confirm forfeit/);
-  // Legal next phases render as clickable rail jumps.
-  assert.match(untimed, /chronicle-phase-jump/);
+  assert.match(untimed, /aria-label="Match options"/);
+  assert.match(untimed, /Smart Phase Assist: On/);
+  assert.match(untimed, /chronicle-player-console/);
+  assert.match(untimed, /chronicle-command-context/);
+  // The rail reports phase state; players no longer select phases from it.
+  assert.doesNotMatch(untimed, /chronicle-phase-jump/);
+  assert.match(untimed, />Start Attacking</);
+  assert.match(untimed, />End Turn</);
   const timed = render(true);
   assert.match(timed, /\|\s*\d+s/);
 });
@@ -222,4 +231,36 @@ test("a fresh duel opens with the Showdown splash; a resumed board does not", ()
   state.turnNumber = 5;
   const resumed = render();
   assert.doesNotMatch(resumed, /chronicle-splash/);
+});
+
+test("structured events render a readable match timeline", () => {
+  const state = createMatch(
+    "Akari",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    "Ren",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    () => 0,
+    1_000,
+  );
+  state.events?.push({
+    id: "event-test",
+    kind: "magic-activated",
+    turnNumber: 1,
+    at: 1_100,
+    actor: "p1",
+    cardId: "chronicle-medical-salve",
+  });
+  const cardsById = Object.fromEntries(
+    CHRONICLE_CARD_CATALOG.map((card) => [card.id, card]),
+  ) as Record<string, ChronicleDisplayCard>;
+  const html = renderToStaticMarkup(
+    React.createElement(ChronicleDuelBoard, {
+      state: projectMatchForViewer(state, "p1"),
+      cardsById,
+      onAction: () => undefined,
+    }),
+  );
+  assert.match(html, /Match timeline/);
+  assert.match(html, /Akari activated Field Medicine/);
+  assert.match(html, /Rules transcript/);
 });

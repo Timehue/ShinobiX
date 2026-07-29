@@ -18,6 +18,7 @@ import {
   MAIN_DECK_SIZE,
   OPENING_HAND_SIZE,
   STARTING_LIFE_POINTS,
+  applyAction,
   advancePhase,
   activateMagic,
   activateTrap,
@@ -36,6 +37,7 @@ import {
   normalSet,
   normalSummon,
   passResponse,
+  previewChronicleBattle,
   projectMatchForViewer,
   setTrap,
   startBattlePhase,
@@ -56,13 +58,7 @@ const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
 const fixedRandom = () => 0;
 
 function match(): ChronicleMatch {
-  const opening = createMatch("One", deck, "Two", deck, fixedRandom, 1_000);
-  const standby = advancePhase(opening, opening.activePlayer);
-  assert.equal(standby.ok, true);
-  if (!standby.ok) return opening;
-  const main1 = advancePhase(standby.state, standby.state.activePlayer);
-  assert.equal(main1.ok, true);
-  return main1.ok ? main1.state : standby.state;
+  return createMatch("One", deck, "Two", deck, fixedRandom, 1_000);
 }
 
 function summonReady(cardId: string, levelTributes = 0): ChronicleMatch {
@@ -157,9 +153,10 @@ test("Chronicle constants and opening rules are locked", () => {
   assert.equal(state.p2.hand.length, OPENING_HAND_SIZE);
   assert.equal(state.p1.deck.length, MAIN_DECK_SIZE - OPENING_HAND_SIZE - 1);
   assert.equal(state.p2.deck.length, MAIN_DECK_SIZE - OPENING_HAND_SIZE);
-  assert.equal(state.phase, "draw");
+  assert.equal(state.phase, "main1");
   assert.ok(Number.isInteger(state.rngState));
   assert.equal(startBattlePhase(state, state.activePlayer).ok, false);
+  state.phase = "draw";
   const standby = advancePhase(state, state.activePlayer);
   assert.equal(standby.ok, true);
   if (!standby.ok) return;
@@ -831,6 +828,28 @@ test("six-phase flow reaches Main 2, End, and the next Draw Phase", () => {
   }
 });
 
+test("application flow automates Draw, Standby, End, and the turn handoff", () => {
+  const state = match();
+  const first = state.activePlayer;
+  const second = first === "p1" ? "p2" : "p1";
+  const secondHandBefore = state[second].hand.length;
+  const ended = applyAction(
+    state,
+    first,
+    { action: "enter-end-phase" },
+    2_000,
+  );
+  assert.equal(ended.ok, true);
+  if (!ended.ok) return;
+  assert.equal(ended.state.activePlayer, second);
+  assert.equal(ended.state.phase, "main1");
+  assert.equal(ended.state[second].hand.length, secondHandBefore + 1);
+  assert.match(
+    ended.state.log.slice(-4).join(" "),
+    /enters the End Phase.*draws in the Draw Phase.*enters the Standby Phase.*enters Main Phase 1/,
+  );
+});
+
 test("direct attack is blocked by a defender and battle damage is server-computed", () => {
   const state = match();
   const actor = state.activePlayer;
@@ -910,6 +929,89 @@ test("the five-element wheel adds 200 only to the advantaged battle stat", () =>
   assert.equal(result.state[defender].monsterZones[0], null);
   assert.equal(result.state[defender].lifePoints, STARTING_LIFE_POINTS - 100);
   assert.ok(result.state.log.some((line) => line.includes("Element edge")));
+});
+
+test("visible battle preview mirrors elemental battle resolution", () => {
+  const state = match();
+  const actor = state.activePlayer;
+  const defender = actor === "p1" ? "p2" : "p1";
+  state.turnNumber = 2;
+  state.phase = "battle";
+  placeMonster(state, actor, 0, "tc-13");
+  placeMonster(state, defender, 0, "tc-02");
+  const projection = projectMatchForViewer(state, actor);
+  const preview = previewChronicleBattle(projection, 0, 0);
+  assert.equal(preview?.legal, true);
+  assert.equal(preview?.kind, "break");
+  assert.equal(preview?.attackerValue, 1_100);
+  assert.equal(preview?.defenderValue, 1_000);
+  assert.equal(preview?.damage, 100);
+  assert.match(preview?.label ?? "", /BREAK · 100 DAMAGE/);
+
+  const resolved = applyAction(state, actor, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 0,
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.state[defender].monsterZones[0], null);
+  assert.equal(resolved.state[defender].lifePoints, STARTING_LIFE_POINTS - 100);
+});
+
+test("battle preview respects a face-up Guard before exposing a hidden target", () => {
+  const state = match();
+  const actor = state.activePlayer;
+  const defender = actor === "p1" ? "p2" : "p1";
+  state.turnNumber = 2;
+  state.phase = "battle";
+  placeMonster(state, actor, 0, "tc-150");
+  placeMonster(state, defender, 0, "tc-121", {
+    position: "defense",
+  });
+  placeMonster(state, defender, 1, "tc-02", {
+    faceUp: false,
+    position: "defense",
+  });
+
+  const projection = projectMatchForViewer(state, actor);
+  const guardedTarget = previewChronicleBattle(projection, 0, 1);
+  assert.equal(guardedTarget?.legal, false);
+  assert.equal(guardedTarget?.kind, "illegal");
+  assert.match(guardedTarget?.label ?? "", /STRIKE THE DEFENDER/);
+  assert.equal(previewChronicleBattle(projection, 0, 0)?.legal, true);
+
+  const rejected = applyAction(state, actor, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 1,
+  });
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok)
+    assert.match(rejected.error, /guarding Monster must be selected/);
+});
+
+test("structured replay events preserve actions without leaking set cards", () => {
+  const state = match();
+  const actor = state.activePlayer;
+  const opponent = actor === "p1" ? "p2" : "p1";
+  state[actor].hand[0] = "tc-13";
+  const set = applyAction(state, actor, {
+    action: "set-monster",
+    handIndex: 0,
+    zoneIndex: 0,
+    tributeZoneIndexes: [],
+  });
+  assert.equal(set.ok, true);
+  if (!set.ok) return;
+  const ownerView = projectMatchForViewer(set.state, actor);
+  const opponentView = projectMatchForViewer(set.state, opponent);
+  const ownerEvent = ownerView.events?.at(-1);
+  const opponentEvent = opponentView.events?.at(-1);
+  assert.equal(ownerEvent?.kind, "monster-set");
+  assert.equal(ownerEvent?.cardId, "tc-13");
+  assert.equal(opponentEvent?.kind, "monster-set");
+  assert.equal(opponentEvent?.cardId, undefined);
 });
 
 test("Field Magic replaces rather than stacks with the neutral element wheel", () => {
@@ -1305,7 +1407,7 @@ test("destroyed-by-battle effects draw, displace, recycle, and revive determinis
   assert.ok(result.state[setup.actor].hand.includes("tc-150"));
 
   setup = battle("tc-51");
-  result = declareAttack(setup.state, setup.actor, {
+  result = applyAction(setup.state, setup.actor, {
     action: "attack",
     attackerZoneIndex: 0,
     targetZoneIndex: 0,
@@ -1314,6 +1416,14 @@ test("destroyed-by-battle effects draw, displace, recycle, and revive determinis
   if (!result.ok) return;
   assert.equal(result.state[setup.defender].graveyard.includes("tc-51"), false);
   assert.equal(result.state[setup.defender].deck.at(-1), "tc-51");
+  assert.ok(
+    result.state.events?.some(
+      (event) =>
+        event.kind === "card-destroyed" &&
+        event.side === setup.defender &&
+        event.cardId === "tc-51",
+    ),
+  );
 
   setup = battle("tc-99");
   setup.state[setup.defender].graveyard.push("tc-01");
