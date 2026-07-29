@@ -143,7 +143,7 @@ test("hollowGateAugmentEffects: Warded Step → enemy hits softer (stat mult < 1
 });
 
 test("hollowGateAugmentEffects: Berserker = enemy HP shave + noRetreat; Treasure Sense = noKeeperHeal", () => {
-    const b = hollowGateAugmentEffects(runWithAugment("berserkers-gamble", { kind: "lifesteal", value: 0.1 }));
+    const b = hollowGateAugmentEffects(runWithAugment("berserkers-gamble", { kind: "damageBonus", value: 0.1 }));
     assert.equal(b.enemyHpShavePct, 0.1);
     assert.equal(b.noRetreat, true);
     const t = hollowGateAugmentEffects(runWithAugment("treasure-sense"));
@@ -152,7 +152,7 @@ test("hollowGateAugmentEffects: Berserker = enemy HP shave + noRetreat; Treasure
 });
 
 test("hollowGateAugmentEffects: shave is always clamped to [0,0.9]", () => {
-    const e = hollowGateAugmentEffects(runWithAugment("berserkers-gamble", { kind: "lifesteal", value: 5 }));
+    const e = hollowGateAugmentEffects(runWithAugment("berserkers-gamble", { kind: "damageBonus", value: 5 }));
     assert.ok(e.enemyHpShavePct <= 0.9 && e.enemyHpShavePct >= 0);
 });
 

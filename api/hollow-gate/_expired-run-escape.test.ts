@@ -144,7 +144,7 @@ test('the matcher does not fire on unrelated run errors (which must stay non-des
         'Not your run.',
         'Finish the active encounter first.',
         'The encounter floor does not match the sealed run.',
-        "Berserker's Gamble seals retreat until the final Warden falls.",
+        "Berserker's Gamble seals retreat until the final Hollow Hound Alpha falls.",
         'The run is too new to extract.',
         '',
     ]) {

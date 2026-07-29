@@ -51,6 +51,7 @@ export type HollowGateSettleResult = {
     _saveVersion?: number;
     reason?: string;
     alreadyReported?: boolean;
+    error?: string;
 };
 
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -96,9 +97,14 @@ export async function settleHollowGateRun(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, token, outcome, haul }),
         });
-        if (!r.ok) return null;
-        return (await r.json()) as HollowGateSettleResult;
-    } catch { return null; }
+        const data = await r.json().catch(() => ({})) as HollowGateSettleResult;
+        if (!r.ok || !data.ok) {
+            return { ...data, ok: false, error: data.error || data.reason || `Hollow Gate settlement failed (${r.status}).` };
+        }
+        return data;
+    } catch {
+        return { ok: false, error: "The Hollow Gate settlement service is unreachable." };
+    }
 }
 
 export async function requestHollowGateServerConsumable(
@@ -258,7 +264,7 @@ export function hollowGateAugmentEffects(run: HollowGateShrineRun | null | undef
         case "keen-edge":         return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: clampShave(v / (1 + v)) };       // +dmg → less enemy HP
         case "warded-step":       return { ...NO_AUGMENT_EFFECTS, enemyStatMult: Math.max(0.5, 1 - v) };            // shield → softer hits
         case "chain-reaction":    return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: v > 0 ? 0.15 : 0 };              // arc (no 2nd foe in 1v1) → flat extra dmg
-        case "berserkers-gamble": return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: clampShave(v), noRetreat: true }; // lifesteal + no retreat
+        case "berserkers-gamble": return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: clampShave(v), noRetreat: true }; // damage bonus + no retreat
         case "treasure-sense":    return { ...NO_AUGMENT_EFFECTS, noKeeperHeal: true };                             // fewer heals
         default:                  return NO_AUGMENT_EFFECTS;
     }
@@ -271,41 +277,56 @@ type SetCharacter = (updater: (prev: Character | null) => Character | null) => v
 /** Fire-and-forget settle + reconcile. Safe no-op if the flag is off or the run
  *  carries no server token. `characterForHaul` is the PRE-claw-back character
  *  (so the claimed haul is the gross run total). */
-export function settleHollowGateRunOnly(
+export async function settleHollowGateRunOnly(
     run: HollowGateShrineRun | null,
     outcome: HollowGateOutcome,
     characterForHaul: Character,
     setCharacter: SetCharacter,
-): void {
-    if (!run?.runToken || !hollowGateServerEnabled()) return;
+): Promise<HollowGateSettleResult | null> {
+    if (!run?.runToken || !hollowGateServerEnabled()) return null;
     const token = run.runToken;
     const entry = run.entryCurrencies;
     const haul = computeHollowGateHaul(characterForHaul, entry, run);
-    void settleHollowGateRun(characterForHaul.name, token, outcome, haul).then((res) => {
-        if (!res?.ok) return;
-        setCharacter((prev) => {
-            if (!prev) return prev;
-            // Prefer the full stored character. The credited-balance fallback keeps
-            // compatibility with an older server during a rolling deployment.
-            return reconcileHollowGateSettle(prev, entry, res);
-        });
+    const res = await settleHollowGateRun(characterForHaul.name, token, outcome, haul);
+    if (!res?.ok) return res;
+    setCharacter((prev) => {
+        if (!prev) return prev;
+        // Prefer the full stored character. The credited-balance fallback keeps
+        // compatibility with an older server during a rolling deployment.
+        return reconcileHollowGateSettle(prev, entry, res);
     });
+    return res;
 }
 
 /** The combined run-end funnel: applies today's local result IMMEDIATELY (so the
  *  UI is correct and save-safe even if settle never runs) and reconciles to the
  *  server credit in the background. Replaces the inline claw-back at the run-end
  *  call sites one-for-one. */
-export function finalizeHollowGateRunEnd(opts: {
+export async function finalizeHollowGateRunEnd(opts: {
     run: HollowGateShrineRun | null;
     outcome: HollowGateOutcome;
     character: Character;
     lootRetention: number;
     setCharacter: SetCharacter;
-}): void {
+}): Promise<HollowGateSettleResult> {
     const { run, outcome, character, lootRetention, setCharacter } = opts;
-    setCharacter((prev) => (prev ? applyHollowGateRunEndLocal(prev, run, outcome, lootRetention) : prev));
-    settleHollowGateRunOnly(run, outcome, character, setCharacter);
+    if (!run?.runToken || !hollowGateServerEnabled()) {
+        throw new Error("This Hollow Gate run has no valid server settlement token.");
+    }
+    const result = await settleHollowGateRunOnly(run, outcome, character, setCharacter);
+    if (!result?.ok) {
+        throw new Error(result?.error || result?.reason || "The Hollow Gate could not settle this run.");
+    }
+    // The API clears hollowGateRun atomically with its economy write. Keep the
+    // fallback for rolling deployments that return only credited balances.
+    setCharacter((prev) => {
+        if (!prev) return prev;
+        const reconciled = reconcileHollowGateSettle(prev, run.entryCurrencies, result);
+        return reconciled.hollowGateRun == null
+            ? reconciled
+            : applyHollowGateRunEndLocal(reconciled, run, outcome, lootRetention);
+    });
+    return result;
 }
 
 // ── Augment picker (reuses App's hollowGateEvent modal — no new render JSX) ─────

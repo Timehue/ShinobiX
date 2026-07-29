@@ -418,6 +418,7 @@ shinobij.client/public/pet-models/*
 # Hollow Warfront runtime prop/boss GLBs — loaded at /pet-models/*.glb by the 3D
 # stage; MUST be published or the Warfront 404s them (SPA index.html) and crashes.
 !shinobij.client/public/pet-models/gate-warden.glb
+!shinobij.client/public/pet-models/gate-warden-rigged.glb
 !shinobij.client/public/pet-models/ward-totem.glb
 !shinobij.client/public/pet-models/wf-boulder.glb
 !shinobij.client/public/pet-models/wf-lantern.glb

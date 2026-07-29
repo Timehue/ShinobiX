@@ -50,8 +50,8 @@ export const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
     shrine:  { label: "Shrine",  kind: "shrine",     count: 2 },
     story:   { label: "Story",   kind: "story",      count: 2 },
     pet:     { label: "Pet",     kind: "pet_event",  count: 3 },
-    petbattle: { label: "Pet Battle", kind: "pet_battle", count: 3 },   // wild Hollow Beast encounters
-    tilegame:  { label: "Tile Game", kind: "tile_game", count: 2 },     // Shinobi Tile card-game encounter
+    petbattle: { label: "Legacy Pet Battle", kind: "pet_battle", count: 3 }, // compatibility slots; current combat nodes offer the pet choice
+    tilegame:  { label: "Legacy Tile Game", kind: "tile_game", count: 2 },   // compatibility slots; old saves migrate to Hollow Hound combat
     npc:     { label: "Keeper",  kind: "npc",        count: 3 },
     shardvein: { label: "Shard Vein", kind: "shard_vein", count: 2 },   // findable Hollow Shard cache
     descend: { label: "Descend", kind: "descend",    count: 1 },

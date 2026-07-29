@@ -21,8 +21,20 @@ const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
 // Ranked-rating credit receipt window. A stale tab re-reporting hours later
 // must not re-apply the Elo swing. Matches the 24h receipt in pvp/claim-rewards.ts.
 const RANKED_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
+const HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
 type PetBattleOutcome = 'win' | 'loss' | 'draw';
+type HollowGatePetResultReceipt = {
+    playerName: string;
+    runId: string;
+    outcome: PetBattleOutcome;
+    playerPetIds: string[];
+    settledAt: number;
+};
+
+function hollowGatePetResultKey(playerName: string, battleToken: string): string {
+    return `hg-pet-result:${playerName}:${battleToken}`;
+}
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -93,14 +105,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let casualBattleTokenKey: string | null = null;
         let casualBattleReceipt = '';
         let casualPetIds: string[] = [];
+        let hollowGatePetResult: HollowGatePetResultReceipt | null = null;
         // The reward level SEALED at battle-start (opponent actually fought). When
         // set, it — not the body-named opponent — decides the payout.
         let sealedOpponentLevel: number | null = null;
         if (!ranked && !identity.admin) {
             if (!battleToken) return res.status(400).json({ error: 'A valid pet battle start token is required.' });
             const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
-            const tokenData = await kv.get<{ playerName?: string; reportKey?: string; opponentLevel?: number; playerPetIds?: string[]; opponentPetIds?: string[]; sealedParams?: SealedDuelParams | null; authoritativeOutcome?: 'win' | 'loss' | 'draw' }>(tokenKey);
+            const tokenData = await kv.get<{
+                playerName?: string;
+                reportKey?: string;
+                opponentLevel?: number;
+                playerPetIds?: string[];
+                opponentPetIds?: string[];
+                sealedOpponentPets?: Pet[];
+                sealedParams?: SealedDuelParams | null;
+                authoritativeOutcome?: PetBattleOutcome;
+                hollowGate?: { runId?: string };
+            }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                const priorHollowGateResult = await kv.get<HollowGatePetResultReceipt>(hollowGatePetResultKey(playerName, battleToken));
+                if (priorHollowGateResult?.playerName === playerName) {
+                    return res.status(200).json({
+                        ok: true,
+                        hollowGate: true,
+                        outcome: priorHollowGateResult.outcome,
+                        reward: 0,
+                        petReceipt: battleToken,
+                    });
+                }
                 return res.status(200).json({ ok: true, reward: 0, reason: 'invalid-or-spent-pet-battle-token' });
             }
             if (tokenData.reportKey !== reportKey) {
@@ -136,9 +169,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const replayPlayerPets = (Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [])
                         .map((id) => storedPets.find((pet) => String(pet?.id ?? '') === id))
                         .filter(Boolean) as unknown as Pet[];
-                    const replayOpponentPets = (Array.isArray(tokenData.opponentPetIds) ? tokenData.opponentPetIds : [])
-                        .map((id) => SERVER_ARENA_PETS[id])
-                        .filter(Boolean) as Pet[];
+                    const replayOpponentPets = Array.isArray(tokenData.sealedOpponentPets) && tokenData.sealedOpponentPets.length
+                        ? tokenData.sealedOpponentPets
+                        : (Array.isArray(tokenData.opponentPetIds) ? tokenData.opponentPetIds : [])
+                            .map((id) => SERVER_ARENA_PETS[id])
+                            .filter(Boolean) as Pet[];
                     if (replayPlayerPets.length && replayOpponentPets.length) {
                         try {
                             outcome = replayCasualPetDuel(replayPlayerPets, replayOpponentPets, sealedParams, inputLog).outcome;
@@ -154,6 +189,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             casualBattleTokenKey = tokenKey;
             casualBattleReceipt = battleToken;
             casualPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
+            if (tokenData.hollowGate?.runId) {
+                hollowGatePetResult = {
+                    playerName,
+                    runId: String(tokenData.hollowGate.runId),
+                    outcome,
+                    playerPetIds: casualPetIds,
+                    settledAt: Date.now(),
+                };
+            }
+        }
+
+        // Hollow Gate pet duels do not pay the ordinary Coliseum faucet. Their
+        // server-replayed outcome becomes a one-use receipt consumed by the
+        // run-bound Hollow Gate settlement endpoint.
+        if (hollowGatePetResult && casualBattleTokenKey) {
+            await kv.set(
+                hollowGatePetResultKey(playerName, battleToken),
+                hollowGatePetResult,
+                { nx: true, ex: HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS },
+            );
+            await kv.del(casualBattleTokenKey).catch(() => undefined);
+            return res.status(200).json({
+                ok: true,
+                hollowGate: true,
+                outcome: hollowGatePetResult.outcome,
+                reward: 0,
+                petReceipt: battleToken,
+            });
         }
 
         // ── opponentLevel cross-check ─────────────────────────────────

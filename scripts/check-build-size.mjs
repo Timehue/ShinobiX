@@ -145,7 +145,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // allowing the usual ~7 KB of CI instrumentation leaves ~23 KB of variance.
 // The mode stays lazy and all unchanged startup gates remain green at 1.30 MB
 // raw / 342.7 KB gzip.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_970_000;
+// 2026-07-29: 6.970 -> 7.04 MB. The cinematic VN renderer and story-wide
+// direction library, the Hollow Gate authoritative combat/descent flow, and the
+// upgraded Pet Warfront presentation add lazy product code. The combined local
+// product graph measures 7,009,169 B; the startup graph remains below every
+// unchanged gate at 1.32 MB raw / 348.4 KB gzip. Allowing the usual ~7 KB of CI
+// instrumentation leaves roughly 24 KB of variance.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_040_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

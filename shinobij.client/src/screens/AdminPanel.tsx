@@ -19,6 +19,7 @@ import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { KenneyAtlasPicker } from "../components/KenneyAtlasPicker";
 import { TagPicker } from "../components/TagPicker";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
+import { VnCinematicDirectionEditor } from "../components/VnCinematicDirectionEditor";
 import { VnDialogueEditor } from "../components/VnDialogueEditor";
 import { biomeForWorldSector, villages, worldSectorOptions } from "../data/sectors";
 import { jutsuElements, jutsuMethods, jutsuTargets, rebalanceNonBloodlineJutsu, specialties, starterJutsus, starterSavedBloodlines } from "../data/jutsu";
@@ -40,7 +41,8 @@ import { addItem, removeItem, countItem } from "../lib/inventory";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile, safeImageSource } from "../lib/shared-images";
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
-import { analyzeVnFlow } from "../lib/vn";
+import { analyzeVnFlow, splitDialogueLine } from "../lib/vn";
+import { compactVnDirection, validateVnCinematicEvent, VN_CUES } from "../lib/vn-cinematic-authoring";
 import { firstCurrencyReward, rewardCurrencyOptions, rewardSummary, singleCurrencyReward } from "../lib/currency";
 import { jutsuPoints } from "../lib/jutsu-points";
 import { clampNumber, makeId } from "../lib/utils";
@@ -74,8 +76,24 @@ import {
 } from "../App";
 import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib/village-leadership-images";
 import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "../data/village-leadership";
-import { HOLLOW_GATE_MAX_FLOOR, setHollowGateMaxFloor } from "../constants/game";
+import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
+import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
+
+type EditableVnPage = {
+    title: string;
+    scene: string;
+    speaker: string;
+    dialogue: string;
+    image: string;
+    leftName: string;
+    leftImage: string;
+    rightName: string;
+    rightImage: string;
+    choices: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>;
+    cinematic?: VnCinematicDirection;
+    lineCinematics: Record<number, VnCinematicDirection>;
+};
 
 // The 10 starter-evolution templates (`starter-<element>-r`/`-l`) ship their
 // canonical portrait as a bundled static file at /pet-evos/<id>.webp — the same
@@ -649,11 +667,12 @@ export function AdminPanel({
     const [eventVnTitle, setEventVnTitle] = useState("A Stranger at the Gate");
     const [eventVnScene, setEventVnScene] = useState("Rain taps against the village rooftops while an unknown shinobi waits beneath the lanterns.");
     const [eventVnSpeaker, setEventVnSpeaker] = useState("Unknown Shinobi");
+    const [eventCinematic, setEventCinematic] = useState<VnCinematicDirection>({});
     const [eventImage, setEventImage] = useState("");
     const [eventAvatarImage, setEventAvatarImage] = useState("");
     const [eventAiProfileId, setEventAiProfileId] = useState("");
     const [eventPageCount, setEventPageCount] = useState(1);
-    const [eventVnPages, setEventVnPages] = useState(Array.from({ length: 10 }, (_, index) => ({
+    const [eventVnPages, setEventVnPages] = useState<EditableVnPage[]>(Array.from({ length: 10 }, (_, index) => ({
         title: index === 0 ? "A Stranger at the Gate" : `Story Page ${index + 1}`,
         scene: index === 0 ? "Rain taps against the village rooftops while an unknown shinobi waits beneath the lanterns." : "",
         speaker: index === 0 ? "Unknown Shinobi" : "Narrator",
@@ -664,6 +683,8 @@ export function AdminPanel({
         rightName: index === 0 ? "Unknown Shinobi" : "Narrator",
         rightImage: "",
         choices: [] as NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>,
+        cinematic: undefined,
+        lineCinematics: {},
     })));
     const [eventIcon, setEventIcon] = useState("⭐");
     const [eventLevelReq, setEventLevelReq] = useState(1);
@@ -1681,28 +1702,46 @@ export function AdminPanel({
             village: existingEvent?.village,
             kageFinale: existingEvent?.kageFinale,
             liberatorTitle: existingEvent?.liberatorTitle,
-            vnPages: eventKind === "visualNovel" ? eventVnPages.slice(0, eventPageCount).map((page, index) => ({
-                title: page.title.trim() || `Story Page ${index + 1}`,
-                scene: page.scene.trim(),
-                speaker: page.speaker.trim() || "Narrator",
-                dialogue: page.dialogue.split("\n").map((line) => line.trim()).filter(Boolean),
-                image: page.image,
-                leftName: page.leftName?.trim() || undefined,
-                leftImage: page.leftImage || undefined,
-                rightName: page.rightName?.trim() || undefined,
-                rightImage: page.rightImage || undefined,
-                choices: page.choices?.filter((c) => c.text.trim()).length
-                    ? page.choices.filter((c) => c.text.trim()).map((c) => ({
-                        text: c.text.trim(),
-                        nextPage: c.nextPage,
-                        conclusion: c.conclusion?.trim() || undefined,
-                        trait: c.trait?.trim() || undefined,
-                        requireTrait: c.requireTrait?.trim() || undefined,
-                        forbidTrait: c.forbidTrait?.trim() || undefined,
-                        battle: c.battle,
-                    }))
-                    : undefined,
-            })) : undefined,
+            cinematic: eventKind === "visualNovel" ? compactVnDirection(eventCinematic) : undefined,
+            vnPages: eventKind === "visualNovel" ? eventVnPages.slice(0, eventPageCount).map((page, index) => {
+                const speaker = page.speaker.trim() || "Narrator";
+                const dialogue = page.dialogue.split("\n").map((line) => line.trim()).filter(Boolean);
+                const lineCinematics = Object.fromEntries(
+                    Object.entries(page.lineCinematics)
+                        .map(([lineIndex, direction]) => [Number(lineIndex), compactVnDirection(direction)] as const)
+                        .filter(([, direction]) => Boolean(direction)),
+                ) as Record<number, VnCinematicDirection>;
+                const hasLineDirection = Object.keys(lineCinematics).length > 0;
+                return {
+                    title: page.title.trim() || `Story Page ${index + 1}`,
+                    scene: page.scene.trim(),
+                    speaker,
+                    dialogue,
+                    lines: hasLineDirection
+                        ? dialogue.map((line, lineIndex) => ({
+                            ...splitDialogueLine(line, speaker),
+                            cinematic: lineCinematics[lineIndex],
+                        }))
+                        : undefined,
+                    image: page.image,
+                    cinematic: compactVnDirection(page.cinematic),
+                    leftName: page.leftName?.trim() || undefined,
+                    leftImage: page.leftImage || undefined,
+                    rightName: page.rightName?.trim() || undefined,
+                    rightImage: page.rightImage || undefined,
+                    choices: page.choices?.filter((c) => c.text.trim()).length
+                        ? page.choices.filter((c) => c.text.trim()).map((c) => ({
+                            text: c.text.trim(),
+                            nextPage: c.nextPage,
+                            conclusion: c.conclusion?.trim() || undefined,
+                            trait: c.trait?.trim() || undefined,
+                            requireTrait: c.requireTrait?.trim() || undefined,
+                            forbidTrait: c.forbidTrait?.trim() || undefined,
+                            battle: c.battle,
+                        }))
+                        : undefined,
+                };
+            }) : undefined,
             levelReq: Math.max(1, Number(eventLevelReq)),
             xpReward: Math.max(0, Number(eventXp)),
             ryoReward: Math.max(0, Number(eventRyo)),
@@ -1723,6 +1762,7 @@ export function AdminPanel({
         setEventVnTitle(event.vnTitle ?? event.name);
         setEventVnScene(event.vnScene ?? "");
         setEventVnSpeaker(event.vnSpeaker ?? "Narrator");
+        setEventCinematic(event.cinematic ?? {});
         setEventImage(event.image ?? "");
         setEventAvatarImage(event.avatarImage ?? "");
         setEventAiProfileId(event.aiProfileId ?? "");
@@ -1754,6 +1794,12 @@ export function AdminPanel({
                 rightName: savedRightWasPlayer ? (page?.leftName ?? page?.speaker ?? event.vnSpeaker ?? "Narrator") : (page?.rightName ?? page?.speaker ?? "Narrator"),
                 rightImage: savedRightWasPlayer ? (page?.leftImage ?? page?.rightImage ?? "") : (page?.rightImage ?? ""),
                 choices: page?.choices ?? [],
+                cinematic: page?.cinematic,
+                lineCinematics: Object.fromEntries(
+                    (page?.lines ?? [])
+                        .map((line, lineIndex) => [lineIndex, line.cinematic] as const)
+                        .filter(([, direction]) => Boolean(direction)),
+                ) as Record<number, VnCinematicDirection>,
             };
         }));
     }
@@ -1775,8 +1821,17 @@ export function AdminPanel({
         ]));
     }
 
+    function validateVisualNovelForSave(event: CreatorEvent): boolean {
+        if (event.eventKind !== "visualNovel") return true;
+        const errors = validateVnCinematicEvent(event).filter((issue) => issue.severity === "error");
+        if (!errors.length) return true;
+        alert(`Fix these visual-novel authoring errors before saving:\n\n${errors.map((issue) => `${issue.path}: ${issue.message}`).join("\n")}`);
+        return false;
+    }
+
     async function createAdminEvent() {
         const event = eventFromForm();
+        if (!validateVisualNovelForSave(event)) return;
         setCreatorEvents([...creatorEvents, event]);
         await publishEventPageImages(event);
         alert(`${event.name} created and imported to World Map.`);
@@ -1786,6 +1841,7 @@ export function AdminPanel({
     async function saveAdminEventEdit() {
         if (!editingEventId) return alert("Load an existing admin event first.");
         const updatedEvent = eventFromForm(editingEventId);
+        if (!validateVisualNovelForSave(updatedEvent)) return;
         setCreatorEvents(creatorEvents.some((event) => event.id === editingEventId)
             ? creatorEvents.map((event) => event.id === editingEventId ? updatedEvent : event)
             : [...creatorEvents, updatedEvent]);
@@ -2567,6 +2623,21 @@ export function AdminPanel({
                             <h3>Visual Novel Builder</h3>
                             <label>VN Name</label><input value={eventName} onChange={(e) => setEventName(e.target.value)} />
                             <label>VN Title</label><input value={eventVnTitle} onChange={(e) => setEventVnTitle(e.target.value)} />
+                            <label>Presentation</label>
+                            <select
+                                value={eventCinematic.mode ?? "auto"}
+                                onChange={(e) => {
+                                    const mode = e.target.value as "auto" | "cinematic" | "classic";
+                                    setEventCinematic((current) => mode === "auto"
+                                        ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== "mode"))
+                                        : { ...current, mode });
+                                }}
+                            >
+                                <option value="auto">Auto — recommended</option>
+                                <option value="cinematic">Cinematic — force full-screen stage</option>
+                                <option value="classic">Classic — rollback reader</option>
+                            </select>
+                            <p className="hint">Auto uses deterministic direction and is the safest default. Classic remains available for emergency rollback.</p>
                             <label>Scene Description</label><textarea value={eventVnScene} onChange={(e) => setEventVnScene(e.target.value)} rows={3} />
                             <label>Default Speaker</label><input value={eventVnSpeaker} onChange={(e) => setEventVnSpeaker(e.target.value)} />
                             <label>AI To Fight (after VN)</label><select value={eventAiProfileId} onChange={(e) => setEventAiProfileId(e.target.value)}><option value="">Default Arena AI</option>{allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level}</option>)}</select>
@@ -2612,6 +2683,10 @@ export function AdminPanel({
                                         <label>Page Title</label><input value={page.title} onChange={(e) => updateVnPage(index, { title: e.target.value })} />
                                         <label>Scene</label><textarea rows={2} value={page.scene} onChange={(e) => updateVnPage(index, { scene: e.target.value })} />
                                         <label>Speaker</label><input value={page.speaker} onChange={(e) => updateVnPage(index, { speaker: e.target.value })} />
+                                        <VnCinematicDirectionEditor
+                                            value={page.cinematic}
+                                            onChange={(cinematic) => updateVnPage(index, { cinematic })}
+                                        />
                                         <label>Left / Right Character Names</label>
                                         <div className="inline-grid">
                                             <input placeholder="Left player name" value={page.leftName ?? ""} onChange={(e) => updateVnPage(index, { leftName: e.target.value })} />
@@ -2671,6 +2746,31 @@ export function AdminPanel({
                                         <details>
                                             <summary className="hint">Edit as raw text</summary>
                                             <textarea rows={4} value={page.dialogue} onChange={(e) => updateVnPage(index, { dialogue: e.target.value })} />
+                                        </details>
+                                        <details className="vn-line-cue-editor">
+                                            <summary>Advanced line cues</summary>
+                                            <p className="hint">Most lines should stay silent. Reserve cues for a physical action, reveal, omen, decision, or battle handoff.</p>
+                                            {page.dialogue.split("\n").map((line) => line.trim()).filter(Boolean).map((line, lineIndex) => (
+                                                <label key={`${lineIndex}:${line}`} className="vn-line-cue-row">
+                                                    <span><strong>{lineIndex + 1}.</strong> {line.length > 92 ? `${line.slice(0, 89)}…` : line}</span>
+                                                    <select
+                                                        value={page.lineCinematics[lineIndex]?.cue ?? ""}
+                                                        onChange={(event) => {
+                                                            const cue = event.target.value as VnSoundCue | "";
+                                                            const lineCinematics = { ...page.lineCinematics };
+                                                            const direction = { ...(lineCinematics[lineIndex] ?? {}) };
+                                                            if (cue) direction.cue = cue;
+                                                            else delete direction.cue;
+                                                            if (Object.keys(direction).length) lineCinematics[lineIndex] = direction;
+                                                            else delete lineCinematics[lineIndex];
+                                                            updateVnPage(index, { lineCinematics });
+                                                        }}
+                                                    >
+                                                        <option value="">No authored cue</option>
+                                                        {VN_CUES.map((cue) => <option key={cue} value={cue}>{cue === "none" ? "Force silence" : cue}</option>)}
+                                                    </select>
+                                                </label>
+                                            ))}
                                         </details>
                                         <label>Page Image</label>
                                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, (image) => updateVnPage(index, { image }), 100); }} />
@@ -2823,6 +2923,25 @@ export function AdminPanel({
                                     </div>
                                 );
                             })()}
+                            {(() => {
+                                const issues = validateVnCinematicEvent(eventFromForm(editingEventId || "admin-vn-preview"));
+                                const errors = issues.filter((issue) => issue.severity === "error");
+                                const warnings = issues.filter((issue) => issue.severity === "warning");
+                                return (
+                                    <div className={`summary-box vn-authoring-status ${errors.length ? "has-errors" : warnings.length ? "has-warnings" : "is-clear"}`}>
+                                        <h5>Cinematic validation {errors.length ? `— ${errors.length} error${errors.length === 1 ? "" : "s"}` : warnings.length ? `— ${warnings.length} review note${warnings.length === 1 ? "" : "s"}` : "✓ ready"}</h5>
+                                        {issues.length > 0 ? (
+                                            <ul>
+                                                {issues.map((issue) => (
+                                                    <li key={`${issue.path}:${issue.message}`} className={issue.severity}>
+                                                        <strong>{issue.path}:</strong> {issue.message}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : <p className="hint">Direction enums, crops, actor fallbacks, page targets, and self-loops are valid.</p>}
+                                    </div>
+                                );
+                            })()}
                             <p className="hint">Dialogue format: Speaker: Line text. Each line is a separate Next press.</p>
                             <label>Level / XP / Ryo / Stamina Reward</label>
                             <div className="inline-grid"><input type="number" value={eventLevelReq} onChange={(e) => setEventLevelReq(Number(e.target.value))} /><input type="number" value={eventXp} onChange={(e) => setEventXp(Number(e.target.value))} /><input type="number" value={eventRyo} onChange={(e) => setEventRyo(Number(e.target.value))} /><input type="number" value={eventStamina} onChange={(e) => setEventStamina(Number(e.target.value))} /></div>
@@ -2851,6 +2970,7 @@ export function AdminPanel({
                                     style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
                                     onClick={async () => {
                                         const petVn = eventFromForm("sys-pet-encounter");
+                                        if (!validateVisualNovelForSave(petVn)) return;
                                         setPetEncounterVn(petVn);
                                         await publishEventPageImages(petVn, "pet-encounter");
                                         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
@@ -2905,6 +3025,7 @@ export function AdminPanel({
                                     style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
                                     onClick={async () => {
                                         const chestVn = eventFromForm("sys-ancient-chest");
+                                        if (!validateVisualNovelForSave(chestVn)) return;
                                         setAncientChestVn(chestVn);
                                         await publishEventPageImages(chestVn, "ancient-chest");
                                         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
@@ -2946,10 +3067,11 @@ export function AdminPanel({
                             setPageIndex={setPreviewVnPage}
                             setLineIndex={setPreviewVnLine}
                             onCancel={() => setPreviewVn(null)}
-                            onComplete={() => setPreviewVn(null)}
-                            onBattle={() => setPreviewVn(null)}
-                            sharedImages={sharedImages}
-                        />
+                             onComplete={() => setPreviewVn(null)}
+                             onBattle={() => setPreviewVn(null)}
+                             sharedImages={sharedImages}
+                             surface="preview"
+                         />
                     </div>
                 </div>
             )}
@@ -5105,14 +5227,14 @@ export function AdminPanel({
                     // ── Boss AI (1) ───────────────────────────────────────────
                     {
                         key: "ai:boss-hollow-gate-warden",
-                        name: "Hollow Gate Warden (boss portrait)",
+                        name: "Hollow Hound Alpha (legacy boss portrait key)",
                         category: "Boss AI",
-                        defaultPrompt: "Hollow Gate Warden, hulking corrupted shinobi warden in black ritual armor, glowing purple shrine sigils across chest plate, violet chakra burning in cracked mask eyes, ancient torii gate burning behind, dark shadow-temple boss portrait, dramatic shinobi RPG character art",
+                        defaultPrompt: "Hollow Hound Alpha, enormous void-scarred Oni Hound with black spirit fur, glowing purple shrine sigils across its hide, violet chakra burning in its eyes and jaws, ancient torii gate burning behind it, dark shadow-temple boss portrait, dramatic shinobi RPG creature art",
                         onSave: (image) => {
                             // Mirror to creatorAis so the existing AI image lookup picks it up.
                             const next = creatorAis.some(a => a.id === "boss-hollow-gate-warden")
-                                ? creatorAis.map(a => a.id === "boss-hollow-gate-warden" ? { ...a, image } : a)
-                                : [...creatorAis, { id: "boss-hollow-gate-warden", name: "Hollow Gate Warden", icon: "👹", image } as CreatorAi];
+                                ? creatorAis.map(a => a.id === "boss-hollow-gate-warden" ? { ...a, name: "Hollow Hound Alpha", icon: "🐺", image } : a)
+                                : [...creatorAis, { id: "boss-hollow-gate-warden", name: "Hollow Hound Alpha", icon: "🐺", image } as CreatorAi];
                             setCreatorAis(next);
                         },
                     },
@@ -5162,7 +5284,7 @@ export function AdminPanel({
                     },
                     {
                         key: "shrine:tile-corrupted-shinobi",
-                        name: "Corrupted Shinobi (normal battle scene)",
+                        name: "Legacy Corrupted Shinobi (unused battle scene)",
                         category: "Tile / Scene",
                         defaultPrompt: "Corrupted shinobi rising from violet chakra mist inside a shadow temple, glowing hollow eyes, fractured mask, broken kunai in hand, painted shinobi RPG combat scene art",
                     },
@@ -5175,19 +5297,18 @@ export function AdminPanel({
                     {
                         // Shared wild-pet portrait for Hollow Gate pet_battle
                         // encounters. When set, overrides the individual pet
-                        // template's image so every Hollow Beast looks part
+                        // template's image so every Hollow Hound looks part
                         // of the same shadow-corruption aesthetic.
                         key: "shrine:tile-hollow-beast",
-                        name: "Hollow Beast (wild pet portrait)",
+                        name: "Hollow Hound (combat portrait)",
                         category: "Tile / Scene",
-                        defaultPrompt: "Hollow Beast, corrupted spirit beast bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured shadow body, faint ancient sigils orbiting it, painted shinobi RPG creature portrait",
+                        defaultPrompt: "Hollow Hound, void-scarred Oni Hound bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured spirit fur, faint ancient sigils orbiting it, painted shinobi RPG creature portrait",
                     },
                     {
-                        // Tile-game scene + the shadow NPC opponent who runs
-                        // the 3x3 card duel. Used as the modal/scene art for
-                        // the Shinobi Tile encounter tile.
+                        // Legacy asset key retained for old published image sets.
+                        // Saved tile-game encounters now migrate to Hollow Hound combat.
                         key: "shrine:tile-tile-game",
-                        name: "Shinobi Tile Game (NPC + table)",
+                        name: "Legacy Tile Game (unused)",
                         category: "Tile / Scene",
                         defaultPrompt: "A hooded shadow opponent sits across a glowing stone table inside a Hollow Gate shrine, nine tile-shaped slots etched into the table glowing violet, faint chakra cards floating between them, painted shinobi RPG card-game scene art",
                     },
@@ -5247,7 +5368,7 @@ export function AdminPanel({
                         key: "shrine:intro-3",
                         name: "Intro VN Page 3 — What Waits Below",
                         category: "Tile / Scene",
-                        defaultPrompt: "Five descending floors of the Hollow Gate Shrine seen as a cross-section, with the silhouette of the Hollow Gate Warden waiting on the deepest floor, surrounded by violet chakra fire, cinematic painted shinobi RPG scene art",
+                        defaultPrompt: "Five descending floors of the Hollow Gate Shrine seen as a cross-section, with the silhouette of an enormous Hollow Hound Alpha waiting on the deepest floor, surrounded by violet chakra fire, cinematic painted shinobi RPG scene art",
                     },
                 ];
 
@@ -5411,12 +5532,12 @@ export function AdminPanel({
                                                 const ai = allAdminAis.find(a => a.id === e.target.value);
                                                 patch({ bossAiId: e.target.value || undefined, bossName: cfg.bossName || ai?.name });
                                             }}>
-                                                <option value="">Hollow Gate Warden (default)</option>
+                                                <option value="">Hollow Hound Alpha (default)</option>
                                                 {allAdminAis.map(ai => <option key={ai.id} value={ai.id}>{ai.name} (Lv {ai.level ?? "?"}{ai.isBossAi ? " · boss" : ""})</option>)}
                                             </select>
                                         </label>
                                         <label style={labelStyle}>Boss display name
-                                            <input value={cfg.bossName ?? ""} placeholder="Hollow Gate Warden" maxLength={64}
+                                            <input value={cfg.bossName ?? ""} placeholder="Hollow Hound Alpha" maxLength={64}
                                                 onChange={(e) => patch({ bossName: e.target.value })} />
                                         </label>
                                     </div>
@@ -5524,7 +5645,7 @@ export function AdminPanel({
                         <p className="hint" style={{ marginTop: 12 }}>
                             Tip: images are looked up by their shared key. <code>item:&lt;id&gt;</code> for inventory icons,
                             <code> ai:&lt;id&gt;</code> for AI portraits, and <code>landmark:</code> / <code>shrine:</code> keys for shrine scenes.
-                            The Hollow Gate Warden boss image is mirrored into creatorAis so the live battle picks it up.
+                            The legacy boss image key is mirrored into creatorAis for compatible event variants. Standard runs use the Hollow Hound / Oni Hound combat art.
                         </p>
 
                         {/* ── Atlas Tile Picker — visual coord selector ──────────────── */}
@@ -5534,7 +5655,7 @@ export function AdminPanel({
                         <section className="summary-box" style={{ marginTop: 16 }}>
                             <h3>📊 Stats</h3>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, fontSize: 13 }}>
-                                <div><strong>Warden Kills (this character):</strong><br/>{character.hollowGateWardenKills ?? 0}</div>
+                                <div><strong>Alpha Hound Kills (this character):</strong><br/>{character.hollowGateWardenKills ?? 0}</div>
                                 <div><strong>Saved Run:</strong><br/>{character.hollowGateRun ? `Floor ${character.hollowGateRun.floor} · ${character.hollowGateRun.completed ? "completed" : "in progress"}` : "None"}</div>
                                 <div><strong>Intro VN Seen:</strong><br/>{character.hollowGateIntroSeen ? "Yes" : "No"}</div>
                                 <div><strong>Hollow Gate Keys:</strong><br/>{countItem(character, HOLLOW_GATE_KEY_ID)}</div>
@@ -5602,12 +5723,8 @@ export function AdminPanel({
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
-                                    <span>Max floor</span>
-                                    <input
-                                        type="number" min={1} max={20} step={1}
-                                        defaultValue={HOLLOW_GATE_MAX_FLOOR}
-                                        onChange={(e) => { setHollowGateMaxFloor(Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1)))); }}
-                                    />
+                                    <span>Standard run depth</span>
+                                    <strong>{HOLLOW_GATE_MAX_FLOOR} floors (server contract)</strong>
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
                                     <span>Threat gained per step</span>

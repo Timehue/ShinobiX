@@ -72,10 +72,17 @@ import { resolvePetDuelVisualLayers } from "../lib/pet-duel-visual-layers";
 import { petCombatFamilyPresentation } from "../lib/pet-combat-family";
 import { petDisplayName } from "../lib/pet";
 import { petDuelBroadcastRead, petDuelRecap } from "../lib/pet-duel-broadcast";
+import { HOLLOW_HOUND_SURFACE } from "../lib/pet-model-surface";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
 const FX_Y = 1.0; // mid-body height for impacts / casts
+
+function hollowHoundSurface(pet: Pick<Pet, "id" | "name">) {
+    return pet.name === "Hollow Hound" && /^mythic-4(?:-\d{10,})?$/.test(pet.id)
+        ? HOLLOW_HOUND_SURFACE
+        : undefined;
+}
 
 /** Optional HDR-glow pass (default OFF, behind petBloom.v1). Threshold bloom makes the
  *  bright, additive signature / ultimate / KO effects GLOW so big moves read bigger, while
@@ -1153,6 +1160,8 @@ function ResponsiveCamera() {
 type FxInstance = { id: number; frames: string[]; from: Vec3; to?: Vec3; durationMs: number; scale: number; projElement?: string | null };
 type LabelInstance = { id: number; text: string; className: string; pos: Vec3 };
 
+export type PetBattleSettlementStatus = "idle" | "pending" | "error" | "settled";
+
 export type PetColiseumProps = {
     playerPet: Pet;
     enemyPet: Pet;
@@ -1165,8 +1174,10 @@ export type PetColiseumProps = {
     obstacles?: number[];
     tiles?: ArenaTile[];
     onReplay: () => void;
-    onFightAgain: () => void;
+    onFightAgain?: () => void;
     onExit: () => void;
+    settlementStatus?: PetBattleSettlementStatus;
+    onRetrySettlement?: () => void;
     sharedImages?: Record<string, string>;
     playerRecord?: PetBattleRecord;
     enemyRecord?: PetBattleRecord;
@@ -1174,7 +1185,8 @@ export type PetColiseumProps = {
 
 export function PetColiseum({
     playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, result,
-    obstacles, tiles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord,
+    obstacles, tiles, onReplay, onFightAgain, onExit, settlementStatus, onRetrySettlement,
+    sharedImages = {}, playerRecord, enemyRecord,
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
@@ -1648,10 +1660,23 @@ export function PetColiseum({
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(5,7,13,0.55)" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: result === "Victory" ? "#4ade80" : result === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{result}</div>
+                        {settlementStatus === "pending" && <p style={{ color: "#fde68a", fontWeight: 800 }}>Sealing the Hollow Hound result…</p>}
+                        {settlementStatus === "error" && (
+                            <div style={{ marginTop: 10 }}>
+                                <p style={{ color: "#fecaca", fontWeight: 800 }}>Gate verification paused. Your completed duel is safe to retry.</p>
+                                <button onClick={onRetrySettlement} style={resultBtn}>Retry Gate Settlement</button>
+                            </div>
+                        )}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
                             <button onClick={onReplay} style={resultBtn}>⟲ Replay</button>
-                            <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>
-                            <button onClick={onExit} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
+                            {onFightAgain && <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>}
+                            <button
+                                onClick={onExit}
+                                disabled={!!settlementStatus && settlementStatus !== "settled"}
+                                style={{ ...resultBtn, background: "#334155", opacity: settlementStatus && settlementStatus !== "settled" ? 0.55 : 1 }}
+                            >
+                                {settlementStatus === "settled" ? "Return to Gate" : "Exit"}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1669,7 +1694,8 @@ export function PetColiseum({
                 result is already computed + applied, so leaving just skips the replay). */}
             <button
                 onClick={onExit}
-                title="Exit battle"
+                disabled={settlementStatus === "pending" || settlementStatus === "error"}
+                title={settlementStatus === "pending" || settlementStatus === "error" ? "Waiting for Gate settlement" : "Exit battle"}
                 style={{ position: "absolute", top: 14, right: 56, width: 34, height: 34, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
             >
                 ✕
@@ -2523,7 +2549,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                                 </mesh>
                             </Billboard>
                         )}>
-                            <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} />
+                            <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} surfaceTreatment={hollowHoundSurface(pet)} />
                         </Suspense>
                     </group>
                 ) : (
@@ -2601,7 +2627,7 @@ function DuelCutInModelPortrait({ pet, config, style, move, mirror }: {
                 <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={0.68} color={elementColor(pet.element).glow} />
                 <group position={[0, -config.targetHeight * 0.5, 0]} rotation={[0, mirror ? -0.34 : 0.34, 0]}>
                     <Suspense fallback={null}>
-                        <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} />
+                        <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} surfaceTreatment={hollowHoundSurface(pet)} />
                     </Suspense>
                 </group>
             </Canvas>
@@ -7135,6 +7161,8 @@ export type PetColiseumDuelProps = {
     /** Dev-harness scrub point for deterministic VFX screenshots. Live callers omit it. */
     initialTick?: number;
     onFightAgain?: () => void;
+    settlementStatus?: PetBattleSettlementStatus;
+    onRetrySettlement?: () => void;
     onExit: () => void;
 };
 
@@ -7148,7 +7176,7 @@ const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).sta
 const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
     !!d && typeof (d as { safeTick?: number }).safeTick === "number";
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
     useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
@@ -8340,6 +8368,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", marginTop: 10 }}>
                             {duel.result === "win" ? "Your bond carried the arena." : duel.result === "loss" ? "The opposing pet claims the arena." : "Neither pet yields the arena."}
                         </div>
+                        {settlementStatus === "pending" && (
+                            <div role="status" style={{ color: "#fde68a", font: "800 13px Inter, system-ui, sans-serif", marginTop: 12 }}>
+                                Sealing the Hollow Hound result…
+                            </div>
+                        )}
+                        {settlementStatus === "error" && (
+                            <div role="alert" style={{ marginTop: 12 }}>
+                                <div style={{ color: "#fecaca", font: "800 13px Inter, system-ui, sans-serif" }}>Gate verification paused. Your completed duel is safe to retry.</div>
+                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>Retry Gate Settlement</button>
+                            </div>
+                        )}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 18 }}>
                             {[
                                 ["TIME", `${Math.floor(recap.durationSeconds / 60)}:${String(recap.durationSeconds % 60).padStart(2, "0")}`],
@@ -8355,7 +8394,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 18 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
                             {onFightAgain && <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>}
-                            <button onClick={exitDuel} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
+                            <button
+                                onClick={exitDuel}
+                                disabled={!!settlementStatus && settlementStatus !== "settled"}
+                                style={{ ...resultBtn, background: "#334155", opacity: settlementStatus && settlementStatus !== "settled" ? 0.55 : 1 }}
+                            >
+                                {settlementStatus === "settled" ? "Return to Gate" : "Exit"}
+                            </button>
                         </div>
                     </div>
                 </div>

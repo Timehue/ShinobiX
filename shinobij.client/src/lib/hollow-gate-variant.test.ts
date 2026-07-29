@@ -14,14 +14,14 @@ test("no variant → the standard shrine everywhere (back-compat)", () => {
     assert.equal(hollowGateRunMaxFloor(null), HOLLOW_GATE_MAX_FLOOR);
     assert.equal(hollowGateRunMaxFloor({ variant: undefined }), HOLLOW_GATE_MAX_FLOOR);
     assert.deepEqual(hollowGateVariantDims(undefined), { width: HOLLOW_GATE_SHRINE_W, height: HOLLOW_GATE_SHRINE_H });
-    assert.equal(hollowGateBossDisplayName(null), "Hollow Gate Warden");
-    assert.equal(hollowGateBossDisplayName({ variant: { id: "e" } }), "Hollow Gate Warden");
+    assert.equal(hollowGateBossDisplayName(null), "Hollow Hound Alpha");
+    assert.equal(hollowGateBossDisplayName({ variant: { id: "e" } }), "Hollow Hound Alpha");
 });
 
 test("variant fields are read and clamped", () => {
     assert.equal(hollowGateRunMaxFloor({ variant: { id: "e", maxFloor: 3 } }), 3);
     assert.equal(hollowGateRunMaxFloor({ variant: { id: "e", maxFloor: 0 } }), 1, "floors clamp up to 1");
-    assert.equal(hollowGateRunMaxFloor({ variant: { id: "e", maxFloor: 99 } }), 9, "floors clamp down to 9");
+    assert.equal(hollowGateRunMaxFloor({ variant: { id: "e", maxFloor: 99 } }), 5, "floors clamp to the shared server maximum");
     assert.deepEqual(hollowGateVariantDims({ id: "e", width: 19, height: 13 }), { width: 19, height: 13 });
     assert.deepEqual(hollowGateVariantDims({ id: "e", width: 5, height: 500 }), { width: 15, height: 21 }, "dims clamp into generator-safe bounds");
     assert.equal(hollowGateBossDisplayName({ variant: { id: "e", bossName: "  Festival Oni  " } }), "Festival Oni");

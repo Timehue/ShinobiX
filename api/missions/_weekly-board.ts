@@ -44,7 +44,7 @@ export const WEEKLY_CATALOG: WeeklyMission[] = [
     { id: 'wk-ranked-7', name: 'Ranked Grinder', desc: 'Win 7 ranked matches.', counter: 'rankedWins', target: 7, reward: { ryo: 8000, fateShards: 2 }, eligibility: rankedEligibility },
     { id: 'wk-missions-10', name: 'Dutiful', desc: 'Complete 10 missions.', counter: 'totalMissionsCompleted', target: 10, reward: { ryo: 4000, boneCharms: 2 }, eligibility: safeEligibility },
     { id: 'wk-missions-25', name: 'Tireless', desc: 'Complete 25 missions.', counter: 'totalMissionsCompleted', target: 25, reward: { ryo: 8000, fateShards: 2 }, eligibility: safeEligibility },
-    { id: 'wk-hollow-warden', name: 'Hollow Gate Warden', desc: 'Defeat the Hollow Gate Warden once.', counter: 'hollowGateWardenKills', target: 1, reward: { ryo: 12000, fateShards: 3, boneCharms: 4 }, eligibility: hollowGateWardenEligibility },
+    { id: 'wk-hollow-warden', name: 'Hollow Hound Alpha', desc: 'Defeat the Hollow Hound Alpha once.', counter: 'hollowGateWardenKills', target: 1, reward: { ryo: 12000, fateShards: 3, boneCharms: 4 }, eligibility: hollowGateWardenEligibility },
 ];
 
 export const WEEKLY_FALLBACK_CATALOG: WeeklyMission[] = [

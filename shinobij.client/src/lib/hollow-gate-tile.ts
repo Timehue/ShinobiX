@@ -10,31 +10,27 @@
  * behaviour is preserved. Please keep it that way — this applies rewards, hazards and
  * death, so a "tidy-up" here is a balance change wearing a refactor's clothes.
  *
- * Why context instead of imports for the last few: `gainXp`, `petPool` and
- * `HOLLOW_GATE_TRAP_DMG_PCT` all live in App.tsx, so importing them here would create
+ * Why context instead of imports for the last few: `gainXp` and
+ * `HOLLOW_GATE_TRAP_DMG_PCT` live in App.tsx, so importing them here would create
  * an App -> lib -> App cycle. HOLLOW_GATE_TRAP_DMG_PCT is additionally a mutable
  * `export let` tuned at runtime, so it must be read per call, not captured once.
  */
 import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
-import { petRarityOrder } from "../data/pet-config";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
-import { generateHollowGateShrineRun, pickHollowGateEncounterPet } from "./hollow-gate-dungeon";
+import { generateHollowGateShrineRun } from "./hollow-gate-dungeon";
 import { befriendHollowGatePetServer, rollHollowLockedDoorServer } from "./hollow-gate-locked-door-api";
 import { hollowShardDrop } from "./hollow-gate-run";
 import { consumeHollowGateServerSecondWind, hollowGateAugmentEffects } from "./hollow-gate-server";
 import { tryHollowGateSecondWind } from "./hollow-gate-shards";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
-import { isPetOnExpedition } from "./pet";
 import { requireServerSettlement } from "./server-settlement-gate";
-import type { Pet, PetRarity } from "../types/pet";
+import { descendHollowGateRun } from "./hollow-gate-combat-api";
 import type {
     Character,
     HollowGateShrineRun,
     HollowGateTile,
     HollowGateTileKind,
 } from "../types/character";
-import type { Screen } from "../types/core";
-import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 
 /** Modal the shrine raises for a resolved tile. Lived inside App; here so the lib owns it. */
 export type HollowGateEventModal = {
@@ -60,8 +56,6 @@ export interface HollowGateTileCtx {
     /** Nullable: the body's own first line guards `!character` before use. */
     character: Character | null;
     hollowGateRun: HollowGateShrineRun | null;
-    sharedImages: Record<string, string>;
-    petPool: Pet[];
     /** Mutable runtime tunable from App.tsx — read per call. */
     HOLLOW_GATE_TRAP_DMG_PCT: number;
 
@@ -69,9 +63,6 @@ export interface HollowGateTileCtx {
     setHollowGateRun: SetState<HollowGateShrineRun | null>;
     setHollowGateEvent: SetState<HollowGateEventModal>;
     setHollowGateHiddenChamber: SetState<HiddenChamberState>;
-    setHollowGateTileGameActive: SetState<boolean>;
-    setPendingPetBattleOpponent: SetState<PetArenaOpponent | null>;
-    setScreen: (screen: Screen) => void;
 
     gainXp: (character: Character, amount: number) => Character;
     pushHollowGateLog: (line: string) => void;
@@ -87,9 +78,8 @@ export function resolveHollowGateTile(
     ctx: HollowGateTileCtx,
 ): void {
     const {
-        character, hollowGateRun, sharedImages, petPool, HOLLOW_GATE_TRAP_DMG_PCT,
+        character, hollowGateRun, HOLLOW_GATE_TRAP_DMG_PCT,
         setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
-        setHollowGateTileGameActive, setPendingPetBattleOpponent, setScreen,
         gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
         leaveHollowGateShrine,
     } = ctx;
@@ -133,140 +123,24 @@ export function resolveHollowGateTile(
         case "battle": {
             pushHollowGateLog(flavor);
             void startHollowGateBattle({ nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
-            markResolved();
             return;
         }
         case "elite": {
             pushHollowGateLog(`[Elite] ${flavor}`);
             void startHollowGateBattle({ isElite: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
-            markResolved();
             return;
         }
         case "tile_game": {
-            // Shinobi Tile card-game encounter. Pre-modal shows the
-            // shadow-opponent scene art (shrine:tile-tile-game); Begin
-            // dives into the 3x3 card duel. Resolution callbacks back
-            // in the App body handle win/lose/abandon.
-            pushHollowGateLog(`[Tile Seal] ${flavor}`);
-            markResolved();
-            setHollowGateEvent({
-                title: "Shinobi Chronicle Showdown Seal",
-                body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them in a Shinobi Chronicle Showdown to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
-                kind: "tile_game",
-                choices: [
-                    {
-                        label: "Begin Tile Showdown",
-                        tone: "primary",
-                        onSelect: () => {
-                            setHollowGateEvent(null);
-                            setHollowGateTileGameActive(true);
-                            setScreen("hollowGateTiles");
-                        },
-                    },
-                    {
-                        label: "Step Away",
-                        onSelect: () => {
-                            setHollowGateEvent(null);
-                            pushHollowGateLog("You leave the tile table untouched. The shadow opponent fades.");
-                        },
-                    },
-                ],
-            });
+            // Compatibility migration for runs saved before Tile Showdown was
+            // retired. Do not resolve the old tile up front: convert it into the
+            // same sealed Hollow Hound choice as every current combat node.
+            pushHollowGateLog(`[Hollow Hound] ${flavor} The obsolete tile seal fractures, revealing claw marks beneath it.`);
+            void startHollowGateBattle({ nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
             return;
         }
         case "pet_battle": {
-            // Wild Hollow Beast — pet vs pet autobattler using the existing
-            // PetArena. The player's active pet duels a random wild pet
-            // scaled to the player's level. Falls back to a themed shinobi
-            // fight if the player has no battle-ready pet (so the tile is
-            // never a dead-end).
-            const activePet = (character.pets ?? []).find(p => p.id === character.activePetId);
-            const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
-            if (!petReady) {
-                // No pet → fall back to the themed shinobi version of the
-                // encounter so the tile still fires something on step.
-                pushHollowGateLog(`[Hollow Beast] ${flavor} You have no pet ready — the beast comes for you instead.`);
-                void startHollowGateBattle({ isBeast: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
-                markResolved();
-                return;
-            }
-            // Pick a wild pet rarity capped to one tier above the player's
-            // pet — never a mythic vs standard mismatch. Floor weighting
-            // pushes toward the cap on deeper floors but still allows
-            // mirror / lower-tier matches so easier fights remain possible.
-            const floor = hollowGateRun?.floor ?? 1;
-            const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
-            const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
-            // bumpChance: F1=10%, F2=15%, ..., F5=30%. Probability of using
-            // the +1 tier; otherwise stay at player tier (or lower for
-            // standard players when bump isn't picked).
-            const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
-            const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
-            const targetRarity: PetRarity = petRarityOrder[targetIdx];
-            const wildBase = pickHollowGateEncounterPet(petPool, targetRarity);
-            if (!wildBase) {
-                // Shouldn't happen with the canonical pool, but defensive.
-                pushHollowGateLog(`[Hollow Beast] ${flavor} The beast melts back into the mist.`);
-                void startHollowGateBattle({ isBeast: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
-                markResolved();
-                return;
-            }
-            // Rebase wild pet to the player's pet level so the duel is
-            // balanced on stats. On the hardest floors (F4-5) trim 10%
-            // off hp/attack/defense so the fight stays winnable —
-            // mythic-template stats can otherwise steamroll a standard
-            // player pet even at matched level.
-            const handicap = floor >= 4 ? 0.90 : 1.00;
-            // Override the wild pet's image with the shrine beast portrait,
-            // and give it an "hg-beast-" id so the image-lookup chain falls
-            // through to pet.image instead of a user-generated pet template.
-            const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
-            const wild: Pet = {
-                ...wildBase,
-                id: `hg-beast-${Date.now()}`,
-                level: Math.max(1, activePet.level),
-                name: `Hollow ${wildBase.name}`,
-                hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
-                attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
-                defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
-                image: hollowBeastImg || wildBase.image,
-            };
-            pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
-            // Pre-encounter modal — shows the Hollow Beast scene art
-            // (shrine:tile-hollow-beast) before the player commits to
-            // the duel. Begin transitions to PetArena. Step Away bails
-            // with no penalty. Threat / torch reset applies whether the
-            // player engages (so leaving is the safer path).
-            markResolved({ setTorch: 10 });
-            setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
-            setHollowGateEvent({
-                title: `Hollow Beast: ${wild.name}`,
-                body: `${flavor}\n\n${activePet.name} (Lv ${activePet.level} ${activePet.rarity}) faces ${wild.name} (Lv ${wild.level} ${wild.rarity ?? "wild"}). Win to claim victory; lose to take 20% HP damage. Either way your run continues.`,
-                kind: "pet_battle",
-                choices: [
-                    {
-                        label: "Send Pet to Duel",
-                        tone: "primary",
-                        onSelect: () => {
-                            setHollowGateEvent(null);
-                            setPendingPetBattleOpponent({
-                                owner: "Hollow Gate",
-                                pet: wild,
-                                battleSeed: Date.now(),
-                                returnScreen: "hollowGateShrine",
-                            });
-                            setScreen("petArena");
-                        },
-                    },
-                    {
-                        label: "Step Away",
-                        onSelect: () => {
-                            setHollowGateEvent(null);
-                            pushHollowGateLog(`${activePet.name} pulls back. The Hollow Beast fades into mist.`);
-                        },
-                    },
-                ],
-            });
+            pushHollowGateLog(`[Hollow Hound] ${flavor}`);
+            void startHollowGateBattle({ isBeast: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
             return;
         }
         case "trap": {
@@ -306,7 +180,6 @@ export function resolveHollowGateTile(
                         onSelect: () => {
                             setHollowGateEvent(null);
                             leaveHollowGateShrine({ death: true });
-                            setScreen("hospital");
                         },
                     }],
                 });
@@ -385,7 +258,7 @@ export function resolveHollowGateTile(
         }
         case "story": {
             // Flavor only — story tiles teach you about the shrine. No rewards
-            // (rewards come from chests, secret doors, and the Warden).
+            // (rewards come from chests, secret doors, and the Alpha Hound).
             pushHollowGateLog(flavor);
             setHollowGateEvent({
                 title: "Hollow Gate Echo",
@@ -426,11 +299,38 @@ export function resolveHollowGateTile(
                     {
                         label: "Descend Deeper",
                         tone: "primary",
-                        onSelect: () => {
+                        onSelect: async () => {
+                            if (!hollowGateRun.runToken) {
+                                pushHollowGateLog("The staircase has no secure run seal. Use Emergency Forfeit and begin a fresh dive.");
+                                return;
+                            }
+                            try {
+                                await descendHollowGateRun({
+                                    playerName: character.name,
+                                    token: hollowGateRun.runToken,
+                                    fromFloor: hollowGateRun.floor,
+                                });
+                            } catch (error) {
+                                pushHollowGateLog(error instanceof Error ? error.message : "The staircase refuses to open.");
+                                return;
+                            }
                             // The run's variant rides along so an event gate keeps its
                             // shape (floors / board / boss) on every floor below.
-                            const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant), character, false);
-                            setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
+                            const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
+                            setHollowGateRun({
+                                ...next,
+                                keys: hollowGateRun.keys,
+                                torch: Math.min(10, hollowGateRun.torch + 4),
+                                entryCurrencies: hollowGateRun.entryCurrencies,
+                                runToken: hollowGateRun.runToken,
+                                serverSeed: hollowGateRun.serverSeed,
+                                augmentOffers: hollowGateRun.augmentOffers,
+                                chosenAugment: hollowGateRun.chosenAugment,
+                                secondWindArmed: hollowGateRun.secondWindArmed,
+                                earnedXp: hollowGateRun.earnedXp,
+                                earnedFragments: hollowGateRun.earnedFragments,
+                                earnedVeils: hollowGateRun.earnedVeils,
+                            });
                             pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
                             setHollowGateEvent(null);
                         },
@@ -564,7 +464,7 @@ export function resolveHollowGateTile(
                         }
                         setCharacter({ ...character, hp: nextHp, hospitalized: willDie || character.hospitalized });
                         pushHollowGateLog(`Trap behind the door! You take ${damage} HP damage.`);
-                        setHollowGateEvent({ title: willDie ? "Cursed Trap Door" : "Trap Door", body: willDie ? "The binding seal drains the last of your chakra. Your shrine run ends." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: willDie ? "Leave Shrine" : "Press On", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (willDie) { leaveHollowGateShrine({ death: true }); setScreen("hospital"); } } }] });
+                        setHollowGateEvent({ title: willDie ? "Cursed Trap Door" : "Trap Door", body: willDie ? "The binding seal drains the last of your chakra. Your shrine run ends." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: willDie ? "Leave Shrine" : "Press On", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (willDie) leaveHollowGateShrine({ death: true }); } }] });
                         return;
                     }
                     const encounter = result.pet;
@@ -663,7 +563,6 @@ export function resolveHollowGateTile(
                                 onSelect: () => {
                                     setHollowGateEvent(null);
                                     leaveHollowGateShrine({ death: true });
-                                    setScreen("hospital");
                                 },
                             }],
                         });

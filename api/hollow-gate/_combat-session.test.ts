@@ -9,6 +9,8 @@ import {
     normalizeHollowGateNodeId,
     settleHollowGateCombatBinding,
     validateHollowGateCombatSession,
+    validateHollowGatePetClaim,
+    validateHollowGatePveClaim,
 } from './_combat-session.js';
 
 const token = 'sealed-hollow-gate-token';
@@ -60,6 +62,54 @@ test('Hollow Gate combat binding settles once and rejects replay', () => {
     assert.deepEqual(settleHollowGateCombatBinding(settled, false, 3_000), settled);
 });
 
+test('normal PvE Hollow Hound claims remain bound to one player, run, node, and token', () => {
+    const pve = createHollowGateCombatBinding({
+        playerName,
+        token,
+        floor: 2,
+        nodeId: 'floor:2:tile:8',
+        kind: 'beast',
+        combatMode: 'pve',
+        runId: 'hgcombat-pve',
+    });
+    const active = {
+        runId: pve.runId,
+        nodeId: pve.nodeId,
+        floor: pve.floor,
+        kind: pve.kind,
+        enemyProfileId: pve.enemyProfileId,
+        createdAt: pve.createdAt,
+    };
+    assert.equal(validateHollowGatePveClaim({ binding: pve, activeEncounter: active, playerName, token }).ok, true);
+    assert.equal(reason(validateHollowGatePveClaim({ binding: pve, activeEncounter: active, playerName: 'attacker', token })), 'wrong-player');
+    assert.equal(reason(validateHollowGatePveClaim({ binding: pve, activeEncounter: active, playerName, token: 'forged' })), 'wrong-token');
+    assert.equal(reason(validateHollowGatePveClaim({ binding: pve, activeEncounter: { ...active, nodeId: 'floor:2:tile:9' }, playerName, token })), 'binding-drift');
+});
+
+test('pet Hollow Hound claims require a sealed pet-mode binding and reject cross-mode receipts', () => {
+    const pet = createHollowGateCombatBinding({
+        playerName,
+        token,
+        floor: 4,
+        nodeId: 'floor:4:tile:18',
+        kind: 'beast',
+        combatMode: 'pet',
+        runId: 'hgcombat-pet',
+    });
+    const active = {
+        runId: pet.runId,
+        nodeId: pet.nodeId,
+        floor: pet.floor,
+        kind: pet.kind,
+        enemyProfileId: pet.enemyProfileId,
+        createdAt: pet.createdAt,
+    };
+    assert.equal(validateHollowGatePetClaim({ binding: pet, activeEncounter: active, playerName, token }).ok, true);
+    assert.equal(reason(validateHollowGatePetClaim({ binding: pet, activeEncounter: active, playerName: 'attacker', token })), 'wrong-player');
+    assert.equal(reason(validateHollowGatePetClaim({ binding: pet, activeEncounter: active, playerName, token: 'forged' })), 'wrong-token');
+    assert.equal(reason(validateHollowGatePetClaim({ binding: { ...pet, combatMode: 'pve' }, activeEncounter: active, playerName, token })), 'invalid-binding');
+});
+
 test('node ids are bounded and encounter receipts include kind to prevent boss replay on a second node', () => {
     assert.equal(normalizeHollowGateNodeId('floor:5:tile:321'), 'floor:5:tile:321');
     assert.equal(normalizeHollowGateNodeId('floor:5:ambush:threat-1'), 'floor:5:ambush:threat-1');
@@ -97,8 +147,8 @@ test('Second Wind is sealed into one combat binding and cannot be added at settl
     assert.equal(settleHollowGateCombatBinding(armed, false).secondWindArmed, true);
 });
 
-test('server settlement preserves the shipped post-win HP recovery', () => {
-    assert.equal(hollowGatePostWinHp(500, 120, 'battle'), 140);
-    assert.equal(hollowGatePostWinHp(500, 120, 'boss'), 180);
-    assert.equal(hollowGatePostWinHp(150, 140, 'boss'), 150);
+test('server settlement preserves surviving HP without post-fight healing', () => {
+    assert.equal(hollowGatePostWinHp(500, 120, 'battle'), 120);
+    assert.equal(hollowGatePostWinHp(500, 120, 'boss'), 120);
+    assert.equal(hollowGatePostWinHp(150, 140, 'boss'), 140);
 });

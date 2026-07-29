@@ -46,9 +46,9 @@ export type HollowGateFloorDims = { width: number; height: number };
 
 /** Public entry: a fully-connected, intentionally-laid-out floor. Retries a few
  *  times if an invariant fails (regenerate-on-invalid is microseconds at 425 cells). */
-export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims): HollowGateShrineRun {
+export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims, rng: () => number = Math.random): HollowGateShrineRun {
     for (let attempt = 0; attempt < 20; attempt += 1) {
-        const run = tryGenerateFloor(floor, isFinalFloor, dims);
+        const run = tryGenerateFloor(floor, isFinalFloor, dims, rng);
         if (run) return run;
     }
     throw new Error("hollow-gate floor generation failed after retries");
@@ -57,20 +57,20 @@ export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, di
 /** Carve a chunky chamber inside a BSP leaf: rooms fill ~70-100% of the padded
  *  leaf so chambers feel like ROOMS (the shared bspRoomInNode carves down to 3×3,
  *  which read as closets on the big grid). */
-function chamberInLeaf(node: BSPRect): BSPRect {
+function chamberInLeaf(node: BSPRect, rng: () => number): BSPRect {
     const pad = 1;
     const availW = Math.max(3, node.w - pad * 2);
     const availH = Math.max(3, node.h - pad * 2);
     const minW = Math.max(3, Math.ceil(availW * 0.7));
     const minH = Math.max(3, Math.ceil(availH * 0.7));
-    const roomW = minW + Math.floor(Math.random() * Math.max(1, availW - minW + 1));
-    const roomH = minH + Math.floor(Math.random() * Math.max(1, availH - minH + 1));
-    const roomX = node.x + pad + Math.floor(Math.random() * Math.max(1, node.w - pad * 2 - roomW + 1));
-    const roomY = node.y + pad + Math.floor(Math.random() * Math.max(1, node.h - pad * 2 - roomH + 1));
+    const roomW = minW + Math.floor(rng() * Math.max(1, availW - minW + 1));
+    const roomH = minH + Math.floor(rng() * Math.max(1, availH - minH + 1));
+    const roomX = node.x + pad + Math.floor(rng() * Math.max(1, node.w - pad * 2 - roomW + 1));
+    const roomY = node.y + pad + Math.floor(rng() * Math.max(1, node.h - pad * 2 - roomH + 1));
     return { x: roomX, y: roomY, w: roomW, h: roomH };
 }
 
-function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims): HollowGateShrineRun | null {
+function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGateFloorDims | undefined, rng: () => number): HollowGateShrineRun | null {
     const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
     const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
@@ -82,9 +82,9 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
     // enough for a real chamber. Compact (event-variant) boards ease both knobs
     // so a 15×11 floor still carves 3-5 real rooms instead of failing retries.
     const compact = w < 20 || h < 13;
-    const splitDepth = 3 + (floor >= 3 && !compact && Math.random() < 0.4 ? 1 : 0);
-    const leaves = bspSplit({ x: 0, y: 0, w, h }, splitDepth, compact ? 5 : 6).filter((l) => l.w >= 5 && l.h >= 5);
-    const rooms: BSPRect[] = leaves.map(chamberInLeaf);
+    const splitDepth = 3 + (floor >= 3 && !compact && rng() < 0.4 ? 1 : 0);
+    const leaves = bspSplit({ x: 0, y: 0, w, h }, splitDepth, compact ? 5 : 6, rng).filter((l) => l.w >= 5 && l.h >= 5);
+    const rooms: BSPRect[] = leaves.map((leaf) => chamberInLeaf(leaf, rng));
     if (rooms.length < (compact ? 3 : 4)) return null; // too few rooms → retry
 
     const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
@@ -117,10 +117,10 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
         treeEdges.push([bestFrom, bestTo]);
         inTree.add(bestTo);
     }
-    for (const [a, b] of treeEdges) bspCarveCorridor(terrain, w, centers[a], centers[b]);
+    for (const [a, b] of treeEdges) bspCarveCorridor(terrain, w, centers[a], centers[b], rng);
 
     // One loop: shortest non-tree edge → a single cycle (tactical "go around").
-    if (rooms.length >= 3 && Math.random() < 0.7) {
+    if (rooms.length >= 3 && rng() < 0.7) {
         const hasEdge = (a: number, b: number) => treeEdges.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
         let la = -1, lb = -1, lD = Infinity;
         for (let a = 0; a < rooms.length; a += 1) {
@@ -130,7 +130,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
                 if (d < lD) { lD = d; la = a; lb = b; }
             }
         }
-        if (la >= 0) bspCarveCorridor(terrain, w, centers[la], centers[lb]);
+        if (la >= 0) bspCarveCorridor(terrain, w, centers[la], centers[lb], rng);
     }
 
     // ── Spawn (leftmost room) — needed before the connectivity flood ──────────
@@ -140,7 +140,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
 
     // ── 3. Connectivity guarantee — carve a repair corridor to any unreached
     //       room centre until the whole floor floods from spawn. ────────────────
-    ensureConnected(terrain, w, h, centers, spawnIdx);
+    ensureConnected(terrain, w, h, centers, spawnIdx, rng);
 
     // ── 4. Doors at corridor↔room seams (one entry per corridor end) ─────────
     markDoors(terrain, w, h, total);
@@ -246,7 +246,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
         }
         return placed;
     }
-    const shuffle = (a: number[]) => { for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const shuffle = (a: number[]) => { for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
     const allReachable = (pred: (i: number) => boolean) => {
         const out: number[] = [];
@@ -265,7 +265,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
 
     // Content grows with depth. Battles ramp to floor 5 then plateau at 9 (the
     // deep floors are dense but still crossable); elites + traps keep climbing
-    // (floor 9 → 5 elites, 7 traps) so a full nine-floor descent stays tense.
+    // (floor 5 → 3 elites, 5 traps) so the full five-floor descent stays tense.
     const battleCount = 4 + Math.min(5, floor);
     const eliteCount = 1 + Math.floor(floor / 2);
     const trapCount = 3 + Math.floor(floor / 2);
@@ -366,12 +366,12 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
     if (!reachSansLocked.has(exitIdx) || !reachSansLocked.has(targetIdx)) return null; // regenerate
 
     // ── 8. Decorations + assemble ────────────────────────────────────────────
-    const seed = Math.floor(Math.random() * 0x7fffffff);
+    const seed = Math.floor(rng() * 0x7fffffff);
     const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
         kind,
         terrain: terrain[i],
         roomId: roomIds[i] >= 0 ? roomIds[i] : null,
-        decoration: (terrain[i] === "room_floor" && kind === "empty" && !reserved.has(i) && !protectedCells.has(i) && Math.random() < 0.12) ? Math.floor(Math.random() * 4) : undefined,
+        decoration: (terrain[i] === "room_floor" && kind === "empty" && !reserved.has(i) && !protectedCells.has(i) && rng() < 0.12) ? Math.floor(rng() * 4) : undefined,
         revealed: i === spawnIdx,
         resolved: i === spawnIdx,
         flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
@@ -420,7 +420,7 @@ function bfsDistances(terrain: HollowGateTerrain[], w: number, h: number, start:
 }
 
 /** Carve repair corridors until every room centre floods from spawn. */
-function ensureConnected(terrain: HollowGateTerrain[], w: number, h: number, centers: Array<{ x: number; y: number }>, spawnIdx: number): void {
+function ensureConnected(terrain: HollowGateTerrain[], w: number, h: number, centers: Array<{ x: number; y: number }>, spawnIdx: number, rng: () => number): void {
     for (let pass = 0; pass <= centers.length; pass += 1) {
         const reach = hollowGateReachableSet(w, h, spawnIdx, wallSet(terrain));
         let unreached = -1;
@@ -435,7 +435,7 @@ function ensureConnected(terrain: HollowGateTerrain[], w: number, h: number, cen
             if (d < bestD) { bestD = d; target = r; }
         }
         if (target < 0) return;
-        bspCarveCorridor(terrain, w, centers[unreached], { x: target % w, y: Math.floor(target / w) });
+        bspCarveCorridor(terrain, w, centers[unreached], { x: target % w, y: Math.floor(target / w) }, rng);
     }
 }
 

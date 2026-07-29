@@ -17,6 +17,8 @@ import {
     HOLLOW_GATE_COMBAT_TTL_SECONDS,
     settleHollowGateCombatBinding,
     validateHollowGateCombatSession,
+    validateHollowGatePetClaim,
+    validateHollowGatePveClaim,
     type HollowGateCombatBinding,
     type HollowGateCombatReward,
 } from './_combat-session.js';
@@ -30,8 +32,18 @@ const VEIL_OF_THE_HOLLOW_ID = 'veil-of-the-hollow';
 type CombatReceipt = {
     won: boolean;
     revived?: boolean;
+    escaped?: boolean;
+    petDefeat?: boolean;
     reward: HollowGateCombatReward;
     elementalShards: number;
+    settledAt: number;
+};
+
+type HollowGatePetResultReceipt = {
+    playerName: string;
+    runId: string;
+    outcome: 'win' | 'loss' | 'draw';
+    playerPetIds: string[];
     settledAt: number;
 };
 
@@ -73,7 +85,9 @@ async function persistRunCombatSettlement(
         ...run,
         ...(activeIsThisFight ? { activeEncounter: null } : {}),
         ...(receipt.revived ? { secondWindArmed: false } : {}),
-        resolvedEncounterIds: receipt.revived || alreadyResolved ? resolved : [...resolved.slice(-127), encounterKey],
+        resolvedEncounterIds: receipt.revived || receipt.escaped || receipt.petDefeat || alreadyResolved
+            ? resolved
+            : [...resolved.slice(-127), encounterKey],
         serverCreditedCurrencies: receipt.won && !alreadyResolved ? {
             ...priorCredits,
             ryo: num(priorCredits.ryo) + paid.ryo,
@@ -84,7 +98,7 @@ async function persistRunCombatSettlement(
             hollowShards: num(priorCredits.hollowShards) + paid.hollowShards,
         } : priorCredits,
     };
-    if (!receipt.won && !receipt.revived) await kv.del(runKey);
+    if (!receipt.won && !receipt.revived && !receipt.escaped && !receipt.petDefeat) await kv.del(runKey);
     else await kv.set(runKey, nextRun, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
     await kv.set(hollowGateCombatBindingKey(binding.runId), settleHollowGateCombatBinding(binding, receipt.won, receipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
 }
@@ -99,6 +113,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const token = String(body.token ?? '').slice(0, 64);
         const runId = String(body.runId ?? '').slice(0, 96);
+        const claimedOutcome = body.outcome === 'win' || body.outcome === 'loss' || body.outcome === 'fled'
+            ? body.outcome
+            : null;
+        const claimedSurvivingHp = Math.max(0, Math.floor(Number(body.survivingHp) || 0));
+        const petReceipt = typeof body.petReceipt === 'string' && /^[A-Za-z0-9]+$/.test(body.petReceipt)
+            ? body.petReceipt
+            : '';
         if (!playerName || !token || !runId) return res.status(400).json({ error: 'Missing Hollow Gate combat identity.' });
         if (!enforceRateLimit(req, res, 'hollow-gate-combat-settle', 30, 60_000, playerName)) return;
 
@@ -129,6 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     alreadyReported: true,
                     won: existingReceipt.won,
                     revived: existingReceipt.revived ?? false,
+                    escaped: existingReceipt.escaped ?? false,
+                    petDefeat: existingReceipt.petDefeat ?? false,
                     reward: existingReceipt.reward,
                     elementalShards: existingReceipt.elementalShards,
                     character: current?.character ?? null,
@@ -139,13 +162,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'The encounter is settled but its reward receipt is unavailable.' } };
             }
             if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatSettle } };
-            const validation = validateHollowGateCombatSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
-            if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
-
-            const won = session!.winner === 'squad';
-            const revived = !won && binding!.secondWindArmed === true;
-            const survivingActor = session!.actors.find((actor) => actor.side === 'squad' && actor.ownerSlug === playerName);
-            await settleConsumedItemsForMember({ session: session!, slug: playerName });
+            let won = false;
+            let escaped = false;
+            let petDefeat = false;
+            let petIds: string[] = [];
+            let survivingHp = 0;
+            if (binding.combatMode === 'pet') {
+                const validation = validateHollowGatePetClaim({ binding, activeEncounter: run.activeEncounter, playerName, token });
+                if (!validation.ok) return { status: 409, body: { error: `Hollow Gate pet settlement rejected: ${validation.reason}.` } };
+                if (!petReceipt) return { status: 400, body: { error: 'A server-verified Hollow Hound pet result is required.' } };
+                const verifiedPetResult = await kv.get<HollowGatePetResultReceipt>(`hg-pet-result:${playerName}:${petReceipt}`);
+                if (!verifiedPetResult || verifiedPetResult.playerName !== playerName || verifiedPetResult.runId !== runId) {
+                    return { status: 409, body: { error: 'The Hollow Hound pet result is invalid, expired, or belongs to another encounter.' } };
+                }
+                won = verifiedPetResult.outcome === 'win';
+                petDefeat = !won;
+                petIds = Array.isArray(verifiedPetResult.playerPetIds) ? verifiedPetResult.playerPetIds : [];
+            } else if (binding.combatMode === 'pve') {
+                const validation = validateHollowGatePveClaim({ binding, activeEncounter: run.activeEncounter, playerName, token });
+                if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
+                if (!claimedOutcome) return { status: 400, body: { error: 'Missing normal PvE combat outcome.' } };
+                if (claimedOutcome === 'fled' && run.chosenAugmentId === 'berserkers-gamble') {
+                    return { status: 409, body: { error: "Berserker's Gamble seals retreat until the final Hollow Hound falls." } };
+                }
+                won = claimedOutcome === 'win';
+                escaped = claimedOutcome === 'fled';
+                survivingHp = claimedSurvivingHp;
+            } else {
+                const validation = validateHollowGateCombatSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
+                if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
+                won = session!.winner === 'squad';
+                const survivingActor = session!.actors.find((actor) => actor.side === 'squad' && actor.ownerSlug === playerName);
+                survivingHp = Math.max(0, Math.floor(Number(survivingActor?.hp) || 0));
+                await settleConsumedItemsForMember({ session: session!, slug: playerName });
+            }
+            const revived = !won && !escaped && !petDefeat && binding.secondWindArmed === true;
             const saveKey = `save:${playerName}`;
             const banked = await withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
@@ -160,7 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const elementalShards = won && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
-                const receipt: CombatReceipt = { won, revived, reward, elementalShards, settledAt: Date.now() };
+                const receipt: CombatReceipt = { won, revived, escaped, petDefeat, reward, elementalShards, settledAt: Date.now() };
                 const placed = await kv.set(receiptKey, receipt, { nx: true, ex: COMBAT_RECEIPT_TTL_SECONDS });
                 if (!placed) {
                     const raced = await kv.get<CombatReceipt>(receiptKey);
@@ -168,13 +219,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 let next = { ...char } as Record<string, unknown>;
+                if (binding!.combatMode === 'pet' && petIds.length) {
+                    const pets = Array.isArray(next.pets) ? next.pets as Array<Record<string, unknown>> : [];
+                    next.pets = pets.map((pet) => petIds.includes(String(pet?.id ?? '')) && pet.loadout && typeof pet.loadout === 'object'
+                        ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
+                        : pet);
+                }
                 if (won) {
                     next = gainXp(next, reward.xp) as Record<string, unknown>;
-                    next.hp = hollowGatePostWinHp(next.maxHp, survivingActor?.hp, binding!.kind);
-                    if (binding!.petAssisted) {
-                        next.chakra = num(next.maxChakra);
-                        next.stamina = num(next.maxStamina);
-                    }
+                    next.hp = binding!.combatMode === 'pet'
+                        ? Math.max(1, Math.min(Math.floor(num(next.maxHp) || 1), Math.floor(num(next.hp) || 1)))
+                        : hollowGatePostWinHp(next.maxHp, survivingHp, binding!.kind);
                     next.ryo = num(next.ryo) + reward.ryo;
                     next.auraDust = num(next.auraDust) + reward.auraDust;
                     next.honorSeals = num(next.honorSeals) + reward.honorSeals;
@@ -190,6 +245,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         delete nextRun.activeCombat;
                         next.hollowGateRun = nextRun;
                     }
+                } else if (petDefeat) {
+                    const savedRun = next.hollowGateRun && typeof next.hollowGateRun === 'object'
+                        ? next.hollowGateRun as Record<string, unknown>
+                        : {};
+                    const recoil = Math.max(1, Math.floor(num(next.maxHp) * 0.20));
+                    next = {
+                        ...next,
+                        hp: Math.max(1, Math.floor(num(next.hp)) - recoil),
+                        hospitalized: false,
+                        hollowGateRun: { ...savedRun, threat: 0, activeCombat: undefined },
+                    };
+                } else if (escaped) {
+                    const savedRun = next.hollowGateRun && typeof next.hollowGateRun === 'object'
+                        ? next.hollowGateRun as Record<string, unknown>
+                        : {};
+                    next = {
+                        ...next,
+                        hp: Math.min(
+                            Math.max(1, Math.floor(num(next.hp) || 1)),
+                            Math.max(1, Math.floor(survivingHp || 1)),
+                        ),
+                        hospitalized: false,
+                        hollowGateRun: { ...savedRun, threat: 0, activeCombat: undefined },
+                    };
                 } else if (revived) {
                     const savedRun = next.hollowGateRun && typeof next.hollowGateRun === 'object'
                         ? next.hollowGateRun as Record<string, unknown>
@@ -239,6 +318,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ok: true,
                 won,
                 revived,
+                escaped,
+                petDefeat,
                 reward: banked.receipt.reward,
                 elementalShards: banked.receipt.elementalShards,
                 character: banked.character,

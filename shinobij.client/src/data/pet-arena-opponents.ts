@@ -15,6 +15,15 @@ export type PetArenaOpponent = {
     // battle ends. Defaults to "centralHub" inside PetArena. Used by the
     // Hollow Gate pet_battle tile to return the player to the shrine.
     returnScreen?: Screen;
+    /** One sealed Hollow Gate encounter. The Pet Arena reports its replayed
+     * result back to this binding instead of paying ordinary Coliseum rewards. */
+    hollowGate?: {
+        token: string;
+        runId: string;
+        nodeId: string;
+        floor: number;
+        kind: "battle" | "elite" | "ambush" | "beast" | "boss";
+    };
     // ── Party (2v2) extensions ────────────────────────────────────────
     // When opponentParty is set, the incoming battle should resolve as a
     // 2-pet set. challengerParty is the player's locked-in pair (carried
@@ -133,5 +142,8 @@ export const genericPetArenaOpponents: PetArenaOpponent[] = [
 // PvP challenge / casual-vs-player) is excluded, so mastery never touches PvP.
 const GENERIC_PET_OPPONENT_IDS = new Set(genericPetArenaOpponents.map((o) => o.pet.id));
 export function isGenericPetOpponent(pet: Pet | null | undefined): boolean {
-    return !!pet && GENERIC_PET_OPPONENT_IDS.has(pet.id);
+    return !!pet && (
+        GENERIC_PET_OPPONENT_IDS.has(pet.id)
+        || (pet.name === "Hollow Hound" && /^mythic-4-\d{10,}$/.test(pet.id))
+    );
 }
