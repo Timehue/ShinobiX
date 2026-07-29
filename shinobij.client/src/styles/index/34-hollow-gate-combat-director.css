@@ -18,7 +18,7 @@
 .hg-combat-directive strong {
     grid-row: 1 / span 2;
     color: #e9d5ff;
-    font: 900 11px/1.15 "Cinzel", Georgia, serif;
+    font: 900 11px/1.15 var(--font-display);
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
