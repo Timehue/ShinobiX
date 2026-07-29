@@ -43,9 +43,10 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 52, x: 62, y: 91 }, { id: 53, x: 38, y: 80 }, { id: 54, x: 44, y: 91 },
     // The Hollow Road (55-57)
     { id: 55, x: 59, y: 69 }, { id: 56, x: 54, y: 85 }, { id: 57, x: 61, y: 80 },
-    // The Lavafront (58-60) + Death's Gate (99). 58 sits on the ash edge just
-    // north of the castle roofline in the 2026-07 keyart (same exit directions).
-    { id: 58, x: 53, y: 30 }, { id: 59, x: 62, y: 37 }, { id: 60, x: 56, y: 24 },
+    // The Lavafront (58-60) + Death's Gate (99). 58 sits among the dark
+    // bastions on the ash north of the castle spire in the 2026-07 keyart
+    // (same derived exit directions as the pre-nudge spot).
+    { id: 58, x: 54, y: 29 }, { id: 59, x: 62, y: 37 }, { id: 60, x: 56, y: 24 },
     { id: 99, x: 51, y: 10 },
 ];
 
