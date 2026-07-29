@@ -135,7 +135,7 @@ export type LockstepProposal = LockstepInput;
 function sameCommand(a: DuelCommand, b: DuelCommand): boolean {
     if (a === b) return true;
     if (a.kind !== b.kind || a.actorId !== b.actorId) return false;
-    if (a.kind === "ability" && b.kind === "ability") return a.idx === b.idx;
+    if ((a.kind === "ability" || a.kind === "technique") && a.kind === b.kind) return a.idx === b.idx;
     if (a.kind === "stance" && b.kind === "stance") return a.stance === b.stance;
     if (a.kind === "auto" && b.kind === "auto") return a.on === b.on;
     if (a.kind === "clash" && b.kind === "clash") return a.pick === b.pick;

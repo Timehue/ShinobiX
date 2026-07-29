@@ -39,7 +39,11 @@
 //     mean hidden server-side rolls, which this architecture deliberately does not
 //     have; it is not worth breaking replay parity for a casual-mode edge.
 //
-//   * COOLDOWN / STAMINA on an ordinary ability order: NOT rejected, on
+//   * COMMAND WINDOW TECHNIQUES. The engine recomputes command energy from the
+//     sealed fight and refuses a technique unless the meter is full. A valid call
+//     deliberately owns the next beat and bypasses ordinary cooldown/stamina —
+//     the earned meter, not a queued cooldown, is the price.
+//   * COOLDOWN / STAMINA on a legacy/doctrine ability order: NOT rejected, on
 //     purpose. The engine already refuses to EXECUTE an unaffordable or
 //     on-cooldown move (see commandedOffensive / readySupport in
 //     pet-duel-cinematic.ts) — a queued order simply waits up to
@@ -129,6 +133,12 @@ export function parseDuelInputLog(raw: unknown): DuelInputLogEntry[] | null {
                 // bound against this fighter's real ability count.
                 if (!Number.isInteger(idx) || idx < -1 || idx > 32) return null;
                 out.push({ t, cmd: { kind: 'ability', actorId, idx } });
+                break;
+            }
+            case 'technique': {
+                const idx = c.idx;
+                if (typeof idx !== 'number' || !Number.isInteger(idx) || idx < 0 || idx > 32) return null;
+                out.push({ t, cmd: { kind: 'technique', actorId, idx } });
                 break;
             }
             case 'break':
