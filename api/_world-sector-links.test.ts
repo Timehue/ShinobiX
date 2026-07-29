@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, sectorExitById, sectorExits } from '../shared/sector-links.js';
+import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
     // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart
-    // link − the 4 Hollow Temple roads removed when 57 became map-travel-only.
-    assert.equal(SECTOR_ROAD_PAIRS.length, 79);
+    // link + the 12 roads that attached the 2026-07-29 expansion (61-66).
+    assert.equal(SECTOR_ROAD_PAIRS.length, 95);
     assert.equal(SECTOR_EXITS.length, SECTOR_ROAD_PAIRS.length * 2);
 
-    for (let sector = 1; sector <= 60; sector += 1) {
+    for (const sector of WILD_SECTOR_IDS) {
         const exits = sectorExits(sector);
         if (NON_WALKABLE_SECTORS.includes(sector)) {
             assert.equal(exits.length, 0, `map-travel-only sector ${sector} has no roads`);
@@ -27,7 +28,6 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
     }
 
     assert.equal(sectorExits(99).length, 0);
-    assert.equal(sectorExits(57).length, 0, 'the Hollow Temple is not walkable');
 
     const reached = new Set<number>([1]);
     const queue = [1];
@@ -39,6 +39,5 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
             queue.push(exit.destinationSector);
         }
     }
-    // 60 standard sectors minus the map-travel-only Hollow Temple.
-    assert.equal(reached.size, 59, 'every walkable sector is connected by roads');
+    assert.equal(reached.size, WILD_SECTOR_IDS.length, 'every walkable sector is connected by roads');
 });
