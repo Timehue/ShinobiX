@@ -2,13 +2,14 @@
  * TriggeredVisualNovel — the full vnPages visual-novel reader for creator /
  * story / aura-sphere trigger events. Renders the multi-page scene UI with
  * portrait slots, dialogue, branching choices, and a finale panel. Extracted
- * verbatim from App.tsx; pure presentational leaf (native HTML only). CreatorEvent
- * is type-imported from ../App (erased at compile time — no runtime cycle).
+ * verbatim from App.tsx; pure presentational leaf (native HTML only). Its event
+ * contract comes directly from types/vn so isolated reader checks never pull
+ * the App monolith or unrelated screen code into the type graph.
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
+import type { CreatorEvent } from "../types/vn";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
 import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
@@ -68,13 +69,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const baseRightImage = savedRightWasPlayer
         ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
         : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
-    const leftImage = resolveCinematicActorImage(event.id, leftName, baseLeftImage);
-    const rightImage = resolveCinematicActorImage(event.id, rightName, baseRightImage);
-    // Hide a portrait slot entirely when there is genuinely nothing to show
-    // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
-    // on disk). The dialogue's <speaker> label already tells the player who's talking.
-    const hideLeft  = !leftImage  && leftName.trim().toLowerCase() === "narrator";
-    const hideRight = !rightImage && rightName.trim().toLowerCase() === "narrator";
+    const authoredLeftImage = savedRightWasPlayer ? "" : page.leftImage;
+    const authoredRightImage = savedRightWasPlayer
+        ? (page.leftImage || page.rightImage)
+        : page.rightImage;
     const canBack = lineIndex > 0 || pageIndex > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
     // Trait-gated branching: a choice with requireTrait only shows if the player
@@ -169,11 +167,33 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         reducedMotion: prefersReducedMotion(),
         liteFx: isLowEndMobile(),
     });
+    const leftImage = resolveCinematicActorImage(
+        event.id,
+        leftName,
+        baseLeftImage,
+        presentation.leftActorPose,
+        authoredLeftImage,
+    );
+    const rightImage = resolveCinematicActorImage(
+        event.id,
+        rightName,
+        baseRightImage,
+        presentation.rightActorPose,
+        authoredRightImage,
+    );
+    // Hide a portrait slot entirely when there is genuinely nothing to show
+    // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
+    // on disk). The dialogue's <speaker> label already tells the player who's talking.
+    const hideLeft = !leftImage && leftName.trim().toLowerCase() === "narrator";
+    const hideRight = !rightImage && rightName.trim().toLowerCase() === "narrator";
     const upcomingPageIndex = lineIndex < pageDialogue.length - 1 ? pageIndex : pageIndex + 1;
     const upcomingLineIndex = lineIndex < pageDialogue.length - 1 ? lineIndex + 1 : 0;
     const upcomingPage = pages[upcomingPageIndex];
-    const upcomingRawLine = upcomingPage?.dialogue[upcomingLineIndex]
-        ?? upcomingPage?.dialogue[0]
+    const upcomingPageDialogue = upcomingPage
+        ? (upcomingPage.dialogue.length > 0 ? upcomingPage.dialogue : event.dialogue)
+        : [];
+    const upcomingRawLine = upcomingPageDialogue[upcomingLineIndex]
+        ?? upcomingPageDialogue[0]
         ?? upcomingPage?.scene
         ?? "";
     const upcomingTypedLine = upcomingPage?.lines?.[upcomingLineIndex];
@@ -196,14 +216,57 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             liteFx: isLowEndMobile(),
         })
         : null;
-    const upcomingActorImage = upcomingSpeaker
-        ? resolveCinematicActorImage(event.id, upcomingSpeaker, defaultVnPortrait(upcomingSpeaker))
+    const upcomingSavedRightWasPlayer = (upcomingPage?.rightName ?? "").trim().toLowerCase() === "player";
+    const upcomingLeftName = upcomingPage
+        ? (upcomingSavedRightWasPlayer ? "Player" : (upcomingPage.leftName || "Player"))
+        : "";
+    const upcomingRightName = upcomingPage
+        ? (upcomingSavedRightWasPlayer
+            ? (upcomingPage.leftName || upcomingPage.speaker || event.vnSpeaker || upcomingSpeaker)
+            : (upcomingPage.rightName || upcomingPage.speaker || event.vnSpeaker || upcomingSpeaker))
+        : "";
+    const upcomingAuthoredLeftImage = upcomingPage && !upcomingSavedRightWasPlayer
+        ? upcomingPage.leftImage
+        : "";
+    const upcomingAuthoredRightImage = upcomingPage
+        ? (upcomingSavedRightWasPlayer
+            ? (upcomingPage.leftImage || upcomingPage.rightImage)
+            : upcomingPage.rightImage)
+        : "";
+    const upcomingBaseLeftImage = upcomingPage
+        ? (upcomingSavedRightWasPlayer
+            ? playerAvatar
+            : (upcomingPage.leftImage || (upcomingLeftName.toLowerCase() === "player"
+                ? playerAvatar
+                : defaultVnPortrait(upcomingLeftName))))
+        : "";
+    const upcomingBaseRightImage = upcomingPage
+        ? (upcomingSavedRightWasPlayer
+            ? (upcomingPage.leftImage || upcomingPage.rightImage || event.avatarImage || defaultVnPortrait(upcomingRightName))
+            : (upcomingPage.rightImage || event.avatarImage || defaultVnPortrait(upcomingRightName)))
+        : "";
+    const upcomingLeftImage = upcomingPage && upcomingPresentation
+        ? resolveCinematicActorImage(
+            event.id,
+            upcomingLeftName,
+            upcomingBaseLeftImage,
+            upcomingPresentation.leftActorPose,
+            upcomingAuthoredLeftImage,
+        )
+        : "";
+    const upcomingRightImage = upcomingPage && upcomingPresentation
+        ? resolveCinematicActorImage(
+            event.id,
+            upcomingRightName,
+            upcomingBaseRightImage,
+            upcomingPresentation.rightActorPose,
+            upcomingAuthoredRightImage,
+        )
         : "";
     const preloadImageKey = [
         upcomingPresentation?.backgroundImage,
-        upcomingActorImage,
-        upcomingPage?.leftImage,
-        upcomingPage?.rightImage,
+        upcomingLeftImage,
+        upcomingRightImage,
     ].filter(Boolean).join("|");
     useEffect(() => {
         for (const source of new Set(preloadImageKey.split("|").filter(Boolean))) {
@@ -529,7 +592,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         real reward + the reckoning) — the free battle would pay the
                         zeroed event reward and skip both. */}
                     {!isSageEvent && !isStoryInterlude && !isStoryChapterEvent && <button onClick={() => startBattle()}>Battle in {biomeLabel(event.biome)}</button>}
-                    <button onClick={completeScene}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward + Continue"}</button>
+                    {!isStoryChapterEvent && (
+                        <button onClick={completeScene}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : "Claim Reward + Continue"}</button>
+                    )}
                 </div>
                 {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && (
                     <div className="vn-reward-strip">

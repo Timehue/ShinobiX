@@ -11,15 +11,15 @@ const baseUrl = `http://127.0.0.1:${port}`;
 const adminPassword = 'v10-local-admin-only';
 const levels = [4, 15, 25, 35, 50, 65, 75, 85, 100];
 const rewards = [
-    { xp: 120, ryo: 75 },
-    { xp: 500, ryo: 250 },
-    { xp: 900, ryo: 500 },
-    { xp: 1400, ryo: 800 },
-    { xp: 2200, ryo: 1300 },
-    { xp: 3400, ryo: 2000 },
-    { xp: 4600, ryo: 2800 },
-    { xp: 6200, ryo: 4000 },
-    { xp: 10000, ryo: 7500 },
+    { ryo: 75 },
+    { ryo: 250 },
+    { ryo: 500 },
+    { ryo: 800 },
+    { ryo: 1300 },
+    { ryo: 2000 },
+    { ryo: 2800 },
+    { ryo: 4000 },
+    { ryo: 7500 },
 ];
 const villages = [
     { name: 'Stormveil Village', account: 'v10stormcert', title: 'Stormbreaker' },
@@ -63,6 +63,10 @@ function isolatedServerEnv() {
         DISABLE_VILLAGE_WAR: '1',
         DISABLE_CLAN_BOSS: '1',
         DISABLE_SCHEDULED_JOBS: '1',
+        // This isolated certification synthesizes completed story fights from
+        // ai-fight tokens. Production keeps client-trusted story settlement
+        // disabled; the rollback flag is scoped to this in-memory test server.
+        ENABLE_CLIENT_TRUSTED_STORY_BOSS: '1',
         SENTRY_DSN: '',
     };
     for (const key of [
@@ -225,7 +229,7 @@ async function certifyVillage(browser, village, index) {
         });
         assert.equal(settled.status, 200, JSON.stringify(settled.body));
         assert.equal(settled.body.progress, progress + 1);
-        assert.equal(settled.body.xp, rewards[progress].xp);
+        assert.equal(settled.body.xp, 0, 'character XP is retired');
         assert.equal(settled.body.ryo, rewards[progress].ryo);
         expectedRyo += rewards[progress].ryo;
         expectedAuraDust += 12;

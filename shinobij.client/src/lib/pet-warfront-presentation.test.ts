@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     adaptWarfrontPresentationBudget,
+    reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
     warfrontPresentationBudget,
 } from "./pet-warfront-presentation.ts";
@@ -34,4 +35,19 @@ test("adaptive pressure sheds secondary cameras and rigs before combat presentat
     assert.ok(warm.hollowHoundRigs < high.hollowHoundRigs);
     assert.ok(warm.laneHoundRigs < high.laneHoundRigs);
     assert.deepEqual(emergency, warfrontPresentationBudget("low"));
+});
+
+test("mob render slots stay bound when an earlier mob dies", () => {
+    const initial = reconcileWarfrontMobSlots([null, null, null, null], [10, 11, 12]);
+    assert.deepEqual(initial, [10, 11, 12, null]);
+
+    const afterDeath = reconcileWarfrontMobSlots(initial, [11, 12, 13]);
+    assert.deepEqual(afterDeath, [13, 11, 12, null]);
+});
+
+test("mob slot reconciliation ignores duplicate ids and respects capacity", () => {
+    assert.deepEqual(
+        reconcileWarfrontMobSlots([4, null], [4, 4, 5, 6], 2),
+        [4, 5],
+    );
 });

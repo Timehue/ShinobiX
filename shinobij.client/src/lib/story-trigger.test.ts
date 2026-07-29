@@ -37,7 +37,7 @@ test("fresh character gets the level-4 milestone, not an interlude", () => {
     assert.equal(next.eventId, "story-stormveil-village-4-0");
 });
 
-test("interlude gates on minProgress: level 20 with only one chapter beaten stays silent", () => {
+test("interlude gates on minProgress while an unfinished milestone remains eligible", () => {
     // storyProgress 1 = only the level-4 chapter beaten; the level-15 milestone
     // is the pending beat, and at level 20 it should fire (levelReq 15 <= 20).
     const next = nextStoryTrigger(char(20, 1), []);
@@ -45,7 +45,10 @@ test("interlude gates on minProgress: level 20 with only one chapter beaten stay
     assert.equal(next.eventId, "story-stormveil-village-15-1");
     // With the 15-chapter also already triggered (VN seen, boss unbeaten),
     // nothing fires — the interlude still needs storyProgress >= 2.
-    assert.equal(nextStoryTrigger(char(20, 1), ["story-stormveil-village-15-1"]), null);
+    // Merely seeing the chapter never consumes it. Only storyProgress does.
+    assert.equal(nextStoryTrigger(char(20, 1), ["story-stormveil-village-15-1"])?.eventId, "story-stormveil-village-15-1");
+    // A session dismissal prevents an immediate reopen without corrupting save progress.
+    assert.equal(nextStoryTrigger(char(20, 1), [], ["story-stormveil-village-15-1"]), null);
 });
 
 test("level-20 interlude fires once both gates pass, and only once", () => {
