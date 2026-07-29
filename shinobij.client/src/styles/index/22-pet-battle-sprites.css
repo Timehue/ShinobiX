@@ -1599,6 +1599,30 @@
     word-break: break-word;
 }
 
+/* Masked password field for gamePasswordPrompt (see components/GameAlert.tsx).
+   16px font-size is deliberate: iOS Safari zooms the whole page on focus for
+   anything smaller. */
+.game-alert-input {
+    margin-top: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    font-size: 16px;
+    font-family: inherit;
+    letter-spacing: 0.14em;
+    color: var(--slate-100);
+    background: rgba(3, 7, 18, 0.72);
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45) inset;
+}
+
+    .game-alert-input:focus {
+        outline: none;
+        border-color: rgba(250, 204, 21, 0.95);
+        box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.3), 0 1px 3px rgba(0, 0, 0, 0.45) inset;
+    }
+
 .game-alert-footer {
     margin-top: 16px;
     display: flex;

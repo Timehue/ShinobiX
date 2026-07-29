@@ -3,7 +3,8 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
-import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
+import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, gamePasswordPrompt } from "./components/GameAlert";
+import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
@@ -19,6 +20,8 @@ import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notif
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
+import { accountKey, loadPlayerAccounts, savePlayerAccounts } from "./lib/player-accounts";
+import type { PendingTravelSave } from "./lib/player-accounts";
 import {
     resolveHollowGateTile as resolveHollowGateTileImpl,
     type HiddenChamberState,
@@ -268,7 +271,6 @@ import {
     STARTING_STAT_POINTS,
     JUTSU_MAX_LEVEL,
     STORAGE,
-    PLAYER_ACCOUNTS_STORAGE,
     AWAKENING_VN_ID,
     AURA_SPHERE_VN_ID,
     AURA_SPHERE_ITEM_ID,
@@ -470,25 +472,6 @@ export type { CreatorEvent, StoryStep };
 // Creator mission/raid content types (MissionRank, CreatorMission, CreatorRaid)
 // moved to ./types/missions and imported back near the top of this file.
 
-type PlayerAccountSave = {
-    // Per-account session token (24h). Reusable passwords are never persisted.
-    token?: string;
-    snapshot?: {
-        character: Character;
-        currentBiome: Biome;
-        activeTraining: ActiveTraining | null;
-        activeJutsuTraining?: ActiveJutsuTraining | null;
-        acceptedMissionIds: string[];
-        missionProgress: Record<string, number>;
-        triggeredEvents: string[];
-        pendingAiProfileId: string;
-        currentSector?: number;
-        pendingTravel?: PendingTravelSave | null;
-    };
-};
-
-type PlayerAccounts = Record<string, PlayerAccountSave>;
-type PendingTravelSave = { destinationSector: number; arrivalAt: number };
 
 function normalizePendingTravel(value: unknown): PendingTravelSave | null {
     if (!value || typeof value !== "object") return null;
@@ -1139,42 +1122,8 @@ export function normalizeCharacter(parsed: Character): Character {
     return normalizeInventory(normalized); // migrate inline stackables → itemStacks (idempotent)
 }
 
-function accountKey(name: string) {
-    return name.trim().toLowerCase();
-}
 
-function loadPlayerAccounts(): PlayerAccounts {
-    try {
-        const raw = localStorage.getItem(PLAYER_ACCOUNTS_STORAGE);
-        const accounts = (raw ? JSON.parse(raw) : {}) as Record<string, PlayerAccountSave & { password?: unknown }>;
-        let scrubbed = false;
-        for (const account of Object.values(accounts)) {
-            if (account && Object.prototype.hasOwnProperty.call(account, 'password')) {
-                delete account.password;
-                scrubbed = true;
-            }
-        }
-        if (scrubbed) localStorage.setItem(PLAYER_ACCOUNTS_STORAGE, JSON.stringify(accounts));
-        return accounts;
-    } catch {
-        return {};
-    }
-}
 
-function savePlayerAccounts(accounts: PlayerAccounts) {
-    // Local account cache is only a legacy name list. Server KV is the save/auth source of truth.
-    function noImages(_key: string, value: unknown) {
-        if (_key === "password") return undefined;
-        if (_key === "snapshot") return undefined;
-        if (typeof value === "string" && value.startsWith("data:image")) return "";
-        return value;
-    }
-    try {
-        localStorage.setItem(PLAYER_ACCOUNTS_STORAGE, JSON.stringify(accounts, noImages));
-    } catch {
-        // If it still fails for some reason, silently skip — server save is the source of truth
-    }
-}
 
 // ─── Save-preview cache ───────────────────────────────────────────────────
 // Lightweight per-account snapshot stored in localStorage so login can paint
@@ -4930,7 +4879,15 @@ export default function App() {
         if (!character) return;
         if (!(await gameConfirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`, { title: "Delete Character", confirmLabel: "Delete", danger: true }))) return;
         const accountName = currentAccountName || character.name;
-        const localPw = window.prompt("Enter your password to delete this character from the server.")?.trim() ?? "";
+        // Masked, themed field — never window.prompt, which shows the password in
+        // clear text. Cancel resolves null and is a silent bail-out; only an empty
+        // submit is worth an error.
+        const entered = await gamePasswordPrompt(
+            `Enter your password to permanently delete "${accountName}" from the server.`,
+            { title: "Confirm Deletion", confirmLabel: "Delete Forever", danger: true },
+        );
+        if (entered === null) return;
+        const localPw = entered.trim();
         if (!localPw) {
             alert("Password required to delete a server account.");
             return;
@@ -5202,7 +5159,7 @@ export default function App() {
             // Defer the alert so the state update commits first — otherwise
             // the next render that React queues can flicker the pre-credit
             // values into the milestone toast.
-            setTimeout(() => alert(`⭐ ${currentWave}-Kill Milestone! ${milestoneNotices.join(" · ")}.`), 30);
+            setTimeout(() => gameToast(`⭐ ${currentWave}-Kill Milestone! ${milestoneNotices.join(" · ")}.`), 30);
         }
         const next = currentWave + 1;
         setEndlessBattleWave(next);
@@ -6528,7 +6485,7 @@ export default function App() {
                 backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76))`,
             } as React.CSSProperties}
         >
-            <GameAlertHost /><GameConfirmHost />
+            <GameAlertHost /><GameConfirmHost /><GamePasswordPromptHost /><GameToastHost />
             <SaveErrorBanner visible={saveBlocked} />
             {sessionExpired && (
                 <div
@@ -7591,7 +7548,7 @@ export default function App() {
                                 body: JSON.stringify({ action: "resolve", village: context.kageVillage, playerName: character.name, battleId: pvpBattleId }),
                             }).catch(() => {});
                         }
-                        if (!isFriendlyDuel && pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: b.balances.ryo } : c); alert(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
+                        if (!isFriendlyDuel && pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: b.balances.ryo } : c); gameToast(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
