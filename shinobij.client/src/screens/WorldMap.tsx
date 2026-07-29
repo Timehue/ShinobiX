@@ -154,7 +154,7 @@ import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
 import { FESTIVAL_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
-import { WorldRoadsOverlay } from "../components/WorldRoadsOverlay";
+import { WorldRoadsOverlay, WorldVillagePlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
@@ -2042,21 +2042,19 @@ export function WorldMap({
     const [chestVnLine, setChestVnLine] = useState(0);
     const [chestVnDone, setChestVnDone] = useState(false);
     const locations = [
-        // Each village sits on top of its outskirts-sector coordinate so the
-        // marker stamps the same point the engine treats as that village.
-        // Stormveil  -> sector 31 (20, 65)
-        // Ashen Leaf -> sector 38 (24, 18)
-        // Frostfang  -> sector 47 (62, 11)
-        // Moonshadow -> sector 11 (81, 67)
-        // Coords align each authored crest with the medallion at the left edge of
-        // its painted banner, leaving the baked village name fully readable.
+        // Each village marker anchors its gate sector's corner of the map
+        // (Stormveil gate 1 SW, Ashen Leaf gate 9 NW, Frostfang gate 26 NE,
+        // Moonshadow gate 17 SE — see shared/sector-geo.ts).
+        // The 2026-07 keyart paints a bare banner board at each village; the
+        // crest sits at the board's left edge and WorldVillagePlates draws the
+        // village name over the rest of the board (the painting carries no text).
         { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 11, y: 82.5, art: stormveilLandmarkArt },
         { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, art: ashenLeafLandmarkArt },
         { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, art: frostfangLandmarkArt },
         { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, art: moonshadowLandmarkArt },
         { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 79, art: hollowGateLandmarkArt },
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 49.5, y: 81, art: hollowGateLandmarkArt },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
@@ -2079,12 +2077,14 @@ export function WorldMap({
 
     // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
     // chip flies the camera to the cluster centroid at a tappable zoom.
+    // Region-block numbering (shared/sector-geo.ts): each village's home block,
+    // the Castle City ring for Central, Death's Gate pinned.
     const WM_CLUSTERS: { label: string; ids: number[]; color: string; zoom: number }[] = [
-        { label: "Frostfang", ids: [46, 47, 48, 49, 50, 51, 53, 54], color: villageAccent("Frostfang Village"), zoom: 2.6 },
-        { label: "Moonshadow", ids: [4, 5, 6, 8, 11, 15, 16, 19], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
-        { label: "Stormveil", ids: [21, 22, 24, 26, 27, 31, 32, 34], color: villageAccent("Stormveil Village"), zoom: 2.6 },
-        { label: "Ashen Leaf", ids: [36, 37, 38, 39, 40, 41, 42, 43], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
-        { label: "Central", ids: [55, 56, 57, 58, 59, 60], color: "var(--slate-300)", zoom: 2.4 },
+        { label: "Frostfang", ids: [26, 27, 28, 29, 30, 31, 32, 33], color: villageAccent("Frostfang Village"), zoom: 2.6 },
+        { label: "Moonshadow", ids: [17, 18, 19, 20, 21, 22, 23, 24, 25], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
+        { label: "Stormveil", ids: [1, 2, 3, 4, 5, 6, 7, 8], color: villageAccent("Stormveil Village"), zoom: 2.6 },
+        { label: "Ashen Leaf", ids: [9, 10, 11, 12, 13, 14, 15, 16], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
+        { label: "Central", ids: [46, 47, 48, 49, 50, 51], color: "var(--slate-300)", zoom: 2.4 },
         { label: "Death's Gate", ids: [99], color: "var(--red-400)", zoom: 2.8 },
     ];
 
@@ -4505,6 +4505,9 @@ export function WorldMap({
                 {/* The road graph + region name plates — the connective tissue
                     that makes the scattered sector markers read as one world. */}
                 <WorldRoadsOverlay />
+                {/* Village names lettered onto the keyart's bare banner boards
+                    (the 2026-07 painting carries no baked text). */}
+                <WorldVillagePlates />
                 <div className="sea-label sea-north">Hoppo Sea</div>
                 <div className="sea-label sea-east">Rimawari Ocean</div>
                 <div className="sea-label sea-south">Zubunure Sea</div>

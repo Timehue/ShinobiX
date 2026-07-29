@@ -161,14 +161,17 @@
     text-shadow: 0 1px 0 rgba(255,255,255,.16);
 }
 
+/* Tuned against the 2026-07 keyart: north label on the open water west of the
+ * Ashen Leaf cliffs, east label in the sea gap between the Frostfang glacier
+ * and the Moonshadow woods (the old top-right spot is now ice peaks). */
 .sea-north {
-    left: 9%;
-    top: 4%;
+    left: 4%;
+    top: 13%;
 }
 
 .sea-east {
     right: 4%;
-    top: 8%;
+    top: 46%;
     max-width: 170px;
 }
 
