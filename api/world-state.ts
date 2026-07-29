@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, safeName, clanRecordKey, setSafeRecordValue } from './_utils.js';
@@ -224,7 +225,7 @@ function defaultSectorTerritory(sector: number): SectorTerritory {
 }
 
 function normalizeSectorTerritory(data: Partial<SectorTerritory>): SectorTerritory {
-    const sector = clampNumber(Math.floor(Number(data.sector ?? 1)), 1, 60);
+    const sector = clampNumber(Math.floor(Number(data.sector ?? 1)), 1, MAX_WILD_SECTOR);
     return {
         ...defaultSectorTerritory(sector),
         ...data,
@@ -274,7 +275,7 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
             [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
             [second]: clampNumber(Math.floor(Number(data.hp?.[second] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
         },
-        warGroundSector: clampNumber(Math.floor(Number(data.warGroundSector ?? 40)), 1, 60),
+        warGroundSector: clampNumber(Math.floor(Number(data.warGroundSector ?? 40)), 1, MAX_WILD_SECTOR),
         warGroundHp: clampNumber(Math.floor(Number(data.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX)), 0, VILLAGE_WAR_GROUND_HP_MAX),
         startedAt: data.startedAt ?? Date.now(),
         updatedAt: data.updatedAt ?? Date.now(),

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
     SECTOR_PLACES, OLD_TO_NEW_SECTOR, NEW_TO_OLD_SECTOR, remapLegacySector,
     sectorArtKey, sectorBiomeOf, sectorName, FESTIVAL_SECTOR, VILLAGE_OUTSKIRTS,
-    OUTSKIRTS_SECTORS, CASTLE_SECTORS,
+    OUTSKIRTS_SECTORS, CASTLE_SECTORS, WILD_SECTOR_IDS,
 } from '../shared/sector-geo.js';
 import { SECTOR_POINTS, SECTOR_ROAD_PAIRS, SECTOR_EXITS, NON_WALKABLE_SECTORS, sectorExits } from '../shared/sector-links.js';
 import { SHRINE_DEFS } from '../shared/shrines.js';
@@ -28,17 +28,18 @@ const OLD_ROAD_PAIRS: ReadonlyArray<readonly [number, number]> = [
 ];
 // The one deliberately NEW road (old numbering: Upper Terraces 22 ↔ Canal Heart 27).
 const ADDED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [[22, 27]];
-// Deliberately REMOVED 2026-07-29: the Hollow Temple (new 57 / old 18) became
-// map-travel-only, like Death's Gate — owner ruling "treat the hollow gate like
-// the pvp zone, you can't just normal travel to it". Its approach road survives
-// (55 Waymarker Road, 56 Pilgrim's Approach), only the final step is gated.
-// Listed in OLD numbering like the rest of this snapshot. Old 18 = the Hollow
-// Temple (new 57); its four old neighbours were 12 (new 55 Waymarker Road),
-// 13 (new 56 Pilgrim's Approach), 14 (new 52 Festival Grounds) and 17 (new 25
-// Fallswood).
-const REMOVED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [
-    [12, 18], [13, 18], [14, 18], [17, 18],
+// Roads added by the 2026-07-29 expansion, in CURRENT numbering (they touch ids
+// that never existed in the old world, so they cannot be expressed in old ids).
+// Every one must join a NEW sector to the existing network.
+const EXPANSION_ROADS_NEW: ReadonlyArray<readonly [number, number]> = [
+    [16, 61], [40, 61], [61, 62], [2, 62], [52, 63], [25, 63],
+    [56, 64], [23, 64], [27, 65], [31, 65], [60, 66], [33, 66],
 ];
+// Nothing has been removed from the old road set. (A 2026-07-29 change briefly
+// took the Hollow Temple off the graph on the theory that it was the Hollow Gate
+// POI; it isn't — the Hollow Gate is a landmark crest that opens the rift menu —
+// so those four roads were restored.)
+const REMOVED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [];
 
 const OLD_HOME_SECTORS: Record<string, readonly number[]> = {
     'Moonshadow Village': [11, 19, 15, 4, 5, 6, 16, 8],
@@ -56,25 +57,70 @@ const OLD_OUTSKIRTS: Record<string, number> = {
 };
 const OLD_FESTIVAL_SECTOR = 35;
 
-const WILD_IDS = Array.from({ length: 60 }, (_, i) => i + 1);
+// The 60 sectors that existed before the 2026-07-29 expansion. The old↔new
+// mapping and the frozen road/shrine/war snapshots are all about THESE.
+const LEGACY_IDS = Array.from({ length: 60 }, (_, i) => i + 1);
+// Every sector on the map today (1..MAX_WILD_SECTOR).
+const WILD_IDS = [...WILD_SECTOR_IDS];
+const NEW_IDS = WILD_IDS.filter((id) => !LEGACY_IDS.includes(id));
 const norm = (a: number, b: number): string => `${Math.min(a, b)}-${Math.max(a, b)}`;
 
-test('registry covers exactly sectors 1-60 + 99 with unique names and a bijective art mapping', () => {
+test('registry covers every sector + 99, with unique names and art the originals still own', () => {
     const ids = SECTOR_PLACES.map((p) => p.id).sort((a, b) => a - b);
     assert.deepEqual(ids, [...WILD_IDS, 99]);
-    const artKeys = SECTOR_PLACES.map((p) => p.artKey).sort((a, b) => a - b);
-    assert.deepEqual(artKeys, [...WILD_IDS, 99], 'artKeys are a permutation of the old ids');
+    // The 61 ORIGINAL sectors must still hold a bijection onto the art files —
+    // no original sector may lose or share away its tuned floor.
+    const legacyArt = SECTOR_PLACES
+        .filter((p) => p.id === 99 || LEGACY_IDS.includes(p.id))
+        .map((p) => p.artKey)
+        .sort((a, b) => a - b);
+    assert.deepEqual(legacyArt, [...LEGACY_IDS, 99], 'the original sectors keep a 1:1 art mapping');
+    // Sectors added after the fact may SHARE a sibling's floor until bespoke art
+    // exists, but the key must still point at a real art file.
+    for (const p of SECTOR_PLACES) {
+        assert.ok(
+            p.artKey === 99 || LEGACY_IDS.includes(p.artKey),
+            `sector ${p.id} artKey ${p.artKey} names a real art file`,
+        );
+    }
     const names = new Set(SECTOR_PLACES.map((p) => p.name));
     assert.equal(names.size, SECTOR_PLACES.length, 'sector names are unique');
-    for (const id of WILD_IDS) {
+    // Only the pre-expansion sectors take part in the old↔new mapping; ids added
+    // later never existed in the old world and so have no legacy counterpart.
+    for (const id of LEGACY_IDS) {
         assert.equal(OLD_TO_NEW_SECTOR[NEW_TO_OLD_SECTOR[id]], id, `mapping bijective at ${id}`);
     }
+    for (const id of NEW_IDS) {
+        assert.equal(NEW_TO_OLD_SECTOR[id], undefined, `new sector ${id} has no legacy id`);
+    }
+});
+
+test('sectors that SHARE art cannot corrupt the legacy save mapping', () => {
+    /*
+     * Regression guard. `artKey` doubles as a place's pre-renumbering id, which
+     * is how OLD_TO_NEW/NEW_TO_OLD are derived. The 2026-07-29 expansion let new
+     * sectors reuse a sibling's artKey for art — and when those places were also
+     * fed into the maps, OLD_TO_NEW[46] flipped from 27 to 65, which would have
+     * migrated saves parked in old sector 46 to the wrong place. New sectors must
+     * stay out of the legacy maps no matter what art they borrow.
+     */
+    assert.equal(Object.keys(OLD_TO_NEW_SECTOR).length, LEGACY_IDS.length + 1, 'one entry per old sector + 99');
+    for (const id of LEGACY_IDS) {
+        assert.ok(OLD_TO_NEW_SECTOR[id] !== undefined, `old sector ${id} still maps somewhere`);
+        assert.ok(
+            !NEW_IDS.includes(OLD_TO_NEW_SECTOR[id]!),
+            `old sector ${id} maps to an ORIGINAL sector, not an expansion one`,
+        );
+    }
+    // Art sharing really is in play — otherwise this guard proves nothing.
+    const shared = SECTOR_PLACES.filter((p) => NEW_IDS.includes(p.id) && LEGACY_IDS.includes(p.artKey));
+    assert.ok(shared.length > 0, 'at least one expansion sector borrows a sibling floor');
 });
 
 test('remapLegacySector: identity for 0/99, total and bijective over 1-60, safe fallback', () => {
     assert.equal(remapLegacySector(0), 0);
     assert.equal(remapLegacySector(99), 99);
-    const image = new Set(WILD_IDS.map((s) => remapLegacySector(s)));
+    const image = new Set(LEGACY_IDS.map((s) => remapLegacySector(s)));
     assert.equal(image.size, 60);
     for (const s of image) assert.ok(s >= 1 && s <= 60);
     assert.equal(remapLegacySector(400), 0, 'unknown sectors fall back to the village');
@@ -107,8 +153,7 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
         const cur = queue.shift()!;
         for (const nx of adj.get(cur) ?? []) if (!seen.has(nx)) { seen.add(nx); queue.push(nx); }
     }
-    // 60 standard sectors minus the map-travel-only Hollow Temple (57).
-    assert.equal(seen.size, 59, 'road graph is connected across every walkable sector');
+    assert.equal(seen.size, WILD_IDS.length, 'road graph is connected across every walkable sector');
 
     for (const exit of SECTOR_EXITS) {
         const reverse = sectorExits(exit.destinationSector).find((e) => e.destinationSector === exit.sector);
@@ -117,7 +162,7 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
     }
 });
 
-test('renumbering preserved every road (bar the approved add and the gated Hollow Temple)', () => {
+test('renumbering preserved every road (and added only the approved Stormveil link)', () => {
     const expected = new Set<string>();
     for (const [a, b] of [...OLD_ROAD_PAIRS, ...ADDED_ROADS_OLD]) {
         expected.add(norm(OLD_TO_NEW_SECTOR[a]!, OLD_TO_NEW_SECTOR[b]!));
@@ -126,15 +171,17 @@ test('renumbering preserved every road (bar the approved add and the gated Hollo
         const key = norm(OLD_TO_NEW_SECTOR[a]!, OLD_TO_NEW_SECTOR[b]!);
         assert.ok(expected.delete(key), `removed road ${a}-${b} existed in the old world`);
     }
+    for (const [a, b] of EXPANSION_ROADS_NEW) {
+        // An expansion road must attach a NEW sector — it may never quietly
+        // rewire two of the original sectors to each other.
+        assert.ok(
+            NEW_IDS.includes(a) || NEW_IDS.includes(b),
+            `expansion road ${a}-${b} touches a new sector`,
+        );
+        expected.add(norm(a, b));
+    }
     const actual = new Set(SECTOR_ROAD_PAIRS.map(([a, b]) => norm(a, b)));
     assert.deepEqual([...actual].sort(), [...expected].sort());
-    // Every removed road touched the Hollow Temple and nothing else.
-    for (const [a, b] of REMOVED_ROADS_OLD) {
-        assert.ok(
-            OLD_TO_NEW_SECTOR[a] === 57 || OLD_TO_NEW_SECTOR[b] === 57,
-            `removed road ${a}-${b} is a Hollow Temple road`,
-        );
-    }
 });
 
 test('war-map home sectors are the same PLACES as before the renumbering', () => {
@@ -175,18 +222,29 @@ test('outskirts, festival, and castle anchors remapped in lockstep', () => {
     );
 });
 
-test('region blocks are contiguous and biomes stay in the 5-biome vocabulary', () => {
-    const blocks: Record<string, [number, number]> = {
-        stormveil: [1, 8], ashenleaf: [9, 16], moonshadow: [17, 25], frostfang: [26, 33],
-        frostborder: [34, 35], midlands: [36, 45], castle: [46, 51], festival: [52, 54],
-        hollowroad: [55, 57], lavafront: [58, 60],
+test('every sector sits in one of its region blocks, biomes stay in the 5-biome vocabulary', () => {
+    // Each region owns one or more id ranges. The original 1-60 blocks are
+    // contiguous; the 2026-07-29 expansion appended 61-66 (ids 1-60 were all
+    // taken and renumbering again would mean another save migration), so the
+    // regions that gained a sector own a second range.
+    const blocks: Record<string, ReadonlyArray<readonly [number, number]>> = {
+        stormveil: [[1, 8]], ashenleaf: [[9, 16]], moonshadow: [[17, 25]], frostfang: [[26, 33], [65, 65]],
+        frostborder: [[34, 35]], midlands: [[36, 45], [61, 62]], castle: [[46, 51]], festival: [[52, 54], [63, 63]],
+        hollowroad: [[55, 57], [64, 64]], lavafront: [[58, 60], [66, 66]],
     };
     for (const p of SECTOR_PLACES) {
         if (p.id === 99) { assert.equal(p.region, 'deathsgate'); continue; }
-        const [lo, hi] = blocks[p.region]!;
-        assert.ok(p.id >= lo && p.id <= hi, `${p.name} (${p.id}) inside its ${p.region} block`);
+        const ranges = blocks[p.region]!;
+        assert.ok(
+            ranges.some(([lo, hi]) => p.id >= lo && p.id <= hi),
+            `${p.name} (${p.id}) inside a ${p.region} block`,
+        );
         assert.ok(['shadow', 'forest', 'volcano', 'snow', 'central'].includes(p.biome));
     }
+    // The block table must account for every sector exactly once.
+    const claimed = Object.values(blocks).flat().flatMap(([lo, hi]) =>
+        Array.from({ length: hi - lo + 1 }, (_, i) => lo + i));
+    assert.deepEqual([...claimed].sort((a, b) => a - b), [...WILD_IDS]);
     assert.equal(sectorBiomeOf(99), 'volcano');
     assert.equal(sectorBiomeOf(0), 'central');
     assert.equal(sectorName(8), 'Canal Heart');

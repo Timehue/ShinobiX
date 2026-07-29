@@ -6,6 +6,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { sectorExitById, type SectorExit } from '../../shared/sector-links.js';
+import { isWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLease, setTravelLease } from '../_realtime/travel-lease.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
@@ -32,7 +33,7 @@ export const WORLD_TRAVEL_EDGE_MS = Number.isFinite(EDGE_MS_RAW)
 export function isPlayableWorldSector(value: unknown): value is number {
     return typeof value === 'number'
         && Number.isInteger(value)
-        && (value === 0 || value === 99 || (value >= 1 && value <= 60));
+        && (value === 0 || value === 99 || isWildSector(value));
 }
 
 export type EdgeTravelInput = {

@@ -152,7 +152,7 @@ import { bumpHuntQuality, readHuntQuality } from "../lib/hunt-run-state";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
-import { FESTIVAL_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
+import { FESTIVAL_SECTOR, isWildSector, sectorArtKey, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
@@ -450,7 +450,7 @@ export function WorldMap({
         // reset to 0 by App whenever you're not in the field, so this only fires for a
         // genuine in-sector reload; a normal in-session trip to the map still opens on
         // the overview (consumeReloadIntoSector is a one-shot, false on SPA navigation).
-        if (consumeReloadIntoSector() && currentSector >= 1 && currentSector <= 60) {
+        if (consumeReloadIntoSector() && isWildSector(currentSector)) {
             setSelectedSector(currentSector);
         }
     }, []);
@@ -1631,7 +1631,7 @@ export function WorldMap({
         });
         // Remember the sector so returning from the duel reopens it (the pet battle
         // returns to the World Map, which consumes this latch on remount).
-        setSectorReopen(selectedSector != null && selectedSector >= 1 && selectedSector <= 60 ? selectedSector : null);
+        setSectorReopen(selectedSector != null && isWildSector(selectedSector) ? selectedSector : null);
         setWandererDialog(null);
         setScreen("petArena");
     }
@@ -1649,7 +1649,7 @@ export function WorldMap({
         // Remember the sector so finishing the match returns the player here: the
         // Card Hall's Back goes through history to the World Map, which reopens this
         // sector on remount instead of dropping the player on the overview.
-        setSectorReopen(selectedSector != null && selectedSector >= 1 && selectedSector <= 60 ? selectedSector : null);
+        setSectorReopen(selectedSector != null && isWildSector(selectedSector) ? selectedSector : null);
         requestCardChallenge();
         setWandererDialog(null);
         setScreen("shinobiTiles");
@@ -2528,7 +2528,7 @@ export function WorldMap({
             // "Return to Sector" lands the player back here. Only real explorable
             // sectors (1-60) reopen a detail view; territory/virtual sectors fall
             // back to the world-map overview.
-            setSectorReopen(sector >= 1 && sector <= 60 ? sector : null);
+            setSectorReopen(isWildSector(sector) ? sector : null);
             setPendingAiProfileId(randomAi.id);
             setScreen("arena");
             return;
@@ -3218,7 +3218,7 @@ export function WorldMap({
                 avatar: sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '',
             }))
             : [];
-        const activeHuntTrailForSector = selectedSector >= 1 && selectedSector <= 60
+        const activeHuntTrailForSector = isWildSector(selectedSector)
             ? huntTrailForSector(selectedSector)
             : undefined;
         const activeHuntMissionForSector = activeHuntTrailForSector?.mission;
@@ -4465,8 +4465,8 @@ export function WorldMap({
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
-                        onClick={() => currentSector >= 1 && currentSector <= 60 ? setSelectedSector(currentSector) : setScreen("village")}
-                        label={currentSector >= 1 && currentSector <= 60 ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                        onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
+                        label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                     />
                     <div className="wm-zoom-controls">
                         <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
@@ -4476,8 +4476,8 @@ export function WorldMap({
                 </div>
             ) : (
                 <BackToVillageButton
-                    onClick={() => currentSector >= 1 && currentSector <= 60 ? setSelectedSector(currentSector) : setScreen("village")}
-                    label={currentSector >= 1 && currentSector <= 60 ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                    onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
+                    label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
             {hollowGateMenu && (
