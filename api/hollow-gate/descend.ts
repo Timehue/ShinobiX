@@ -10,6 +10,7 @@ import {
     type HollowGateRunToken,
 } from './_run-token.js';
 import { HOLLOW_GATE_COMBAT_TTL_SECONDS } from './_combat-session.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 /** Advance the sealed run exactly one floor. Client map state is presentation;
  * combat-start accepts only this server-owned currentFloor. */
@@ -46,6 +47,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(runKey, { ...run, currentFloor: nextFloor }, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
             return { status: 200, body: { ok: true, floor: nextFloor } };
         }, { failClosed: true, ttlSec: 10 });
+        if (result.status === 200 && result.body.alreadyAdvanced !== true) {
+            await recordBetaMetric({
+                event: 'hollow_gate.floor_descended',
+                playerName,
+                source: `floor:${String(result.body.floor ?? fromFloor + 1)}`,
+            });
+        }
         return res.status(result.status).json(result.body);
     } catch (error) {
         console.error('[hollow-gate/descend]', error);

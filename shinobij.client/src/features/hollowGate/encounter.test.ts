@@ -42,6 +42,15 @@ test("non-boss depth ramp: floor 1 is baseline, deeper floors stiffen", () => {
     assert.ok(f9.floorHpMult > f1.floorHpMult, "deeper is strictly harder");
 });
 
+test("legacy encounter picker can never surface a shinobi identity or portrait", () => {
+    const encounter = pickShrineEncounter({ ...base, floor: 1, maxFloor: 5, opts: {} });
+    assert.ok(encounter);
+    assert.equal(encounter.encounterName, "Hollow Hound");
+    assert.equal(encounter.baseAi.name, "Hollow Hound");
+    assert.equal(encounter.baseAi.icon, "🐺");
+    assert.equal(encounter.baseAi.image, "/pet-poses/mythic-4-idle.webp");
+});
+
 test("the boss is exempt from the depth ramp (it has its own stronger scaling)", () => {
     const boss = pickShrineEncounter({ ...base, floor: 9, maxFloor: 9, opts: { isBoss: true } });
     assert.ok(boss);

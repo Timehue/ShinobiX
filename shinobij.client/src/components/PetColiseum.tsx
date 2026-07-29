@@ -52,7 +52,7 @@ import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted, playPetSfx, primePetSfx } from "../lib/pet-sfx";
-import { isAudioMuted, setAudioMuted, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
+import { isAudioMuted, setAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
 import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pet-coliseum-flag";
 import { petCloseupPresentationModel, petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
@@ -79,7 +79,7 @@ const FLOOR_Y = 0;
 const FX_Y = 1.0; // mid-body height for impacts / casts
 
 function hollowHoundSurface(pet: Pick<Pet, "id" | "name">) {
-    return pet.name === "Hollow Hound" && /^mythic-4(?:-\d{10,})?$/.test(pet.id)
+    return /^mythic-4-\d{10,}$/.test(pet.id)
         ? HOLLOW_HOUND_SURFACE
         : undefined;
 }
@@ -1949,9 +1949,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         return { outResolves: outR, inHits: inH };
     }, [duel, id, pet.element]);
 
-    const useTex = poses ? poses.tex[poseCat] : sprite.texture;
-    const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
-    const useAspect = poses ? poses.scan[poseCat].aspect : sprite.aspect;
+    // The roster Oni pose atlas is the rig source, not the Hollow Hound's
+    // visible identity. During model loading or 2D fallback, keep the authored
+    // spectral portrait instead of briefly flashing the black/red Oni frames.
+    const useSpectralHoundSprite = hollowHoundSurface(pet) !== undefined;
+    const useTex = !useSpectralHoundSprite && poses ? poses.tex[poseCat] : sprite.texture;
+    const useBounds = !useSpectralHoundSprite && poses ? poses.scan[poseCat].bounds : sprite.bounds;
+    const useAspect = !useSpectralHoundSprite && poses ? poses.scan[poseCat].aspect : sprite.aspect;
     const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, TARGET_SPRITE_H, mirror), [useBounds, useAspect, mirror]);
     const shadowW = Math.max(0.9, L.contentWorldW * 0.95);
     const side = mirror ? "enemy" : "player";
@@ -7179,7 +7183,12 @@ const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
+    const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
     useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
+    useEffect(() => {
+        if (!isAudioMuted()) startBattleMusic(battleMusicTheme);
+        return () => stopBattleMusic();
+    }, [battleMusicTheme]);
     // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
     // into [min,max] — exactly what the static preset rendered) and let
     // PerformanceMonitor drop it toward the floor under sustained load, restoring
@@ -7220,6 +7229,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         atTick: number; stance: number | null; auto: boolean | null; orderedIdx: number | null; breakPending: boolean | null;
     }>({ atTick: -1, stance: null, auto: null, orderedIdx: null, breakPending: null });
     const duel = live ? (liveView ?? EMPTY_DUEL) : staticDuel;
+    const hollowHoundHpRatio = useMemo(() => {
+        if (battleMusicTheme !== "hollow-gate" || duel.snapshots.length === 0) return 1;
+        const snapshot = duel.snapshots[Math.min(duel.snapshots.length - 1, Math.max(0, deckTick))];
+        const hound = snapshot?.actors.find((actor) => actor.id === "enemy-0");
+        return hound ? Math.max(0, Math.min(1, hound.hp / Math.max(1, hound.maxHp))) : 1;
+    }, [battleMusicTheme, duel.snapshots, deckTick]);
+    useEffect(() => {
+        if (battleMusicTheme !== "hollow-gate") return;
+        setBattleMusicIntensity(hollowHoundHpRatio <= 0.35 ? "climax" : hollowHoundHpRatio <= 0.7 ? "pressure" : "calm");
+    }, [battleMusicTheme, hollowHoundHpRatio]);
     const roster = useMemo(() => {
         const r: Array<{ id: string; pet: Pet; mirror: boolean }> = [{ id: "player-0", pet: playerPet, mirror: false }];
         if (playerReservePet) r.push({ id: "player-1", pet: playerReservePet, mirror: false });
@@ -7777,7 +7796,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setAnnounce(null);
         setMoveCallout(null);
         setClashResult(null);
-        if (!isAudioMuted()) startBattleMusic();
+        if (!isAudioMuted()) startBattleMusic(battleMusicTheme);
         setRunId((r) => r + 1);
     };
     const toggleAudio = () => {
@@ -7785,7 +7804,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setAudioMuted(nextMuted);
         if (!nextMuted) {
             primePetSfx();
-            startBattleMusic();
+            startBattleMusic(battleMusicTheme);
             playPetSfx("buff");
         } else {
             stopBattleMusic();

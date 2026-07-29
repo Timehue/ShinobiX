@@ -18,6 +18,7 @@ import {
     type HgCurrencyKey,
 } from './_run-token.js';
 import { RIFT_QUESTS } from '../sector/_rift-quest.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -171,6 +172,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!issued) return res.status(500).json({ error: 'Run token was not issued.' });
         const committed = issued as { token: string; runToken: HollowGateRunToken; offers: ReturnType<typeof rollAugmentOffers> };
         await kv.set(hollowGateRunKey(playerName, committed.token), committed.runToken, { ex: RUN_TTL_SEC });
+        await recordBetaMetric({
+            event: 'hollow_gate.run_started',
+            playerName,
+            level: Number((mutation.character as Record<string, unknown> | null)?.level),
+            source: committed.runToken.variantId ? `variant:${committed.runToken.variantId}` : `standard:${committed.runToken.floorDepth}f`,
+        });
         return res.status(200).json({
             ok: true,
             token: committed.token,

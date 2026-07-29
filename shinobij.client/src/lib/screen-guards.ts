@@ -39,6 +39,17 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "battleTowers",
 ]);
 
+// An active Hollow Gate run is the strongest restore signal. Older builds sent
+// Gate encounters through Battle Towers, so that breadcrumb must not strand an
+// upgraded player in the retired combat mode.
+export function restoreScreenForSave(
+    persisted: Screen | null,
+    inHollowGateRun: boolean,
+): Screen {
+    if (inHollowGateRun) return "hollowGateShrine";
+    return persisted && RESTORABLE_SCREENS.has(persisted) ? persisted : "village";
+}
+
 // ─── Battle screens (navigation lock) ───────────────────────────────────────
 //
 // Screens that are battle-only or battle-capable. `arena` and `petArena` ALSO

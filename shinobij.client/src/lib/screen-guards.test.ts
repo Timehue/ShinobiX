@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { isUnresolvedBattle, type BattleGuardSignals } from "./screen-guards";
+import { isUnresolvedBattle, restoreScreenForSave, type BattleGuardSignals } from "./screen-guards";
 
 function signals(overrides: Partial<BattleGuardSignals>): BattleGuardSignals {
     return {
@@ -53,5 +53,15 @@ describe("screen navigation guards", () => {
         assert.equal(isUnresolvedBattle(signals({
             screen: "weeklyBoss",
         })), false);
+    });
+
+    it("routes active Hollow Gate saves away from stale combat screens", () => {
+        assert.equal(restoreScreenForSave("battleTowers", true), "hollowGateShrine");
+        assert.equal(restoreScreenForSave("hollowGateTiles", true), "hollowGateShrine");
+    });
+
+    it("retains normal restorable screens and otherwise uses the village", () => {
+        assert.equal(restoreScreenForSave("battleTowers", false), "battleTowers");
+        assert.equal(restoreScreenForSave(null, false), "village");
     });
 });

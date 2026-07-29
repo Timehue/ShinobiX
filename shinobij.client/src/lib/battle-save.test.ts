@@ -138,13 +138,13 @@ describe("battle resume state checks", () => {
         assert.equal(battleResumeStateExists(lock("arenaStory"), "ResumeRisk", character()), false);
     });
 
-    it("resumes hollow-gate tile locks only while a run is active", () => {
+    it("retires hollow-gate tile locks even while a run is active", () => {
         assert.equal(battleResumeStateExists(lock("hollowGateTiles"), "ResumeRisk", character()), false);
         assert.equal(battleResumeStateExists(lock("hollowGateTiles"), "ResumeRisk", character({
             hollowGateRun: { completed: true },
         })), false);
         assert.equal(battleResumeStateExists(lock("hollowGateTiles"), "ResumeRisk", character({
             hollowGateRun: { completed: false },
-        })), true);
+        })), false);
     });
 });

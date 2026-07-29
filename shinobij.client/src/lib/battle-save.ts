@@ -133,11 +133,9 @@ export function battleResumeStateExists(lock: ClientBattleLock, playerName: stri
             return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
         }
         if (lock.kind === "hollowGateTiles") {
-            // Hollow-gate tile seal: the run is server-saved (survives a wipe), so
-            // "resumable" just means an active run still exists — re-entry starts a
-            // fresh seal (the board isn't persisted). If the run is gone the seal is
-            // moot, so it falls to the (no-op) cleared-state path.
-            return Boolean(character?.hollowGateRun && !character.hollowGateRun.completed);
+            // Retired Hollow Gate Card Clash locks must never resume after an
+            // upgrade. The boot flow clears the lock and returns to the shrine.
+            return false;
         }
     } catch { return false; }
     return false;

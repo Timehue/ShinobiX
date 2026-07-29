@@ -181,7 +181,7 @@ const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => 
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
+import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave } from "./lib/screen-guards";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
@@ -567,12 +567,17 @@ import {
 // (a live, admin-tunable binding) so the generator stays App-free + testable.
 import {
     generateHollowGateShrineRun,
-    HOLLOW_HOUND_NAME,
 } from "./lib/hollow-gate-dungeon";
+import { hollowGateEncounterPresentation, hollowGateHoundCombatImage } from "./lib/hollow-gate-presentation";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, resumeHollowGateServerRun, settleHollowGateRunOnly, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
-import { buildHollowGatePveEncounter, formatHollowGateCombatReward, type HollowGatePveFightRef } from "./lib/hollow-gate-pve";
+import {
+    buildHollowGatePveEncounter,
+    formatHollowGateCombatReward,
+    hollowGatePveFightFromStoryContext,
+    type HollowGatePveFightRef,
+} from "./lib/hollow-gate-pve";
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
@@ -3280,9 +3285,17 @@ export default function App() {
                             // gate): restore the battle context + scaled enemy first.
                             const ctx = readArenaStoryContext(normalized.name);
                             if (ctx) {
+                                const restoredStoryBattle = ctx.battle as PendingArenaStoryBattle;
                                 setTemporaryStoryAi(ctx.ai);
-                                setPendingArenaStoryBattle(ctx.battle as PendingArenaStoryBattle);
+                                setPendingArenaStoryBattle(restoredStoryBattle);
                                 setPendingAiProfileId(ctx.aiId);
+                                const restoredGateFight = hollowGatePveFightFromStoryContext(restoredStoryBattle);
+                                if (restoredGateFight && normalized.hollowGateRun) {
+                                    setHollowGateRun(normalized.hollowGateRun);
+                                    setHollowGatePveFight(restoredGateFight);
+                                    setCurrentBiome("shadow");
+                                    setCurrentWeather(weatherForBiome("shadow"));
+                                }
                             }
                         } else if (bootLock.kind === "hollowGateTiles") {
                             // Re-enter the hollow-gate tile seal (fresh game). Hydrate
@@ -3360,23 +3373,18 @@ export default function App() {
                     // A bookmarked/shared URL hash (#/village) takes precedence
                     // over the last-visited screen — but only for deep-linkable
                     // hub screens; mid-encounter screens fall back to localStorage
-                    // and the safe-screen routing below. DEEP_LINKABLE_SCREENS /
-                    // RESTORABLE_SCREENS live in lib/screen-guards (shared with the
-                    // navigation lock so the two never drift).
+                    // and the safe-screen routing below. The screen sets and
+                    // recovery policy live in lib/screen-guards so they cannot drift.
                     const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
                     const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
-                    if (persisted) {
-                        const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
-                        // RESTORABLE_SCREENS = save-only hubs + the arena lobby
-                        // family. Anything else is transient/mid-encounter (state
-                        // lives only in React) and routes to a safe parent — the
-                        // Hollow Gate shrine during a run, otherwise the village —
-                        // so the player never lands on a blank/half-loaded screen.
-                        // Live battle re-entry is forced earlier and never reaches
-                        // here.
-                        target = RESTORABLE_SCREENS.has(persisted)
-                            ? persisted
-                            : inHollowGateRun ? "hollowGateShrine" : "village";
+                    const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
+                    target = restoreScreenForSave(persisted, inHollowGateRun);
+                    if (inHollowGateRun) {
+                        try {
+                            localStorage.removeItem("shinobix:towerRunId");
+                        } catch {
+                            // Storage failures must not block the Gate recovery route.
+                        }
                     }
                 } catch { /* localStorage unavailable — default to village */ }
                 // If we're landing back on the shrine, hydrate the local run
@@ -5779,7 +5787,10 @@ export default function App() {
             setHollowGatePveFight(null);
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
-            return `${pending.isBoss ? hollowGateBossDisplayName(hollowGateRun) : HOLLOW_HOUND_NAME} defeated.${rewardLine ? ` ${rewardLine}.` : " Hollow Gate rewards verified."}`;
+            const defeatedName = pending.isBoss
+                ? hollowGateBossDisplayName(hollowGateRun)
+                : hollowGateEncounterPresentation(pending.floor, pending.combatKind).name;
+            return `${defeatedName} defeated.${rewardLine ? ` ${rewardLine}.` : " Hollow Gate rewards verified."}`;
         }
 
         if (pendingArenaStoryBattle.kind === "academySparring") {
@@ -6154,13 +6165,14 @@ export default function App() {
         }
         const floor = hollowGateRun?.floor ?? 1;
         const kind: HollowGateCombatKind = opts.isBoss ? "boss" : opts.isAmbush ? "ambush" : opts.isBeast ? "beast" : opts.isElite ? "elite" : "battle";
+        const houndPresentation = hollowGateEncounterPresentation(floor, kind);
         const nodeId = opts.nodeId ?? `floor:${floor}:ambush:threat-${hollowGateRun?.playerX ?? 0}-${hollowGateRun?.playerY ?? 0}-${hollowGateRun?.tiles.filter((tile) => tile.resolved).length ?? 0}`;
         const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
         const petReady = Boolean(activePet?.unlockedForPve && !isPetOnExpedition(activePet));
         if (!opts.forceMode && petReady && activePet) {
             setHollowGateEvent({
-                title: opts.isBoss ? "Hollow Hound Alpha" : "Hollow Hound",
-                body: `${opts.isBoss ? "The alpha Hound seals the way forward." : "A void-scarred Hound blocks the corridor."}\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat uses the tactical Pet Coliseum and ${activePet.name}; a pet defeat deals 20% max HP recoil but does not clear this encounter.`,
+                title: houndPresentation.name,
+                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat uses the tactical Pet Coliseum and ${activePet.name}; a pet defeat deals 20% max HP recoil but does not clear this encounter.`,
                 kind: opts.isBoss ? "boss" : "pet_battle",
                 choices: [
                     {
@@ -6213,7 +6225,7 @@ export default function App() {
             character,
             run,
             petAssisted,
-            image: sharedImages["pet:mythic-4"],
+            image: hollowGateHoundCombatImage(sharedImages),
         });
         setHollowGatePveFight(fight);
         setTemporaryStoryAi(encounter.ai);
