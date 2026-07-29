@@ -33,7 +33,7 @@
  * normalizeOnboardingStep so legacy "spar"/"tour"/"storyUnlocked" saves keep
  * working). Rendered as an overlay alongside the ProfessionPicker in App.tsx.
  */
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import {
@@ -46,10 +46,51 @@ import {
 } from "../lib/onboarding-step";
 import { companionStepMeta } from "../lib/journey-guide";
 import { petPoseImage } from "../lib/pet-battle-anim";
-import { prefersReducedMotion } from "../lib/device-tier";
+import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
 import "./onboarding-coach.css";
+
+const IntroCompanion3D = lazy(() =>
+    import("../features/intro-cinematic/IntroCompanion3D")
+        .then((module) => ({ default: module.IntroCompanion3D })),
+);
+
+function TutorialCompanionModel({
+    pet,
+    fallbackSrc,
+    className,
+    label,
+    enabled,
+}: {
+    pet: Pet;
+    fallbackSrc: string;
+    className: string;
+    label: string;
+    enabled: boolean;
+}) {
+    return (
+        <Suspense
+            fallback={(
+                <img
+                    className={`${className} coach-guide-pet-fallback`}
+                    src={fallbackSrc}
+                    alt={label}
+                />
+            )}
+        >
+            <IntroCompanion3D
+                pet={pet}
+                fallbackSrc={fallbackSrc}
+                label={label}
+                className={className}
+                hero
+                closeUp
+                enabled={enabled}
+            />
+        </Suspense>
+    );
+}
 
 const overlayStyle: React.CSSProperties = {
     position: "fixed",
@@ -122,6 +163,7 @@ export function OnboardingCoach({
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
     const reduced = prefersReducedMotion();
+    const liteFx = isLowEndMobile();
 
     useEffect(() => {
         if (step === "training" && activeTraining) {
@@ -352,15 +394,16 @@ export function OnboardingCoach({
         );
     }
 
-    // The talking-companion banner: pose standee + speech bubble + actions.
+    // The talking-companion banner: live model + speech bubble + actions.
     const renderGuideBanner = (action?: React.ReactNode) => createPortal(
         <div className="onboarding-coach-banner coach-guide" style={guideWrapStyle}>
-            {guideArt && (
-                <img
-                    src={guideArt}
-                    alt=""
+            {guideArt && guidePet && (
+                <TutorialCompanionModel
+                    pet={guidePet}
+                    fallbackSrc={guideArt}
+                    label={`${guidePet.name}, your Academy guide`}
                     className={`coach-guide-pet ${talking ? "is-talking" : ""}`}
-                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    enabled={!liteFx && !reduced}
                 />
             )}
             <div className="coach-guide-bubble">
@@ -383,7 +426,10 @@ export function OnboardingCoach({
                         <i style={{ width: `${guideProgressPercent}%` }} />
                     </div>
                 )}
-                <p className="coach-guide-line">{(bannerText ?? "").slice(0, typedCount)}</p>
+                <p className="coach-guide-line" aria-hidden="true">
+                    {(bannerText ?? "").slice(0, typedCount)}
+                </p>
+                <span className="coach-guide-sr" aria-live="polite">{bannerText}</span>
                 {coachMeta?.upNext && (
                     <p className="coach-guide-next"><strong>Up next:</strong> {coachMeta.upNext.title}</p>
                 )}
@@ -441,12 +487,13 @@ export function OnboardingCoach({
         return createPortal(
             <div style={overlayStyle}>
                 <div className="card" style={cardStyle}>
-                    {guideArt && (
-                        <img
-                            src={guideArt}
-                            alt=""
-                            style={{ width: 96, height: 96, objectFit: "contain", display: "block", margin: "0 auto 4px", filter: "drop-shadow(0 8px 10px rgba(0,0,0,0.5))" }}
-                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    {guideArt && guidePet && (
+                        <TutorialCompanionModel
+                            pet={guidePet}
+                            fallbackSrc={guideArt}
+                            label={`${guidePet.name}, your Academy sparring guide`}
+                            className="coach-guide-pet coach-guide-pet-modal"
+                            enabled={!liteFx && !reduced}
                         />
                     )}
                     <div style={{ color: "var(--gold)", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>

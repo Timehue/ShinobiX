@@ -2,11 +2,13 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import sharp from "sharp";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
 const clientRoot = resolve(import.meta.dirname, "..");
 const modelRoot = resolve(clientRoot, "public/pet-models");
 const rosterRoot = resolve(modelRoot, "roster");
 const outputRoot = resolve(clientRoot, ".tmp/pet-model-certification");
+await MeshoptDecoder.ready;
 const expectedClips = new Set(["attack", "death", "gallop", "gallop_jump", "idle", "idle_2", "idle_hitreact1", "walk"]);
 // These approved silhouettes intentionally do not assign visible geometry to
 // the generic tail chain. Solar Stag still has a complete short tail, but its
@@ -62,6 +64,103 @@ function accessorReader(glb, accessorIndex) {
     const data = new DataView(glb.file.buffer, glb.file.byteOffset, glb.file.byteLength);
     const value = (index, component = 0) => data[method](start + index * stride + component * bytes, bytes > 1);
     return { accessor, value, width };
+}
+
+function decodedAccessorReader(glb, accessorIndex) {
+    const accessor = glb.json.accessors?.[accessorIndex];
+    invariant(accessor, `missing accessor ${accessorIndex}`);
+    const view = glb.json.bufferViews?.[accessor.bufferView];
+    invariant(
+        view && ((view.buffer ?? 0) === 0 || view.extensions?.EXT_meshopt_compression),
+        `accessor ${accessorIndex}: unsupported buffer view`,
+    );
+    const width = typeWidths.get(accessor.type);
+    const bytes = componentBytes.get(accessor.componentType);
+    const method = componentReaders.get(accessor.componentType);
+    invariant(width && bytes && method, `accessor ${accessorIndex}: unsupported component layout`);
+    const extension = view.extensions?.EXT_meshopt_compression;
+    let payload;
+    let stride;
+    if (extension) {
+        const sourceStart = glb.binOffset + (extension.byteOffset ?? 0);
+        const source = glb.file.subarray(sourceStart, sourceStart + extension.byteLength);
+        payload = new Uint8Array(extension.count * extension.byteStride);
+        MeshoptDecoder.decodeGltfBuffer(payload, extension.count, extension.byteStride, source, extension.mode, extension.filter);
+        stride = extension.byteStride;
+    } else {
+        const start = glb.binOffset + (view.byteOffset ?? 0);
+        payload = glb.file.subarray(start, start + view.byteLength);
+        stride = view.byteStride ?? width * bytes;
+    }
+    const data = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    const start = accessor.byteOffset ?? 0;
+    const value = (index, component = 0) => data[method](start + index * stride + component * bytes, bytes > 1);
+    return { accessor, value, width };
+}
+
+function normalizedComponent(value, componentType, normalized) {
+    if (!normalized || componentType === 5126) return value;
+    if (componentType === 5120) return Math.max(value / 127, -1);
+    if (componentType === 5121) return value / 255;
+    if (componentType === 5122) return Math.max(value / 32767, -1);
+    if (componentType === 5123) return value / 65535;
+    return value;
+}
+
+function compressedComponentMetrics(glb, primitive, id, modelLongest) {
+    const positions = decodedAccessorReader(glb, primitive.attributes.POSITION);
+    const indices = decodedAccessorReader(glb, primitive.indices);
+    const position = (index, axis) => normalizedComponent(
+        positions.value(index, axis),
+        positions.accessor.componentType,
+        positions.accessor.normalized,
+    );
+    const sets = unionFind(positions.accessor.count);
+    const coincident = new Map();
+    for (let index = 0; index < positions.accessor.count; index += 1) {
+        const key = `${Math.round(position(index, 0) * 100_000)},${Math.round(position(index, 1) * 100_000)},${Math.round(position(index, 2) * 100_000)}`;
+        const previous = coincident.get(key);
+        if (previous === undefined) coincident.set(key, index);
+        else sets.union(previous, index);
+    }
+    for (let offset = 0; offset < indices.accessor.count; offset += 3) {
+        const a = indices.value(offset);
+        const b = indices.value(offset + 1);
+        const c = indices.value(offset + 2);
+        invariant(a < positions.accessor.count && b < positions.accessor.count && c < positions.accessor.count, `${id}: out-of-range triangle index`);
+        sets.union(a, b);
+        sets.union(b, c);
+    }
+    const components = new Map();
+    for (let offset = 0; offset < indices.accessor.count; offset += 3) {
+        const root = sets.find(indices.value(offset));
+        let component = components.get(root);
+        if (!component) {
+            component = { triangles: 0, vertices: new Set(), min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+            components.set(root, component);
+        }
+        component.triangles += 1;
+        component.vertices.add(indices.value(offset));
+        component.vertices.add(indices.value(offset + 1));
+        component.vertices.add(indices.value(offset + 2));
+    }
+    const triangleCount = indices.accessor.count / 3;
+    return [...components.values()].map((component) => {
+        for (const vertex of component.vertices) {
+            for (let axis = 0; axis < 3; axis += 1) {
+                const value = position(vertex, axis);
+                component.min[axis] = Math.min(component.min[axis], value);
+                component.max[axis] = Math.max(component.max[axis], value);
+            }
+        }
+        const size = component.max.map((value, axis) => value - component.min[axis]);
+        return {
+            triangles: component.triangles,
+            ratio: component.triangles / triangleCount,
+            size,
+            spanRatio: Math.max(...size) / Math.max(0.001, modelLongest),
+        };
+    }).sort((left, right) => right.triangles - left.triangles);
 }
 
 function normalizeWeight(value, componentType, normalized) {
@@ -153,8 +252,11 @@ function rigMetrics(glb, id, expectedJointCount) {
     };
 }
 
-function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
+function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOversizedDetachedProxy = false) {
     invariant(glb.json.meshes?.length === 1, `${id}: expected one pet mesh`);
+    const meshNodes = glb.json.nodes?.filter((node) => Number.isInteger(node.mesh)) ?? [];
+    invariant(meshNodes.length === 1 && meshNodes[0].mesh === 0, `${id}: expected one active surface node`);
+    if (requireRig) invariant(meshNodes[0].skin === 0, `${id}: surface node is not bound to the reviewed skeleton`);
     const primitive = glb.json.meshes[0]?.primitives?.[0];
     invariant(glb.json.meshes[0]?.primitives?.length === 1 && primitive, `${id}: loose or multiple primitives found`);
     const positionAccessor = glb.json.accessors?.[primitive.attributes?.POSITION];
@@ -181,13 +283,22 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
         const max = positionAccessor.max.map((value) => value / divisor);
         const size = max.map((value, axis) => value - min[axis]);
         invariant(Math.min(...size) > 0.08 && Math.max(...size) / Math.min(...size) < 14, `${id}: collapsed or extreme model bounds`);
+        const components = rejectOversizedDetachedProxy
+            ? compressedComponentMetrics(glb, primitive, id, Math.max(...size))
+            : null;
+        const oversizedProxy = components?.slice(1).find((component) => component.spanRatio > 0.45);
+        invariant(
+            !oversizedProxy,
+            `${id}: detached proxy/cage spans ${(oversizedProxy?.spanRatio * 100).toFixed(1)}% of the model`,
+        );
         return {
             vertices: positionAccessor.count,
             triangles: indexAccessor.count / 3,
             bounds: { min: min.map((value) => Number(value.toFixed(4))), max: max.map((value) => Number(value.toFixed(4))), size: size.map((value) => Number(value.toFixed(4))) },
-            connectedComponents: null,
-            dominantComponentRatio: null,
-            secondComponentRatio: null,
+            connectedComponents: components?.length ?? null,
+            dominantComponentRatio: components ? Number((components[0]?.ratio ?? 0).toFixed(4)) : null,
+            secondComponentRatio: components ? Number((components[1]?.ratio ?? 0).toFixed(4)) : null,
+            largestDetachedSpanRatio: components ? Number(Math.max(0, ...components.slice(1).map((component) => component.spanRatio)).toFixed(4)) : null,
             possibleDuplicateAnatomy: false,
             validWeightRatio: null,
             maxJoint: null,
@@ -330,7 +441,7 @@ async function colorMetrics(payload, id, minimumBytes) {
     };
 }
 
-async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices = 8_000, expectedJointCount }) {
+async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices = 8_000, expectedJointCount, rejectOversizedDetachedProxy = false }) {
     const id = basename(path, ".glb");
     const file = await readFile(path);
     const glb = parseGlb(file, id);
@@ -349,7 +460,7 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
                 animations: glb.json.animations?.map((clip) => clip.name) ?? [],
             }),
         },
-        geometry: geometryMetrics(glb, id, requireRig, minimumVertices),
+        geometry: geometryMetrics(glb, id, requireRig, minimumVertices, rejectOversizedDetachedProxy),
         color: await colorMetrics(await embeddedImage(glb, id), id, minimumAtlasBytes),
     };
 }
@@ -395,6 +506,7 @@ async function main() {
         minimumAtlasBytes: 4_000,
         minimumVertices: 6_000,
         expectedJointCount: 21,
+        rejectOversizedDetachedProxy: true,
     }));
     const report = {
         generatedAt: new Date().toISOString(),
