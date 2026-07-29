@@ -2,15 +2,19 @@
  * Village War Map — sector↔village ownership table + mappers (Phase 0, pure).
  *
  * Which EXISTING world sectors each village owns at the start of the war-map
- * layer (plan §4). The neutral central band (56-60) and special sectors
- * (Hollow-Gate shrines 1/52/57, Sunscar Festival 35, Death's Gate 99) are NOT war sectors. All 8 home
- * sectors per village are capturable (no protected core, no floor). The canonical
- * key is always the world-sector number; `AL-n`-style labels are display aliases.
+ * layer (plan §4). The neutral castle keep and special sectors (Hollow-Gate
+ * shrine sectors, the Sunscar Festival, Death's Gate 99) are NOT war sectors.
+ * All 8 home sectors per village are capturable (no protected core, no floor).
+ * The canonical key is always the world-sector number; `AL-n`-style labels are
+ * display aliases.
+ *
+ * Sector numbers use the 2026-07 region-block renumbering — each village's
+ * block starts at its own gate (shared/sector-geo.ts holds the registry and
+ * the old↔new mapping; api/_sector-geo.test.ts pins that these are the same
+ * PLACES as before the reorg).
  *
  * IO-free. The client mirror (shinobij.client/src/data/war-map-sectors.ts) must
- * stay in sync for the UI. Mirrors the biome bands in
- * shinobij.client/src/data/sectors.ts (shadow 1-20, forest 21-35, volcano 36-45,
- * snow 46-55, central 56-60).
+ * stay in sync for the UI.
  */
 
 export type WarVillage =
@@ -25,10 +29,10 @@ export const WAR_VILLAGES: readonly WarVillage[] = [
 
 // Home sectors per village — all 8 capturable. Outskirts anchor listed first. §4.
 export const HOME_SECTORS: Record<WarVillage, readonly number[]> = {
-    'Moonshadow Village': [11, 19, 15, 4, 5, 6, 16, 8],
-    'Stormveil Village': [31, 21, 22, 34, 24, 32, 26, 27],
-    'Ashen Leaf Village': [38, 36, 37, 39, 40, 41, 42, 43],
-    'Frostfang Village': [47, 46, 48, 49, 50, 51, 53, 54],
+    'Moonshadow Village': [17, 18, 19, 20, 21, 22, 23, 24],
+    'Stormveil Village': [1, 2, 3, 4, 5, 6, 7, 8],
+    'Ashen Leaf Village': [9, 10, 11, 12, 13, 14, 15, 16],
+    'Frostfang Village': [26, 27, 28, 29, 30, 33, 31, 32],
 };
 
 // `AL-n`-style alias prefix per village.
@@ -48,11 +52,12 @@ export const VILLAGE_BIOME: Record<WarVillage, 'shadow' | 'forest' | 'volcano' |
 };
 
 // The neutral central keep — not owned, not capturable, not counted (§4).
-export const CENTRAL_SECTORS: readonly number[] = [56, 57, 58, 59, 60];
+export const CENTRAL_SECTORS: readonly number[] = [46, 47, 48, 49, 50];
 
-// Special sectors that are never war sectors (Hollow-Gate shrines, the Sunscar
-// Festival at 35, Death's Gate). The festival is a neutral POI, not a territory.
-export const NON_WAR_SPECIAL_SECTORS: readonly number[] = [1, 35, 52, 57, 99];
+// Special sectors that are never war sectors (Hollow-Gate shrine sectors —
+// East Ring Road 51, Obsidian Forecourt 60, North Gate Plaza 46 — the Sunscar
+// Festival at 54, Death's Gate). The festival is a neutral POI, not a territory.
+export const NON_WAR_SPECIAL_SECTORS: readonly number[] = [46, 51, 54, 60, 99];
 
 const SECTOR_TO_VILLAGE: ReadonlyMap<number, WarVillage> = (() => {
     const m = new Map<number, WarVillage>();

@@ -1,10 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { edgeTravelExit, isPlayableWorldSector, WORLD_TRAVEL_MS } from './travel.js';
+import { edgeTravelExit, isPlayableWorldSector, WORLD_TRAVEL_MS, WORLD_TRAVEL_EDGE_MS } from './travel.js';
 import { sectorExits } from '../../shared/sector-links.js';
 
-test('world travel keeps the intentional three-second duration', () => {
+test('world travel keeps the intentional three-second duration for map fast-travel', () => {
     assert.equal(WORLD_TRAVEL_MS, 3_000);
+});
+
+test('edge crossings are instant by default (walking is free movement)', () => {
+    // WORLD_TRAVEL_EDGE_MS is a server env dial; unset (the default and the
+    // test environment) it must be 0 — no mask, no wait — and it can never
+    // exceed the map-travel duration.
+    assert.equal(WORLD_TRAVEL_EDGE_MS, 0);
+    assert.ok(WORLD_TRAVEL_EDGE_MS <= WORLD_TRAVEL_MS);
 });
 
 test('world travel only accepts real playable sectors', () => {

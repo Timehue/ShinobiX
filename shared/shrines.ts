@@ -11,6 +11,8 @@
  * small pilgrimage.
  *
  * Ids are stable KV key components (`world:shrine:<id>`) — never rename one.
+ * Sector numbers follow the 2026-07 region-block renumbering (shared/sector-geo.ts);
+ * each shrine stands in the same PLACE (same floor art via artKey) as before.
  * `left`/`top` are the standee's percent position on the sector board — each was
  * placed against its sector's actual floor art (composited QA renders, see
  * scripts/gen-sector-art.mjs) onto open, walkable-reading ground, clear of the
@@ -36,28 +38,28 @@ export type ShrineDef = {
 export const SHRINE_DEFS: readonly ShrineDef[] = [
     // ——— The four village shrines ———
     {
-        id: 'heartwood', sector: 42, name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village',
+        id: 'heartwood', sector: 15, name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village',
         region: 'the Ashen Leaf Deepwood',
         lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.',
         blessing: 'May your roots hold and your leaves reach.',
         left: 54, top: 44,
     },
     {
-        id: 'tide', sector: 34, name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village',
+        id: 'tide', sector: 4, name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village',
         region: 'the Stormveil Heights',
         lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.',
         blessing: 'May the tide carry your burdens out.',
         left: 33, top: 44,
     },
     {
-        id: 'frostveil', sector: 53, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
+        id: 'frostveil', sector: 31, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
         region: 'the Frostreach Shelf',
         lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.',
         blessing: 'May the cold keep what you cherish.',
         left: 26, top: 45,
     },
     {
-        id: 'moonwell', sector: 16, name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village',
+        id: 'moonwell', sector: 23, name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village',
         region: 'the Moonshadow Wilds',
         lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.',
         blessing: 'May the moon light the path you hide.',
@@ -65,7 +67,7 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     },
     // ——— The Hollow Gate ward ———
     {
-        id: 'hollowgate', sector: 13, name: 'Hollow Gate Shrine', theme: 'hollow-gate',
+        id: 'hollowgate', sector: 56, name: 'Hollow Gate Shrine', theme: 'hollow-gate',
         region: 'the Pilgrim’s Approach',
         lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
         blessing: 'May the Gate stay shut behind you.',
@@ -73,7 +75,7 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     },
     // ——— The Ancients (the hundred legacies) ———
     {
-        id: 'ancients', sector: 10, name: 'Shrine of the Ancients', theme: 'ancients',
+        id: 'ancients', sector: 44, name: 'Shrine of the Ancients', theme: 'ancients',
         region: 'the Watchruin Ridge',
         lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.',
         blessing: 'May the Ancients find their path in you.',

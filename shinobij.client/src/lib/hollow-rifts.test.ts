@@ -12,6 +12,7 @@ import {
 } from "./hollow-rifts";
 import { hollowRifts } from "../data/hollow-rifts";
 import { builtinAis } from "./combat-ai";
+import { CASTLE_SECTORS, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 const publicAssetExists = (p: string) => existsSync(join(PUBLIC_DIR, p.replace(/^\//, "")));
@@ -124,12 +125,12 @@ test("synthRiftGiver is a non-hostile roaming quest NPC", () => {
     assert.ok(w.homeTile >= 0 && w.homeTile <= 143);
 });
 
-test("riftTargetSector is deterministic, wilderness-ranged, skips villages", () => {
-    const villages = new Set([11, 31, 38, 47]);
+test("riftTargetSector is deterministic, wilderness-ranged, skips safe hubs", () => {
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
     for (const p of ["Aki", "Rill", "player-two"]) {
         const s = riftTargetSector(p, "rift-hollow-stalker");
         assert.equal(s, riftTargetSector(p, "rift-hollow-stalker"));
-        assert.ok(s >= 1 && s <= 55 && !villages.has(s));
+        assert.ok(s >= 1 && s <= 60 && !skip.has(s));
     }
 });
 

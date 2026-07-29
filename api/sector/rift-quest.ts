@@ -11,6 +11,7 @@ import {
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
     parseRiftQuestSeal, type RiftQuestSeal,
 } from './_rift-quest.js';
+import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 
 /*
  * /api/sector/rift-quest — POST { action: 'accept' | 'complete' | 'abandon', playerName, riftId? }
@@ -71,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const targetSector = riftTargetSector(playerName, def.id);
                 const baseline = num(char.hollowGateWardenKills);
-                const sealed: Sealed = { id: def.id, targetSector, baseline, at: Date.now() };
+                const sealed: Sealed = { id: def.id, targetSector, baseline, at: Date.now(), geoV: WORLD_GEO_VERSION };
                 await kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS });
                 const activeRiftQuest = { id: def.id, targetSector, stage: 'travel' as const, baseline, bossName: def.bossName };
                 const updated = { ...char, activeRiftQuest };

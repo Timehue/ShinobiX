@@ -1,6 +1,7 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
@@ -1983,6 +1984,14 @@ export function sanitizeCharacterSave(
         if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
         else delete out[field];
     }
+    // World-geography version (the 2026-07 sector renumbering) is server-owned:
+    // carry the stored stamp, and stamp brand-new saves current (they are born
+    // post-reorg). A pre-reorg record is only ever POSTed after a GET migrated
+    // it (api/_elapsed-state.ts settleSaveRecord), so an unstamped `existing`
+    // means "new world" here, never "needs remap".
+    out.worldGeoV = existing && Object.prototype.hasOwnProperty.call(existing, 'worldGeoV')
+        ? existing.worldGeoV
+        : WORLD_GEO_VERSION;
     return out;
 }
 
