@@ -16,13 +16,13 @@ export type PetDuelCommandDeckProps = {
 
 type Technique = DuelControlSnap["abilities"][number] & { idx: number };
 
-function techniqueRole(move: Technique): { label: string; glyph: string; color: string } {
-    if (move.support) return { label: "Rally", glyph: "✦", color: "#34d399" };
-    if (move.isMove) return { label: "Shift", glyph: "➜", color: "#a78bfa" };
-    if (["stun", "freeze", "confuse", "movelock", "slow", "debuff", "taunt"].includes(move.kind)) {
-        return { label: "Counter", glyph: "◇", color: "#60a5fa" };
+function techniqueRole(move: Technique): { label: string; glyph: string; color: string; effect: string } {
+    if (move.support) return { label: "Rally", glyph: "✦", color: "#34d399", effect: "Cleanse + Aegis" };
+    if (move.isMove) return { label: "Shift", glyph: "➜", color: "#a78bfa", effect: "Phase + Empower" };
+    if (["stun", "freeze", "confuse", "movelock", "slow", "debuff", "crush", "push", "pull", "mark", "taunt"].includes(move.kind)) {
+        return { label: "Counter", glyph: "◇", color: "#60a5fa", effect: "Interrupt + Stagger" };
     }
-    return { label: "Punish", glyph: "⚔", color: "#fbbf24" };
+    return { label: "Punish", glyph: "⚔", color: "#fbbf24", effect: "Critical + Armor Break" };
 }
 
 export function PetDuelCommandDeck({
@@ -213,6 +213,9 @@ export function PetDuelCommandDeck({
                                         </span>
                                         <span style={{ position: "relative", display: "block", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", font: `900 ${compact ? 10 : 12}px/1 var(--font-display),Inter,sans-serif` }}>
                                             {move.name}
+                                        </span>
+                                        <span style={{ position: "relative", display: "block", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: role.color, opacity: .82, font: "800 7px/1 Inter,sans-serif", letterSpacing: ".04em", textTransform: "uppercase" }}>
+                                            {role.effect}
                                         </span>
                                     </button>
                                 );

@@ -126,6 +126,80 @@ test("an earned technique call owns the next beat and cannot become a fallback b
     assert.equal(fighter.cmdTechnique, false, "the earned call is consumed when the move commits");
 });
 
+function callPerfect(sim: ReturnType<typeof createLiveCinematicDuel>, idx: number): DuelEvent {
+    const fighter = sim.fighters.find((entry) => entry.id === "player-0")!;
+    fighter.commandCharge = DUEL_COMMAND_FULL;
+    assert.ok(applyDuelCommand(sim, { kind: "technique", actorId: fighter.id, idx }));
+    const before = sim.events.length;
+    for (let i = 0; i < DUEL_TPS * 5; i++) {
+        stepCinematicDuel(sim);
+        const result = sim.events.slice(before).find((event) => !!event.perfect && !!event.verdict);
+        if (result) return result;
+    }
+    assert.fail("the perfect execution did not resolve inside its authored window");
+}
+
+test("Punish guarantees a critical contact and breaks the defender's armor", () => {
+    const sim = createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), 41, 1, 1, false, true, true, null, false);
+    const result = callPerfect(sim, 0);
+    const target = sim.fighters.find((entry) => entry.id === "enemy-0")!;
+    assert.equal(result.type, "hit");
+    assert.equal(result.perfect, "punish");
+    assert.equal(result.crit, true);
+    assert.equal(result.verdict, "GUARD BROKEN");
+    assert.ok(target.statuses.buffLeft > 0 && target.statuses.buffMag < 0, "the armor break must persist after contact");
+});
+
+test("Counter interrupts the rival and forces a readable stagger", () => {
+    const counterPet = pet("P", "Lightning", {
+        jutsus: [
+            { name: "Thunder Lock", kind: "stun", power: 82, cooldown: 3 },
+            { name: "Fang Strike", kind: "damage", power: 104, cooldown: 1 },
+        ],
+    });
+    const sim = createLiveCinematicDuel(counterPet, pet("Q", "Water"), 43, 1, 1, false, true, true, null, false);
+    const target = sim.fighters.find((entry) => entry.id === "enemy-0")!;
+    target.state = "windup"; target.stateLeft = DUEL_TPS; target.pendingIdx = 0; target.pendingTargetId = "player-0";
+    const result = callPerfect(sim, 0);
+    assert.equal(result.perfect, "counter");
+    assert.equal(result.verdict, "ACTION BROKEN");
+    assert.equal(target.pendingIdx, -2);
+    assert.ok(target.statuses.stunLeft > 0 || target.state === "stagger", "the interrupted rival must remain staggered");
+});
+
+test("Rally cleanses harmful statuses and grants a twelve-percent Aegis", () => {
+    const sim = createLiveCinematicDuel(pet("P", "Earth"), pet("Q", "Water"), 47, 1, 1, false, true, true, null, false);
+    const fighter = sim.fighters.find((entry) => entry.id === "player-0")!;
+    fighter.statuses.burnLeft = DUEL_TPS * 3;
+    fighter.statuses.burnDmg = 10;
+    fighter.statuses.slowLeft = DUEL_TPS * 3;
+    fighter.statuses.marked = true;
+    const beforeShield = fighter.statuses.shieldHp;
+    const result = callPerfect(sim, 2);
+    assert.equal(result.perfect, "rally");
+    assert.equal(result.verdict, "CLEANSE + AEGIS");
+    assert.equal(fighter.statuses.burnLeft, 0);
+    assert.equal(fighter.statuses.slowLeft, 0);
+    assert.equal(fighter.statuses.marked, false);
+    assert.ok(fighter.statuses.shieldHp >= beforeShield + Math.round(fighter.maxHp * 0.12));
+});
+
+test("Shift creates a phase window and empowers the next attack", () => {
+    const shiftPet = pet("P", "Wind", {
+        jutsus: [
+            { name: "Fang Strike", kind: "damage", power: 104, cooldown: 1 },
+            { name: "Slipstream", kind: "move", power: 10, cooldown: 3 },
+        ],
+    });
+    const sim = createLiveCinematicDuel(shiftPet, pet("Q", "Water"), 53, 1, 1, false, true, true, null, false);
+    const fighter = sim.fighters.find((entry) => entry.id === "player-0")!;
+    const result = callPerfect(sim, 1);
+    assert.equal(result.perfect, "shift");
+    assert.equal(result.verdict, "PHASE SHIFT");
+    assert.ok(fighter.perfectEvadeLeft > 0, "the reposition must leave an invulnerable phase window");
+    assert.equal(fighter.perfectDamageBoost, true, "the next landed attack must be empowered");
+});
+
 test("command energy is earned by time, clean hits, taking pressure, and defensive reads", () => {
     const sim = createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), 6, 1, 1, false, true, true, null, false);
     const player = sim.fighters.find((entry) => entry.id === "player-0")!;

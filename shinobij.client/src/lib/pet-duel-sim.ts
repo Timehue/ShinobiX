@@ -354,7 +354,8 @@ export interface DuelAiDebug {
 }
 
 export type DuelEventType = "dash" | "maneuver" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
-export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; combo?: string; }
+export type DuelPerfectRole = "punish" | "counter" | "rally" | "shift";
+export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; combo?: string; perfect?: DuelPerfectRole; verdict?: string; }
 
 export interface DuelResult {
     result: "win" | "loss" | "draw";   // from the PLAYER team's perspective
