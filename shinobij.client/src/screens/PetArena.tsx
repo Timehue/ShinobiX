@@ -1158,7 +1158,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 <div className="pet-arena-hero" style={{ backgroundImage: `url(${DUEL_HERO_BY_ELEMENT[selectedPet?.element ?? ""] ?? petDuelHero})` }}>
                     <h3 className="hero-title">⚔️ Pet Coliseum</h3>
                     <p className="hero-sub">
-                        Cinematic 1v1 &amp; 2v2 duels — pit your pet against other players and the AI.
+                        Call the stance. Order the technique. Win the Clash. Every decision carries your pet through the arena.
                         {selectedPet?.element && selectedPet.element !== "None" ? ` Arena attuned to ${selectedPet.element}.` : ""}
                     </p>
                 </div>
@@ -1312,12 +1312,34 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             )}
 
-            <div className="menu">
-                {opponentMode === "ai" && (
-                    <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>
-                        {partyMode && character.pets.length >= 2 ? "Start 2v2 Set" : "Start Battle"}
+            <div className="menu pet-coliseum-entry">
+                {opponentMode === "ai" && selectedPet && selectedOpponent ? (
+                    <div className="pet-coliseum-fight-card">
+                        <div className="pet-coliseum-contender player">
+                            <span className="pet-coliseum-kicker">Your contender</span>
+                            <strong>{petDisplayName(selectedPet)}</strong>
+                            <span>Lv.{selectedPet.level} · {selectedPet.element ?? "Untyped"}</span>
+                        </div>
+                        <div className="pet-coliseum-versus">
+                            <span>Exhibition</span>
+                            <strong>VS</strong>
+                            <small>{partyMode && character.pets.length >= 2 ? "2v2 set" : "1v1 duel"}</small>
+                        </div>
+                        <div className="pet-coliseum-contender enemy">
+                            <span className="pet-coliseum-kicker">Arena challenger</span>
+                            <strong>{petDisplayName(selectedOpponent.pet)}</strong>
+                            <span>Lv.{selectedOpponent.pet.level} · {selectedOpponent.pet.element ?? "Untyped"}</span>
+                        </div>
+                        <button className="pet-coliseum-enter" onClick={() => startBattle()}>
+                            <span>{partyMode && character.pets.length >= 2 ? "Enter the 2v2 Set" : "Enter the Coliseum"}</span>
+                            <small>Fight under your command</small>
+                        </button>
+                    </div>
+                ) : opponentMode === "ai" ? (
+                    <button onClick={() => startBattle()} disabled>
+                        Choose both contenders
                     </button>
-                )}
+                ) : null}
                 {battleReady && battleFrames.length > 0 && (
                     <button onClick={() => {
                         if (frameIndex >= battleFrames.length - 1) {

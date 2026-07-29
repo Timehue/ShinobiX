@@ -52,6 +52,7 @@ test("an unanswered prompt is live; an answered one locks every button", () => {
     // All three lock together — a call cannot be taken back, which is what stops a
     // PvP player re-picking after seeing their opponent commit.
     assert.equal(disabledButtons(locked), 3, "every call must lock once one is made");
+    assert.match(locked, /Guard locked!/, "the chosen call should acknowledge itself immediately");
 });
 
 test("PvP copy waits on the opponent; PvE copy does not", () => {
