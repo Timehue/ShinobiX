@@ -12,7 +12,7 @@ import {
 } from "./hollow-rifts";
 import { hollowRifts } from "../data/hollow-rifts";
 import { builtinAis } from "./combat-ai";
-import { CASTLE_SECTORS, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
+import { CASTLE_SECTORS, OUTSKIRTS_SECTORS, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 const publicAssetExists = (p: string) => existsSync(join(PUBLIC_DIR, p.replace(/^\//, "")));
@@ -130,8 +130,13 @@ test("riftTargetSector is deterministic, wilderness-ranged, skips safe hubs", ()
     for (const p of ["Aki", "Rill", "player-two"]) {
         const s = riftTargetSector(p, "rift-hollow-stalker");
         assert.equal(s, riftTargetSector(p, "rift-hollow-stalker"));
-        assert.ok(s >= 1 && s <= 60 && !skip.has(s));
+        assert.ok(s >= 1 && s <= MAX_WILD_SECTOR && !skip.has(s));
     }
+    // The range must be genuinely reachable — a stale `% 60` would otherwise
+    // slip through on the three sampled names above.
+    const hit = new Set<number>();
+    for (let i = 0; i < 4000; i += 1) hit.add(riftTargetSector(`sweep-${i}`, "rift-hollow-stalker"));
+    assert.ok(hit.has(MAX_WILD_SECTOR), "the newest sector really can host a rift");
 });
 
 test("intro names the target sector and carries the accept sentinel; descent carries the descend sentinel", () => {

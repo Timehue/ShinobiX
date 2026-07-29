@@ -155,14 +155,15 @@ export const SECTOR_PLACES: readonly SectorPlace[] = [
     // migration is needed for these: nothing in any existing save can reference
     // an id that did not exist.
     //
-    // They share a same-biome sibling's floor art via artKey until bespoke art
-    // is generated (the Phase 4 regen beat) — so `artKey` is no longer unique.
-    { id: 61, name: 'Westfurrow Fields', region: 'midlands', biome: 'central', artKey: 28 },
-    { id: 62, name: 'Greycliff Landing', region: 'midlands', biome: 'central', artKey: 29 },
-    { id: 63, name: 'Tallgrass Bend', region: 'festival', biome: 'central', artKey: 33 },
-    { id: 64, name: 'Lantern Vigil', region: 'hollowroad', biome: 'shadow', artKey: 12 },
-    { id: 65, name: 'Eastwind Cirque', region: 'frostfang', biome: 'snow', artKey: 46 },
-    { id: 66, name: 'Emberspine Ridge', region: 'lavafront', biome: 'volcano', artKey: 7 },
+    // They carry their OWN art (scene + floor + depth generated for s61-s66), so
+    // artKey is simply the id — there is no historical filename to preserve for a
+    // place that never had an old number.
+    { id: 61, name: 'Westfurrow Fields', region: 'midlands', biome: 'central', artKey: 61 },
+    { id: 62, name: 'Greycliff Landing', region: 'midlands', biome: 'central', artKey: 62 },
+    { id: 63, name: 'Tallgrass Bend', region: 'festival', biome: 'central', artKey: 63 },
+    { id: 64, name: 'Lantern Vigil', region: 'hollowroad', biome: 'shadow', artKey: 64 },
+    { id: 65, name: 'Eastwind Cirque', region: 'frostfang', biome: 'snow', artKey: 65 },
+    { id: 66, name: 'Emberspine Ridge', region: 'lavafront', biome: 'volcano', artKey: 66 },
 
     // ── Death's Gate (99) ── the lava arena; number unchanged, map-travel-only
     { id: 99, name: 'The Lavafront Gate', region: 'deathsgate', biome: 'volcano', artKey: 99 },

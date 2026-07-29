@@ -16,7 +16,7 @@
  * (shinobij.client/src/data/hollow-rifts.ts) must stay in sync (colocated test).
  */
 
-import { CASTLE_SECTORS, OUTSKIRTS_SECTORS, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
@@ -80,11 +80,15 @@ export function parseRiftQuestSeal(raw: unknown): RiftQuestSeal | null {
     const baseline = Number(value.baseline);
     const at = Number(value.at ?? 0);
     const geoV = Math.floor(Number(value.geoV ?? 0));
+    // Bound the RAW value by the current world (a post-expansion seal may name
+    // 61+). A PRE-reorg seal carries an old id, which only ever went up to 60 —
+    // anything above that fails remapLegacySector below and is rejected there,
+    // so one bound covers both shapes.
     if (!isRiftQuestId(id) || !Number.isFinite(baseline)
-        || !Number.isInteger(rawTarget) || rawTarget < 1 || rawTarget > 60
+        || !Number.isInteger(rawTarget) || rawTarget < 1 || rawTarget > MAX_WILD_SECTOR
         || !Number.isSafeInteger(at) || at < 0) return null;
     const targetSector = geoV >= WORLD_GEO_VERSION ? rawTarget : remapLegacySector(rawTarget);
-    if (targetSector < 1 || targetSector > 60) return null;
+    if (targetSector < 1 || targetSector > MAX_WILD_SECTOR) return null;
     return { id, targetSector, baseline, at, geoV: WORLD_GEO_VERSION };
 }
 
@@ -101,15 +105,23 @@ export function riftBossKilled(baseline: number, current: number): boolean {
 /**
  * Deterministic wilderness sector for a (player, rift). MUST mirror the client
  * (shinobij.client/src/lib/hollow-rifts.ts riftTargetSector) so display and seal
- * agree: same FNV-1a hash, same 1..60 draw, same skip set (village outskirts +
- * the neutral castle city — rifts open in the wilds, never in a safe hub).
+ * agree: same FNV-1a hash, same 1..MAX_WILD_SECTOR draw, same skip set (village
+ * outskirts + the neutral castle city — rifts open in the wilds, never in a hub).
+ *
+ * The draw spans MAX_WILD_SECTOR, so sectors added later become rift homes too.
+ * Widening it is safe for quests already underway: `accept` SEALS the drawn
+ * sector into activeRiftQuest.targetSector and the durable activeRiftQuestSeal,
+ * and nothing re-derives it afterwards — this is only ever called to offer or to
+ * accept. The worst case across a deploy is a stale client PREVIEW showing a
+ * different sector than the one the server then seals, which the accept response
+ * corrects immediately.
  */
 export function riftTargetSector(playerName: string, riftId: string): number {
     let h = 2166136261;
     const s = `${playerName}|${riftId}`;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
     const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
-    let sec = (Math.abs(h) % 60) + 1;
-    for (let guard = 0; guard < 60 && skip.has(sec); guard++) sec = (sec % 60) + 1;
+    let sec = (Math.abs(h) % MAX_WILD_SECTOR) + 1;
+    for (let guard = 0; guard < MAX_WILD_SECTOR && skip.has(sec); guard++) sec = (sec % MAX_WILD_SECTOR) + 1;
     return sec;
 }
