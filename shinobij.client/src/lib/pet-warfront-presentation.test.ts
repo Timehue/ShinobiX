@@ -1,12 +1,38 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+    advanceWarfrontMotionFilter,
     adaptWarfrontPresentationBudget,
+    createWarfrontMotionFilter,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontMotionFilterSpeed,
     warfrontMvpId,
     warfrontPresentationBudget,
 } from "./pet-warfront-presentation.ts";
+
+test("motion filter rejects tick-level reversals but follows sustained travel", () => {
+    const jitter = createWarfrontMotionFilter();
+    let jitterMin = Infinity;
+    let jitterMax = -Infinity;
+    for (let frame = 0; frame < 180; frame++) {
+        const target = Math.floor(frame / 2) % 2 === 0 ? -0.1 : 0.1;
+        advanceWarfrontMotionFilter(jitter, target, 0, 1 / 60);
+        if (frame > 60) {
+            jitterMin = Math.min(jitterMin, jitter.x);
+            jitterMax = Math.max(jitterMax, jitter.x);
+        }
+    }
+    assert.ok(jitterMax - jitterMin < 0.05, `tick reversal leaked ${jitterMax - jitterMin}u`);
+    assert.ok(warfrontMotionFilterSpeed(jitter) < 0.35);
+
+    const travel = createWarfrontMotionFilter();
+    for (let frame = 0; frame < 120; frame++) {
+        advanceWarfrontMotionFilter(travel, frame * 0.05, 0, 1 / 60);
+    }
+    assert.ok(travel.x > 5.5, "sustained travel must not be mistaken for jitter");
+    assert.ok(warfrontMotionFilterSpeed(travel) > 2);
+});
 
 test("Warfront budgets reserve expensive cameras and the largest rig pool for High", () => {
     const low = warfrontPresentationBudget("low");

@@ -273,6 +273,21 @@ function Harness() {
     if (gauntletMode) {
         return <div className="pet-arena-screen" style={{ maxWidth: 1000, margin: "16px auto", padding: 12 }}><PetGauntlet character={mockChar} updateCharacter={() => {}} /></div>;
     }
+    if (warfrontMode) {
+        return (
+            <PetWarfrontMatch
+                blue={arenaBlue}
+                red={arenaRed}
+                seed={seed}
+                allowReseed
+                theme={((): WfTheme => { const t = PARAMS.get("theme") as WfTheme | null; return t && WF_THEMES[t] ? t : "central"; })()}
+                autoBuy={((): WfBuyPolicy => { const p = PARAMS.get("autobuy"); return p === "balanced" || p === "offense" || p === "defense" ? p : "off"; })()}
+                stance={((): WfStance => { const s = PARAMS.get("stance"); return s === "siege" || s === "jungle" || s === "headhunt" || s === "turtle" ? s : "balanced"; })()}
+                playbackRate={Math.max(0.1, Math.min(30, Number(PARAMS.get("wfspeed")) || 1))}
+                onExit={() => {}}
+            />
+        );
+    }
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
             {cineResult && <output hidden data-testid="pet-duel-qa" data-events={JSON.stringify(cineResult.events)} />}
@@ -294,16 +309,6 @@ function Harness() {
             )}
             {arenaMode && (
                 <PetArenaMatch blue={arenaBlue} red={arenaRed} seed={seed} sharedImages={harnessShared} onExit={() => { }} />
-            )}
-            {warfrontMode && (
-                <PetWarfrontMatch
-                    blue={arenaBlue} red={arenaRed} seed={seed} allowReseed
-                    theme={((): WfTheme => { const t = PARAMS.get("theme") as WfTheme | null; return t && WF_THEMES[t] ? t : "central"; })()}
-                    autoBuy={((): WfBuyPolicy => { const p = PARAMS.get("autobuy"); return p === "balanced" || p === "offense" || p === "defense" ? p : "off"; })()}
-                    stance={((): WfStance => { const s = PARAMS.get("stance"); return s === "siege" || s === "jungle" || s === "headhunt" || s === "turtle" ? s : "balanced"; })()}
-                    playbackRate={Math.max(0.1, Math.min(30, Number(PARAMS.get("wfspeed")) || 1))}
-                    onExit={() => { }}
-                />
             )}
             {boardMode && (
                 <PetBoardArena result={boardResult} onDone={restart} />
