@@ -38,6 +38,44 @@
     white-space: nowrap;
 }
 
+/* Village name plates — painted-lettering over the bare banner boards baked
+ * into the 2026-07 keyart. The SVG rides the art's own 1536x1024 space
+ * (preserveAspectRatio: none), so the names zoom AND stretch in lockstep with
+ * the painting — deliberately no --wm-marker-scale counter-scaling here. */
+.world-village-plates-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.world-village-plate {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: 22px; /* viewBox units — relative to the 1536px-wide painting */
+    letter-spacing: 0.04em;
+    fill: #33220f;
+    paint-order: stroke fill;
+    stroke: rgba(255, 240, 205, 0.35);
+    stroke-width: 0.8px;
+}
+
+/* Sea names on the painted map — chart-italic over open water (the keyart
+ * bakes in no text). Positions live in 02-world-map.css; this softens the
+ * legacy CSS-map styling to sit on the painting. */
+.generated-world-map .sea-label {
+    color: rgba(226, 242, 255, 0.72);
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(14px, 1.7vw, 26px);
+    letter-spacing: 0.14em;
+    text-shadow: 0 1px 2px rgba(4, 24, 54, 0.75), 0 0 8px rgba(4, 24, 54, 0.45);
+}
+
 /* "Sector N · the Midlands" sub-line under the named sector heading. */
 .sector-panel-sub {
     display: block;
