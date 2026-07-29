@@ -6,6 +6,9 @@
  * can import canonical values without dragging the whole App import
  * surface. Pure values, no React, no closures.
  */
+import {
+    HOLLOW_GATE_DEPTH,
+} from "../../../shared/hollow-gate-contract";
 
 // ── API endpoints ────────────────────────────────────────────────────────
 export const WORLD_STATE_API = "/api/world-state";
@@ -187,18 +190,10 @@ export function isProtectedAdminName(name: string | undefined | null): boolean {
 export const HOLLOW_GATE_SHRINE_W = 25;
 export const HOLLOW_GATE_SHRINE_H = 17;
 
-// How deep a shrine run goes before the Warden (boss) floor. The standard gate
-// is a full NINE-floor descent that gets progressively harder (enemies stiffen
-// with depth in features/hollowGate/encounter; content counts grow; the boss
-// waits on floor 9). Event gates override this per-run via HollowGateVariant.
-// Admin-tunable at runtime via setHollowGateMaxFloor (the AdminPanel). Lives
-// here — not in App.tsx — so ./lib/hollow-gate-dungeon can read it without
-// importing App (which would drag the whole module graph + index.css and make
-// the generator untestable). An imported binding can't be reassigned
-// cross-module, so the setter lives here beside the let; importers (App,
-// AdminPanel, the dungeon generator) see the live value.
-export let HOLLOW_GATE_MAX_FLOOR = 9;
-export function setHollowGateMaxFloor(v: number) { HOLLOW_GATE_MAX_FLOOR = v; }
+// The standard server-sealed run is exactly five floors. Shorter event gates
+// use HollowGateVariant; runtime mutation here would desynchronise the client
+// map from the server run token and can strand the player after descent.
+export const HOLLOW_GATE_MAX_FLOOR = HOLLOW_GATE_DEPTH;
 
 // Exam gates: players cannot level past these thresholds without passing the corresponding exam.
 export const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [

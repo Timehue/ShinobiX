@@ -17,6 +17,7 @@ export interface HollowGateActiveEncounter {
 
 export interface HollowGateCombatBinding extends HollowGateActiveEncounter {
     version: 1;
+    combatMode?: 'tactical' | 'pve' | 'pet';
     playerName: string;
     tokenDigest: string;
     status: 'active' | 'won' | 'lost';
@@ -55,7 +56,7 @@ export function hollowGateEncounterKey(floor: number, kind: HollowGateCombatKind
 }
 
 export function hollowGateEnemyProfileId(floor: number, kind: HollowGateCombatKind): string {
-    return `hollow-gate-${kind}-f${Math.max(1, Math.floor(floor))}`;
+    return `hollow-hound-${kind}-f${Math.max(1, Math.floor(floor))}`;
 }
 
 export function createHollowGateCombatBinding(params: {
@@ -68,10 +69,12 @@ export function createHollowGateCombatBinding(params: {
     runId?: string;
     secondWindArmed?: boolean;
     petAssisted?: boolean;
+    combatMode?: 'tactical' | 'pve' | 'pet';
 }): HollowGateCombatBinding {
     const now = params.now ?? Date.now();
     return {
         version: 1,
+        combatMode: params.combatMode ?? 'tactical',
         runId: params.runId ?? `hgcombat-${randomUUID().replace(/-/g, '')}`,
         playerName: params.playerName,
         tokenDigest: createHash('sha256').update(params.token).digest('hex'),
@@ -89,6 +92,61 @@ export function createHollowGateCombatBinding(params: {
 export type HollowGateCombatValidation =
     | { ok: true; binding: HollowGateCombatBinding }
     | { ok: false; reason: 'invalid-binding' | 'wrong-player' | 'wrong-run' | 'wrong-token' | 'binding-drift' | 'not-complete' | 'not-a-member' | 'already-settled' };
+
+/**
+ * Validate a normal Arena PvE result against the exact sealed Hollow Gate
+ * encounter. The Arena combat engine is client-run (like explore/mission PvE),
+ * so this validates identity, one-use state, and run binding rather than a
+ * tactical Tower board.
+ */
+export function validateHollowGatePveClaim(params: {
+    binding: HollowGateCombatBinding | null | undefined;
+    activeEncounter: HollowGateActiveEncounter | null | undefined;
+    playerName: string;
+    token: string;
+}): HollowGateCombatValidation {
+    const { binding, activeEncounter, playerName, token } = params;
+    if (!binding || binding.version !== 1 || binding.combatMode !== 'pve' || !binding.runId || !binding.nodeId) {
+        return { ok: false, reason: 'invalid-binding' };
+    }
+    if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
+    if (binding.tokenDigest !== createHash('sha256').update(token).digest('hex')) return { ok: false, reason: 'wrong-token' };
+    if (!activeEncounter || activeEncounter.runId !== binding.runId) return { ok: false, reason: 'wrong-run' };
+    if (activeEncounter.nodeId !== binding.nodeId
+        || activeEncounter.floor !== binding.floor
+        || activeEncounter.kind !== binding.kind
+        || activeEncounter.enemyProfileId !== binding.enemyProfileId) {
+        return { ok: false, reason: 'binding-drift' };
+    }
+    if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
+    return { ok: true, binding };
+}
+
+/** Validate a Pet Coliseum Hollow Hound duel against the same one-use run
+ * encounter binding used by shinobi PvE. The pet result itself is verified by
+ * api/pet/battle-result and consumed separately by combat-settle. */
+export function validateHollowGatePetClaim(params: {
+    binding: HollowGateCombatBinding | null | undefined;
+    activeEncounter: HollowGateActiveEncounter | null | undefined;
+    playerName: string;
+    token: string;
+}): HollowGateCombatValidation {
+    const { binding, activeEncounter, playerName, token } = params;
+    if (!binding || binding.version !== 1 || binding.combatMode !== 'pet' || !binding.runId || !binding.nodeId) {
+        return { ok: false, reason: 'invalid-binding' };
+    }
+    if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
+    if (binding.tokenDigest !== createHash('sha256').update(token).digest('hex')) return { ok: false, reason: 'wrong-token' };
+    if (!activeEncounter || activeEncounter.runId !== binding.runId) return { ok: false, reason: 'wrong-run' };
+    if (activeEncounter.nodeId !== binding.nodeId
+        || activeEncounter.floor !== binding.floor
+        || activeEncounter.kind !== binding.kind
+        || activeEncounter.enemyProfileId !== binding.enemyProfileId) {
+        return { ok: false, reason: 'binding-drift' };
+    }
+    if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
+    return { ok: true, binding };
+}
 
 export function validateHollowGateCombatSession(params: {
     binding: HollowGateCombatBinding | null | undefined;
@@ -125,7 +183,8 @@ export function settleHollowGateCombatBinding(binding: HollowGateCombatBinding, 
 export function hollowGatePostWinHp(maxHpRaw: unknown, survivingHpRaw: unknown, kind: HollowGateCombatKind): number {
     const maxHp = Math.max(1, Math.floor(Number(maxHpRaw) || 1));
     const survivingHp = Math.max(1, Math.floor(Number(survivingHpRaw) || 1));
-    return Math.min(maxHp, survivingHp + (kind === 'boss' ? 60 : 20));
+    void kind;
+    return Math.min(maxHp, survivingHp);
 }
 
 export function hollowGateCombatReward(floorRaw: number, kind: HollowGateCombatKind, profession?: unknown): HollowGateCombatReward {

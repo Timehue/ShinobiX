@@ -11,6 +11,12 @@ import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { SERVER_ARENA_PETS } from './_arena-ai.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
+import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
+import {
+    hollowGateCombatBindingKey,
+    validateHollowGatePetClaim,
+    type HollowGateCombatBinding,
+} from '../hollow-gate/_combat-session.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -24,6 +30,32 @@ import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 const TOKEN_TTL_SECONDS = 15 * 60;
 
 const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
+
+function buildServerHollowHound(activePet: Pet, floorRaw: unknown, requestedId: string): Pet {
+    const floor = Math.max(1, Math.min(5, Math.floor(Number(floorRaw) || 1)));
+    const difficulty = Math.min(1.06, 0.90 + Math.max(0, floor - 1) * 0.04);
+    return {
+        id: requestedId,
+        name: 'Hollow Hound',
+        rarity: activePet.rarity,
+        element: 'Earth',
+        level: Math.max(1, Math.floor(Number(activePet.level) || 1)),
+        xp: 0,
+        maxLevel: 100,
+        hp: Math.max(1, Math.floor(Number(activePet.hp) * difficulty)),
+        attack: Math.max(1, Math.floor(Number(activePet.attack) * difficulty)),
+        defense: Math.max(1, Math.floor(Number(activePet.defense) * difficulty)),
+        speed: Math.max(1, Math.floor(Number(activePet.speed) * difficulty)),
+        unlockedForPve: false,
+        jutsus: [
+            { name: 'Oni Rage Howl', power: 28, cooldown: 3, currentCooldown: 0, kind: 'buff' },
+            { name: 'Abyss Bite', power: 210, cooldown: 2, currentCooldown: 0, kind: 'damage' },
+            { name: 'Hellhound Execution', power: 310, cooldown: 4, currentCooldown: 0, kind: 'damage' },
+            { name: 'Hellfire Corruption', power: 120, cooldown: 5, currentCooldown: 0, kind: 'dot' },
+            { name: 'Demon Surge', power: 0, cooldown: 3, currentCooldown: 0, kind: 'move' },
+        ],
+    } as Pet;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -58,8 +90,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerPets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
         let opponentPets: Pet[] = [];
         let isAiOpponent = false;
+        let hollowGate: { runId: string } | null = null;
         let realOpponentLevel: number | null = null;
-        if (opponentName) {
+        const hollowGateBody = body.hollowGate && typeof body.hollowGate === 'object'
+            ? body.hollowGate as Record<string, unknown>
+            : null;
+        if (hollowGateBody) {
+            const runId = String(hollowGateBody.runId ?? '').slice(0, 96);
+            const runToken = String(hollowGateBody.token ?? '').slice(0, 64);
+            const requestedHoundId = opponentPetIds[0] ?? '';
+            if (!runId || !runToken || mode !== '1v1' || playerPets.length !== 1 || !/^mythic-4-\d{10,}$/.test(requestedHoundId)) {
+                return res.status(400).json({ error: 'Invalid Hollow Gate pet encounter.' });
+            }
+            const [binding, run] = await Promise.all([
+                kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(runId)),
+                kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, runToken)),
+            ]);
+            const validation = validateHollowGatePetClaim({
+                binding,
+                activeEncounter: run?.activeEncounter,
+                playerName,
+                token: runToken,
+            });
+            if (!validation.ok) {
+                return res.status(409).json({ error: `Hollow Gate pet encounter rejected: ${validation.reason}.` });
+            }
+            if (binding?.runId !== runId) return res.status(409).json({ error: 'Hollow Gate pet encounter binding drifted.' });
+            opponentPets = [buildServerHollowHound(playerPets[0], binding.floor, requestedHoundId)];
+            isAiOpponent = true;
+            hollowGate = { runId };
+        } else if (opponentName) {
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
             const oppChar = oppSave?.character as Record<string, unknown> | undefined;
             const stored = Array.isArray(oppChar?.pets) ? oppChar.pets as Array<Record<string, unknown>> : [];
@@ -127,6 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // from the server's own roster, so these ids are not player input in
             // any meaningful sense — but they are re-resolved, never trusted.
             opponentPetIds,
+            ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
             sealedParams,
             authoritativeOutcome: result,
         }, { ex: TOKEN_TTL_SECONDS });

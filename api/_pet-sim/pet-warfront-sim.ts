@@ -11,7 +11,7 @@
  * breach is slain (a huge bounty + the map goes quiet). Two LESSER WARDENS on
  * the mid-corridor shrine pads pay a medium bounty + a short team attack buff.
  *
- * ECONOMY: teams earn coins (trickle + mob/pet/objective bounties). Every 30 s
+ * ECONOMY: teams earn coins (trickle + mob/pet/objective bounties). Every 90 s
  * the match pauses on a ROUND BOUNDARY and coins buy small per-pet powerup
  * stacks ("minimal but matters": ~3-6% each, hard-capped). The player's choices
  * enter through advanceRound(); the AI team (and any auto-buy player) spends by
@@ -49,9 +49,9 @@ export const WF_MAX_SECONDS = 600;            // 10-minute hard cap
 // The match SCRIPT (broadcast pacing): LANING (farm your lane) → SKIRMISH
 // (camps unlock, rotations/punishes allowed) → WAR (the Warden awakens,
 // grouped play) → SUDDEN DEATH (all minions elite — somebody ends it).
-export const WF_PHASE_SKIRMISH = 90;          // seconds
-export const WF_PHASE_WAR = 330;
-export const WF_PHASE_SUDDEN = 480;
+export const WF_PHASE_SKIRMISH = 60;          // camps + ultimates come online quickly
+export const WF_PHASE_WAR = 240;              // grouped objective play begins at 4:00
+export const WF_PHASE_SUDDEN = 420;           // the Hollow Collapse begins at 7:00
 const ROUND_TICKS = WARFRONT_TPS * WF_ROUND_SECONDS;
 const MAX_TICKS = WARFRONT_TPS * WF_MAX_SECONDS;
 
@@ -73,6 +73,7 @@ const WARDEN_SLAM_R = 3.0;
 const WARDEN_SLAM_EVERY = Math.round(WARFRONT_TPS * 6);
 const WARDEN_WINDUP = Math.round(WARFRONT_TPS * 1.2);
 const WARDEN_LEASH = 6.5;
+const WARDEN_RESET_DELAY = WARFRONT_TPS * 6;
 const MINI_HP = 1400;
 const MINI_DMG = 90;
 const MINI_CD = Math.round(WARFRONT_TPS * 1.2);
@@ -318,8 +319,8 @@ const GUARD_CD = Math.round(WARFRONT_TPS * 1.1);
 export const WF_COIN_GUARD = 250;
 interface WfCore { x: number; y: number; hp: number; alive: boolean; sinceHit: number }
 interface WfMob { id: number; side: Team | "hollow"; elite: boolean; lane: WfLaneId; x: number; y: number; hp: number; maxHp: number; toward: Team; route: Array<[number, number]>; wpIdx: number; attackCd: number; chaseId: string | null }
-interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; shockDone: boolean; calmTicks: number }
-interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number; ally: Team | null; allyLeft: number }
+interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; phase: 1 | 2 | 3; calmTicks: number }
+interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number; boonCd: number; ally: Team | null; allyLeft: number }
 
 // ── Snapshots + events (the renderer contract) ───────────────────────────────
 export interface WfActorSnap {
@@ -335,8 +336,12 @@ export interface WfSnapshot {
     mobs: Array<{ id: number; side: Team | "hollow"; elite: boolean; x: number; y: number; hp: number; maxHp: number; toward: Team }>;
     guardians: Record<Team, Array<{ x: number; y: number; hp: number; maxHp: number; alive: boolean; faceX: number }>>;
     wardenBuff: { team: Team | null; secs: number };
-    warden: { alive: boolean; dead: boolean; hp: number; maxHp: number; x: number; y: number; faceX: number; winding: boolean };
-    minis: Array<{ padIdx: number; alive: boolean; hp: number; maxHp: number; spawnSecs: number; x: number; y: number; faceX: number; ally: Team | null }>;
+    warden: {
+        alive: boolean; dead: boolean; hp: number; maxHp: number; x: number; y: number; faceX: number;
+        winding: boolean; windupSecs: number; slamRadius: number; phase: 1 | 2 | 3; resetSecs: number; resetting: boolean;
+        damage: Record<Team, number>;
+    };
+    minis: Array<{ padIdx: number; alive: boolean; hp: number; maxHp: number; spawnSecs: number; allySecs: number; x: number; y: number; faceX: number; ally: Team | null }>;
     structures: Record<Team, WfStructSnap>;
     coins: Record<Team, number>;
     atkBuff: Record<Team, number>;   // lesser-warden buff seconds remaining
@@ -366,7 +371,9 @@ export type WfEvent =
     | { t: number; type: "stance"; team: Team; stance: WfStance; answer: boolean }
     | { t: number; type: "wardenslam"; x: number; y: number }
     | { t: number; type: "wardenwindup"; x: number; y: number }
+    | { t: number; type: "wardenphase"; phase: 2 | 3; x: number; y: number }
     | { t: number; type: "wardenkill"; team: Team; stolen?: boolean }
+    | { t: number; type: "miniboon"; padIdx: number; team: Team; kind: "shield" | "heal" | "hunt" | "siege"; x: number; y: number }
     | { t: number; type: "mobwave" }
     | { t: number; type: "buy"; team: Team; petId: string; kind: WfPowerupKind; cost: number }
     | { t: number; type: "petlevel"; petId: string; level: number }
@@ -375,8 +382,8 @@ export type WfEvent =
     | { t: number; type: "phase"; name: string }
     | { t: number; type: "round"; round: number };
 
-/** Live win-condition score — the SAME formula the 7:00 timer verdict uses:
- * one point per enemy statue broken plus one for their exposed core, coins as
+/** Live win-condition score — the SAME formula the 10:00 timer verdict uses:
+ * one point per enemy statue broken plus one for their destroyed core, coins as
  * the tiebreak. Exported so the HUD score strip and the verdict screen can
  * never disagree with the sim about who is winning. */
 export function wfVerdictScore(s: WfSnapshot): Record<Team, number> {
@@ -474,9 +481,9 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
             blue: { x: WF_CORE.blue[0], y: WF_CORE.blue[1], hp: CORE_HP, alive: true, sinceHit: 9999 },
             red: { x: WF_CORE.red[0], y: WF_CORE.red[1], hp: CORE_HP, alive: true, sinceHit: 9999 },
         },
-        boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, shockDone: false, calmTicks: 0 },
+        boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, phase: 1, calmTicks: 0 },
         minis: WF_PADS.map((pad, i) => ({
-            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, ally: null, allyLeft: 0,
+            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, boonCd: WARFRONT_TPS * (2 + i), ally: null, allyLeft: 0,
         })) as unknown as WfState["minis"],
         mobs: [], mobSeq: 0, mobTimer: WARFRONT_TPS * 10, mobFlip: false, waveTimer: WARFRONT_TPS * 8,
         coins: { blue: 150, red: 150 }, coinFrac: 0,
@@ -1214,7 +1221,7 @@ function petTick(st: WfState, p: WfPet) {
                     }
                     if (m.hp <= 0 && m.alive) {
                         // RECRUITED, not despawned — it fights for the slayer's team.
-                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0;
+                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0; m.boonCd = WARFRONT_TPS * 2;
                         st.coins[p.team] += WF_COIN_MINI;
                         p.coinsEarned += WF_COIN_MINI;
                         grantXp(st, p, 180);
@@ -1489,15 +1496,17 @@ function guardianTick(st: WfState, team: Team, idx: number) {
 function bossTick(st: WfState) {
     const b = st.boss;
     if (!b.alive) return;
-    // RIFT SHOCKWAVE — one-time 50% phase burst that hurls everyone from the pit.
-    if (!b.shockDone && b.hp <= WARDEN_HP * 0.5) {
-        b.shockDone = true;
+    // Two readable thresholds turn the objective into a real three-act boss
+    // fight. Phase 2 ruptures the pit; phase 3 enrages every basic attack.
+    const phaseBurst = (phase: 2 | 3, radius: number, damageMul: number, shoveSteps: number) => {
+        b.phase = phase;
+        st.events.push({ t: st.t, type: "wardenphase", phase, x: quant(b.x), y: quant(b.y) });
         st.events.push({ t: st.t, type: "wardenshock", x: quant(b.x), y: quant(b.y) });
         for (const q of st.pets) {
             if (q.state === "respawning") continue;
             const dq = hyp2(q.x - b.x, q.y - b.y);
-            if (dq > 6.5) continue;
-            let dmg = Math.round(WARDEN_SLAM * 0.8 * (100 / (100 + q.def)));
+            if (dq > radius) continue;
+            let dmg = Math.round(WARDEN_SLAM * damageMul * (100 / (100 + q.def)));
             if (q.shieldHp > 0) { const soak = Math.min(q.shieldHp, dmg); q.shieldHp -= soak; dmg -= soak; }
             q.hp = Math.max(0, q.hp - dmg);
             st.events.push({ t: st.t, type: "hit", targetId: q.id, actorId: "warden", dmg, crit: false });
@@ -1508,13 +1517,19 @@ function bossTick(st: WfState) {
                 continue;
             }
             const ux = (q.x - b.x) / (dq || 1), uy = (q.y - b.y) / (dq || 1);
-            for (let s2 = 0; s2 < 4; s2++) {
+            for (let s2 = 0; s2 < shoveSteps; s2++) {
                 const [nc2, nr2] = cellOf(q.x + ux * 0.75, q.y + uy * 0.75);
                 if (!wfCellWalkable(nc2, nr2)) break;
                 q.x += ux * 0.75; q.y += uy * 0.75;
             }
             q.path = null; q.navGoal = -1;
         }
+    };
+    if (b.phase === 1 && b.hp <= WARDEN_HP * 0.7) {
+        phaseBurst(2, 5.5, 0.55, 2);
+    }
+    if (b.phase === 2 && b.hp <= WARDEN_HP * 0.35) {
+        phaseBurst(3, 6.5, 0.9, 4);
     }
     // BARON RULES: engage pets INSIDE the arena ring, or whoever is attacking
     // him (targetId is set by the pets' warden-damage branch). Never roams.
@@ -1535,10 +1550,11 @@ function bossTick(st: WfState) {
         b.windUp--;
         if (b.windUp === 0) {
             st.events.push({ t: st.t, type: "wardenslam", x: quant(b.x), y: quant(b.y) });
+            const slamRadius = WARDEN_SLAM_R + (b.phase === 3 ? 0.6 : b.phase === 2 ? 0.25 : 0);
             for (const p of st.pets) {
                 if (p.state === "respawning") continue;
-                if (hyp2(p.x - b.x, p.y - b.y) <= WARDEN_SLAM_R) {
-                    let dmg = Math.round(WARDEN_SLAM * (100 / (100 + p.def)));
+                if (hyp2(p.x - b.x, p.y - b.y) <= slamRadius) {
+                    let dmg = Math.round(WARDEN_SLAM * (b.phase === 3 ? 1.22 : b.phase === 2 ? 1.08 : 1) * (100 / (100 + p.def)));
                     if (p.shieldHp > 0) { const soak = Math.min(p.shieldHp, dmg); p.shieldHp -= soak; dmg -= soak; }
                     p.hp = Math.max(0, p.hp - dmg);
                     st.events.push({ t: st.t, type: "hit", targetId: p.id, actorId: "warden", dmg, crit: false });
@@ -1560,7 +1576,7 @@ function bossTick(st: WfState) {
         // and it was back to full, so it read as STUCK at 50%. Now it recovers
         // only after a real disengage (6 s untouched) and SLOWLY, so chip damage
         // sticks and the fight always reads as "we're wearing it down".
-        if (b.calmTicks > WARFRONT_TPS * 6 && b.hp < WARDEN_HP) b.hp = Math.min(WARDEN_HP, b.hp + 8);
+        if (b.calmTicks > WARDEN_RESET_DELAY && b.hp < WARDEN_HP) b.hp = Math.min(WARDEN_HP, b.hp + 8);
         const ang = (st.t / WARFRONT_TPS) * 0.22;
         const hx = WF_LAIR.x + dcos(ang) * 1.35, hy = WF_LAIR.y + dsin(ang) * 1.05;
         const dx = hx - b.x, dy = hy - b.y;
@@ -1576,14 +1592,14 @@ function bossTick(st: WfState) {
     b.slamIn--;
     if (b.slamIn <= 0) {
         b.windUp = WARDEN_WINDUP;
-        b.slamIn = WARDEN_SLAM_EVERY;
+        b.slamIn = b.phase === 3 ? WARFRONT_TPS * 4 : b.phase === 2 ? WARFRONT_TPS * 5 : WARDEN_SLAM_EVERY;
         st.events.push({ t: st.t, type: "wardenwindup", x: quant(b.x), y: quant(b.y) });
         return;
     }
     if (b.swipeCd > 0) { b.swipeCd--; return; }
     if (td <= 2.3) {
-        b.swipeCd = WARDEN_SWIPE_CD;
-        let dmg = Math.round(WARDEN_SWIPE * (100 / (100 + tgt.def)));
+        b.swipeCd = b.phase === 3 ? Math.round(WARDEN_SWIPE_CD * 0.72) : b.phase === 2 ? Math.round(WARDEN_SWIPE_CD * 0.88) : WARDEN_SWIPE_CD;
+        let dmg = Math.round(WARDEN_SWIPE * (b.phase === 3 ? 1.2 : b.phase === 2 ? 1.08 : 1) * (100 / (100 + tgt.def)));
         if (tgt.shieldHp > 0) { const soak = Math.min(tgt.shieldHp, dmg); tgt.shieldHp -= soak; dmg -= soak; }
         tgt.hp = Math.max(0, tgt.hp - dmg);
         st.events.push({ t: st.t, type: "hit", targetId: tgt.id, actorId: "warden", dmg, crit: false });
@@ -1646,6 +1662,35 @@ function miniTick(st: WfState, m: WfMini) {
         if (m.allyLeft <= 0) { m.alive = false; m.ally = null; m.spawnIn = MINI_RESPAWN; return; }
         m.hp = Math.min(MINI_HP, m.hp + 0.4);   // slow sustain so it lasts the tour
         if (m.attackCd > 0) m.attackCd--;
+        if (m.boonCd > 0) m.boonCd--;
+        if (m.boonCd <= 0) {
+            m.boonCd = WARFRONT_TPS * (m.padIdx === 3 ? 8 : 4);
+            const kind = (["shield", "heal", "hunt", "siege"] as const)[m.padIdx];
+            if (m.padIdx === 0) {
+                // Ancient Golem: refresh a stone ward around its escort.
+                for (const a of st.pets) if (a.team === m.ally && a.state !== "respawning" && hyp2(a.x - m.x, a.y - m.y) <= 5.5) {
+                    a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * 0.08));
+                }
+            } else if (m.padIdx === 1) {
+                // Crystal Behemoth: sustain the nearby push.
+                for (const a of st.pets) if (a.team === m.ally && a.state !== "respawning" && hyp2(a.x - m.x, a.y - m.y) <= 5.5) {
+                    const amount = Math.min(Math.round(a.maxHp * 0.05), Math.round(a.maxHp - a.hp));
+                    if (amount > 0) {
+                        a.hp += amount;
+                        st.events.push({ t: st.t, type: "heal", targetId: a.id, actorId: `mini-${m.padIdx}`, amount });
+                    }
+                }
+            } else if (m.padIdx === 2) {
+                // Void Stalker: reveal and mark enemies around the escort.
+                for (const q of st.pets) if (q.team !== m.ally && q.state !== "respawning" && hyp2(q.x - m.x, q.y - m.y) <= 7) {
+                    q.markLeft = Math.max(q.markLeft, WARFRONT_TPS * 4);
+                }
+            } else {
+                // Rift Devourer: keeps the side's next marching wave elite.
+                st.eliteWaveOwed[m.ally] = true;
+            }
+            st.events.push({ t: st.t, type: "miniboon", padIdx: m.padIdx, team: m.ally, kind, x: quant(m.x), y: quant(m.y) });
+        }
         const foeT = other(m.ally);
         let tgt: WfPet | null = null, td = 10;
         for (const q of st.pets) {
@@ -2027,8 +2072,36 @@ function snapshot(st: WfState): WfSnapshot {
             shielded: p.shieldHp > 0,
         })),
         mobs: st.mobs.map((m) => ({ id: m.id, side: m.side, elite: m.elite, x: quant(m.x), y: quant(m.y), hp: Math.round(m.hp), maxHp: Math.round(m.maxHp), toward: m.toward })),
-        warden: { alive: st.boss.alive, dead: st.boss.dead, hp: Math.max(0, Math.round(st.boss.hp)), maxHp: WARDEN_HP, x: quant(st.boss.x), y: quant(st.boss.y), faceX: st.boss.faceX, winding: st.boss.windUp > 0 },
-        minis: st.minis.map((m) => ({ padIdx: m.padIdx, alive: m.alive, hp: Math.max(0, Math.round(m.hp)), maxHp: MINI_HP, spawnSecs: m.alive ? 0 : Math.ceil(m.spawnIn / WARFRONT_TPS), x: quant(m.x), y: quant(m.y), faceX: m.faceX, ally: m.ally })),
+        warden: {
+            alive: st.boss.alive,
+            dead: st.boss.dead,
+            hp: Math.max(0, Math.round(st.boss.hp)),
+            maxHp: WARDEN_HP,
+            x: quant(st.boss.x),
+            y: quant(st.boss.y),
+            faceX: st.boss.faceX,
+            winding: st.boss.windUp > 0,
+            windupSecs: Math.ceil(st.boss.windUp / WARFRONT_TPS),
+            slamRadius: WARDEN_SLAM_R + (st.boss.phase === 3 ? 0.6 : st.boss.phase === 2 ? 0.25 : 0),
+            phase: st.boss.phase,
+            resetSecs: st.boss.hp < WARDEN_HP && st.boss.calmTicks > 0 && st.boss.calmTicks < WARDEN_RESET_DELAY
+                ? Math.ceil((WARDEN_RESET_DELAY - st.boss.calmTicks) / WARFRONT_TPS)
+                : 0,
+            resetting: st.boss.hp < WARDEN_HP && st.boss.calmTicks >= WARDEN_RESET_DELAY,
+            damage: { blue: Math.round(st.wardenDmg.blue), red: Math.round(st.wardenDmg.red) },
+        },
+        minis: st.minis.map((m) => ({
+            padIdx: m.padIdx,
+            alive: m.alive,
+            hp: Math.max(0, Math.round(m.hp)),
+            maxHp: MINI_HP,
+            spawnSecs: m.alive ? 0 : Math.ceil(m.spawnIn / WARFRONT_TPS),
+            allySecs: m.ally ? Math.ceil(m.allyLeft / WARFRONT_TPS) : 0,
+            x: quant(m.x),
+            y: quant(m.y),
+            faceX: m.faceX,
+            ally: m.ally,
+        })),
         structures: {
             blue: {
                 statues: st.statues.blue.map((s) => ({ x: s.x, y: s.y, hp: Math.max(0, Math.round(s.hp)), maxHp: STATUE_HP, alive: s.alive })),
@@ -2222,7 +2295,7 @@ export interface WarfrontMatchCtl {
     coins(team: Team): number;
     stances(): Record<Team, WfStance>;
     /** Apply the player's choices for this boundary (unaffordable/capped ones
-     * are skipped), auto-buy for the AI/auto sides, then sim the next 30 s. */
+     * are skipped), auto-buy for the AI/auto sides, then sim the next 90 s. */
     advanceRound(blueChoices?: WarfrontChoice[], blueStance?: WfStance): void;
     /** STREAMED alternative to advanceRound: sims up to `maxTicks` of the
      * current round per call (round-start buys/stances apply on the first call

@@ -1,0 +1,253 @@
+import { useState } from "react";
+import { gameConfirm } from "../components/GameAlert";
+import type { PetArenaOpponent } from "../data/pet-arena-opponents";
+import type { Character, HollowGateShrineRun, HollowGateTile } from "../types/character";
+import type { Screen } from "../types/core";
+import type { Pet } from "../types/pet";
+import { applyAttunementToRun, attunementLootRetention } from "./hollow-gate-attunement";
+import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
+import {
+    buildHollowHoundOpponent,
+    generateHollowGateShrineRun,
+} from "./hollow-gate-dungeon";
+import type { HollowGatePveFightRef } from "./hollow-gate-pve";
+import { clawBackHollowGateLoot } from "./hollow-gate-run";
+import {
+    finalizeHollowGateRunEnd,
+    reportHollowGateRunError,
+} from "./hollow-gate-server";
+import type { HiddenChamberState, HollowGateEventModal } from "./hollow-gate-tile";
+import {
+    hollowGateBossDisplayName,
+    hollowGateRunMaxFloor,
+} from "./hollow-gate-variant";
+import { isPetOnExpedition } from "./pet";
+
+type SetState<T> = (value: T | ((previous: T) => T)) => void;
+
+export function useHollowGateAppFlow(params: {
+    character: Character | null;
+    run: HollowGateShrineRun | null;
+    petPool: Pet[];
+    sharedImages: Record<string, string>;
+    setCharacter: SetState<Character | null>;
+    setRun: SetState<HollowGateShrineRun | null>;
+    setEvent: SetState<HollowGateEventModal>;
+    setHiddenChamber: SetState<HiddenChamberState>;
+    setPendingPetBattle: SetState<PetArenaOpponent | null>;
+    setScreen: SetState<Screen>;
+    clearRunState: (exit?: boolean) => void;
+    clearLog: () => void;
+    pushLog: (line: string) => void;
+    buildRunSummary: () => string;
+}) {
+    const {
+        character,
+        run,
+        petPool,
+        sharedImages,
+        setCharacter,
+        setRun,
+        setEvent,
+        setHiddenChamber,
+        setPendingPetBattle,
+        setScreen,
+        clearRunState,
+        clearLog,
+        pushLog,
+        buildRunSummary,
+    } = params;
+    const [exitPending, setExitPending] = useState(false);
+
+    const clearRunUi = () => {
+        setRun(null);
+        setEvent(null);
+        setHiddenChamber(null);
+        clearLog();
+    };
+
+    async function leave(opts?: { death?: boolean }) {
+        if (exitPending || !run || !character) return;
+        setExitPending(true);
+        try {
+            if (!run.runToken) {
+                const death = opts?.death === true;
+                const now = Date.now();
+                setCharacter((previous) => {
+                    if (!previous) return previous;
+                    const retained = death
+                        ? clawBackHollowGateLoot(previous, run, 1 - attunementLootRetention(previous))
+                        : previous;
+                    return {
+                        ...retained,
+                        ...(death ? {
+                            hp: 0,
+                            hospitalized: true,
+                            hospitalizedAt: now,
+                            hospitalizedUntil: now + 60_000,
+                        } : {}),
+                        hollowGateRun: null,
+                    };
+                });
+                clearRunUi();
+                setScreen(death ? "hospital" : "worldMap");
+                return;
+            }
+            await finalizeHollowGateRunEnd({
+                run,
+                outcome: opts?.death ? "death" : "extract",
+                character,
+                lootRetention: attunementLootRetention(character),
+                setCharacter,
+            });
+            clearRunUi();
+            setScreen(opts?.death ? "hospital" : "worldMap");
+        } catch (error) {
+            reportHollowGateRunError(
+                error,
+                "The Hollow Gate could not settle this run. Your run remains intact; retry when the connection is stable.",
+                () => clearRunState(true),
+            );
+        } finally {
+            setExitPending(false);
+        }
+    }
+
+    async function abandon() {
+        if (!run || exitPending) return;
+        const confirmed = await gameConfirm(
+            "Forfeit this Hollow Gate run?\n\nThis emergency exit works even if an encounter is broken. The run ends as a defeat, unbanked loot takes the normal death penalty, and you are sent to the hospital.",
+            { title: "Emergency Forfeit", confirmLabel: "Forfeit Run" },
+        );
+        if (confirmed) await leave({ death: true });
+    }
+
+    function launchPetFight(fight: HollowGatePveFightRef) {
+        if (!character) return;
+        const token = run?.runToken ?? character.hollowGateRun?.runToken;
+        const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
+        if (!token || !activePet || !activePet.unlockedForPve || isPetOnExpedition(activePet)) {
+            window.alert("The active pet for this sealed duel is unavailable. Use Emergency Forfeit if the pet cannot be restored.");
+            return;
+        }
+        const battleSeed = Date.now();
+        const image = sharedImages["pet:mythic-4"] || "/pet-poses/mythic-4-idle.webp";
+        const wild = buildHollowHoundOpponent(petPool, activePet, fight.floor, image, battleSeed);
+        if (!wild) {
+            window.alert("The Hollow Hound model is unavailable. Use Emergency Forfeit to leave this run safely.");
+            return;
+        }
+        pushLog(`[Pet Duel] ${activePet.name} enters the seal against ${wild.name}.`);
+        setPendingPetBattle({
+            owner: "Hollow Gate",
+            pet: wild,
+            battleSeed,
+            returnScreen: "hollowGateShrine",
+            hollowGate: {
+                token,
+                runId: fight.runId,
+                nodeId: fight.nodeId,
+                floor: fight.floor,
+                kind: fight.kind,
+            },
+        });
+        setScreen("petArena");
+    }
+
+    function markResolvedTile(tiles: HollowGateTile[], nodeId?: string): HollowGateTile[] {
+        const match = /^floor:\d+:tile:(\d+)$/.exec(nodeId ?? "");
+        const index = match ? Number(match[1]) : -1;
+        if (index < 0 || index >= tiles.length) return tiles;
+        const next = tiles.slice();
+        next[index] = { ...next[index], resolved: true };
+        return next;
+    }
+
+    function onBattleWin(resolved?: { isBoss?: boolean; isAmbush?: boolean; nodeId?: string }) {
+        if (!run) return;
+        const isBoss = Boolean(resolved?.isBoss);
+        const isAmbush = Boolean(resolved?.isAmbush);
+        if (isBoss) {
+            const tiles = markResolvedTile(
+                run.tiles.map((tile) => tile.kind === "boss" ? { ...tile, resolved: true } : tile),
+                resolved?.nodeId,
+            );
+            const isFinalFloor = run.floor >= hollowGateRunMaxFloor(run);
+            setRun({ ...run, activeCombat: undefined, tiles, completed: isFinalFloor, threat: 0 });
+            pushLog(`${hollowGateBossDisplayName(run)} falls on Floor ${run.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
+            if (isFinalFloor) {
+                setEvent({
+                    title: run.variant?.label ? `${run.variant.label} Cleared` : "Hollow Gate Shrine Cleared",
+                    body: `Floor ${run.floor} of ${hollowGateRunMaxFloor(run)} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildRunSummary()}`,
+                    kind: "boss",
+                    choices: [{
+                        label: "Take Final Rewards + Leave",
+                        tone: "primary",
+                        onSelect: () => {
+                            setEvent(null);
+                            void leave();
+                        },
+                    }],
+                });
+                return;
+            }
+            const generated = generateHollowGateShrineRun(run.floor + 1, run.variant, run.serverSeed);
+            const next = character ? applyAttunementToRun(generated, character, false) : generated;
+            setRun({
+                ...next,
+                keys: run.keys,
+                torch: Math.min(10, run.torch + 4),
+                entryCurrencies: run.entryCurrencies,
+                runToken: run.runToken,
+                serverSeed: run.serverSeed,
+                augmentOffers: run.augmentOffers,
+                chosenAugment: run.chosenAugment,
+                secondWindArmed: run.secondWindArmed,
+                earnedXp: run.earnedXp,
+                earnedFragments: run.earnedFragments,
+                earnedVeils: run.earnedVeils,
+            });
+            pushLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
+            return;
+        }
+        setRun({
+            ...run,
+            activeCombat: undefined,
+            tiles: markResolvedTile(run.tiles, resolved?.nodeId),
+            threat: 0,
+        });
+        pushLog(isAmbush
+            ? "The ambush ends. Threat dissipates — but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it."
+            : "Hollow Hound defeated. Threat dissipates — the Torch of Reiki, though, keeps burning down.");
+    }
+
+    function onPetBattleEnd(result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) {
+        const gate = opponent.hollowGate;
+        if (!gate) return;
+        if (result.won) {
+            onBattleWin({
+                isBoss: gate.kind === "boss",
+                isAmbush: gate.kind === "ambush",
+                nodeId: gate.nodeId,
+            });
+            pushLog(`${opponent.pet.name} is driven back by your pet. The sealed path opens.`);
+            return;
+        }
+        setRun((previous) => {
+            const authoritative = result.character?.hollowGateRun;
+            const current = authoritative ?? previous;
+            return current ? { ...current, activeCombat: undefined, threat: 0 } : null;
+        });
+        const recoil = Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
+        pushLog(`The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`);
+    }
+
+    return {
+        exitPending,
+        leave,
+        abandon,
+        launchPetFight,
+        onBattleWin,
+        onPetBattleEnd,
+    };
+}

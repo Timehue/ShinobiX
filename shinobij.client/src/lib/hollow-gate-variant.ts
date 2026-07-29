@@ -9,18 +9,19 @@
  *
  * Boss scaling generalizes the original per-floor ramp (F1 −5 … F5 +15 levels,
  * 1.0×…1.4× HP) by ramping over the variant's own floor count, so the final
- * floor of ANY gate hits Warden strength and the 5-floor values are unchanged.
+ * floor of ANY gate hits Alpha Hound strength and the 5-floor values are unchanged.
  *
  * Pure — unit-tested in hollow-gate-variant.test.ts.
  */
 import { HOLLOW_GATE_MAX_FLOOR, HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import type { HollowGateEventConfig, HollowGateShrineRun, HollowGateVariant } from "../types/character";
+import { HOLLOW_GATE_DEPTH } from "../../../shared/hollow-gate-contract";
 
-// Sane bounds for authored variants. Floors: 1..9 (the standard 5 sits inside;
-// the server run-token layer accepts up to 20). Grids: small enough for a
+// Sane bounds for authored variants. Floors: 1..5, matching the shared
+// server-authoritative depth contract. Grids: small enough for a
 // punchy event floor, large enough that the room generator always has space.
 export const HOLLOW_GATE_VARIANT_MIN_FLOORS = 1;
-export const HOLLOW_GATE_VARIANT_MAX_FLOORS = 9;
+export const HOLLOW_GATE_VARIANT_MAX_FLOORS = HOLLOW_GATE_DEPTH;
 export const HOLLOW_GATE_VARIANT_MIN_W = 15;
 export const HOLLOW_GATE_VARIANT_MAX_W = 31;
 export const HOLLOW_GATE_VARIANT_MIN_H = 11;
@@ -50,7 +51,7 @@ export function hollowGateVariantDims(variant?: HollowGateVariant | null): { wid
 /** Display name of the run's final boss (logs, objectives, clear modal). */
 export function hollowGateBossDisplayName(run: Pick<HollowGateShrineRun, "variant"> | null | undefined): string {
     const name = run?.variant?.bossName?.trim();
-    return name || "Hollow Gate Warden";
+    return name || "Hollow Hound Alpha";
 }
 
 /**

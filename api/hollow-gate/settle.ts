@@ -17,6 +17,8 @@ import {
 } from './_run-token.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
+import { hollowGateCombatBindingKey } from './_combat-session.js';
+import { sessionKey } from '../towers/_tower-store.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
@@ -33,6 +35,7 @@ import { bumpEraContribution } from '../_era.js';
  */
 
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const HOLLOW_GATE_HOSPITAL_MS = 60_000;
 
 /** Pure: credit a sealed, ceiling-bounded haul onto the stored wallet.
  * Generic saves cannot pre-credit the haul, so settlement is the sole positive
@@ -111,10 +114,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (run.playerName.toLowerCase() !== playerName.toLowerCase()) return res.status(403).json({ error: 'Not your run.' });
 
-        if (run.activeEncounter) return res.status(409).json({ error: 'Finish the active Hollow Gate encounter before leaving.' });
+        if (run.activeEncounter && outcome !== 'death') {
+            return res.status(409).json({ error: 'Finish the active Hollow Gate encounter before leaving.' });
+        }
+        // Emergency forfeits must remain available even if a combat renderer or
+        // resume pointer is broken. A death settlement receives no combat reward,
+        // closes the active binding, and then applies the normal run-loss rules.
+        if (run.activeEncounter && outcome === 'death') {
+            await kv.del(
+                hollowGateCombatBindingKey(run.activeEncounter.runId),
+                sessionKey(run.activeEncounter.runId),
+            ).catch(() => undefined);
+            run.activeEncounter = null;
+        }
         const bossResolved = (run.resolvedEncounterIds ?? []).some((entry) => entry.startsWith(`${run.floorDepth}:boss:`));
         if (outcome === 'extract' && run.chosenAugmentId === 'berserkers-gamble' && !bossResolved) {
-            return res.status(409).json({ error: "Berserker's Gamble seals retreat until the final Warden falls." });
+            return res.status(409).json({ error: "Berserker's Gamble seals retreat until the final Hollow Hound Alpha falls." });
         }
 
         const runAgeMs = Date.now() - Number(run.mintedAt ?? 0);
@@ -155,6 +170,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // XP and high-value items are now committed only by authoritative
             // encounter settlement. Ignore browser-reported run tallies here so
             // extraction cannot mint a second copy (or forge one without a win).
+            if (outcome === 'death') {
+                const now = Date.now();
+                next.hp = 0;
+                next.hospitalized = true;
+                next.hospitalizedAt = now;
+                next.hospitalizedUntil = now + HOLLOW_GATE_HOSPITAL_MS;
+            }
+            next.hollowGateRun = null;
             next.redeemedHollowGateRuns = [...redeemedRuns.slice(-99), token];
             fragmentsClampedTo = itemStackCount(next.itemStacks, HG_HIGH_VALUE_ITEM_ID);
             const updated: Record<string, unknown> = bumpSaveVersion({ ...fresh, character: next });

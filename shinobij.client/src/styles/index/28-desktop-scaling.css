@@ -1545,6 +1545,12 @@ textarea:focus-visible,
     -webkit-tap-highlight-color: transparent;
 }
 .hg-clickable { cursor: pointer; }
+.hg-clickable:focus-visible {
+    z-index: 8;
+    outline: 3px solid #fbbf24;
+    outline-offset: -3px;
+    border-radius: 6px;
+}
 .hg-clickable:hover::after {
     content: "";
     position: absolute;
@@ -1680,3 +1686,27 @@ textarea:focus-visible,
     65% { opacity: 0.9; transform: translateX(-50%) scale(1.06, 0.94); }
 }
 html.lite-fx .hg-flame { animation: none; }
+
+@media (max-width: 900px) {
+    .hg-viewport { height: min(56vh, var(--hg-bh, 56vh)); }
+    .hg-sidepanel {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+    .hg-controls {
+        position: sticky;
+        bottom: max(6px, env(safe-area-inset-bottom, 6px));
+        z-index: 20;
+        padding: 8px;
+        border: 1px solid rgba(168, 85, 247, 0.45);
+        border-radius: 10px;
+        background: rgba(8, 4, 18, 0.94);
+        box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+    }
+}
+@media (max-width: 560px) {
+    .hg-sidepanel { grid-template-columns: 1fr; }
+    .hg-viewport { height: min(50vh, var(--hg-bh, 50vh)); }
+    .hg-controls { justify-content: space-between !important; gap: 8px !important; }
+}

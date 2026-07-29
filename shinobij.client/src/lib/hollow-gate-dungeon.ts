@@ -401,13 +401,33 @@ export function buildRunFromParsedLayout(
     };
 }
 
-export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant): HollowGateShrineRun {
+export function hollowGateSeededRandom(serverSeed: string, floor: number): () => number {
+    const text = `${serverSeed}:floor:${Math.max(1, Math.floor(floor))}`;
+    let state = 2166136261;
+    for (let i = 0; i < text.length; i += 1) {
+        state ^= text.charCodeAt(i);
+        state = Math.imul(state, 16777619);
+    }
+    return () => {
+        state += 0x6D2B79F5;
+        let value = state;
+        value = Math.imul(value ^ (value >>> 15), value | 1);
+        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+        return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant, serverSeed?: string): HollowGateShrineRun {
     // The run's own shape wins: an event variant can shorten the gate (its
     // final floor holds the boss) and shrink the board. No variant = the
     // standard shrine, byte-identical to before variants existed.
     const isFinalFloor = floor >= hollowGateRunMaxFloor({ variant });
     const dims = hollowGateVariantDims(variant);
-    const stamp = (run: HollowGateShrineRun): HollowGateShrineRun => (variant ? { ...run, variant } : run);
+    const stamp = (run: HollowGateShrineRun): HollowGateShrineRun => ({
+        ...run,
+        ...(variant ? { variant } : {}),
+        ...(serverSeed ? { serverSeed } : {}),
+    });
 
     // ONE coherent generator (lib/hollow-gate-generate) — rooms + MST corridors +
     // guaranteed connectivity + room-ROLE content (guarded stairs, locked treasury,
@@ -420,8 +440,10 @@ export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVaria
     // raw procedural styles (recursive-maze, x-sorted BSP) remain defensive
     // fallbacks only.
     try {
-        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims));
+        const rng = serverSeed ? hollowGateSeededRandom(serverSeed, floor) : Math.random;
+        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims, rng));
     } catch {
+        if (serverSeed) throw new Error("The sealed Hollow Gate floor could not be regenerated.");
         try { return stamp(generateHollowGateMazeRun(floor, isFinalFloor, dims)); } catch { return stamp(generateHollowGateShrineRunBSP(floor, isFinalFloor, dims)); }
     }
 }
@@ -943,4 +965,39 @@ export function pickHollowGateEncounterPet(pets: Pet[], rarity: PetRarity): Pet 
         if (chosen) return cloneEncounterPet(chosen);
     }
     return null;
+}
+
+export const HOLLOW_HOUND_TEMPLATE_ID = "mythic-4";
+export const HOLLOW_HOUND_NAME = "Hollow Hound";
+
+/**
+ * Build the one canonical Hollow Gate duel opponent: a void-reskinned Abyssal
+ * Oni Hound. Its identity, move set, and model id come from mythic-4, while its
+ * combat stats track the player's active pet so a standard pet is never asked
+ * to fight a full-strength mythic template.
+ */
+export function buildHollowHoundOpponent(
+    pets: Pet[],
+    activePet: Pet,
+    floorRaw: number,
+    image?: string,
+    encounterId = Date.now(),
+): Pet | null {
+    const oniHound = pets.find((pet) => pet.id === HOLLOW_HOUND_TEMPLATE_ID);
+    if (!oniHound) return null;
+    const floor = Math.max(1, Math.floor(Number(floorRaw) || 1));
+    const difficulty = Math.min(1.06, 0.90 + Math.max(0, floor - 1) * 0.04);
+    return {
+        ...oniHound,
+        id: `${HOLLOW_HOUND_TEMPLATE_ID}-${encounterId}`,
+        name: HOLLOW_HOUND_NAME,
+        rarity: activePet.rarity,
+        level: Math.max(1, activePet.level),
+        hp: Math.max(1, Math.floor(activePet.hp * difficulty)),
+        attack: Math.max(1, Math.floor(activePet.attack * difficulty)),
+        defense: Math.max(1, Math.floor(activePet.defense * difficulty)),
+        speed: Math.max(1, Math.floor(activePet.speed * difficulty)),
+        unlockedForPve: false,
+        image: image || oniHound.image,
+    };
 }

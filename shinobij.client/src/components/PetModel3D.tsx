@@ -11,6 +11,7 @@ import { readPetGlbAtlas } from "../lib/pet-glb-atlas";
 import { attackClipWindow, motionOwnsLocomotion, resolveCombatBodyFacing } from "../lib/pet-combat-performance";
 import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
+import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
 
 export type PetModelMotion =
     | "idle"
@@ -74,6 +75,7 @@ type DeformUniforms = {
     lowTint: { value: THREE.Color };
     highTint: { value: THREE.Color };
     tintStrength: { value: number };
+    tintBlend: { value: number };
     clipLow: { value: number };
     floorCut: { value: number };
     floorOutline: { value: number };
@@ -169,6 +171,7 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
         lowTint: { value: new THREE.Color("#ffffff") },
         highTint: { value: new THREE.Color("#ffffff") },
         tintStrength: { value: 0 },
+        tintBlend: { value: 0 },
         clipLow: { value: clipLow },
         floorCut: { value: floorCut },
         floorOutline: { value: floorOutline ? 1 : 0 },
@@ -185,6 +188,7 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
         shader.uniforms.uPetLowTint = bank.lowTint;
         shader.uniforms.uPetHighTint = bank.highTint;
         shader.uniforms.uPetTintStrength = bank.tintStrength;
+        shader.uniforms.uPetTintBlend = bank.tintBlend;
         shader.uniforms.uPetClipLow = bank.clipLow;
         shader.uniforms.uPetFloorCut = bank.floorCut;
         shader.uniforms.uPetFloorOutline = bank.floorOutline;
@@ -201,11 +205,11 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
         shader.fragmentShader = shader.fragmentShader
             .replace(
                 "#include <common>",
-                "uniform vec3 uPetLowTint,uPetHighTint;\nuniform float uPetTintStrength,uPetClipLow,uPetFloorCut,uPetFloorOutline;\nvarying float vPetHeight;\n#include <common>",
+                "uniform vec3 uPetLowTint,uPetHighTint;\nuniform float uPetTintStrength,uPetTintBlend,uPetClipLow,uPetFloorCut,uPetFloorOutline;\nvarying float vPetHeight;\n#include <common>",
             )
             .replace(
                 "#include <color_fragment>",
-                "#include <color_fragment>\nif(vPetHeight<uPetClipLow) discard;\nif(uPetFloorCut>0.0&&vPetHeight<uPetFloorCut&&(uPetFloorOutline>0.5||min(min(diffuseColor.r,diffuseColor.g),diffuseColor.b)>0.58)) discard;\nvec3 petSurfaceTint=mix(uPetLowTint,uPetHighTint,smoothstep(0.08,0.92,vPetHeight));\ndiffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*petSurfaceTint,uPetTintStrength);",
+                "#include <color_fragment>\nif(vPetHeight<uPetClipLow) discard;\nif(uPetFloorCut>0.0&&vPetHeight<uPetFloorCut&&(uPetFloorOutline>0.5||min(min(diffuseColor.r,diffuseColor.g),diffuseColor.b)>0.58)) discard;\nvec3 petSurfaceTint=mix(uPetLowTint,uPetHighTint,smoothstep(0.08,0.92,vPetHeight));\nvec3 petMultiplied=diffuseColor.rgb*petSurfaceTint;\nfloat petBaseLuma=max(0.08,dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722)));\nvec3 petRecolored=petSurfaceTint*petBaseLuma;\nvec3 petTreated=mix(petMultiplied,petRecolored,uPetTintBlend);\ndiffuseColor.rgb=mix(diffuseColor.rgb,petTreated,uPetTintStrength);",
             );
         if (pbrSurface) {
             shader.fragmentShader = shader.fragmentShader.replace(
@@ -245,7 +249,7 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
             );
         }
     };
-    material.customProgramCacheKey = () => toonSurface ? "pet-combat-toon-v2" : animeSurface ? "pet-combat-anime-v6" : "pet-combat-deform-v4";
+    material.customProgramCacheKey = () => toonSurface ? "pet-combat-toon-v3" : animeSurface ? "pet-combat-anime-v7" : "pet-combat-deform-v5";
     material.needsUpdate = true;
 }
 
@@ -272,7 +276,15 @@ function stylizeApprovedRig(root: THREE.Group, config: PetCombatModelConfig) {
     scaleNode("Tail1", 1.31, 1.09, 1.31);
 }
 
-function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: readonly THREE.AnimationClip[], quality: PetVisualQualityConfig, element?: string, persistentAtlas?: THREE.Texture | null): PreparedModel {
+function prepareModel(
+    source: THREE.Group,
+    config: PetCombatModelConfig,
+    clips: readonly THREE.AnimationClip[],
+    quality: PetVisualQualityConfig,
+    element?: string,
+    persistentAtlas?: THREE.Texture | null,
+    surfaceTreatment?: PetModelSurfaceTreatment,
+): PreparedModel {
     // SkeletonUtils is required for independent SkinnedMesh bone trees. Object3D.clone
     // shares skeleton bindings and causes one fighter's animation to corrupt the other.
     const surface = cloneSkeleton(source) as THREE.Group;
@@ -344,8 +356,13 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
                 pbr.userData.petAuthoredBaseColor = pbr.color?.getHex?.() ?? 0xffffff;
                 pbr.userData.petAuthoredMap = textured.map ?? null;
                 pbr.color?.setHex?.(Number(pbr.userData.petAuthoredBaseColor));
-                pbr.emissive?.setHex?.(0x000000);
-                pbr.emissiveIntensity = 0;
+                if (surfaceTreatment) {
+                    pbr.emissive?.set(surfaceTreatment.emissive);
+                    pbr.emissiveIntensity = surfaceTreatment.emissiveIntensity;
+                } else {
+                    pbr.emissive?.setHex?.(0x000000);
+                    pbr.emissiveIntensity = 0;
+                }
                 pbr.roughness = Math.min(0.82, Math.max(0.58, pbr.roughness ?? 0.72));
                 pbr.metalness = Math.min(0.05, pbr.metalness ?? 0);
             }
@@ -373,9 +390,11 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
             }
             patchDeformation(material, box.min.y, size.y, uniforms);
             const uniform = uniforms[uniforms.length - 1];
-            uniform.lowTint.value.set(surfaceTint?.low ?? "#ffffff");
-            uniform.highTint.value.set(surfaceTint?.high ?? "#ffffff");
-            uniform.tintStrength.value = clips.length ? Math.min(0.14, surfaceTint?.strength ?? 0) : surfaceTint?.strength ?? 0;
+            uniform.lowTint.value.set(surfaceTreatment?.lowTint ?? surfaceTint?.low ?? "#ffffff");
+            uniform.highTint.value.set(surfaceTreatment?.highTint ?? surfaceTint?.high ?? "#ffffff");
+            uniform.tintStrength.value = surfaceTreatment?.tintStrength
+                ?? (clips.length ? Math.min(0.14, surfaceTint?.strength ?? 0) : surfaceTint?.strength ?? 0);
+            uniform.tintBlend.value = surfaceTreatment?.tintBlend ?? 0;
             materials.push(material);
             return material;
         });
@@ -644,16 +663,20 @@ export function LegacyAnimePetAccents({ config }: { config: PetCombatModelConfig
     return null;
 }
 
-function LoadedPetModel3D({ config, frame, element, showIdentity = true }: {
+function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
     showIdentity?: boolean;
+    surfaceTreatment?: PetModelSurfaceTreatment;
 }) {
     const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
     const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
     const quality = useMemo(() => petVisualQuality(), []);
-    const prepared = useMemo(() => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element, persistentAtlas), [gltf.scene, gltf.animations, config, quality, element, persistentAtlas]);
+    const prepared = useMemo(
+        () => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element, persistentAtlas, surfaceTreatment),
+        [gltf.scene, gltf.animations, config, quality, element, persistentAtlas, surfaceTreatment],
+    );
     const mixer = useMemo(() => prepared.clips.length ? new THREE.AnimationMixer(prepared.surface) : null, [prepared]);
     const outlineMixer = useMemo(() => prepared.clips.length && prepared.outline ? new THREE.AnimationMixer(prepared.outline) : null, [prepared]);
     const activeClip = useRef<THREE.AnimationClip | null>(null);
@@ -668,7 +691,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true }: {
     const lastVictorious = useRef(false);
     const victoryStart = useRef(0);
     const lastTimeline = useRef<number | null>(null);
-    const lightColor = ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd";
+    const lightColor = surfaceTreatment?.emissive ?? ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd";
     const avianWingBones = useMemo(() => {
         const bones: Array<{ bone: THREE.Bone; side: number; reach: number }> = [];
         const seen = new Set<string>();
@@ -1067,11 +1090,20 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true }: {
                 pbr.color.setHex(Number(pbr.userData.petAuthoredBaseColor ?? 0xffffff));
                 const authoredMap = pbr.userData.petAuthoredMap as THREE.Texture | null | undefined;
                 if (authoredMap) lockPetAtlas(pbr, authoredMap);
-                pbr.emissive.setHex(0x000000);
-                pbr.emissiveIntensity = 0;
+                if (surfaceTreatment) {
+                    pbr.emissive.set(surfaceTreatment.emissive);
+                    pbr.emissiveIntensity = Math.max(surfaceTreatment.emissiveIntensity, glow * 0.35);
+                } else {
+                    pbr.emissive.setHex(0x000000);
+                    pbr.emissiveIntensity = 0;
+                }
             } else {
-                pbr.emissive.set(lightColor);
-                pbr.emissiveIntensity = Math.max(glow, Number(pbr.userData.petIdentityGlow ?? 0));
+                pbr.emissive.set(surfaceTreatment?.emissive ?? lightColor);
+                pbr.emissiveIntensity = Math.max(
+                    surfaceTreatment?.emissiveIntensity ?? 0,
+                    glow,
+                    Number(pbr.userData.petIdentityGlow ?? 0),
+                );
             }
         }
         if (aura.current) {
@@ -1102,11 +1134,20 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true }: {
 /** Approved textured GLBs are the production combat bodies. Their dense surface
  * detail reads far more cleanly than the earlier primitive-built prototypes; the
  * shared deformation rig supplies combat motion until authored skeletal clips land. */
-export function PetModel3D({ config, frame, element, showIdentity = true }: {
+export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
     showIdentity?: boolean;
+    surfaceTreatment?: PetModelSurfaceTreatment;
 }) {
-    return <LoadedPetModel3D config={config} frame={frame} element={element} showIdentity={showIdentity} />;
+    return (
+        <LoadedPetModel3D
+            config={config}
+            frame={frame}
+            element={element}
+            showIdentity={showIdentity}
+            surfaceTreatment={surfaceTreatment}
+        />
+    );
 }

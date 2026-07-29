@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { HollowGateActiveEncounter } from './_combat-session.js';
+import {
+    HOLLOW_GATE_DEPTH,
+    canonicalHollowGateDepth as canonicalSharedHollowGateDepth,
+} from '../../shared/hollow-gate-contract.js';
 
 // The run token seals entry, depth, augment choice, payout ceilings, and
 // single-use settlement. Combat is resolved through a run-bound server session;
@@ -29,6 +33,7 @@ export function hollowGateRunKey(playerName: string, token: string): string {
 export const HOLLOW_GATE_RUN_EXPIRED_MESSAGES = {
     combatStart: 'The Hollow Gate run has expired.',
     combatSettle: 'The Hollow Gate run expired before settlement.',
+    descend: 'The Hollow Gate run expired before descent.',
     consumable: 'The Hollow Gate run expired.',
 } as const;
 
@@ -58,16 +63,12 @@ export const HG_CLAWBACK_KEYS = [
 ] as const;
 export type HgCurrencyKey = (typeof HG_CLAWBACK_KEYS)[number];
 
-// The shipped shrine has exactly five floors. Never let a client widen its own
-// payout envelope by requesting a deeper synthetic run at token mint time.
-export const HOLLOW_GATE_SERVER_DEPTH = 5;
+// Public alias retained for endpoint/tests that name the server-side envelope.
+// The actual contract lives in shared/ so the browser cannot drift from it.
+export const HOLLOW_GATE_SERVER_DEPTH = HOLLOW_GATE_DEPTH;
 
 export function canonicalHollowGateDepth(requested?: unknown): number {
-    const n = Math.floor(Number(requested));
-    if (!Number.isFinite(n)) return HOLLOW_GATE_SERVER_DEPTH;
-    // Short official/event gates may seal a smaller final floor. A client can
-    // never widen the payout envelope beyond the shipped five-floor maximum.
-    return Math.max(1, Math.min(HOLLOW_GATE_SERVER_DEPTH, n));
+    return canonicalSharedHollowGateDepth(requested);
 }
 
 // VERBATIM mirror of the client hollowShardDrop (lib/hollow-gate-run.ts). The
@@ -194,7 +195,7 @@ export const AUGMENT_CATALOG: Record<string, Augment> = {
     'chain-reaction': { id: 'chain-reaction', label: 'Chain Reaction',   description: 'Hits occasionally arc to a second foe.', rarity: 'common', combat: { kind: 'chainHit', value: 1 }, rewardMultiplier: 1.3 },
     'treasure-sense': { id: 'treasure-sense', label: 'Treasure Sense',   description: 'Richer hoard — but fewer healing tiles.', rarity: 'rare', rewardMultiplier: 1.6, riskLabel: 'Fewer healing tiles' },
     'greedy-pact':    { id: 'greedy-pact',    label: 'Greedy Pact',      description: 'Double the loot — enemies hit harder.',  rarity: 'rare', combat: { kind: 'enemyPower', value: 0.30 }, rewardMultiplier: 2.0, riskLabel: 'Enemies +30% power' },
-    'berserkers-gamble': { id: 'berserkers-gamble', label: "Berserker's Gamble", description: 'Big haul, but no retreat once you descend.', rarity: 'rare', combat: { kind: 'lifesteal', value: 0.10 }, rewardMultiplier: 1.8, riskLabel: 'No retreat' },
+    'berserkers-gamble': { id: 'berserkers-gamble', label: "Berserker's Gamble", description: '+10% damage and a bigger haul, but no retreat.', rarity: 'rare', combat: { kind: 'damageBonus', value: 0.10 }, rewardMultiplier: 1.8, riskLabel: 'No retreat' },
 };
 
 /** The display-only shape sent to the client (no internal fields beyond these). */
@@ -218,6 +219,7 @@ export interface HollowGateRunToken {
     playerName: string;
     mintedAt: number;
     floorDepth: number;
+    currentFloor?: number;
     seed: string;
     entryCurrencies: Partial<Record<HgCurrencyKey, number>>;
     // P0.2c: entry count of the high-value forge item (Dungeon Legendary Fragment)

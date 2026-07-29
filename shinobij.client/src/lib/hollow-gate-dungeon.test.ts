@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateHollowGateShrineRun } from "./hollow-gate-dungeon";
+import { buildHollowHoundOpponent, generateHollowGateShrineRun, HOLLOW_HOUND_NAME, HOLLOW_HOUND_TEMPLATE_ID } from "./hollow-gate-dungeon";
 import { hollowGateReachableSet } from "./hollow-gate-bsp";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 
@@ -40,13 +40,13 @@ test("dungeon floors: exit + descent reachable from spawn (layout/maze/BSP)", ()
     }
 });
 
-test("dungeon final floor: Warden boss reachable, no descent", () => {
+test("dungeon final floor: Hollow Hound Alpha reachable, no descent", () => {
     for (let i = 0; i < 50; i += 1) {
         const r = generateHollowGateShrineRun(HOLLOW_GATE_MAX_FLOOR);
         const w = r.width, h = r.height;
         const spawnIdx = r.playerY * w + r.playerX;
         const bossIdx = r.tiles.findIndex((t) => t.kind === "boss");
-        assert.ok(bossIdx >= 0, "final floor has a Warden boss");
+        assert.ok(bossIdx >= 0, "final floor has a Hollow Hound Alpha boss");
         assert.equal(r.tiles.findIndex((t) => t.kind === "descend"), -1, "no descent on final floor");
         const reach = hollowGateReachableSet(w, h, spawnIdx, wallSet(r.tiles));
         assert.ok(reach.has(bossIdx), `final floor iter ${i}: boss reachable from spawn`);
@@ -81,4 +81,54 @@ test("event variants: shorter gates, compact boards, variant stamped through", (
     // No variant → identical default behavior (regression guard).
     const std = generateHollowGateShrineRun(1);
     assert.equal(std.variant, undefined, "standard runs carry no variant field");
+});
+
+test("server-seeded floors regenerate byte-for-byte and vary by floor", () => {
+    const seed = "sealed-run-seed-aaa-audit";
+    const first = generateHollowGateShrineRun(1, undefined, seed);
+    const replay = generateHollowGateShrineRun(1, undefined, seed);
+    const nextFloor = generateHollowGateShrineRun(2, undefined, seed);
+
+    assert.deepEqual(replay, first, "the same run seed and floor reproduce the exact sealed map");
+    assert.equal(first.serverSeed, seed);
+    assert.equal(nextFloor.serverSeed, seed);
+    assert.notDeepEqual(
+        nextFloor.tiles.map((tile) => [tile.kind, tile.terrain, tile.roomId, tile.decoration]),
+        first.tiles.map((tile) => [tile.kind, tile.terrain, tile.roomId, tile.decoration]),
+        "each floor derives a different deterministic stream from the run seed",
+    );
+});
+
+test("Hollow Gate pet duels always reskin the Oni Hound and scale to the active pet", () => {
+    const active = {
+        id: "starter-fire",
+        name: "Ember",
+        rarity: "standard" as const,
+        level: 12,
+        xp: 0,
+        maxLevel: 100,
+        hp: 200,
+        attack: 90,
+        defense: 70,
+        speed: 80,
+        unlockedForPve: true,
+        element: "Fire" as const,
+        jutsus: [],
+    };
+    const oni = {
+        ...active,
+        id: HOLLOW_HOUND_TEMPLATE_ID,
+        name: "Abyssal Oni Hound",
+        rarity: "mythic" as const,
+        jutsus: [{ name: "Abyss Bite", power: 210, cooldown: 2, currentCooldown: 0, kind: "damage" as const }],
+    };
+    const hound = buildHollowHoundOpponent([active, oni], active, 3, "/hollow.webp", 1234567890123);
+    assert.ok(hound);
+    assert.equal(hound.name, HOLLOW_HOUND_NAME);
+    assert.equal(hound.id, `${HOLLOW_HOUND_TEMPLATE_ID}-1234567890123`);
+    assert.equal(hound.rarity, active.rarity);
+    assert.equal(hound.level, active.level);
+    assert.equal(hound.image, "/hollow.webp");
+    assert.equal(hound.jutsus[0]?.name, "Abyss Bite");
+    assert.ok(hound.attack < oni.attack * 2, "opponent stats come from the active pet rather than mythic base scaling");
 });
