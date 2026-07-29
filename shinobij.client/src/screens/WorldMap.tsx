@@ -156,6 +156,9 @@ import { FESTIVAL_SECTOR, sectorArtKey, sectorName } from "../../../shared/secto
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldVillagePlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
+import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkInEntryTile } from "../components/WorldWalkFeel";
+import "../components/world-walk-feel.css";
+import { isLowEndMobile } from "../lib/device-tier";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
@@ -406,6 +409,9 @@ export function WorldMap({
     // Direction the player walked in from on an edge crossing — drives the brief
     // slide-in on the sector board (cleared right after the animation plays).
     const [sectorEnterDir, setSectorEnterDir] = useState<"north" | "east" | "south" | "west" | null>(null);
+    // Once-per-session region-name splash + the hovered walking-route target.
+    const [regionSplash, setRegionSplash] = useState<{ label: string; tint: string; stamp: number } | null>(null);
+    const [routeHoverSector, setRouteHoverSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
@@ -2231,12 +2237,16 @@ export function WorldMap({
                 const arrivalAt = Date.now() + travelMs;
                 setPendingTravel({ destinationSector: sector, arrivalAt });
                 setTravelingUntil(arrivalAt);
+                // Keep the walking route glowing toward the destination for the
+                // whole transit (mobile has no hover — this is its route view).
+                setRouteHoverSector(sector);
                 setSelectedSector(null);
                 setSelectedVillageTerritory(null);
                 window.setTimeout(() => {
                     arrive(data.arrivalTile);
                     setPendingTravel(null);
                     setTravelingUntil(0);
+                    setRouteHoverSector(null);
                 }, travelMs);
             } catch {
                 setTravelToast({
@@ -2264,6 +2274,8 @@ export function WorldMap({
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
         setSelectedSector(sector);
+        const splashLabel = regionSplashLabelFor(sector);
+        if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
         });
     }
 
@@ -2272,12 +2284,21 @@ export function WorldMap({
         beginSectorTravel(exit.destinationSector, (arrivalTile) => {
             const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
             const destinationBiome = biomeForSector(exit.destinationSector);
-            setSectorPlayerPos(destinationTile);
+            // Walk IN from the edge: appear on the boundary tile you stepped
+            // through, then take the one step inward — the avatar physically
+            // enters the new sector instead of popping into place.
+            const entryTile = walkInEntryTile(destinationTile, exit.direction);
+            setSectorPlayerPos(entryTile);
+            if (entryTile !== destinationTile) {
+                window.setTimeout(() => setSectorPlayerPos((pos) => (pos === entryTile ? destinationTile : pos)), 240);
+            }
             setCurrentBiome(destinationBiome);
             setCurrentWeather(weatherForSector(exit.destinationSector, destinationBiome));
             setCurrentSector(exit.destinationSector);
             setSelectedSector(exit.destinationSector);
             setSectorEnterDir(exit.direction);
+            const splashLabel = regionSplashLabelFor(exit.destinationSector);
+            if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(exit.destinationSector), stamp: Date.now() });
         }, {
             mode: "edge",
             originSector: exit.sector,
@@ -2344,8 +2365,13 @@ export function WorldMap({
         for (const exit of roadExitsForSector(selectedSector)) {
             const dest = exit.destinationSector;
             preloadImg(sectorMapUrl(biomeForSector(dest), dest));
-            preloadImg(sectorBackgroundImage(dest));
-            preloadImg(sectorDepthImage(dest));
+            // Low-end mobile: warm only the floors (the board art an instant
+            // crossing lands on); vistas + depth load on arrival instead of
+            // costing several MB of prefetch per step.
+            if (!isLowEndMobile()) {
+                preloadImg(sectorBackgroundImage(dest));
+                preloadImg(sectorDepthImage(dest));
+            }
         }
         // preload helpers are stable component-scope declarations; re-running on
         // their identities would just repeat cached no-op preloads.
@@ -3254,6 +3280,14 @@ export function WorldMap({
                         </div>
 
                         <div className={`pixel-map walkable-sector-map sector-image-map${sectorEnterDir ? ` sector-enter-${sectorEnterDir}` : ""}`}>
+                            {regionSplash && (
+                                <RegionSplash
+                                    label={regionSplash.label}
+                                    tint={regionSplash.tint}
+                                    stamp={regionSplash.stamp}
+                                    onDone={() => setRegionSplash(null)}
+                                />
+                            )}
                             {/* Living sector: a panning biome backdrop + atmosphere
                                 behind, then 3D depth-particles, then 2D biome ambience
                                 (snow/embers/petals/leaves/weather) in front. Ambience
@@ -3319,10 +3353,11 @@ export function WorldMap({
                                         }}
                                     >
                                         {roadExit && (
-                                            <span className={`sector-road-marker is-${roadExit.direction}`} aria-hidden="true">
-                                                <b>{roadExit.direction === "north" ? "↑" : roadExit.direction === "east" ? "→" : roadExit.direction === "south" ? "↓" : "←"}</b>
-                                                <small>S{roadExit.destinationSector}</small>
-                                            </span>
+                                            <SectorGateMarker
+                                                destinationSector={roadExit.destinationSector}
+                                                direction={roadExit.direction}
+                                                ready={isPlayer && sectorIsCurrent}
+                                            />
                                         )}
                                         {otherHere.length > 0 ? (
                                             <div className="other-players-map-stack">
@@ -4508,6 +4543,9 @@ export function WorldMap({
                 {/* Village names lettered onto the keyart's bare banner boards
                     (the 2026-07 painting carries no baked text). */}
                 <WorldVillagePlates />
+                {/* Hovered (or in-flight) walking route from where the player
+                    stands — the Albion-style "how would I walk there" glow. */}
+                <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
                 <div className="sea-label sea-north">Hoppo Sea</div>
                 <div className="sea-label sea-east">Rimawari Ocean</div>
                 <div className="sea-label sea-south">Zubunure Sea</div>
@@ -4543,6 +4581,8 @@ export function WorldMap({
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
+                        onMouseEnter={() => setRouteHoverSector(sector.id)}
+                        onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
                         title={currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle}
                         aria-label={currentSector === sector.id
                             ? `You are here, ${sectorName(sector.id) ?? `Sector ${sector.id}`}`
