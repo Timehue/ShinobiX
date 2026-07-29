@@ -16,6 +16,8 @@
  * (shinobij.client/src/data/hollow-rifts.ts) must stay in sync (colocated test).
  */
 
+import { CASTLE_SECTORS, OUTSKIRTS_SECTORS, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
 
@@ -57,26 +59,33 @@ export function isRiftQuestId(id: string): boolean {
 /** The sealed rift baseline — persisted BOTH in KV (`rift-quest:<player>`, 7d TTL)
  *  and durably on the save record (`activeRiftQuestSeal`) so an in-flight rift
  *  survives TTL expiry and the cPanel→Postgres cutover (the KV namespace was not
- *  migrated). Mirrors WandererQuestSeal / parseWandererQuestSeal. */
+ *  migrated). Mirrors WandererQuestSeal / parseWandererQuestSeal.
+ *  `geoV` versions the sector numbering: seals written before the 2026-07 world
+ *  renumbering lack it and get their targetSector remapped once at parse time. */
 export interface RiftQuestSeal {
     id: string;
     targetSector: number;
     baseline: number;
     at: number;
+    geoV: number;
 }
 
-/** Validate a persisted rift seal from either store; returns null if malformed. */
+/** Validate a persisted rift seal from either store; returns null if malformed.
+ *  Pre-renumbering seals (no geoV) come back remapped and re-stamped. */
 export function parseRiftQuestSeal(raw: unknown): RiftQuestSeal | null {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const value = raw as Record<string, unknown>;
     const id = typeof value.id === 'string' ? value.id : '';
-    const targetSector = Math.floor(Number(value.targetSector));
+    const rawTarget = Math.floor(Number(value.targetSector));
     const baseline = Number(value.baseline);
     const at = Number(value.at ?? 0);
+    const geoV = Math.floor(Number(value.geoV ?? 0));
     if (!isRiftQuestId(id) || !Number.isFinite(baseline)
-        || !Number.isInteger(targetSector) || targetSector < 1 || targetSector > 60
+        || !Number.isInteger(rawTarget) || rawTarget < 1 || rawTarget > 60
         || !Number.isSafeInteger(at) || at < 0) return null;
-    return { id, targetSector, baseline, at };
+    const targetSector = geoV >= WORLD_GEO_VERSION ? rawTarget : remapLegacySector(rawTarget);
+    if (targetSector < 1 || targetSector > 60) return null;
+    return { id, targetSector, baseline, at, geoV: WORLD_GEO_VERSION };
 }
 
 /** ryo for clearing a rift — the wanderer-quest band (level + effort scaled). */
@@ -92,14 +101,15 @@ export function riftBossKilled(baseline: number, current: number): boolean {
 /**
  * Deterministic wilderness sector for a (player, rift). MUST mirror the client
  * (shinobij.client/src/lib/hollow-rifts.ts riftTargetSector) so display and seal
- * agree: same FNV-1a hash, same 1..55 wilderness range, same village-outskirts skip.
+ * agree: same FNV-1a hash, same 1..60 draw, same skip set (village outskirts +
+ * the neutral castle city — rifts open in the wilds, never in a safe hub).
  */
 export function riftTargetSector(playerName: string, riftId: string): number {
     let h = 2166136261;
     const s = `${playerName}|${riftId}`;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const villages = new Set([11, 31, 38, 47]);
-    let sec = (Math.abs(h) % 55) + 1;
-    for (let guard = 0; guard < 60 && villages.has(sec); guard++) sec = (sec % 55) + 1;
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    let sec = (Math.abs(h) % 60) + 1;
+    for (let guard = 0; guard < 60 && skip.has(sec); guard++) sec = (sec % 60) + 1;
     return sec;
 }

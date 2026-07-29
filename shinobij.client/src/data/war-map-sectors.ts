@@ -5,11 +5,12 @@
  * this so a village's sectors VISIBLY read as that village's, without depending on
  * the server war feature being enabled (captures override via the territory cache).
  */
+// 2026-07 region-block numbering: each village's block starts at its own gate.
 export const HOME_SECTORS: Record<string, readonly number[]> = {
-    "Moonshadow Village": [11, 19, 15, 4, 5, 6, 16, 8],
-    "Stormveil Village": [31, 21, 22, 34, 24, 32, 26, 27],
-    "Ashen Leaf Village": [38, 36, 37, 39, 40, 41, 42, 43],
-    "Frostfang Village": [47, 46, 48, 49, 50, 51, 53, 54],
+    "Moonshadow Village": [17, 18, 19, 20, 21, 22, 23, 24],
+    "Stormveil Village": [1, 2, 3, 4, 5, 6, 7, 8],
+    "Ashen Leaf Village": [9, 10, 11, 12, 13, 14, 15, 16],
+    "Frostfang Village": [26, 27, 28, 29, 30, 33, 31, 32],
 };
 
 const SECTOR_TO_VILLAGE: Record<number, string> = (() => {

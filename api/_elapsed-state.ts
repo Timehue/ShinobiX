@@ -3,6 +3,7 @@ import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
 import { hollowGateRunKey } from './hollow-gate/_run-token.js';
 import { bumpSaveVersion } from './save/_save-version.js';
+import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 const VITAL_REGEN_MS = 1000;
@@ -37,12 +38,70 @@ function cloneCharacter(character: Record<string, unknown>): Record<string, unkn
 }
 
 export function biomeForSettledSector(sector: number): string {
-    if (sector === 99) return 'volcano';
-    if (sector >= 56) return 'central';
-    if (sector <= 20) return 'shadow';
-    if (sector <= 35) return 'forest';
-    if (sector <= 45) return 'volcano';
-    return 'snow';
+    return sectorBiomeOf(sector);
+}
+
+/**
+ * One-time 2026-07 world renumbering (shared/sector-geo.ts). Records without
+ * `worldGeoV` were written before the reorg and carry OLD sector numbers —
+ * remap them exactly once, then stamp the version. Every save WRITE after the
+ * reorg stamps `worldGeoV` (api/save/[name].ts), so only pre-reorg records
+ * ever take this path. The rift seal migrates separately at parse time
+ * (api/sector/_rift-quest.ts parseRiftQuestSeal — it also lives in its own KV
+ * key, which this save-level pass cannot see).
+ */
+function migrateWorldGeo<T extends SaveRecord>(record: T): { record: T; changed: boolean } {
+    if (num(record.worldGeoV, 0) >= WORLD_GEO_VERSION) return { record, changed: false };
+    // Nothing sector-shaped to remap → leave the record untouched (keeps this a
+    // true no-op for partial records; real saves always carry currentSector, and
+    // every post-reorg WRITE stamps the version at the save POST).
+    const charRaw = record.character;
+    const charQuest = charRaw && typeof charRaw === 'object'
+        ? (charRaw as Record<string, unknown>).activeRiftQuest
+        : undefined;
+    const charSectorPresent = charRaw && typeof charRaw === 'object'
+        && Number.isFinite(Number((charRaw as Record<string, unknown>).currentSector));
+    if (!Number.isFinite(Number(record.currentSector))
+        && !pendingTravelFrom(record.pendingTravel)
+        && !charQuest && !charSectorPresent) {
+        return { record, changed: false };
+    }
+    const next = cloneRecord(record);
+    const writable = next as Record<string, unknown>;
+    writable.worldGeoV = WORLD_GEO_VERSION;
+    const sector = Math.floor(num(record.currentSector, Number.NaN));
+    if (Number.isFinite(sector)) {
+        const remapped = remapLegacySector(sector);
+        writable.currentSector = remapped;
+        if (typeof record.currentBiome === 'string') writable.currentBiome = sectorBiomeOf(remapped);
+    }
+    const travel = pendingTravelFrom(record.pendingTravel);
+    if (travel) {
+        writable.pendingTravel = {
+            ...(record.pendingTravel as Record<string, unknown>),
+            destinationSector: remapLegacySector(travel.destinationSector),
+        };
+    }
+    const char = record.character;
+    if (char && typeof char === 'object') {
+        const c = { ...(char as Record<string, unknown>) };
+        let charChanged = false;
+        const charSector = Math.floor(num(c.currentSector, Number.NaN));
+        if (Number.isFinite(charSector)) {
+            c.currentSector = remapLegacySector(charSector);
+            charChanged = true;
+        }
+        const quest = c.activeRiftQuest;
+        if (quest && typeof quest === 'object' && !Array.isArray(quest)) {
+            const target = Math.floor(num((quest as Record<string, unknown>).targetSector, Number.NaN));
+            if (Number.isFinite(target)) {
+                c.activeRiftQuest = { ...(quest as Record<string, unknown>), targetSector: remapLegacySector(target) };
+                charChanged = true;
+            }
+        }
+        if (charChanged) writable.character = c;
+    }
+    return { record: next, changed: true };
 }
 
 function pendingTravelFrom(value: unknown): PendingTravel | null {
@@ -109,14 +168,16 @@ export function settleSaveRecord<T extends SaveRecord>(
 ): SettleResult<T> {
     const now = Math.max(0, Math.floor(opts.now ?? Date.now()));
     const battleLocked = Boolean(opts.battleLocked);
-    let next: T = record;
-    let changed = false;
+    const geo = migrateWorldGeo(record);
+    const base: T = geo.record;
+    let next: T = base;
+    let changed = geo.changed;
     let vitalsChanged = false;
     let travelChanged = false;
     let hollowGateRunCleared = false;
 
-    let char = record.character && typeof record.character === 'object'
-        ? record.character as Record<string, unknown>
+    let char = base.character && typeof base.character === 'object'
+        ? base.character as Record<string, unknown>
         : null;
 
     // ─── Expired Hollow Gate run self-heal ────────────────────────────────────
@@ -138,7 +199,7 @@ export function settleSaveRecord<T extends SaveRecord>(
     // stored run would be resurrected right back onto the save; an explicit
     // undefined is an own key that overrides, and JSON drops it on write.
     if (char && opts.hollowGateRunExpired && char.hollowGateRun != null) {
-        next = cloneRecord(record);
+        next = changed ? next : cloneRecord(base);
         char = cloneCharacter(char);
         char.hollowGateRun = undefined;
         (next as Record<string, unknown>).character = char;
@@ -146,24 +207,24 @@ export function settleSaveRecord<T extends SaveRecord>(
         hollowGateRunCleared = true;
     }
 
-    const travel = pendingTravelFrom(record.pendingTravel);
+    const travel = pendingTravelFrom(base.pendingTravel);
     if (travel && now >= travel.arrivalAt) {
-        next = changed ? next : cloneRecord(record);
+        next = changed ? next : cloneRecord(base);
         const writable = next as Record<string, unknown>;
         writable.currentSector = travel.destinationSector;
         writable.currentBiome = biomeForSettledSector(travel.destinationSector);
         writable.pendingTravel = null;
         changed = true;
         travelChanged = true;
-    } else if (!travel && record.pendingTravel != null) {
-        next = changed ? next : cloneRecord(record);
+    } else if (!travel && base.pendingTravel != null) {
+        next = changed ? next : cloneRecord(base);
         (next as Record<string, unknown>).pendingTravel = null;
         changed = true;
         travelChanged = true;
     }
 
     if (char && canRegenVitals(char, battleLocked, now)) {
-        const saveAt = floorEpoch(record._saveAt);
+        const saveAt = floorEpoch(base._saveAt);
         const elapsedMs = saveAt ? Math.max(0, now - saveAt) : 0;
         const ticks = Math.floor(elapsedMs / VITAL_REGEN_MS);
         if (ticks > 0) {

@@ -5,6 +5,7 @@ import {
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
     parseRiftQuestSeal,
 } from './_rift-quest.js';
+import { CASTLE_SECTORS, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 
 type ClientChoice = { text: string; conclusion?: string; accept?: boolean; descend?: boolean };
 type ClientPage = { title: string; scene: string; speaker: string; dialogue: string[]; choices?: ClientChoice[] };
@@ -40,13 +41,13 @@ test('riftBossKilled needs one foe-kill past the sealed baseline', () => {
     assert.equal(riftBossKilled(10, 9), false);
 });
 
-test('riftTargetSector is deterministic, wilderness-ranged, and skips villages', () => {
-    const villages = new Set([11, 31, 38, 47]);
+test('riftTargetSector is deterministic, wilderness-ranged, and skips safe hubs', () => {
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
     for (const player of ['Aki', 'Rill', 'ZZZ', 'a', 'player-two']) {
         const s = riftTargetSector(player, 'rift-hollow-stalker');
         assert.equal(s, riftTargetSector(player, 'rift-hollow-stalker'), 'stable per call');
-        assert.ok(s >= 1 && s <= 55, `${player}: ${s} in 1..55`);
-        assert.ok(!villages.has(s), `${player}: ${s} not a village outskirts`);
+        assert.ok(s >= 1 && s <= 60, `${player}: ${s} in 1..60`);
+        assert.ok(!skip.has(s), `${player}: ${s} not an outskirts/castle sector`);
     }
 });
 
@@ -55,13 +56,15 @@ test('the daily cap + cooldown are sane', () => {
     assert.ok(RIFT_COOLDOWN_MS > 0 && RIFT_COOLDOWN_MS <= 24 * 60 * 60 * 1000);
 });
 
-test('parseRiftQuestSeal round-trips a valid durable seal', () => {
-    const seal = { id: 'rift-hollow-stalker', targetSector: 22, baseline: 7, at: 1_700_000_000_000 };
+test('parseRiftQuestSeal round-trips a stamped seal and remaps a pre-reorg one', () => {
+    const seal = { id: 'rift-hollow-stalker', targetSector: 22, baseline: 7, at: 1_700_000_000_000, geoV: WORLD_GEO_VERSION };
     assert.deepEqual(parseRiftQuestSeal(seal), seal);
-    // `at` defaults to 0 when absent (older KV writes)
+    // A seal written before the 2026-07 renumbering (no geoV) carries an OLD
+    // sector number — parse remaps it once and re-stamps. `at` defaults to 0
+    // for the oldest KV writes.
     assert.deepEqual(
         parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 22, baseline: 7 }),
-        { id: 'rift-hollow-stalker', targetSector: 22, baseline: 7, at: 0 },
+        { id: 'rift-hollow-stalker', targetSector: OLD_TO_NEW_SECTOR[22], baseline: 7, at: 0, geoV: WORLD_GEO_VERSION },
     );
 });
 

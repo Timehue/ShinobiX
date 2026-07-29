@@ -12,7 +12,7 @@ describe('war-map-view: villageWarMapView', () => {
         const v = villageWarMapView({ village: 'Moonshadow Village', record: recordWith(), treasurySeals: 0, sectorsHeld: 8 });
         assert.equal(v.village, 'Moonshadow Village');
         assert.equal(v.biome, 'shadow');
-        assert.deepEqual(v.homeSectors, [11, 19, 15, 4, 5, 6, 16, 8]);
+        assert.deepEqual(v.homeSectors, [17, 18, 19, 20, 21, 22, 23, 24]);
         assert.equal(v.warResources, 0);
         assert.equal(v.upkeepWr, 0);
         assert.equal(v.dormant, false);
@@ -20,7 +20,7 @@ describe('war-map-view: villageWarMapView', () => {
         assert.equal(v.taxRatePct, 0);                 // full 8 sectors → 0% tier
         assert.equal(v.wrPerSector, 25);               // no Supply Depot
         assert.equal(v.sectors.length, 8);
-        assert.equal(v.sectors[0].sector, 11);
+        assert.equal(v.sectors[0].sector, 17);
         assert.equal(v.sectors[0].alias, 'MS-1');
         assert.equal(v.sectors[0].controlHpMax, 2000);  // no Watchtower
         assert.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/pet

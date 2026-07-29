@@ -300,3 +300,40 @@ Engine 2026 guide (master-image slicing), spritesheets.ai / PixExact workflows.
 Map UI: GameRant map-UI roundup, Game UI Database, aerosys fog-of-war docs, HLD
 map analysis. Travel friction: samlowe.dev (Morrowind), Stray Pixels + ResetEra
 (Oblivion fast travel), Albion travel, unmappedworlds counterpoint.
+
+---
+
+## Addendum — implementation status (2026-07-29, branch claude/world-geo-reorg)
+
+Owner rulings on the open questions:
+- **Earned fast travel (Phase 5): SKIPPED** — map travel stays free/unrestricted;
+  the idea is liked but shelved. Fog-of-war shelved with it.
+- **Walking is INSTANT** — edge crossings have no travel time at all
+  (`WORLD_TRAVEL_EDGE_MS` env dial, default 0, lease still minted with
+  arrivalAt=now so presence/footfall/anti-teleport machinery is unchanged).
+  Only map fast-travel keeps the 3s mask.
+- **Renumbering approved** and implemented: contiguous region blocks, each
+  village's block starts at its own gate (see `shared/sector-geo.ts` header).
+  All POIs preserved (pinned by `api/_sector-geo.test.ts` against a frozen
+  old-world snapshot). Village screens untouched.
+
+Landed in this branch:
+- `shared/sector-geo.ts` — the geography registry (names, regions, biomes,
+  artKey indirection, OLD↔NEW mapping) + invariants/migration test.
+- Renumbered `SECTOR_POINTS`/`SECTOR_ROAD_PAIRS` (same places, same coords,
+  +1 approved road: Upper Terraces↔Canal Heart).
+- Biome realignment via the registry — the three band-function copies now all
+  read one table (client data/sectors.ts, WorldMap, server _elapsed-state).
+- Save migration on settle (`worldGeoV` stamp; currentSector, pendingTravel,
+  activeRiftQuest) + rift-seal `geoV` remap at parse + save-POST stamping +
+  `scripts/migrate-world-geo.mjs` for world:territory:* (dry-run by default).
+- Phase 1 UI: sector names everywhere, `WorldRoadsOverlay` (road graph +
+  region plates over the map), panel/board headers, exit-chip names.
+- Phase 2: instant edge crossings, directional slide-in, all-neighbor art
+  prefetch on sector entry.
+
+Still to do (next beat):
+- **New world-map keyart** (text-free, matching region layout) + marker/label/
+  glow position tuning against it; village banner label plates in UI.
+- Style-locked per-sector art regen by region masters (Phase 4).
+- Live 2-client + mobile feel-check; run migrate-world-geo --apply at deploy.

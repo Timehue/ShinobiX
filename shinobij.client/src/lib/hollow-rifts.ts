@@ -16,6 +16,7 @@ import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer, WandererArchetypeId } from "./wanderers";
 import { sectorRegionName, villageForOutskirtsSector } from "../data/sectors";
+import { CASTLE_SECTORS, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
 import { hollowRifts, hollowRiftById, type HollowRift, type RiftGiverArchetype, type RiftPage } from "../data/hollow-rifts";
 
 export const RIFT_GIVER_PREFIX = "rift-giver-";
@@ -69,15 +70,16 @@ function riftPortraitFor(rift: HollowRift, speaker: string): string | undefined 
 }
 
 /** Deterministic wilderness sector for a (player, rift): stable, avoids village
- *  outskirts + central + the lava arena. The server recomputes the SAME value at
- *  accept, so client display and server seal always agree. */
+ *  outskirts + the neutral castle city + the lava arena. The server recomputes
+ *  the SAME value at accept (api/sector/_rift-quest.ts riftTargetSector — keep
+ *  in lockstep), so client display and server seal always agree. */
 export function riftTargetSector(playerName: string, riftId: string): number {
     let h = 2166136261;
     const s = `${playerName}|${riftId}`;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const villages = new Set([11, 31, 38, 47]); // village outskirts
-    let sec = (Math.abs(h) % 55) + 1;           // 1..55 wilderness (skips 56-60 central, 99 lava)
-    for (let guard = 0; guard < 60 && villages.has(sec); guard++) sec = (sec % 55) + 1;
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    let sec = (Math.abs(h) % 60) + 1; // 1..60 (99 lava is out of range by construction)
+    for (let guard = 0; guard < 60 && skip.has(sec); guard++) sec = (sec % 60) + 1;
     return sec;
 }
 

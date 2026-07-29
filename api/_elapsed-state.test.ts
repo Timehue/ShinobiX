@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { biomeForSettledSector, settleSaveRecord } from './_elapsed-state.js';
+import { OLD_TO_NEW_SECTOR, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
 
 const NOW = 1_000_000;
 
@@ -8,6 +9,9 @@ function save(over: Record<string, unknown> = {}) {
     const { character: characterOverride, ...rest } = over;
     return {
         _saveAt: NOW - 10_000,
+        // Post-reorg record: settle behavior below is tested WITHOUT the
+        // one-time geography migration (that path has its own tests).
+        worldGeoV: WORLD_GEO_VERSION,
         currentSector: 12,
         currentBiome: 'shadow',
         character: {
@@ -82,4 +86,31 @@ test('settleSaveRecord keeps future pending travel without changing sector', () 
     assert.equal(result.travelChanged, false);
     assert.equal(result.record.currentSector, 12);
     assert.deepEqual(result.record.pendingTravel, { destinationSector: 42, arrivalAt: NOW + 1 });
+});
+
+test('one-time world-geo migration remaps pre-reorg sector fields exactly once', () => {
+    const legacy = save({
+        pendingTravel: { destinationSector: 42, arrivalAt: NOW + 60_000 },
+        character: { activeRiftQuest: { id: 'rift-hollow-stalker', targetSector: 16, stage: 'travel', baseline: 0 } },
+    });
+    delete (legacy as Record<string, unknown>).worldGeoV;
+    const result = settleSaveRecord(legacy, { now: NOW });
+    assert.equal(result.changed, true);
+    assert.equal(result.record.worldGeoV, WORLD_GEO_VERSION);
+    assert.equal(result.record.currentSector, OLD_TO_NEW_SECTOR[12]);
+    assert.equal(result.record.currentBiome, sectorBiomeOf(OLD_TO_NEW_SECTOR[12]!));
+    const travel = result.record.pendingTravel as { destinationSector: number };
+    assert.equal(travel.destinationSector, OLD_TO_NEW_SECTOR[42]);
+    const quest = (result.record.character as Record<string, unknown>).activeRiftQuest as { targetSector: number };
+    assert.equal(quest.targetSector, OLD_TO_NEW_SECTOR[16]);
+    // Idempotent: settling the migrated record again must not re-remap.
+    const again = settleSaveRecord(result.record, { now: NOW });
+    assert.equal((again.record as Record<string, unknown>).currentSector, OLD_TO_NEW_SECTOR[12]);
+});
+
+test('world-geo migration leaves records with nothing sector-shaped untouched', () => {
+    const bare = { character: { name: 'Rill' }, _saveVersion: 1 } as Record<string, unknown>;
+    const result = settleSaveRecord(bare, { now: NOW });
+    assert.equal(result.changed, false);
+    assert.equal('worldGeoV' in result.record, false);
 });

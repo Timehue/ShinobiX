@@ -17,7 +17,7 @@ test("story reckonings expose current-canon Stormveil NPCs at eligible outskirts
         storyProgress: 5,
         storyTraits: [],
     } as Character;
-    const visible = visibleStoryReckonings(character, 31);
+    const visible = visibleStoryReckonings(character, 1);
     assert.deepEqual(visible.map((w) => w.name).sort(), ["Elder Vanta", "Mira Volt"]);
     assert.equal(visible.find((w) => w.name === "Elder Vanta")?.avatarImage, "/portraits/elder-vanta.webp");
     assert.equal(visible.find((w) => w.name === "Mira Volt")?.avatarImage, "/portraits/mira-volt.webp");
@@ -65,11 +65,12 @@ test("every reckoning giver and hunt-target portrait file exists", () => {
 });
 
 test("each village exposes its own reckoning NPCs at its outskirts", () => {
-    // outskirts sectors: Stormveil 31, Ashen Leaf 38, Frostfang 47, Moonshadow 11
+    // outskirts sectors (2026-07 numbering): Stormveil 1, Ashen Leaf 9,
+    // Frostfang 26, Moonshadow 17 — each village's block starts at its gate.
     const cases: Array<[string, number, number, string[]]> = [
-        ["Ashen Leaf Village", 38, 58, ["Elder Mori", "Toma Reed"]],
-        ["Frostfang Village", 47, 58, ["Captain Yura", "Elder Sova"]],
-        ["Moonshadow Village", 11, 58, ["Nyx", "Shade Master Iro"]],
+        ["Ashen Leaf Village", 9, 58, ["Elder Mori", "Toma Reed"]],
+        ["Frostfang Village", 26, 58, ["Captain Yura", "Elder Sova"]],
+        ["Moonshadow Village", 17, 58, ["Nyx", "Shade Master Iro"]],
     ];
     for (const [village, sector, level, expected] of cases) {
         const character = { level, storyVillage: village, storyProgress: 5, storyTraits: [] } as Character;
@@ -81,10 +82,10 @@ test("each village exposes its own reckoning NPCs at its outskirts", () => {
 test("cross-village Kite Harrow stands at any outskirts once own arc is done, and is gated below it", () => {
     const harrow = storyReckoningById("story-reckoning-harrow-unbought");
     assert.ok(harrow?.crossVillage);
-    // Eligible: level 65, progress 9, at a DIFFERENT village's outskirts (Frostfang 47).
+    // Eligible: level 65, progress 9, at a DIFFERENT village's outskirts (Frostfang 26).
     const ready = { level: 65, storyVillage: "Frostfang Village", storyProgress: 9, storyTraits: [] } as Character;
-    assert.ok(visibleStoryReckonings(ready, 47).some((w) => w.name === "Kite Harrow"), "Harrow should appear cross-village when eligible");
+    assert.ok(visibleStoryReckonings(ready, 26).some((w) => w.name === "Kite Harrow"), "Harrow should appear cross-village when eligible");
     // Gated: one progress short.
     const notYet = { level: 65, storyVillage: "Frostfang Village", storyProgress: 8, storyTraits: [] } as Character;
-    assert.ok(!visibleStoryReckonings(notYet, 47).some((w) => w.name === "Kite Harrow"), "Harrow should be hidden below the progress gate");
+    assert.ok(!visibleStoryReckonings(notYet, 26).some((w) => w.name === "Kite Harrow"), "Harrow should be hidden below the progress gate");
 });

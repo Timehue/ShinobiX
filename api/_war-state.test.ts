@@ -44,32 +44,32 @@ describe('war-state: normalize', () => {
         const r = normalizeVillageWarRecord('Ashen Leaf Village', {
             warResources: 9_999_999,
             structures: { ramparts: 99, watchtower: -5 } as never,
-            sectors: { '36': { winCondition: 'card', terrain: 'forest', controlHp: 10_000 } } as never,
+            sectors: { '9': { winCondition: 'card', terrain: 'forest', controlHp: 10_000 } } as never,
         });
         assert.equal(r.warResources, WR_POOL_CAP);
         assert.equal(r.structures.ramparts, VILLAGE_STRUCTURE_MAX_LEVEL);
         assert.equal(r.structures.watchtower, 0);
-        assert.equal(r.sectors['36'].controlHp, SECTOR_CONTROL_HP_MAX);
-        assert.equal(r.sectors['36'].winCondition, 'card');
-        assert.equal(r.sectors['36'].terrain, 'forest');
+        assert.equal(r.sectors['9'].controlHp, SECTOR_CONTROL_HP_MAX);
+        assert.equal(r.sectors['9'].winCondition, 'card');
+        assert.equal(r.sectors['9'].terrain, 'forest');
     });
 
     it('fills any missing home sectors and ignores foreign/unknown sectors', () => {
         const r = normalizeVillageWarRecord('Ashen Leaf Village', {
-            sectors: { '36': { winCondition: 'pet', terrain: 'volcano', controlHp: 300 }, '99': { winCondition: 'card' } } as never,
+            sectors: { '9': { winCondition: 'pet', terrain: 'volcano', controlHp: 300 }, '99': { winCondition: 'card' } } as never,
         });
         assert.equal(Object.keys(r.sectors).length, 8);        // all home sectors present
-        assert.equal(r.sectors['36'].controlHp, 300);          // provided value kept
-        assert.equal(r.sectors['37'].controlHp, SECTOR_CONTROL_HP_MAX); // missing → default
+        assert.equal(r.sectors['9'].controlHp, 300);           // provided value kept
+        assert.equal(r.sectors['10'].controlHp, SECTOR_CONTROL_HP_MAX); // missing → default
         assert.equal(r.sectors['99'], undefined);              // foreign sector dropped
     });
 
     it('bad win-condition / terrain fall back to safe defaults', () => {
         const r = normalizeVillageWarRecord('Ashen Leaf Village', {
-            sectors: { '36': { winCondition: 'hax', terrain: 'lava', controlHp: 300 } } as never,
+            sectors: { '9': { winCondition: 'hax', terrain: 'lava', controlHp: 300 } } as never,
         });
-        assert.equal(r.sectors['36'].winCondition, 'combat');
-        assert.equal(r.sectors['36'].terrain, 'volcano'); // biome fallback
+        assert.equal(r.sectors['9'].winCondition, 'combat');
+        assert.equal(r.sectors['9'].terrain, 'volcano'); // village-identity biome fallback
     });
 
     it('dedupes merc leases and drops malformed ones', () => {
@@ -178,9 +178,9 @@ describe('war-state: terrain quota (Kage 3 / elder 1)', () => {
     });
     it('normalize keeps terrainSetBy only for home sectors', () => {
         const r = normalizeVillageWarRecord('Frostfang Village', {
-            terrainSetBy: { '47': 'kage', '99': 'hacker' } as never,
+            terrainSetBy: { '26': 'kage', '99': 'hacker' } as never,
         });
-        assert.equal(r.terrainSetBy['47'], 'kage'); // 47 is a Frostfang home sector
+        assert.equal(r.terrainSetBy['26'], 'kage'); // 26 is a Frostfang home sector (the gate)
         assert.equal(r.terrainSetBy['99'], undefined); // foreign sector dropped
     });
 });

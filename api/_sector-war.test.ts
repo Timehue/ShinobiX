@@ -167,7 +167,7 @@ describe('sector-war: canDeclareSectorWar', () => {
     const base = {
         attackerVillage: 'Moonshadow Village',
         defenderVillage: 'Frostfang Village',
-        sector: 47, // a Frostfang home sector
+        sector: 26, // a Frostfang home sector (the gate, 2026-07 numbering)
         sectorOwnerVillage: 'Frostfang Village',
         winCondition: 'combat' as const,
         attackerInActiveVillageWar: false,
@@ -189,7 +189,7 @@ describe('sector-war: canDeclareSectorWar', () => {
     it('rejects self / non-war village / non-war sector', () => {
         assert.equal((canDeclareSectorWar({ ...base, defenderVillage: 'Moonshadow Village' }) as { error: string }).error, 'self');
         assert.equal((canDeclareSectorWar({ ...base, attackerVillage: 'Konoha' }) as { error: string }).error, 'not-war-village');
-        assert.equal((canDeclareSectorWar({ ...base, sector: 57 }) as { error: string }).error, 'not-war-sector'); // central, not a war sector
+        assert.equal((canDeclareSectorWar({ ...base, sector: 48 }) as { error: string }).error, 'not-war-sector'); // central keep, not a war sector
     });
     it('requires the target sector to currently be held by the defender', () => {
         assert.equal((canDeclareSectorWar({ ...base, sectorOwnerVillage: 'Moonshadow Village' }) as { error: string }).error, 'not-enemy-held');
