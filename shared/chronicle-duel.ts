@@ -3863,9 +3863,8 @@ export function createMatch(
     rngState: randomSeed || 0x9e3779b9,
     turnStartedAt: now,
   };
-  // Drawing, Standby bookkeeping, and the move into Main Phase 1 do not
-  // contain a player decision in the current rules. Resolve them immediately
-  // so a newly dealt game opens at the first meaningful decision.
+  // Resolve only the opening bookkeeping so a fresh duel begins at the first
+  // decision point. Later turns remain explicit through applyAction().
   return advanceAutomaticPhases(state, now).state;
 }
 
@@ -6261,9 +6260,8 @@ export function endTurn(
  * Resolve phases that contain no player choice in the current format.
  *
  * The low-level phase functions remain public for rules tests, replays, and
- * compatibility with an in-flight legacy projection. Normal application
- * actions use this helper so Draw -> Standby -> Main 1 and End -> next turn's
- * Main 1 happen as one authoritative server transition.
+ * compatibility with an in-flight legacy projection. Match creation uses this
+ * helper to reach the opening decision point; normal actions remain explicit.
  */
 export function advanceAutomaticPhases(
   state: ChronicleMatch,
@@ -7020,8 +7018,6 @@ export function applyAction(
 ): ChronicleResult {
   const result = applyActionOnce(state, actor, intent, now);
   if (!result.ok) return result;
-  const advanced = advanceAutomaticPhases(result.state, now);
-  if (!advanced.ok) return advanced;
-  appendActionPresentationEvents(state, advanced.state, actor, intent, now);
-  return advanced;
+  appendActionPresentationEvents(state, result.state, actor, intent, now);
+  return result;
 }

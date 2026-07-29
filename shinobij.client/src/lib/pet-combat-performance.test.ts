@@ -30,5 +30,5 @@ test("dash travel reacquires the opponent before contact", () => {
 test("ordinary quadruped travel can turn without ever facing away from combat", () => {
     const facing = resolveCombatBodyFacing({ faceX: 1, faceZ: 0, moveX: -1, moveZ: 0, motion: "run", motionAge: 1, allowTravelFacing: true });
     const alignment = facing[0];
-    assert.ok(alignment > 0.25, `body alignment ${alignment} should remain opponent-readable`);
+    assert.ok(alignment > 0.7, `body alignment ${alignment} should keep the opponent in its forward cone`);
 });
