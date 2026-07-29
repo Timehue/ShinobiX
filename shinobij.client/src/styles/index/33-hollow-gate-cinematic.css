@@ -46,7 +46,7 @@
     color: #fff;
     background: var(--hg-floor-accent-soft);
     box-shadow: 0 0 20px var(--hg-floor-accent-soft), inset 0 0 14px var(--hg-floor-accent-soft);
-    font: 800 20px/1 "Cinzel", Georgia, serif;
+    font: 800 20px/1 var(--font-display);
 }
 
 .hg-floor-identity__story,
@@ -169,7 +169,7 @@
 .hg-boss-cinematic h2 {
     margin: 0 0 14px;
     color: #fff;
-    font: 800 clamp(34px, 5vw, 66px)/0.94 "Cinzel", Georgia, serif;
+    font: 800 clamp(34px, 5vw, 66px)/0.94 var(--font-display);
     letter-spacing: -0.03em;
     text-wrap: balance;
 }
