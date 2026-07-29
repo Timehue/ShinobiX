@@ -154,7 +154,7 @@ import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
 import { FESTIVAL_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
-import { WorldRoadsOverlay, WorldVillagePlates } from "../components/WorldRoadsOverlay";
+import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
 import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkInEntryTile } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
@@ -2048,19 +2048,20 @@ export function WorldMap({
     const [chestVnLine, setChestVnLine] = useState(0);
     const [chestVnDone, setChestVnDone] = useState(false);
     const locations = [
-        // Each village marker anchors its gate sector's corner of the map
-        // (Stormveil gate 1 SW, Ashen Leaf gate 9 NW, Frostfang gate 26 NE,
-        // Moonshadow gate 17 SE — see shared/sector-geo.ts).
-        // The 2026-07 keyart paints a bare banner board at each village; the
-        // crest sits at the board's left edge and WorldVillagePlates draws the
-        // village name over the rest of the board (the painting carries no text).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 11, y: 82.5, art: stormveilLandmarkArt },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, art: ashenLeafLandmarkArt },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, art: frostfangLandmarkArt },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, art: moonshadowLandmarkArt },
-        { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
-        // Hollow Gate — the dark gothic spire painted just below the central citadel.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 49, y: 80, art: hollowGateLandmarkArt },
+        // Crest positions sit ON each settlement in the 2026-07 keyart: the
+        // pagoda cluster NW, the ice palace NE, the stilt harbour SW, the violet
+        // palace SE, the great keep at the centre and the obelisk shrine east of
+        // it. The painting carries no lettering — WorldPoiPlates draws the names
+        // just below each crest (see components/WorldRoadsOverlay.tsx).
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 16, y: 74, art: stormveilLandmarkArt },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 16, y: 20, art: ashenLeafLandmarkArt },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 76, y: 20, art: frostfangLandmarkArt },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 86, y: 64, art: moonshadowLandmarkArt },
+        { name: "Central", type: "central", biome: "central" as Biome, x: 48, y: 40, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
+        // Hollow Gate — the violet obelisk shrine east of the keep. Sector 57
+        // (Hollow Temple) sits just beside it and is map-travel-only, so this
+        // crest is the way in.
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 63, y: 65, art: hollowGateLandmarkArt },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
@@ -4529,23 +4530,27 @@ export function WorldMap({
                 {/* Per-nation biome atmosphere — a soft elemental glow over each
                     homeland so the four regions read at a glance. */}
                 {[
-                    { c: "volcano", x: 11, y: 37 },
-                    { c: "snow", x: 78, y: 37 },
-                    { c: "forest", x: 12, y: 84 },
-                    { c: "shadow", x: 75, y: 83 },
-                    { c: "central", x: 49, y: 45 },
+                    { c: "volcano", x: 16, y: 20 },
+                    { c: "snow", x: 76, y: 20 },
+                    { c: "forest", x: 16, y: 74 },
+                    { c: "shadow", x: 86, y: 64 },
+                    { c: "central", x: 48, y: 40 },
                 ].map((g) => (
                     <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
                 ))}
                 {/* The road graph + region name plates — the connective tissue
                     that makes the scattered sector markers read as one world. */}
                 <WorldRoadsOverlay />
-                {/* Village names lettered onto the keyart's bare banner boards
-                    (the 2026-07 painting carries no baked text). */}
-                <WorldVillagePlates />
+                {/* Name plaques for the eight headline places — the 2026-07
+                    keyart carries no baked lettering. */}
+                <WorldPoiPlates />
                 {/* Hovered (or in-flight) walking route from where the player
                     stands — the Albion-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
+                {/* Sea names are deliberately NOT drawn over the 2026-07 keyart:
+                    its coastline runs close to the frame on every side, so there
+                    is no open-water margin wide enough to letter without the
+                    label landing on land. Hidden in 11-sector-explore-….css. */}
                 <div className="sea-label sea-north">Hoppo Sea</div>
                 <div className="sea-label sea-east">Rimawari Ocean</div>
                 <div className="sea-label sea-south">Zubunure Sea</div>

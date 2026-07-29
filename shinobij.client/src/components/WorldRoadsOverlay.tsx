@@ -39,45 +39,52 @@ const ROADS = SECTOR_ROAD_PAIRS
 // Name plates for the connective regions. The four village homelands keep
 // their painted banners and Death's Gate its skull marker, so labeling them
 // again would double-caption the map. Hand-placed against the keyart.
+// Only the regions that DON'T already carry a POI plaque get a region label —
+// otherwise the map double-captions itself. The Castle City is named by "The
+// Gates", the Festival Grounds by "Sunscar Festival", the Hollow Road by
+// "Hollow Gate" and the Lavafront by "Death's Gate", so the two connective
+// regions with no landmark of their own are all that remain. Placed on open
+// ground in the 2026-07 keyart, clear of the sector pins.
 const REGION_LABEL_POINTS: ReadonlyArray<{ key: SectorRegionKey; x: number; y: number }> = [
-    { key: "frostborder", x: 71, y: 40 },
-    { key: "midlands", x: 34, y: 57 },
-    { key: "castle", x: 51, y: 52 },
-    { key: "festival", x: 48, y: 87 },
-    { key: "hollowroad", x: 58, y: 77 },
-    { key: "lavafront", x: 57, y: 30 },
+    { key: "frostborder", x: 65, y: 41 },
+    { key: "midlands", x: 25, y: 44 },
 ];
 
-// Village name plates over the bare banner boards baked into the 2026-07
-// keyart (the painting carries no text). Rendered in the art's own 1536x1024
-// pixel space so the lettering sits exactly on its board and zooms/stretches
-// in lockstep with the painting; textLength pins each name to the free run of
-// board to the right of its crest landmark. Not flag-gated — with no baked
-// text these names are load-bearing.
-const VILLAGE_BANNER_PLATES: ReadonlyArray<{ name: string; x: number; y: number; length: number }> = [
-    { name: "Ashen Leaf Village", x: 285, y: 385, length: 164 },
-    { name: "Frostfang Village", x: 1311, y: 383, length: 156 },
-    { name: "Stormveil Village", x: 297, y: 836, length: 170 },
-    { name: "Moonshadow Village", x: 1280, y: 839, length: 176 },
+// Name plaques for the eight headline places on the world keyart. The painting
+// deliberately carries no lettering, so these are load-bearing (not flag-gated)
+// — they are how a player reads the world. Positions are %-coordinates in the
+// same space as the sector markers, hand-placed just below each landmark so the
+// plate labels its feature without covering it.
+//
+// The `tag` line is flavour drawn from the canon village paths in
+// data/guides.ts; it is hidden on narrow screens (see world-map-charting.css)
+// so phones get a clean name-only plate.
+const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: number; y: number; tone?: string }> = [
+    { key: "deathsgate", name: "Death’s Gate", tag: "Endless ash — only the strongest walk in", x: 39, y: 9, tone: "ember" },
+    { key: "ashenleaf", name: "Ashen Leaf Village", tag: "The Traditional Path — discipline and the old ways", x: 14, y: 38, tone: "leaf" },
+    { key: "frostfang", name: "Frostfang Village", tag: "The Loyal Path — forged in ice, bound by unity", x: 79, y: 36, tone: "frost" },
+    { key: "gates", name: "The Gates", tag: "The neutral hub, where every road converges", x: 53, y: 66, tone: "gold" },
+    { key: "stormveil", name: "Stormveil Village", tag: "The Chaotic Path — a lawless proving ground", x: 18, y: 89, tone: "tide" },
+    { key: "hollowgate", name: "Hollow Gate", tag: "A sealed obelisk between worlds", x: 63, y: 79, tone: "violet" },
+    { key: "moonshadow", name: "Moonshadow Village", tag: "The Selfish Path — stealth, secrets and deception", x: 84, y: 87, tone: "violet" },
+    { key: "sunscar", name: "Sunscar Festival", tag: "A rest stop for weary travellers", x: 40, y: 92, tone: "sand" },
 ];
 
-export function WorldVillagePlates() {
+export function WorldPoiPlates() {
     return (
-        <svg className="world-village-plates-svg" viewBox="0 0 1536 1024" preserveAspectRatio="none" aria-hidden="true">
-            {VILLAGE_BANNER_PLATES.map((plate) => (
-                <text
-                    key={plate.name}
-                    className="world-village-plate"
-                    x={plate.x}
-                    y={plate.y}
-                    textAnchor="middle"
-                    textLength={plate.length}
-                    lengthAdjust="spacingAndGlyphs"
+        <>
+            {POI_PLATES.map((plate) => (
+                <span
+                    key={plate.key}
+                    className={"world-poi-plate" + (plate.tone ? ` wpp-${plate.tone}` : "")}
+                    style={{ left: `${plate.x}%`, top: `${plate.y}%` }}
+                    aria-hidden="true"
                 >
-                    {plate.name}
-                </text>
+                    <span className="world-poi-plate-name">{plate.name}</span>
+                    <span className="world-poi-plate-tag">{plate.tag}</span>
+                </span>
             ))}
-        </svg>
+        </>
     );
 }
 
