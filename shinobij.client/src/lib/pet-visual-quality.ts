@@ -1,4 +1,5 @@
 export type PetVisualQuality = "low" | "medium" | "high";
+export const PET_VISUAL_QUALITY_STORAGE_KEY = "petVisualQuality";
 
 export type PetVisualQualityConfig = {
     id: PetVisualQuality;
@@ -53,10 +54,15 @@ export function petVisualQuality(): PetVisualQualityConfig {
     if (typeof window === "undefined") return PET_VISUAL_QUALITY_PRESETS.medium;
     const query = new URLSearchParams(window.location.search).get("petQuality");
     let stored: string | null = null;
-    try { stored = window.localStorage.getItem("petVisualQuality"); } catch { /* storage may be unavailable */ }
+    try { stored = window.localStorage.getItem(PET_VISUAL_QUALITY_STORAGE_KEY); } catch { /* storage may be unavailable */ }
     if (query || stored) return resolvePetVisualQuality(query || stored);
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8);
     if (reduced || window.innerWidth <= 640 || memory <= 4) return PET_VISUAL_QUALITY_PRESETS.low;
     return PET_VISUAL_QUALITY_PRESETS.medium;
+}
+
+export function savePetVisualQuality(value: PetVisualQuality): void {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(PET_VISUAL_QUALITY_STORAGE_KEY, value); } catch { /* storage may be unavailable */ }
 }

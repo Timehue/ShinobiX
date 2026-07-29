@@ -8,6 +8,7 @@ import {
     appendCapped,
     boundedBurstStep,
     duelAttackDashBeats,
+    duelFinisherOutcome,
     duelHeroCutEligible,
     duelHeroCutEventIndexes,
     duelMoveOutcome,
@@ -182,4 +183,25 @@ test("impact strength gives light hits a floor and preserves heavy/critical hier
     assert.ok(critical > heavy);
     assert.equal(petDuelImpactStrength(Number.NaN, false), 0.48);
     assert.equal(petDuelImpactStrength(10, true), 1.25);
+});
+
+test("finisher anticipation only arms for an authoritative lethal payoff", () => {
+    const events = [
+        event({ t: 4, type: "windup", actorId: "player-0", targetId: "enemy-0", move: "Moon Fang" }),
+        event({ t: 10, type: "hit", actorId: "player-0", targetId: "enemy-0", move: "Moon Fang", dmg: 40 }),
+    ];
+    const lethalSnapshots = Array.from({ length: 11 }, (_, t) => ({
+        t,
+        projectiles: [],
+        actors: [{ id: "enemy-0", hp: t >= 10 ? 0 : 40 }],
+    })) as Parameters<typeof duelFinisherOutcome>[1];
+    const survivingSnapshots = Array.from({ length: 11 }, (_, t) => ({
+        t,
+        projectiles: [],
+        actors: [{ id: "enemy-0", hp: t >= 10 ? 15 : 40 }],
+    })) as Parameters<typeof duelFinisherOutcome>[1];
+
+    assert.equal(duelFinisherOutcome(events, lethalSnapshots, 0)?.resolveTick, 10);
+    assert.equal(duelFinisherOutcome(events, survivingSnapshots, 0), null);
+    assert.equal(duelFinisherOutcome([events[0], event({ t: 10, type: "whiff", actorId: "player-0" })], lethalSnapshots, 0), null);
 });

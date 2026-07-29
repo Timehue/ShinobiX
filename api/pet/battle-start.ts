@@ -17,7 +17,11 @@ import {
     validateHollowGatePetClaim,
     type HollowGateCombatBinding,
 } from '../hollow-gate/_combat-session.js';
-import { hollowGateHoundName, type HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
+import {
+    hollowGateHoundName,
+    isHollowHoundEncounterId,
+    type HollowGateHoundKind,
+} from '../../shared/hollow-gate-contract.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -100,7 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const runId = String(hollowGateBody.runId ?? '').slice(0, 96);
             const runToken = String(hollowGateBody.token ?? '').slice(0, 64);
             const requestedHoundId = opponentPetIds[0] ?? '';
-            if (!runId || !runToken || mode !== '1v1' || playerPets.length !== 1 || !/^mythic-4-\d{10,}$/.test(requestedHoundId)) {
+            if (!runId || !runToken || mode !== '1v1' || playerPets.length !== 1 || !isHollowHoundEncounterId(requestedHoundId)) {
                 return res.status(400).json({ error: 'Invalid Hollow Gate pet encounter.' });
             }
             const [binding, run] = await Promise.all([

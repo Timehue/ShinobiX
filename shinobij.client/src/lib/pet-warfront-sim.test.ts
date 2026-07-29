@@ -185,3 +185,30 @@ test("snapshots keep every entity inside the field bounds", () => {
         for (const m of s.mobs) { assert.ok(Math.abs(m.x) <= 44 && Math.abs(m.y) <= 24); }
     }
 });
+
+test("multi-seed balance soak stays bounded, contests objectives, and permits a comeback", () => {
+    const winners = new Set<string>();
+    let comebackObserved = false;
+    for (const seed of [3, 11, 83, 203]) {
+        const r = runWarfrontMatch(squad("A"), squad("B"), seed);
+        winners.add(r.winner);
+        assert.ok(r.ticks >= WARFRONT_TPS * 300, `seed ${seed} ended before the strategic game developed`);
+        assert.ok(r.ticks <= WARFRONT_TPS * WF_MAX_SECONDS);
+        assert.ok(r.events.some((event) => event.type === "wardenkill"), `seed ${seed} never contested the Gate Warden`);
+        assert.ok(r.events.some((event) => event.type === "minikill"), `seed ${seed} never recruited a Lesser Warden`);
+        for (let tick = 0; tick < r.snapshots.length; tick += WARFRONT_TPS * 15) {
+            const frame = r.snapshots[tick];
+            assert.ok(frame.mobs.filter((mob) => mob.side === "hollow").length <= 6);
+            assert.ok(frame.mobs.filter((mob) => mob.side === "blue").length <= 12);
+            assert.ok(frame.mobs.filter((mob) => mob.side === "red").length <= 12);
+            for (const actor of frame.actors) {
+                assert.ok(Number.isFinite(actor.x) && Number.isFinite(actor.y) && Number.isFinite(actor.hp));
+            }
+        }
+        const midpoint = r.snapshots[Math.min(r.snapshots.length - 1, WARFRONT_TPS * 300)];
+        if (r.winner === "blue" && midpoint.coins.blue < midpoint.coins.red) comebackObserved = true;
+        if (r.winner === "red" && midpoint.coins.red < midpoint.coins.blue) comebackObserved = true;
+    }
+    assert.deepEqual([...winners].sort(), ["blue", "red"], "mirror balance should permit either side to win");
+    assert.equal(comebackObserved, true, "an early economy deficit must not make the match unwinnable");
+});
