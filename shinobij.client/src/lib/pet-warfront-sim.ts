@@ -73,6 +73,7 @@ const WARDEN_RESET_DELAY = WARFRONT_TPS * 6;
 const MINI_HP = 1400;
 const MINI_DMG = 90;
 const MINI_CD = Math.round(WARFRONT_TPS * 1.2);
+const MINI_ATTACK_ANIM_TICKS = Math.round(WARFRONT_TPS * 0.4);
 const MINI_AGGRO = 4.5;   // a WIDE neutral aggro so passers-by get pulled into a camp fight
 const MINI_FIRST_SPAWN = WARFRONT_TPS * WF_PHASE_SKIRMISH;   // camps unlock with the Skirmish phase
 const MINI_RESPAWN = WARFRONT_TPS * 75;
@@ -85,6 +86,7 @@ const MOB_HP = 240;
 const MOB_DMG_PET = 26;
 const MOB_DMG_STRUCT = 40;
 const MOB_CD = Math.round(WARFRONT_TPS * 1.1);
+const MOB_ATTACK_ANIM_TICKS = Math.round(WARFRONT_TPS * 0.34);
 const MOB_SPEED = 2.0 / WARFRONT_TPS;
 const MOB_EVERY = WARFRONT_TPS * 12;   // hollow raiders from the breach
 const MOB_CAP = 6;                     // hollow raiders alive at once
@@ -306,17 +308,35 @@ interface WfPet {
     shieldHp: number; markLeft: number;
 }
 interface WfStatue { x: number; y: number; hp: number; alive: boolean; attackCd: number }
-interface WfGuardian { x: number; y: number; hp: number; maxHp: number; alive: boolean; attackCd: number; faceX: number; shotCount: number }
+interface WfGuardian {
+    x: number; y: number; hp: number; maxHp: number; alive: boolean;
+    attackCd: number; faceX: number; shotCount: number;
+    rallyLeft: number; rallyPulse: number;
+}
 const GUARD_HP = 2200;
 const GUARD_DMG_PET = 120;
 const GUARD_DMG_MOB = 160;
 const GUARD_RANGE = 5.5;
 const GUARD_CD = Math.round(WARFRONT_TPS * 1.1);
+const GUARD_ATTACK_ANIM_TICKS = Math.round(WARFRONT_TPS * 0.32);
+const GUARD_RALLY_RANGE = 8;
+const GUARD_RALLY_CD = Math.round(WARFRONT_TPS * 0.65);
+const GUARD_RALLY_DURATION = WARFRONT_TPS * 16;
+const GUARD_RALLY_WARD_EVERY = WARFRONT_TPS * 4;
+// The rally is a magical lane relay, not a melee aura: each surviving post can
+// project a ward all the way up its own lane behind the captured Warden's push.
+const GUARD_RALLY_WARD_RANGE = 50;
 export const WF_COIN_GUARD = 250;
 interface WfCore { x: number; y: number; hp: number; alive: boolean; sinceHit: number }
 interface WfMob { id: number; side: Team | "hollow"; elite: boolean; lane: WfLaneId; x: number; y: number; hp: number; maxHp: number; toward: Team; route: Array<[number, number]>; wpIdx: number; attackCd: number; chaseId: string | null }
 interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; phase: 1 | 2 | 3; calmTicks: number }
-interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number; boonCd: number; ally: Team | null; allyLeft: number; targetId: string | null }
+interface WfMini {
+    padIdx: number; alive: boolean; hp: number; spawnIn: number;
+    x: number; y: number; homeX: number; homeY: number; faceX: number;
+    attackCd: number; sigCd: number; sigWind: number; sigActive: number; boonCd: number;
+    ally: Team | null; allyLeft: number; targetId: string | null;
+    path: number[] | null; pathIdx: number; navGoal: number;
+}
 
 // ── Snapshots + events (the renderer contract) ───────────────────────────────
 export interface WfActorSnap {
@@ -329,15 +349,18 @@ export interface WfStructSnap { statues: Array<{ x: number; y: number; hp: numbe
 export interface WfSnapshot {
     t: number;
     actors: WfActorSnap[];
-    mobs: Array<{ id: number; side: Team | "hollow"; elite: boolean; x: number; y: number; hp: number; maxHp: number; toward: Team }>;
-    guardians: Record<Team, Array<{ x: number; y: number; hp: number; maxHp: number; alive: boolean; faceX: number }>>;
+    mobs: Array<{ id: number; side: Team | "hollow"; elite: boolean; x: number; y: number; hp: number; maxHp: number; toward: Team; attackPhase: number }>;
+    guardians: Record<Team, Array<{
+        x: number; y: number; hp: number; maxHp: number; alive: boolean; faceX: number;
+        rallySecs: number; attackPhase: number;
+    }>>;
     wardenBuff: { team: Team | null; secs: number };
     warden: {
         alive: boolean; dead: boolean; hp: number; maxHp: number; x: number; y: number; faceX: number;
         winding: boolean; windupSecs: number; slamRadius: number; phase: 1 | 2 | 3; resetSecs: number; resetting: boolean;
         damage: Record<Team, number>;
     };
-    minis: Array<{ padIdx: number; alive: boolean; hp: number; maxHp: number; spawnSecs: number; allySecs: number; x: number; y: number; faceX: number; ally: Team | null }>;
+    minis: Array<{ padIdx: number; alive: boolean; hp: number; maxHp: number; spawnSecs: number; allySecs: number; x: number; y: number; faceX: number; ally: Team | null; attackPhase: number }>;
     structures: Record<Team, WfStructSnap>;
     coins: Record<Team, number>;
     atkBuff: Record<Team, number>;   // lesser-warden buff seconds remaining
@@ -372,6 +395,8 @@ export type WfEvent =
     | { t: number; type: "miniboon"; padIdx: number; team: Team; kind: "shield" | "heal" | "hunt" | "siege"; x: number; y: number }
     | { t: number; type: "mobwave" }
     | { t: number; type: "buy"; team: Team; petId: string; kind: WfPowerupKind; cost: number }
+    | { t: number; type: "guardianrally"; team: Team; padIdx: number; secs: number }
+    | { t: number; type: "guardianward"; team: Team; idx: number; targetId: string; amount: number; x: number; y: number }
     | { t: number; type: "petlevel"; petId: string; level: number }
     | { t: number; type: "guardiandown"; team: Team; idx: number; by: Team }
     | { t: number; type: "ultimate"; petId: string; kind: string; x: number; y: number }
@@ -468,8 +493,14 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
         t: 0, rng: makeRng(seed), pets,
         statues,
         guardians: {
-            blue: WF_GUARD_POSTS.blue.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: 1, shotCount: 0 })),
-            red: WF_GUARD_POSTS.red.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: -1, shotCount: 0 })),
+            blue: WF_GUARD_POSTS.blue.map(([gx, gy]) => ({
+                x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true,
+                attackCd: 0, faceX: 1, shotCount: 0, rallyLeft: 0, rallyPulse: 0,
+            })),
+            red: WF_GUARD_POSTS.red.map(([gx, gy]) => ({
+                x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true,
+                attackCd: 0, faceX: -1, shotCount: 0, rallyLeft: 0, rallyPulse: 0,
+            })),
         },
         wardenBuff: { team: null, left: 0 },
         rally: { blue: 0, red: 0 },
@@ -479,7 +510,7 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
         },
         boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, phase: 1, calmTicks: 0 },
         minis: WF_PADS.map((pad, i) => ({
-            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, boonCd: WARFRONT_TPS * (2 + i), ally: null, allyLeft: 0, targetId: null,
+            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, boonCd: WARFRONT_TPS * (2 + i), ally: null, allyLeft: 0, targetId: null, path: null, pathIdx: 0, navGoal: -1,
         })) as unknown as WfState["minis"],
         mobs: [], mobSeq: 0, mobTimer: WARFRONT_TPS * 10, mobFlip: false, waveTimer: WARFRONT_TPS * 8,
         coins: { blue: 150, red: 150 }, coinFrac: 0,
@@ -1221,7 +1252,7 @@ function petTick(st: WfState, p: WfPet) {
                     }
                     if (m.hp <= 0 && m.alive) {
                         // RECRUITED, not despawned — it fights for the slayer's team.
-                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0; m.boonCd = WARFRONT_TPS * 2; m.targetId = null;
+                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0; m.boonCd = WARFRONT_TPS * 2; m.targetId = null; m.path = null; m.pathIdx = 0; m.navGoal = -1;
                         st.coins[p.team] += WF_COIN_MINI;
                         p.coinsEarned += WF_COIN_MINI;
                         grantXp(st, p, 180);
@@ -1249,6 +1280,7 @@ function petTick(st: WfState, p: WfPet) {
                         }
                         if (m.padIdx === 3) st.eliteWaveOwed[p.team] = true;
                         st.events.push({ t: st.t, type: "minikill", padIdx: m.padIdx, team: p.team });
+                        activateGuardianRally(st, p.team, m.padIdx);
                     }
                 }
             } else {
@@ -1452,9 +1484,48 @@ function statueTick(st: WfState, team: Team, idx: number) {
 function guardianTick(st: WfState, team: Team, idx: number) {
     const g = st.guardians[team][idx];
     if (!g.alive) return;
+    const rallying = g.rallyLeft > 0;
+    if (rallying) {
+        g.rallyLeft--;
+        g.rallyPulse--;
+        if (g.rallyPulse <= 0) {
+            let ally: WfPet | null = null;
+            let need = -Infinity;
+            for (const p of st.pets) {
+                if (p.team !== team || p.state === "respawning") continue;
+                const d = hyp2(p.x - g.x, p.y - g.y);
+                if (d > GUARD_RALLY_WARD_RANGE || Math.abs(p.y - g.y) > 7.5) continue;
+                const score = 1 - (p.hp + p.shieldHp) / Math.max(1, p.maxHp) - d * 0.002;
+                if (score > need) { need = score; ally = p; }
+            }
+            if (ally) {
+                const ward = Math.round(ally.maxHp * 0.08);
+                const wardCap = Math.round(ally.maxHp * 0.24);
+                const amount = Math.min(ward, Math.max(0, wardCap - ally.shieldHp));
+                if (amount > 0) {
+                    ally.shieldHp += amount;
+                    g.rallyPulse = GUARD_RALLY_WARD_EVERY;
+                    st.events.push({
+                        t: st.t, type: "guardianward", team, idx, targetId: ally.id,
+                        amount, x: quant(g.x), y: quant(g.y),
+                    });
+                } else {
+                    g.rallyPulse = WARFRONT_TPS;
+                }
+            } else {
+                // No lane ally is in range yet; retry soon instead of wasting the
+                // entire four-second support cadence.
+                g.rallyPulse = WARFRONT_TPS;
+            }
+        }
+    }
     if (g.attackCd > 0) { g.attackCd--; return; }
+    // A War Council purchase overcharges surviving sentinels: they project
+    // farther into the lane and fire faster while the rally is active.
+    const range = rallying ? GUARD_RALLY_RANGE : GUARD_RANGE;
+    const attackCd = rallying ? GUARD_RALLY_CD : GUARD_CD;
     // Enemy minions first (turret discipline), then pets.
-    let mob: WfMob | null = null, md = GUARD_RANGE;
+    let mob: WfMob | null = null, md = range;
     for (const m of st.mobs) {
         if (m.side === team) continue;
         const d = hyp2(m.x - g.x, m.y - g.y);
@@ -1462,14 +1533,14 @@ function guardianTick(st: WfState, team: Team, idx: number) {
     }
     if (mob) {
         g.faceX = mob.x >= g.x ? 1 : -1;
-        g.attackCd = GUARD_CD;
+        g.attackCd = attackCd;
         g.shotCount++;
         mob.hp -= GUARD_DMG_MOB;
         st.events.push({ t: st.t, type: "mobhit", x: quant(mob.x), y: quant(mob.y), targetId: `guard-${team}-${idx}` });
         if (mob.hp <= 0) mobDown(st, mob, null);
         return;
     }
-    let pet: WfPet | null = null, pd = GUARD_RANGE;
+    let pet: WfPet | null = null, pd = range;
     for (const p of st.pets) {
         if (p.team === team || p.state === "respawning") continue;
         const d = hyp2(p.x - g.x, p.y - g.y);
@@ -1477,7 +1548,7 @@ function guardianTick(st: WfState, team: Team, idx: number) {
     }
     if (pet) {
         g.faceX = pet.x >= g.x ? 1 : -1;
-        g.attackCd = GUARD_CD;
+        g.attackCd = attackCd;
         // Every 6th shot is a CHARGED bolt (1.8×, flagged crit so it renders big
         // + shakes) — the sentinel reads as a dangerous turret, not scenery.
         const heavy = (++g.shotCount % 6 === 0);
@@ -1620,13 +1691,55 @@ function bossTick(st: WfState) {
 }
 
 // A recruited boss marches faster than it prowls — it's ON the offensive.
-function miniAllyStep(st: WfState, m: WfMini, tx: number, ty: number) {
-    const dx = tx - m.x, dy = ty - m.y, d = hyp2(dx, dy);
-    if (d < 0.05) return;
-    const step = Math.min(1.5 / WARFRONT_TPS, d);
-    const nx = m.x + (dx / d) * step, ny = m.y + (dy / d) * step;
-    const [cc, cr] = cellOf(nx, ny);
-    if (wfCellWalkable(cc, cr)) { m.x = nx; m.y = ny; m.faceX = dx >= 0 ? 1 : -1; }
+/** Path-following for camp bosses. Their old direct-line step simply stopped
+ * whenever a tree/rock cell sat between the den and patrol target, leaving the
+ * model planted in its spawn forever. The same sticky two-cell retarget rule as
+ * pets prevents a moving escort target from making the route flip every tick. */
+function miniNavigate(m: WfMini, tx: number, ty: number, speed: number) {
+    const [gc, gr] = nearestWalkableCell(tx, ty);
+    const goal = gr * WF_COLS + gc;
+    const oldGoalC = m.navGoal >= 0 ? m.navGoal % WF_COLS : -99;
+    const oldGoalR = m.navGoal >= 0 ? Math.floor(m.navGoal / WF_COLS) : -99;
+    const goalMovedFar = Math.max(Math.abs(gc - oldGoalC), Math.abs(gr - oldGoalR)) > 1;
+    let reachedPathEnd = false;
+    if (m.path?.length) {
+        const end = m.path[m.path.length - 1];
+        const [endX, endY] = cellCenter(end % WF_COLS, Math.floor(end / WF_COLS));
+        reachedPathEnd = m.pathIdx >= m.path.length - 1 && hyp2(endX - m.x, endY - m.y) < 0.1;
+    }
+    if (!m.path || m.pathIdx >= m.path.length
+        || (m.navGoal !== goal && (goalMovedFar || reachedPathEnd))) {
+        m.path = findPath(m.x, m.y, tx, ty);
+        m.pathIdx = 0;
+        m.navGoal = goal;
+    }
+    if (!m.path?.length) return;
+    let [wx, wy] = cellCenter(m.path[m.pathIdx] % WF_COLS, Math.floor(m.path[m.pathIdx] / WF_COLS));
+    let dx = wx - m.x, dy = wy - m.y, d = hyp2(dx, dy);
+    while (d < 0.22 && m.pathIdx < m.path.length - 1) {
+        m.pathIdx++;
+        [wx, wy] = cellCenter(m.path[m.pathIdx] % WF_COLS, Math.floor(m.path[m.pathIdx] / WF_COLS));
+        dx = wx - m.x; dy = wy - m.y; d = hyp2(dx, dy);
+    }
+    if (m.pathIdx >= m.path.length - 1 && d < 0.08) return;
+    if (d <= 1e-6) return;
+    const step = Math.min(speed / WARFRONT_TPS, d);
+    const sx = (dx / d) * step, sy = (dy / d) * step;
+    const [cc, cr] = cellOf(m.x + sx, m.y + sy);
+    if (wfCellWalkable(cc, cr)) { m.x += sx; m.y += sy; }
+    else {
+        const [xc, xr] = cellOf(m.x + sx, m.y);
+        if (wfCellWalkable(xc, xr)) m.x += sx;
+        else {
+            const [yc, yr] = cellOf(m.x, m.y + sy);
+            if (wfCellWalkable(yc, yr)) m.y += sy;
+        }
+    }
+    m.faceX = dx >= 0 ? 1 : -1;
+}
+
+function miniAllyStep(_st: WfState, m: WfMini, tx: number, ty: number) {
+    miniNavigate(m, tx, ty, 1.5);
 }
 
 function miniStrike(st: WfState, m: WfMini, q: WfPet, mult: number) {
@@ -1639,6 +1752,24 @@ function miniStrike(st: WfState, m: WfMini, q: WfPet, mult: number) {
         q.respawnLeft = RESPAWN_BASE + Math.floor(st.t / (WARFRONT_TPS * 60)) * RESPAWN_PER_MIN;
         st.events.push({ t: st.t, type: "kill", targetId: q.id, actorId: `mini-${m.padIdx}`, team: other(q.team) });
     }
+}
+
+function miniStrikeMob(st: WfState, m: WfMini, mob: WfMob) {
+    mob.hp -= Math.round(MINI_DMG * 1.6);
+    st.events.push({
+        t: st.t, type: "mobhit", x: quant(mob.x), y: quant(mob.y),
+        targetId: `mini-${m.padIdx}`,
+    });
+    if (mob.hp > 0) return;
+    if (m.ally) {
+        const pay = mob.side === "hollow" ? WF_COIN_MOB : WF_COIN_MINION;
+        st.coins[m.ally] += pay;
+        st.events.push({
+            t: st.t, type: "mobkill", mobId: mob.id,
+            x: quant(mob.x), y: quant(mob.y), team: m.ally,
+        });
+    }
+    st.mobs = st.mobs.filter((candidate) => candidate !== mob);
 }
 
 function miniTarget(
@@ -1673,7 +1804,7 @@ function miniTick(st: WfState, m: WfMini) {
     if (!m.alive) {
         m.spawnIn--;
         if (m.spawnIn <= 0) {
-            m.alive = true; m.hp = MINI_HP; m.targetId = null;
+            m.alive = true; m.hp = MINI_HP; m.targetId = null; m.path = null; m.pathIdx = 0; m.navGoal = -1;
             // Respawn at a JITTERED den in the quadrant (deterministic — the
             // seeded rng), so the camp reads wild, not scripted.
             const [px2, py2] = WF_PADS[m.padIdx];
@@ -1691,7 +1822,7 @@ function miniTick(st: WfState, m: WfMini) {
     // fight. (Deterministic; no structure damage — its value is winning fights.)
     if (m.ally) {
         m.allyLeft--;
-        if (m.allyLeft <= 0) { m.alive = false; m.ally = null; m.spawnIn = MINI_RESPAWN; m.targetId = null; return; }
+        if (m.allyLeft <= 0) { m.alive = false; m.ally = null; m.spawnIn = MINI_RESPAWN; m.targetId = null; m.path = null; m.pathIdx = 0; m.navGoal = -1; return; }
         m.hp = Math.min(MINI_HP, m.hp + 0.4);   // slow sustain so it lasts the tour
         if (m.attackCd > 0) m.attackCd--;
         if (m.boonCd > 0) m.boonCd--;
@@ -1732,14 +1863,45 @@ function miniTick(st: WfState, m: WfMini) {
             if (td <= 1.9) { if (m.attackCd <= 0) { m.attackCd = MINI_CD; miniStrike(st, m, tgt, 1.3); } }
             else miniAllyStep(st, m, tgt.x, tgt.y);
         } else {
-            // No enemy near → escort the ally team's most-forward pet.
-            let esc: WfPet | null = null, ed = Infinity;
-            for (const a of st.pets) {
-                if (a.team !== m.ally || a.state === "respawning") continue;
-                const dc = hyp2(a.x - st.cores[foeT].x, a.y - st.cores[foeT].y);
-                if (dc < ed) { ed = dc; esc = a; }
+            // VANGUARD DUTY: clear the hostile wave before following the team's
+            // nearest marching wave. This makes a capture visibly turn lane
+            // pressure instead of producing a boss that shadows one pet.
+            let hostileMob: WfMob | null = null, hostileDistance = 9;
+            for (const mob of st.mobs) {
+                if (mob.side === m.ally) continue;
+                const distance = hyp2(mob.x - m.x, mob.y - m.y);
+                if (distance < hostileDistance) { hostileDistance = distance; hostileMob = mob; }
             }
-            if (esc) miniAllyStep(st, m, esc.x, esc.y);
+            if (hostileMob) {
+                m.faceX = hostileMob.x >= m.x ? 1 : -1;
+                if (hostileDistance <= 2.1) {
+                    if (m.attackCd <= 0) {
+                        m.attackCd = MINI_CD;
+                        miniStrikeMob(st, m, hostileMob);
+                    }
+                } else {
+                    miniAllyStep(st, m, hostileMob.x, hostileMob.y);
+                }
+                return;
+            }
+            let escortMob: WfMob | null = null, escortDistance = 18;
+            for (const mob of st.mobs) {
+                if (mob.side !== m.ally) continue;
+                const distance = hyp2(mob.x - m.x, mob.y - m.y);
+                if (distance < escortDistance) { escortDistance = distance; escortMob = mob; }
+            }
+            if (escortMob) {
+                miniAllyStep(st, m, escortMob.x, escortMob.y);
+                return;
+            }
+            // Between waves, regroup with the ally team's most-forward pet.
+            let escortPet: WfPet | null = null, enemyCoreDistance = Infinity;
+            for (const ally of st.pets) {
+                if (ally.team !== m.ally || ally.state === "respawning") continue;
+                const distance = hyp2(ally.x - st.cores[foeT].x, ally.y - st.cores[foeT].y);
+                if (distance < enemyCoreDistance) { enemyCoreDistance = distance; escortPet = ally; }
+            }
+            if (escortPet) miniAllyStep(st, m, escortPet.x, escortPet.y);
         }
         return;
     }
@@ -1790,7 +1952,7 @@ function miniTick(st: WfState, m: WfMini) {
             const db = hyp2(tgt.x - m.x, tgt.y - m.y) || 1;
             const bx = tgt.x + ((tgt.x - m.x) / db) * 1.1, by = tgt.y + ((tgt.y - m.y) / db) * 1.1;
             const [bc2, br2] = cellOf(bx, by);
-            if (wfCellWalkable(bc2, br2)) { m.x = bx; m.y = by; }
+            if (wfCellWalkable(bc2, br2)) { m.x = bx; m.y = by; m.path = null; m.navGoal = -1; }
             st.events.push({ t: st.t, type: "bosssig", padIdx: 2, kind: "blink", x: quant(m.x), y: quant(m.y) });
         } else if (m.padIdx === 3) {
             // FLAME GOUT — a forward cone of fire.
@@ -1824,17 +1986,11 @@ function miniTick(st: WfState, m: WfMini) {
         if ((st.t + m.padIdx * 90) % (WARFRONT_TPS * 15) === 0) {
             st.events.push({ t: st.t, type: "bosssig", padIdx: m.padIdx, kind: "roar", x: quant(m.x), y: quant(m.y) });
         }
-        // Prowl a slow deterministic loop around the den (mask-checked).
+        // Prowl a slow deterministic loop around the den. miniNavigate routes
+        // around bordering rocks/trees instead of freezing against them.
         const ang = (st.t / WARFRONT_TPS) * 0.16 + m.padIdx * 1.9;
         const gx2 = m.homeX + dcos(ang) * 1.5, gy2 = m.homeY + dsin(ang) * 1.1;
-        const ddx = gx2 - m.x, ddy = gy2 - m.y;
-        const dd = hyp2(ddx, ddy);
-        if (dd > 0.08) {
-            const step = Math.min(0.7 / WARFRONT_TPS, dd);
-            const nx2 = m.x + (ddx / dd) * step, ny2 = m.y + (ddy / dd) * step;
-            const [cc2, cr2] = cellOf(nx2, ny2);
-            if (wfCellWalkable(cc2, cr2)) { m.x = nx2; m.y = ny2; m.faceX = ddx >= 0 ? 1 : -1; }
-        }
+        miniNavigate(m, gx2, gy2, 0.7);
         return;
     }
     m.faceX = tgt.x >= m.x ? 1 : -1;
@@ -1852,7 +2008,7 @@ function miniTick(st: WfState, m: WfMini) {
     } else {
         const step = 1.0 / WARFRONT_TPS;
         const nx = m.x + ((tgt.x - m.x) / td) * step, ny = m.y + ((tgt.y - m.y) / td) * step;
-        const [cc, cr] = cellOf(nx, ny);   // wall-checked — wider aggro must not chase onto rock
+        const [cc, cr] = cellOf(nx, ny);
         if (wfCellWalkable(cc, cr)) { m.x = nx; m.y = ny; }
     }
 }
@@ -2133,7 +2289,13 @@ function snapshot(st: WfState): WfSnapshot {
             statuses: [...(p.markLeft > 0 ? ["mark"] : []), ...(p.slowLeft > 0 ? ["slow"] : []), ...(p.rootLeft > 0 ? ["root"] : [])],
             shielded: p.shieldHp > 0,
         })),
-        mobs: st.mobs.map((m) => ({ id: m.id, side: m.side, elite: m.elite, x: quant(m.x), y: quant(m.y), hp: Math.round(m.hp), maxHp: Math.round(m.maxHp), toward: m.toward })),
+        mobs: st.mobs.map((m) => ({
+            id: m.id, side: m.side, elite: m.elite, x: quant(m.x), y: quant(m.y),
+            hp: Math.round(m.hp), maxHp: Math.round(m.maxHp), toward: m.toward,
+            attackPhase: m.attackCd > MOB_CD - MOB_ATTACK_ANIM_TICKS
+                ? quant((MOB_CD - m.attackCd) / MOB_ATTACK_ANIM_TICKS)
+                : -1,
+        })),
         warden: {
             alive: st.boss.alive,
             dead: st.boss.dead,
@@ -2163,6 +2325,9 @@ function snapshot(st: WfState): WfSnapshot {
             y: quant(m.y),
             faceX: m.faceX,
             ally: m.ally,
+            attackPhase: m.attackCd > MINI_CD - MINI_ATTACK_ANIM_TICKS
+                ? quant((MINI_CD - m.attackCd) / MINI_ATTACK_ANIM_TICKS)
+                : -1,
         })),
         structures: {
             blue: {
@@ -2175,8 +2340,28 @@ function snapshot(st: WfState): WfSnapshot {
             },
         },
         guardians: {
-            blue: st.guardians.blue.map((g) => ({ x: g.x, y: g.y, hp: Math.max(0, Math.round(g.hp)), maxHp: g.maxHp, alive: g.alive, faceX: g.faceX })),
-            red: st.guardians.red.map((g) => ({ x: g.x, y: g.y, hp: Math.max(0, Math.round(g.hp)), maxHp: g.maxHp, alive: g.alive, faceX: g.faceX })),
+            blue: st.guardians.blue.map((g) => {
+                const attackCd = g.rallyLeft > 0 ? GUARD_RALLY_CD : GUARD_CD;
+                return {
+                    x: g.x, y: g.y, hp: Math.max(0, Math.round(g.hp)), maxHp: g.maxHp,
+                    alive: g.alive, faceX: g.faceX,
+                    rallySecs: quant(Math.max(0, g.rallyLeft) / WARFRONT_TPS),
+                    attackPhase: g.attackCd > attackCd - GUARD_ATTACK_ANIM_TICKS
+                        ? quant((attackCd - g.attackCd) / GUARD_ATTACK_ANIM_TICKS)
+                        : -1,
+                };
+            }),
+            red: st.guardians.red.map((g) => {
+                const attackCd = g.rallyLeft > 0 ? GUARD_RALLY_CD : GUARD_CD;
+                return {
+                    x: g.x, y: g.y, hp: Math.max(0, Math.round(g.hp)), maxHp: g.maxHp,
+                    alive: g.alive, faceX: g.faceX,
+                    rallySecs: quant(Math.max(0, g.rallyLeft) / WARFRONT_TPS),
+                    attackPhase: g.attackCd > attackCd - GUARD_ATTACK_ANIM_TICKS
+                        ? quant((attackCd - g.attackCd) / GUARD_ATTACK_ANIM_TICKS)
+                        : -1,
+                };
+            }),
         },
         wardenBuff: { team: st.wardenBuff.team, secs: Math.ceil(st.wardenBuff.left / WARFRONT_TPS) },
         coins: { blue: Math.round(st.coins.blue), red: Math.round(st.coins.red) },
@@ -2284,6 +2469,25 @@ function tick(st: WfState) {
 
 // ── Buying ───────────────────────────────────────────────────────────────────
 const KIND_IDX: Record<WfPowerupKind, number> = { strike: 0, guard: 1, vitality: 2, swift: 3, mend: 4 };
+
+/** Capturing a Lesser Warden issues a map-wide field order: surviving
+ * sentinels repair slightly, overcharge their lane coverage, and begin warding
+ * nearby allied pets while the captured boss leads the counter-push. */
+function activateGuardianRally(st: WfState, team: Team, padIdx: number) {
+    const living = st.guardians[team].filter((guardian) => guardian.alive);
+    if (living.length === 0) return;
+    for (const guardian of living) {
+        guardian.rallyLeft = Math.max(guardian.rallyLeft, GUARD_RALLY_DURATION);
+        guardian.rallyPulse = 1;
+        guardian.attackCd = 0;
+        guardian.hp = Math.min(guardian.maxHp, guardian.hp + Math.round(guardian.maxHp * 0.06));
+    }
+    st.events.push({
+        t: st.t, type: "guardianrally", team, padIdx,
+        secs: Math.ceil(GUARD_RALLY_DURATION / WARFRONT_TPS),
+    });
+}
+
 function applyPowerup(st: WfState, team: Team, petSlot: number, kind: WfPowerupKind): boolean {
     const pet = st.pets.find((p) => p.team === team && p.slot === petSlot);
     if (!pet) return false;

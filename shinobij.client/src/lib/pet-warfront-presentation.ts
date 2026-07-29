@@ -18,6 +18,59 @@ export type WarfrontMvpCandidate = Readonly<{
     coins: number;
 }>;
 
+export type WarfrontMotionFilterState = {
+    initialized: boolean;
+    x: number;
+    z: number;
+    vx: number;
+    vz: number;
+};
+
+export function createWarfrontMotionFilter(): WarfrontMotionFilterState {
+    return { initialized: false, x: 0, z: 0, vx: 0, vz: 0 };
+}
+
+/**
+ * Low-pass the authoritative 30 Hz position stream without changing gameplay.
+ * The position stage removes single-tick A-to-B-to-A corrections; the velocity
+ * stage keeps model facing and locomotion clips from reacting to the remainder.
+ * Both coefficients are frame-rate independent.
+ */
+export function advanceWarfrontMotionFilter(
+    state: WarfrontMotionFilterState,
+    targetX: number,
+    targetZ: number,
+    delta: number,
+    snap = false,
+): WarfrontMotionFilterState {
+    const dt = Math.max(1 / 240, Math.min(0.05, Number.isFinite(delta) ? delta : 1 / 60));
+    if (!state.initialized || snap || !Number.isFinite(state.x) || !Number.isFinite(state.z)) {
+        state.initialized = true;
+        state.x = targetX;
+        state.z = targetZ;
+        state.vx = 0;
+        state.vz = 0;
+        return state;
+    }
+    const previousX = state.x;
+    const previousZ = state.z;
+    const positionAlpha = 1 - Math.pow(0.82, Math.min(3, dt * 60));
+    state.x += (targetX - state.x) * positionAlpha;
+    state.z += (targetZ - state.z) * positionAlpha;
+    const rawVx = (state.x - previousX) / dt;
+    const rawVz = (state.z - previousZ) / dt;
+    const velocityAlpha = 1 - Math.pow(0.88, Math.min(3, dt * 60));
+    state.vx += (rawVx - state.vx) * velocityAlpha;
+    state.vz += (rawVz - state.vz) * velocityAlpha;
+    if (Math.abs(state.vx) < 0.015) state.vx = 0;
+    if (Math.abs(state.vz) < 0.015) state.vz = 0;
+    return state;
+}
+
+export function warfrontMotionFilterSpeed(state: WarfrontMotionFilterState): number {
+    return Math.hypot(state.vx, state.vz);
+}
+
 /** MVP values decisive contributions instead of simply awarding the damage
  * crown. Kills, assists, and economy can now surface a tank/support who enabled
  * the winning push while damage remains the strongest single component. */

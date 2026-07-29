@@ -56,12 +56,16 @@ import { lerp } from "../lib/pet-coliseum-scene";
 import { HOLLOW_HOUND_SURFACE, WARFRONT_MINION_SURFACES } from "../lib/pet-model-surface";
 import { isPetSfxMuted, playPetSfx, primePetSfx, setPetSfxMuted } from "../lib/pet-sfx";
 import {
+    advanceWarfrontMotionFilter,
     adaptWarfrontPresentationBudget,
+    createWarfrontMotionFilter,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontMotionFilterSpeed,
     warfrontMvpId,
     warfrontPresentationBudget,
     type WarfrontAdaptivePressure,
+    type WarfrontMotionFilterState,
     type WarfrontPresentationBudget,
 } from "../lib/pet-warfront-presentation";
 
@@ -168,6 +172,7 @@ function objectiveEventLabel(event: WarfrontResult["events"][number]): string | 
     if (event.type === "minikill") return `${event.team === "blue" ? "Blue" : "Red"} recruited ${WF_MINI_NAMES[event.padIdx] ?? "a Lesser Warden"}`;
     if (event.type === "wardenphase") return `Gate Warden entered Phase ${event.phase === 3 ? "III" : "II"}`;
     if (event.type === "wardenkill") return `${event.team === "blue" ? "Blue" : "Red"} felled the Gate Warden${event.stolen ? " (stolen)" : ""}`;
+    if (event.type === "guardianrally") return `${event.team === "blue" ? "Blue" : "Red"} sentinels answered the War Council`;
     if (event.type === "guardiandown") return `${event.team === "blue" ? "Blue" : "Red"} sentinel fell`;
     if (event.type === "statuedown") return `${event.team === "blue" ? "Blue" : "Red"} Guardian Totem shattered`;
     if (event.type === "coreexposed") return `${event.team === "blue" ? "Blue" : "Red"} Ward Seal exposed`;
@@ -175,7 +180,7 @@ function objectiveEventLabel(event: WarfrontResult["events"][number]): string | 
     return null;
 }
 function objectiveEventColor(event: WarfrontResult["events"][number]): string {
-    if (event.type === "minikill" || event.type === "wardenkill") return event.team === "blue" ? "#60a5fa" : "#f87171";
+    if (event.type === "minikill" || event.type === "wardenkill" || event.type === "guardianrally") return event.team === "blue" ? "#60a5fa" : "#f87171";
     if (event.type === "statuedown" || event.type === "coredown") return event.by === "blue" ? "#60a5fa" : "#f87171";
     if (event.type === "guardiandown" || event.type === "coreexposed") return event.team === "blue" ? "#f87171" : "#60a5fa";
     if (event.type === "phase") return event.name === "HOLLOW COLLAPSE" ? "#fb7185" : "#a78bfa";
@@ -303,13 +308,6 @@ const wfClockTick = (clock: WfClockRef): number =>
 
 const wfClockSeconds = (clock: WfClockRef): number =>
     wfClockTick(clock) / WARFRONT_TPS;
-
-/** Continuous ambient attack envelope. The old boolean lunge jumped a whole
- * body forward and backward on the active-window edges. */
-const cyclicStrikePulse = (seconds: number, period: number, active: number, offset: number): number => {
-    const phase = ((seconds + offset) % period + period) % period;
-    return phase < active ? Math.sin((phase / active) * Math.PI) : 0;
-};
 
 // ── Floor + set dressing ─────────────────────────────────────────────────────
 function WfHollowGate({ glow }: { glow: string }) {
@@ -773,9 +771,9 @@ function WfFighter3D({ result, clock, id, pet, config }: {
     const stacksRef = useRef<HTMLSpanElement>(null);
     const levelRef = useRef<HTMLSpanElement>(null);
     const modelFrame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
-    const smX = useRef<number | null>(null);
-    const smZ = useRef<number | null>(null);
+    const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
+    const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const prevState = useRef("");
     const strikeAt = useRef(-10);
@@ -805,16 +803,14 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         const teleport = tdx * tdx + tdz * tdz > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
         const px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
-        // Tick interpolation is already continuous. A second position filter
-        // adds trailing corrections that rebound after the sim has moved on.
-        smX.current = px;
-        smZ.current = pz;
-        const sampleTravel = teleport ? 0 : Math.hypot(tdx, tdz);
-        const sampleUps = sampleTravel * WARFRONT_TPS;
-        smSpd.current = approach(smSpd.current, down ? 0 : sampleUps, 0.22, delta);
+        const rewound = tf < lastTick.current;
+        lastTick.current = tf;
+        const motion = advanceWarfrontMotionFilter(renderMotion.current, px, pz, delta, teleport || rewound);
+        const filteredSpeed = warfrontMotionFilterSpeed(motion);
+        smSpd.current = approach(smSpd.current, down ? 0 : filteredSpeed, 0.22, delta);
         const moving = !down && (wasMoving.current ? smSpd.current > 0.28 : smSpd.current > 0.72);
         wasMoving.current = moving;
-        g.position.set(smX.current, 0, smZ.current);
+        g.position.set(motion.x, 0, motion.z);
         if (body.current) body.current.visible = !down;
 
         const now = wfClockSeconds(clock);
@@ -825,12 +821,12 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         // While MOVING, face where you are going (sim facing is for combat) —
         // mismatched face/travel made pets moonwalk sideways.
         let fx = a0.faceX, fz = a0.faceY;
-        if (moving && sampleTravel > 1e-5) { fx = tdx / sampleTravel; fz = tdz / sampleTravel; }
+        if (moving && filteredSpeed > 1e-5) { fx = motion.vx / filteredSpeed; fz = motion.vz / filteredSpeed; }
         else if (Math.hypot(fx, fz) < 0.1) { fx = faceSm.current[0]; fz = faceSm.current[1]; }
-        faceSm.current[0] = approach(faceSm.current[0], fx, 0.35, delta);
-        faceSm.current[1] = approach(faceSm.current[1], fz, 0.35, delta);
+        faceSm.current[0] = approach(faceSm.current[0], fx, 0.18, delta);
+        faceSm.current[1] = approach(faceSm.current[1], fz, 0.18, delta);
         const flen = Math.hypot(faceSm.current[0], faceSm.current[1]) || 1;
-        if (moving && sampleTravel > 1e-5) travel.current = [tdx / sampleTravel, tdz / sampleTravel];
+        if (moving && filteredSpeed > 1e-5) travel.current = [motion.vx / filteredSpeed, motion.vz / filteredSpeed];
 
         if (a0.hp < prevHp.current - 0.5) flash.current = 1;
         prevHp.current = a0.hp;
@@ -853,10 +849,10 @@ function WfFighter3D({ result, clock, id, pet, config }: {
 
         if (aura.current && auraMat.current) {
             aura.current.visible = !down;
-            aura.current.position.set(smX.current, 0.03, smZ.current);
+            aura.current.position.set(motion.x, 0.03, motion.z);
             auraMat.current.color.set(TEAM_COLOR[team]);
         }
-        if (shadow.current) { shadow.current.visible = !down; shadow.current.position.set(smX.current, 0.045, smZ.current); }
+        if (shadow.current) { shadow.current.visible = !down; shadow.current.position.set(motion.x, 0.045, motion.z); }
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
         if (nameWrap.current) {
             const camDistance = Math.hypot(state.camera.position.x - px, state.camera.position.z - pz);
@@ -1010,8 +1006,9 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
-    const smX = useRef(0), smZ = useRef(0);
+    const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
+    const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const boundId = useRef(-1);
     const [side, setSide] = useState<"blue" | "red">("blue");
@@ -1042,16 +1039,15 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
         const tz = m0 && !jump ? lerp(m0.y, m1.y, bf) : m1.y;
         const fresh = boundId.current !== m1.id;
         boundId.current = m1.id;
-        smX.current = tx;
-        smZ.current = tz;
-        const sampleDx = m0 && !jump ? m1.x - m0.x : 0;
-        const sampleDz = m0 && !jump ? m1.y - m0.y : 0;
-        const sampleTravel = Math.hypot(sampleDx, sampleDz);
-        const sampleUps = sampleTravel * WARFRONT_TPS;
-        smSpd.current = approach(smSpd.current, fresh ? 0 : sampleUps, 0.2, delta);
+        const tick = wfClockTick(clock);
+        const rewound = tick < lastTick.current;
+        lastTick.current = tick;
+        const motion = advanceWarfrontMotionFilter(renderMotion.current, tx, tz, delta, fresh || jump || rewound);
+        const filteredSpeed = warfrontMotionFilterSpeed(motion);
+        smSpd.current = approach(smSpd.current, fresh ? 0 : filteredSpeed, 0.2, delta);
         const moving = !fresh && (wasMoving.current ? smSpd.current > 0.24 : smSpd.current > 0.65);
         wasMoving.current = moving;
-        const camDistance = Math.hypot(state.camera.position.x - smX.current, state.camera.position.z - smZ.current);
+        const camDistance = Math.hypot(state.camera.position.x - motion.x, state.camera.position.z - motion.z);
         const wantsRig = shouldRenderWarfrontHoundRig(
             index,
             camDistance,
@@ -1065,20 +1061,23 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
         g.scale.setScalar(m1.elite ? 1.3 : 1);   // Gate's Wrath elites LOOM
         const f = frame.current;
         const seconds = wfClockSeconds(clock);
-        const strikePulse = moving ? 0 : cyclicStrikePulse(seconds, 0.8, 0.2, index * 0.29);
-        const striking = strikePulse > 0.05;
+        const attackPhase = m1.attackPhase >= 0
+            ? (m0 && m0.attackPhase >= 0 ? lerp(m0.attackPhase, m1.attackPhase, bf) : m1.attackPhase)
+            : -1;
+        const strikePulse = attackPhase >= 0 ? Math.sin(Math.PI * Math.min(1, attackPhase)) : 0;
+        const striking = attackPhase >= 0;
         f.motion = moving ? "run" : striking ? "strike" : "idle";
         f.moving = moving;
         f.speed = Math.min(6, smSpd.current);
-        if (moving && sampleTravel > 1e-6) {
-            f.moveX = sampleDx / sampleTravel;
-            f.moveZ = sampleDz / sampleTravel;
+        if (moving && filteredSpeed > 1e-6) {
+            f.moveX = motion.vx / filteredSpeed;
+            f.moveZ = motion.vz / filteredSpeed;
             f.faceX = f.moveX;
             f.faceZ = f.moveZ;
         }
         f.timeline = seconds;
         const lunge = strikePulse * 0.12;
-        g.position.set(smX.current + f.faceX * lunge, 0, smZ.current + f.faceZ * lunge);
+        g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
         f.desperate = m1.hp / Math.max(1, m1.maxHp) < 0.35;
         if (impostor.current) {
             const targetYaw = Math.atan2(f.faceX, f.faceZ);
@@ -1128,8 +1127,9 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
-    const smX = useRef(0), smZ = useRef(0);
+    const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
+    const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const boundId = useRef(-1);
     const [richUi, setRichUi] = useState(false);
@@ -1159,16 +1159,15 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
         const tz = m0 && !jump ? lerp(m0.y, m1.y, bf) : m1.y;
         const fresh = boundId.current !== m1.id;
         boundId.current = m1.id;
-        smX.current = tx;
-        smZ.current = tz;
-        const sampleDx = m0 && !jump ? m1.x - m0.x : 0;
-        const sampleDz = m0 && !jump ? m1.y - m0.y : 0;
-        const sampleTravel = Math.hypot(sampleDx, sampleDz);
-        const sampleUps = sampleTravel * WARFRONT_TPS;
-        smSpd.current = approach(smSpd.current, fresh ? 0 : sampleUps, 0.2, delta);
+        const tick = wfClockTick(clock);
+        const rewound = tick < lastTick.current;
+        lastTick.current = tick;
+        const motion = advanceWarfrontMotionFilter(renderMotion.current, tx, tz, delta, fresh || jump || rewound);
+        const filteredSpeed = warfrontMotionFilterSpeed(motion);
+        smSpd.current = approach(smSpd.current, fresh ? 0 : filteredSpeed, 0.2, delta);
         const moving = !fresh && (wasMoving.current ? smSpd.current > 0.24 : smSpd.current > 0.65);
         wasMoving.current = moving;
-        const camDistance = Math.hypot(state.camera.position.x - smX.current, state.camera.position.z - smZ.current);
+        const camDistance = Math.hypot(state.camera.position.x - motion.x, state.camera.position.z - motion.z);
         const wantsRig = shouldRenderWarfrontHoundRig(
             index,
             camDistance,
@@ -1180,23 +1179,26 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
             setRichUi(wantsRig);
         }
         const f = frame.current;
-        // A stopped-but-alive raider is fighting a wall or a pet, not loitering —
-        // jab on a per-slot-phased cadence so a mob crowd never stands frozen.
+        // Attack motion follows the authoritative cooldown window. A stationary
+        // raider with no attack remains planted instead of fake-lunging forever.
         const seconds = wfClockSeconds(clock);
-        const strikePulse = moving ? 0 : cyclicStrikePulse(seconds, 0.85, 0.22, index * 0.37);
-        const striking = strikePulse > 0.05;
+        const attackPhase = m1.attackPhase >= 0
+            ? (m0 && m0.attackPhase >= 0 ? lerp(m0.attackPhase, m1.attackPhase, bf) : m1.attackPhase)
+            : -1;
+        const strikePulse = attackPhase >= 0 ? Math.sin(Math.PI * Math.min(1, attackPhase)) : 0;
+        const striking = attackPhase >= 0;
         f.motion = moving ? "run" : striking ? "strike" : "idle";
         f.moving = moving;
         f.speed = Math.min(6, smSpd.current);
-        if (moving && sampleTravel > 1e-6) {
-            f.moveX = sampleDx / sampleTravel;
-            f.moveZ = sampleDz / sampleTravel;
+        if (moving && filteredSpeed > 1e-6) {
+            f.moveX = motion.vx / filteredSpeed;
+            f.moveZ = motion.vz / filteredSpeed;
             f.faceX = f.moveX;
             f.faceZ = f.moveZ;
         }
         f.timeline = seconds;
         const lunge = strikePulse * 0.13;
-        g.position.set(smX.current + f.faceX * lunge, 0, smZ.current + f.faceZ * lunge);
+        g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
         f.desperate = m1.hp / Math.max(1, m1.maxHp) < 0.35;
         if (impostor.current) {
             const targetYaw = Math.atan2(f.faceX, f.faceZ);
@@ -1766,8 +1768,9 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     const frameRef = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const H = 2.1;
     const scale = config ? H / Math.max(0.001, config.targetHeight) : 1;
-    const smX = useRef(0), smZ = useRef(0);
+    const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
+    const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const wasAlive = useRef(false);
     const [aliveUi, setAliveUi] = useState(false);
@@ -1782,26 +1785,28 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         const tz = m0 && !jump ? lerp(m0.y, m.y, bf) : m.y;
         const fresh = m.alive && !wasAlive.current;   // just (re)spawned → snap onto its pad
         wasAlive.current = m.alive;
-        smX.current = tx;
-        smZ.current = tz;
-        const sampleDx = m0 && !jump ? m.x - m0.x : 0;
-        const sampleDz = m0 && !jump ? m.y - m0.y : 0;
-        const sampleTravel = Math.hypot(sampleDx, sampleDz);
-        const sampleUps = sampleTravel * WARFRONT_TPS;
-        smSpd.current = approach(smSpd.current, fresh || !m.alive ? 0 : sampleUps, 0.2, delta);
+        const tick = wfClockTick(clock);
+        const rewound = tick < lastTick.current;
+        lastTick.current = tick;
+        const motion = advanceWarfrontMotionFilter(renderMotion.current, tx, tz, delta, fresh || jump || rewound);
+        const filteredSpeed = warfrontMotionFilterSpeed(motion);
+        smSpd.current = approach(smSpd.current, fresh || !m.alive ? 0 : filteredSpeed, 0.2, delta);
         const moving = m.alive && !fresh && (wasMoving.current ? smSpd.current > 0.24 : smSpd.current > 0.65);
         wasMoving.current = moving;
         const f = frameRef.current;
-        // A planted camp boss trading blows should look like it — jab when idle.
+        // A planted camp boss strikes only when the simulation actually attacks.
         const seconds = wfClockSeconds(clock);
-        const strikePulse = m.alive && !moving ? cyclicStrikePulse(seconds, 0.95, 0.24, idx * 0.41) : 0;
-        const striking = strikePulse > 0.05;
+        const attackPhase = m.attackPhase >= 0
+            ? (m0 && m0.attackPhase >= 0 ? lerp(m0.attackPhase, m.attackPhase, bf) : m.attackPhase)
+            : -1;
+        const strikePulse = attackPhase >= 0 ? Math.sin(Math.PI * Math.min(1, attackPhase)) : 0;
+        const striking = m.alive && attackPhase >= 0;
         f.motion = moving ? "run" : striking ? "strike" : "idle";
         f.moving = moving;
         f.speed = Math.min(6, smSpd.current);
-        if (moving && sampleTravel > 1e-6) {
-            f.moveX = sampleDx / sampleTravel;
-            f.moveZ = sampleDz / sampleTravel;
+        if (moving && filteredSpeed > 1e-6) {
+            f.moveX = motion.vx / filteredSpeed;
+            f.moveZ = motion.vz / filteredSpeed;
             f.faceX = f.moveX;
             f.faceZ = f.moveZ;
         }
@@ -1810,7 +1815,7 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         const lunge = strikePulse * 0.14;
         if (root.current) {
             root.current.visible = m.alive;
-            root.current.position.set(smX.current + f.faceX * lunge, 0, smZ.current + f.faceZ * lunge);
+            root.current.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
         }
         f.desperate = m.alive && m.hp / Math.max(1, m.maxHp) < 0.4;
         if (hpWrap.current) hpWrap.current.style.opacity = m.alive ? "1" : "0";
@@ -1854,6 +1859,9 @@ function WfGuardian({ result, clock, team, idx }: { result: WarfrontResult; cloc
     const rubble = useRef<THREE.Group>(null);
     const hpWrap = useRef<HTMLDivElement>(null);
     const hpFill = useRef<HTMLDivElement>(null);
+    const status = useRef<HTMLDivElement>(null);
+    const rallyRing = useRef<THREE.Mesh>(null);
+    const rallyMat = useRef<THREE.MeshBasicMaterial>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const prevHp = useRef(Number.POSITIVE_INFINITY);
     const hitAt = useRef(-10);
@@ -1876,11 +1884,9 @@ function WfGuardian({ result, clock, team, idx }: { result: WarfrontResult; cloc
         prevHp.current = g.hp;
         const hitAge = Math.max(0, now - hitAt.current);
         const hit = hitAge < 0.34 ? Math.sin((hitAge / 0.34) * Math.PI) : 0;
-        // Sentinels fire on a steady cadence in the sim. The presentation pulse
-        // keeps their authored attack clip alive instead of leaving a combat
-        // structure frozen in its idle take for the entire match.
-        const shotPhase = (now + idx * 0.43 + (team === "red" ? 0.55 : 0)) % 1.1;
-        const firing = g.alive && shotPhase < 0.24;
+        const attackPhase = g.attackPhase;
+        const firing = g.alive && attackPhase >= 0;
+        const strikePulse = firing ? Math.sin(Math.PI * Math.min(1, attackPhase)) : 0;
         f.motion = hit > 0.03 ? "stagger" : firing ? "strike" : "idle";
         f.hit = hit;
         f.faceX = g.faceX; f.faceZ = 0.001;
@@ -1888,15 +1894,27 @@ function WfGuardian({ result, clock, team, idx }: { result: WarfrontResult; cloc
         f.desperate = g.alive && g.hp / g.maxHp < 0.35;
         f.timeline = now;
         if (body.current) {
-            const pulse = firing ? Math.sin(Math.min(1, shotPhase / 0.24) * Math.PI) : 0;
-            const targetScale = scale * (1 + pulse * 0.025 - hit * 0.018);
+            const targetScale = scale * (1 + strikePulse * 0.025 - hit * 0.018);
             body.current.scale.x = approach(body.current.scale.x, targetScale, 0.2, delta);
-            body.current.scale.y = approach(body.current.scale.y, scale * (1 - pulse * 0.035 + hit * 0.02), 0.2, delta);
+            body.current.scale.y = approach(body.current.scale.y, scale * (1 - strikePulse * 0.035 + hit * 0.02), 0.2, delta);
             body.current.scale.z = approach(body.current.scale.z, targetScale, 0.2, delta);
             body.current.position.y = approach(body.current.position.y, firing ? 0.035 : 0, 0.18, delta);
         }
+        const rallying = g.alive && g.rallySecs > 0;
+        if (rallyRing.current) {
+            rallyRing.current.visible = rallying;
+            const pulse = 1 + Math.sin(now * 5 + idx) * 0.08;
+            rallyRing.current.scale.setScalar(pulse);
+        }
+        if (rallyMat.current) rallyMat.current.opacity = rallying ? 0.38 + Math.sin(now * 5 + idx) * 0.12 : 0;
         if (hpWrap.current) hpWrap.current.style.opacity = g.alive ? "1" : "0";
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (g.hp / g.maxHp) * 100))}%`;
+        if (status.current) {
+            status.current.textContent = rallying
+                ? `⚡ Lane Sentinel · OVERCHARGED ${Math.ceil(g.rallySecs)}s`
+                : "🛡 Lane Sentinel";
+            status.current.style.color = rallying ? "#fde68a" : TEAM_SOFT[team];
+        }
     });
     if (!config) return null;
     return (
@@ -1905,6 +1923,10 @@ function WfGuardian({ result, clock, team, idx }: { result: WarfrontResult; cloc
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]} renderOrder={-1}>
                 <ringGeometry args={[1.0, 1.3, 40]} />
                 <meshBasicMaterial color={TEAM_COLOR[team]} transparent opacity={0.38} depthWrite={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={rallyRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]} renderOrder={-1}>
+                <ringGeometry args={[1.45, 2.05, 48]} />
+                <meshBasicMaterial ref={rallyMat} color="#fde047" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
             </mesh>
             <Suspense fallback={(
                 <mesh position={[0, 0.85, 0]}>
@@ -1918,7 +1940,7 @@ function WfGuardian({ result, clock, team, idx }: { result: WarfrontResult; cloc
             </Suspense>
             <Html position={[0, H + 0.55, 0]} center pointerEvents="none" distanceFactor={11} zIndexRange={[7, 0]}>
                 <div ref={hpWrap} style={{ textAlign: "center", font: "800 9px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>
-                    <div style={{ color: TEAM_SOFT[team], textShadow: "0 1px 3px #000", marginBottom: 1 }}>🛡 Lane Sentinel</div>
+                    <div ref={status} style={{ color: TEAM_SOFT[team], textShadow: "0 1px 3px #000", marginBottom: 1 }}>🛡 Lane Sentinel</div>
                     <div style={{ position: "relative", width: 64, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                         <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: TEAM_COLOR[team] }} />
                     </div>
@@ -2601,6 +2623,21 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                         spawnFx(post.x, post.y, "power", null, 2.6, 600);
                         spawnFx(post.x, post.y, "spark", null, 1.8, 480);
                         cut(e.t, post.x, post.y, 13, 4, 2.2);
+                    }
+                } else if (e.type === "guardianrally") {
+                    const color = e.team === "blue" ? "#93c5fd" : "#fca5a5";
+                    const boss = WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden";
+                    pushFeed(`⚡ ${boss}'s capture overcharges ${e.team === "blue" ? "Blue" : "Red"} lane sentinels for ${e.secs}s`, color);
+                    for (const guardian of snap.guardians[e.team]) {
+                        if (guardian.alive) spawnFx(guardian.x, guardian.y, "power", null, 1.8, 500);
+                    }
+                    playPetSfx("buff");
+                } else if (e.type === "guardianward") {
+                    const target = actorPos(e.targetId);
+                    if (target) {
+                        spawnShot(e.x, e.y, target.x, target.y, e.team === "blue" ? "Water" : "Fire", false);
+                        spawnFx(target.x, target.y, "spark", null, 1.0, 300);
+                        spawnFloater(target.x, target.y, `🛡 WARD +${e.amount}`, e.team === "blue" ? "#93c5fd" : "#fca5a5", false);
                     }
                 } else if (e.type === "ability") {
                     if (e.kind === "shield") spawnFx(e.x, e.y, null, "Water", 1.15, 320);
