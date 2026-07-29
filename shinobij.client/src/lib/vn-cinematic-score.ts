@@ -77,7 +77,13 @@ function installListeners(): void {
     listenersInstalled = true;
     subscribeAudioMute(() => {
         if (!decks) return;
-        if (isAudioMuted()) {
+        const muted = isAudioMuted();
+        decks.forEach((deck) => {
+            // The media-element mute is a hard guard against any pending play()
+            // promise resolving after the player has pressed the master switch.
+            deck.muted = muted;
+        });
+        if (muted) {
             decks.forEach((deck) => deck.pause());
             return;
         }
@@ -102,6 +108,7 @@ function ensureDecks(): [HTMLAudioElement, HTMLAudioElement] | null {
             deck.loop = true;
             deck.preload = "auto";
             deck.volume = 0;
+            deck.muted = isAudioMuted();
         }
         installListeners();
     }
