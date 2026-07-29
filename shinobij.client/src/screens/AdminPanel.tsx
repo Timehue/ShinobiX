@@ -5284,9 +5284,9 @@ export function AdminPanel({
                     },
                     {
                         key: "shrine:tile-corrupted-shinobi",
-                        name: "Legacy Corrupted Shinobi (unused battle scene)",
+                        name: "Hollow Hound (legacy scene key)",
                         category: "Tile / Scene",
-                        defaultPrompt: "Corrupted shinobi rising from violet chakra mist inside a shadow temple, glowing hollow eyes, fractured mask, broken kunai in hand, painted shinobi RPG combat scene art",
+                        defaultPrompt: "A Hollow Hound emerging from violet chakra mist inside a shadow temple, obsidian fur, fractured bone mask, painted shinobi RPG combat scene art",
                     },
                     {
                         key: "shrine:tile-shrine-keeper",
@@ -5303,6 +5303,12 @@ export function AdminPanel({
                         name: "Hollow Hound (combat portrait)",
                         category: "Tile / Scene",
                         defaultPrompt: "Hollow Hound, void-scarred Oni Hound bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured spirit fur, faint ancient sigils orbiting it, painted shinobi RPG creature portrait",
+                    },
+                    {
+                        key: "shrine:hollow-hound-alpha-cinematic",
+                        name: "Hollow Hound Alpha (boss cinematic)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Hollow Hound Alpha, immense spectral guardian hound made from radiant violet chakra and purple mist, fractured spirit-fur silhouette, glowing ancient shrine sigils, dramatic widescreen boss reveal, premium painted shinobi RPG cinematic art",
                     },
                     {
                         // Legacy asset key retained for old published image sets.

@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildHollowHoundOpponent, generateHollowGateShrineRun, HOLLOW_HOUND_NAME, HOLLOW_HOUND_TEMPLATE_ID } from "./hollow-gate-dungeon";
+import {
+    buildHollowHoundOpponent,
+    generateHollowGateShrineRun,
+    HOLLOW_HOUND_TEMPLATE_ID,
+    hollowGatePetEncounterSeed,
+} from "./hollow-gate-dungeon";
 import { hollowGateReachableSet } from "./hollow-gate-bsp";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 
@@ -124,11 +129,19 @@ test("Hollow Gate pet duels always reskin the Oni Hound and scale to the active 
     };
     const hound = buildHollowHoundOpponent([active, oni], active, 3, "/hollow.webp", 1234567890123);
     assert.ok(hound);
-    assert.equal(hound.name, HOLLOW_HOUND_NAME);
+    assert.equal(hound.name, "Shrineback Hollow Hound");
     assert.equal(hound.id, `${HOLLOW_HOUND_TEMPLATE_ID}-1234567890123`);
     assert.equal(hound.rarity, active.rarity);
     assert.equal(hound.level, active.level);
     assert.equal(hound.image, "/hollow.webp");
     assert.equal(hound.jutsus[0]?.name, "Abyss Bite");
     assert.ok(hound.attack < oni.attack * 2, "opponent stats come from the active pet rather than mythic base scaling");
+});
+
+test("a sealed Hollow Hound pet duel keeps the same valid seed across reconnects", () => {
+    const first = hollowGatePetEncounterSeed("hgcombat-abc123");
+    assert.equal(first, hollowGatePetEncounterSeed("hgcombat-abc123"));
+    assert.notEqual(first, hollowGatePetEncounterSeed("hgcombat-different"));
+    assert.match(String(first), /^\d{13}$/);
+    assert.ok(Number.isSafeInteger(first));
 });

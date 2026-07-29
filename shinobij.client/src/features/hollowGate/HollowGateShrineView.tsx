@@ -18,25 +18,49 @@
  * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
  */
 import { useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
+import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
 import { hollowGateIntroPages, hollowGateTileIconForKind } from "../../data/hollow-gate-flavor";
 import { computeHollowGateVisible } from "../../lib/hollow-gate-dungeon";
 import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/hollow-gate-variant";
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
+import {
+    HOLLOW_GATE_ALPHA_CINEMATIC,
+    hollowGateAlphaCinematicImage,
+    hollowGateFloorProfile,
+} from "../../lib/hollow-gate-presentation";
+import type { HollowGateEventModal } from "../../lib/hollow-gate-tile";
 import { WING_GLYPH, WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
 import { isPetOnExpedition } from "../../lib/pet";
 import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind } from "../../types/character";
 
-type HollowGateEventModal = {
-    title: string;
-    body: string;
-    kind: HollowGateTileKind;
-    choices: { label: string; onSelect: () => void; tone?: "danger" | "safe" | "primary" }[];
-} | null;
-
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
+
+const BOSS_INTRO_SESSION_PREFIX = "shinobix:hollow-gate-alpha-intro:";
+const bossIntroSeenKeys = new Set<string>();
+
+function bossIntroWasSeen(key: string): boolean {
+    if (bossIntroSeenKeys.has(key)) return true;
+    try {
+        const seen = sessionStorage.getItem(`${BOSS_INTRO_SESSION_PREFIX}${key}`) === "1";
+        if (seen) bossIntroSeenKeys.add(key);
+        return seen;
+    } catch {
+        return false;
+    }
+}
+
+function rememberBossIntro(key: string): void {
+    bossIntroSeenKeys.add(key);
+    try {
+        sessionStorage.setItem(`${BOSS_INTRO_SESSION_PREFIX}${key}`, "1");
+    } catch {
+        // The cinematic remains dismissible when storage is unavailable.
+    }
+}
 
 type HollowGateShrineViewProps = {
     character: Character;
@@ -89,6 +113,35 @@ export function HollowGateShrineView({
     const cardBackground = shrineBg
         ? `linear-gradient(180deg, rgba(15,9,28,0.78), rgba(8,4,18,0.88)), url(${shrineBg}) center/cover no-repeat`
         : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
+    const maxFloor = hollowGateRunMaxFloor(run);
+    const floorProfile = hollowGateFloorProfile(run.floor);
+    const bossName = hollowGateBossDisplayName(run);
+    const isFinalFloor = run.floor >= maxFloor;
+    const isHoundBoss = bossName.toLowerCase().includes("hound");
+    const bossIntroKey = `${run.runToken || run.serverSeed || character.name || "local"}:${run.floor}`;
+    const [dismissedBossIntroKey, setDismissedBossIntroKey] = useState<string | null>(null);
+    const showBossIntro = hollowGateIntroPage === null
+        && !hollowGateEvent
+        && !hollowGateHiddenChamber
+        && isFinalFloor
+        && isHoundBoss
+        && !run.completed
+        && dismissedBossIntroKey !== bossIntroKey
+        && !bossIntroWasSeen(bossIntroKey);
+    const floorStyle = {
+        "--hg-floor-accent": floorProfile.accent,
+        "--hg-floor-accent-soft": floorProfile.accentSoft,
+        "--hg-floor-fog": floorProfile.fog,
+        background: cardBackground,
+        color: "#e9d5ff",
+        padding: 16,
+        borderRadius: 12,
+    } as CSSProperties;
+
+    const dismissBossIntro = () => {
+        rememberBossIntro(bossIntroKey);
+        setDismissedBossIntroKey(bossIntroKey);
+    };
 
     // ── Camera: the viewport is measured; the board translates so the player
     //    stays centred (clamped to the board edges). Small boards just centre.
@@ -115,7 +168,20 @@ export function HollowGateShrineView({
     const camY = vp.h >= boardH ? (vp.h - boardH) / 2 : clamp(vp.h / 2 - (run.playerY + 0.5) * tilePx, vp.h - boardH, 0);
 
     return (
-                        <div className="card hollow-gate-shrine" style={{ background: cardBackground, color: "#e9d5ff", padding: 16, borderRadius: 12 }}>
+                        <div className="card hollow-gate-shrine" data-hg-floor={floorProfile.floor} style={floorStyle}>
+                            {showBossIntro && (
+                                <HollowGateBossCinematic
+                                    mode="entrance"
+                                    eyebrow="FINAL FLOOR · ALPHA SANCTUM"
+                                    title={bossName}
+                                    body={`${floorProfile.atmosphere} ${floorProfile.lore}`}
+                                    image={hollowGateAlphaCinematicImage(sharedImages)}
+                                    actionLabel="Enter the Alpha Sanctum"
+                                    onContinue={dismissBossIntro}
+                                    onEmergencyForfeit={onEmergencyForfeit}
+                                    exitPending={exitPending}
+                                />
+                            )}
                             {/* First-entry Intro VN overlay — blocks interaction until dismissed. */}
                             {hollowGateIntroPage !== null && (() => {
                                 const page = hollowGateIntroPages[hollowGateIntroPage] ?? hollowGateIntroPages[0];
@@ -162,7 +228,7 @@ export function HollowGateShrineView({
                                         ⛩ {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE SHRINE"}
                                         {run.variant && <span style={{ marginLeft: 8, fontSize: 10, color: "#fbbf24", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>EVENT</span>}
                                     </p>
-                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {hollowGateRunMaxFloor(run)} · {run.completed ? `${hollowGateBossDisplayName(run)} Defeated` : "Shadow Miasma"}</h2>
+                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {maxFloor} · {run.completed ? `${bossName} Defeated` : floorProfile.name}</h2>
                                 </div>
                                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                                     <div style={{ minWidth: 200 }}>
@@ -204,6 +270,20 @@ export function HollowGateShrineView({
                                     </div>
                                 </div>
                             </div>
+
+                            <section className="hg-floor-identity" aria-label={`Floor ${run.floor}: ${floorProfile.name}`}>
+                                <div className="hg-floor-identity__seal" aria-hidden="true">{run.floor}</div>
+                                <div className="hg-floor-identity__story">
+                                    <strong>{floorProfile.epithet}</strong>
+                                    <span>{floorProfile.atmosphere}</span>
+                                    <small>{floorProfile.lore}</small>
+                                </div>
+                                <div className="hg-floor-identity__hound">
+                                    <span>HOUND SIGNATURE</span>
+                                    <strong>{floorProfile.signature}</strong>
+                                    <small>{floorProfile.houndEpithet}</small>
+                                </div>
+                            </section>
 
                             <div className="hg-layout">
                                 {/* Dungeon board: seamless tiles inside the camera viewport.
@@ -721,6 +801,21 @@ export function HollowGateShrineView({
                                     : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" || hollowGateEvent.kind === "boss" ? "shrine:tile-hollow-beast"
                                     : null;
                                 const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
+                                if (hollowGateEvent.presentation === "boss-victory") {
+                                    return (
+                                        <HollowGateBossCinematic
+                                            mode="victory"
+                                            eyebrow={hollowGateEvent.eyebrow || "SHRINE RECLAIMED"}
+                                            title={hollowGateEvent.title}
+                                            body={hollowGateEvent.body}
+                                            image={hollowGateEvent.image || HOLLOW_GATE_ALPHA_CINEMATIC}
+                                            actionLabel={hollowGateEvent.choices[0]?.label || "Take Final Rewards + Leave"}
+                                            onContinue={() => hollowGateEvent.choices[0]?.onSelect()}
+                                            onEmergencyForfeit={onEmergencyForfeit}
+                                            exitPending={exitPending}
+                                        />
+                                    );
+                                }
                                 return (
                                     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }} onClick={() => {}}>
                                         <div role="dialog" aria-modal="true" aria-labelledby="hg-event-title" style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>

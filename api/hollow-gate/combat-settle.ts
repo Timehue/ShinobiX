@@ -22,6 +22,7 @@ import {
     type HollowGateCombatBinding,
     type HollowGateCombatReward,
 } from './_combat-session.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 const COMBAT_RECEIPT_TTL_SECONDS = 8 * 24 * 60 * 60;
 const HOSPITAL_DURATION_MS = 60_000;
@@ -327,6 +328,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } };
         }, { failClosed: true, ttlSec: 15 });
 
+        if (result.status === 200) {
+            const resultBody = result.body as Record<string, unknown>;
+            const outcome = resultBody.won === true
+                ? 'win'
+                : resultBody.escaped === true
+                    ? 'escaped'
+                    : resultBody.revived === true
+                        ? 'revived'
+                        : 'loss';
+            await recordBetaMetric({
+                event: resultBody.alreadyReported === true
+                    ? 'hollow_gate.combat_settle_replayed'
+                    : 'hollow_gate.combat_settled',
+                playerName,
+                source: `${initialBinding.combatMode ?? 'tactical'}:floor-${initialBinding.floor}:${initialBinding.kind}:${outcome}`,
+            });
+        }
         return res.status(result.status).json(result.body);
     } catch (err) {
         console.error('[hollow-gate/combat-settle]', err);

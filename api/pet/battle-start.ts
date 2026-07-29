@@ -17,6 +17,7 @@ import {
     validateHollowGatePetClaim,
     type HollowGateCombatBinding,
 } from '../hollow-gate/_combat-session.js';
+import { hollowGateHoundName, type HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -31,12 +32,12 @@ const TOKEN_TTL_SECONDS = 15 * 60;
 
 const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
 
-function buildServerHollowHound(activePet: Pet, floorRaw: unknown, requestedId: string): Pet {
+function buildServerHollowHound(activePet: Pet, floorRaw: unknown, requestedId: string, kind: HollowGateHoundKind): Pet {
     const floor = Math.max(1, Math.min(5, Math.floor(Number(floorRaw) || 1)));
     const difficulty = Math.min(1.06, 0.90 + Math.max(0, floor - 1) * 0.04);
     return {
         id: requestedId,
-        name: 'Hollow Hound',
+        name: hollowGateHoundName(floor, kind),
         rarity: activePet.rarity,
         element: 'Earth',
         level: Math.max(1, Math.floor(Number(activePet.level) || 1)),
@@ -116,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: `Hollow Gate pet encounter rejected: ${validation.reason}.` });
             }
             if (binding?.runId !== runId) return res.status(409).json({ error: 'Hollow Gate pet encounter binding drifted.' });
-            opponentPets = [buildServerHollowHound(playerPets[0], binding.floor, requestedHoundId)];
+            opponentPets = [buildServerHollowHound(playerPets[0], binding.floor, requestedHoundId, binding.kind)];
             isAiOpponent = true;
             hollowGate = { runId };
         } else if (opponentName) {

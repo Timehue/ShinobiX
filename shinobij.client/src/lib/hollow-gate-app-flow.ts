@@ -9,8 +9,13 @@ import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 import {
     buildHollowHoundOpponent,
     generateHollowGateShrineRun,
+    hollowGatePetEncounterSeed,
 } from "./hollow-gate-dungeon";
 import type { HollowGatePveFightRef } from "./hollow-gate-pve";
+import {
+    hollowGateAlphaCinematicImage,
+    hollowGateHoundCombatImage,
+} from "./hollow-gate-presentation";
 import { clawBackHollowGateLoot } from "./hollow-gate-run";
 import {
     finalizeHollowGateRunEnd,
@@ -130,9 +135,9 @@ export function useHollowGateAppFlow(params: {
             window.alert("The active pet for this sealed duel is unavailable. Use Emergency Forfeit if the pet cannot be restored.");
             return;
         }
-        const battleSeed = Date.now();
-        const image = sharedImages["pet:mythic-4"] || "/pet-poses/mythic-4-idle.webp";
-        const wild = buildHollowHoundOpponent(petPool, activePet, fight.floor, image, battleSeed);
+        const battleSeed = hollowGatePetEncounterSeed(fight.runId);
+        const image = hollowGateHoundCombatImage(sharedImages);
+        const wild = buildHollowHoundOpponent(petPool, activePet, fight.floor, image, battleSeed, fight.kind);
         if (!wild) {
             window.alert("The Hollow Hound model is unavailable. Use Emergency Forfeit to leave this run safely.");
             return;
@@ -178,7 +183,10 @@ export function useHollowGateAppFlow(params: {
             if (isFinalFloor) {
                 setEvent({
                     title: run.variant?.label ? `${run.variant.label} Cleared` : "Hollow Gate Shrine Cleared",
-                    body: `Floor ${run.floor} of ${hollowGateRunMaxFloor(run)} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildRunSummary()}`,
+                    eyebrow: "ALPHA SEAL BROKEN · SHRINE RECLAIMED",
+                    presentation: "boss-victory",
+                    image: hollowGateAlphaCinematicImage(sharedImages),
+                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath—you released it.\n\n— RUN SUMMARY —\n${buildRunSummary()}`,
                     kind: "boss",
                     choices: [{
                         label: "Take Final Rewards + Leave",

@@ -19,6 +19,7 @@ import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { hollowGateCombatBindingKey } from './_combat-session.js';
 import { sessionKey } from '../towers/_tower-store.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
@@ -105,6 +106,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // the current committed character so the client can still reconcile a
             // response that was lost after the save write succeeded.
             const current = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            await recordBetaMetric({
+                event: 'hollow_gate.run_settle_replayed',
+                playerName,
+                source: outcome,
+            });
             return res.status(200).json({
                 ok: true,
                 reason: 'invalid-or-spent',
@@ -194,6 +200,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await kv.set(`hg-settled:${playerName}:${token}`, '1', { ex: 24 * 60 * 60 }).catch(() => undefined);
         await kv.del(runKey).catch(() => undefined);
         if (result.alreadyReported) {
+            await recordBetaMetric({
+                event: 'hollow_gate.run_settle_replayed',
+                playerName,
+                source: outcome,
+            });
             return res.status(200).json({ ok: true, alreadyReported: true, character: result.character, _saveVersion: result._saveVersion });
         }
         // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
@@ -205,6 +216,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await bumpLegacyStats(playerName, { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 });
             await bumpEraContribution('gateClears');
         }
+        await recordBetaMetric({
+            event: outcome === 'death'
+                ? 'hollow_gate.run_forfeited'
+                : bossResolved
+                    ? 'hollow_gate.run_completed'
+                    : 'hollow_gate.run_extracted',
+            playerName,
+            source: `floor-${run.currentFloor ?? 1}-of-${run.floorDepth}`,
+        });
         return res.status(200).json({
             ok: true,
             outcome,
