@@ -20,6 +20,7 @@ import { PROFESSION_LABEL } from "../data/professions";
 import { isProtectedAdminName } from "../constants/game";
 import { preloadScreen } from "../lib/screen-preload";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
+import { primeGameAudio } from "../lib/game-audio";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 // Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — matches the
@@ -92,7 +93,12 @@ export const RightMenu = memo(function RightMenu({
                 </button>
                 <button
                     className="audio-mute-btn"
-                    onClick={() => { const next = !audioMuted; setAudioMuted(next); setAudioMutedState(next); }}
+                    onClick={() => {
+                        const next = !audioMuted;
+                        setAudioMuted(next);
+                        setAudioMutedState(next);
+                        if (!next) primeGameAudio();
+                    }}
                     title={audioMuted ? "Unmute all audio" : "Mute all audio (music + sound effects)"}
                     aria-label={audioMuted ? "Unmute all audio" : "Mute all audio"}
                 >{audioMuted ? <GiSpeakerOff size={18} /> : <GiSpeaker size={18} />}</button>

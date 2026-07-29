@@ -17,7 +17,7 @@
  * textures (shrine:tile-*), per-theme tiles (shrine:icon-theme-*), content
  * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
  */
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
@@ -35,6 +35,12 @@ import {
 import type { HollowGateEventModal } from "../../lib/hollow-gate-tile";
 import { WING_GLYPH, WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
 import { isPetOnExpedition } from "../../lib/pet";
+import {
+    playGameSfx,
+    primeGameAudio,
+    startGameAmbience,
+    stopGameAmbience,
+} from "../../lib/game-audio";
 import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind } from "../../types/character";
 
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
@@ -108,6 +114,21 @@ export function HollowGateShrineView({
     onCloseHiddenChamber,
 }: HollowGateShrineViewProps) {
     const run = hollowGateRun;
+    const hiddenChamberOpen = hollowGateHiddenChamber !== null;
+    useEffect(() => {
+        primeGameAudio(["ambience-hollow", "omen", "paper", "reveal", "mythic"]);
+        startGameAmbience("ambience-hollow", { gain: 0.026, fadeMs: 1400 });
+        return () => stopGameAmbience(700);
+    }, []);
+    useEffect(() => {
+        const kind = hollowGateEvent?.kind;
+        if (kind === "chest") playGameSfx("reveal", { gain: 0.56 });
+        else if (kind === "locked") playGameSfx("omen", { gain: 0.52 });
+        else if (kind === "story") playGameSfx("paper", { gain: 0.62 });
+    }, [hollowGateEvent?.kind]);
+    useEffect(() => {
+        if (hiddenChamberOpen) playGameSfx("reveal", { gain: 0.68 });
+    }, [hiddenChamberOpen]);
     const pet = character.pets.find(p => p.id === character.activePetId);
     const shrineBg = sharedImages["shrine:hollow-gate-background"];
     const cardBackground = shrineBg
@@ -863,8 +884,8 @@ export function HollowGateShrineView({
                                             <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Ancient Tablet</strong><br/>{hollowGateHiddenChamber.searched ? "Read" : "Readable"}</div>
                                         </div>
                                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={onSearchHiddenChamber}>🔍 Search Chamber</button>
-                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={onTakeHiddenChamberRelic}>🏺 Take Relic</button>
+                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={() => { playGameSfx("paper", { gain: 0.72 }); onSearchHiddenChamber(); }}>🔍 Search Chamber</button>
+                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => { playGameSfx("mythic", { gain: 0.62 }); onTakeHiddenChamberRelic(); }}>🏺 Take Relic</button>
                                             <button autoFocus={hollowGateHiddenChamber.searched} onClick={onCloseHiddenChamber} className="danger-button">Return to Shrine</button>
                                             <button disabled={exitPending} onClick={onEmergencyForfeit} className="danger-button">
                                                 {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}

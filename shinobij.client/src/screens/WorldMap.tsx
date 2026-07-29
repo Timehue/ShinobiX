@@ -52,6 +52,7 @@ import { addItem, ownsItem } from "../lib/inventory";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { peerIsTraveling } from "../lib/presence-character";
+import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -2980,8 +2981,15 @@ export function WorldMap({
             if (chestVnPage > 0) { const prev = vnPages[chestVnPage - 1]; setChestVnPage((p) => p - 1); setChestVnLine(Math.max(0, prev.dialogue.length - 1)); }
         }
         function chestVnNext() {
+            primeGameAudio(["decision", "reveal"]);
             if (!isLastLine) { setChestVnLine((l) => l + 1); return; }
-            if (!isLastPage) { setChestVnPage((p) => p + 1); setChestVnLine(0); return; }
+            if (!isLastPage) {
+                playGameSfx("decision", { gain: 0.58 });
+                setChestVnPage((p) => p + 1);
+                setChestVnLine(0);
+                return;
+            }
+            playGameSfx("reveal", { gain: 0.78 });
             setChestVnDone(true);
         }
 
@@ -4637,8 +4645,15 @@ export function WorldMap({
                     if (chestVnPage > 0) { const prev = vnPages[chestVnPage - 1]; setChestVnPage((p) => p - 1); setChestVnLine(Math.max(0, prev.dialogue.length - 1)); }
                 }
                 function chestVnNext() {
+                    primeGameAudio(["decision", "reveal"]);
                     if (!isLastLine) { setChestVnLine((l) => l + 1); return; }
-                    if (!isLastPage) { setChestVnPage((p) => p + 1); setChestVnLine(0); return; }
+                    if (!isLastPage) {
+                        playGameSfx("decision", { gain: 0.58 });
+                        setChestVnPage((p) => p + 1);
+                        setChestVnLine(0);
+                        return;
+                    }
+                    playGameSfx("reveal", { gain: 0.78 });
                     setChestVnDone(true);
                 }
                 const chestPageImg = ancientChestVn.vnPages?.[chestVnPage]?.image;

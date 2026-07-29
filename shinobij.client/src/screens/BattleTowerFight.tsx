@@ -12,7 +12,7 @@ import {
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
-import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting } from "../lib/story-sfx";
+import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { tagMatchesName } from "../lib/tags";
 import { equipSlotForItem } from "../lib/equipment";
 import { resolveTowerEnemyPortrait, type TowerEnemySpriteKey } from "../lib/ai-fight-art";
@@ -223,6 +223,7 @@ export function BattleTowerFight({
         if (!storyTheme) return;
         if (!stingRef.current.opened) {
             stingRef.current.opened = true;
+            primeStorySfx();
             playStoryChapterSting(storyTheme.village);
         }
         const show = (name: string, text: string, side: "boss" | "ally") => {
