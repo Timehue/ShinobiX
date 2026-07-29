@@ -1,0 +1,64 @@
+/* ==========================================================================
+   GAME TOAST — transient confirmations (components/GameToast.tsx)
+   Appended as a NEW part at the END of the manifest, per the rule that parts
+   stay in numeric order and later parts may override earlier ones. This is
+   global app chrome mounted from App.tsx, so it belongs in the eager manifest
+   rather than a per-screen lazy chunk.
+   ========================================================================== */
+
+.game-toast-stack {
+    position: fixed;
+    /* Above the fixed side rails (right-menu 999999) but BELOW .game-alert-backdrop
+       (1000001), so a modal always covers a toast rather than the other way round.
+       Both portal to <body>, and the toast host mounts later, so without this the
+       tie would resolve in the toast's favour and it would sit over the dialog's
+       footer buttons. */
+    z-index: 1000000;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: max(18px, env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: min(440px, calc(100vw - 24px));
+    pointer-events: none;
+}
+
+.game-toast {
+    /* Non-interactive on purpose. A toast is a passing confirmation that expires on
+       its own, so it must never be able to eat a tap — misdirecting a click during
+       combat or a claim would be far worse than waiting out the timer. Every
+       descendant inherits this, so nothing inside becomes a click target either. */
+    pointer-events: none;
+    width: 100%;
+    margin: 0;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: left;
+    color: var(--slate-100);
+    background: linear-gradient(160deg, rgba(11, 18, 36, 0.97), rgba(19, 30, 58, 0.97));
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    border-left-width: 4px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: game-toast-in 180ms ease-out;
+}
+
+.game-toast-success { border-left-color: var(--gold-400, #facc15); }
+.game-toast-info { border-left-color: var(--sky-400, #38bdf8); }
+
+@keyframes game-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Honour a reduced-motion preference — the slide-in is decorative. */
+@media (prefers-reduced-motion: reduce) {
+    .game-toast { animation: none; }
+}

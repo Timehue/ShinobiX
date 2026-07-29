@@ -54,6 +54,7 @@ import { NextGoalPin } from "../components/NextGoalPin";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { commitNamedForgeServer, forgeServer, rollNamedForgeServer } from "../lib/craft-api";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
+import { gameToast } from "../components/GameToast";
 
 // Fantasy glyph per craft material — gives the forge's material list real
 // imagery instead of plain rows. Tiered by point value (see craftTier) for
@@ -1234,7 +1235,7 @@ export function CentralHub({
                         const result = await forgeServer(character.name, "supply", recipeId, quantity);
                         if (!result.character) return alert(result.error || "The supply forge failed.");
                         updateCharacter(result.character);
-                        alert(`Crafted ${quantity}x ${recipe.name}.`);
+                        gameToast(`Crafted ${quantity}x ${recipe.name}.`);
                     } finally {
                         setCraftBusy(false);
                     }
@@ -1265,7 +1266,7 @@ export function CentralHub({
                     if (recipe.itemId) next = addItem(next, recipe.itemId, (recipe.per ?? 1) * n);
                     else if (recipe.grant) for (let i = 0; i < n; i++) next = recipe.grant(next);
                     updateCharacter(next);
-                    alert(`Crafted ${n}× ${recipe.name}.`);
+                    gameToast(`Crafted ${n}× ${recipe.name}.`);
                 }
 
                 // Item recipes carry { itemId, per } so a batch craft can add the

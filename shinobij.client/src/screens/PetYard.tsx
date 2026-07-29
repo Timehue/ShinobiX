@@ -20,6 +20,7 @@ import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petCons
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { countItem, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { gameToast } from "../components/GameToast";
 
 export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave: _onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
@@ -132,7 +133,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             if (settled) {
                 const grown = data.pet;
                 if (grown && !grown.training) alert(`${petDisplayName(selectedPet)} finished its previous ${settled} training and is now fully trained (Level ${grown.level}).`);
-                else alert(`Collected ${petDisplayName(selectedPet)}'s previous ${settled} training, then started ${trainingType} training.`);
+                else gameToast(`Collected ${petDisplayName(selectedPet)}'s previous ${settled} training, then started ${trainingType} training.`);
             }
         }
         catch (error) { alert(error instanceof Error ? error.message : 'Training could not be started.'); }
@@ -153,7 +154,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         setPetTrainingBusy(true);
         try {
             const data = await runPetProgress('complete-training');
-            alert(`Collected ${petDisplayName(selectedPet)}'s finished training.${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
+            gameToast(`Collected ${petDisplayName(selectedPet)}'s finished training.${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
         } catch (error) {
             const msg = error instanceof Error ? error.message : '';
             alert(/not complete/i.test(msg) ? `${petDisplayName(selectedPet)} has no unclaimed training to collect.` : (msg || 'Could not collect training.'));
