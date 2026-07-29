@@ -1,5 +1,5 @@
 /*
- * usePetBattleFrameSfx — one synthesized SFX per resolved battle frame.
+ * usePetBattleFrameSfx — at most one authored SFX per resolved battle frame.
  *
  * Extracted VERBATIM from the inline effect in PetArenaBattlefield (App.tsx) so
  * the DOM renderer and the HD-2D PetColiseum renderer share ONE sound source of
@@ -28,7 +28,9 @@ export function usePetBattleFrameSfx(frame: PetSfxFrame, muted: boolean): void {
         // Match-end win/lose stingers intentionally removed — result frames are silent.
         if (frame.actionKind === "result") return;
         switch (frame.actionKind) {
-            case "damage": case "basic": case "lifesteal": playPetSfx(frame.crit ? "crit" : "hit"); break;
+            case "damage": case "basic": case "lifesteal":
+                playPetSfx(frame.crit || /super effective/i.test(m) ? "crit" : "hit");
+                break;
             case "heal":     playPetSfx("heal"); break;
             case "buff":     playPetSfx("buff"); break;
             case "dot":      playPetSfx("dot"); break;
@@ -37,8 +39,6 @@ export function usePetBattleFrameSfx(frame: PetSfxFrame, muted: boolean): void {
             case "shield": case "barrier": case "absorb": playPetSfx("shield"); break;
             default: break;
         }
-        // Super-effective matchup → layer a bright rising sting on top of the hit.
-        if (/super effective/i.test(m) && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal")) playPetSfx("superEffective");
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [frame?.message]);
 }

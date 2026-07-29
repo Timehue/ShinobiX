@@ -116,7 +116,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         else           { setEnemyShake(true);  const t = window.setTimeout(() => setEnemyShake(false),  420); return () => window.clearTimeout(t); }
     }, [frame?.message]);
 
-    // ── Battle sound — one synthesized SFX per frame. Extracted to a shared hook
+    // Battle sound — at most one authored cue per frame. Extracted to a shared hook
     // (lib/use-pet-battle-sfx) so the HD-2D PetColiseum renderer reuses the exact
     // same picker. Covers every caller of this component (Pet Arena, Hollow Gate
     // beast duels, PvP). Behaviour unchanged from the old inline effect.
@@ -592,7 +592,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         onDone={() => setPetSpriteFx((s) => (s && s.id === petSpriteFx.id ? null : s))}
                     />
                 )}
-                {/* Mute toggle for the synthesized battle SFX. */}
+                {/* Mute toggle for the authored battle SFX. */}
                 <button
                     type="button"
                     className="pet-sfx-toggle"

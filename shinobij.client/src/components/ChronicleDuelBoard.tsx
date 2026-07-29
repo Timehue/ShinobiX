@@ -16,6 +16,7 @@ import {
   chronicleSfxMuted,
   classifyChronicleLogLine,
   playChronicleSfx,
+  primeChronicleSfx,
   setChronicleSfxMuted,
   type ChronicleSfx,
 } from "../lib/chronicle-sfx";
@@ -284,6 +285,9 @@ export function ChronicleDuelBoard({
   exitLabel?: string;
   onAction: (intent: ChronicleActionIntent) => void;
 }) {
+  useEffect(() => {
+    primeChronicleSfx();
+  }, []);
   const meKey = state.viewerSide;
   const foeKey: SideKey = meKey === "p1" ? "p2" : "p1";
   const me = state[meKey];
