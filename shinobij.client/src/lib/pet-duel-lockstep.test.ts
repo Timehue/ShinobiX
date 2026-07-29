@@ -105,6 +105,20 @@ test("two clients each commanding their own pet converge on the same fight", () 
     assert.deepEqual(ra.events, rb.events, "event logs must be byte-identical");
 });
 
+test("an earned Command Window technique converges on both clients", () => {
+    const { a, b, relay } = pairFor([
+        // Passive charge alone fills the meter by this point, so the command is
+        // valid even if neither fighter has landed a hit yet.
+        { at: DUEL_TPS * 8, who: "A", cmd: { kind: "technique", actorId: "player-0", idx: 1 } },
+    ], 33);
+
+    const technique = relay.inputs().find((input) => input.cmd.kind === "technique");
+    assert.ok(technique, "the earned technique should reach the authoritative relay");
+    assert.ok(a.settled && b.settled, "both sides should reach a result");
+    assert.deepEqual(a.inputLog(), b.inputLog(), "both clients must apply the technique at the same tick");
+    assert.deepEqual(a.outcome(), b.outcome(), "the immediate technique must remain deterministic");
+});
+
 test("both clients apply the identical command set at identical ticks", () => {
     const { a, b } = pairFor([
         { at: DUEL_TPS * 1, who: "A", cmd: { kind: "ability", actorId: "player-0", idx: 1 } },

@@ -11,7 +11,7 @@ import {
     runPetDuelCinematic, runPetPartyDuelCinematic,
     createLiveCinematicDuel, createLivePartyCinematicDuel,
     stepCinematicDuel, finishCinematicDuel, applyDuelCommand, readDuelControl,
-    checkpointCinematicDuel, restoreCinematicDuel,
+    checkpointCinematicDuel, restoreCinematicDuel, DUEL_COMMAND_FULL,
 } from "./pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel, commandedActorId } from "./pet-duel-live";
 import { bondCharge, bondReady, BOND_FULL } from "./pet-bond-meter";
@@ -103,6 +103,50 @@ test("an ordered ability is the move the pet actually commits to", () => {
     const opened = sim.events.slice(before).filter((e: DuelEvent) => e.actorId === "player-0" && (e.type === "windup" || e.type === "cast" || e.type === "ultimate"));
     assert.ok(opened.length > 0, "the commanded pet should have opened a move");
     assert.equal(opened[0].move, "Ember Coil", "the FIRST move opened after the order must be the ordered one");
+});
+
+test("an earned technique call owns the next beat and cannot become a fallback basic", () => {
+    const sim = createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), 4, 1, 1, false, true, true, null, false);
+    const fighter = sim.fighters.find((entry) => entry.id === "player-0")!;
+    const called = fighter.abilities[1];
+    called.cdLeft = DUEL_TPS * 30;
+    fighter.stamina = 0;
+    fighter.commandCharge = DUEL_COMMAND_FULL;
+    const before = sim.events.length;
+
+    assert.ok(applyDuelCommand(sim, { kind: "technique", actorId: fighter.id, idx: 1 }), "a full command meter should accept the call");
+    assert.equal(readDuelControl(sim, fighter.id)!.commandCharge, 0, "the call spends the command meter immediately");
+    assert.equal(applyDuelCommand(sim, { kind: "technique", actorId: fighter.id, idx: 2 }), false, "the spent meter cannot buy a second call");
+
+    stepCinematicDuel(sim);
+    const opened = sim.events.slice(before).find((event) =>
+        event.actorId === fighter.id
+        && (event.type === "windup" || event.type === "cast" || event.type === "maneuver"));
+    assert.equal(opened?.move, "Ember Coil", "the selected technique must be the very next authored action");
+    assert.equal(fighter.cmdTechnique, false, "the earned call is consumed when the move commits");
+});
+
+test("command energy is earned by time, clean hits, taking pressure, and defensive reads", () => {
+    const sim = createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), 6, 1, 1, false, true, true, null, false);
+    const player = sim.fighters.find((entry) => entry.id === "player-0")!;
+    const start = player.commandCharge;
+    let sawEarnedBurst = false;
+    for (let i = 0; i < DUEL_TPS * 12 && !sawEarnedBurst; i++) {
+        const beforeCharge = player.commandCharge;
+        const beforeEvents = sim.events.length;
+        if (!stepCinematicDuel(sim)) break;
+        const earnedEvent = sim.events.slice(beforeEvents).some((event) =>
+            (event.type === "hit" && (event.actorId === player.id || event.targetId === player.id))
+            || (event.type === "dodge" && event.actorId === player.id));
+        if (earnedEvent) {
+            assert.ok(player.commandCharge > beforeCharge + 1, "an exchange event should pay more than passive charge");
+            sawEarnedBurst = true;
+        }
+    }
+    assert.ok(player.commandCharge > start, "time in combat should always advance the meter");
+    assert.ok(sawEarnedBurst, "the deterministic duel should produce a hit, pressure, or defensive read");
+    player.commandCharge = DUEL_COMMAND_FULL;
+    assert.equal(readDuelControl(sim, player.id)!.commandReady, true, "a full meter opens the tactical window");
 });
 
 test("Bond Break unleashes the signature even while it is on cooldown", () => {
