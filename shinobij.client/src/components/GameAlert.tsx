@@ -216,6 +216,151 @@ export function GameAlertHost() {
 // singleton + portal pattern as the alert host, but each request carries a
 // resolver so the awaiting caller receives the user's choice.
 
+export type GamePasswordPromptOptions = {
+    title?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    danger?: boolean;
+};
+
+type PasswordRequest = {
+    message: string;
+    opts?: GamePasswordPromptOptions;
+    resolve: (value: string | null) => void;
+    restoreFocus: HTMLElement | null;
+};
+
+let activePasswordListener: ((req: PasswordRequest) => void) | null = null;
+let pendingPasswords: PasswordRequest[] = [];
+
+/**
+ * Themed replacement for `window.prompt` when the value being collected is a
+ * PASSWORD. Resolves the entered text, or null on Cancel / backdrop / Escape.
+ *
+ * Why this exists instead of window.prompt: the native dialog renders the typed
+ * value in clear text (shoulder-surfable, and screen-shareable by accident) and
+ * some browsers retain prompt input, so a password does not belong in it. This
+ * uses <input type="password">, so the value is masked and the browser treats it
+ * as a credential field — which also lets a password manager fill it.
+ *
+ * The value lives only in this component's state, is wiped on settle, and is
+ * never logged or persisted here. Callers get it, use it for the request, and
+ * drop it — this does NOT store a password anywhere, so the token-first auth
+ * rule is unaffected.
+ *
+ * Same buffering contract as gameConfirm: requests fired before the host mounts
+ * queue up, and if the host unmounts with one open it resolves null so awaiting
+ * callers never hang.
+ */
+export function gamePasswordPrompt(message: string, opts?: GamePasswordPromptOptions): Promise<string | null> {
+    return new Promise<string | null>((resolve) => {
+        const req: PasswordRequest = {
+            message: String(message ?? ""),
+            opts,
+            resolve,
+            restoreFocus: typeof document === "undefined" ? null : document.activeElement as HTMLElement | null,
+        };
+        if (activePasswordListener) activePasswordListener(req);
+        else pendingPasswords.push(req);
+    });
+}
+
+export function GamePasswordPromptHost() {
+    const [queue, setQueue] = useState<PasswordRequest[]>([]);
+    const [value, setValue] = useState("");
+    const cardRef = useRef<HTMLDivElement>(null);
+    const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        activePasswordListener = (req) => setQueue((q) => {
+            if (q.length === 0) restoreFocusRef.current = req.restoreFocus;
+            return [...q, req];
+        });
+        if (pendingPasswords.length > 0) {
+            const pending = pendingPasswords;
+            pendingPasswords = [];
+            setQueue((q) => {
+                if (q.length === 0) restoreFocusRef.current = pending[0]?.restoreFocus ?? null;
+                return [...q, ...pending];
+            });
+        }
+        return () => {
+            activePasswordListener = null;
+            setQueue((q) => { q.forEach((r) => r.resolve(null)); return []; });
+        };
+    }, []);
+
+    // Always clear the field on settle so a typed password never lingers in state
+    // for the next request in the queue.
+    const settle = (result: string | null) => {
+        setValue("");
+        setQueue((q) => {
+            if (q.length === 0) return q;
+            q[0].resolve(result);
+            return q.slice(1);
+        });
+    };
+
+    useEffect(() => {
+        if (queue.length === 0) return;
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") { e.preventDefault(); settle(null); }
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [queue.length]);
+
+    useBodyScrollLock(queue.length > 0);
+    useDialogFocusTrap(queue.length > 0, cardRef, restoreFocusRef);
+
+    if (queue.length === 0) return null;
+
+    const current = queue[0];
+    const opts = current.opts ?? {};
+
+    return createPortal(
+        <div className="game-alert-backdrop" onClick={() => settle(null)} role="presentation">
+            <div
+                ref={cardRef}
+                className="game-alert-card"
+                role="alertdialog"
+                aria-modal="true"
+                aria-label={opts.title ?? "Password required"}
+                tabIndex={-1}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="game-alert-header">
+                    <span className="game-alert-badge">忍</span>
+                    <span className="game-alert-title">{opts.title ?? "Password required"}</span>
+                </div>
+                <p className="game-alert-message">{current.message}</p>
+                <form
+                    onSubmit={(e) => { e.preventDefault(); settle(value); }}
+                >
+                    <input
+                        className="game-alert-input"
+                        type="password"
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        autoComplete="current-password"
+                        autoFocus
+                        aria-label="Password"
+                    />
+                    <div className="game-alert-footer">
+                        <button type="button" className="game-alert-cancel" onClick={() => settle(null)}>
+                            {opts.cancelLabel ?? "Cancel"}
+                        </button>
+                        <button type="submit" className={`game-alert-ok${opts.danger ? " danger" : ""}`}>
+                            {opts.confirmLabel ?? "Confirm"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>,
+        document.body,
+    );
+}
+
 export type GameConfirmOptions = {
     title?: string;
     confirmLabel?: string;

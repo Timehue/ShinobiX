@@ -10,6 +10,7 @@ import {
     discountCost,
     getHospitalDiscountPercent,
 } from "../App";
+import { gameToast } from "../components/GameToast";
 
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
@@ -80,7 +81,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
         // self-discharges (chargedRyo === 0) leave silently as before.
         if (chargedRyo > 0) {
-            alert(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — fully healed and discharged.`);
+            gameToast(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — fully healed and discharged.`);
         }
         setScreen("village");
     }

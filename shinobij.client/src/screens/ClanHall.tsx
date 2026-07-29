@@ -46,6 +46,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { ClanExchange } from "../components/ClanExchange";
 import { applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
+import { gameToast } from "../components/GameToast";
 
 export function ClanHall({ character, updateCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     const lore = clanLore[character.village];
@@ -536,7 +537,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 updateCharacter((prev) => prev ? ({ ...prev, [clanSendCurrency]: (prev[clanSendCurrency] ?? 0) + amount } as Character) : prev);
             }
             setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } }));
-            alert(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
+            gameToast(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
         } finally {
@@ -562,7 +563,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
             setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
-            alert(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
+            gameToast(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
         } finally {
@@ -605,7 +606,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         if (!data.collected || data.collected <= 0) return alert("Your owned sectors have not produced war supply yet.");
         await saveClan({ ...clanData, treasury: cleanClanTreasury(data.treasury as Partial<ClanTreasury>) });
         refreshTerritoryPanel();
-        alert(`Collected ${data.collected.toLocaleString()} War Supply from clan sectors.`);
+        gameToast(`Collected ${data.collected.toLocaleString()} War Supply from clan sectors.`);
     }
     async function _spendWarSupplyOnActiveWar() {
         if (!clanData?.activeWar) return alert("Start a clan war before spending War Supply.");

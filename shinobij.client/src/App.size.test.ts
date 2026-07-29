@@ -172,7 +172,12 @@ import { readFileSync } from "node:fs";
 // shim, statPointsEarnedFromXp deleted, the xpNeeded import/re-export dropped
 // with the curve, and the XP toast/grant plumbing removed. See
 // docs/leveling-without-xp-map.md.)
-const MAX_LINES = 7_792;
+// → 7,756 (net −43: the local player-account cache moved to lib/player-accounts.ts
+// — PlayerAccountSave/PlayerAccounts/PendingTravelSave plus accountKey,
+// loadPlayerAccounts and savePlayerAccounts, verbatim, so the password-scrubbing
+// invariant moved with them. That paid for the +11-line masked password prompt at
+// the delete-character call site, which replaced a plaintext window.prompt.)
+const MAX_LINES = 7_756;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

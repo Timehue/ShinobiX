@@ -5,6 +5,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
+import { gameToast } from "../components/GameToast";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
@@ -46,7 +47,7 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
             }) : prev);
             setSendAmount(0);
             setSendTo("");
-            alert(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
+            gameToast(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
         } finally {
             sendingRef.current = false;
             setSending(false);
