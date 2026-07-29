@@ -166,14 +166,14 @@ export function PetDuelCommandDeck({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                         <div style={{ minWidth: 0 }}>
                             <div style={{ color: commandReady ? "#fff" : "#9aa7ba", font: `900 ${compact ? 10 : 11}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".14em", textTransform: "uppercase" }}>
-                                {commandReady ? "Command Window" : "Instinct"}
+                                {calling ? "Order Received" : commandReady ? "Command Window" : "Instinct"}
                             </div>
                             <div style={{ marginTop: 4, color: commandReady ? "#dbeafe" : "#718096", font: `700 ${compact ? 9 : 10}px/1.2 Inter,sans-serif`, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {commandReady ? "Call the next beat—execution is guaranteed" : `${petName} is reading the fight`}
+                                {calling ? `${petName} is bracing to execute` : commandReady ? "Choose the next committed action" : `${petName} is reading the fight`}
                             </div>
                         </div>
                         <strong style={{ color: commandReady ? glow : "#94a3b8", font: "900 11px/1 Inter,sans-serif" }}>
-                            {commandReady ? "READY" : `${Math.round(commandPct)}%`}
+                            {calling ? "SENT" : commandReady ? "READY" : `${Math.round(commandPct)}%`}
                         </strong>
                     </div>
 

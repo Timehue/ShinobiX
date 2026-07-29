@@ -1,7 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { DuelEvent } from "./pet-duel-sim";
-import { appendCapped, boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove, selectDuelSpotlightEvent } from "./pet-duel-presentation";
+import {
+    PET_DUEL_COMMAND_CATCHUP_SCALE,
+    PET_DUEL_NEUTRAL_PLAYBACK_SCALE,
+    PET_OPENING_TACTICS,
+    appendCapped,
+    boundedBurstStep,
+    duelAttackDashBeats,
+    duelHeroCutEligible,
+    duelHeroCutEventIndexes,
+    duelMoveOutcome,
+    petDuelImpactStrength,
+    precedingNamedMove,
+    selectDuelSpotlightEvent,
+} from "./pet-duel-presentation";
 
 const event = (value: Partial<DuelEvent> & Pick<DuelEvent, "t" | "type" | "actorId">): DuelEvent => ({
     side: value.actorId.startsWith("enemy") ? "enemy" : "player",
@@ -142,4 +155,31 @@ test("minor hits and maneuvers remain local instead of taking the party spotligh
 test("capped presentation lists evict their oldest entry", () => {
     assert.deepEqual(appendCapped([1, 2, 3], 4, 3), [2, 3, 4]);
     assert.deepEqual(appendCapped([1], 2, 0), []);
+});
+
+test("opening tactics explain behavior, strength, and tradeoff before lock-in", () => {
+    assert.deepEqual(PET_OPENING_TACTICS.map((tactic) => tactic.stance), [0, 1, 2]);
+    for (const tactic of PET_OPENING_TACTICS) {
+        assert.ok(tactic.behavior.length >= 55, `${tactic.name} needs a real behavior explanation`);
+        assert.ok(tactic.strength.length >= 45, `${tactic.name} needs a readable strength`);
+        assert.ok(tactic.tradeoff.length >= 45, `${tactic.name} needs an honest tradeoff`);
+    }
+});
+
+test("combat pacing preserves readable neutral play and restrained command catch-up", () => {
+    assert.ok(PET_DUEL_NEUTRAL_PLAYBACK_SCALE >= 1.2);
+    assert.ok(PET_DUEL_NEUTRAL_PLAYBACK_SCALE <= 1.45);
+    assert.ok(PET_DUEL_COMMAND_CATCHUP_SCALE > PET_DUEL_NEUTRAL_PLAYBACK_SCALE);
+    assert.ok(PET_DUEL_COMMAND_CATCHUP_SCALE <= 1.8);
+});
+
+test("impact strength gives light hits a floor and preserves heavy/critical hierarchy", () => {
+    const light = petDuelImpactStrength(0.02, false);
+    const heavy = petDuelImpactStrength(0.3, false);
+    const critical = petDuelImpactStrength(0.3, true);
+    assert.ok(light >= 0.48);
+    assert.ok(heavy > light);
+    assert.ok(critical > heavy);
+    assert.equal(petDuelImpactStrength(Number.NaN, false), 0.48);
+    assert.equal(petDuelImpactStrength(10, true), 1.25);
 });

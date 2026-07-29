@@ -33,6 +33,9 @@ export type PetModelFrame = {
     faceX: number;
     faceZ: number;
     hit: number;
+    /** Damage-aware reaction weight. Coliseum supplies roughly 0.48–1.25;
+     * other callers may omit it and receive the restrained default. */
+    impactPower?: number;
     casting: boolean;
     desperate: boolean;
     statuses: readonly string[];
@@ -56,6 +59,7 @@ export const DEFAULT_PET_MODEL_FRAME: PetModelFrame = {
     faceX: 1,
     faceZ: 0,
     hit: 0,
+    impactPower: 0.55,
     casting: false,
     desperate: false,
     statuses: [],
@@ -945,6 +949,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // contact pose before the longer attack clip carries through recovery.
         const contactPunch = strike ? Math.exp(-motionAge * 8.5) : 0;
         const recoilPunch = stagger ? Math.exp(-motionAge * 6.5) : 0;
+        const impactPower = THREE.MathUtils.clamp(f.impactPower ?? 0.55, 0.45, 1.25);
+        const recoilWeight = recoilPunch * THREE.MathUtils.lerp(0.78, 1.48, (impactPower - 0.45) / 0.8);
         const heroPose = petHeroBodyPose({
             style: f.moveStyle,
             motion: f.motion,
@@ -1018,7 +1024,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             - dashDrive * (config.profile === "heavy" ? 0.055 : 0.095)
             + dashBrake * (config.profile === "heavy" ? 0.075 : 0.12)
             + contactPunch * (config.profile === "heavy" ? 0.065 : 0.1)
-            - recoilPunch * (config.profile === "heavy" ? 0.08 : 0.12);
+            - recoilWeight * (config.profile === "heavy" ? 0.1 : 0.16);
         const authoredRoll = baseAuthoredRoll + heroPose.roll;
         b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, authoredPitch, Math.min(1, delta * (dead ? 4 : 15)));
         b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw, Math.min(1, delta * 13));
@@ -1032,9 +1038,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const sz = authoredCombatRig
             ? dead ? 1.08 : f.victorious ? 1.035 : strike ? 1 + 0.11 * attackPulse : windup ? 0.94 : f.motion === "recover" ? 1.025 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.014) : 1 + breath * 0.12
             : f.victorious ? (aquaticSeal ? 1.075 : 1.035) : dead ? 1.05 : windup ? (aquaticSeal ? 0.93 : 0.9) : strike ? (aquaticSeal ? 1.18 : 1.13) : aquaticSeal && running ? 1 + breath * 0.4 + sealCompression * 0.055 : 1 + breath;
-        const dashScaleX = 1 - dashDrive * 0.025 + contactPunch * 0.03 + recoilPunch * 0.025;
-        const dashScaleY = 1 - dashDrive * (config.profile === "heavy" ? 0.045 : 0.075) - contactPunch * 0.075 + recoilPunch * 0.045;
-        const dashScaleZ = 1 + dashDrive * (config.profile === "heavy" ? 0.085 : 0.13) - dashBrake * 0.035 + contactPunch * 0.14 - recoilPunch * 0.055;
+        const dashScaleX = 1 - dashDrive * 0.025 + contactPunch * 0.03 + recoilWeight * 0.035;
+        const dashScaleY = 1 - dashDrive * (config.profile === "heavy" ? 0.045 : 0.075) - contactPunch * 0.075 + recoilWeight * 0.065;
+        const dashScaleZ = 1 + dashDrive * (config.profile === "heavy" ? 0.085 : 0.13) - dashBrake * 0.035 + contactPunch * 0.14 - recoilWeight * 0.085;
         b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx * heroPose.scaleX * dashScaleX, Math.min(1, delta * 15));
         b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy * heroPose.scaleY * dashScaleY, Math.min(1, delta * 15));
         b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz * heroPose.scaleZ * dashScaleZ, Math.min(1, delta * 15));
@@ -1043,14 +1049,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // so this adds weight without bringing back the earlier mesh jitter.
         const weightX = aquaticSeal && running ? sealStroke * 0.026 : authoredCombatRig && running && !groundedAuthoredQuadruped ? strideWave * 0.022 : 0;
         const weightYBase = aquaticSeal && running ? -sealCompression * 0.016 : authoredCombatRig ? (running && !groundedAuthoredQuadruped ? -authoredRunWave * 0.018 : windup ? -0.024 : strike ? attackPulse * 0.016 : 0) : 0;
-        const weightY = weightYBase - dashDrive * 0.024 + dashBrake * 0.012 - contactPunch * 0.034 + recoilPunch * 0.025;
+        const weightY = weightYBase - dashDrive * 0.024 + dashBrake * 0.012 - contactPunch * 0.034 + recoilWeight * 0.036;
         const locomotionDrive = aquaticSeal && running ? sealStroke * 0.045 : groundedAuthoredQuadruped && running ? strideWave * 0.018 : 0;
         const driveZ = locomotionDrive
             + (authoredCombatRig && strike ? attackPulse * 0.13 : authoredCombatRig && windup ? -0.048 : aquaticSeal && strike ? attackPulse * 0.09 : aquaticSeal && windup ? -0.035 : 0)
             + heroPose.drive
             + dashDrive * (config.profile === "heavy" ? 0.05 : 0.085)
             + contactPunch * (config.profile === "heavy" ? 0.12 : 0.17)
-            - recoilPunch * (config.profile === "heavy" ? 0.075 : 0.11);
+            - recoilWeight * (config.profile === "heavy" ? 0.12 : 0.18);
         const weightBlend = Math.min(1, delta * (f.motion === "dash" || strike || stagger ? 16 : 10));
         b.position.x = THREE.MathUtils.lerp(b.position.x, weightX, weightBlend);
         b.position.y = THREE.MathUtils.lerp(b.position.y, weightY, weightBlend);
