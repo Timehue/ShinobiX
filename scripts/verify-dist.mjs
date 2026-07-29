@@ -28,6 +28,12 @@ const forbiddenClientPrefixes = [
     'pet-models/roster-references/',
 ];
 const forbiddenClientExtensions = new Set(['.blend', '.blend1', '.psd', '.kra', '.xcf']);
+const requiredClientFiles = [
+    'pet-models/gate-warden-rigged.glb',
+    'pet-models/ward-totem.glb',
+    'pet-models/wf-boulder.glb',
+    'pet-models/wf-lantern.glb',
+];
 const maxClientArtifactBytes = 512 * 1024 * 1024;
 
 function fail(msg) {
@@ -75,6 +81,9 @@ function walkFiles(dir) {
 
 const clientFiles = walkFiles(clientDist);
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
+const clientRelativeFileSet = new Set(clientRelativeFiles);
+const missingRequiredClientFile = requiredClientFiles.find((file) => !clientRelativeFileSet.has(file));
+if (missingRequiredClientFile) fail(`client dist is missing required runtime asset: ${missingRequiredClientFile}`);
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
 if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
 const leakedSourceFile = clientRelativeFiles.find((file) => {
