@@ -129,16 +129,32 @@ export function morphProgress(phase: EvolutionPhase): number {
     return isNewFormVisible(phase.beat) ? 1 : 0;
 }
 
+/** Fraction of the opening charge the pet is held in full, un-washed colour. */
+const COLOUR_HOLD = 0.8;
+/** How far the wash has crept in by the end of the charge — a first catch of light. */
+const CHARGE_WHITE = 0.18;
+
 /**
  * 0..1 "whiteness": 0 = the pet is shown in full COLOUR, 1 = a pure white glow
- * silhouette. The old pet washes to white over the first half of the charge (so
- * it is white before the spin turns it edge-on), stays white through the burst,
- * then the new pet's colour floods in across the reveal.
+ * silhouette.
+ *
+ * The opening beat deliberately HOLDS the pet in colour for most of the charge —
+ * the player has to see *who* is evolving before it becomes a silhouette. Only
+ * then does the glow catch, and it GROWS across the spin-up in step with the tube
+ * of light rising around it. (These are real 3D models now, so there is no need to
+ * rush to white before the spin turns them edge-on — that was a flat-sprite
+ * constraint.) It holds full white through the burst, then the evolved pet's
+ * colour floods back in across the reveal.
  */
 export function whiteness(phase: EvolutionPhase): number {
     switch (phase.beat) {
-        case "charge": return Math.min(1, phase.progress * 2);   // colour → white over the first half
+        case "charge": {
+            const t = (phase.progress - COLOUR_HOLD) / (1 - COLOUR_HOLD);
+            return easeInOut(clamp01(t)) * CHARGE_WHITE;         // colour, then a first catch
+        }
         case "spinup":
+            // The wash GROWS with the spin as the tube of light rises around it.
+            return CHARGE_WHITE + (1 - CHARGE_WHITE) * easeInOut(phase.progress);
         case "morph":
         case "slowdown":
         case "burst": return 1;                                  // full white glow
@@ -210,6 +226,63 @@ export function morphScale(phase: EvolutionPhase): number {
         case "burst": return 1.12;
         case "reveal": return 1.18 - 0.18 * easeOut(phase.progress);     // boom pop 1.18 → 1.0
         default: return 1;                                               // settle
+    }
+}
+
+/**
+ * 0..1 brightness of the TRON GRID FLOOR the pet is grounded on. The floor is a
+ * faint presence as the pet charges, brightens as the energy builds, blazes at
+ * the burst, then settles to a clearly-lit "hero stage" glow (it stays visible
+ * so the revealed pet reads as standing IN a cyberspace, not floating in a void).
+ */
+export function gridIntensity(phase: EvolutionPhase): number {
+    switch (phase.beat) {
+        case "charge": return 0.16 + easeOut(phase.progress) * 0.14;  // 0.16 → 0.30
+        case "spinup": return 0.30 + easeInOut(phase.progress) * 0.35; // 0.30 → 0.65
+        case "morph": return 0.65 + easeInOut(phase.progress) * 0.22;  // 0.65 → 0.87
+        case "slowdown": return 0.87 + phase.progress * 0.13;          // 0.87 → 1.00
+        case "burst": return 1;                                        // blaze
+        case "reveal": return 1 - easeOut(phase.progress) * 0.22;      // 1.00 → 0.78
+        default: return 0.72;                                          // settle: lit hero stage
+    }
+}
+
+export interface RingBurst {
+    /** 0..1 expansion of the shock ring (0 = collapsed at the core). */
+    radius: number;
+    /** 0..1 additive opacity of the ring + its radial rays. */
+    opacity: number;
+}
+
+/**
+ * The horizontal SHOCK RING that erupts on the BOOM — an electric torus that
+ * expands outward from the pet with radial light rays (the reference's climax,
+ * replacing a plain white wash). Lives only across the burst + early reveal.
+ */
+export function ringBurst(phase: EvolutionPhase): RingBurst {
+    if (phase.beat === "burst") {
+        return { radius: easeOut(phase.progress), opacity: Math.min(1, phase.progress * 2.4) };
+    }
+    if (phase.beat === "reveal") {
+        return { radius: 1 + easeOut(phase.progress) * 0.5, opacity: Math.max(0, 1 - phase.progress * 1.7) };
+    }
+    return { radius: 0, opacity: 0 };
+}
+
+/**
+ * 0..1 intensity of the light RAYS streaming UP off the grid floor. A faint
+ * updraft while the pet morphs, a hard column at the boom, then a held "hero
+ * light" through the reveal that eases off as the pet settles.
+ */
+export function floorRayIntensity(phase: EvolutionPhase): number {
+    switch (phase.beat) {
+        case "charge": return 0;
+        case "spinup": return easeOut(phase.progress) * 0.25;         // 0 → 0.25
+        case "morph": return 0.25 + easeInOut(phase.progress) * 0.25; // 0.25 → 0.50
+        case "slowdown": return 0.5 + phase.progress * 0.2;           // 0.50 → 0.70
+        case "burst": return 0.7 + easeOut(phase.progress) * 0.3;     // 0.70 → 1.00
+        case "reveal": return 1 - easeInOut(phase.progress) * 0.5;    // 1.00 → 0.50
+        default: return 0.5 - easeOut(phase.progress) * 0.5;          // settle: 0.50 → 0
     }
 }
 

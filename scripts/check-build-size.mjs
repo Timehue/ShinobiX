@@ -126,7 +126,19 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // near the band that has already produced a local green / CI red. This ceiling
 // gives CI ~23 KB of spare (~30 KB locally). Startup gates untouched — initial
 // graph 1.32 MB raw / 345.9 KB gzip, entry under its gate.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_880_000;
+// 2026-07-29: 6.88 -> 6.59 MiB (6,905,000 B). The pet evolution cutscene moves
+// off flat billboards onto the real rigged combat GLBs: a summoning-seal shader,
+// procedurally drawn ring/ray/shaft/smoke textures, the chakra pillar and
+// shock-ring FX, a per-model hero yaw table and the material white-out. Measured
+// +11,947 B over origin/main (main alone 6,870,155 B; with this change
+// 6,882,102 B) — all of it in the LAZY PetYard screen chunk, none on the entry
+// path. Sized by the margin rule above rather than the local number: CI runs
+// ~7 KB heavier because @sentry/vite-plugin injects instrumentation into the
+// product chunks, so CI should land near 6,889,100 B. This ceiling leaves CI
+// ~15.9 KB of spare (~22.9 KB locally); the previous ceiling left CI 9 KB
+// UNDERWATER. Startup gates untouched — initial graph 1.30 MB raw / 342.6 KB
+// gzip, entry under its gate.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_905_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

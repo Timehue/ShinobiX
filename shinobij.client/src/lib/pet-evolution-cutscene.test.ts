@@ -17,6 +17,9 @@ import {
     burstIntensity,
     morphScale,
     evolutionStageMotion,
+    gridIntensity,
+    ringBurst,
+    floorRayIntensity,
 } from "./pet-evolution-cutscene";
 
 const TAU = Math.PI * 2;
@@ -102,10 +105,23 @@ test("morph progress hands off old-white to evolved-white inside the tube", () =
     assert.equal(morphProgress(evolutionPhaseAt(8000)), 1); // settle
 });
 
-test("whiteness: colour→white over the first half of charge, white through burst, colour by settle", () => {
-    assert.ok(whiteness(evolutionPhaseAt(150)) < 0.5, "still mostly colour at the very start");
-    assert.equal(whiteness(evolutionPhaseAt(600)), 1, "fully white by half-charge (before it turns edge-on)");
-    assert.equal(whiteness(evolutionPhaseAt(2000)), 1); // spinup
+test("whiteness: holds the pet in colour, grows across the spin-up, colour by settle", () => {
+    // The player must SEE which pet is evolving before it becomes a silhouette.
+    assert.equal(whiteness(evolutionPhaseAt(0)), 0, "full colour on the opening frame");
+    assert.equal(whiteness(evolutionPhaseAt(600)), 0, "still full colour half a second in");
+    assert.equal(whiteness(evolutionPhaseAt(900)), 0, "still colour at 0.75 of the charge");
+    const catchLight = whiteness(evolutionPhaseAt(1150)); // very end of charge
+    assert.ok(catchLight > 0 && catchLight < 0.25, "only a first catch of light by the end of the charge");
+
+    // …then it GROWS with the spin as the tube of light rises.
+    const early = whiteness(evolutionPhaseAt(1500));
+    const mid = whiteness(evolutionPhaseAt(2000));
+    const late = whiteness(evolutionPhaseAt(2500));
+    assert.ok(catchLight < early && early < mid && mid < late, "wash grows monotonically through spin-up");
+    assert.ok(late < 1, "not fully white until the spin-up completes");
+    assert.ok(Math.abs(whiteness(evolutionPhaseAt(2599)) - 1) < 0.02, "fully white as the tube finishes rising");
+
+    assert.equal(whiteness(evolutionPhaseAt(3600)), 1); // morph
     assert.equal(whiteness(evolutionPhaseAt(5000)), 1); // slowdown
     assert.equal(whiteness(evolutionPhaseAt(6200)), 1); // burst
     const rev = whiteness(evolutionPhaseAt(6950)); // ~mid reveal
@@ -152,6 +168,40 @@ test("scale grows through the spin then pops on the reveal back to 1", () => {
     assert.ok(Math.abs(morphScale(evolutionPhaseAt(5000)) - 1.12) < 1e-9); // slowdown holds
     assert.ok(morphScale(evolutionPhaseAt(6510)) > 1.12);        // reveal: boom pop bigger
     assert.equal(morphScale(evolutionPhaseAt(8000)), 1);         // settle: 1
+});
+
+test("grid floor: faint while charging, blazes at the burst, stays a lit hero stage", () => {
+    for (const t of [0, 600, 2000, 3600, 5000, 6200, 6950, 8000]) {
+        const v = gridIntensity(evolutionPhaseAt(t));
+        assert.ok(v >= 0 && v <= 1, `grid in range at ${t}`);
+    }
+    assert.ok(gridIntensity(evolutionPhaseAt(0)) < 0.25, "faint at the very start");
+    assert.ok(gridIntensity(evolutionPhaseAt(2000)) > gridIntensity(evolutionPhaseAt(600)), "brightens as energy builds");
+    assert.equal(gridIntensity(evolutionPhaseAt(6200)), 1, "blazes at the burst");
+    assert.ok(gridIntensity(evolutionPhaseAt(8000)) > 0.5, "still a clearly-lit hero stage at settle");
+});
+
+test("ring burst: silent until the boom, expands + fades across burst→reveal", () => {
+    assert.deepEqual(ringBurst(evolutionPhaseAt(5000)), { radius: 0, opacity: 0 }); // slowdown: nothing
+    const early = ringBurst(evolutionPhaseAt(6050)); // just into the burst
+    assert.ok(early.opacity > 0 && early.radius >= 0);
+    const peak = ringBurst(evolutionPhaseAt(6490)); // end of burst
+    assert.ok(peak.radius > early.radius, "ring expands through the burst");
+    assert.ok(peak.opacity > 0.9, "ring is fully lit at the boom");
+    const fading = ringBurst(evolutionPhaseAt(7100)); // into the reveal
+    assert.ok(fading.radius > 1, "ring keeps expanding past the pet");
+    assert.ok(fading.opacity < peak.opacity, "ring fades out across the reveal");
+    assert.deepEqual(ringBurst(evolutionPhaseAt(8000)), { radius: 0, opacity: 0 }); // settle: gone
+});
+
+test("floor rays: build with the energy, hard column at the boom, ease off by settle", () => {
+    for (const t of [0, 600, 2000, 3600, 5000, 6200, 6950, 8699]) {
+        const v = floorRayIntensity(evolutionPhaseAt(t));
+        assert.ok(v >= 0 && v <= 1, `rays in range at ${t}`);
+    }
+    assert.equal(floorRayIntensity(evolutionPhaseAt(600)), 0, "no rays during the opening charge");
+    assert.ok(floorRayIntensity(evolutionPhaseAt(6490)) > 0.9, "hard column of light at the boom");
+    assert.ok(floorRayIntensity(evolutionPhaseAt(8699)) < 0.1, "rays gone by the end of settle");
 });
 
 test("2.5D stage motion swaps from old-white to evolved-white before color reveal", () => {

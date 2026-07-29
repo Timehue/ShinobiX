@@ -1,15 +1,16 @@
 /*
- * Pet evolution cutscene — the Digimon-style digivolution reveal (view).
+ * Pet evolution cutscene — the shinobi summoning reveal (view chrome).
  *
- * Cadence (owner-specified): the current pet starts to SPIN and washes to a
- * white glow → a big TUBE OF LIGHT rises around it → it keeps spinning (white
- * silhouette) inside the tube → the EVOLVED form cross-fades in (still spinning)
- * → the spin SLOWS DOWN → BOOM (white burst) → the new pet is revealed in colour.
+ * Cadence (owner-specified): the pet stands on the summoning seal in FULL COLOUR
+ * and begins a slow turn → the white wash grows as the spin builds and a chakra
+ * PILLAR OF LIGHT rises to envelop it → it spins fast as a white silhouette while
+ * the EVOLVED form takes over inside the column → the spin decelerates and lands
+ * facing the player → BOOM (shock-ring + smoke) → the pillar drops and the evolved
+ * pet is revealed in colour, perfectly still.
  *
- * Driven by the pure timeline in lib/pet-evolution-cutscene.ts. The timing,
- * tube, tunnel, captions, burst, and reveal keep the current digivolution style.
- * The pet layer is upgraded to PetEvolutionStage3D, which renders the old/new
- * forms as grounded HD-2D standees instead of flat DOM images.
+ * This file owns the DOM chrome only — backdrop, chakra pillar, flash, captions
+ * and controls — all driven by the pure timeline in lib/pet-evolution-cutscene.ts.
+ * The pets themselves are real rigged 3D models rendered by PetEvolutionStage3D.
  *
  * Honors prefers-reduced-motion (jumps straight to the settled colour form).
  */
@@ -25,7 +26,6 @@ import {
     tunnelIntensity,
     burstIntensity,
 } from "../lib/pet-evolution-cutscene";
-import { petVisualId } from "../data/pet-evolutions";
 import { PetEvolutionStage3D } from "./PetEvolutionStage3D";
 
 export function PetEvolutionCutscene({
@@ -92,8 +92,8 @@ export function PetEvolutionCutscene({
             <div className="pet-evo-stage">
                 <PetEvolutionStage3D
                     phase={phase}
+                    pet={pet}
                     oldVisualId={oldVisualId}
-                    newVisualId={petVisualId(pet)}
                     element={pet.element}
                     oldImage={oldImage}
                     newImage={newImage ?? oldImage}
@@ -101,8 +101,9 @@ export function PetEvolutionCutscene({
                 />
             </div>
 
-            {/* White burst flash — the BOOM */}
-            <div className="pet-evo-flash" style={{ opacity: flash }} aria-hidden="true" />
+            {/* White burst flash — the BOOM. Capped below a full white-out so the
+                3D shock-ring + starburst punch through it instead of being washed. */}
+            <div className="pet-evo-flash" style={{ opacity: flash * 0.72 }} aria-hidden="true" />
 
             {/* Name captions */}
             {showOldName(phase.beat) && <div className="pet-evo-name pet-evo-name-old">{oldName}</div>}
@@ -125,7 +126,7 @@ const CUTSCENE_CSS = `
 .pet-evo-cutscene {
     position: fixed; inset: 0; z-index: 9999;
     display: grid; place-items: center;
-    background: radial-gradient(circle at 50% 45%, #1b1140 0%, #0a0618 60%, #050309 100%);
+    background: radial-gradient(circle at 50% 46%, #0b1a3a 0%, #060c1c 58%, #03060e 100%);
     overflow: hidden; perspective: 900px;
     animation: pet-evo-fadein 400ms ease both;
 }
@@ -135,8 +136,7 @@ const CUTSCENE_CSS = `
 .pet-evo-tunnel {
     position: absolute; inset: -10%; pointer-events: none; mix-blend-mode: screen;
     background:
-        repeating-linear-gradient(90deg, rgba(165,243,252,0) 0 7px, rgba(165,243,252,0.16) 7px 8px, rgba(165,243,252,0) 8px 18px),
-        repeating-linear-gradient(0deg, rgba(129,140,248,0) 0 22px, rgba(129,140,248,0.22) 22px 24px, rgba(129,140,248,0) 24px 46px);
+        repeating-linear-gradient(90deg, rgba(191,216,255,0) 0 13px, rgba(191,216,255,0.09) 13px 14px, rgba(191,216,255,0) 14px 30px);
     -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,0.35) 55%, transparent 82%);
     mask-image: radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,0.35) 55%, transparent 82%);
     animation: pet-evo-tunnel-rush 640ms linear infinite, pet-evo-tunnel-pulse 1100ms ease-in-out infinite;
@@ -149,21 +149,26 @@ const CUTSCENE_CSS = `
    the pet is enveloped in. Position/opacity driven per-frame (it rises into place). */
 .pet-evo-tube {
     position: absolute; top: -8%; left: 50%;
-    width: clamp(190px, 46vw, 340px); height: 116%;
+    /* Wide enough to ENVELOP the pet — a quadruped's tail and haunches spread far
+       past its shoulders, and a column narrower than the silhouette reads as the
+       pet standing beside the light rather than inside it. */
+    width: clamp(320px, 78vw, 660px); height: 116%;
     pointer-events: none; mix-blend-mode: screen;
     background:
-        repeating-linear-gradient(0deg, rgba(236,240,255,0) 0 6px, rgba(236,240,255,0.6) 6px 9px, rgba(236,240,255,0) 9px 19px),
-        linear-gradient(90deg, rgba(129,140,248,0) 0%, rgba(165,180,252,0.5) 16%, rgba(224,231,255,0.78) 50%, rgba(165,180,252,0.5) 84%, rgba(129,140,248,0) 100%);
+        repeating-linear-gradient(0deg, rgba(236,244,255,0) 0 6px, rgba(236,244,255,0.6) 6px 9px, rgba(236,244,255,0) 9px 19px),
+        linear-gradient(90deg, rgba(91,140,255,0) 0%, rgba(127,176,255,0.5) 16%, rgba(224,238,255,0.8) 50%, rgba(127,176,255,0.5) 84%, rgba(91,140,255,0) 100%);
     border-radius: 46% / 8%;
-    filter: blur(2px) drop-shadow(0 0 44px #818cf8) drop-shadow(0 0 90px #6d28d9);
+    filter: blur(2px) drop-shadow(0 0 44px #5b8cff) drop-shadow(0 0 90px #1e40af);
     -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
     mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
     animation: pet-evo-tube-rush 520ms linear infinite;
 }
 @keyframes pet-evo-tube-rush { from { background-position: 0 0, 0 0; } to { background-position: 0 -19px, 0 0; } }
 
+/* Full-bleed so the 3D Tron grid floor fills the frame (the camera frames the
+   grounded pet at screen centre) instead of being boxed into a small square. */
 .pet-evo-stage {
-    position: relative; width: min(64vw, 400px); height: min(64vw, 400px);
+    position: absolute; inset: 0; width: 100%; height: 100%;
     display: grid; place-items: center; transform-style: preserve-3d;
 }
 
@@ -174,14 +179,14 @@ const CUTSCENE_CSS = `
     font-weight: 800; letter-spacing: 0.04em; padding: 0 16px; text-shadow: 0 2px 18px rgba(0,0,0,0.85);
 }
 .pet-evo-name-old {
-    font-size: clamp(20px, 5vw, 34px); color: #c4b5fd;
+    font-size: clamp(20px, 5vw, 34px); color: #a8c7ff;
     animation: pet-evo-name-pulse 900ms ease-in-out infinite;
 }
 @keyframes pet-evo-name-pulse { 0%, 100% { opacity: 0.78; } 50% { opacity: 1; } }
 .pet-evo-name-new { font-size: clamp(24px, 6vw, 44px); color: var(--gold); display: flex; flex-direction: column; gap: 4px; }
 .pet-evo-name-new.slam { animation: pet-evo-slam 420ms cubic-bezier(.2,1.4,.4,1) both; }
 @keyframes pet-evo-slam { from { transform: scale(2.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.pet-evo-evolved-tag { font-size: 0.5em; letter-spacing: 0.3em; color: #a78bfa; }
+.pet-evo-evolved-tag { font-size: 0.5em; letter-spacing: 0.3em; color: #8ab4ff; }
 .pet-evo-rarity { font-size: 0.45em; text-transform: uppercase; color: var(--gold-300); opacity: 0.85; letter-spacing: 0.2em; }
 
 .pet-evo-skip {
@@ -191,9 +196,9 @@ const CUTSCENE_CSS = `
 }
 .pet-evo-continue {
     position: absolute; bottom: 6%; left: 50%; transform: translateX(-50%); z-index: 2;
-    background: linear-gradient(180deg, #7c3aed, #5b21b6); color: #fff; border: none;
+    background: linear-gradient(180deg, #2563eb, #1e40af); color: #fff; border: none;
     border-radius: 10px; padding: 10px 28px; font-size: 1rem; font-weight: 700; cursor: pointer;
-    box-shadow: 0 0 24px rgba(124,58,237,0.7);
+    box-shadow: 0 0 24px rgba(37,99,235,0.7);
     animation: pet-evo-fadein 300ms ease both;
 }
 @media (prefers-reduced-motion: reduce) {
