@@ -25,12 +25,15 @@ const CHIP_ZOOM = 2.4;         // village quick-jump target zoom
 const DOUBLE_TAP_MS = 320;     // max gap between taps to count as a double-tap
 const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
 // The map's DISPLAYED aspect on the mobile zoom surface. Deliberately TALLER
-// (smaller w/h) than the source art's true 3:2 (1.5) so the painting stretches
+// (smaller w/h) than the source art's true aspect so the painting stretches
 // vertically (its background-size is 100% 100%) to better fill a tall phone
 // screen with less side-crop — the %-positioned markers stretch with it and stay
 // registered, and the fixed-size pins stay round. MUST stay in sync with the
 // `--wm-map-ar` fallback in the wm-zoom .generated-world-map CSS rule.
-const MAP_AR = 1.25;
+// The 2026-07 keyart is 16:9 (1.7768) rather than the old 3:2 (1.5); this keeps
+// the SAME ~1.2x vertical stretch the 3:2/1.25 pair had (1.7768 / 1.2 ≈ 1.48).
+// Lower = more stretch and less side-crop.
+const MAP_AR = 1.48;
 
 /** Master flag. Default ON for narrow / touch viewports; a per-device
  *  `worldMapZoom.v1` localStorage override forces it on ("1") or off ("0").
