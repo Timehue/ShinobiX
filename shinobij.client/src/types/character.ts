@@ -29,7 +29,7 @@ export type HollowGateTileKind =
     | "trap"
     | "chest"
     | "pet_event"
-    | "pet_battle" // LEGACY: Hollow Beast walk-on tile — no longer placed (ambush
+    | "pet_battle" // LEGACY: dedicated Hollow Hound walk-on tile — no longer placed (ambush
                    // still spawns these); kind kept for saved-run compatibility.
     | "tile_game"  // LEGACY: Card Clash walk-on tile — no longer placed (ambush
                    // still spawns these); kind kept for saved-run compatibility.
@@ -91,7 +91,7 @@ export type HollowGateAugmentOffer = {
 };
 
 // Optional run-shape override — the standard shrine (5 floors, 25×17, the
-// Hollow Gate Warden) when absent. Event gates (e.g. a 1-3 floor festival
+// Hollow Hound Alpha) when absent. Event gates (e.g. a 1-3 floor festival
 // gauntlet with a bespoke final boss) stamp one of these on the run at entry;
 // every floor-count / boss / grid decision downstream reads it through
 // lib/hollow-gate-variant so a mid-run save resumes with the same shape.
@@ -101,8 +101,8 @@ export type HollowGateVariant = {
     maxFloor?: number;          // total floors (final floor holds the boss); default HOLLOW_GATE_MAX_FLOOR
     width?: number;             // generated floor dimensions; default HOLLOW_GATE_SHRINE_W/H
     height?: number;
-    bossAiId?: string;          // creator/builtin AI id for the final boss; default the Hollow Gate Warden
-    bossName?: string;          // display name for logs/objectives; default "Hollow Gate Warden"
+    bossAiId?: string;          // creator/builtin AI id for an event final boss; standard gate uses the Hollow Hound Alpha
+    bossName?: string;          // display name for logs/objectives; default "Hollow Hound Alpha"
 };
 
 // The shared event-gate announcement (admin-authored, distributed to every
@@ -176,6 +176,7 @@ export type HollowGateShrineRun = {
         nodeId: string;
         floor: number;
         kind: "battle" | "elite" | "ambush" | "beast" | "boss";
+        mode?: "pve" | "pet";
     };
     // Untrusted run tallies claimed at settlement. The server clamps each to
     // the sealed run depth before committing XP or high-value items.
@@ -621,7 +622,8 @@ export type Character = {
     customTitleStyle?: string;
     customTitleIcon?: string;
     // Hollow Gate Shrine — in-progress run saved per-character (so refresh keeps state)
-    // and a lifetime Warden-kill counter for telemetry / future achievements.
+    // and a lifetime final-boss counter. The serialized field retains its legacy
+    // Warden name for save, mission, and telemetry compatibility.
     hollowGateRun?: HollowGateShrineRun | null;
     hollowGateWardenKills?: number;
     hollowGateIntroSeen?: boolean;

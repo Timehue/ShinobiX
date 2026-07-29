@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     runWarfrontMatch, startWarfrontMatch, wfPowerupCost,
-    WARFRONT_TPS, WF_MAX_SECONDS, WF_ROUND_SECONDS, WF_STACK_CAP,
+    WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_ROUND_SECONDS, WF_STACK_CAP,
 } from "./pet-warfront-sim";
 import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
 import type { Pet } from "../types/pet";
@@ -39,6 +39,11 @@ test("full-auto match is deterministic (byte-identical snapshots + events)", () 
     assert.equal(a.ticks, b.ticks);
     assert.equal(JSON.stringify(a.snapshots[a.snapshots.length - 1]), JSON.stringify(b.snapshots[b.snapshots.length - 1]));
     assert.equal(JSON.stringify(a.events), JSON.stringify(b.events));
+    for (const [seconds, name] of [[WF_PHASE_SKIRMISH, "SKIRMISH"], [WF_PHASE_WAR, "WAR"], [WF_PHASE_SUDDEN, "SUDDEN DEATH"]] as const) {
+        if (a.ticks >= seconds * WARFRONT_TPS) {
+            assert.ok(a.events.some((event) => event.type === "phase" && event.name === name && event.t === seconds * WARFRONT_TPS), `${name} fires on schedule`);
+        }
+    }
 });
 
 test("match always terminates with a verdict within the cap", () => {
@@ -60,10 +65,21 @@ test("a much stronger team wins by breaking the ward seal (statues first)", () =
     const exposed = r.events.find((e) => e.type === "coreexposed" && e.team === "red");
     assert.equal(statueDowns.length, 2);
     assert.ok(exposed && coreDown && exposed.t <= coreDown.t);
+    if (exposed) assert.equal(r.snapshots[exposed.t].structures.red.core.exposed, true, "core exposure reaches the renderer snapshot on the event tick");
     for (const sd of statueDowns) assert.ok(sd.t <= coreDown.t, "statues fall before the core");
     // No core damage of the gated core before exposure.
     const firstCoreHit = r.events.find((e) => e.type === "structhit" && e.core && e.team === "red");
     if (firstCoreHit && exposed) assert.ok(firstCoreHit.t >= exposed.t, "core is invulnerable until both statues fall");
+    const wardenPhases = r.events.filter((event) => event.type === "wardenphase");
+    const wardenKill = r.events.find((event) => event.type === "wardenkill");
+    if (wardenKill) {
+        assert.deepEqual(wardenPhases.map((event) => event.phase), [2, 3], "the Warden escalates through both health phases");
+        assert.ok(wardenPhases[0].t < wardenPhases[1].t && wardenPhases[1].t <= wardenKill.t);
+    }
+    const wardenFrame = r.snapshots[r.snapshots.length - 1];
+    assert.equal(typeof wardenFrame.warden.damage.blue, "number", "snapshots expose Warden damage attribution");
+    assert.equal(typeof wardenFrame.warden.slamRadius, "number");
+    assert.equal(typeof wardenFrame.warden.resetSecs, "number");
 });
 
 test("hollow-spawn waves flow until the Gate Warden dies, then stop", () => {
@@ -96,7 +112,7 @@ test("coins flow from trickle and bounties, and the warden pays a ton", () => {
 
 test("interactive buys: valid choice deducts coins + adds a stack; invalid ones are skipped", () => {
     const ctl = startWarfrontMatch(squad("A"), squad("B"), 321, { redPolicy: "off" });
-    ctl.advanceRound();          // round 1 sims 0→30s (no buys yet)
+    ctl.advanceRound();          // round 1 sims 0→90s (no buys yet)
     assert.equal(ctl.round, 1);
     const coinsBefore = ctl.coins("blue");
     const buyBefore = ctl.buyState("blue");
@@ -115,6 +131,20 @@ test("interactive buys: valid choice deducts coins + adds a stack; invalid ones 
     // buff changes fights, kills and bounties), so only sanity-check solvency.
     assert.ok(ctl.coins("blue") >= 0);
     void coinsBefore;
+});
+
+test("streamed interactive opening reaches 90s before Council and applies its choices", () => {
+    const ctl = startWarfrontMatch(squad("A"), squad("B"), 321, { redPolicy: "off" });
+    ctl.advanceRoundPartial(WARFRONT_TPS * 8);
+    assert.equal(ctl.round, 0, "the initial runway is still inside the opening round");
+
+    while (ctl.round === 0 && !ctl.done) ctl.advanceRoundPartial(70);
+    assert.equal(ctl.round, 1, "the first Council belongs to round one");
+    assert.equal(ctl.result.ticks, WARFRONT_TPS * 90, "the Council opens at the real round boundary");
+
+    const before = ctl.buyState("blue")[0].stacks.strike;
+    ctl.advanceRoundPartial(1, [{ petIndex: 0, kind: "strike" }]);
+    assert.equal(ctl.buyState("blue")[0].stacks.strike, before + 1, "Council choices apply to the next round");
 });
 
 test("stack cap holds and prices escalate", () => {
@@ -137,7 +167,7 @@ test("auto-buy policies spend coins deterministically", () => {
     assert.ok(buys.length > 0, "offense policy must actually buy");
 });
 
-test("rounds fire on the 30-second cadence", () => {
+test("rounds fire on the 90-second cadence", () => {
     const r = runWarfrontMatch(squad("A"), squad("B"), 2);
     const rounds = r.events.filter((e) => e.type === "round");
     if (r.ticks > WARFRONT_TPS * WF_ROUND_SECONDS * 2) {

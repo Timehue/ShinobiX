@@ -14,10 +14,22 @@ import { rewardSummary } from "../lib/currency";
 import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
 import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
+import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
+import { resolveCinematicActorImage, resolveVnPresentation } from "../lib/vn-presentation";
+import { CinematicVisualNovelStage } from "./CinematicVisualNovelStage";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
 
-export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, sharedImages }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice) => void; sharedImages?: Record<string, string> }) {
+function initialClassicReader(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+        return window.localStorage.getItem("vnReaderMode.v1") === "classic";
+    } catch {
+        return false;
+    }
+}
+
+export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, sharedImages, surface = "immersive" }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic" }) {
     // The local character object can drift out of sync with the freshly-
     // uploaded avatar (server saves strip images and re-hydrate from the
     // shared image store). Resolve once via the same path the Tavern uses:
@@ -50,12 +62,14 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         : null;
     const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    const leftImage = savedRightWasPlayer
+    const baseLeftImage = savedRightWasPlayer
         ? playerAvatar
-        : (page.leftImage || (leftName.toLowerCase() === "player" ? playerAvatar : "") || defaultVnPortrait(leftName));
-    const rightImage = savedRightWasPlayer
+        : (page.leftImage || (leftName.toLowerCase() === "player" ? playerAvatar : defaultVnPortrait(leftName)));
+    const baseRightImage = savedRightWasPlayer
         ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
         : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
+    const leftImage = resolveCinematicActorImage(event.id, leftName, baseLeftImage);
+    const rightImage = resolveCinematicActorImage(event.id, rightName, baseRightImage);
     // Hide a portrait slot entirely when there is genuinely nothing to show
     // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
     // on disk). The dialogue's <speaker> label already tells the player who's talking.
@@ -73,6 +87,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const [armedChoiceKey, setArmedChoiceKey] = useState("");
     const [showFinale, setShowFinale] = useState(false);
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number; battle?: VnChoice["battle"] } | null>(null);
+    const [classicReader, setClassicReader] = useState(initialClassicReader);
     // React state updates are intentionally asynchronous. Without a synchronous
     // gate, two activations in the same frame can skip a line, record a choice
     // twice, or launch the same battle twice before the component re-renders.
@@ -133,6 +148,79 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
     const isSageEvent = event.id === "legacy-sage-offer";
+    const eventLabel = event.id.startsWith("story-road-")
+        ? "Road Story"
+        : isStoryEpilogue
+            ? "Epilogue"
+            : isStoryInterlude
+                ? "Story Interlude"
+                : isStoryChapterEvent
+                    ? "Village Chronicle"
+                    : "Story Event";
+    const spokenText = applyVnTextVars(spoken, textVars);
+    const presentation = resolveVnPresentation({
+        event,
+        page,
+        pageIndex,
+        lineIndex,
+        speaker,
+        speakingSide,
+        pageImage,
+        reducedMotion: prefersReducedMotion(),
+        liteFx: isLowEndMobile(),
+    });
+    const upcomingPageIndex = lineIndex < pageDialogue.length - 1 ? pageIndex : pageIndex + 1;
+    const upcomingLineIndex = lineIndex < pageDialogue.length - 1 ? lineIndex + 1 : 0;
+    const upcomingPage = pages[upcomingPageIndex];
+    const upcomingRawLine = upcomingPage?.dialogue[upcomingLineIndex]
+        ?? upcomingPage?.dialogue[0]
+        ?? upcomingPage?.scene
+        ?? "";
+    const upcomingTypedLine = upcomingPage?.lines?.[upcomingLineIndex];
+    const upcomingSpeaker = upcomingPage
+        ? (upcomingTypedLine ?? splitDialogueLine(upcomingRawLine, upcomingPage.speaker || event.vnSpeaker || "Narrator")).speaker
+        : "";
+    const upcomingPageImage = upcomingPage
+        ? (upcomingPage.image || event.image || defaultVnScene(event.id, event.biome))
+        : "";
+    const upcomingPresentation = upcomingPage
+        ? resolveVnPresentation({
+            event,
+            page: upcomingPage,
+            pageIndex: upcomingPageIndex,
+            lineIndex: upcomingLineIndex,
+            speaker: upcomingSpeaker,
+            speakingSide: null,
+            pageImage: upcomingPageImage,
+            reducedMotion: prefersReducedMotion(),
+            liteFx: isLowEndMobile(),
+        })
+        : null;
+    const upcomingActorImage = upcomingSpeaker
+        ? resolveCinematicActorImage(event.id, upcomingSpeaker, defaultVnPortrait(upcomingSpeaker))
+        : "";
+    const preloadImageKey = [
+        upcomingPresentation?.backgroundImage,
+        upcomingActorImage,
+        upcomingPage?.leftImage,
+        upcomingPage?.rightImage,
+    ].filter(Boolean).join("|");
+    useEffect(() => {
+        for (const source of new Set(preloadImageKey.split("|").filter(Boolean))) {
+            const image = new Image();
+            image.decoding = "async";
+            image.src = source;
+        }
+    }, [preloadImageKey]);
+    function useClassicReader() {
+        setClassicReader(true);
+        try { window.localStorage.setItem("vnReaderMode.v1", "classic"); } catch { /* private mode */ }
+    }
+    function useCinematicReader() {
+        setClassicReader(false);
+        try { window.localStorage.setItem("vnReaderMode.v1", "cinematic"); } catch { /* private mode */ }
+    }
+    const readerUsesClassic = surface === "classic" || (surface === "immersive" && classicReader);
     function previousLine() { if (!canBack || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
     function nextLine() { if (isAtChoicePoint || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
     function chooseOption(choice: VnChoice) {
@@ -182,6 +270,53 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         setPendingChoice(null);
         setShowFinale(false);
     }
+    const finaleText = isAuraSphereEvent
+        ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
+        : isSageEvent
+            ? "The Sage falls silent, watching you. The paths he named still hang in the air, and only one of them can ever be yours."
+            : isStoryEpilogue
+                ? "The last page of this village's story turns. What the village becomes next, it becomes with you in it."
+                : isStoryInterlude
+                    ? "The road moves on. What you chose here is written down somewhere that matters."
+                    : isStoryChapterEvent
+                        ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
+                        : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
+    if (showFinale && !readerUsesClassic && presentation.mode === "cinematic") return (
+        <CinematicVisualNovelStage
+            eventId={event.id}
+            eventLabel="Scene Complete"
+            pageTitle={event.name}
+            scene={page.scene || event.vnScene || "The scene reaches its end."}
+            speaker="Chronicle"
+            spoken={finaleText}
+            pageIndex={pages.length - 1}
+            pageCount={pages.length}
+            lineIndex={0}
+            lineCount={1}
+            left={{ name: leftName, image: leftImage, initials: leftInitials, hidden: hideLeft || (leftName.toLowerCase() === "player" && !leftImage), player: leftName.toLowerCase() === "player" }}
+            right={{ name: rightName, image: rightImage, initials: rightInitials, hidden: hideRight || (rightName.toLowerCase() === "player" && !rightImage), player: rightName.toLowerCase() === "player" }}
+            presentation={{ ...presentation, titleCard: false, cue: "none", tone: "elegy", backgroundMotion: "drift" }}
+            surface={surface}
+            allowStageAdvance={false}
+            onUseClassicReader={surface === "immersive" ? useClassicReader : undefined}
+            onAdvance={() => {}}
+            onCancel={cancelScene}
+            renderFooter={(typingDone) => typingDone ? (
+                <div className="vn-controls">
+                    {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude ? (
+                        <>
+                            <button className="admin-button" onClick={() => startBattle()}>Enter Battle</button>
+                            <button onClick={cancelScene}>Leave - No Reward</button>
+                        </>
+                    ) : (
+                        <button onClick={completeScene}>
+                            {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : isStoryInterlude ? "Continue" : "Continue to Story Hall"}
+                        </button>
+                    )}
+                </div>
+            ) : null}
+        />
+    );
     const stageStyle = pageImage
         ? ({
             backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})`,
@@ -245,6 +380,76 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             </div>
         </div>
     );
+    if (!readerUsesClassic && presentation.mode === "cinematic") return (
+        <CinematicVisualNovelStage
+            eventId={event.id}
+            eventLabel={eventLabel}
+            pageTitle={page.title || event.vnTitle || event.name}
+            scene={page.scene || event.vnScene || "An event interrupts your path."}
+            speaker={speaker}
+            spoken={spokenText}
+            pageIndex={pageIndex}
+            pageCount={pages.length}
+            lineIndex={lineIndex}
+            lineCount={Math.max(1, pageDialogue.length)}
+            left={{
+                name: leftName,
+                image: leftImage,
+                initials: leftInitials,
+                hidden: hideLeft || (leftName.toLowerCase() === "player" && !leftImage),
+                speaking: speakingSide === "left",
+                player: leftName.toLowerCase() === "player",
+            }}
+            right={{
+                name: rightName,
+                image: rightImage,
+                initials: rightInitials,
+                hidden: hideRight || (rightName.toLowerCase() === "player" && !rightImage),
+                speaking: speakingSide === "right",
+                player: rightName.toLowerCase() === "player",
+            }}
+            presentation={presentation}
+            surface={surface}
+            allowStageAdvance={!pendingChoice && !isAtChoicePoint}
+            decisionPoint={isAtChoicePoint && !pendingChoice}
+            onUseClassicReader={surface === "immersive" ? useClassicReader : undefined}
+            onAdvance={nextLine}
+            onCancel={cancelScene}
+            renderFooter={(typingDone) => {
+                if (!typingDone) return null;
+                if (pendingChoice) return (
+                    <div className="vn-conclusion">
+                        <p className="vn-conclusion-text">{applyVnTextVars(pendingChoice.conclusion, textVars)}</p>
+                        <div className="vn-controls">
+                            <button onClick={confirmPendingChoice}>Continue</button>
+                        </div>
+                    </div>
+                );
+                if (isAtChoicePoint) return (
+                    <div className="vn-choices">
+                        {pageChoices!.map((choice, index) => (
+                            <button
+                                key={index}
+                                className="vn-choice-btn"
+                                disabled={!choicesArmed}
+                                title={!choicesArmed ? "Choices unlock in a moment to prevent an accidental selection" : undefined}
+                                onClick={() => chooseOption(choice)}
+                            >
+                                {applyVnTextVars(choice.text, textVars)}
+                            </button>
+                        ))}
+                        {!choicesArmed && <span className="hint">Choices unlock in a moment&hellip;</span>}
+                    </div>
+                );
+                return (
+                    <div className="vn-controls">
+                        <button disabled={!canBack} onClick={previousLine}>Back</button>
+                        <button onClick={nextLine}>{isLastLine ? (isSageEvent || isStoryInterlude || isStoryEpilogue ? "Continue" : "Begin Battle") : "Next"}</button>
+                    </div>
+                );
+            }}
+        />
+    );
     return (
         <div className="card cinematic-card">
             <div className="visual-novel admin-vn-play">
@@ -255,6 +460,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </div>
                     <div className="vn-header-actions">
                         <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
+                        {surface === "immersive" && classicReader && presentation.mode === "cinematic" && (
+                            <button type="button" className="vn-skip-button" onClick={useCinematicReader}>Cinematic Mode</button>
+                        )}
                         <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip Scene</button>
                     </div>
                 </div>

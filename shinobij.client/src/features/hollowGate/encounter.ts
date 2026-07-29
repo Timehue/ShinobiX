@@ -64,7 +64,7 @@ export function scaleAffixStats(stats: CreatorAi["stats"], mult: number): Creato
  * qualifies at all (the caller shows the "shrine refuses" notice).
  *
  * Boss tile prefers the variant's boss (any AI id) when set, then the
- * dedicated Hollow Gate Warden, then any boss-type AI within ±15 levels,
+ * dedicated Hollow Hound Alpha, then any boss-type AI within ±15 levels,
  * finally the closest boss overall. Ambush + normal battles pick a random
  * non-boss AI within ±15 levels (closest fallback).
  */
@@ -139,7 +139,7 @@ export function pickShrineEncounter(args: {
         : opts.isAmbush
             ? "Hollow Gate Ambush"
             : opts.isBeast
-                ? `Hollow Beast: ${baseAi.name}`
+                ? `Hollow Hound: ${baseAi.name}`
                 : eliteAffix
                     ? `${eliteAffix.name} ${baseAi.name}`
                     : `Corrupted ${baseAi.name}`;

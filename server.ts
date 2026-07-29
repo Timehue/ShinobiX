@@ -192,6 +192,7 @@ import clanBossAssaultStartHandler   from './api/clan-boss/assault-start.js';
 import clanBossAssaultSettleHandler  from './api/clan-boss/assault-settle.js';
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 import hollowGateStartHandler        from './api/hollow-gate/start.js';
+import hollowGateDescendHandler      from './api/hollow-gate/descend.js';
 import hollowGateChooseAugmentHandler from './api/hollow-gate/choose-augment.js';
 import hollowGateSettleHandler       from './api/hollow-gate/settle.js';
 import hollowGateCombatStartHandler  from './api/hollow-gate/combat-start.js';
@@ -1215,6 +1216,7 @@ route('/clan-boss/assault-settle', clanBossAssaultSettleHandler);
 // server daily-run cap; choose-augment re-seals the pick; settle credits
 // min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
 route('/hollow-gate/start', hollowGateStartHandler);
+route('/hollow-gate/descend', hollowGateDescendHandler);
 route('/hollow-gate/choose-augment', hollowGateChooseAugmentHandler);
 route('/hollow-gate/settle', hollowGateSettleHandler);
 route('/hollow-gate/combat-start', hollowGateCombatStartHandler);

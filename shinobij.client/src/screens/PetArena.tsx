@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
@@ -39,6 +39,7 @@ import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
+import { settleHollowGateCombat, type HollowGateCombatSettleResult } from "../lib/hollow-gate-combat-api";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import { wfThemeForVillage } from "../lib/pet-warfront-map";
 import { WF_STANCES, WF_DOCTRINES, type WfBuyPolicy, type WfStance, type WfDoctrine } from "../lib/pet-warfront-sim";
@@ -169,7 +170,7 @@ function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
     return pets.slice(0, Math.max(1, count)).map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
 }
 
-export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void }) {
+export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onHollowGatePetBattleEnd }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onHollowGatePetBattleEnd?: (result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -481,6 +482,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [frameIndex, setFrameIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [result, setResult] = useState("");
+    const [hollowGateSettlementStatus, setHollowGateSettlementStatus] = useState<"idle" | "pending" | "error" | "settled">("idle");
+    const hollowGateSettlementRetryRef = useRef<(() => Promise<void>) | null>(null);
+    const hollowGateSettlementInFlightRef = useRef(false);
+    const hollowGateSettlementFinishedRef = useRef(false);
     const currentFrame = battleFrames[frameIndex];
     const showResult = currentFrame?.actionKind === "result";
     const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : battleLog;
@@ -544,6 +549,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     playerPetIds: playerPets.map((pet) => pet.id),
                     opponentPetIds: opponentPets.map((pet) => pet.id),
                     seed,
+                    hollowGate: opponent.hollowGate
+                        ? { token: opponent.hollowGate.token, runId: opponent.hollowGate.runId }
+                        : undefined,
                 }),
             });
             if (!r.ok) return null;
@@ -552,6 +560,35 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         } catch {
             return null;
         }
+    }
+
+    async function settleHollowGatePetBattle(
+        opponent: PetArenaOpponent,
+        petBattleResult: { hollowGate?: boolean; outcome?: "win" | "loss" | "draw"; petReceipt?: string },
+    ): Promise<boolean> {
+        const gate = opponent.hollowGate;
+        if (!gate) return false;
+        if (!petBattleResult.hollowGate || !petBattleResult.petReceipt || !petBattleResult.outcome) {
+            throw new Error("The Hollow Hound duel did not return a verified Gate receipt.");
+        }
+        const settled = await settleHollowGateCombat({
+            playerName: character.name,
+            token: gate.token,
+            runId: gate.runId,
+            outcome: petBattleResult.outcome === "win" ? "win" : "loss",
+            survivingHp: character.hp,
+            petReceipt: petBattleResult.petReceipt,
+        });
+        if (settled.character) updateCharacter(settled.character);
+        setResult(settled.won ? "Victory" : "Defeat");
+        setBattleLog((prev) => [
+            ...prev,
+            settled.won
+                ? "The Gate accepts the server-verified pet victory."
+                : "The Gate rejects the Hound duel as a victory; 20% max HP recoil was applied once.",
+        ]);
+        onHollowGatePetBattleEnd?.(settled, opponent);
+        return true;
     }
 
     function startBattle(opponentOverride?: PetArenaOpponent) {
@@ -566,6 +603,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 ? "No player pets found. Choose Fight AI or have another player with pets in the roster."
                 : "No AI pets found.");
         }
+        hollowGateSettlementRetryRef.current = null;
+        hollowGateSettlementInFlightRef.current = false;
+        hollowGateSettlementFinishedRef.current = false;
+        setHollowGateSettlementStatus("idle");
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
         // Also cover instant incoming challenges, which can bypass the ordinary
@@ -582,7 +623,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         //   • Local AI battle: in-component partyMode toggle, player picks
         //     reserve, AI gets a random second pet from the pool.
         const pvpParty = !!(opponent.opponentParty && opponent.challengerParty);
-        const canAiParty = partyMode && opponentMode === "ai" && character.pets.length >= 2;
+        const canAiParty = !opponent.hollowGate && partyMode && opponentMode === "ai" && character.pets.length >= 2;
         if (pvpParty || canAiParty) {
             let myLead: Pet;
             let myReserve: Pet;
@@ -860,8 +901,63 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
             // for non-clan-war battles since the helper no-ops without a
             // sessionStorage stash + opponent-name match.
-            if (onClanWarBattleEnd) {
+            if (onClanWarBattleEnd && !opponent.hollowGate) {
                 onClanWarBattleEnd(outcome === "draw" ? "draw" : outcome === "win", opponent.owner);
+            }
+            if (opponent.hollowGate) {
+                // A Hollow Gate pet result has two authoritative hops: replay the
+                // deterministic duel on the pet endpoint, then redeem its receipt
+                // against the sealed Gate encounter. Keep one idempotent retry
+                // closure so a transient network failure never makes the player
+                // replay the duel or abandon a valid victory.
+                if (hollowGateSettlementFinishedRef.current || hollowGateSettlementRetryRef.current) return;
+                const reportHollowGateResult = async () => {
+                    if (hollowGateSettlementInFlightRef.current || hollowGateSettlementFinishedRef.current) return;
+                    hollowGateSettlementInFlightRef.current = true;
+                    setHollowGateSettlementStatus("pending");
+                    try {
+                        const battleToken = await battleTokenPromise1v1;
+                        if (!battleToken) throw new Error("The Hollow Hound battle seal could not be created.");
+                        const response = await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                playerName: character.name,
+                                outcome,
+                                opponentLevel: opponent.pet.level,
+                                reportKey: reportKey1v1,
+                                battleToken,
+                                inputLog: liveDuel?.inputLog(),
+                            }),
+                        });
+                        const data = await response.json().catch(() => null) as {
+                            error?: string;
+                            character?: Character;
+                            hollowGate?: boolean;
+                            outcome?: "win" | "loss" | "draw";
+                            petReceipt?: string;
+                        } | null;
+                        if (!response.ok) throw new Error(data?.error || "The Hollow Hound result could not be verified.");
+                        await settleHollowGatePetBattle(opponent, data ?? {});
+                        hollowGateSettlementFinishedRef.current = true;
+                        hollowGateSettlementRetryRef.current = null;
+                        setHollowGateSettlementStatus("settled");
+                    } catch (error) {
+                        setHollowGateSettlementStatus("error");
+                        setBattleLog((prev) => [
+                            ...prev,
+                            error instanceof Error
+                                ? `Gate settlement paused: ${error.message}`
+                                : "Gate settlement paused. Retry from the result screen.",
+                        ]);
+                    } finally {
+                        hollowGateSettlementInFlightRef.current = false;
+                    }
+                };
+                hollowGateSettlementRetryRef.current = reportHollowGateResult;
+                void reportHollowGateResult();
+                if (pendingClanPetBattle) savePendingClanPetBattle(null);
+                return;
             }
             if (outcome === "win") {
                 // Pet Arena rewards are server-validated: we POST the win and the
@@ -896,7 +992,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             }),
                         });
                         if (r.ok) {
-                            const data = await r.json() as { character?: Character; reward?: number; balances?: { ryo: number }; totalPetWins?: number; dailyPetWins?: number; capped?: boolean };
+                            const data = await r.json() as { character?: Character; reward?: number; balances?: { ryo: number }; totalPetWins?: number; dailyPetWins?: number; capped?: boolean; hollowGate?: boolean; outcome?: "win" | "loss" | "draw"; petReceipt?: string };
                             // Functional updater: this write lands AFTER the await, so a
                             // concurrent regen/heartbeat setState could otherwise be
                             // clobbered. ryo is a RELATIVE credit read off `prev`; the
@@ -946,17 +1042,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             }),
                         });
                         if (r.ok) {
-                            const data = await r.json() as { character?: Character };
-                            if (data.character) updateCharacter({
-                                ...data.character,
-                                hp: opponent.owner === "Hollow Gate"
-                                    ? Math.max(1, data.character.hp - Math.max(1, Math.floor(data.character.maxHp * 0.20)))
-                                    : data.character.hp,
-                            });
+                            const data = await r.json() as { character?: Character; hollowGate?: boolean; outcome?: "win" | "loss" | "draw"; petReceipt?: string };
+                            if (data.character) updateCharacter(data.character);
                         }
-                    } catch { /* the server save remains authoritative */ }
+                    } catch { /* no reward or state is minted without a server receipt */ }
                 })();
-                if (opponent.owner === "Hollow Gate") {
+                if (opponent.owner === "Hollow Gate" && !opponent.hollowGate) {
                 // Pet duel lost inside the Hollow Gate Shrine — trainer takes
                 // 20% maxHp damage as residual chakra burns through the seal.
                 // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
@@ -973,7 +1064,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 // maxHp does not change mid-duel, so the captured value is safe for the
                 // player-facing number even though the HP subtraction above is not.
                 const shownDmg = Math.max(1, Math.floor(character.maxHp * 0.20));
-                setBattleLog([...logs, `${character.name} took ${shownDmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
+                setBattleLog([...logs, `${character.name} took ${shownDmg} HP (20% of max) as the Hollow Hound's chakra recoiled through the seal.`]);
                 }
             }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
@@ -1035,6 +1126,27 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
     const availableArenaPetCount = availablePetBattleCount(character.pets);
     const tacticalArenaUnlocked = canEnterTacticalArena(character.pets);
+    const retryHollowGateSettlement = () => {
+        const retry = hollowGateSettlementRetryRef.current;
+        if (retry) void retry();
+    };
+    const canLeaveCurrentPetBattle = () => {
+        if (!isHollowGate || hollowGateSettlementFinishedRef.current) return true;
+        if (hollowGateSettlementStatus === "error") {
+            alert("The Gate has not recorded this duel yet. Use Retry Gate Settlement before leaving; your completed fight will not be replayed.");
+        } else {
+            alert("The Hollow Hound duel is still being sealed. You can leave as soon as the server confirms the result.");
+        }
+        return false;
+    };
+    const leaveCurrentPetBattle = () => {
+        if (!canLeaveCurrentPetBattle()) return;
+        const back = (pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen) ?? "centralHub";
+        setBattleOpponent(null);
+        setBattleReady(false);
+        setDuelBattle(null);
+        setScreen(back);
+    };
 
     // Render one pet as a visual pick-card (portrait + role badge + level/element).
     // Shared by the cinematic battle view's pickers below — replaces the bare
@@ -1081,10 +1193,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     duels route back to the shrine, not the central hub. */}
                 <button
                     className="back-btn"
-                    onClick={() => {
-                        const back = (pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen) ?? "centralHub";
-                        setScreen(back);
-                    }}
+                    onClick={leaveCurrentPetBattle}
                 >
                     {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate")
                         ? "Back to Shrine"
@@ -1093,8 +1202,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 <div>
                     {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate") ? (
                         <>
-                            <h2 style={{ color: "var(--purple-500)" }}>⛩ Hollow Gate — Hollow Beast Duel</h2>
-                            <p className="hint" style={{ color: "#c4b5fd" }}>Your pet faces a corrupted Hollow Beast. Win to claim victory and continue the run; lose to take 20% HP damage and return to the shrine.</p>
+                            <h2 style={{ color: "var(--purple-500)" }}>⛩ Hollow Gate — Hollow Hound Duel</h2>
+                            <p className="hint" style={{ color: "#c4b5fd" }}>Your pet faces a corrupted Hollow Hound. Win to claim victory and continue the run; lose to take 20% HP damage and return to the shrine.</p>
                         </>
                     ) : (
                         <>
@@ -1402,14 +1511,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             live={duelBattle.live ?? undefined}
                             onOutcome={duelBattle.onOutcome}
                             sharedImages={sharedImages}
-                            onFightAgain={() => startBattle(battleOpponent ?? undefined)}
-                            onExit={() => {
-                                const back = battleOpponent?.returnScreen ?? "centralHub";
-                                setBattleOpponent(null);
-                                setBattleReady(false);
-                                setDuelBattle(null);
-                                setScreen(back);
-                            }}
+                            onFightAgain={battleOpponent?.hollowGate ? undefined : () => startBattle(battleOpponent ?? undefined)}
+                            settlementStatus={battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined}
+                            onRetrySettlement={battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined}
+                            onExit={leaveCurrentPetBattle}
                         />
                     </Suspense>
                 ) : (() => {
@@ -1445,15 +1550,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             setFrameIndex(0);
                             setIsPlaying(true);
                         },
-                        onFightAgain: () => startBattle(),
+                        onFightAgain: battleOpponent?.hollowGate ? undefined : () => startBattle(),
+                        settlementStatus: battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined,
+                        onRetrySettlement: battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined,
                         onExit: () => {
                             // Honour the opponent's returnScreen override if provided —
                             // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
                             // so the duel sends you back to the dungeon, not the village hub.
-                            const back = battleOpponent?.returnScreen ?? "centralHub";
-                            setBattleOpponent(null);
-                            setBattleReady(false);
-                            setScreen(back);
+                            leaveCurrentPetBattle();
                         },
                         sharedImages,
                         playerRecord: { wins: character.petRankedWins ?? 0, losses: character.petRankedLosses ?? 0, rating: character.petRankedRating ?? 1000 },

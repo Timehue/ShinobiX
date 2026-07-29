@@ -65,7 +65,7 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     },
     // ——— The Hollow Gate ward ———
     {
-        id: 'hollowgate', sector: 13, name: 'Hollow Warden Shrine', theme: 'hollow-gate',
+        id: 'hollowgate', sector: 13, name: 'Hollow Gate Shrine', theme: 'hollow-gate',
         region: 'the Pilgrim’s Approach',
         lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
         blessing: 'May the Gate stay shut behind you.',

@@ -1,13 +1,33 @@
-# Hollow Gate Shrine — Gameplay Loop & Redesign (WORKING DRAFT)
+# Hollow Gate Shrine — Gameplay Loop & Redesign
 
-Status: **SHIPPED** — Phases 1, 2, 3 + icon art are all live on `main` (see Build
-status below). What remains is a balance-tuning pass once playtested. This doc
-captured the design and now records what was built + the tunable knobs (§Balance).
+Status: **SHIPPED; corrected by the 2026-07-29 AAA audit.** The current
+authoritative contract is summarized immediately below. Later phase notes are
+historical design context and do not override this contract.
 
 Recent related work: the Shrine Keeper infinite-farm bug and the
 heal-and-resume exploit were fixed in commit `1e3d656d` (no balance changes).
 That fix is the reason the no-heal rule and the Torch/Threat meters are now
 actually enforceable — which is what makes this redesign worth doing.
+
+## 2026-07-29 authoritative contract
+
+- The standard run is exactly **five floors**, shared by client and server.
+- Every current `battle`, `elite`, ambush, and boss node is a **Hollow Hound**.
+  If the active pet is battle-ready, the player explicitly chooses either
+  mission/explore-style shinobi PvE or a tactical Pet Coliseum duel against the
+  reskinned Oni Hound. There is no random combat-mode roll.
+- Combat tiles resolve only after a server-accepted win. Old saved
+  `tile_game`/`pet_battle` nodes migrate into this same Hound encounter flow.
+- Player healing, lifesteal, pet summoning, consumables, and post-fight healing
+  are sealed during Gate combat. The Shrine Keeper is the intentional exception.
+- Run token, encounter identity, floor progression, pet results, rewards, HP,
+  and consumable use settle through the server. Pet duel outcomes are replayed
+  from the sealed seed and input log.
+- The Leave tile extracts transactionally. **Emergency Forfeit** is always
+  available as the recovery path for a broken encounter; it applies the normal
+  death/loot-retention rules and sends the player to the hospital.
+- Server-seeded floors regenerate deterministically. A descent is sealed before
+  the client loads the next floor.
 
 ## Build status
 - ✅ **Phase 1 COMPLETE** — economy + feel foundation:
@@ -16,7 +36,7 @@ actually enforceable — which is what makes this redesign worth doing.
     Key) + `hollowShards` scaffold (field, per-save cap, combat-strip) +
     unit-tested `lib/hollow-gate-run.ts`.
   - `e67de6fd` (1B): depth-scaled Hollow Shard drops wired into chests (F1=3…F5=7),
-    sealed-door Ancient Chests (7…15), and the Warden (40), shown in logs/modals.
+    sealed-door Ancient Chests (7…15), and the final boss (40), shown in logs/modals.
   - NEEDS AN OWNER PLAYTEST — Torch drop/drain + shard drop rates are starting
     values; tune once felt (all localized — easy to adjust).
 - ✅ **Phase 2A shipped** (`68b364d9`): retired `pet_battle`/`tile_game` walk-on
@@ -74,29 +94,30 @@ actually enforceable — which is what makes this redesign worth doing.
   sources today: in-run chests (~30%/chest) and the Kage-liberation story finale.
 - **Daily cap:** `DAILY_HOLLOW_GATE_CAP` = 2 runs/day (client-side only;
   `dailyHollowGateRuns`, reset at UTC midnight).
-- **Exits:** clear the F5 Warden (auto-extract + bonus) · step on the Leave tile
-  (extract, forfeit remaining floor) · die (hospitalized, run + Key forfeit).
+- **Exits:** clear the F5 Hollow Hound Alpha (auto-extract + bonus) · step on
+  the Leave tile (extract, forfeit remaining floor) · use Emergency Forfeit or
+  die (hospitalized, run + Key forfeit).
 
 ### 1b. Micro loop (inside a run)
-- Grid `HOLLOW_GATE_SHRINE_W × H` = 15×11, fogged. Hand-authored layouts with a
-  BSP fallback (`lib/hollow-gate-dungeon.ts`). Spawn room, a Descend/Boss
-  "Target" tile, a Leave tile.
+- Grid `HOLLOW_GATE_SHRINE_W × H` = 25×17, fogged. The coherent room-role
+  generator uses BSP rooms, a connected corridor graph, guarded objectives,
+  a sealed treasury, sanctum, and Keeper alcove.
 - **Resources:** HP (no healing in the shrine), Torch of Reiki (0–10), Threat
   (0–100), in-run Keys (open `locked` tiles).
 - **Per step:** reveal tile · Torch drains 1 at ~33%/step (~30 steps of light) ·
   Threat `+HOLLOW_GATE_THREAT_PER_STEP` (=7), ×2 when Torch=0 · fire the tile
   event if unresolved. Ambush at Threat `HOLLOW_GATE_THREAT_AMBUSH` (=100).
-- **Tiles:** `battle` / `elite` (Arena fight) · `pet_battle` (PetArena "Hollow
-  Beast") · `trap` (−`HOLLOW_GATE_TRAP_DMG_PCT`=33% max HP, no heal, lethal) ·
-  `chest` (ryo/xp/aura/bone + 30% Key + 2 Torch) · `shrine` (Torch→full + hidden
-  chamber) · `tile_game` (Card Clash) · `locked` (1 Key → 50% chest / 25% trap /
-  25% pet rare→mythic) · `npc` Shrine Keeper (heal 33% / refill Torch / gift Key)
-  · `descend` (next floor; carry Keys+Torch, +4 Torch) · `boss` (F5 Warden).
+- **Tiles:** `battle` / `elite` / ambush / `boss` (Hollow Hound combat choice) ·
+  `trap` (percent max-HP damage, no heal, lethal) · `chest` · `shrine` (Torch
+  refill + hidden chamber) · `locked` (server-rolled chest/trap/pet reward) ·
+  `npc` Shrine Keeper (the only heal exception / refill Torch / gift Key) ·
+  `descend` (next floor; carry run seal, choices, Keys and Torch) · `exit`.
 - **Battle reward (Arena):** normal ≈140 XP / 380 ryo / 5 dust; ambush ≈220 /
   900 / 10; boss ≈600 / 2400 / 30, all ×`(1 + 0.2·(floor−1))`
   (`HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT`).
-- **Surviving any fight → Threat 0 AND Torch 10.**  ← key defang point.
-- **Floors:** F1–4 = descend staircase; F5 = Warden. `HOLLOW_GATE_MAX_FLOOR`=5.
+- **Surviving any fight → Threat 0; Torch is not refilled.**
+- **Floors:** F1–4 = descend staircase; F5 = Hollow Hound Alpha.
+  `HOLLOW_GATE_MAX_FLOOR` is the shared five-floor server contract.
 - **F5 clear bonus:** Honor/charm/shard package + 1 Dungeon Legendary Fragment +
   1 Veil of the Hollow, then auto-extract.
 - **Rewards apply to the character live;** the only ceiling is the global
@@ -170,11 +191,11 @@ actually enforceable — which is what makes this redesign worth doing.
 ## 5. Decisions
 
 DECIDED (this round):
-1. **Cadence / run length** — ✅ **Full NINE-floor descent** (`HOLLOW_GATE_MAX_FLOOR = 9`),
-   progressively harder: non-boss enemies stiffen with depth
-   (`HOLLOW_GATE_FLOOR_HP_STEP`/`_STAT_STEP` in `features/hollowGate/encounter.ts`),
-   battle/elite/trap counts grow deeper, and the Warden waits on floor 9 at its
-   own peak ramp. (Was 5; event gates still override per-run via `HollowGateVariant`.)
+1. **Cadence / run length** — ✅ **Five-floor descent**
+   (`HOLLOW_GATE_MAX_FLOOR = 5` in the shared client/server contract).
+   Battle/elite/trap pressure grows with depth, and the Hollow Hound Alpha waits
+   on floor 5 at its peak ramp. Event variants may shorten the run but cannot
+   exceed the server contract.
 2. **Death stakes** — ✅ **Lose the entry Key; keep 50% of loot; keep all pets
    found.** (Plus XP in full.) Implemented via a run loot tally + claw-back, not
    per-floor checkpoints.
@@ -185,18 +206,19 @@ DECIDED (this round):
 DECIDED (shard round):
 4. **Hollow Shard sinks** — ✅ In-run **survival** (Second Wind, Reignite Torch,
    Sanctify Loot) + in-run **tactics** (Skeleton Key, Diviner's Eye, Hollow Ward)
-   + the permanent **Shrine Attunement** tree. ❌ Vault Floor 6 / Warden
+   + the permanent **Shrine Attunement** tree. ❌ Vault Floor 6 / boss
    upgrades (cut). ❌ Mend Seal (cut).
 5. **No-heal rule** — ✅ **Keep strict.** No mid-run heal valve (Mend Seal cut);
    Shrine Keeper's 33% remains the only in-run heal, as today.
 
 6. **Branching wings** — ✅ **Adopt now.** Each floor = a spawn hub opening into
    2–3 themed doors (Treasure / Beast / Trial); the Trial wing holds the
-   descend/Warden. Generation rewrite (§8).
+   descend/Alpha. Generation rewrite (§8).
 7. **Tiles** — ✅ **Remove `pet_battle` + `tile_game` walk-on tiles** (kept in the
    type union for legacy saves). Those encounter types still occur via the
-   threat **ambush** roll, so combat variety is preserved without dedicated
-   tiles. ✅ Add a **Shard Vein** tile (findable Hollow Shard cache). Keep
+   type union only for legacy saves; those saved nodes now migrate to the same
+   Hollow Hound combat choice. ✅ Add a **Shard Vein** tile (findable Hollow
+   Shard cache). Keep
    `trap`/poison, `chest`, `shrine`, `story`, `locked`, `npc`, `descend`,
    `boss`, `exit`. (§8)
 

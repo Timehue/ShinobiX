@@ -54,7 +54,7 @@ export function hollowGateReachableSet(w: number, h: number, start: number, bloc
  * both children at least `minLeaf` tall/wide. Stops at `depth === 0` or
  * when no axis can be split further.
  */
-export function bspSplit(rect: BSPRect, depth: number, minLeaf: number): BSPRect[] {
+export function bspSplit(rect: BSPRect, depth: number, minLeaf: number, rng: () => number = Math.random): BSPRect[] {
     if (depth <= 0) return [rect];
     // Stop splitting if neither axis has room for two minLeaf-sized children.
     const canSplitX = rect.w >= minLeaf * 2 + 1;
@@ -64,21 +64,21 @@ export function bspSplit(rect: BSPRect, depth: number, minLeaf: number): BSPRect
     let splitVertical: boolean;
     if (canSplitX && canSplitY) {
         const preferVertical = rect.w >= rect.h;
-        splitVertical = preferVertical ? Math.random() < 0.7 : Math.random() < 0.3;
+        splitVertical = preferVertical ? rng() < 0.7 : rng() < 0.3;
     } else {
         splitVertical = canSplitX;
     }
     if (splitVertical) {
-        const splitAt = minLeaf + Math.floor(Math.random() * (rect.w - minLeaf * 2));
+        const splitAt = minLeaf + Math.floor(rng() * (rect.w - minLeaf * 2));
         return [
-            ...bspSplit({ x: rect.x, y: rect.y, w: splitAt, h: rect.h }, depth - 1, minLeaf),
-            ...bspSplit({ x: rect.x + splitAt, y: rect.y, w: rect.w - splitAt, h: rect.h }, depth - 1, minLeaf),
+            ...bspSplit({ x: rect.x, y: rect.y, w: splitAt, h: rect.h }, depth - 1, minLeaf, rng),
+            ...bspSplit({ x: rect.x + splitAt, y: rect.y, w: rect.w - splitAt, h: rect.h }, depth - 1, minLeaf, rng),
         ];
     } else {
-        const splitAt = minLeaf + Math.floor(Math.random() * (rect.h - minLeaf * 2));
+        const splitAt = minLeaf + Math.floor(rng() * (rect.h - minLeaf * 2));
         return [
-            ...bspSplit({ x: rect.x, y: rect.y, w: rect.w, h: splitAt }, depth - 1, minLeaf),
-            ...bspSplit({ x: rect.x, y: rect.y + splitAt, w: rect.w, h: rect.h - splitAt }, depth - 1, minLeaf),
+            ...bspSplit({ x: rect.x, y: rect.y, w: rect.w, h: splitAt }, depth - 1, minLeaf, rng),
+            ...bspSplit({ x: rect.x, y: rect.y + splitAt, w: rect.w, h: rect.h - splitAt }, depth - 1, minLeaf, rng),
         ];
     }
 }
@@ -121,9 +121,10 @@ export function bspCarveCorridor(
     w: number,
     from: { x: number; y: number },
     to: { x: number; y: number },
+    rng: () => number = Math.random,
 ): void {
     // L-shape: horizontal then vertical (or vice versa), random choice.
-    const horizontalFirst = Math.random() < 0.5;
+    const horizontalFirst = rng() < 0.5;
     const cells: Array<{ x: number; y: number }> = [];
     if (horizontalFirst) {
         const [x1, x2] = from.x <= to.x ? [from.x, to.x] : [to.x, from.x];

@@ -116,7 +116,7 @@ export function hollowGateEnemyTemplate(params: {
     const kindStats = elite ? 1.1 : params.kind === 'ambush' ? 1.04 : params.kind === 'beast' ? 1.06 : 1;
     const offense = clampInt((150 + level * 27) * depthStats * kindStats * augmentStatMult * gentleMult, 180, 3600, 500);
     const defense = clampInt((120 + level * 20) * depthStats * kindStats * augmentStatMult * gentleMult, 140, 3000, 400);
-    const prefix = params.kind === 'boss' ? 'Hollow Gate Warden' : params.kind === 'ambush' ? 'Hollow Gate Ambush' : params.kind === 'beast' ? 'Hollow Beast' : params.kind === 'elite' ? 'Elite Corrupted Shinobi' : 'Corrupted Shinobi';
+    const prefix = params.kind === 'boss' ? 'Hollow Hound Alpha' : params.kind === 'elite' ? 'Elite Hollow Hound' : params.kind === 'ambush' ? 'Ambushing Hollow Hound' : 'Hollow Hound';
     return {
         name: params.displayName || prefix,
         specialty,

@@ -1498,7 +1498,7 @@ export function CentralHub({
                                 return (
                                     <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
-                                        <small>Combine Hollow Gate Warden fragments into a legendary relic.</small>
+                                        <small>Combine Hollow Hound Alpha fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
                                         <button style={{ marginTop: "auto" }} onClick={forgeRelicFromFragments} disabled={!canForge}>
                                             {canForge

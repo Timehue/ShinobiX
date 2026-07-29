@@ -425,17 +425,15 @@ export const builtinAis: CreatorAi[] = [
     makeBuiltinAi("apex-ai-moon-serpent", "Moon Serpent, Tide-Eater", "🐍", 88, "Shadow Territory", aiJutsuLoadout("boss"), 173, 11600, "boss", true),
     makeBuiltinAi("apex-ai-ancient-chakra-beast", "The Ancient, Unbound", "👺", 100, "Central Wilderness", aiJutsuLoadout("boss"), 220, 12000, "boss", true),
     makeBuiltinAi("apex-ai-worldstorm-dragon", "Worldstorm, Sky-Breaker", "🐲", 100, "Central Wilderness", aiJutsuLoadout("boss"), 235, 12500, "boss", true),
-    // -- Hollow Gate Shrine boss ---------------------------------------------
-    // The Hollow Gate Warden is the deepest seal of the shrine. It is flagged
-    // isBossAi so the shrine boss-tile picker selects it, and is built at a high
-    // base level — the runtime AI selection in startHollowGateBattle rebases
-    // its name and level to within ±15 of the player's level on use.
+    // -- Hollow Gate Shrine legacy boss profile -------------------------------
+    // The serialized id is retained for authored event compatibility. Standard
+    // Hollow Gate runs build the Hollow Hound Alpha through hollow-gate-pve.
     ((): CreatorAi => {
         // Base HP is multiplied by the run's floor (up to 1.4× on Floor 5). 9k base
         // tops out ~12.6k on Floor 5 — keeps the floor-scaling feel while staying
         // winnable (was 13k → ~18.2k, an unwinnable peer-band grind for most). 9k
         // sits above the L60 curve floor (~8.5k) so it lands without an exempt flag.
-        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 9000, "boss");
+        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Hound Alpha", "🐺", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 9000, "boss");
         return { ...base, isBossAi: true };
     })(),
     // -- Hollow Gate Rift bosses (wandering-quest scaled event gates) ---------
