@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { genericPetArenaOpponents, isGenericPetOpponent } from "./pet-arena-opponents";
 import type { Pet } from "../types/pet";
+import { hollowHoundEncounterId } from "../../../shared/hollow-gate-contract";
 
 test("built-in Coliseum opponents have explicit elemental identities and hero moves", () => {
     const expected = new Map([
@@ -20,7 +21,7 @@ test("built-in Coliseum opponents have explicit elemental identities and hero mo
 });
 
 test("every sealed floor-specific Hollow Hound stays on the player-controlled PvE path", () => {
-    const hound = (name: string, id = "mythic-4-1234567890123") => ({
+    const hound = (name: string, id = hollowHoundEncounterId(1234567890123)) => ({
         ...genericPetArenaOpponents[0].pet,
         id,
         name,
@@ -38,6 +39,8 @@ test("every sealed floor-specific Hollow Hound stays on the player-controlled Pv
     ]) {
         assert.equal(isGenericPetOpponent(hound(name)), true, `${name} must use tactical PvE control`);
     }
-    assert.equal(isGenericPetOpponent(hound("Abyssal Oni Hound")), false, "the ordinary Oni Hound must not be relabeled as a Gate encounter");
+    assert.equal(isGenericPetOpponent(hound("Hollow Hound Alpha", "mythic-4-1234567890123")), true, "legacy sealed encounters remain valid");
+    assert.equal(isGenericPetOpponent(hound("Abyssal Oni Hound", "mythic-4")), false, "the ordinary Oni Hound must not be relabeled as a Gate encounter");
+    assert.equal(isGenericPetOpponent(hound("Abyssal Oni Hound", "mythic-4-1234567890123")), false, "an owned timestamped Oni Hound stays separate from legacy Gate encounters");
     assert.equal(isGenericPetOpponent(hound("Ashfang Hollow Hound", "mythic-4")), false, "only a sealed encounter id may opt into Gate PvE");
 });

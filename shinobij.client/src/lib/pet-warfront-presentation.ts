@@ -10,6 +10,30 @@ export type WarfrontPresentationBudget = Readonly<{
 
 export type WarfrontAdaptivePressure = 0 | 1 | 2;
 
+export type WarfrontMvpCandidate = Readonly<{
+    id: string;
+    dmg: number;
+    kills: number;
+    assists?: number;
+    coins: number;
+}>;
+
+/** MVP values decisive contributions instead of simply awarding the damage
+ * crown. Kills, assists, and economy can now surface a tank/support who enabled
+ * the winning push while damage remains the strongest single component. */
+export function warfrontMvpId(rows: readonly WarfrontMvpCandidate[]): string | null {
+    let best: WarfrontMvpCandidate | null = null;
+    let bestScore = -Infinity;
+    for (const row of rows) {
+        const score = row.dmg + row.kills * 450 + (row.assists ?? 0) * 180 + row.coins * 0.35;
+        if (score > bestScore) {
+            best = row;
+            bestScore = score;
+        }
+    }
+    return best?.id ?? null;
+}
+
 const WARFRONT_BUDGETS: Readonly<Record<PetVisualQuality, WarfrontPresentationBudget>> = Object.freeze({
     low: Object.freeze({
         hollowHoundRigs: 0,

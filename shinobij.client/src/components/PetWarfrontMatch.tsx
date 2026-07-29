@@ -43,17 +43,23 @@ import { walkTilesFromMask, arenaCameraDist, arenaModelHeight, arenaModelMotion,
 import { radialTexture3d, Fx3D, Shot3D, Floater3D } from "./PetArena3DStage";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
-import { petVisualQuality } from "../lib/pet-visual-quality";
+import {
+    PET_VISUAL_QUALITY_PRESETS,
+    petVisualQuality,
+    savePetVisualQuality,
+    type PetVisualQuality,
+} from "../lib/pet-visual-quality";
 import { projectileVisual, type ProjectileVisual } from "../lib/pet-projectile-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { elementVfxKey } from "../lib/pet-battle-anim";
 import { lerp } from "../lib/pet-coliseum-scene";
-import { HOLLOW_HOUND_SURFACE } from "../lib/pet-model-surface";
+import { HOLLOW_HOUND_SURFACE, WARFRONT_MINION_SURFACES } from "../lib/pet-model-surface";
 import { isPetSfxMuted, playPetSfx, primePetSfx, setPetSfxMuted } from "../lib/pet-sfx";
 import {
     adaptWarfrontPresentationBudget,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontMvpId,
     warfrontPresentationBudget,
     type WarfrontAdaptivePressure,
     type WarfrontPresentationBudget,
@@ -167,6 +173,13 @@ function objectiveEventLabel(event: WarfrontResult["events"][number]): string | 
     if (event.type === "coreexposed") return `${event.team === "blue" ? "Blue" : "Red"} Ward Seal exposed`;
     if (event.type === "coredown") return `${event.by === "blue" ? "Blue" : "Red"} shattered the Ward Seal`;
     return null;
+}
+function objectiveEventColor(event: WarfrontResult["events"][number]): string {
+    if (event.type === "minikill" || event.type === "wardenkill") return event.team === "blue" ? "#60a5fa" : "#f87171";
+    if (event.type === "statuedown" || event.type === "coredown") return event.by === "blue" ? "#60a5fa" : "#f87171";
+    if (event.type === "guardiandown" || event.type === "coreexposed") return event.team === "blue" ? "#f87171" : "#60a5fa";
+    if (event.type === "phase") return event.name === "HOLLOW COLLAPSE" ? "#fb7185" : "#a78bfa";
+    return "#a78bfa";
 }
 
 const TEAM_COLOR: Record<Team, string> = { blue: "#3b82f6", red: "#ef4444" };
@@ -735,6 +748,15 @@ function WfSetDressing({ theme }: { theme: WfTheme }) {
 }
 
 // ── One pet fighter (GLB driven from the warfront snapshot stream) ───────────
+function WfPetModelFallback({ height, tint }: { height: number; tint: string }) {
+    return (
+        <mesh position={[0, height * 0.5, 0]}>
+            <capsuleGeometry args={[height * 0.24, height * 0.5, 4, 10]} />
+            <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={0.4} transparent opacity={0.9} />
+        </mesh>
+    );
+}
+
 function WfFighter3D({ result, clock, id, pet, config }: {
     result: WarfrontResult; clock: WfClockRef; id: string; pet: Pet; config: PetCombatModelConfig | null;
 }) {
@@ -771,7 +793,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
     const tint = useMemo(() => tintOf(pet.element), [pet.element]);
     const role = useMemo(() => result.snapshots[0]?.actors.find((a) => a.id === id)?.role ?? "tracker", [result, id]);
 
-    useFrame((_state, delta) => {
+    useFrame((state, delta) => {
         const g = root.current; if (!g) return;
         const snaps = result.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, wfClockTick(clock)));
@@ -836,7 +858,13 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         }
         if (shadow.current) { shadow.current.visible = !down; shadow.current.position.set(smX.current, 0.045, smZ.current); }
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
-        if (nameWrap.current) nameWrap.current.style.opacity = down ? "0.55" : "1";
+        if (nameWrap.current) {
+            const camDistance = Math.hypot(state.camera.position.x - px, state.camera.position.z - pz);
+            const important = down || frac < 0.985 || a0.state === "attack" || a0.statuses.length > 0;
+            const opacity = important || camDistance < 22 ? (down ? 0.55 : 1) : camDistance < 29 ? 0.48 : 0.16;
+            nameWrap.current.style.opacity = String(opacity);
+            nameWrap.current.style.visibility = !important && camDistance > 35 ? "hidden" : "visible";
+        }
         if (reviveRef.current) {
             const show = down && a0.respawnSecs > 0;
             reviveRef.current.style.opacity = show ? "1" : "0";
@@ -863,16 +891,13 @@ function WfFighter3D({ result, clock, id, pet, config }: {
             <group ref={root}>
                 <group ref={body}>
                     {config ? (
-                        <Suspense fallback={(
-                            <mesh position={[0, h * 0.5, 0]}>
-                                <capsuleGeometry args={[h * 0.24, h * 0.5, 4, 10]} />
-                                <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={0.4} transparent opacity={0.9} />
-                            </mesh>
-                        )}>
-                            <group scale={s}>
-                                <PetModel3D config={config} frame={modelFrame} element={pet.element} />
-                            </group>
-                        </Suspense>
+                        <WfAssetErrorBoundary fallback={<WfPetModelFallback height={h} tint={tint} />} label={`${pet.name} rig`}>
+                            <Suspense fallback={<WfPetModelFallback height={h} tint={tint} />}>
+                                <group scale={s}>
+                                    <PetModel3D config={config} frame={modelFrame} element={pet.element} />
+                                </group>
+                            </Suspense>
+                        </WfAssetErrorBoundary>
                     ) : (
                         // No approved model — a visible team-tinted placeholder.
                         <mesh position={[0, h * 0.5, 0]}>
@@ -923,33 +948,50 @@ const MINION_POOL = 24;   // = sim MINION_CAP (12) × 2 teams — exact once the
 const HOLLOW_BEAST_ID = "mythic-4";   // Abyssal Oni Hound — the Hollow Gate beast
 // Shared distant-LOD primitives. Thirty pooled slots now reuse five geometries
 // and six materials instead of constructing hundreds of duplicate GPU objects.
+type WfHoundSide = "blue" | "red" | "hollow";
+const wfHoundMaterials = (
+    body: string,
+    leg: string,
+    head: string,
+    ear: string,
+    muzzle: string,
+    tail: string,
+    emissive: string,
+) => Object.freeze({
+    body: new THREE.MeshStandardMaterial({ color: body, emissive, emissiveIntensity: 0.86, roughness: 0.42 }),
+    leg: new THREE.MeshStandardMaterial({ color: leg, emissive, emissiveIntensity: 0.6, roughness: 0.5 }),
+    head: new THREE.MeshStandardMaterial({ color: head, emissive, emissiveIntensity: 0.95, roughness: 0.36 }),
+    ear: new THREE.MeshStandardMaterial({ color: ear, emissive, emissiveIntensity: 0.82, roughness: 0.35 }),
+    muzzle: new THREE.MeshBasicMaterial({ color: muzzle, toneMapped: false }),
+    tail: new THREE.MeshStandardMaterial({ color: tail, emissive, emissiveIntensity: 0.72, roughness: 0.4 }),
+});
 const WF_HOUND_LOD = {
     bodyGeometry: new THREE.CapsuleGeometry(0.2, 0.5, 3, 7),
     boxGeometry: new THREE.BoxGeometry(1, 1, 1),
     headGeometry: new THREE.DodecahedronGeometry(0.23, 0),
     earGeometry: new THREE.TetrahedronGeometry(0.17, 0),
     tailGeometry: new THREE.ConeGeometry(0.085, 0.5, 5),
-    bodyMaterial: new THREE.MeshStandardMaterial({ color: "#210449", emissive: "#8b5cf6", emissiveIntensity: 1, roughness: 0.42 }),
-    legMaterial: new THREE.MeshStandardMaterial({ color: "#18032f", emissive: "#6d28d9", emissiveIntensity: 0.75, roughness: 0.5 }),
-    headMaterial: new THREE.MeshStandardMaterial({ color: "#4c126f", emissive: "#c084fc", emissiveIntensity: 1.1, roughness: 0.36 }),
-    earMaterial: new THREE.MeshStandardMaterial({ color: "#7e22ce", emissive: "#d8b4fe", emissiveIntensity: 1, roughness: 0.35 }),
-    muzzleMaterial: new THREE.MeshBasicMaterial({ color: "#f5d0fe", toneMapped: false }),
-    tailMaterial: new THREE.MeshStandardMaterial({ color: "#6b21a8", emissive: "#a855f7", emissiveIntensity: 0.88, roughness: 0.4 }),
+    materials: Object.freeze({
+        blue: wfHoundMaterials("#082f49", "#0c4a6e", "#075985", "#0284c7", "#e0f2fe", "#0369a1", "#38bdf8"),
+        red: wfHoundMaterials("#4c0519", "#881337", "#9f1239", "#e11d48", "#ffe4e6", "#be123c", "#fb7185"),
+        hollow: wfHoundMaterials("#210449", "#18032f", "#4c126f", "#7e22ce", "#f5d0fe", "#6b21a8", "#a855f7"),
+    }),
 };
 
-function WfHollowHoundImpostor({ bodyRef }: { bodyRef: MutableRefObject<THREE.Group | null> }) {
+function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableRefObject<THREE.Group | null>; side?: WfHoundSide }) {
+    const material = WF_HOUND_LOD.materials[side];
     return (
         <group ref={bodyRef} dispose={null}>
             {/* A clear quadruped silhouette for distant LODs: long torso,
                 separated legs, angular head/ears and a luminous muzzle. */}
-            <mesh geometry={WF_HOUND_LOD.bodyGeometry} material={WF_HOUND_LOD.bodyMaterial} position={[0, 0.32, -0.04]} rotation={[Math.PI / 2, 0, 0]} scale={[0.9, 1, 0.8]} />
+            <mesh geometry={WF_HOUND_LOD.bodyGeometry} material={material.body} position={[0, 0.32, -0.04]} rotation={[Math.PI / 2, 0, 0]} scale={[0.9, 1, 0.8]} />
             {([-0.17, 0.17] as const).map((x) => (
-                <mesh key={x} geometry={WF_HOUND_LOD.boxGeometry} material={WF_HOUND_LOD.legMaterial} position={[x, 0.17, -0.015]} scale={[0.09, 0.25, 0.56]} />
+                <mesh key={x} geometry={WF_HOUND_LOD.boxGeometry} material={material.leg} position={[x, 0.17, -0.015]} scale={[0.09, 0.25, 0.56]} />
             ))}
-            <mesh geometry={WF_HOUND_LOD.headGeometry} material={WF_HOUND_LOD.headMaterial} position={[0, 0.42, 0.42]} scale={[0.78, 0.78, 1.02]} />
-            <mesh geometry={WF_HOUND_LOD.earGeometry} material={WF_HOUND_LOD.earMaterial} position={[0, 0.61, 0.37]} rotation={[0.18, Math.PI / 4, 0]} scale={[1.25, 0.9, 0.72]} />
-            <mesh geometry={WF_HOUND_LOD.boxGeometry} material={WF_HOUND_LOD.muzzleMaterial} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
-            <mesh geometry={WF_HOUND_LOD.tailGeometry} material={WF_HOUND_LOD.tailMaterial} position={[0, 0.39, -0.5]} rotation={[-Math.PI / 2.6, 0, 0]} />
+            <mesh geometry={WF_HOUND_LOD.headGeometry} material={material.head} position={[0, 0.42, 0.42]} scale={[0.78, 0.78, 1.02]} />
+            <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[0, 0.61, 0.37]} rotation={[0.18, Math.PI / 4, 0]} scale={[1.25, 0.9, 0.72]} />
+            <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
+            <mesh geometry={WF_HOUND_LOD.tailGeometry} material={material.tail} position={[0, 0.39, -0.5]} rotation={[-Math.PI / 2.6, 0, 0]} />
         </group>
     );
 }
@@ -1050,22 +1092,24 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
             {/* Team ground-glow: minions read at a glance even in deep jungle. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
                 <planeGeometry args={[1.05, 1.05]} />
-                <meshBasicMaterial map={radialTexture3d()} color={side === "blue" ? "#8b7cf6" : "#d46ce7"} transparent opacity={0.38} depthWrite={false} blending={THREE.AdditiveBlending} />
+                <meshBasicMaterial map={radialTexture3d()} color={side === "blue" ? "#38bdf8" : "#fb7185"} transparent opacity={0.38} depthWrite={false} blending={THREE.AdditiveBlending} />
             </mesh>
             {richUi ? (
-                <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} />}>
-                    <group scale={scale}>
-                        <PetModel3D
-                            config={config}
-                            frame={frame}
-                            element="Shadow"
-                            showIdentity={false}
-                            surfaceTreatment={HOLLOW_HOUND_SURFACE}
-                        />
-                    </group>
-                </Suspense>
+                <WfAssetErrorBoundary fallback={<WfHollowHoundImpostor bodyRef={impostor} side={side} />} label={`${side} lane hound rig`}>
+                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} side={side} />}>
+                        <group scale={scale}>
+                            <PetModel3D
+                                config={config}
+                                frame={frame}
+                                element={side === "blue" ? "Water" : "Fire"}
+                                showIdentity={false}
+                                surfaceTreatment={WARFRONT_MINION_SURFACES[side]}
+                            />
+                        </group>
+                    </Suspense>
+                </WfAssetErrorBoundary>
             ) : (
-                <WfHollowHoundImpostor bodyRef={impostor} />
+                <WfHollowHoundImpostor bodyRef={impostor} side={side} />
             )}
         </group>
     );
@@ -1169,17 +1213,19 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
                 <meshBasicMaterial map={radialTexture3d()} color="#a855f7" transparent opacity={0.4} depthWrite={false} blending={THREE.AdditiveBlending} />
             </mesh>
             {richUi ? (
-                <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} />}>
-                    <group scale={scale}>
-                        <PetModel3D
-                            config={config}
-                            frame={frame}
-                            element="Shadow"
-                            showIdentity={false}
-                            surfaceTreatment={HOLLOW_HOUND_SURFACE}
-                        />
-                    </group>
-                </Suspense>
+                <WfAssetErrorBoundary fallback={<WfHollowHoundImpostor bodyRef={impostor} />} label="Hollow hound rig">
+                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} />}>
+                        <group scale={scale}>
+                            <PetModel3D
+                                config={config}
+                                frame={frame}
+                                element="Shadow"
+                                showIdentity={false}
+                                surfaceTreatment={HOLLOW_HOUND_SURFACE}
+                            />
+                        </group>
+                    </Suspense>
+                </WfAssetErrorBoundary>
             ) : (
                 <WfHollowHoundImpostor bodyRef={impostor} />
             )}
@@ -2141,10 +2187,11 @@ function WfCameraControls({ camCtlRef, onModeChange }: {
     return null;
 }
 
-function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef }: {
+function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRate }: {
     result: WarfrontResult; clockRef: WfClockRef; shakeRef: MutableRefObject<number>;
     onFrontier: MutableRefObject<() => void>;
     pumpRef: MutableRefObject<() => void>;
+    playbackRate: number;
 }) {
     useFrame((_s, delta) => {
         if (shakeRef.current > 0.01) shakeRef.current *= 0.85;
@@ -2162,7 +2209,7 @@ function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef }: {
         if (!c.playing) return;
         // Hit-stop: kills briefly drop playback to quarter speed (pure
         // presentation — the recorded sim underneath is untouched).
-        const targetRate = c.slow > 0 ? 0.28 : 1;
+        const targetRate = (c.slow > 0 ? 0.28 : 1) * playbackRate;
         c.rate = approach(c.rate, targetRate, targetRate < c.rate ? 0.42 : 0.12, delta);
         if (c.slow > 0) c.slow = Math.max(0, c.slow - delta);
         c.t = Math.min(frontier, c.t + delta * c.rate * WARFRONT_TPS);
@@ -2338,12 +2385,13 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
     const firstBlood = useRef(false);
     const sprees = useRef(new Map<string, number>());
     const siegeWarned = useRef(new Set<string>());
+    const hollowWaves = useRef(0);
     const isPet = (id: string) => id.startsWith("blue-") || id.startsWith("red-");
     useFrame(() => {
         const cur = Math.floor(wfClockTick(clockRef));
         // Rewind (replay) resets ALL director-local memory — including `ended`,
         // which otherwise stayed true and stopped onEnd() from firing on replay.
-        if (cur < lastTick.current) { lastTick.current = -1; evCursor.current = 0; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); ended.current = false; }
+        if (cur < lastTick.current) { lastTick.current = -1; evCursor.current = 0; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); hollowWaves.current = 0; ended.current = false; }
         // The director orders a camera cut to a story beat; higher priority (or
         // an expired story) always wins the slot.
         const cut = (t: number, x: number, z: number, span: number, prio: number, secs: number) => {
@@ -2435,6 +2483,10 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     // The simulation's Hollow-wave beat now reaches the gate:
                     // a portal pulse makes new raiders feel spawned, not popped in.
                     spawnFx(WF_LAIR.x, WF_LAIR.y, "shadow", null, 1.65, 420);
+                    hollowWaves.current++;
+                    if (hollowWaves.current === 1 || hollowWaves.current % 3 === 0) {
+                        pushFeed(`☾ Hollow hounds breach the ${hollowWaves.current % 2 ? "outer" : "inner"} lanes`, "#d8b4fe");
+                    }
                 } else if (e.type === "structhit") {
                     spawnFx(e.x, e.y, "spark", null, e.core ? 1.4 : 1.0, 240);
                     if (e.core) shakeRef.current = Math.max(shakeRef.current, 0.5);
@@ -3151,12 +3203,16 @@ export type PetWarfrontMatchProps = {
     /** Enables the 🎲 New-match button (vs-AI / harness). Leave off for shared
      * co-op/PvP replays, where both clients must stay on the agreed seed. */
     allowReseed?: boolean;
+    /** Dev/QA playback multiplier. Production callers should keep the default. */
+    playbackRate?: number;
     onExit: () => void;
     onResult?: (result: WarfrontResult) => void;
 };
 
-export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, onExit, onResult }: PetWarfrontMatchProps) {
-    const quality = useMemo(() => petVisualQuality(), []);
+export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, playbackRate = 1, onExit, onResult }: PetWarfrontMatchProps) {
+    const safePlaybackRate = Number.isFinite(playbackRate) ? Math.max(0.1, Math.min(30, playbackRate)) : 1;
+    const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
+    const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [adaptivePressure, setAdaptivePressure] = useState<WarfrontAdaptivePressure>(0);
     const basePresentationBudget = useMemo(() => warfrontPresentationBudget(quality.id), [quality.id]);
     const presentationBudget = useMemo(
@@ -3190,7 +3246,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
     }, [blue, red, effectiveSeed, autoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
     const result = ctl.result;
-    const clock = useRef<WfClockState>({ t: 0, playing: true, slow: 0, rate: 1 });
+    const clock = useRef<WfClockState>({ t: 0, playing: true, slow: 0, rate: safePlaybackRate });
     const shake = useRef(0);
     const camView = useRef<{ x: number; z: number; half: number }>({ x: 0, z: 0, half: 12 });
     const camCtl = useRef<WfCamCtl>({ mode: "follow", fx: 0, fz: 0, dist: 18 });
@@ -3210,6 +3266,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         try { localStorage.setItem("wfCamMode.v1", m); } catch { /* storage disabled — ignore */ }
     };
     const [ended, setEnded] = useState(false);
+    const [assetsReady, setAssetsReady] = useState(false);
     const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
     const [banner, setBanner] = useState<{ id: number; text: string; color: string; big: boolean } | null>(null);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
@@ -3323,8 +3380,11 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     };
     const spawnFloater = (x: number, z: number, text: string, color: string, big: boolean) => {
         const id = wfSeq++;
-        setFloaters((arr) => [...arr, { id, pos: [x, 1.5, z], text, color, big }]);
-        window.setTimeout(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 950);
+        setFloaters((arr) => {
+            const next = [...arr, { id, pos: [x, 1.5, z] as Vec3, text, color, big }];
+            return next.length > 12 ? next.slice(next.length - 12) : next;
+        });
+        window.setTimeout(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 800);
     };
 
     // Round boundary: interactive → pause + open the War Council; auto → advance.
@@ -3385,13 +3445,38 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // bosses and both sentinel bodies. Camp bosses used to lazy-load at their
     // 90 s spawn and drop a frame spike mid-match.
     useEffect(() => {
-        import("../lib/pet-model-preload")
-            .then((m) => void m.preloadPetColiseumModels([
+        let cancelled = false;
+        let releaseTimer = 0;
+        let timeoutTimer = 0;
+        const started = performance.now();
+        const timeout = new Promise<void>((resolve) => {
+            timeoutTimer = window.setTimeout(resolve, 4500);
+        });
+        const preload = import("../lib/pet-model-preload")
+            .then((m) => m.preloadPetColiseumModels([
                 ...roster.map((r) => r.pet),
                 ...[HOLLOW_BEAST_ID, "legendary-2", "legendary-6", "legendary-10", "legendary-14", "mythic-0", "mythic-2"].map((id) => ({ id } as Pet)),
             ]))
-            .catch(() => { /* best-effort */ });
+            .catch(() => { /* fallbacks keep the match playable */ });
+        void Promise.race([preload, timeout]).then(() => {
+            if (cancelled) return;
+            const remaining = Math.max(0, 650 - (performance.now() - started));
+            releaseTimer = window.setTimeout(() => {
+                if (!cancelled) setAssetsReady(true);
+            }, remaining);
+        });
+        return () => {
+            cancelled = true;
+            window.clearTimeout(releaseTimer);
+            window.clearTimeout(timeoutTimer);
+        };
     }, [roster]);
+
+    const chooseQuality = (next: PetVisualQuality) => {
+        setQualityId(next);
+        savePetVisualQuality(next);
+        setAdaptivePressure(0);
+    };
 
     // Verdict receipts: HOW the match was decided (seal destruction vs the
     // timer's judgment on structures-then-coins), with the tallies to prove it.
@@ -3404,7 +3489,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // and later councils reopen on schedule); Restart rebuilds the sim on the
     // SAME seed; New match rolls a fresh deterministic seed (vs-AI/harness only).
     const resetTransient = () => {
-        clock.current = { t: 0, playing: true, slow: 0, rate: 1 };
+        clock.current = { t: 0, playing: true, slow: 0, rate: safePlaybackRate };
         storyCam.current = null;
         setFocusPetId(null);
         setIntro(true);
@@ -3431,7 +3516,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
-            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes wfFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes wfFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes wfBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}22%{transform:translate(-50%,-50%) scale(1)}84%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}@keyframes wfShine{0%{transform:translateX(-140%) skewX(-18deg)}60%,100%{transform:translateX(260%) skewX(-18deg)}}@keyframes wfTilePulse{0%,100%{box-shadow:0 0 6px rgba(251,113,133,0.35)}50%{box-shadow:0 0 20px rgba(251,113,133,0.95)}}@keyframes wfIntro{0%{opacity:0;transform:scale(0.94)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.02)}}@keyframes wfEndIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
+            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes wfLoad{from{transform:translateX(-10%);opacity:.55}to{transform:translateX(120%);opacity:1}}@keyframes wfFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes wfFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes wfBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}22%{transform:translate(-50%,-50%) scale(1)}84%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}@keyframes wfShine{0%{transform:translateX(-140%) skewX(-18deg)}60%,100%{transform:translateX(260%) skewX(-18deg)}}@keyframes wfTilePulse{0%,100%{box-shadow:0 0 6px rgba(251,113,133,0.35)}50%{box-shadow:0 0 20px rgba(251,113,133,0.95)}}@keyframes wfIntro{0%{opacity:0;transform:scale(0.94)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.02)}}@keyframes wfEndIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
             <div style={{ position: "absolute", inset: 0 }}>
                 <Canvas dpr={canvasDpr} shadows={quality.id === "high" && adaptivePressure === 0 ? "percentage" : false} camera={{ fov: A3D_FOV, near: 0.5, far: 160, position: [0, 20, 24] }} gl={{ antialias: true }}>
                     <color attach="background" args={[spec.voidColor]} />
@@ -3495,7 +3580,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />
                     <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} focusPetRef={focusPetRef} />
                     <WfCameraControls camCtlRef={camCtl} onModeChange={(m) => setFreeCam(m === "free")} />
-                    <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} />
+                    <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} playbackRate={safePlaybackRate} />
                     <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />
                     <WfDirector result={result} clockRef={clock} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} camViewRef={camView} onEnd={() => setEnded(true)} />
                     <WfHudWriter result={result} clock={clock} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} momentumRef={momentumRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} buffRef={buffRef} campsRef={campsRef} phaseOverlayRef={phaseOverlayRef} />
@@ -3518,6 +3603,22 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     )}
                 </Canvas>
             </div>
+
+            {!assetsReady && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    style={{ position: "absolute", inset: 0, zIndex: 96, display: "grid", placeItems: "center", background: "radial-gradient(ellipse at center, rgba(8,12,24,0.82), rgba(3,6,14,0.97))" }}
+                >
+                    <div style={{ width: "min(360px, 82vw)", padding: "20px 24px", textAlign: "center", border: "1px solid rgba(168,85,247,0.55)", borderRadius: 14, background: "rgba(8,12,24,0.9)", boxShadow: "0 18px 60px rgba(0,0,0,0.55)" }}>
+                        <div style={{ color: "#d8b4fe", font: "900 13px Inter, system-ui, sans-serif", letterSpacing: 3 }}>PREPARING WARFRONT</div>
+                        <div style={{ height: 4, marginTop: 12, overflow: "hidden", borderRadius: 999, background: "#1e1b2e" }}>
+                            <div style={{ width: "48%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#7c3aed,#e879f9)", animation: "wfLoad 1.1s ease-in-out infinite alternate" }} />
+                        </div>
+                        <div style={{ marginTop: 9, color: "#94a3b8", font: "600 11px Inter, system-ui, sans-serif" }}>Warming rigs, materials, and the Gate Warden</div>
+                    </div>
+                </div>
+            )}
 
             {/* Opening VS card — team lineups + declared formations. */}
             {intro && (
@@ -3622,7 +3723,22 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     <span ref={campsRef} style={{ gridColumn: "3", color: "#d8b4fe", fontSize: 8, fontWeight: 800, whiteSpace: "nowrap" }}>🛡 READY · ✚ READY · 👁 READY · 🔥 READY</span>
                 </div>
             </div>
-            <div style={{ position: "absolute", top: 10, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label} (beta)</div>
+            <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label} (beta)</div>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 7px", background: "rgba(15,23,42,0.9)", border: "1px solid #334155", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif" }}>
+                    FX
+                    <select
+                        aria-label="Warfront visual quality"
+                        value={qualityId}
+                        onChange={(event) => chooseQuality(event.target.value as PetVisualQuality)}
+                        style={{ background: "#0f172a", border: 0, color: "#e2e8f0", font: "700 10px Inter, system-ui, sans-serif", cursor: "pointer" }}
+                    >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </label>
+            </div>
             {/* Camera modes: 📺 director's broadcast · 🎬 calm wide · 🛡 my team. */}
             <div style={{ position: "absolute", top: 42, left: 12, display: "flex", gap: 4 }}>
                 {([
@@ -3705,6 +3821,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                                         <span style={{ color: "#64748b" }}> · </span>⚔ Kills <span style={{ color: "#93c5fd" }}>{kb}</span> — <span style={{ color: "#fca5a5" }}>{kr}</span>
                                         <span style={{ color: "#64748b" }}> · </span>🛡 Sentinels <span style={{ color: "#93c5fd" }}>{sb}</span> — <span style={{ color: "#fca5a5" }}>{sr}</span>
                                         <span style={{ color: "#64748b" }}> · </span>🪙 <span style={{ color: "#93c5fd" }}>{result.coins.blue}</span> — <span style={{ color: "#fca5a5" }}>{result.coins.red}</span>
+                                        <span style={{ color: "#64748b" }}> · </span>Warden <span style={{ color: "#93c5fd" }}>{Math.round(last.warden.damage.blue)}</span> — <span style={{ color: "#fca5a5" }}>{Math.round(last.warden.damage.red)}</span>
                                     </div>
                                     <div style={{ color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>
                                         {sealBroken ? "Victory by Ward Seal destruction" : "Timer verdict — points (statues + seal broken), then coins"}
@@ -3721,8 +3838,8 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                             return (
                                 <div style={{ margin: "10px auto 0", maxWidth: 620, display: "flex", alignItems: "stretch", justifyContent: "center", gap: 3 }}>
                                     {beats.map(({ event, label }, index) => (
-                                        <div key={`${event.t}-${index}`} style={{ flex: "1 1 0", minWidth: 0, padding: "5px 6px", background: "rgba(8,12,24,0.82)", borderTop: "2px solid #7c3aed", color: "#cbd5e1", textAlign: "left" }}>
-                                            <div style={{ color: "#a78bfa", font: "900 9px Inter, system-ui, sans-serif" }}>{mmss(event.t / WARFRONT_TPS)}</div>
+                                        <div key={`${event.t}-${index}`} style={{ flex: "1 1 0", minWidth: 0, padding: "5px 6px", background: "rgba(8,12,24,0.82)", borderTop: `2px solid ${objectiveEventColor(event)}`, color: "#cbd5e1", textAlign: "left" }}>
+                                            <div style={{ color: objectiveEventColor(event), font: "900 9px Inter, system-ui, sans-serif" }}>{mmss(event.t / WARFRONT_TPS)}</div>
                                             <div style={{ font: "700 9px/1.25 Inter, system-ui, sans-serif" }}>{label}</div>
                                         </div>
                                     ))}
@@ -3731,9 +3848,15 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                         })()}
                         {result.petStats && (() => {
                             const rows = [...result.petStats].sort((a, b) => b.dmg - a.dmg);
-                            const mvp = rows[0]?.id;
+                            const mvp = warfrontMvpId(rows);
+                            const mvpRow = rows.find((row) => row.id === mvp);
                             return (
                                 <div style={{ margin: "12px auto 0", maxWidth: 460, background: "rgba(8,12,24,0.85)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "8px 10px", textAlign: "left" }}>
+                                    {mvpRow && (
+                                        <div style={{ margin: "-1px 0 7px", color: mvpRow.team === "blue" ? "#93c5fd" : "#fca5a5", font: "900 11px Inter, system-ui, sans-serif" }}>
+                                            👑 MVP · {mvpRow.name} · {mvpRow.kills} K / {mvpRow.assists ?? 0} A · {mvpRow.dmg} damage
+                                        </div>
+                                    )}
                                     <div style={{ display: "grid", gridTemplateColumns: "1.6fr 0.55fr 0.5fr 0.5fr 0.85fr 0.85fr", gap: 4, font: "800 10px Inter, system-ui, sans-serif", color: "#64748b", padding: "0 2px 4px" }}>
                                         <span>PET</span><span>LV</span><span>K</span><span>A</span><span>DMG</span><span>🪙</span>
                                     </div>

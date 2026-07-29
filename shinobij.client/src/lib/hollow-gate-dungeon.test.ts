@@ -6,6 +6,7 @@ import {
     HOLLOW_HOUND_TEMPLATE_ID,
     hollowGatePetEncounterSeed,
 } from "./hollow-gate-dungeon";
+import { hollowHoundEncounterId } from "../../../shared/hollow-gate-contract";
 import { hollowGateReachableSet } from "./hollow-gate-bsp";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 
@@ -130,7 +131,7 @@ test("Hollow Gate pet duels always reskin the Oni Hound and scale to the active 
     const hound = buildHollowHoundOpponent([active, oni], active, 3, "/hollow.webp", 1234567890123);
     assert.ok(hound);
     assert.equal(hound.name, "Shrineback Hollow Hound");
-    assert.equal(hound.id, `${HOLLOW_HOUND_TEMPLATE_ID}-1234567890123`);
+    assert.equal(hound.id, hollowHoundEncounterId(1234567890123));
     assert.equal(hound.rarity, active.rarity);
     assert.equal(hound.level, active.level);
     assert.equal(hound.image, "/hollow.webp");
