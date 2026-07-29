@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PET_COMBAT_MODEL_IDS, STARTER_MODEL_ASSET_REVISION, hasPetCombatModel, petCombatModel } from "./pet-3d-models.ts";
+import {
+    PET_COMBAT_MODEL_IDS,
+    STARTER_MODEL_ASSET_REVISION,
+    hasPetCombatModel,
+    petCloseupPresentationModel,
+    petCombatModel,
+    petVictoryArcHeight,
+} from "./pet-3d-models.ts";
 import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, ROSTER_MODEL_PROFILES } from "./pet-3d-roster.ts";
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
@@ -57,4 +64,41 @@ test("timestamped encounter clones retain their canonical combat model", () => {
 test("legacy evolved saves infer the model from rarity", () => {
     assert.equal(petCombatModel(pet("starter-water", undefined, "rare"))?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
     assert.equal(petCombatModel(pet("starter-water", undefined, "legendary"))?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+});
+
+test("close-up presentation falls back only for the unapproved legendary Wind model", () => {
+    assert.equal(petCloseupPresentationModel(pet("starter-wind", 0))?.visualId, "starter-wind");
+    assert.equal(petCloseupPresentationModel(pet("starter-wind", 1, "rare"))?.visualId, "starter-wind-r");
+    assert.equal(petCloseupPresentationModel(pet("starter-wind", 2, "legendary")), null);
+    assert.equal(petCloseupPresentationModel(pet("starter-fire", 0))?.visualId, "starter-fire");
+});
+
+test("every anatomy family gets a grounded, size-capped victory beat", () => {
+    const heights = {
+        quadruped: petVictoryArcHeight(2, "quadruped", false),
+        biped: petVictoryArcHeight(2, "biped", false),
+        avian: petVictoryArcHeight(2, "avian", false),
+        serpentine: petVictoryArcHeight(2, "serpentine", false),
+        heavy: petVictoryArcHeight(2, "heavy", false),
+        aquatic: petVictoryArcHeight(2, "serpentine", true),
+    };
+    for (const height of Object.values(heights)) {
+        assert.ok(height > 0);
+        assert.ok(height <= 0.12);
+    }
+    assert.ok(heights.avian < heights.quadruped);
+    assert.ok(heights.serpentine < heights.biped);
+    assert.ok(heights.heavy < heights.quadruped);
+    assert.equal(petVictoryArcHeight(20, "quadruped", false), 0.12);
+});
+
+test("all 155 production combat models inherit the grounded victory envelope", () => {
+    const ids = [...PET_COMBAT_MODEL_IDS, ...APPROVED_ROSTER_MODEL_IDS];
+    assert.equal(ids.length, 155);
+    for (const id of ids) {
+        const config = petCombatModel({ id, name: id });
+        assert.ok(config, `${id} is missing its production model config`);
+        const height = petVictoryArcHeight(config.targetHeight, config.profile, false);
+        assert.ok(height > 0 && height <= 0.12, `${id} has an unsafe victory lift of ${height}`);
+    }
 });

@@ -41,6 +41,7 @@
     left: clamp(285px, 24vw, 32%);
     bottom: 26%;
     width: clamp(150px, 20vmin, 230px);
+    aspect-ratio: 1;
     pointer-events: none;
     animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 800ms both;
 }
@@ -49,12 +50,14 @@
    "your companion, at your side," not a sprite floating in open space. */
 .icx-gift-pet {
     position: absolute;
-    right: calc(clamp(3%, 9vw, 15%) + clamp(108px, 15vmin, 172px) + 10px);
+    right: calc(clamp(2%, 6vw, 10%) + clamp(170px, 25vmin, 285px) + clamp(16px, 2vw, 28px));
     /* Centered on the avatar card's height so the companion stands EVEN with
        the player, not down at its feet. */
     bottom: 30%;
-    width: clamp(90px, 13vmin, 140px);
+    width: clamp(120px, 18vmin, 185px);
+    aspect-ratio: 1;
     pointer-events: none;
+    z-index: 5;
     animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 .icx-gift-pet img {
@@ -65,6 +68,10 @@
 }
 .icx-gift-pet.is-talking img {
     animation: icx-companion-talk 460ms ease-in-out infinite;
+}
+.icx-gift-pet.is-talking .icx-companion-render,
+.icx-companion-pet.is-talking .icx-companion-render {
+    animation: icx-companion-talk 720ms ease-in-out infinite;
 }
 .icx-companion-pet img {
     width: 100%;
@@ -136,6 +143,142 @@
 }
 
 /* God rays falling from above the falls — two soft shafts + an ambient glow. */
+/* The post-gift promise becomes the player's first true look at the world.
+   The chosen village opens through a bright tear in the veil, then expands
+   beyond the frame while the shrine falls away behind it. */
+.icx-world-reveal {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+    background: #050914;
+    clip-path: circle(0% at 50% 43%);
+    animation: icx-open-world 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.icx-world-reveal-art {
+    position: absolute;
+    inset: -5%;
+    background:
+        linear-gradient(180deg, rgba(3, 7, 18, 0.06) 0%, rgba(3, 7, 18, 0.12) 48%, rgba(2, 5, 14, 0.78) 100%),
+        var(--icx-village-bg) center / cover no-repeat;
+    transform: scale(1.14);
+    filter: saturate(0.82) brightness(0.72);
+    animation: icx-world-camera 11s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.icx-world-reveal::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.92) 0%, rgba(186, 230, 253, 0.42) 9%, transparent 27%),
+        radial-gradient(ellipse at 50% 42%, transparent 44%, rgba(2, 5, 14, 0.42) 100%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    animation: icx-veil-flash 2.4s ease-out forwards;
+}
+.icx-world-atmosphere {
+    position: absolute;
+    inset: -20%;
+    z-index: 3;
+    opacity: 0.34;
+    background: repeating-linear-gradient(108deg, transparent 0 42px, rgba(191, 219, 254, 0.28) 44px, transparent 46px 84px);
+    transform: translate3d(-7%, -12%, 0);
+    animation: icx-world-weather 5s linear infinite;
+}
+.icx-world-reveal.is-ashen-leaf .icx-world-atmosphere {
+    background:
+        radial-gradient(circle, rgba(251, 146, 60, 0.8) 0 2px, transparent 3px) 0 0 / 90px 120px,
+        radial-gradient(circle, rgba(253, 186, 116, 0.65) 0 1px, transparent 2px) 35px 55px / 110px 145px;
+    animation-duration: 12s;
+}
+.icx-world-reveal.is-frostfang .icx-world-atmosphere {
+    background: radial-gradient(ellipse, rgba(241, 245, 249, 0.85) 0 2px, transparent 3px) 0 0 / 54px 68px;
+    animation-duration: 9s;
+}
+.icx-world-reveal.is-moonshadow .icx-world-atmosphere {
+    background: radial-gradient(circle, rgba(196, 181, 253, 0.75) 0 1px, transparent 2px) 0 0 / 82px 96px;
+    opacity: 0.2;
+    animation-duration: 16s;
+}
+.icx-world-title {
+    position: absolute;
+    top: clamp(8%, 11vh, 14%);
+    left: 50%;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: min(620px, 72vw);
+    transform: translateX(-50%);
+    text-align: center;
+    text-shadow: 0 3px 16px rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    animation: icx-world-title-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) 1.15s forwards;
+}
+.icx-world-title span {
+    color: #bae6fd;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: 800;
+    letter-spacing: 0.48em;
+}
+.icx-world-title strong {
+    color: #fff7d6;
+    font-family: var(--font-display);
+    font-size: clamp(30px, 5vw, 64px);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+.icx-root.is-beat-world .icx-scene,
+.icx-root.is-beat-farewell .icx-scene {
+    filter: brightness(0.45);
+}
+.icx-root.is-beat-world .icx-fox,
+.icx-root.is-beat-farewell .icx-fox {
+    left: clamp(-3%, 2vw, 5%);
+    bottom: 19%;
+    width: clamp(220px, 34vmin, 400px);
+    opacity: 0.82;
+    transition: left 2.2s ease, bottom 2.2s ease, width 2.2s ease, opacity 1.2s ease;
+}
+.icx-root.is-beat-world .icx-avatar,
+.icx-root.is-beat-farewell .icx-avatar {
+    right: clamp(0%, 4vw, 7%);
+    width: clamp(190px, 29vmin, 330px);
+}
+.icx-root.is-beat-world .icx-gift-pet,
+.icx-root.is-beat-farewell .icx-gift-pet {
+    right: calc(clamp(0%, 4vw, 7%) + clamp(190px, 29vmin, 330px) + 18px);
+    bottom: 28%;
+    width: clamp(135px, 20vmin, 205px);
+    z-index: 6;
+}
+@keyframes icx-open-world {
+    0%   { clip-path: circle(0% at 50% 43%); }
+    46%  { clip-path: circle(24% at 50% 43%); }
+    100% { clip-path: circle(86% at 50% 43%); }
+}
+@keyframes icx-world-camera {
+    0%   { transform: scale(1.18) translateY(1%); filter: saturate(0.65) brightness(0.55); }
+    35%  { filter: saturate(1.08) brightness(0.88); }
+    100% { transform: scale(1.03) translateY(-1%); filter: saturate(1.05) brightness(0.82); }
+}
+@keyframes icx-veil-flash {
+    0%   { opacity: 0; scale: 0.6; }
+    20%  { opacity: 1; }
+    58%  { opacity: 0.62; }
+    100% { opacity: 0; scale: 1.5; }
+}
+@keyframes icx-world-weather {
+    to { transform: translate3d(7%, 12%, 0); }
+}
+@keyframes icx-world-title-in {
+    from { opacity: 0; transform: translate(-50%, 22px); filter: blur(7px); }
+    to   { opacity: 1; transform: translate(-50%, 0); filter: blur(0); }
+}
+
 .icx-rays {
     position: absolute;
     inset: 0;
@@ -308,6 +451,8 @@
 .icx-fox-base {
     position: relative;
     z-index: 0;
+    opacity: 1;
+    visibility: visible;
     filter:
         brightness(1)
         drop-shadow(0 0 18px rgba(240, 249, 255, 0.45))
@@ -368,35 +513,115 @@
     to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* The player's chosen avatar, framed like a VN portrait card. */
+/* The player's chosen avatar is staged as a character, not as a profile card. */
 .icx-avatar {
     position: absolute;
-    right: clamp(3%, 9vw, 15%);
-    bottom: 27%;
-    width: clamp(108px, 15vmin, 172px);
+    right: clamp(2%, 6vw, 10%);
+    bottom: 18%;
+    width: clamp(170px, 25vmin, 285px);
     text-align: center;
     pointer-events: none;
+    z-index: 4;
 }
-.icx-avatar img,
-.icx-avatar .icx-avatar-initial {
+/* The player is an actor in the scene, not a static profile card. Their first
+   three narrator beats rise out of the summoning light; later beats carry
+   small, readable reactions without competing with the dialogue. */
+.icx-avatar.is-awakening {
+    animation: icx-player-awaken 2.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.icx-avatar.is-listening {
+    animation: icx-player-listen 700ms ease-out both;
+}
+.icx-avatar.is-braced {
+    animation: icx-player-brace 520ms ease-out both;
+}
+.icx-avatar.is-bonded {
+    animation: icx-player-bonded 1.4s ease-out both;
+}
+.icx-avatar.is-awakening::before,
+.icx-avatar.is-bonded::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 8%;
+    width: 170%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    transform: translate(-50%, 50%);
+    background: radial-gradient(circle, rgba(186, 230, 253, 0.34), rgba(125, 211, 252, 0.08) 42%, transparent 70%);
+    filter: blur(7px);
+    z-index: -1;
+    pointer-events: none;
+}
+.icx-avatar.is-bonded::before {
+    background: radial-gradient(circle, rgba(253, 230, 138, 0.38), rgba(125, 211, 252, 0.10) 42%, transparent 70%);
+    animation: icx-player-bond-glow 2.2s ease-in-out infinite;
+}
+@keyframes icx-player-awaken {
+    0%   { opacity: 0; transform: translateY(30px) scale(0.9); filter: brightness(1.8) blur(5px); }
+    45%  { opacity: 0.7; filter: brightness(1.35) blur(1px); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1) blur(0); }
+}
+@keyframes icx-player-listen {
+    from { transform: translateX(10px) scale(0.99); }
+    to   { transform: translateX(0) scale(1); }
+}
+@keyframes icx-player-brace {
+    0%   { transform: translate(0, 0) rotate(0); }
+    30%  { transform: translate(-5px, 2px) rotate(-0.8deg); }
+    65%  { transform: translate(3px, -1px) rotate(0.5deg); }
+    100% { transform: translate(0, 0) rotate(0); }
+}
+@keyframes icx-player-bonded {
+    0%   { transform: scale(1); filter: brightness(1); }
+    35%  { transform: scale(1.035); filter: brightness(1.25); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes icx-player-bond-glow {
+    0%, 100% { opacity: 0.55; scale: 0.96; }
+    50%      { opacity: 1; scale: 1.04; }
+}
+.icx-avatar-portrait {
+    position: relative;
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    clip-path: polygon(7% 0, 100% 0, 100% 92%, 93% 100%, 0 100%, 0 8%);
+}
+.icx-avatar-portrait img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
+    object-position: center bottom;
     display: block;
-    border-radius: 10px;
-    border: 2px solid rgba(250, 204, 21, 0.65);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), 0 0 34px rgba(250, 204, 21, 0.16);
-    background: linear-gradient(180deg, rgba(7, 12, 23, 0.92), rgba(3, 7, 15, 0.96));
+    filter:
+        drop-shadow(0 20px 24px rgba(0, 0, 0, 0.75))
+        drop-shadow(0 0 28px rgba(125, 211, 252, 0.16));
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 84%, transparent 100%);
     animation: icx-avatar-breathe 6s ease-in-out infinite;
+}
+.icx-avatar-portrait::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border: 1px solid rgba(253, 230, 138, 0.55);
+    box-shadow: inset 0 0 22px rgba(125, 211, 252, 0.12), 0 0 20px rgba(2, 6, 23, 0.5);
+    pointer-events: none;
 }
 @keyframes icx-avatar-breathe {
     0%, 100% { transform: scale(1); }
     50%      { transform: scale(1.014); }
 }
 .icx-avatar .icx-avatar-initial {
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), 0 0 34px rgba(250, 204, 21, 0.16);
+    background: linear-gradient(180deg, rgba(7, 12, 23, 0.92), rgba(3, 7, 15, 0.96));
     font-family: var(--font-display);
     font-size: clamp(34px, 6vmin, 56px);
     color: var(--gold-300);
@@ -416,9 +641,65 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transform: translateY(-12px);
 }
 
 /* Hollow Gate vision panel — framed apparition while the warning lines play. */
+/* The fox's gift travels visibly from the shrine guardian, through the new
+   companion, to the player. SVG keeps the curve fluid at every aspect ratio;
+   the dash animation makes it read as transferred spirit energy. */
+.icx-spirit-bond {
+    position: absolute;
+    inset: 8% 0 22%;
+    width: 100%;
+    height: 70%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0;
+    animation: icx-bond-reveal 2.4s ease-out 120ms forwards;
+}
+.icx-spirit-bond path {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+    stroke-linecap: round;
+    stroke-dasharray: 18 22;
+    stroke-dashoffset: 160;
+}
+.icx-spirit-bond-glow {
+    stroke: rgba(125, 211, 252, 0.34);
+    stroke-width: 13;
+    filter: blur(5px);
+    animation: icx-bond-flow 2.1s linear infinite;
+}
+.icx-spirit-bond-core {
+    stroke: rgba(254, 243, 199, 0.9);
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 6px rgba(125, 211, 252, 0.95));
+    animation: icx-bond-flow 2.1s linear infinite;
+}
+.icx-spirit-bond-spark {
+    fill: #fff7d6;
+    filter: drop-shadow(0 0 8px rgba(125, 211, 252, 1));
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: icx-bond-spark 1.2s ease-in-out infinite;
+}
+.icx-spirit-bond-spark.s2 { animation-delay: 380ms; }
+@keyframes icx-bond-reveal {
+    0%   { opacity: 0; }
+    22%  { opacity: 1; }
+    72%  { opacity: 0.82; }
+    100% { opacity: 0.38; }
+}
+@keyframes icx-bond-flow {
+    to { stroke-dashoffset: 0; }
+}
+@keyframes icx-bond-spark {
+    0%, 100% { opacity: 0.45; transform: scale(0.7); }
+    50%      { opacity: 1; transform: scale(1.45); }
+}
+
 .icx-vision {
     position: absolute;
     /* Anchor the panel's LEFT edge just past the deity's right edge (which sits
@@ -547,6 +828,7 @@
 .icx-stagefill {
     position: absolute;
     inset: 0;
+    z-index: 5;
     transition: transform 3s ease;
 }
 .icx-stagefill.is-focus {
@@ -559,7 +841,7 @@
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
     width: min(920px, calc(100% - 26px));
     min-height: 128px;
     border-radius: 12px;
@@ -568,7 +850,32 @@
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(250, 204, 21, 0.08);
     padding: 14px 20px 26px;
     cursor: pointer;
+    z-index: 10;
     animation: icx-choose-in 320ms ease-out both;
+}
+
+/* Short desktop windows are common inside the in-app preview. Keep the actors
+   anchored above the dialogue and make the complete line visible without
+   collapsing the reveal into the mobile composition. */
+@media (min-width: 801px) and (max-height: 780px) {
+    .icx-fox {
+        bottom: 24%;
+        width: clamp(220px, 39vmin, 400px);
+    }
+    .icx-avatar {
+        bottom: 23%;
+        width: clamp(160px, 24vmin, 230px);
+    }
+    .icx-dialogue {
+        bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+        min-height: 116px;
+        padding: 12px 20px 22px;
+    }
+    .icx-line {
+        margin-top: 8px;
+        font-size: clamp(16px, 1.65vw, 19px);
+        line-height: 1.45;
+    }
 }
 /* Every layer of the stage invites the advance tap. */
 .icx-root { cursor: pointer; }
@@ -674,6 +981,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    z-index: 12;
     gap: 14px;
     padding: clamp(14px, 3.5vh, 36px) 14px calc(22px + env(safe-area-inset-bottom, 0px));
     /* Light enough that the watching deity reads through on the left.
@@ -792,7 +1100,7 @@
 
 /* Confirm stage */
 .icx-confirm {
-    width: min(440px, 100%);
+    width: min(480px, 100%);
     margin: auto;
     text-align: center;
     padding: 26px 22px;
@@ -800,6 +1108,21 @@
     border: 2px solid var(--icx-accent, var(--cyan));
     background: linear-gradient(180deg, rgba(11, 16, 30, 0.96), rgba(5, 8, 18, 0.99));
     box-shadow: 0 0 54px color-mix(in srgb, var(--icx-accent, var(--cyan)) 36%, transparent);
+}
+.icx-confirm-pet-stage {
+    width: min(250px, 70vw);
+    height: 176px;
+    margin: -20px auto -2px;
+    position: relative;
+}
+.icx-confirm-pet-stage > .icx-pet-art {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+.icx-confirm-pet-model {
+    width: 100%;
+    height: 100%;
 }
 .icx-confirm .icx-pet-art { height: 128px; margin-bottom: 6px; }
 .icx-confirm h2 {
@@ -849,9 +1172,26 @@
 /* ── Mobile ─────────────────────────────────────────────────────────────── */
 
 @media (max-width: 800px) {
+    .icx-title {
+        justify-content: flex-start;
+        box-sizing: border-box;
+        padding-top: 35vh;
+    }
     .icx-fox { left: 1%; bottom: 33%; width: clamp(160px, 46vw, 250px); }
-    .icx-avatar { right: 3%; bottom: 34%; width: clamp(86px, 26vw, 118px); }
+    .icx-avatar { right: 1%; bottom: 28%; width: clamp(122px, 36vw, 190px); }
     .icx-avatar-name { font-size: 10.5px; padding: 2px 9px; }
+    .icx-root.is-beat-world .icx-fox,
+    .icx-root.is-beat-farewell .icx-fox { left: -6%; bottom: 28%; width: clamp(150px, 43vw, 230px); }
+    .icx-root.is-beat-world .icx-avatar,
+    .icx-root.is-beat-farewell .icx-avatar { right: 2%; width: clamp(140px, 42vw, 220px); }
+    .icx-root.is-beat-world .icx-gift-pet,
+    .icx-root.is-beat-farewell .icx-gift-pet {
+        right: calc(2% + clamp(140px, 42vw, 220px) + 8px);
+        bottom: 35%;
+        width: clamp(92px, 24vw, 120px);
+    }
+    .icx-world-title { top: 8%; width: 92vw; }
+    .icx-world-title span { letter-spacing: 0.32em; }
     /* Mobile keeps the vision centred (the fox sits lower here, so it clears)
        and nudged up so it clears the deity's ears. transform is re-added because
        the desktop base is now transform:none (left-edge anchored). */
@@ -861,7 +1201,7 @@
     /* Grounded in the gap between the deity and the player, not on the card. */
     /* Beside the player's portrait (just left of it, aligned to its lower half),
        clearly visible above the dialogue — not floating in the middle. */
-    .icx-gift-pet { right: calc(3% + clamp(86px, 26vw, 118px) + 4px); left: auto; bottom: 38%; width: clamp(58px, 16vw, 80px); }
+    .icx-gift-pet { right: calc(1% + clamp(122px, 36vw, 190px) + 8px); left: auto; bottom: 35%; width: clamp(58px, 16vw, 80px); }
     .icx-dialogue { min-height: 138px; padding: 12px 14px 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
     /* The companion beat has no letterbox on mobile — a top+bottom dark
        gradient gives it the same cinematic framing and settles the busy
@@ -897,17 +1237,39 @@
 .lite-fx .icx-fox,
 .lite-fx .icx-fox::before,
 .lite-fx .icx-fox img,
+.lite-fx .icx-avatar,
+.lite-fx .icx-avatar::before,
 .lite-fx .icx-avatar img,
+.lite-fx .icx-spirit-bond,
+.lite-fx .icx-spirit-bond path,
+.lite-fx .icx-spirit-bond-spark,
+.lite-fx .icx-world-reveal,
+.lite-fx .icx-world-reveal-art,
+.lite-fx .icx-world-reveal::before,
+.lite-fx .icx-world-atmosphere,
+.lite-fx .icx-world-title,
 .lite-fx .icx-vision,
 .lite-fx .icx-advance {
     animation: none;
 }
+.lite-fx .icx-world-reveal { clip-path: circle(86% at 50% 43%); }
+.lite-fx .icx-world-title { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
     .icx-scene-art,
     .icx-fox,
     .icx-fox::before,
     .icx-fox img,
+    .icx-avatar,
+    .icx-avatar::before,
     .icx-avatar img,
+    .icx-spirit-bond,
+    .icx-spirit-bond path,
+    .icx-spirit-bond-spark,
+    .icx-world-reveal,
+    .icx-world-reveal-art,
+    .icx-world-reveal::before,
+    .icx-world-atmosphere,
+    .icx-world-title,
     .icx-mote,
     .icx-petal,
     .icx-mist,
@@ -930,6 +1292,9 @@
         animation: none;
     }
     .icx-fox img { transition: none; }
+    .icx-avatar { filter: none; transform: none; }
+    .icx-world-reveal { clip-path: circle(86% at 50% 43%); }
+    .icx-world-title { opacity: 1; }
     .icx-stagefill { transition: none; }
     .icx-letterbox { transition: none; }
     /* Match the shortened JS whiteout choreography (250ms in / 250ms out). */

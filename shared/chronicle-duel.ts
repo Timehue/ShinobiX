@@ -440,6 +440,14 @@ const ELEMENT_PROFILE: Record<
   Earth: { attack: -100, defense: 200 },
 };
 
+const ELEMENT_LORE: Readonly<Record<ChronicleElement, string>> = {
+  Fire: "its fire chakra blazes through every strike",
+  Water: "its water chakra turns defense into relentless motion",
+  Earth: "its earth chakra anchors an unbreakable stance",
+  Wind: "its wind chakra makes every movement razor-fast",
+  Lightning: "its lightning chakra erupts before rivals can react",
+};
+
 function stableElementIndex(key: string, modulo: number): number {
   let hash = 0;
   for (const character of key)
@@ -473,35 +481,11 @@ function finishSentence(value: string): string {
   return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
 }
 
-/** The card's printed lore IS the catalog description — one cool, epic line
- * about the subject itself (the Blue Blade Raccoon register). No stamped
- * element boilerplate, no meta talk: the Chronicle records the world, never
- * the game. */
-function monsterLoreFromSource(source: TileCard): string {
-  return finishSentence(source.description);
-}
-
-/** Display taxonomy printed on the card face. Humans read as SHINOBI (not
- * BEAST — the old four-keyword guess labeled monks, ronin, and even the
- * Forgotten Kage as beasts), constructs as CONSTRUCT, and spirit-kind as
- * SPIRIT. Display-only: no effect or matchmaking logic reads family. */
-const FAMILY_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
-  ["Construct", "Dummy Clone Golem Puppet"],
-  [
-    "Spirit",
-    "Spirit Wisp Wraith Phantom Pixie Imp Reaper Shade Devourer Ghost",
-  ],
-  [
-    "Shinobi",
-    "Shinobi Genin Guard Master Monk Ronin Assassin Sage Archer Bandit Thief Spy Raider Mercenary Knight Marshal Warlord Kage Disciple Messenger Scout Slayer Wanderer Champion Necromancer Diver Keeper",
-  ],
-];
-
-function monsterFamilyFromName(name: string): string {
-  for (const [family, keywords] of FAMILY_KEYWORDS)
-    if (keywords.split(" ").some((keyword) => name.includes(keyword)))
-      return family;
-  return "Beast";
+function monsterLoreFromSource(
+  source: TileCard,
+  element: ChronicleElement,
+): string {
+  return `${finishSentence(source.description)} In the world of Shinobi Journey, ${ELEMENT_LORE[element]}.`;
 }
 
 /** Per-card exact stat overrides — hand-tuned numbers that bypass the tier +
@@ -529,12 +513,22 @@ function monsterFromSource(source: TileCard): ChronicleMonsterCard {
     ...(source.image ? { image: source.image } : {}),
     lore: isTrainingDummy
       ? "An academy practice construct built to absorb a new shinobi's first committed strike."
-      : monsterLoreFromSource(source),
+      : monsterLoreFromSource(source, element),
     element,
     rarity: source.rarity,
     cardClass: "monster",
     monsterType: "normal",
-    family: monsterFamilyFromName(source.name),
+    family:
+      source.name.includes("Shinobi") ||
+      source.name.includes("Genin") ||
+      source.name.includes("Guard") ||
+      source.name.includes("Master")
+        ? "Shinobi"
+        : source.name.includes("Spirit") ||
+            source.name.includes("Wisp") ||
+            source.name.includes("Wraith")
+          ? "Spirit"
+          : "Beast",
     level: isTrainingDummy ? 1 : (override?.level ?? base.level),
     attack: isTrainingDummy
       ? 300

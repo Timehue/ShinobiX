@@ -26,22 +26,24 @@ export type CinematicLine = {
     rumble?: boolean;
     /** The fox's spirit is guttering — dims the fox art for the farewell. */
     fading?: boolean;
+    /** Open the veil onto the player's chosen village and hold that world. */
+    worldReveal?: boolean;
 };
 
 // ── Beat 1-3: awakening → warning → gift offer (before pet selection) ────────
 export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "narrator", text: "Falling water. Cold stone. Cherry-blossom petals drifting through pale spirit-light." },
     { speaker: "narrator", text: "Once they carried the breath of spring. Now they only carry the memory." },
-    { speaker: "narrator", text: "You wake at the foot of an ancient shrine — in a place you never entered." },
+    { speaker: "narrator", text: "You wake at the foot of an ancient shrine, in a place you never entered." },
     { speaker: "fox", label: "???", text: "Open your eyes, young one. Good. The summons held." },
-    { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land — and I am the one who called you." },
+    { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land. I am the one who called you." },
     { speaker: "fox", text: `I am ${FOX_NAME}, guardian of this shrine since the first torii was raised. What little of me remains, anyway.` },
-    { speaker: "fox", text: "Crossing the veil to reach a soul like yours took the last of my power — so listen well, for I may not have the strength to say this twice." },
-    { speaker: "fox", vision: true, text: "Far beneath this land stands the Hollow Gate — a door that was sealed before your kind first drew breath. For a thousand years, it slept." },
-    { speaker: "fox", vision: true, rumble: true, text: "It sleeps no longer. It stirs. It hungers. Something — or someone — is feeding it." },
+    { speaker: "fox", text: "Crossing the veil to reach a soul like yours took the last of my power. Listen well, for I may not have the strength to say this twice." },
+    { speaker: "fox", vision: true, text: "Far beneath this land stands the Hollow Gate. It was sealed before your kind first drew breath. For a thousand years, it slept." },
+    { speaker: "fox", vision: true, rumble: true, text: "It sleeps no longer. It stirs. It hungers. Something, or someone, is feeding it." },
     { speaker: "fox", text: "My kin held the seal for generations. I am the last of them, and my light is nearly spent. Alone, I cannot hold back what is coming." },
-    { speaker: "fox", text: "That is why I called you. I hope — with all that remains of me — that you can help this land." },
-    { speaker: "fox", text: "But I will not send you into this world alone. Five young spirits shelter at this shrine — the last I have raised, each carrying one of the five natures." },
+    { speaker: "fox", text: "That is why I called you. With all that remains of me, I hope you can help this land." },
+    { speaker: "fox", text: "But I will not send you into this world alone. Five young spirits shelter at this shrine. They are the last I have raised, each carrying one of the five natures." },
     { speaker: "fox", text: "Choose one, {name}. Let it walk beside you where I cannot." },
 ];
 
@@ -50,25 +52,25 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
 // village names data/sectors.ts `villages` uses.
 export const VILLAGE_LORE_LINES: Record<string, [string, string]> = {
     "Stormveil Village": [
-        "Stormveil — a village born from outcasts who answered to no lord, raised beneath skies that never stop storming. Strength there is not inherited. It is seized.",
+        "Stormveil was born from outcasts who answered to no lord, beneath skies that never stop storming. Strength there is not inherited. It is seized.",
         "Its people bow to no tradition, only to power and the will to take it. Prove yourself, and even the storm will make way for you.",
     ],
     "Ashen Leaf Village": [
-        "Ashen Leaf — the oldest of the villages, raised among ember groves where the old ways still burn. Tradition there is not a chain. It is a flame passed hand to hand.",
+        "Ashen Leaf is the oldest of the villages, raised among ember groves where the old ways still burn. Tradition there is not a chain. It is a flame passed hand to hand.",
         "Honor its clans and learn their teachings, and the village will claim you as its own blood.",
     ],
     "Frostfang Village": [
-        "Frostfang — a northern hold of snow gates and stone, where winter kills the faithless and loyalty is the only warmth. A promise there is never a small thing.",
+        "Frostfang is a northern hold of snow gates and stone, where winter kills the faithless and loyalty is the only warmth. A promise there is never a small thing.",
         "Stand by its people, and they will stand by you until the very ice breaks.",
     ],
     "Moonshadow Village": [
-        "Moonshadow — the night village of lantern paths and hidden courts, where a quiet step is worth more than a loud blade.",
-        "Its people watch everything and waste nothing. Ambition is welcome there — carry yours carefully.",
+        "Moonshadow is the night village of lantern paths and hidden courts, where a quiet step is worth more than a loud blade.",
+        "Its people watch everything and waste nothing. Ambition is welcome there. Carry yours carefully.",
     ],
 };
 
 const FALLBACK_LORE_LINES: [string, string] = [
-    "Your village waits beyond the veil — a home of hard roads and harder lessons.",
+    "Your village waits beyond the veil, a home of hard roads and harder lessons.",
     "Earn its people's trust, and they will stand with you against what is coming.",
 ];
 
@@ -76,13 +78,13 @@ const FALLBACK_LORE_LINES: [string, string] = [
 export function buildPostGiftLines(village: string): CinematicLine[] {
     const [loreA, loreB] = VILLAGE_LORE_LINES[village] ?? FALLBACK_LORE_LINES;
     return [
-        { speaker: "fox", text: "{pet}... a fine choice. Care for each other — a bond like that grows stronger than any blade." },
+        { speaker: "fox", text: "{pet}... a fine choice. Care for each other. A bond like that grows stronger than any blade." },
         { speaker: "fox", text: "Now, you cannot linger here. The shrine is fading, and the world beyond has need of you." },
-        { speaker: "fox", text: loreA },
-        { speaker: "fox", text: loreB },
-        { speaker: "fox", text: "Train there. Grow strong, {name}. And when the Hollow Gate calls — and it will call — be ready to answer." },
-        { speaker: "fox", fading: true, text: "My light is going out, {name}. Take my hope with you." },
-        { speaker: "fox", fading: true, text: "Please... save this land." },
+        { speaker: "fox", worldReveal: true, text: loreA },
+        { speaker: "fox", worldReveal: true, text: loreB },
+        { speaker: "fox", worldReveal: true, text: "Train there. Grow strong, {name}. When the Hollow Gate calls, and it will call, be ready to answer." },
+        { speaker: "fox", worldReveal: true, fading: true, text: "My light is going out, {name}. Take my hope with you." },
+        { speaker: "fox", worldReveal: true, fading: true, text: "Please... save this land." },
     ];
 }
 
@@ -106,7 +108,7 @@ export function buildCompanionIntroLines(village: string, petName: string): Cine
         ?? "I can already tell there's more to this place than meets the eye.";
     return [
         { speaker: "fox", label: petName, text: `So THIS is ${village}! ${flavor}` },
-        { speaker: "fox", label: petName, text: "Shiranui asked me to watch over you — and I will. We're partners now, you and me." },
-        { speaker: "fox", label: petName, text: "Come on, {name} — let me guide you through this world. Follow my lead, and we'll make a legend of you yet!" },
+        { speaker: "fox", label: petName, text: "Shiranui asked me to watch over you, and I will. We're partners now, you and me." },
+        { speaker: "fox", label: petName, text: "Come on, {name}. Let me guide you through this world. Follow my lead, and we'll make a legend of you yet!" },
     ];
 }
