@@ -31,3 +31,11 @@ test("Gate Warden ships as a skinned combat rig with the full clip set", () => {
         assert.ok(clips.has(name), `missing ${name}`);
     }
 });
+
+test("Gate Warden rig is included in the Docker build context", () => {
+    const dockerIgnore = readFileSync(new URL("../../../.dockerignore", import.meta.url), "utf8");
+    assert.match(
+        dockerIgnore,
+        /^!shinobij\.client\/public\/pet-models\/gate-warden-rigged\.glb$/m,
+    );
+});

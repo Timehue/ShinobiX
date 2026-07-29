@@ -11,7 +11,18 @@
  * auto-buy policy the match is a pure function of (teams, seed, policies) — the
  * shape shared co-op replays will use. Rendering never feeds the sim.
  */
-import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
+import {
+    Component,
+    Suspense,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type CSSProperties,
+    type ErrorInfo,
+    type MutableRefObject,
+    type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles, useGLTF } from "@react-three/drei";
@@ -536,7 +547,6 @@ function WfPropInstances({ url, items, targetH, lift = 0.34 }: { url: string; it
 }
 useGLTF.preload("/pet-models/wf-boulder.glb");
 useGLTF.preload("/pet-models/wf-lantern.glb");
-useGLTF.preload(GATE_WARDEN_GLB);
 
 // ── Set dressing — rim rocks, lane lanterns, breach crystals, base banners ───
 // All deterministic (hash-sampled from the mask) and instanced: a handful of
@@ -1321,6 +1331,76 @@ function WfArtGlb({ url, targetH, color = "#ffffff", emissive = "#9a9a9a", emiss
 type WardenRigClip = "GW_Idle" | "GW_Walk" | "GW_Windup" | "GW_Slam" | "GW_Hit";
 type WardenRigMotion = { clip: WardenRigClip; nonce: number; speed: number };
 
+class WfAssetErrorBoundary extends Component<
+    { children: ReactNode; fallback: ReactNode; label: string },
+    { failed: boolean }
+> {
+    state = { failed: false };
+
+    static getDerivedStateFromError() {
+        return { failed: true };
+    }
+
+    componentDidCatch(error: Error, info: ErrorInfo) {
+        console.warn(`[Warfront] ${this.props.label} could not load; using the safe fallback.`, error.message, info.componentStack);
+    }
+
+    render() {
+        return this.state.failed ? this.props.fallback : this.props.children;
+    }
+}
+
+function WfWardenBillboard({ height }: { height: number }) {
+    return (
+        <Billboard lockX lockZ>
+            <mesh position={[0, height * 0.5, 0]}>
+                <planeGeometry args={[height, height]} />
+                <meshBasicMaterial map={wardenTex("idle")} transparent alphaTest={0.03} depthWrite={false} toneMapped={false} />
+            </mesh>
+        </Billboard>
+    );
+}
+
+function WfWardenModelOrFallback({ motionRef, targetH }: {
+    motionRef: MutableRefObject<WardenRigMotion>;
+    targetH: number;
+}) {
+    const [rigAvailable, setRigAvailable] = useState<boolean | null>(null);
+    useEffect(() => {
+        const controller = new AbortController();
+        void fetch(GATE_WARDEN_GLB, {
+            method: "HEAD",
+            cache: "force-cache",
+            signal: controller.signal,
+        }).then((response) => {
+            setRigAvailable(response.ok);
+            if (!response.ok) {
+                console.warn(`[Warfront] Gate Warden rig returned HTTP ${response.status}; using the safe fallback.`);
+            }
+        }).catch((error: unknown) => {
+            if (controller.signal.aborted) return;
+            setRigAvailable(false);
+            console.warn(
+                "[Warfront] Gate Warden rig could not be reached; using the safe fallback.",
+                error instanceof Error ? error.message : String(error),
+            );
+        });
+        return () => controller.abort();
+    }, []);
+
+    if (rigAvailable !== true) return <WfWardenBillboard height={targetH} />;
+    return (
+        <WfAssetErrorBoundary
+            label="Gate Warden rig"
+            fallback={<WfWardenBillboard height={targetH} />}
+        >
+            <Suspense fallback={<WfWardenBillboard height={targetH} />}>
+                <WfRiggedWardenModel motionRef={motionRef} targetH={targetH} />
+            </Suspense>
+        </WfAssetErrorBoundary>
+    );
+}
+
 /** Gate Warden-specific skinned renderer. The GLB owns the limb animation;
  * Warfront only selects and blends clips from the current simulation state. */
 function WfRiggedWardenModel({ motionRef, targetH }: {
@@ -1546,16 +1626,7 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
                 />
             </mesh>
             <group ref={body}>
-                <Suspense fallback={(
-                    <Billboard lockX lockZ>
-                        <mesh position={[0, H * 0.5, 0]}>
-                            <planeGeometry args={[H, H]} />
-                            <meshBasicMaterial map={wardenTex("idle")} transparent alphaTest={0.03} depthWrite={false} toneMapped={false} />
-                        </mesh>
-                    </Billboard>
-                )}>
-                    <WfRiggedWardenModel motionRef={rigMotion} targetH={H} />
-                </Suspense>
+                <WfWardenModelOrFallback motionRef={rigMotion} targetH={H} />
             </group>
             <Html position={[0, H + 0.4, 0]} center pointerEvents="none" distanceFactor={12} zIndexRange={[8, 0]}>
                 <div ref={hpWrap} style={{ textAlign: "center", font: "800 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>
