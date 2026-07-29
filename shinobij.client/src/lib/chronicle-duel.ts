@@ -7,6 +7,7 @@ import {
     deckLimitForCard,
     getChronicleCard,
     migrateLegacyDeck,
+    previewChronicleBattle,
     tributeCountForLevel,
     validateDeckIds,
     type ChronicleActionIntent,
@@ -105,6 +106,7 @@ export {
     deckLimitForCard,
     getChronicleCard,
     migrateLegacyDeck,
+    previewChronicleBattle,
     tributeCountForLevel,
     validateDeckIds,
 };
@@ -123,6 +125,8 @@ export {
 export type {
     ChronicleActionIntent,
     ChronicleAiDifficulty,
+    ChronicleBattlePreview,
     ChronicleCard,
+    ChroniclePresentationEvent,
     ChronicleProjection,
 } from "../../../shared/chronicle-duel";

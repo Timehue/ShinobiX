@@ -3694,6 +3694,45 @@ export interface ChronicleActiveField {
   owner: ChronicleSideKey;
 }
 
+export type ChroniclePresentationEventKind =
+  | "monster-summoned"
+  | "monster-set"
+  | "monster-flipped"
+  | "position-changed"
+  | "magic-activated"
+  | "trap-set"
+  | "trap-activated"
+  | "attack-declared"
+  | "response-opened"
+  | "response-passed"
+  | "card-destroyed"
+  | "damage"
+  | "healing"
+  | "phase-changed"
+  | "turn-started"
+  | "duel-ended";
+
+/**
+ * A compact, server-authored replay beat. Presentation consumes these events
+ * instead of guessing intent from English log text. Set-card identities are
+ * scrubbed from the opponent projection below.
+ */
+export interface ChroniclePresentationEvent {
+  id: string;
+  kind: ChroniclePresentationEventKind;
+  turnNumber: number;
+  at: number;
+  actor?: ChronicleSideKey;
+  side?: ChronicleSideKey;
+  cardId?: string;
+  sourceZoneIndex?: number;
+  targetSide?: ChronicleSideKey;
+  targetZoneIndex?: number | null;
+  amount?: number;
+  phase?: ChroniclePhase;
+  winner?: ChronicleSideKey | "draw";
+}
+
 export interface ChronicleMatch {
   rulesVersion: typeof CHRONICLE_RULES_VERSION;
   turnNumber: number;
@@ -3708,6 +3747,9 @@ export interface ChronicleMatch {
   status: "active" | "complete";
   winner: ChronicleSideKey | "draw" | null;
   log: string[];
+  /** Optional for compatibility with active matches persisted before the
+   * structured replay stream shipped. New actions initialize it lazily. */
+  events?: ChroniclePresentationEvent[];
   iidCounter: number;
   /** Persisted server RNG state. Keeping it in the match makes random effects
    * deterministic for replays, tests, and dispute audits. */
@@ -3799,7 +3841,7 @@ export function createMatch(
     0;
   const firstSide = firstPlayer === "p1" ? p1 : p2;
   firstSide.hand.push(firstSide.deck.shift()!);
-  return {
+  const state: ChronicleMatch = {
     rulesVersion: CHRONICLE_RULES_VERSION,
     turnNumber: 1,
     firstPlayer,
@@ -3816,10 +3858,15 @@ export function createMatch(
       `${p1Name} and ${p2Name} draw five cards.`,
       `${firstSide.name} takes the first turn and draws in the Draw Phase.`,
     ],
+    events: [],
     iidCounter: 1,
     rngState: randomSeed || 0x9e3779b9,
     turnStartedAt: now,
   };
+  // Drawing, Standby bookkeeping, and the move into Main Phase 1 do not
+  // contain a player decision in the current rules. Resolve them immediately
+  // so a newly dealt game opens at the first meaningful decision.
+  return advanceAutomaticPhases(state, now).state;
 }
 
 function actionGuard(
@@ -6109,7 +6156,12 @@ export function passExpiredResponse(
 ): ChronicleResult {
   if (!state.responseWindow || state.responseWindow.expiresAt > now)
     return failure(state, "No Snare response has expired.");
-  return passResponse(state, state.responseWindow.responder);
+  return applyAction(
+    state,
+    state.responseWindow.responder,
+    { action: "pass-response" },
+    now,
+  );
 }
 
 export function enterMain2(
@@ -6205,6 +6257,35 @@ export function endTurn(
   return startTurn(next, other(actor), now);
 }
 
+/**
+ * Resolve phases that contain no player choice in the current format.
+ *
+ * The low-level phase functions remain public for rules tests, replays, and
+ * compatibility with an in-flight legacy projection. Normal application
+ * actions use this helper so Draw -> Standby -> Main 1 and End -> next turn's
+ * Main 1 happen as one authoritative server transition.
+ */
+export function advanceAutomaticPhases(
+  state: ChronicleMatch,
+  now = Date.now(),
+): ChronicleResult {
+  let next = state;
+  for (let safety = 0; safety < 4; safety++) {
+    if (next.status !== "active" || next.responseWindow) break;
+    const actor = next.activePlayer;
+    const advanced =
+      next.phase === "draw" || next.phase === "standby"
+        ? advancePhase(next, actor)
+        : next.phase === "end"
+          ? endTurn(next, actor, now)
+          : null;
+    if (!advanced) break;
+    if (!advanced.ok) return advanced;
+    next = advanced.state;
+  }
+  return success(next);
+}
+
 function finish(
   state: ChronicleMatch,
   winner: ChronicleSideKey | "draw",
@@ -6247,6 +6328,7 @@ export interface ChronicleProjectedMonster {
   defense?: number;
   level?: number;
   attachedEquipId?: string;
+  battleSurvivalAvailable?: boolean;
   canAttack?: boolean;
   canFlipSummon?: boolean;
   canChangePosition?: boolean;
@@ -6300,7 +6382,199 @@ export interface ChronicleProjection {
     graveyard: string[];
   };
   log: string[];
+  events?: ChroniclePresentationEvent[];
   turnStartedAt: number;
+}
+
+export interface ChronicleBattlePreview {
+  legal: boolean;
+  kind:
+    | "break"
+    | "risk"
+    | "clash"
+    | "stalemate"
+    | "unknown"
+    | "illegal";
+  label: string;
+  attackerValue?: number;
+  defenderValue?: number;
+  damage?: number;
+  damageSide?: ChronicleSideKey;
+  note?: string;
+}
+
+/**
+ * Calculate the battle result that is knowable from a viewer projection.
+ * Hidden Snares and face-down Monster effects deliberately remain unknown.
+ * The formula mirrors resolveAttack, including the neutral element wheel and
+ * public battle-only Monster effects.
+ */
+export function previewChronicleBattle(
+  state: ChronicleProjection,
+  attackerZoneIndex: number,
+  targetZoneIndex: number,
+): ChronicleBattlePreview | null {
+  const actor = state.viewerSide;
+  const defenderSide: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  const attacker = state[actor].monsterZones[attackerZoneIndex];
+  const defender = state[defenderSide].monsterZones[targetZoneIndex];
+  if (
+    !attacker?.faceUp ||
+    attacker.attack === undefined ||
+    !attacker.cardId ||
+    !defender
+  )
+    return null;
+
+  const attackerCard = getChronicleCard(attacker.cardId);
+  if (attackerCard?.cardClass !== "monster") return null;
+  const guardControlsBattle = state[defenderSide].monsterZones.some(
+    (monster) => {
+      if (!monster?.faceUp || monster.position !== "defense" || !monster.cardId)
+        return false;
+      const card = getChronicleCard(monster.cardId);
+      return (
+        card?.cardClass === "monster" &&
+        card.monsterEffect?.kind === "guardOtherMonsters"
+      );
+    },
+  );
+  if (
+    !defender.faceUp ||
+    defender.attack === undefined ||
+    defender.defense === undefined ||
+    !defender.cardId
+  )
+    return guardControlsBattle
+      ? {
+          legal: false,
+          kind: "illegal",
+          label: "GUARDED · STRIKE THE DEFENDER",
+        }
+      : {
+          legal: true,
+          kind: "unknown",
+          label: "UNKNOWN DEFENSE · SNARES MAY RESPOND",
+        };
+
+  const defenderCard = getChronicleCard(defender.cardId);
+  if (
+    attackerCard?.cardClass !== "monster" ||
+    defenderCard?.cardClass !== "monster"
+  )
+    return null;
+  if (
+    guardControlsBattle &&
+    defenderCard.monsterEffect?.kind !== "guardOtherMonsters"
+  )
+    return {
+      legal: false,
+      kind: "illegal",
+      label: "GUARDED · STRIKE THE DEFENDER",
+    };
+
+  const defenderPosition =
+    defender.position === "attack" &&
+    defenderCard.monsterEffect?.kind === "changeToDefenseWhenAttacked"
+      ? "defense"
+      : defender.position;
+  const originalAttackerAttack = attacker.attack;
+  const originalDefenderAttack = defender.attack;
+  let attackerValue = originalAttackerAttack;
+  let defenderValue =
+    defenderPosition === "attack" ? originalDefenderAttack : defender.defense;
+
+  if (
+    defenderPosition === "attack" &&
+    attackerCard.monsterEffect?.kind === "gainAttackWhenBattlingStronger" &&
+    originalDefenderAttack > originalAttackerAttack
+  )
+    attackerValue += attackerCard.monsterEffect.amount ?? 0;
+  if (
+    defenderPosition === "attack" &&
+    defenderCard.monsterEffect?.kind === "gainAttackWhenBattlingStronger" &&
+    originalAttackerAttack > originalDefenderAttack
+  )
+    defenderValue += defenderCard.monsterEffect.amount ?? 0;
+
+  attackerValue += elementBattleBonus(
+    attackerCard.element,
+    defenderCard.element,
+    state.activeField,
+  );
+  defenderValue += elementBattleBonus(
+    defenderCard.element,
+    attackerCard.element,
+    state.activeField,
+  );
+
+  const difference = attackerValue - defenderValue;
+  const attackerSurvives = Boolean(attacker.battleSurvivalAvailable);
+  const defenderSurvives = Boolean(defender.battleSurvivalAvailable);
+  const reflectDamage =
+    defenderPosition === "attack" &&
+    defenderCard.monsterEffect?.kind === "reflectDamageWhenAttacked"
+      ? attackerValue
+      : 0;
+  const note = reflectDamage
+    ? `Reflect effect deals ${reflectDamage.toLocaleString()} before calculation.`
+    : "Projected from visible stats; a set Snare may change the result.";
+
+  if (difference > 0) {
+    const piercing =
+      defenderPosition === "defense" &&
+      attackerCard.monsterEffect?.kind === "piercingBattleDamage";
+    const damage = defenderPosition === "attack" || piercing ? difference : 0;
+    return {
+      legal: true,
+      kind: "break",
+      attackerValue,
+      defenderValue,
+      ...(damage ? { damage, damageSide: defenderSide } : {}),
+      label: defenderSurvives
+        ? `GUARDED · SURVIVES${damage ? ` · ${damage.toLocaleString()} DAMAGE` : ""}`
+        : defenderPosition === "attack"
+          ? `BREAK · ${difference.toLocaleString()} DAMAGE`
+          : piercing
+            ? `BREAK DEFENSE · ${difference.toLocaleString()} DAMAGE`
+            : "BREAK DEFENSE",
+      note,
+    };
+  }
+  if (difference < 0) {
+    const damage = Math.abs(difference);
+    const effectBreaksAttacker =
+      defenderPosition === "defense" &&
+      defenderCard.monsterEffect?.kind ===
+        "destroyAttackerWhenDefenseHolds";
+    return {
+      legal: true,
+      kind: "risk",
+      attackerValue,
+      defenderValue,
+      damage,
+      damageSide: actor,
+      label: effectBreaksAttacker
+        ? `RISK · ${damage.toLocaleString()} DAMAGE · EFFECT BREAK`
+        : attackerSurvives
+          ? `RISK · ${damage.toLocaleString()} DAMAGE · SURVIVES`
+          : `RISK · ${damage.toLocaleString()} DAMAGE`,
+      note,
+    };
+  }
+  return {
+    legal: true,
+    kind: defenderPosition === "attack" ? "clash" : "stalemate",
+    attackerValue,
+    defenderValue,
+    label:
+      defenderPosition === "attack"
+        ? attackerSurvives || defenderSurvives
+          ? "CLASH · SURVIVAL EFFECT"
+          : "CLASH · BOTH BREAK"
+        : "STALEMATE",
+    note,
+  };
 }
 
 export function projectMatchForViewer(
@@ -6319,6 +6593,21 @@ export function projectMatchForViewer(
         if (!monster) return null;
         const visible = monster.faceUp || key === viewer;
         const card = visible ? getChronicleCard(monster.cardId) : undefined;
+        const equipZone = monster.attachedEquipId
+          ? side.magicTrapZones.find(
+              (zone) => zone?.instanceId === monster.attachedEquipId,
+            )
+          : undefined;
+        const equipCard = equipZone
+          ? getChronicleCard(equipZone.cardId)
+          : undefined;
+        const battleSurvivalAvailable =
+          visible &&
+          ((card?.cardClass === "monster" &&
+            card.monsterEffect?.kind === "surviveBattleOncePerTurn" &&
+            monster.monsterEffectUsedTurn !== state.turnNumber) ||
+            (equipCard?.cardClass === "magic" &&
+              equipCard.effect.kind === "battleShieldEquip"));
         return {
           instanceId: monster.instanceId,
           owner: monster.owner,
@@ -6333,6 +6622,9 @@ export function projectMatchForViewer(
                 level: card.level,
                 ...(monster.attachedEquipId
                   ? { attachedEquipId: monster.attachedEquipId }
+                  : {}),
+                ...(battleSurvivalAvailable
+                  ? { battleSurvivalAvailable: true }
                   : {}),
               }
             : {}),
@@ -6404,11 +6696,24 @@ export function projectMatchForViewer(
     p1: projectSide("p1"),
     p2: projectSide("p2"),
     log: state.log.slice(-80),
+    ...(state.events
+      ? {
+          events: state.events.slice(-80).map((event) => {
+            const publicEvent = { ...event };
+            if (
+              (event.kind === "monster-set" || event.kind === "trap-set") &&
+              event.actor !== viewer
+            )
+              delete publicEvent.cardId;
+            return publicEvent;
+          }),
+        }
+      : {}),
     turnStartedAt: state.turnStartedAt,
   };
 }
 
-export function applyAction(
+function applyActionOnce(
   state: ChronicleMatch,
   actor: ChronicleSideKey,
   intent: ChronicleActionIntent,
@@ -6458,4 +6763,265 @@ export function applyAction(
     default:
       return failure(state, `Unknown duel action: ${intent.action}`);
   }
+}
+
+function appendPresentationEvent(
+  state: ChronicleMatch,
+  event: Omit<
+    ChroniclePresentationEvent,
+    "id" | "turnNumber" | "at"
+  >,
+  now: number,
+): void {
+  const events = (state.events ??= []);
+  events.push({
+    id: nextIid(state, "event"),
+    turnNumber: state.turnNumber,
+    at: now,
+    ...event,
+  });
+  if (events.length > 120) events.splice(0, events.length - 120);
+}
+
+function graveyardCounts(ids: readonly string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return counts;
+}
+
+function appendActionPresentationEvents(
+  before: ChronicleMatch,
+  after: ChronicleMatch,
+  actor: ChronicleSideKey,
+  intent: ChronicleActionIntent,
+  now: number,
+): void {
+  after.events ??= (before.events ?? []).slice();
+  const handCardId = before[actor].hand[Number(intent.handIndex)];
+  const actorMonster = before[actor].monsterZones[
+    Number(intent.attackerZoneIndex ?? intent.zoneIndex)
+  ];
+  const actionEvent: Omit<
+    ChroniclePresentationEvent,
+    "id" | "turnNumber" | "at"
+  > | null =
+    intent.action === "normal-summon"
+      ? {
+          kind: "monster-summoned",
+          actor,
+          cardId: handCardId,
+          sourceZoneIndex: Number(intent.zoneIndex),
+        }
+      : intent.action === "set-monster"
+        ? {
+            kind: "monster-set",
+            actor,
+            cardId: handCardId,
+            sourceZoneIndex: Number(intent.zoneIndex),
+          }
+        : intent.action === "flip-summon"
+          ? {
+              kind: "monster-flipped",
+              actor,
+              cardId: actorMonster?.cardId,
+              sourceZoneIndex: Number(intent.zoneIndex),
+            }
+          : intent.action === "change-position"
+            ? {
+                kind: "position-changed",
+                actor,
+                cardId: actorMonster?.cardId,
+                sourceZoneIndex: Number(intent.zoneIndex),
+              }
+            : intent.action === "activate-magic"
+              ? {
+                  kind: "magic-activated",
+                  actor,
+                  cardId: handCardId,
+                  targetSide: intent.targetSide,
+                  targetZoneIndex: intent.targetZoneIndex,
+                }
+              : intent.action === "set-trap"
+                ? {
+                    kind: "trap-set",
+                    actor,
+                    cardId: handCardId,
+                    sourceZoneIndex: Number(intent.zoneIndex),
+                  }
+                : intent.action === "activate-trap"
+                  ? {
+                      kind: "trap-activated",
+                      actor,
+                      cardId:
+                        before[actor].magicTrapZones[Number(intent.zoneIndex)]
+                          ?.cardId,
+                      sourceZoneIndex: Number(intent.zoneIndex),
+                    }
+                  : intent.action === "attack"
+                    ? {
+                        kind: "attack-declared",
+                        actor,
+                        cardId: actorMonster?.cardId,
+                        sourceZoneIndex: Number(intent.attackerZoneIndex),
+                        targetSide: actor === "p1" ? "p2" : "p1",
+                        targetZoneIndex: intent.targetZoneIndex,
+                      }
+                    : intent.action === "pass-response"
+                      ? { kind: "response-passed", actor }
+                      : null;
+  if (actionEvent) appendPresentationEvent(after, actionEvent, now);
+
+  if (
+    after.responseWindow &&
+    after.responseWindow.id !== before.responseWindow?.id
+  )
+    appendPresentationEvent(
+      after,
+      {
+        kind: "response-opened",
+        actor: after.responseWindow.responder,
+        targetSide: after.responseWindow.responder,
+      },
+      now,
+    );
+
+  const excludedInstances = new Set<string>();
+  if (
+    intent.action === "normal-summon" ||
+    intent.action === "set-monster"
+  ) {
+    for (const index of intent.tributeZoneIndexes ?? []) {
+      const tribute = before[actor].monsterZones[index];
+      if (tribute) excludedInstances.add(tribute.instanceId);
+    }
+  }
+  if (intent.action === "activate-trap") {
+    const activated = before[actor].magicTrapZones[Number(intent.zoneIndex)];
+    if (activated) excludedInstances.add(activated.instanceId);
+  }
+
+  for (const sideKey of ["p1", "p2"] as const) {
+    const beforeSide = before[sideKey];
+    const afterSide = after[sideKey];
+    const beforeGraves = graveyardCounts(beforeSide.graveyard);
+    const afterGraves = graveyardCounts(afterSide.graveyard);
+    const beforeDeck = graveyardCounts(beforeSide.deck);
+    const afterDeck = graveyardCounts(afterSide.deck);
+    const newlyGraved = new Map<string, number>();
+    const newlyDecked = new Map<string, number>();
+    for (const [id, count] of afterGraves)
+      newlyGraved.set(id, count - (beforeGraves.get(id) ?? 0));
+    for (const [id, count] of afterDeck)
+      newlyDecked.set(id, count - (beforeDeck.get(id) ?? 0));
+
+    const removedZones = [
+      ...beforeSide.monsterZones.map((card, zoneIndex) => ({
+        card,
+        zoneIndex,
+        remains: afterSide.monsterZones[zoneIndex],
+      })),
+      ...beforeSide.magicTrapZones.map((card, zoneIndex) => ({
+        card,
+        zoneIndex,
+        remains: afterSide.magicTrapZones[zoneIndex],
+      })),
+    ];
+    for (const { card, zoneIndex, remains } of removedZones) {
+      const removedCard = card ? getChronicleCard(card.cardId) : undefined;
+      const enteredGraveyard = card
+        ? (newlyGraved.get(card.cardId) ?? 0) > 0
+        : false;
+      const recycledAfterBattle = Boolean(
+        card &&
+          intent.action === "attack" &&
+          removedCard?.cardClass === "monster" &&
+          removedCard.monsterEffect?.kind === "returnToDeckWhenDestroyed" &&
+          (newlyDecked.get(card.cardId) ?? 0) > 0,
+      );
+      if (
+        !card ||
+        remains?.instanceId === card.instanceId ||
+        excludedInstances.has(card.instanceId) ||
+        (!enteredGraveyard && !recycledAfterBattle)
+      )
+        continue;
+      if (enteredGraveyard)
+        newlyGraved.set(
+          card.cardId,
+          (newlyGraved.get(card.cardId) ?? 0) - 1,
+        );
+      else
+        newlyDecked.set(
+          card.cardId,
+          (newlyDecked.get(card.cardId) ?? 0) - 1,
+        );
+      appendPresentationEvent(
+        after,
+        {
+          kind: "card-destroyed",
+          side: sideKey,
+          cardId: card.cardId,
+          sourceZoneIndex: zoneIndex,
+        },
+        now,
+      );
+    }
+
+    const lifeDelta = afterSide.lifePoints - beforeSide.lifePoints;
+    if (lifeDelta !== 0)
+      appendPresentationEvent(
+        after,
+        {
+          kind: lifeDelta < 0 ? "damage" : "healing",
+          side: sideKey,
+          amount: Math.abs(lifeDelta),
+        },
+        now,
+      );
+  }
+
+  if (after.turnNumber !== before.turnNumber)
+    appendPresentationEvent(
+      after,
+      {
+        kind: "turn-started",
+        actor: after.activePlayer,
+        phase: after.phase,
+      },
+      now,
+    );
+  else if (after.phase !== before.phase)
+    appendPresentationEvent(
+      after,
+      {
+        kind: "phase-changed",
+        actor: after.activePlayer,
+        phase: after.phase,
+      },
+      now,
+    );
+
+  if (before.status === "active" && after.status === "complete")
+    appendPresentationEvent(
+      after,
+      {
+        kind: "duel-ended",
+        winner: after.winner ?? "draw",
+      },
+      now,
+    );
+}
+
+export function applyAction(
+  state: ChronicleMatch,
+  actor: ChronicleSideKey,
+  intent: ChronicleActionIntent,
+  now = Date.now(),
+): ChronicleResult {
+  const result = applyActionOnce(state, actor, intent, now);
+  if (!result.ok) return result;
+  const advanced = advanceAutomaticPhases(result.state, now);
+  if (!advanced.ok) return advanced;
+  appendActionPresentationEvents(state, advanced.state, actor, intent, now);
+  return advanced;
 }

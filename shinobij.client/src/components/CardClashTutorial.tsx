@@ -29,8 +29,9 @@ export function CardClashTutorial({ onClose }: { onClose: () => void }) {
           </small>
           <h2>{CHRONICLE_ROOM_TITLE}</h2>
           <p>
-            Start at 8,000 Health with a 40-card Deck and five cards. Move
-            through Draw, Standby, Main 1, Battle, Main 2 and End.
+            Start at 8,000 Health with a 40-card Deck and five cards. Draw,
+            Standby, and End resolve automatically; you decide when to start or
+            finish attacking during your Main Phases.
           </p>
           <p>
             Summon or Set once per turn. Set Snares wait one turn and allow one
@@ -39,6 +40,12 @@ export function CardClashTutorial({ onClose }: { onClose: () => void }) {
           <p>
             Fire beats Wind, then Lightning, Earth, Water and Fire again.
             Advantage adds +200 to the ATK or DEF used in battle.
+          </p>
+          <p>
+            Target badges preview the result from visible stats before a hidden
+            Snare responds. Smart Phase Assist finishes Battle automatically
+            once none of your Monsters can attack; switch it off in Match
+            Options if you prefer every phase control.
           </p>
           <div className="chronicle-tutorial__foot">
             <button onClick={onClose}>Enter the Card Hall</button>
