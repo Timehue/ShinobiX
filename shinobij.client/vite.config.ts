@@ -507,9 +507,13 @@ export default defineConfig({
                             }
                             arrivalTile = exit.destinationTile;
                         }
-                        const arrivalAt = now + 3_000;
+                        // Mirror api/player/travel.ts: edge crossings are instant
+                        // (walking is free movement); only map fast-travel wears the
+                        // 3s mask. Keep the response's travelMs in sync with prod.
+                        const travelMs = body.mode === 'edge' ? 0 : 3_000;
+                        const arrivalAt = now + travelMs;
                         playerPresence.set(playerId, { ...player, travelingUntil: arrivalAt, destinationSector });
-                        sendJson(res, 200, { ok: true, destinationSector, arrivalAt, arrivalTile });
+                        sendJson(res, 200, { ok: true, destinationSector, arrivalAt, travelMs, arrivalTile });
                     } catch (err: unknown) {
                         sendJson(res, 500, { error: errorMessage(err) });
                     }
@@ -525,13 +529,15 @@ export default defineConfig({
                 type DevSign = { id: string; name: string; tile: number; text: string; at: number; sparks: number; sparkedBy: string[] };
                 const devSigns = new Map<number, DevSign[]>();
                 const devShrines = new Map<string, { total: number; weekTotal: number; topWeek: { name: string; amount: number }[] }>();
+                // Keyed by the 2026-07 region-block sector numbers (shared/shrines.ts
+                // SHRINE_DEFS is the source of truth — keep these in sync).
                 const DEV_SHRINE_SECTORS: Record<number, { id: string; name: string; theme: string; village?: string; region: string; lore: string; blessing: string }> = {
-                    42: { id: 'heartwood', name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village', region: 'the Ashen Leaf Deepwood', lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.', blessing: 'May your roots hold and your leaves reach.' },
-                    34: { id: 'tide', name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village', region: 'the Stormveil Heights', lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.', blessing: 'May the tide carry your burdens out.' },
-                    53: { id: 'frostveil', name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village', region: 'the Frostreach Shelf', lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.', blessing: 'May the cold keep what you cherish.' },
-                    16: { id: 'moonwell', name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village', region: 'the Moonshadow Wilds', lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.', blessing: 'May the moon light the path you hide.' },
-                    13: { id: 'hollowgate', name: 'Hollow Warden Shrine', theme: 'hollow-gate', region: 'the Pilgrim’s Approach', lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.', blessing: 'May the Gate stay shut behind you.' },
-                    10: { id: 'ancients', name: 'Shrine of the Ancients', theme: 'ancients', region: 'the Watchruin Ridge', lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.', blessing: 'May the Ancients find their path in you.' },
+                    15: { id: 'heartwood', name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village', region: 'the Ashen Leaf Deepwood', lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.', blessing: 'May your roots hold and your leaves reach.' },
+                    4: { id: 'tide', name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village', region: 'the Stormveil Heights', lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.', blessing: 'May the tide carry your burdens out.' },
+                    31: { id: 'frostveil', name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village', region: 'the Frostreach Shelf', lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.', blessing: 'May the cold keep what you cherish.' },
+                    23: { id: 'moonwell', name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village', region: 'the Moonshadow Wilds', lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.', blessing: 'May the moon light the path you hide.' },
+                    56: { id: 'hollowgate', name: 'Hollow Warden Shrine', theme: 'hollow-gate', region: 'the Pilgrim’s Approach', lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.', blessing: 'May the Gate stay shut behind you.' },
+                    44: { id: 'ancients', name: 'Shrine of the Ancients', theme: 'ancients', region: 'the Watchruin Ridge', lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.', blessing: 'May the Ancients find their path in you.' },
                 };
                 const devShrineTier = (total: number) => total >= 2_000_000 ? 4 : total >= 500_000 ? 3 : total >= 100_000 ? 2 : total >= 25_000 ? 1 : 0;
                 const shrineView = (sector: number) => {
