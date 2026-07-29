@@ -151,7 +151,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // product graph measures 7,009,169 B; the startup graph remains below every
 // unchanged gate at 1.32 MB raw / 348.4 KB gzip. Allowing the usual ~7 KB of CI
 // instrumentation leaves roughly 24 KB of variance.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_040_000;
+// 2026-07-29: 7.04 -> 7.085 MB. Hollow Gate's release combat pass adds five
+// rules-backed floor directors, telegraphed arena hazards, the Alpha's three
+// health phases, adaptive score pressure, and the phase/spectral presentation.
+// Local product code measures 7,061,952 B. The Arena and Pet Coliseum remain
+// lazy; the unchanged startup gates stay green at 1.34 MB raw / 354.5 KB gzip.
+// The ceiling leaves the normal ~16 KB after the observed ~7 KB CI variance.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_085_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

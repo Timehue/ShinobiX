@@ -5,6 +5,7 @@ import type { Pet } from "../types/pet";
 import {
     buildHollowGatePveEncounter,
     formatHollowGateCombatReward,
+    hollowGatePveFightFromStoryContext,
 } from "./hollow-gate-pve";
 
 const pet = {
@@ -33,12 +34,36 @@ test("normal Hollow Gate PvE builds an Arena Hollow Hound instead of a shinobi/t
         petAssisted: false,
         image: "/pet-poses/mythic-4-idle.webp",
     });
-    assert.equal(encounter.ai.name, "Hollow Hound");
+    assert.equal(encounter.ai.name, "Veilrunner Hollow Hound");
     assert.equal(encounter.ai.image, "/pet-poses/mythic-4-idle.webp");
     assert.equal(encounter.ai.village, "Hollow Gate");
     assert.ok(encounter.ai.jutsuIds.length > 0, "Hounds use the mission PvE combat AI rather than an inert placeholder");
     assert.ok(encounter.ai.rules.some((rule) => rule.action === "use_basic_attack"));
     assert.equal(encounter.canWithdraw, true);
+});
+
+test("a refreshed Arena story context restores the exact Hollow Gate fight pointer", () => {
+    assert.deepEqual(hollowGatePveFightFromStoryContext({
+        kind: "hollowGateShrine",
+        runId: "hgcombat-123",
+        nodeId: "floor:4:tile:77",
+        floor: 4,
+        combatKind: "elite",
+        returnScreen: "hollowGateShrine",
+    }), {
+        runId: "hgcombat-123",
+        nodeId: "floor:4:tile:77",
+        floor: 4,
+        kind: "elite",
+    });
+    assert.equal(hollowGatePveFightFromStoryContext({ kind: "weeklyBoss" }), null);
+    assert.equal(hollowGatePveFightFromStoryContext({
+        kind: "hollowGateShrine",
+        runId: "",
+        nodeId: "floor:1:tile:2",
+        floor: 1,
+        combatKind: "battle",
+    }), null);
 });
 
 test("shinobi PvE never applies hidden pet assistance and Berserker's Gamble seals withdrawal", () => {

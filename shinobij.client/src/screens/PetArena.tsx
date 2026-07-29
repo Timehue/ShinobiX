@@ -251,16 +251,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // wizard's tacticalPicks so an in-progress send isn't clobbered).
     const [respondPicks, setRespondPicks] = useState<string[]>([]);
 
-    // Report "a tactical pet match is in progress" up to App for the global
-    // navigation lock. The cinematic 1v1/2v2 duel is deterministic auto-playback
-    // (result is computed + applied before the animation), so it's not a
-    // loss-dodge vector and isn't locked; the full-screen tactical match is.
-    useEffect(() => {
-        const active = arenaMatch !== null || arenaCountdown !== null;
-        onBattleActiveChange?.(active);
-        return () => onBattleActiveChange?.(false);
-    }, [arenaMatch, arenaCountdown, onBattleActiveChange]);
-
     function sendDirectPetChallenge(toName: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
         if (targetRecord?.character && targetRecord.character.pets.length === 0) {
@@ -486,6 +476,24 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const hollowGateSettlementRetryRef = useRef<(() => Promise<void>) | null>(null);
     const hollowGateSettlementInFlightRef = useRef(false);
     const hollowGateSettlementFinishedRef = useRef(false);
+    // Report unresolved tactical matches and the player-controlled Hollow Gate
+    // duel to App's global navigation lock. Ordinary cinematic duels are already
+    // decided before playback; the Gate duel is live and must remain bound until
+    // its two-hop server settlement completes.
+    useEffect(() => {
+        const active = arenaMatch !== null
+            || arenaCountdown !== null
+            || Boolean(battleReady && battleOpponent?.hollowGate && hollowGateSettlementStatus !== "settled");
+        onBattleActiveChange?.(active);
+        return () => onBattleActiveChange?.(false);
+    }, [
+        arenaMatch,
+        arenaCountdown,
+        battleReady,
+        battleOpponent?.hollowGate,
+        hollowGateSettlementStatus,
+        onBattleActiveChange,
+    ]);
     const currentFrame = battleFrames[frameIndex];
     const showResult = currentFrame?.actionKind === "result";
     const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : battleLog;

@@ -1,0 +1,267 @@
+/* Hollow Gate floor identity + Alpha cinematic. The dungeon renderer lives in
+   28-desktop-scaling; this late layer only adds authored atmosphere and the
+   boss presentation, so atlas/admin terrain overrides keep winning. */
+
+.hollow-gate-shrine {
+    --hg-floor-accent: #a855f7;
+    --hg-floor-accent-soft: rgba(168, 85, 247, 0.22);
+    --hg-floor-fog: rgba(70, 28, 100, 0.5);
+    border-color: color-mix(in srgb, var(--hg-floor-accent) 58%, #28173d) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        inset 0 0 90px var(--hg-floor-fog),
+        0 18px 70px rgba(3, 1, 10, 0.55);
+}
+
+.hollow-gate-shrine .hg-viewport {
+    border-color: color-mix(in srgb, var(--hg-floor-accent) 64%, transparent);
+    box-shadow:
+        inset 0 0 70px rgba(0, 0, 0, 0.85),
+        0 0 34px var(--hg-floor-accent-soft);
+}
+
+.hg-floor-identity {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) minmax(190px, 0.42fr);
+    gap: 14px;
+    align-items: center;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--hg-floor-accent) 54%, transparent);
+    border-radius: 10px;
+    background:
+        radial-gradient(circle at 0 50%, var(--hg-floor-accent-soft), transparent 38%),
+        linear-gradient(115deg, rgba(5, 2, 13, 0.9), rgba(20, 9, 34, 0.72));
+    box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.4);
+}
+
+.hg-floor-identity__seal {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    aspect-ratio: 1;
+    border: 1px solid var(--hg-floor-accent);
+    border-radius: 50%;
+    color: #fff;
+    background: var(--hg-floor-accent-soft);
+    box-shadow: 0 0 20px var(--hg-floor-accent-soft), inset 0 0 14px var(--hg-floor-accent-soft);
+    font: 800 20px/1 "Cinzel", Georgia, serif;
+}
+
+.hg-floor-identity__story,
+.hg-floor-identity__hound {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.hg-floor-identity__story strong,
+.hg-floor-identity__hound strong {
+    color: #faf5ff;
+    letter-spacing: 0.01em;
+}
+
+.hg-floor-identity__story span {
+    color: #ddd6fe;
+    font-size: 13px;
+}
+
+.hg-floor-identity small {
+    color: #a99abf;
+    line-height: 1.35;
+}
+
+.hg-floor-identity__hound {
+    padding-left: 14px;
+    border-left: 1px solid color-mix(in srgb, var(--hg-floor-accent) 42%, transparent);
+}
+
+.hg-floor-identity__hound > span {
+    color: var(--hg-floor-accent);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+}
+
+.hg-boss-cinematic-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1250;
+    display: grid;
+    place-items: center;
+    overflow-y: auto;
+    padding: 18px 14px max(18px, env(safe-area-inset-bottom, 18px));
+    background:
+        radial-gradient(circle at 50% 38%, rgba(126, 34, 206, 0.24), transparent 42%),
+        rgba(2, 0, 8, 0.92);
+    backdrop-filter: blur(7px);
+}
+
+.hg-boss-cinematic {
+    position: relative;
+    width: min(1050px, 96vw);
+    min-height: min(620px, 86vh);
+    overflow: hidden;
+    border: 1px solid rgba(216, 180, 254, 0.58);
+    border-radius: 16px;
+    background: #080311;
+    box-shadow:
+        0 0 0 1px rgba(168, 85, 247, 0.2),
+        0 0 90px rgba(126, 34, 206, 0.42),
+        0 30px 100px rgba(0, 0, 0, 0.85);
+    animation: hgBossReveal 720ms cubic-bezier(0.18, 0.72, 0.2, 1) both;
+}
+
+.hg-boss-cinematic__art,
+.hg-boss-cinematic__veil,
+.hg-boss-cinematic__embers {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.hg-boss-cinematic__art {
+    object-fit: cover;
+    object-position: 58% center;
+    animation: hgBossArtDrift 9s ease-out both;
+}
+
+.hg-boss-cinematic__veil {
+    background:
+        linear-gradient(90deg, rgba(3, 1, 8, 0.98) 0%, rgba(3, 1, 8, 0.84) 29%, rgba(3, 1, 8, 0.2) 65%, rgba(3, 1, 8, 0.26) 100%),
+        linear-gradient(0deg, rgba(3, 1, 8, 0.86), transparent 48%);
+}
+
+.hg-boss-cinematic__embers {
+    opacity: 0.55;
+    background-image:
+        radial-gradient(circle, #e9d5ff 0 1px, transparent 2px),
+        radial-gradient(circle, #a855f7 0 1px, transparent 2px);
+    background-position: 18% 70%, 76% 34%;
+    background-size: 83px 91px, 111px 127px;
+    mix-blend-mode: screen;
+    animation: hgBossEmbers 7s linear infinite;
+}
+
+.hg-boss-cinematic__copy {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    min-height: inherit;
+    width: min(500px, 54%);
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: clamp(26px, 5vw, 62px);
+    text-shadow: 0 2px 18px #000;
+}
+
+.hg-boss-cinematic__eyebrow {
+    margin: 0 0 9px;
+    color: #d8b4fe;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+}
+
+.hg-boss-cinematic h2 {
+    margin: 0 0 14px;
+    color: #fff;
+    font: 800 clamp(34px, 5vw, 66px)/0.94 "Cinzel", Georgia, serif;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+}
+
+.hg-boss-cinematic__copy > p:not(.hg-boss-cinematic__eyebrow) {
+    max-width: 46ch;
+    margin: 0;
+    color: #ede9fe;
+    font-size: clamp(14px, 1.5vw, 17px);
+    line-height: 1.58;
+    white-space: pre-wrap;
+}
+
+.hg-boss-cinematic__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.hg-boss-cinematic__primary {
+    border-color: #e9d5ff !important;
+    color: #fff !important;
+    background: linear-gradient(135deg, #6d28d9, #c026d3) !important;
+    box-shadow: 0 0 24px rgba(192, 38, 211, 0.42);
+}
+
+.hg-boss-cinematic-backdrop[data-mode="victory"] .hg-boss-cinematic__veil {
+    background:
+        linear-gradient(90deg, rgba(3, 1, 8, 0.97) 0%, rgba(3, 1, 8, 0.78) 34%, rgba(3, 1, 8, 0.12) 72%),
+        linear-gradient(0deg, rgba(19, 4, 35, 0.82), transparent 60%);
+}
+
+@keyframes hgBossReveal {
+    from { opacity: 0; transform: scale(1.035); filter: saturate(0.4); }
+    to { opacity: 1; transform: scale(1); filter: saturate(1); }
+}
+
+@keyframes hgBossArtDrift {
+    from { transform: scale(1.065) translate3d(1.5%, 0, 0); }
+    to { transform: scale(1.015) translate3d(0, 0, 0); }
+}
+
+@keyframes hgBossEmbers {
+    from { transform: translateY(18px); }
+    to { transform: translateY(-18px); }
+}
+
+@media (max-width: 760px) {
+    .hg-floor-identity {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .hg-floor-identity__seal {
+        width: 40px;
+    }
+
+    .hg-floor-identity__hound {
+        grid-column: 1 / -1;
+        padding: 9px 0 0;
+        border-top: 1px solid color-mix(in srgb, var(--hg-floor-accent) 42%, transparent);
+        border-left: 0;
+    }
+
+    .hg-boss-cinematic {
+        min-height: min(720px, 90vh);
+    }
+
+    .hg-boss-cinematic__art {
+        object-position: 64% top;
+    }
+
+    .hg-boss-cinematic__veil {
+        background: linear-gradient(0deg, rgba(3, 1, 8, 0.98) 0%, rgba(3, 1, 8, 0.82) 48%, rgba(3, 1, 8, 0.08) 78%);
+    }
+
+    .hg-boss-cinematic__copy {
+        width: auto;
+        min-height: inherit;
+        justify-content: flex-end;
+        padding: 28px 22px;
+    }
+
+    .hg-boss-cinematic h2 {
+        font-size: clamp(32px, 11vw, 48px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hg-boss-cinematic,
+    .hg-boss-cinematic__art,
+    .hg-boss-cinematic__embers {
+        animation: none;
+    }
+}

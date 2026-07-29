@@ -27,8 +27,8 @@ const HOLLOW_GATE_AFFIXES = [
 export type HollowGateEliteAffix = (typeof HOLLOW_GATE_AFFIXES)[number];
 
 // Per-floor "progressively harder" ramp for NON-boss shrine enemies: every
-// floor of depth stiffens the corrupted shinobi you meet, so a full nine-floor
-// descent bites harder the deeper you go. Floor 1 = baseline (1.0×), exactly as
+// floor of depth stiffens the Hollow Hounds you meet, so a full descent bites
+// harder the deeper you go. Floor 1 = baseline (1.0×), exactly as
 // before. The boss keeps its own, stronger level+HP ramp (hollowGateBossScaling)
 // and is deliberately NOT touched by these — it's already the run's peak.
 // Absolute-floor based (floor 8 is floor 8, whatever the gate length), so a
@@ -137,12 +137,20 @@ export function pickShrineEncounter(args: {
     const encounterName = opts.isBoss
         ? bossDisplayName
         : opts.isAmbush
-            ? "Hollow Gate Ambush"
-            : opts.isBeast
-                ? `Hollow Hound: ${baseAi.name}`
-                : eliteAffix
-                    ? `${eliteAffix.name} ${baseAi.name}`
-                    : `Corrupted ${baseAi.name}`;
+            ? "Ambushing Hollow Hound"
+            : eliteAffix
+                ? `${eliteAffix.name} Hollow Hound`
+                : "Hollow Hound";
+    // Defensive legacy theming: this picker is retained for old event helpers,
+    // but any non-boss result must still present the canonical Hound identity.
+    const themedBaseAi = opts.isBoss
+        ? baseAi
+        : {
+            ...baseAi,
+            name: encounterName,
+            icon: "🐺",
+            image: "/pet-poses/mythic-4-idle.webp",
+        };
 
     // Boss difficulty ramps over the run's OWN floor count (lib/hollow-gate-
     // variant): floor 1 at playerLevel −5 rising to +15 (and 1.0×…1.4× HP) on
@@ -159,10 +167,10 @@ export function pickShrineEncounter(args: {
             : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
     const bossHpMultiplier = opts.isBoss ? scaling.hpMult : 1;
 
-    // Non-boss depth ramp — deeper floors send tougher corrupted shinobi.
+    // Non-boss depth ramp — deeper floors send tougher Hollow Hounds.
     const depth = Math.max(0, floor - 1);
     const floorHpMult = opts.isBoss ? 1 : 1 + depth * HOLLOW_GATE_FLOOR_HP_STEP;
     const floorStatMult = opts.isBoss ? 1 : 1 + depth * HOLLOW_GATE_FLOOR_STAT_STEP;
 
-    return { baseAi, encounterName, rebasedLevel, bossHpMultiplier, floorHpMult, floorStatMult, eliteAffix };
+    return { baseAi: themedBaseAi, encounterName, rebasedLevel, bossHpMultiplier, floorHpMult, floorStatMult, eliteAffix };
 }

@@ -7,7 +7,7 @@ import {
     aiStatsForLevel,
 } from "./ai-stats";
 import { maxChakraForLevel, maxStaminaForLevel } from "./stats";
-import { HOLLOW_HOUND_NAME } from "./hollow-gate-dungeon";
+import { hollowGateHoundName } from "../../../shared/hollow-gate-contract";
 import { hollowGateAugmentEffects } from "./hollow-gate-server";
 import { hollowGateBossDisplayName, hollowGateBossScaling, hollowGateRunMaxFloor } from "./hollow-gate-variant";
 import { aiJutsuLoadout, buildBasicCombatAiRules } from "./combat-ai";
@@ -19,6 +19,24 @@ export type HollowGatePveFightRef = {
     floor: number;
     kind: HollowGateCombatKind;
 };
+
+/**
+ * Recover the run-bound fight pointer stored inside the generic Arena story
+ * context. App uses this after a refresh so the Arena result can still settle
+ * the exact Gate encounter and mark its shrine tile when the player continues.
+ */
+export function hollowGatePveFightFromStoryContext(value: unknown): HollowGatePveFightRef | null {
+    if (!value || typeof value !== "object") return null;
+    const battle = value as Record<string, unknown>;
+    if (battle.kind !== "hollowGateShrine") return null;
+    const runId = typeof battle.runId === "string" ? battle.runId : "";
+    const nodeId = typeof battle.nodeId === "string" ? battle.nodeId : "";
+    const floor = Math.floor(Number(battle.floor));
+    const kind = battle.combatKind;
+    const validKind = kind === "battle" || kind === "elite" || kind === "ambush" || kind === "beast" || kind === "boss";
+    if (!runId || !nodeId || !Number.isFinite(floor) || floor < 1 || !validKind) return null;
+    return { runId, nodeId, floor, kind };
+}
 
 export function buildHollowGatePveEncounter(params: {
     fight: HollowGatePveFightRef;
@@ -57,14 +75,14 @@ export function buildHollowGatePveEncounter(params: {
     const armorRawDR = aiRawDamageReductionForLevel(level, isBoss ? 0.16 : isElite ? 0.08 : 0.02);
     const encounterName = isBoss
         ? hollowGateBossDisplayName(run)
-        : isElite ? `Elite ${HOLLOW_HOUND_NAME}` : isAmbush ? `Ambushing ${HOLLOW_HOUND_NAME}` : HOLLOW_HOUND_NAME;
+        : hollowGateHoundName(fight.floor, fight.kind);
     const loadoutId = isBoss ? "boss" : isElite ? "bruiser" : isAmbush ? "burst" : "hunter";
     const houndJutsus = aiJutsuLoadout(loadoutId);
     const ai: CreatorAi = {
         id: `hollow-hound-${fight.kind}-${fight.runId}`,
         name: encounterName,
         icon: "🐺",
-        image: params.image || "/pet-poses/mythic-4-idle.webp",
+        image: params.image || "/hollow-gate/hollow-hound-idle.webp",
         level,
         village: "Hollow Gate",
         hp,

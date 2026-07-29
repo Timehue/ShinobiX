@@ -15,6 +15,7 @@ import {
     isHollowGateCombatKind,
     normalizeHollowGateNodeId,
 } from './_combat-session.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 type StartOutcome =
     | { status: number; body: Record<string, unknown> }
@@ -133,6 +134,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true, ttlSec: 10 });
 
         if (!outcome) return res.status(503).json({ error: 'The Hollow Gate is busy. Retry shortly.' });
+        if (outcome.status === 200) {
+            await recordBetaMetric({
+                event: outcome.body.resumed === true ? 'hollow_gate.combat_resumed' : 'hollow_gate.combat_started',
+                playerName,
+                source: `${combatMode}:floor-${floor}:${String(kind)}`,
+            });
+        }
         return res.status(outcome.status).json(outcome.body);
     } catch (err) {
         console.error('[hollow-gate/combat-start]', err);
