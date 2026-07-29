@@ -75,11 +75,12 @@ test('registry covers every sector + 99, with unique names and art the originals
         .map((p) => p.artKey)
         .sort((a, b) => a - b);
     assert.deepEqual(legacyArt, [...LEGACY_IDS, 99], 'the original sectors keep a 1:1 art mapping');
-    // Sectors added after the fact may SHARE a sibling's floor until bespoke art
-    // exists, but the key must still point at a real art file.
+    // Every artKey must name a real art file: either an original sector's
+    // historical number, 99, or — for a sector added later, which has its own
+    // generated s<id> art — the sector's own id.
     for (const p of SECTOR_PLACES) {
         assert.ok(
-            p.artKey === 99 || LEGACY_IDS.includes(p.artKey),
+            p.artKey === 99 || LEGACY_IDS.includes(p.artKey) || p.artKey === p.id,
             `sector ${p.id} artKey ${p.artKey} names a real art file`,
         );
     }
@@ -95,14 +96,14 @@ test('registry covers every sector + 99, with unique names and art the originals
     }
 });
 
-test('sectors that SHARE art cannot corrupt the legacy save mapping', () => {
+test('later-added sectors can never corrupt the legacy save mapping', () => {
     /*
-     * Regression guard. `artKey` doubles as a place's pre-renumbering id, which
-     * is how OLD_TO_NEW/NEW_TO_OLD are derived. The 2026-07-29 expansion let new
-     * sectors reuse a sibling's artKey for art — and when those places were also
-     * fed into the maps, OLD_TO_NEW[46] flipped from 27 to 65, which would have
-     * migrated saves parked in old sector 46 to the wrong place. New sectors must
-     * stay out of the legacy maps no matter what art they borrow.
+     * Regression guard for a real bug. `artKey` doubles as a place's
+     * pre-renumbering id, which is how OLD_TO_NEW/NEW_TO_OLD are derived. When
+     * the 2026-07-29 expansion briefly let new sectors reuse a sibling's artKey
+     * for art AND fed them into these maps, OLD_TO_NEW[46] flipped from 27 to 65
+     * — which would have migrated every save parked in old sector 46 to the wrong
+     * sector. The maps must only ever admit places with a real legacy identity.
      */
     assert.equal(Object.keys(OLD_TO_NEW_SECTOR).length, LEGACY_IDS.length + 1, 'one entry per old sector + 99');
     for (const id of LEGACY_IDS) {
@@ -112,9 +113,14 @@ test('sectors that SHARE art cannot corrupt the legacy save mapping', () => {
             `old sector ${id} maps to an ORIGINAL sector, not an expansion one`,
         );
     }
-    // Art sharing really is in play — otherwise this guard proves nothing.
-    const shared = SECTOR_PLACES.filter((p) => NEW_IDS.includes(p.id) && LEGACY_IDS.includes(p.artKey));
-    assert.ok(shared.length > 0, 'at least one expansion sector borrows a sibling floor');
+    // Holds however a later sector keys its art — including if one is ever
+    // pointed back at a legacy floor, which is what caused the original bug.
+    for (const p of SECTOR_PLACES.filter((s) => NEW_IDS.includes(s.id))) {
+        assert.notEqual(
+            OLD_TO_NEW_SECTOR[p.artKey], p.id,
+            `sector ${p.id} (artKey ${p.artKey}) must not own a legacy mapping`,
+        );
+    }
 });
 
 test('remapLegacySector: identity for 0/99, total and bijective over 1-60, safe fallback', () => {
