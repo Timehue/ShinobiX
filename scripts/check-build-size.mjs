@@ -138,7 +138,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // ~15.9 KB of spare (~22.9 KB locally); the previous ceiling left CI 9 KB
 // UNDERWATER. Startup gates untouched — initial graph 1.30 MB raw / 342.6 KB
 // gzip, entry under its gate.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_905_000;
+// 2026-07-29: 6.905 -> 6.970 MB. Chronicle Showdown's release-mode pass adds
+// rules-backed battle forecasts, structured replay events, Smart Phase Assist,
+// response-priority feedback, keyboard-safe match options, and the full-screen
+// duel presentation. The clean release commit measures 6,939,626 B locally;
+// allowing the usual ~7 KB of CI instrumentation leaves ~23 KB of variance.
+// The mode stays lazy and all unchanged startup gates remain green at 1.30 MB
+// raw / 342.7 KB gzip.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_970_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
