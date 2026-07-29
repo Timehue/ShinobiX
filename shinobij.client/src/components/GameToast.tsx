@@ -86,12 +86,19 @@ export function GameToastHost() {
         if (buffered.length > 0) {
             const pending = buffered;
             buffered = [];
-            setToasts((list) => [...list, ...pending].slice(-MAX_VISIBLE));
+            // Deferred, not called straight from the effect body: setting state
+            // synchronously inside an effect makes React render twice before paint.
+            // Claiming `buffered` above is still synchronous, so a second host
+            // mounting in the same tick cannot pick up the same toasts.
+            queueMicrotask(() => setToasts((list) => [...list, ...pending].slice(-MAX_VISIBLE)));
         }
+        // Copy the ref for the cleanup: by the time it runs, timers.current may
+        // point at a different Map than the one this effect started with.
+        const pendingTimers = timers.current;
         return () => {
             activeListener = null;
-            timers.current.forEach((id) => clearTimeout(id));
-            timers.current.clear();
+            pendingTimers.forEach((id) => clearTimeout(id));
+            pendingTimers.clear();
         };
     }, []);
 
