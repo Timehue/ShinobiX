@@ -246,3 +246,56 @@ export function precedingNamedMove(
     }
     return null;
 }
+
+export type PetOpeningTactic = {
+    stance: 0 | 1 | 2;
+    name: string;
+    short: string;
+    behavior: string;
+    strength: string;
+    tradeoff: string;
+    color: string;
+    glyph: string;
+};
+
+export const PET_OPENING_TACTICS: readonly PetOpeningTactic[] = [
+    {
+        stance: 0,
+        name: "Pressure",
+        short: "Close distance and commit",
+        behavior: "Your pet pursues aggressively, attacks more often, and spends less time resetting its spacing.",
+        strength: "Best for denying setup and forcing ranged pets into close exchanges.",
+        tradeoff: "Commits harder, dodges less, and can be punished by a patient counter-fighter.",
+        color: "#f87171",
+        glyph: "▲",
+    },
+    {
+        stance: 1,
+        name: "Adaptive",
+        short: "Read the fight and adjust",
+        behavior: "Your pet balances pursuit, spacing, dodging, and recovery using its natural combat instincts.",
+        strength: "Reliable into unknown opponents and flexible when momentum changes.",
+        tradeoff: "Offers no extreme advantage and may surrender tempo to a specialized game plan.",
+        color: "#93c5fd",
+        glyph: "◆",
+    },
+    {
+        stance: 2,
+        name: "Counter",
+        short: "Hold space and retaliate",
+        behavior: "Your pet maintains more distance, favors evasive reads, and waits for safer openings.",
+        strength: "Best for punishing reckless pressure and protecting a fragile or ranged fighter.",
+        tradeoff: "Attacks less often and can allow support or ranged opponents time to establish control.",
+        color: "#5eead4",
+        glyph: "▼",
+    },
+] as const;
+
+export const PET_DUEL_NEUTRAL_PLAYBACK_SCALE = 1.38;
+export const PET_DUEL_COMMAND_CATCHUP_SCALE = 1.72;
+export const PET_DUEL_COMMAND_CATCHUP_SECONDS = 2.2;
+
+export function petDuelImpactStrength(damageFraction: number, critical: boolean): number {
+    const fraction = Number.isFinite(damageFraction) ? Math.max(0, damageFraction) : 0;
+    return Math.min(1.25, 0.48 + fraction * 1.55 + (critical ? 0.24 : 0));
+}
