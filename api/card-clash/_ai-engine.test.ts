@@ -33,7 +33,7 @@ test("AI deck is a legal 40-card Chronicle deck at every difficulty band", () =>
     2,
   );
 });
-test("AI obeys phases and yields when the human must act", () => {
+test("AI obeys explicit phases and yields when the human must act", () => {
   const session = createAiMatch(
     "match-ai",
     "Tester",
@@ -49,12 +49,28 @@ test("AI obeys phases and yields when the human must act", () => {
     true,
   );
   assert.equal(session.state.activePlayer, "p1");
-  assert.equal(session.state.phase, "main1");
+  assert.equal(session.state.phase, "end");
   assert.equal(session.state.status, "active");
+  assert.equal(
+    applyPlayerAction(session, { action: "end-turn" }, 1_400).ok,
+    true,
+  );
+  assert.equal(session.state.activePlayer, "p1");
+  assert.equal(session.state.phase, "draw");
   assert.ok(
     session.state.p2.monsterZones.some(Boolean),
     "AI made a legal summon",
   );
+  assert.equal(
+    applyPlayerAction(session, { action: "advance-phase" }, 1_500).ok,
+    true,
+  );
+  assert.equal(session.state.phase, "standby");
+  assert.equal(
+    applyPlayerAction(session, { action: "advance-phase" }, 1_600).ok,
+    true,
+  );
+  assert.equal(session.state.phase, "main1");
 });
 
 test("AI Sets concealed Flip Monsters and later reveals useful Flip effects", () => {
@@ -286,10 +302,18 @@ test("AI turns emit per-move step snapshots the client can replay", () => {
   // turn one action at a time.
   assert.equal(steps.length, 0);
   const collected: ChronicleProjection[] = [];
-  const ended = applyPlayerAction(
+  const enteredEnd = applyPlayerAction(
     session,
     { action: "enter-end-phase" },
     1_300,
+    (state) => captureAiStep(collected, state),
+  );
+  assert.equal(enteredEnd.ok, true);
+  assert.equal(collected.length, 0, "End Phase waits for the player");
+  const ended = applyPlayerAction(
+    session,
+    { action: "end-turn" },
+    1_400,
     (state) => captureAiStep(collected, state),
   );
   assert.equal(ended.ok, true);
@@ -302,6 +326,7 @@ test("AI turns emit per-move step snapshots the client can replay", () => {
   }
   const last = collected.at(-1)!;
   assert.equal(last.activePlayer, "p1");
+  assert.equal(last.phase, "draw");
   assert.equal(last.p2.monsterZones.filter(Boolean).length,
     session.state.p2.monsterZones.filter(Boolean).length);
 });

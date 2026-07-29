@@ -192,7 +192,7 @@ test("turn countdown renders only for timed PvP duels; forfeit requires arming",
   assert.match(untimed, />Forfeit</);
   assert.doesNotMatch(untimed, /Confirm forfeit/);
   assert.match(untimed, /aria-label="Match options"/);
-  assert.match(untimed, /Smart Phase Assist: On/);
+  assert.match(untimed, /Smart Phase Assist: Off/);
   assert.match(untimed, /chronicle-player-console/);
   assert.match(untimed, /chronicle-command-context/);
   // The rail reports phase state; players no longer select phases from it.
@@ -201,6 +201,54 @@ test("turn countdown renders only for timed PvP duels; forfeit requires arming",
   assert.match(untimed, />End Turn</);
   const timed = render(true);
   assert.match(timed, /\|\s*\d+s/);
+});
+
+test("Smart Phase Assist never removes the manual battle-phase escape hatch", () => {
+  const state = createMatch(
+    "Akari",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    "Ren",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    () => 0,
+    1_000,
+  );
+  state.phase = "battle";
+  state.activePlayer = "p1";
+  const cardsById = Object.fromEntries(
+    CHRONICLE_CARD_CATALOG.map((card) => [card.id, card]),
+  ) as Record<string, ChronicleDisplayCard>;
+  const browserGlobal = globalThis as typeof globalThis & {
+    window?: {
+      localStorage: {
+        getItem(key: string): string | null;
+        setItem(key: string, value: string): void;
+      };
+    };
+  };
+  const originalWindow = browserGlobal.window;
+  browserGlobal.window = {
+    localStorage: {
+      getItem: () => "on",
+      setItem: () => undefined,
+    },
+  };
+  try {
+    const html = renderToStaticMarkup(
+      React.createElement(ChronicleDuelBoard, {
+        state: projectMatchForViewer(state, "p1"),
+        cardsById,
+        onAction: () => undefined,
+      }),
+    );
+    assert.match(html, /Smart Phase Assist is opening Main Phase 2/);
+    assert.match(
+      html,
+      /<button class="secondary">Finish Attacking<\/button>/,
+    );
+  } finally {
+    if (originalWindow === undefined) delete browserGlobal.window;
+    else browserGlobal.window = originalWindow;
+  }
 });
 
 test("a fresh duel opens with the Showdown splash; a resumed board does not", () => {

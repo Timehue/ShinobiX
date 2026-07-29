@@ -828,24 +828,56 @@ test("six-phase flow reaches Main 2, End, and the next Draw Phase", () => {
   }
 });
 
-test("application flow automates Draw, Standby, End, and the turn handoff", () => {
+test("application flow keeps End, Draw, Standby, and the turn handoff explicit", () => {
   const state = match();
   const first = state.activePlayer;
   const second = first === "p1" ? "p2" : "p1";
   const secondHandBefore = state[second].hand.length;
-  const ended = applyAction(
+  const enteredEnd = applyAction(
     state,
     first,
     { action: "enter-end-phase" },
     2_000,
   );
+  assert.equal(enteredEnd.ok, true);
+  if (!enteredEnd.ok) return;
+  assert.equal(enteredEnd.state.activePlayer, first);
+  assert.equal(enteredEnd.state.phase, "end");
+  assert.equal(enteredEnd.state[second].hand.length, secondHandBefore);
+
+  const ended = applyAction(
+    enteredEnd.state,
+    first,
+    { action: "end-turn" },
+    2_100,
+  );
   assert.equal(ended.ok, true);
   if (!ended.ok) return;
   assert.equal(ended.state.activePlayer, second);
-  assert.equal(ended.state.phase, "main1");
+  assert.equal(ended.state.phase, "draw");
   assert.equal(ended.state[second].hand.length, secondHandBefore + 1);
+
+  const standby = applyAction(
+    ended.state,
+    second,
+    { action: "advance-phase" },
+    2_200,
+  );
+  assert.equal(standby.ok, true);
+  if (!standby.ok) return;
+  assert.equal(standby.state.phase, "standby");
+
+  const main1 = applyAction(
+    standby.state,
+    second,
+    { action: "advance-phase" },
+    2_300,
+  );
+  assert.equal(main1.ok, true);
+  if (!main1.ok) return;
+  assert.equal(main1.state.phase, "main1");
   assert.match(
-    ended.state.log.slice(-4).join(" "),
+    main1.state.log.slice(-4).join(" "),
     /enters the End Phase.*draws in the Draw Phase.*enters the Standby Phase.*enters Main Phase 1/,
   );
 });

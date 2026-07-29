@@ -36,8 +36,8 @@ type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
 
 // Pacing beats between the Chronicle Keeper's replayed moves: a full beat when
 // the step landed a new log line, a quiet beat for silent phase bookkeeping.
-const AI_STEP_BEAT_MS = 950;
-const AI_STEP_QUIET_MS = 400;
+const AI_STEP_BEAT_MS = 1_250;
+const AI_STEP_QUIET_MS = 650;
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
@@ -413,8 +413,8 @@ function CardHallInner({
             <h2>{CHRONICLE_ROOM_TITLE}</h2>
             <p>
               The founding Shinobi card format — the original card pool and its
-              Limited Scroll, automatic turn bookkeeping and the opening-turn
-              draw rule.
+              Limited Scroll, six visible turn phases and the opening-turn draw
+              rule.
             </p>
             {!savedValid ? (
               <p>
@@ -804,10 +804,11 @@ function Rules() {
         with 8,000 Health, a 40-card Deck and a five-card opening hand.
       </p>
       <p>
-        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. Draw,
-        Standby, End, and the handoff advance automatically. The first player
-        draws on turn one but cannot Battle; skipping Battle also skips Main 2.
-        You get one Normal Summon or Set.
+        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. You
+        advance Draw, Standby, End, and the turn handoff explicitly, so every
+        phase remains readable. The first player draws on turn one but cannot
+        Battle; skipping Battle also skips Main 2. You get one Normal Summon or
+        Set.
       </p>
       <p>
         <strong>Monsters:</strong> Levels 1–4 need no Tribute, 5–6 need one and

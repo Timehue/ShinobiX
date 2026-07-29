@@ -49,9 +49,9 @@ const EMPTY_PRESENTATION_EVENTS: ChroniclePresentationEvent[] = [];
 
 function readSmartAssist(): boolean {
   try {
-    return window.localStorage.getItem(SMART_ASSIST_KEY) !== "off";
+    return window.localStorage.getItem(SMART_ASSIST_KEY) === "on";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -1727,10 +1727,10 @@ export function ChronicleDuelBoard({
               </button>
               <button
                 className="secondary"
-                disabled={busy || smartAssistPending}
+                disabled={busy}
                 onClick={() => act({ action: "enter-main-2" })}
               >
-                {smartAssistPending ? "Advancing…" : "Finish Attacking"}
+                Finish Attacking
               </button>
             </>
           ) : null}
