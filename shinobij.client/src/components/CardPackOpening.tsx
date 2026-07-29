@@ -13,7 +13,7 @@
  * screen chunk owns the CSS import; component modules must stay CSS-free so
  * node tests can import them. Portaled to <body> at z-index 1000000 per the
  * overlay pattern (the fixed nav/side rails paint over anything inside
- * <main>). Sounds are the synthesized Chronicle cues (shared mute setting).
+ * <main>). Sounds use the shared, sample-based Chronicle mix.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -30,7 +30,7 @@ import {
     rarityTier,
     revealSfxForRarity,
 } from "../lib/card-pack-reveal";
-import { playChronicleSfx } from "../lib/chronicle-sfx";
+import { playChronicleSfx, primeChronicleSfx } from "../lib/chronicle-sfx";
 import { isLowEndMobile } from "../lib/device-tier";
 
 type Phase = "pack" | "tearing" | "reveal" | "summary";
@@ -84,6 +84,10 @@ export function CardPackOpening({
         [],
     );
     const lite = useMemo(() => isLowEndMobile(), []);
+
+    useEffect(() => {
+        primeChronicleSfx();
+    }, []);
 
     // Pending timers — cleared on unmount so a fast close never fires stale
     // phase changes into an unmounted component.

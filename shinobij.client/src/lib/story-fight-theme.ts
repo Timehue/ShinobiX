@@ -25,7 +25,7 @@ export type StoryFightTheme = {
     defeatLine?: string;
     /** Mentor cut-ins: [0] when the PLAYER falls under half HP, [1] under 20%. */
     ally?: { name: string; lines: string[] };
-    /** Village key for the synthesized chapter sting (lib/story-sfx). */
+    /** Village key for the shared chapter seal cue (lib/story-sfx). */
     village?: string;
 };
 

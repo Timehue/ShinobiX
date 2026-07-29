@@ -991,7 +991,7 @@
 /* ── Game-feel pass: every normal blow now gets a quick camera punch (not
    just crits/KOs), a full-stage impact flash, big damage numbers at the
    point of contact, a cinematic arena intro, and a mute toggle for the
-   synthesized SFX. This is what turns "the HP bar dropped" into "that HIT." */
+   authored SFX. This is what turns "the HP bar dropped" into "that HIT." */
 
 /* Cinematic intro — the arena rushes in once when a battle is accepted. Lives
    on a stable wrapper (mounts once) so it never re-triggers on the per-frame

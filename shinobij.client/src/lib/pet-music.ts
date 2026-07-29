@@ -1,8 +1,8 @@
 // Battle music + the global audio master-mute.
 //
-// The authored track streams through HTMLAudioElement. Hollow Gate battles add
-// a very quiet procedural spectral drone underneath it; phase changes alter the
-// mix, pitch, and pressure without shipping another multi-megabyte audio file.
+// Authored battle tracks stream through one HTMLAudioElement. Phase changes
+// alter only the score mix and playback pressure; sound design lives in the
+// shared sample engine rather than a procedural oscillator layer.
 
 const MASTER_MUTE_KEY = "audioMuted";
 
@@ -41,12 +41,6 @@ let lastTrackIndex = -1;
 let fadeTimer: number | null = null;
 let currentTheme: BattleMusicTheme | null = null;
 let currentIntensity: BattleMusicIntensity = "calm";
-let hollowAudioContext: AudioContext | null = null;
-let hollowDroneGain: GainNode | null = null;
-let hollowDroneA: OscillatorNode | null = null;
-let hollowDroneB: OscillatorNode | null = null;
-let hollowDroneFilter: BiquadFilterNode | null = null;
-let droneSuspendTimer: number | null = null;
 let duckRestoreTimer: number | null = null;
 const muteListeners = new Set<() => void>();
 
@@ -55,17 +49,28 @@ export function isAudioMuted(): boolean {
     try { return localStorage.getItem(MASTER_MUTE_KEY) !== "0"; } catch { return true; }
 }
 
+function notifyMuteListeners(): void {
+    for (const callback of muteListeners) {
+        try {
+            callback();
+        } catch {
+            // One optional audio subsystem must never prevent the remaining
+            // subscribers from honoring the master switch.
+        }
+    }
+}
+
 export function setAudioMuted(muted: boolean): void {
     try { localStorage.setItem(MASTER_MUTE_KEY, muted ? "1" : "0"); } catch { /* ignore */ }
     if (audioEl) {
+        // `muted` is the hard safety net; pause also stops decoding/playback work.
+        // Keep a stopped battle stopped when unmuting instead of reviving a stale
+        // source that happens to remain on the reusable media element.
+        audioEl.muted = muted;
         if (muted) audioEl.pause();
-        else if (audioEl.src) void audioEl.play().catch(() => {});
+        else if (currentTheme !== null && audioEl.src) void audioEl.play().catch(() => {});
     }
-    if (hollowAudioContext) {
-        if (muted) void hollowAudioContext.suspend().catch(() => {});
-        else if (currentTheme === "hollow-gate") void hollowAudioContext.resume().catch(() => {});
-    }
-    muteListeners.forEach((callback) => callback());
+    notifyMuteListeners();
 }
 
 export function subscribeAudioMute(callback: () => void): () => void {
@@ -80,6 +85,7 @@ function ensureEl(): HTMLAudioElement | null {
         audioEl.loop = true;
         audioEl.preload = "auto";
         audioEl.volume = 0.4;
+        audioEl.muted = isAudioMuted();
     }
     return audioEl;
 }
@@ -91,38 +97,6 @@ function clearFade(): void {
     }
 }
 
-function ensureHollowDrone(): void {
-    if (typeof window === "undefined" || hollowAudioContext) return;
-    const AudioContextCtor = window.AudioContext
-        ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return;
-
-    const context = new AudioContextCtor();
-    const filter = context.createBiquadFilter();
-    const gain = context.createGain();
-    const oscillatorA = context.createOscillator();
-    const oscillatorB = context.createOscillator();
-    filter.type = "lowpass";
-    filter.frequency.value = 180;
-    filter.Q.value = 1.4;
-    gain.gain.value = 0;
-    oscillatorA.type = "sine";
-    oscillatorB.type = "triangle";
-    oscillatorB.detune.value = 702;
-    oscillatorA.connect(filter);
-    oscillatorB.connect(filter);
-    filter.connect(gain);
-    gain.connect(context.destination);
-    oscillatorA.start();
-    oscillatorB.start();
-
-    hollowAudioContext = context;
-    hollowDroneFilter = filter;
-    hollowDroneGain = gain;
-    hollowDroneA = oscillatorA;
-    hollowDroneB = oscillatorB;
-}
-
 function applyBattleMix(intensity: BattleMusicIntensity): void {
     const hollowMix = hollowGateMusicMix(intensity);
     const standardMix = standardBattleMusicMix(intensity);
@@ -131,14 +105,6 @@ function applyBattleMix(intensity: BattleMusicIntensity): void {
         audioEl.volume = mix.musicVolume;
         audioEl.playbackRate = mix.playbackRate;
     }
-    const context = hollowAudioContext;
-    if (!context || !hollowDroneGain || !hollowDroneA || !hollowDroneB || !hollowDroneFilter) return;
-    const at = context.currentTime;
-    hollowDroneGain.gain.cancelScheduledValues(at);
-    hollowDroneGain.gain.setTargetAtTime(isAudioMuted() || currentTheme !== "hollow-gate" ? 0 : hollowMix.droneGain, at, 0.22);
-    hollowDroneA.frequency.setTargetAtTime(hollowMix.droneFrequency, at, 0.35);
-    hollowDroneB.frequency.setTargetAtTime(hollowMix.droneFrequency, at, 0.35);
-    hollowDroneFilter.frequency.setTargetAtTime(170 + hollowMix.droneGain * 4_000, at, 0.3);
 }
 
 /** Shift the Hollow Gate score between exploration, danger, and Alpha climax. */
@@ -171,12 +137,6 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
 
     if (theme === "hollow-gate") {
         el.src = HOLLOW_GATE_TRACK;
-        ensureHollowDrone();
-        if (droneSuspendTimer !== null) {
-            window.clearTimeout(droneSuspendTimer);
-            droneSuspendTimer = null;
-        }
-        if (hollowAudioContext) void hollowAudioContext.resume().catch(() => {});
     } else {
         let index = Math.floor(Math.random() * TRACKS.length);
         if (TRACKS.length > 1 && index === lastTrackIndex) index = (index + 1) % TRACKS.length;
@@ -190,7 +150,7 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
     void el.play().catch(() => { /* autoplay requires a user gesture */ });
 }
 
-/** Fade out and stop the current score and Hollow Gate drone. */
+/** Fade out and stop the current score. */
 export function stopBattleMusic(): void {
     const el = audioEl;
     if (!el) return;
@@ -200,17 +160,6 @@ export function stopBattleMusic(): void {
         duckRestoreTimer = null;
     }
     currentTheme = null;
-
-    if (hollowAudioContext && hollowDroneGain) {
-        const at = hollowAudioContext.currentTime;
-        hollowDroneGain.gain.cancelScheduledValues(at);
-        hollowDroneGain.gain.setTargetAtTime(0, at, 0.12);
-        if (droneSuspendTimer !== null) window.clearTimeout(droneSuspendTimer);
-        droneSuspendTimer = window.setTimeout(() => {
-            droneSuspendTimer = null;
-            void hollowAudioContext?.suspend().catch(() => {});
-        }, 650);
-    }
 
     const startVolume = el.volume;
     const steps = 12;

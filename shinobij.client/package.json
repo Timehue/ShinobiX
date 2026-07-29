@@ -20,6 +20,7 @@
     "qa:cinematic-vn": "node scripts/cinematic-vn-certification.mjs",
     "qa:cinematic-vn:browser": "node scripts/cinematic-vn-browser-qa.mjs",
     "qa:pet-models": "node scripts/pet-model-certification.mjs",
+    "qa:sfx": "node scripts/sfx-certification.mjs",
     "qa:pet-models:contacts": "node scripts/build-pet-model-contact-sheets.mjs",
     "gen:asset": "node scripts/gen-asset.mjs"
   },
