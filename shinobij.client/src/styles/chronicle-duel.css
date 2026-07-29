@@ -1529,33 +1529,6 @@ button.chronicle-card {
 .chronicle-table.ai-acting .chronicle-duelist-avatar.opponent {
   animation: chronicle-foe-glow 1.3s ease-in-out infinite;
 }
-/* Clickable phase-rail chips: legal next-step jumps read as buttons. */
-.chronicle-phase-rail .chronicle-phase-jump {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.chronicle-phase-rail li.jumpable {
-  border-style: dashed;
-  border-color: rgba(212, 170, 98, 0.5);
-}
-.chronicle-phase-rail li.jumpable:hover {
-  border-style: solid;
-  border-color: #d4aa62;
-  color: #ffd98f;
-  background: rgba(52, 44, 24, 0.55);
-  box-shadow: 0 0 12px rgba(222, 178, 95, 0.14);
-}
 /* Two-step forfeit: armed state must look unmistakably different. */
 .chronicle-actions button.danger.armed {
   border-color: #e4666e;
@@ -2829,5 +2802,1590 @@ button.chronicle-card {
 @media (max-width: 600px) {
   .chronicle-graveyards {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Combat presentation v2 ────────────────────────────────────────────────
+   The active duel is a viewport, not a document. Peripheral information opens
+   in drawers while the field, hand, health and current command stay together. */
+.chronicle-table {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 4px;
+  width: min(1580px, 100%);
+  height: clamp(620px, calc(100dvh - 88px), 940px);
+  min-height: 0;
+  overflow: hidden;
+  padding: 7px;
+}
+.chronicle-room-banner {
+  min-height: 28px;
+  margin: 0;
+  padding: 4px 9px;
+}
+.chronicle-duel-status {
+  min-height: 44px;
+  margin: 0;
+  padding-inline: 3px;
+}
+.chronicle-duel-status .chronicle-duelist-avatar {
+  width: 42px;
+  height: 42px;
+}
+.chronicle-duel-status .chronicle-combatant {
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 7px !important;
+}
+.chronicle-duel-status .chronicle-combatant b {
+  min-width: 78px;
+  padding: 3px 7px;
+}
+.chronicle-opponent-hand {
+  position: absolute;
+  z-index: 12;
+  top: 61px;
+  left: 50%;
+  min-height: 38px;
+  margin: 0;
+  padding: 0 20px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.chronicle-opponent-hand__card,
+.chronicle-opponent-hand .chronicle-card {
+  width: 36px;
+}
+.chronicle-opponent-hand__card {
+  margin-left: -16px;
+}
+.chronicle-phase-rail {
+  position: relative;
+  z-index: 4;
+  gap: 4px;
+  margin: 0;
+  padding-block: 2px;
+}
+.chronicle-phase-rail::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 0;
+  width: var(--chronicle-phase-progress);
+  height: 1px;
+  background: linear-gradient(90deg, #65502c, #efc36d);
+  box-shadow: 0 0 8px rgba(239, 195, 109, 0.55);
+  transition: width 0.45s ease;
+}
+.chronicle-phase-rail li {
+  justify-content: center;
+  min-height: 24px;
+  padding: 3px 6px;
+  backdrop-filter: blur(8px);
+}
+.chronicle-phase-rail li.active {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(255, 224, 163, 0.2),
+    0 0 18px rgba(222, 178, 95, 0.25);
+}
+.chronicle-phase-rail span {
+  font-size: 0.62rem;
+}
+
+.chronicle-duel-stage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+.chronicle-playmat {
+  --chron-zone-w: clamp(48px, 7.4vh, 88px);
+  height: 100%;
+  min-height: 0;
+  justify-content: space-around;
+  padding: 3px clamp(4px, 0.7vw, 9px);
+  perspective: 1000px;
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(153, 210, 220, 0.08),
+    0 12px 28px rgba(0, 0, 0, 0.42);
+}
+.chronicle-playmat .chronicle-zone-row {
+  gap: clamp(3px, 0.65vw, 8px);
+  margin-block: 1px;
+}
+.chronicle-playmat .chronicle-zone {
+  min-height: calc(var(--chron-zone-w) * 1.17);
+  border-color: rgba(103, 178, 191, 0.34);
+  background:
+    linear-gradient(145deg, rgba(10, 24, 32, 0.4), rgba(2, 7, 11, 0.72)),
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 10px,
+      rgba(102, 191, 204, 0.045) 10px 11px
+    );
+  box-shadow:
+    inset 0 0 18px rgba(42, 101, 117, 0.11),
+    0 5px 10px rgba(0, 0, 0, 0.3);
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease,
+    transform 0.2s cubic-bezier(0.2, 1.2, 0.35, 1),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
+  min-height: calc(var(--chron-zone-w) * 0.72);
+}
+.chronicle-zone-row.opponent {
+  filter: drop-shadow(0 -5px 8px rgba(0, 0, 0, 0.24));
+}
+.chronicle-zone-row.player {
+  filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.34));
+}
+.chronicle-field-divider {
+  grid-template-columns: minmax(150px, 0.9fr) minmax(160px, 1.1fr);
+  min-height: 48px;
+  gap: 6px;
+  margin: 2px -2px;
+  padding: 4px;
+  backdrop-filter: blur(6px);
+}
+.chronicle-field-zone {
+  min-height: 42px;
+  padding: 4px;
+}
+.chronicle-field-zone__empty {
+  min-height: 34px;
+}
+.chronicle-active-field {
+  gap: 6px;
+}
+.chronicle-active-field .chronicle-card {
+  width: 32px;
+}
+.chronicle-active-field small {
+  margin-top: 2px;
+}
+.chronicle-battle-message {
+  gap: 2px;
+  padding: 4px 7px;
+}
+.chronicle-battle-message strong {
+  max-height: 2.8em;
+}
+.chronicle-side-label {
+  font-size: 0.45rem;
+}
+
+.chronicle-pile-rail {
+  min-height: 0;
+  gap: 4px;
+  padding: 4px;
+}
+.chronicle-pile-zone {
+  min-height: 54px;
+  gap: 2px;
+  padding: 3px;
+}
+.chronicle-pile-card-back,
+.chronicle-pile-mark {
+  width: 28px;
+}
+.chronicle-pile-zone > span {
+  font-size: 0.39rem;
+}
+.chronicle-pile-zone > b {
+  right: 3px;
+  bottom: 3px;
+  min-width: 20px;
+  padding: 2px 4px;
+}
+
+/* Card details are requested, not permanently rented space. */
+.chronicle-card-detail-panel.open {
+  position: absolute;
+  z-index: 40;
+  top: 7px;
+  bottom: 7px;
+  left: 7px;
+  display: flex;
+  width: min(248px, 30%);
+  padding: 9px;
+  overflow: auto;
+  border-color: rgba(222, 190, 125, 0.54);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(118, 87, 46, 0.22), transparent 42%),
+    rgba(4, 10, 15, 0.94);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    18px 0 42px rgba(0, 0, 0, 0.62),
+    inset 0 0 35px rgba(73, 123, 145, 0.1);
+  animation: chronicle-inspector-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1);
+  scrollbar-color: #765c42 #09121a;
+  scrollbar-width: thin;
+}
+.chronicle-card-detail-panel__header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(123, 151, 170, 0.25);
+  padding-bottom: 5px;
+}
+.chronicle-card-detail-panel__header button {
+  border: 0;
+  background: transparent;
+  padding: 3px 5px;
+  color: #aac1ce;
+  font-size: 0.56rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.chronicle-card-detail-panel__zoom {
+  gap: 4px;
+}
+.chronicle-card-detail-panel__zoom > .chronicle-card {
+  width: min(100%, 184px);
+}
+@keyframes chronicle-inspector-in {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+}
+
+/* The player's HUD, hand and command are one cockpit. */
+.chronicle-player-console {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  grid-template-columns:
+    minmax(188px, 0.7fr) minmax(260px, 1.45fr)
+    minmax(250px, 0.9fr) 42px;
+  align-items: stretch;
+  gap: 6px;
+  min-height: 112px;
+  border: 1px solid rgba(157, 126, 78, 0.34);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 0, rgba(89, 58, 112, 0.14), transparent 54%),
+    linear-gradient(100deg, rgba(6, 13, 18, 0.96), rgba(10, 8, 17, 0.97));
+  padding: 5px;
+  box-shadow:
+    0 -12px 30px rgba(0, 0, 0, 0.34),
+    inset 0 1px rgba(255, 225, 168, 0.06);
+}
+.chronicle-player-bar {
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 3px;
+}
+.chronicle-player-bar .chronicle-duelist-avatar {
+  width: 44px;
+  height: 44px;
+}
+.chronicle-player-bar .chronicle-combatant {
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 6px !important;
+}
+.chronicle-player-bar .chronicle-combatant__health {
+  gap: 4px;
+}
+.chronicle-player-bar .chronicle-combatant b {
+  min-width: 76px;
+  padding: 3px 6px;
+}
+.chronicle-player-bar .chronicle-health-meter {
+  width: min(96px, 9vw);
+  height: 8px;
+}
+.chronicle-player-bar > div:last-child {
+  justify-content: flex-start;
+  padding-left: 50px;
+  font-size: 0.65rem;
+}
+.chronicle-hand {
+  grid-column: 2;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 5px 5px 3px;
+  overscroll-behavior-x: contain;
+}
+.chronicle-hand .chronicle-card {
+  width: clamp(68px, 9.6vmin, 104px);
+}
+.chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+  transform: translateY(-7px) scale(1.025);
+}
+.chronicle-hand .chronicle-card.selected {
+  z-index: 5;
+  transform: translateY(-10px) scale(1.045);
+}
+.chronicle-command-dock {
+  grid-column: 3;
+  align-content: center;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  overflow: auto;
+  border: 0;
+  padding: 4px;
+}
+.chronicle-command-context {
+  display: grid;
+  flex: 1 0 100%;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  border-left: 2px solid #d8ad63;
+  padding-left: 7px;
+}
+.chronicle-command-context span {
+  color: #82a8b9;
+  font-size: 0.5rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.chronicle-command-context strong {
+  overflow: hidden;
+  color: #f3d69c;
+  font-family: Georgia, serif;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chronicle-command-dock .chronicle-placement-help {
+  flex-basis: 100%;
+  color: #b9c9d3;
+  font-size: 0.62rem;
+  line-height: 1.3;
+}
+.chronicle-command-dock button {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.chronicle-command-dock button.primary {
+  flex: 1 1 132px;
+  border-color: #d7a957;
+  background:
+    linear-gradient(145deg, rgba(116, 79, 29, 0.94), rgba(31, 37, 35, 0.98)),
+    #2b2519;
+  color: #ffe4aa;
+  box-shadow:
+    inset 0 1px rgba(255, 240, 196, 0.13),
+    0 5px 14px rgba(0, 0, 0, 0.28);
+}
+.chronicle-command-dock button.secondary {
+  flex: 0 1 auto;
+  background: rgba(16, 30, 40, 0.9);
+  color: #c7d7e2;
+}
+.chronicle-command-dock.response {
+  border: 1px solid rgba(184, 106, 211, 0.6);
+  background: rgba(64, 27, 79, 0.42);
+}
+.chronicle-mobile-card-zoom {
+  position: absolute;
+  z-index: 4;
+  right: 304px;
+  bottom: 7px;
+  width: auto;
+  min-height: 32px;
+  margin: 0;
+  padding: 5px 9px;
+}
+
+.chronicle-duel-utility {
+  position: relative;
+  grid-column: 4;
+  display: grid;
+  align-items: center;
+}
+.chronicle-utility-trigger {
+  width: 38px;
+  min-height: 40px;
+  overflow: hidden;
+  border: 1px solid rgba(117, 139, 154, 0.45);
+  border-radius: 8px;
+  background: rgba(8, 17, 24, 0.9);
+  padding: 0;
+  color: transparent;
+  font-size: 0;
+  cursor: pointer;
+}
+.chronicle-utility-trigger::before {
+  content: "•••";
+  color: #b9c8d2;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+.chronicle-utility-menu {
+  position: absolute;
+  z-index: 80;
+  right: 0;
+  bottom: calc(100% + 7px);
+  display: grid;
+  width: 210px;
+  gap: 7px;
+  border: 1px solid rgba(178, 149, 95, 0.55);
+  border-radius: 10px;
+  background: rgba(5, 11, 17, 0.97);
+  padding: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(14px);
+}
+.chronicle-utility-menu[hidden] {
+  display: none;
+}
+.chronicle-utility-menu strong {
+  color: #f1d39a;
+  font-family: Georgia, serif;
+}
+.chronicle-utility-menu button {
+  min-height: 38px;
+  border: 1px solid #455565;
+  border-radius: 7px;
+  background: #111e29;
+  padding: 7px 9px;
+  color: #dbe5ec;
+  font-weight: 800;
+}
+.chronicle-utility-menu button.danger {
+  border-color: #8e464b;
+  color: #ffb3b6;
+}
+
+/* Peripheral history is available as a drawer, never a column of page height. */
+.chronicle-graveyards {
+  position: absolute;
+  z-index: 65;
+  right: 100px;
+  bottom: 124px;
+  left: 100px;
+  display: none;
+  max-height: min(260px, 42%);
+  margin: 0;
+  overflow: auto;
+  border: 1px solid rgba(160, 132, 87, 0.52);
+  border-radius: 10px;
+  background: rgba(5, 11, 17, 0.97);
+  padding: 8px;
+  box-shadow: 0 18px 60px #000;
+  backdrop-filter: blur(14px);
+}
+.chronicle-graveyards:has(details[open]) {
+  display: grid;
+}
+.chronicle-log {
+  position: absolute;
+  z-index: 62;
+  top: 67px;
+  right: 96px;
+  width: min(360px, 40vw);
+  max-height: min(340px, 50%);
+  margin: 0;
+  overflow: auto;
+  border: 1px solid rgba(109, 137, 153, 0.36);
+  border-radius: 7px;
+  background: rgba(5, 11, 17, 0.88);
+  padding: 5px 7px;
+  backdrop-filter: blur(12px);
+}
+.chronicle-log:not([open]) {
+  width: auto;
+  background: rgba(5, 11, 17, 0.66);
+}
+.chronicle-log summary {
+  color: #aab9c4;
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Decision focus: irrelevant zones recede; the current strike owns the frame. */
+.chronicle-playmat .chronicle-zone.attack-candidate {
+  z-index: 5;
+  border-color: #79cceb;
+  box-shadow:
+    0 0 0 2px rgba(121, 204, 235, 0.3),
+    0 0 20px rgba(65, 169, 211, 0.28);
+  animation: chronicle-attacker-ready 1.15s ease-in-out infinite;
+}
+.chronicle-playmat.targeting
+  .chronicle-zone:not(.legal-target):not(.selected) {
+  opacity: 0.54;
+  filter: saturate(0.6) brightness(0.7);
+}
+.chronicle-playmat.targeting .chronicle-zone.selected {
+  z-index: 7;
+  transform: translateY(-7px) scale(1.055);
+  border-color: #75d7ff;
+  box-shadow:
+    0 0 0 2px rgba(117, 215, 255, 0.45),
+    0 0 28px rgba(80, 183, 230, 0.48);
+}
+.chronicle-playmat.targeting .chronicle-zone.legal-target {
+  z-index: 6;
+  border-color: #f0c26d;
+  box-shadow:
+    0 0 0 2px rgba(240, 194, 109, 0.34),
+    0 0 22px rgba(240, 160, 68, 0.34),
+    inset 0 0 22px rgba(240, 194, 109, 0.13);
+  animation: chronicle-target-breathe 1.05s ease-in-out infinite;
+}
+.chronicle-targeting-lane {
+  position: absolute;
+  z-index: 5;
+  top: 18%;
+  bottom: 18%;
+  left: var(--chronicle-attack-column);
+  width: 3px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to top,
+    rgba(98, 208, 255, 0),
+    rgba(98, 208, 255, 0.96) 30%,
+    rgba(244, 194, 100, 0.9) 70%,
+    transparent
+  );
+  filter: drop-shadow(0 0 8px #6dd8ff);
+  pointer-events: none;
+  animation: chronicle-target-lane 0.75s ease-in-out infinite alternate;
+}
+.chronicle-targeting-lane::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  border-top: 3px solid #f3c46e;
+  border-right: 3px solid #f3c46e;
+  transform: translateX(-50%) rotate(-45deg);
+}
+.chronicle-target-preview {
+  position: absolute;
+  z-index: 8;
+  top: 4px;
+  right: 3px;
+  left: 3px;
+  border: 1px solid rgba(243, 200, 112, 0.58);
+  border-radius: 4px;
+  background: rgba(42, 25, 11, 0.92);
+  padding: 3px 2px;
+  color: #ffe0a1;
+  font-size: 0.43rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-align: center;
+  pointer-events: none;
+}
+.chronicle-target-preview.risk {
+  border-color: rgba(238, 102, 105, 0.62);
+  background: rgba(53, 13, 17, 0.94);
+  color: #ffb5b5;
+}
+@keyframes chronicle-target-breathe {
+  50% {
+    transform: translateY(-3px) scale(1.025);
+    box-shadow:
+      0 0 0 3px rgba(240, 194, 109, 0.45),
+      0 0 30px rgba(240, 160, 68, 0.48);
+  }
+}
+@keyframes chronicle-attacker-ready {
+  50% {
+    transform: translateY(-3px);
+    border-color: #b5eaff;
+    box-shadow:
+      0 0 0 3px rgba(121, 204, 235, 0.38),
+      0 0 26px rgba(65, 169, 211, 0.42);
+  }
+}
+@keyframes chronicle-target-lane {
+  to {
+    opacity: 0.62;
+    filter: drop-shadow(0 0 15px #6dd8ff);
+  }
+}
+
+/* Field cards now tint motion and light, not only the background image. */
+.chronicle-table {
+  --chronicle-particle: rgba(177, 213, 226, 0.72);
+  --chronicle-particle-glow: rgba(120, 195, 220, 0.52);
+  --chronicle-attack-column: 50%;
+}
+.chronicle-table[data-attacker="0"] {
+  --chronicle-attack-column: 38%;
+}
+.chronicle-table[data-attacker="1"] {
+  --chronicle-attack-column: 44%;
+}
+.chronicle-table[data-attacker="2"] {
+  --chronicle-attack-column: 50%;
+}
+.chronicle-table[data-attacker="3"] {
+  --chronicle-attack-column: 56%;
+}
+.chronicle-table[data-attacker="4"] {
+  --chronicle-attack-column: 62%;
+}
+.chronicle-table[data-field="volcano"] {
+  --chronicle-particle: rgba(255, 157, 69, 0.9);
+  --chronicle-particle-glow: rgba(255, 70, 25, 0.7);
+}
+.chronicle-table[data-field="ocean"] {
+  --chronicle-particle: rgba(116, 224, 255, 0.78);
+  --chronicle-particle-glow: rgba(53, 149, 255, 0.62);
+}
+.chronicle-table[data-field="desert"] {
+  --chronicle-particle: rgba(238, 203, 133, 0.76);
+  --chronicle-particle-glow: rgba(196, 132, 53, 0.52);
+}
+.chronicle-table[data-field="sky"] {
+  --chronicle-particle: rgba(224, 247, 255, 0.72);
+  --chronicle-particle-glow: rgba(144, 213, 255, 0.52);
+}
+.chronicle-table[data-field="lightning-storm"] {
+  --chronicle-particle: rgba(204, 163, 255, 0.9);
+  --chronicle-particle-glow: rgba(128, 89, 255, 0.72);
+}
+.chronicle-atmosphere {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.chronicle-atmosphere i {
+  position: absolute;
+  bottom: -8px;
+  left: 5%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--chronicle-particle);
+  box-shadow: 0 0 8px 2px var(--chronicle-particle-glow);
+  opacity: 0;
+  animation: chronicle-field-particle 4.2s linear infinite;
+}
+.chronicle-atmosphere i:nth-child(2) {
+  left: 16%;
+  animation-delay: -2.4s;
+}
+.chronicle-atmosphere i:nth-child(3) {
+  left: 27%;
+  animation-delay: -1.1s;
+  animation-duration: 5.1s;
+}
+.chronicle-atmosphere i:nth-child(4) {
+  left: 38%;
+  animation-delay: -3.3s;
+}
+.chronicle-atmosphere i:nth-child(5) {
+  left: 49%;
+  animation-delay: -0.8s;
+  animation-duration: 4.8s;
+}
+.chronicle-atmosphere i:nth-child(6) {
+  left: 60%;
+  animation-delay: -2.9s;
+}
+.chronicle-atmosphere i:nth-child(7) {
+  left: 71%;
+  animation-delay: -1.7s;
+  animation-duration: 5.4s;
+}
+.chronicle-atmosphere i:nth-child(8) {
+  left: 82%;
+  animation-delay: -3.8s;
+}
+.chronicle-atmosphere i:nth-child(9) {
+  left: 93%;
+  animation-delay: -0.4s;
+  animation-duration: 4.6s;
+}
+.chronicle-atmosphere i:nth-child(3n) {
+  width: 2px;
+  height: 2px;
+}
+.chronicle-atmosphere i:nth-child(3n + 2) {
+  width: 4px;
+  height: 4px;
+}
+.chronicle-table[data-field="desert"] .chronicle-atmosphere i {
+  border-radius: 60% 20%;
+  animation-name: chronicle-field-drift;
+}
+.chronicle-table[data-field="lightning-storm"] .chronicle-playmat {
+  animation: chronicle-storm-light 4.8s steps(1, end) infinite;
+}
+@keyframes chronicle-field-particle {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+  15% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(24px, -410px, 0) scale(1.35);
+  }
+}
+@keyframes chronicle-field-drift {
+  0% {
+    opacity: 0;
+    transform: translate3d(-40px, -30px, 0);
+  }
+  22% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(260px, -230px, 0);
+  }
+}
+@keyframes chronicle-storm-light {
+  0%,
+  91%,
+  94%,
+  100% {
+    filter: none;
+  }
+  92% {
+    filter: brightness(1.32) contrast(1.06);
+  }
+  93% {
+    filter: brightness(0.92);
+  }
+}
+
+/* Resolution is one composed beat: title slash, impact, then recovery. */
+.chronicle-resolution-fx {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(255, 240, 203, 0.15), transparent 58%);
+  pointer-events: none;
+  animation: chronicle-resolution-fade 0.88s ease-out forwards;
+}
+.chronicle-resolution-fx i {
+  width: min(560px, 75%);
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #fff0c9, transparent);
+  filter: drop-shadow(0 0 12px #efb655);
+  transform: rotate(-5deg) scaleX(0);
+  animation: chronicle-resolution-slash 0.46s cubic-bezier(0.16, 0.8, 0.24, 1)
+    forwards;
+}
+.chronicle-resolution-fx b {
+  margin-top: 8px;
+  color: #fff0c8;
+  font: 900 clamp(1.15rem, 3vw, 2.15rem)/1 Georgia, serif;
+  letter-spacing: 0.22em;
+  text-shadow:
+    0 3px 12px #000,
+    0 0 28px rgba(239, 182, 85, 0.78);
+  animation: chronicle-resolution-title 0.62s cubic-bezier(0.16, 0.9, 0.25, 1)
+    forwards;
+}
+.chronicle-resolution-fx.attack,
+.chronicle-resolution-fx.destroy {
+  background: radial-gradient(circle, rgba(255, 132, 75, 0.25), transparent 60%);
+}
+.chronicle-resolution-fx.activate b {
+  color: #d6c2ff;
+  text-shadow:
+    0 3px 12px #000,
+    0 0 30px rgba(158, 103, 255, 0.8);
+}
+@keyframes chronicle-resolution-slash {
+  45% {
+    transform: rotate(-5deg) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-5deg) scaleX(1.25);
+  }
+}
+@keyframes chronicle-resolution-title {
+  from {
+    opacity: 0;
+    transform: scale(1.6);
+    filter: blur(5px);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(0.98);
+    filter: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@keyframes chronicle-resolution-fade {
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.chronicle-card-ghost {
+  position: absolute;
+  z-index: 20;
+  inset: 4px;
+  border: 2px solid rgba(255, 220, 156, 0.8);
+  border-radius: 5px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 0 24px rgba(255, 166, 92, 0.7);
+  pointer-events: none;
+}
+.chronicle-card-ghost.me {
+  animation: chronicle-ghost-me 0.8s cubic-bezier(0.25, 0.7, 0.25, 1) forwards;
+}
+.chronicle-card-ghost.foe {
+  animation: chronicle-ghost-foe 0.8s cubic-bezier(0.25, 0.7, 0.25, 1) forwards;
+}
+@keyframes chronicle-ghost-me {
+  to {
+    opacity: 0;
+    transform: translate(280%, 90%) rotate(24deg) scale(0.24);
+    filter: brightness(1.7);
+  }
+}
+@keyframes chronicle-ghost-foe {
+  to {
+    opacity: 0;
+    transform: translate(280%, -90%) rotate(-24deg) scale(0.24);
+    filter: brightness(1.7);
+  }
+}
+
+/* Character performance layer, driven by actual HP deltas. */
+.chronicle-duelist-cut-in {
+  position: absolute;
+  z-index: 70;
+  top: 82px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: min(340px, 42%);
+  overflow: hidden;
+  border: 1px solid rgba(229, 188, 111, 0.7);
+  background:
+    linear-gradient(110deg, rgba(8, 14, 20, 0.98), rgba(67, 26, 25, 0.9)),
+    #0a1118;
+  padding: 8px 14px;
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+}
+.chronicle-duelist-cut-in.me {
+  left: 7px;
+  border-radius: 0 12px 12px 0;
+  animation: chronicle-cutin-me 1.42s ease forwards;
+}
+.chronicle-duelist-cut-in.foe {
+  right: 7px;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  border-radius: 12px 0 0 12px;
+  animation: chronicle-cutin-foe 1.42s ease forwards;
+}
+.chronicle-duelist-cut-in.foe .chronicle-duelist-avatar {
+  grid-column: 2;
+}
+.chronicle-duelist-cut-in.foe > span {
+  grid-column: 1;
+  grid-row: 1;
+  text-align: right;
+}
+.chronicle-duelist-cut-in .chronicle-duelist-avatar {
+  width: 70px;
+  height: 70px;
+}
+.chronicle-duelist-cut-in > span {
+  display: grid;
+  gap: 2px;
+}
+.chronicle-duelist-cut-in small {
+  color: #ff9f93;
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+.chronicle-duelist-cut-in strong {
+  color: #fff0cf;
+  font: 900 1rem/1.1 Georgia, serif;
+}
+.chronicle-duelist-cut-in > span > b {
+  color: #ff8d7f;
+  font-size: 1.1rem;
+}
+.chronicle-duelist-cut-in.heal small,
+.chronicle-duelist-cut-in.heal > span > b {
+  color: #77e5a0;
+}
+@keyframes chronicle-cutin-me {
+  from {
+    opacity: 0;
+    transform: translateX(-110%);
+  }
+  14%,
+  78% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-110%);
+  }
+}
+@keyframes chronicle-cutin-foe {
+  from {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  14%,
+  78% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+/* Dedicated phone cockpit: the field camera gets the flexible row while the
+   hand and commands remain fixed at the bottom. */
+@media (max-width: 760px) {
+  .chronicle-shell {
+    min-height: 100dvh;
+    padding: 4px;
+  }
+  .chronicle-table {
+    grid-template-rows: 32px 62px 30px minmax(0, 1fr) 184px;
+    gap: 3px;
+    width: 100%;
+    height: calc(100dvh - 8px);
+    min-height: 620px;
+    max-height: none;
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .chronicle-table[data-attacker="0"] {
+    --chronicle-attack-column: 10%;
+  }
+  .chronicle-table[data-attacker="1"] {
+    --chronicle-attack-column: 30%;
+  }
+  .chronicle-table[data-attacker="2"] {
+    --chronicle-attack-column: 50%;
+  }
+  .chronicle-table[data-attacker="3"] {
+    --chronicle-attack-column: 70%;
+  }
+  .chronicle-table[data-attacker="4"] {
+    --chronicle-attack-column: 90%;
+  }
+  .chronicle-room-banner {
+    min-height: 32px;
+    grid-template-columns: 1fr;
+    margin: 0;
+    padding: 3px 6px;
+  }
+  .chronicle-room-banner > span,
+  .chronicle-room-banner > small {
+    display: none;
+  }
+  .chronicle-room-banner strong {
+    font-size: 0.68rem;
+  }
+  .chronicle-duel-status {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 62px;
+    gap: 4px;
+    margin: 0;
+  }
+  .chronicle-duel-status > div:last-child {
+    display: none;
+  }
+  .chronicle-duel-status .chronicle-duelist-avatar {
+    width: 42px;
+    height: 42px;
+  }
+  .chronicle-duel-status .chronicle-combatant {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .chronicle-duel-status .chronicle-health-meter {
+    width: min(92px, 26vw);
+  }
+  .chronicle-turn {
+    align-items: end !important;
+    text-align: right;
+  }
+  .chronicle-turn span {
+    font-size: 0.56rem;
+  }
+  .chronicle-opponent-hand {
+    top: 72px;
+    right: 7px;
+    left: auto;
+    min-height: 28px;
+    padding: 0;
+    transform: scale(0.72);
+    transform-origin: top right;
+  }
+  .chronicle-phase-rail {
+    gap: 3px;
+    padding-block: 1px;
+  }
+  .chronicle-phase-rail li {
+    min-height: 26px;
+    padding: 4px 2px;
+  }
+  .chronicle-phase-rail span {
+    display: none;
+  }
+  .chronicle-phase-rail b {
+    font-size: 0.59rem;
+  }
+
+  .chronicle-duel-stage {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) 40px;
+    gap: 3px;
+    min-height: 0;
+  }
+  .chronicle-playmat {
+    --chron-zone-w: min(16.8vw, 65px);
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    padding: 2px 3px;
+  }
+  .chronicle-playmat .chronicle-zone-row {
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
+    gap: 2px;
+    margin-block: 0;
+  }
+  .chronicle-playmat .chronicle-zone {
+    min-height: calc(var(--chron-zone-w) * 1.05);
+    padding: 1px;
+    border-radius: 6px;
+  }
+  .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
+    min-height: calc(var(--chron-zone-w) * 0.62);
+  }
+  .chronicle-playmat .chronicle-zone .chronicle-card {
+    width: min(100%, calc(var(--chron-zone-w) - 6px));
+  }
+  .chronicle-playmat .chronicle-zone > small {
+    right: 1px;
+    bottom: 1px;
+    left: 1px;
+    padding: 2px 1px;
+    font-size: 0.43rem;
+  }
+  .chronicle-side-label {
+    font-size: 0.38rem;
+  }
+  .chronicle-field-divider {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    min-height: 44px;
+    gap: 3px;
+    margin: 1px -1px;
+    padding: 2px;
+  }
+  .chronicle-field-zone {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 40px;
+    padding: 2px;
+  }
+  .chronicle-field-zone__label {
+    display: none;
+  }
+  .chronicle-active-field {
+    gap: 4px;
+    min-width: 0;
+  }
+  .chronicle-active-field .chronicle-card {
+    width: 27px;
+  }
+  .chronicle-active-field strong {
+    font-size: 0.56rem;
+  }
+  .chronicle-active-field small {
+    font-size: 0.4rem;
+  }
+  .chronicle-battle-message {
+    padding: 2px 4px;
+  }
+  .chronicle-battle-message .eyebrow {
+    display: none;
+  }
+  .chronicle-battle-message strong {
+    font-size: 0.52rem;
+    line-height: 1.25;
+  }
+  .chronicle-pile-rail {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+    gap: 3px;
+    min-height: 40px;
+    padding: 2px;
+  }
+  .chronicle-pile-zone {
+    min-height: 34px;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 2px 4px;
+  }
+  .chronicle-pile-zone.opponent {
+    transform: none;
+  }
+  .chronicle-pile-card-back,
+  .chronicle-pile-mark {
+    display: none;
+  }
+  .chronicle-pile-zone > span {
+    font-size: 0.37rem;
+  }
+  .chronicle-pile-zone > b {
+    position: static;
+    min-width: 18px;
+    font-size: 0.52rem;
+  }
+  .chronicle-pile-rail__spacer {
+    display: none;
+  }
+  .chronicle-card-detail-panel.open {
+    display: none;
+  }
+
+  .chronicle-player-console {
+    grid-template-columns: minmax(0, 1fr) 38px;
+    grid-template-rows: 44px 84px 48px;
+    gap: 3px;
+    min-height: 184px;
+    padding: 3px;
+  }
+  .chronicle-player-bar {
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0 2px;
+  }
+  .chronicle-player-bar .chronicle-duelist-avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .chronicle-player-bar .chronicle-combatant {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .chronicle-player-bar .eyebrow {
+    display: none;
+  }
+  .chronicle-player-bar .chronicle-combatant__identity {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 3px;
+  }
+  .chronicle-player-bar .chronicle-combatant__identity > strong {
+    grid-column: 1 / -1;
+    font-size: 0.72rem;
+  }
+  .chronicle-player-bar .chronicle-combatant__health {
+    grid-column: 1 / -1;
+  }
+  .chronicle-player-bar .chronicle-health-meter {
+    width: min(78px, 22vw);
+  }
+  .chronicle-player-bar > div:last-child {
+    justify-content: flex-end;
+    padding: 0;
+    font-size: 0.58rem;
+  }
+  .chronicle-hand {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    gap: 0;
+    height: 84px;
+    padding: 3px 5px 2px;
+    scroll-snap-type: x proximity;
+  }
+  .chronicle-hand .chronicle-card {
+    width: 68px;
+    scroll-snap-align: center;
+  }
+  .chronicle-hand .chronicle-card + .chronicle-card {
+    margin-left: -9px;
+  }
+  .chronicle-hand .chronicle-card.selected {
+    margin-inline: 5px -4px;
+    transform: translateY(-7px) scale(1.04);
+  }
+  .chronicle-command-dock {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 1px 42px 1px 1px;
+    overflow-x: auto;
+  }
+  .chronicle-command-context {
+    display: none;
+  }
+  .chronicle-command-dock .chronicle-placement-help {
+    position: absolute;
+    right: 4px;
+    bottom: calc(100% + 3px);
+    left: 4px;
+    overflow: hidden;
+    border-radius: 5px;
+    background: rgba(5, 11, 17, 0.92);
+    padding: 3px 5px;
+    font-size: 0.5rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  .chronicle-command-dock button {
+    min-height: 42px;
+    padding: 6px 9px;
+    white-space: nowrap;
+  }
+  .chronicle-command-dock button.primary {
+    flex: 1 0 auto;
+  }
+  .chronicle-mobile-card-zoom {
+    display: flex;
+    right: 44px;
+    bottom: 53px;
+    width: auto;
+    min-height: 28px;
+    margin: 0;
+    padding: 4px 7px;
+    font-size: 0.54rem;
+  }
+  .chronicle-duel-utility {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 38px;
+    height: 42px;
+  }
+  .chronicle-utility-trigger {
+    min-height: 42px;
+  }
+  .chronicle-utility-menu {
+    right: 0;
+    bottom: 48px;
+    width: min(220px, calc(100vw - 24px));
+  }
+
+  .chronicle-log {
+    top: 102px;
+    right: 7px;
+    width: min(310px, calc(100% - 14px));
+    max-height: 50%;
+  }
+  .chronicle-log:not([open]) {
+    width: auto;
+  }
+  .chronicle-graveyards {
+    right: 7px;
+    bottom: 190px;
+    left: 7px;
+    grid-template-columns: 1fr;
+    max-height: 46%;
+  }
+  .chronicle-target-preview {
+    top: 2px;
+    font-size: 0.36rem;
+  }
+  .chronicle-targeting-lane {
+    top: 15%;
+    bottom: 15%;
+  }
+  .chronicle-resolution-fx b {
+    font-size: 1.05rem;
+  }
+  .chronicle-duelist-cut-in {
+    top: 100px;
+    grid-template-columns: 54px minmax(0, 1fr);
+    width: min(300px, 82%);
+    padding: 6px 10px;
+  }
+  .chronicle-duelist-cut-in.foe {
+    grid-template-columns: minmax(0, 1fr) 54px;
+  }
+  .chronicle-duelist-cut-in .chronicle-duelist-avatar {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-phase-rail::before,
+  .chronicle-playmat .chronicle-zone {
+    transition: none;
+  }
+  .chronicle-card-detail-panel.open,
+  .chronicle-playmat .chronicle-zone.attack-candidate,
+  .chronicle-playmat.targeting .chronicle-zone.legal-target,
+  .chronicle-targeting-lane,
+  .chronicle-atmosphere i,
+  .chronicle-table[data-field="lightning-storm"] .chronicle-playmat,
+  .chronicle-resolution-fx,
+  .chronicle-resolution-fx i,
+  .chronicle-resolution-fx b,
+  .chronicle-card-ghost,
+  .chronicle-duelist-cut-in {
+    animation: none !important;
+  }
+  .chronicle-atmosphere,
+  .chronicle-targeting-lane {
+    display: none;
+  }
+  .chronicle-resolution-fx {
+    opacity: 0;
+  }
+  .chronicle-duelist-cut-in {
+    opacity: 1;
+  }
+}
+
+/* ── Release integration: focus shell, typed replay, and priority feedback ── */
+.chronicle-shell--duel-active {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding: 4px;
+}
+.chronicle-shell--duel-active > .chronicle-header,
+.chronicle-shell--duel-active > .chronicle-tabs,
+.chronicle-shell--duel-active > .chronicle-scribe-note {
+  display: none;
+}
+.chronicle-shell--duel-active .chronicle-table {
+  height: calc(100dvh - 8px);
+  max-height: none;
+}
+.chronicle-room-banner__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.chronicle-room-banner__actions small {
+  overflow: hidden;
+  color: #8e9dad;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.chronicle-room-banner__actions button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  border: 1px solid rgba(122, 154, 172, 0.5);
+  border-radius: 6px;
+  background: rgba(9, 19, 27, 0.88);
+  padding: 4px 8px;
+  color: #c9d7df;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.chronicle-room-banner__actions button:hover,
+.chronicle-room-banner__actions button:focus-visible {
+  border-color: #e2ba70;
+  color: #ffe2a8;
+}
+.chronicle-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+.chronicle-player-console > .chronicle-error {
+  position: absolute;
+  z-index: 95;
+  right: 48px;
+  bottom: calc(100% + 6px);
+  width: min(520px, calc(100% - 54px));
+  margin: 0;
+  border: 1px solid rgba(228, 102, 110, 0.5);
+  border-left-width: 3px;
+  border-radius: 7px;
+  background: rgba(54, 12, 18, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.52);
+}
+.chronicle-response-waiting {
+  grid-column: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 2px 8px;
+  min-width: 0;
+  border: 1px solid rgba(180, 104, 211, 0.55);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(182, 95, 221, 0.2), transparent 54%),
+    rgba(38, 18, 50, 0.84);
+  padding: 8px 10px;
+  box-shadow: inset 0 0 20px rgba(153, 76, 184, 0.12);
+}
+.chronicle-response-waiting span {
+  grid-column: 1 / -1;
+  color: #c98de0;
+  font-size: 0.48rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+}
+.chronicle-response-waiting strong {
+  overflow: hidden;
+  color: #f0d8f7;
+  font-family: Georgia, serif;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chronicle-response-waiting b {
+  color: #f1b4ff;
+  font-size: 0.8rem;
+}
+.chronicle-response-waiting i {
+  width: 8px;
+  height: 8px;
+  align-self: center;
+  border-radius: 50%;
+  background: #cf8de8;
+  box-shadow: 0 0 12px #bd65d9;
+  animation: chronicle-priority-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes chronicle-priority-pulse {
+  to {
+    opacity: 0.42;
+    transform: scale(0.7);
+  }
+}
+.chronicle-target-preview.unknown {
+  border-color: rgba(129, 184, 211, 0.62);
+  background: rgba(14, 39, 52, 0.94);
+  color: #b9e7fa;
+}
+.chronicle-target-preview.illegal {
+  border-color: rgba(152, 160, 172, 0.6);
+  background: rgba(27, 31, 37, 0.96);
+  color: #c6ced7;
+}
+.chronicle-log > p {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(117, 139, 153, 0.15);
+}
+.chronicle-log > p > b {
+  color: #d2aa67;
+  font-size: 0.58rem;
+}
+.chronicle-log > p[data-event="damage"] {
+  color: #f3a8aa;
+}
+.chronicle-log > p[data-event="healing"] {
+  color: #a7e2bd;
+}
+.chronicle-log__transcript {
+  margin-top: 8px;
+  border-top: 1px solid rgba(130, 151, 166, 0.25);
+  padding-top: 6px;
+}
+.chronicle-log__transcript summary {
+  color: #8596a5;
+}
+
+@media (max-width: 760px) {
+  .chronicle-room-banner {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .chronicle-room-banner__actions small {
+    display: none;
+  }
+  .chronicle-room-banner__actions button {
+    min-height: 26px;
+    padding: 3px 6px;
+    font-size: 0.48rem;
+  }
+  .chronicle-response-waiting {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-height: 44px;
+    margin-right: 41px;
+    padding: 5px 8px;
+  }
+  .chronicle-response-waiting span {
+    font-size: 0.42rem;
+  }
+  .chronicle-response-waiting strong,
+  .chronicle-response-waiting b {
+    font-size: 0.62rem;
+  }
+  .chronicle-player-console > .chronicle-error {
+    right: 4px;
+    bottom: calc(100% + 4px);
+    width: calc(100% - 8px);
+    font-size: 0.64rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-response-waiting i {
+    animation: none;
   }
 }

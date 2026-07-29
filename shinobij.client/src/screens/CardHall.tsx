@@ -270,8 +270,18 @@ function CardHallInner({
       });
   }
 
+  function leaveActiveBoard() {
+    replayToken.current += 1;
+    setAiActing(false);
+    setDuel(null);
+    setMatchId(null);
+    setReward(undefined);
+  }
+
   return (
-    <main className="chronicle-shell">
+    <main
+      className={`chronicle-shell ${duel?.status === "active" ? "chronicle-shell--duel-active" : ""}`}
+    >
       <header className="chronicle-header">
         <button onClick={onBack}>Back</button>
         <h1>
@@ -393,6 +403,8 @@ function CardHallInner({
               busy={busy}
               aiActing={aiActing}
               error={error}
+              onExit={leaveActiveBoard}
+              exitLabel="Return to Hall"
               onAction={(intent) => void act(intent)}
             />
           </div>
@@ -401,8 +413,8 @@ function CardHallInner({
             <h2>{CHRONICLE_ROOM_TITLE}</h2>
             <p>
               The founding Shinobi card format — the original card pool and its
-              Limited Scroll, six declared turn phases and the opening-turn draw
-              rule.
+              Limited Scroll, automatic turn bookkeeping and the opening-turn
+              draw rule.
             </p>
             {!savedValid ? (
               <p>
@@ -792,9 +804,10 @@ function Rules() {
         with 8,000 Health, a 40-card Deck and a five-card opening hand.
       </p>
       <p>
-        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. The first player draws on
-        turn one but cannot Battle; skipping Battle also skips Main 2. You get
-        one Normal Summon or Set.
+        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. Draw,
+        Standby, End, and the handoff advance automatically. The first player
+        draws on turn one but cannot Battle; skipping Battle also skips Main 2.
+        You get one Normal Summon or Set.
       </p>
       <p>
         <strong>Monsters:</strong> Levels 1–4 need no Tribute, 5–6 need one and

@@ -5,9 +5,11 @@ import {
   getChronicleCard,
   STARTING_LIFE_POINTS,
   TURN_TIMEOUT_MS,
+  previewChronicleBattle,
   tributeCountForLevel,
   type ChronicleActionIntent,
   type ChronicleDisplayCard,
+  type ChroniclePresentationEvent,
   type ChronicleProjection,
 } from "../lib/chronicle-duel";
 import {
@@ -15,6 +17,7 @@ import {
   classifyChronicleLogLine,
   playChronicleSfx,
   setChronicleSfxMuted,
+  type ChronicleSfx,
 } from "../lib/chronicle-sfx";
 import { chronicleLegalPlacements } from "../lib/chronicle-placements";
 import { isImageAvatar } from "../lib/avatar";
@@ -23,6 +26,16 @@ import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
 
 type SideKey = "p1" | "p2";
+type DuelReaction = {
+  side: "me" | "foe";
+  kind: "damage" | "heal";
+  name: string;
+  amount: number;
+};
+type ResolutionFx = {
+  kind: "summon" | "set" | "activate" | "attack" | "destroy";
+  label: string;
+};
 
 /** A response window reaches the client in the same update as the action that
  *  opened it, so the Summon lands on the board and the "answer this?" prompt
@@ -30,6 +43,24 @@ type SideKey = "p1" | "p2";
  *  and the log read first. Small next to RESPONSE_TIMEOUT_MS (15s), so it never
  *  meaningfully eats the responder's clock. */
 const RESPONSE_PROMPT_BEAT_MS = 700;
+const SMART_ASSIST_KEY = "chronicleSmartAssist.v1";
+const EMPTY_PRESENTATION_EVENTS: ChroniclePresentationEvent[] = [];
+
+function readSmartAssist(): boolean {
+  try {
+    return window.localStorage.getItem(SMART_ASSIST_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function writeSmartAssist(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(SMART_ASSIST_KEY, enabled ? "on" : "off");
+  } catch {
+    /* Private browsing keeps the preference session-local. */
+  }
+}
 
 /** Restartable one-shot animation class on a live DOM node. Imperative on
  *  purpose: motion is presentation-only and must never re-enter React state
@@ -54,6 +85,119 @@ function spawnLifeFloat(anchor: HTMLElement | null, delta: number): void {
   float.textContent = `${delta < 0 ? "−" : "+"}${Math.abs(delta).toLocaleString()}`;
   anchor.appendChild(float);
   window.setTimeout(() => float.remove(), 1_400);
+}
+
+/** A destroyed card leaves a readable visual trail toward its owner's
+ * Graveyard instead of disappearing between server projections. */
+function spawnCardGhost(
+  zone: HTMLElement | null | undefined,
+  image: string | undefined,
+  side: "me" | "foe",
+): void {
+  if (!zone || !image) return;
+  const ghost = document.createElement("span");
+  ghost.className = `chronicle-card-ghost ${side}`;
+  ghost.style.backgroundImage = `url(${JSON.stringify(image)})`;
+  ghost.setAttribute("aria-hidden", "true");
+  zone.appendChild(ghost);
+  window.setTimeout(() => ghost.remove(), 820);
+}
+
+function resolutionCopy(
+  cue: ChronicleSfx,
+  line: string,
+): ResolutionFx | null {
+  if (cue === "summon")
+    return {
+      kind: "summon",
+      label: /sets a monster/i.test(line) ? "SHADOW SET" : "SHINOBI SUMMON",
+    };
+  if (cue === "set") return { kind: "set", label: "SNARE PREPARED" };
+  if (cue === "activate")
+    return { kind: "activate", label: "JUTSU RELEASE" };
+  if (cue === "attack") return { kind: "attack", label: "STRIKE" };
+  if (cue === "destroy") return { kind: "destroy", label: "BREAK" };
+  return null;
+}
+
+function presentationForEvent(
+  event: ChroniclePresentationEvent,
+): { cue: ChronicleSfx; fx: ResolutionFx } | null {
+  if (event.kind === "monster-summoned" || event.kind === "monster-flipped")
+    return {
+      cue: "summon",
+      fx: { kind: "summon", label: "SHINOBI SUMMON" },
+    };
+  if (event.kind === "monster-set" || event.kind === "trap-set")
+    return {
+      cue: "set",
+      fx: {
+        kind: "set",
+        label: event.kind === "monster-set" ? "SHADOW SET" : "SNARE PREPARED",
+      },
+    };
+  if (event.kind === "magic-activated" || event.kind === "trap-activated")
+    return {
+      cue: "activate",
+      fx: {
+        kind: "activate",
+        label:
+          event.kind === "trap-activated" ? "SNARE RELEASE" : "JUTSU RELEASE",
+      },
+    };
+  if (event.kind === "attack-declared")
+    return { cue: "attack", fx: { kind: "attack", label: "STRIKE" } };
+  if (event.kind === "card-destroyed")
+    return { cue: "destroy", fx: { kind: "destroy", label: "BREAK" } };
+  return null;
+}
+
+function eventTimelineCopy(
+  event: ChroniclePresentationEvent,
+  cardsById: Record<string, ChronicleDisplayCard>,
+  names: Record<SideKey, string>,
+): string {
+  const actorName = event.actor ? names[event.actor] : undefined;
+  const sideName = event.side ? names[event.side] : undefined;
+  const cardName = event.cardId
+    ? (cardsById[event.cardId] ?? getChronicleCard(event.cardId))?.name
+    : undefined;
+  switch (event.kind) {
+    case "monster-summoned":
+      return `${actorName} summoned ${cardName ?? "a Monster"}.`;
+    case "monster-set":
+      return `${actorName} set ${cardName ?? "a hidden Monster"}.`;
+    case "monster-flipped":
+      return `${actorName} Flip Summoned ${cardName ?? "a Monster"}.`;
+    case "position-changed":
+      return `${actorName} changed ${cardName ?? "a Monster"}'s battle position.`;
+    case "magic-activated":
+      return `${actorName} activated ${cardName ?? "a Jutsu"}.`;
+    case "trap-set":
+      return `${actorName} set ${cardName ?? "a hidden Snare"}.`;
+    case "trap-activated":
+      return `${actorName} activated ${cardName ?? "a Snare"}.`;
+    case "attack-declared":
+      return `${actorName} declared an attack with ${cardName ?? "a Monster"}.`;
+    case "response-opened":
+      return `${actorName} received a Snare response window.`;
+    case "response-passed":
+      return `${actorName} passed the Snare response.`;
+    case "card-destroyed":
+      return `${cardName ?? "A card"} controlled by ${sideName} was destroyed.`;
+    case "damage":
+      return `${sideName} took ${(event.amount ?? 0).toLocaleString()} damage.`;
+    case "healing":
+      return `${sideName} recovered ${(event.amount ?? 0).toLocaleString()} Health Points.`;
+    case "phase-changed":
+      return `${actorName} entered ${(event.phase ?? "the next phase").replace(/(\d)/, " $1")}.`;
+    case "turn-started":
+      return `Turn ${event.turnNumber} began for ${actorName}.`;
+    case "duel-ended":
+      return event.winner === "draw"
+        ? "The duel ended in a draw."
+        : `${names[event.winner ?? "p1"]} won the duel.`;
+  }
 }
 
 /** Health Points readout that ticks toward its target instead of jumping.
@@ -122,6 +266,8 @@ export function ChronicleDuelBoard({
   aiActing,
   timedTurns,
   error,
+  onExit,
+  exitLabel = "Leave table",
   onAction,
 }: {
   state: ChronicleProjection;
@@ -134,6 +280,8 @@ export function ChronicleDuelBoard({
    *  (live PvP). AI duels have no deadline, so no fake pressure clock. */
   timedTurns?: boolean;
   error?: string;
+  onExit?: () => void;
+  exitLabel?: string;
   onAction: (intent: ChronicleActionIntent) => void;
 }) {
   const meKey = state.viewerSide;
@@ -160,8 +308,12 @@ export function ChronicleDuelBoard({
   // information in this format, so either side's is readable at any time.
   const [graveyardView, setGraveyardView] = useState<"me" | "foe" | null>(null);
   const [forfeitArmed, setForfeitArmed] = useState(false);
+  const [duelMenuOpen, setDuelMenuOpen] = useState(false);
+  const [smartAssist, setSmartAssist] = useState(readSmartAssist);
   const [readyResponseId, setReadyResponseId] = useState<string | null>(null);
   const [sfxMuted, setSfxMuted] = useState(chronicleSfxMuted);
+  const [resolutionFx, setResolutionFx] = useState<ResolutionFx | null>(null);
+  const [reaction, setReaction] = useState<DuelReaction | null>(null);
   // Opening splash: only a genuinely fresh duel (turn 1) gets the banner —
   // a resumed mid-duel board must not replay it.
   const [showIntro, setShowIntro] = useState(
@@ -171,13 +323,18 @@ export function ChronicleDuelBoard({
     "victory" | "defeat" | "draw" | null
   >(null);
   const playmatRef = useRef<HTMLDivElement | null>(null);
+  const duelMenuRef = useRef<HTMLDivElement | null>(null);
+  const duelMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const foeMonsterRowRef = useRef<HTMLDivElement | null>(null);
   const meFloatRef = useRef<HTMLSpanElement | null>(null);
   const foeFloatRef = useRef<HTMLSpanElement | null>(null);
   const zoneEls = useRef(new Map<string, HTMLButtonElement>());
   const prevStateRef = useRef<ChronicleProjection | null>(null);
+  const reactionStateRef = useRef<ChronicleProjection | null>(null);
   const seenLogTail = useRef<string | undefined>(undefined);
+  const seenEventIds = useRef<Set<string> | null>(null);
   const seenStatus = useRef<string | undefined>(undefined);
+  const smartAdvanceKey = useRef<string | null>(null);
   const zoneRef = (zoneKey: string) => (el: HTMLButtonElement | null) => {
     if (el) zoneEls.current.set(zoneKey, el);
     else zoneEls.current.delete(zoneKey);
@@ -186,15 +343,7 @@ export function ChronicleDuelBoard({
   const selected = selectedId
     ? (cardsById[selectedId] ?? getChronicleCard(selectedId))
     : undefined;
-  const inspectedId =
-    inspect?.cardId ??
-    selectedId ??
-    (fieldMonster === null
-      ? undefined
-      : me.monsterZones[fieldMonster]?.cardId) ??
-    (attacker === null ? undefined : me.monsterZones[attacker]?.cardId) ??
-    (target === null ? undefined : foe.monsterZones[target]?.cardId) ??
-    state.activeField?.cardId;
+  const inspectedId = inspect?.cardId ?? selectedId;
   const inspected = inspectedId
     ? (cardsById[inspectedId] ?? getChronicleCard(inspectedId))
     : undefined;
@@ -318,6 +467,27 @@ export function ChronicleDuelBoard({
     ({
       "--chronicle-health": `${Math.max(0, Math.min(100, (points / STARTING_LIFE_POINTS) * 100))}%`,
     }) as CSSProperties;
+  const arenaStyle = { ...fieldStyle } as CSSProperties;
+  const attackingMonster =
+    attacker === null ? null : me.monsterZones[attacker];
+  const directAttackPower =
+    attackingMonster?.faceUp && attackingMonster.attack !== undefined
+      ? attackingMonster.attack
+      : null;
+  const availableAttackers = me.monsterZones.filter(
+    (monster) => monster?.canAttack,
+  ).length;
+  const smartAssistPending =
+    smartAssist &&
+    myTurn &&
+    !busy &&
+    state.phase === "battle" &&
+    availableAttackers === 0;
+  const presentationEvents = state.events ?? EMPTY_PRESENTATION_EVENTS;
+  const duelistNames: Record<SideKey, string> = {
+    [meKey]: me.name,
+    [foeKey]: foe.name,
+  } as Record<SideKey, string>;
 
   useEffect(() => {
     if (!timedTurns) return;
@@ -330,6 +500,35 @@ export function ChronicleDuelBoard({
     const timer = window.setTimeout(() => setForfeitArmed(false), 4_000);
     return () => window.clearTimeout(timer);
   }, [forfeitArmed]);
+
+  useEffect(() => {
+    if (!duelMenuOpen) return;
+    const focusTimer = window.setTimeout(
+      () => duelMenuRef.current?.querySelector<HTMLButtonElement>("button")?.focus(),
+      0,
+    );
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setDuelMenuOpen(false);
+      duelMenuTriggerRef.current?.focus();
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const targetNode = event.target as Node | null;
+      if (
+        targetNode &&
+        !duelMenuRef.current?.contains(targetNode) &&
+        !duelMenuTriggerRef.current?.contains(targetNode)
+      )
+        setDuelMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [duelMenuOpen]);
 
   // Arms the response prompt one beat after its window opens. The id is only
   // written from the timer callback — never in the effect body — and a closed
@@ -347,6 +546,58 @@ export function ChronicleDuelBoard({
   const logTail = state.log.at(-1);
   const logBeforeTail = state.log.at(-2);
   useEffect(() => {
+    const seen = seenEventIds.current;
+    if (!seen) {
+      seenEventIds.current = new Set(
+        presentationEvents.map((event) => event.id),
+      );
+      return;
+    }
+    const freshEvents = presentationEvents.filter(
+      (event) => !seen.has(event.id),
+    );
+    for (const event of freshEvents) seen.add(event.id);
+    const beats = freshEvents
+      .map(presentationForEvent)
+      .filter(
+        (
+          beat,
+        ): beat is {
+          cue: ChronicleSfx;
+          fx: ResolutionFx;
+        } => Boolean(beat),
+      )
+      .slice(-3);
+    if (beats.length === 0) return;
+    const timers: number[] = [];
+    beats.forEach((beat, index) => {
+      timers.push(
+        window.setTimeout(() => {
+          playChronicleSfx(beat.cue);
+          setResolutionFx(beat.fx);
+          if (beat.cue === "destroy") {
+            const mat = playmatRef.current;
+            if (mat) pulseFx(mat, "impact", 450);
+          }
+        }, index * 420),
+      );
+    });
+    timers.push(
+      window.setTimeout(
+        () => setResolutionFx(null),
+        beats.length * 420 + 560,
+      ),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [presentationEvents]);
+
+  useEffect(() => {
+    // Persisted pre-event sessions retain the log classifier as a fallback.
+    // New matches use the typed event stream above.
+    if (state.events !== undefined) {
+      seenLogTail.current = logTail;
+      return;
+    }
     // First render of a board (or a resumed duel) just adopts the current
     // tail — cues only fire for lines that appear while the player watches.
     const primedTail = seenLogTail.current;
@@ -356,25 +607,41 @@ export function ChronicleDuelBoard({
     // A response prompt always lands directly behind the Summon or attack that
     // opened its window, so cue on that event instead: the prompt is an
     // invitation, not a beat, and it must not mute what it is asking about.
-    const cue = classifyChronicleLogLine(
-      /may respond/i.test(logTail) ? (logBeforeTail ?? logTail) : logTail,
-    );
+    const resolvedLine = /may respond/i.test(logTail)
+      ? (logBeforeTail ?? logTail)
+      : logTail;
+    const cue = classifyChronicleLogLine(resolvedLine);
     if (cue) playChronicleSfx(cue);
+    const cinematic = cue ? resolutionCopy(cue, resolvedLine) : null;
+    const showCinematic = cinematic
+      ? window.setTimeout(() => setResolutionFx(cinematic), 0)
+      : undefined;
+    const hideCinematic = cinematic
+      ? window.setTimeout(
+          () => setResolutionFx(null),
+          cinematic.kind === "attack" || cinematic.kind === "destroy"
+            ? 920
+            : 760,
+        )
+      : undefined;
+    let impactTimer: number | undefined;
     if (cue === "destroy") {
       // Imperative class toggle (not state): restarts the CSS animation
       // cleanly on back-to-back destructions.
       const mat = playmatRef.current;
-      if (!mat) return;
-      mat.classList.remove("impact");
-      void mat.offsetWidth;
-      mat.classList.add("impact");
-      const timer = window.setTimeout(
-        () => mat.classList.remove("impact"),
-        450,
-      );
-      return () => window.clearTimeout(timer);
+      if (mat) {
+        mat.classList.remove("impact");
+        void mat.offsetWidth;
+        mat.classList.add("impact");
+        impactTimer = window.setTimeout(() => mat.classList.remove("impact"), 450);
+      }
     }
-  }, [logTail, logBeforeTail]);
+    return () => {
+      if (showCinematic !== undefined) window.clearTimeout(showCinematic);
+      if (hideCinematic !== undefined) window.clearTimeout(hideCinematic);
+      if (impactTimer !== undefined) window.clearTimeout(impactTimer);
+    };
+  }, [state.events, logTail, logBeforeTail]);
 
   useEffect(() => {
     const previous = seenStatus.current;
@@ -401,6 +668,37 @@ export function ChronicleDuelBoard({
     return () => window.clearTimeout(timer);
   }, [showIntro]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setHandIndex(null);
+      setDestination(null);
+      setTarget(null);
+      setTributes([]);
+      setAttacker(null);
+      setFieldMonster(null);
+      setGraveyardIndex(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [state.turnNumber, state.activePlayer]);
+
+  useEffect(() => {
+    if (!smartAssistPending) return;
+    const key = `${state.turnNumber}:${state.activePlayer}:battle-complete`;
+    if (smartAdvanceKey.current === key) return;
+    const timer = window.setTimeout(() => {
+      smartAdvanceKey.current = key;
+      setAttacker(null);
+      setTarget(null);
+      onAction({ action: "enter-main-2" });
+    }, 750);
+    return () => window.clearTimeout(timer);
+  }, [
+    smartAssistPending,
+    state.turnNumber,
+    state.activePlayer,
+    onAction,
+  ]);
+
   // Card motion layer: diff successive projections (player actions and each
   // replayed AI step arrive as separate states) and pulse zone-level
   // animations for what changed. Purely presentational, all imperative.
@@ -423,7 +721,13 @@ export function ChronicleDuelBoard({
           pulseFx(el, "fx-arrive", 540);
         else if (monster && was && !was.faceUp && monster.faceUp)
           pulseFx(el, "fx-flip", 500);
-        else if (!monster && was) pulseFx(el, "fx-destroyed", 580);
+        else if (!monster && was) {
+          const card = was.cardId
+            ? (cardsById[was.cardId] ?? getChronicleCard(was.cardId))
+            : undefined;
+          spawnCardGhost(el, card?.image, prefix);
+          pulseFx(el, "fx-destroyed", 580);
+        }
       });
       now.magicTrapZones.forEach((zone, index) => {
         const was = before.magicTrapZones[index];
@@ -432,7 +736,13 @@ export function ChronicleDuelBoard({
           pulseFx(el, "fx-arrive", 540);
         else if (zone && was && !was.faceUp && zone.faceUp)
           pulseFx(el, "fx-flip", 500);
-        else if (!zone && was) pulseFx(el, "fx-destroyed", 580);
+        else if (!zone && was) {
+          const card = was.cardId
+            ? (cardsById[was.cardId] ?? getChronicleCard(was.cardId))
+            : undefined;
+          spawnCardGhost(el, card?.image, prefix);
+          pulseFx(el, "fx-destroyed", 580);
+        }
       });
       spawnLifeFloat(floatAnchor, now.lifePoints - before.lifePoints);
     }
@@ -447,7 +757,38 @@ export function ChronicleDuelBoard({
       state.activePlayer === foeKey
     )
       pulseFx(foeMonsterRowRef.current, "fx-row-strike", 440);
-  }, [state, meKey, foeKey]);
+  }, [state, meKey, foeKey, cardsById]);
+
+  useEffect(() => {
+    const previous = reactionStateRef.current;
+    reactionStateRef.current = state;
+    if (!previous || previous === state) return;
+    const meDelta = me.lifePoints - previous[meKey].lifePoints;
+    const foeDelta = foe.lifePoints - previous[foeKey].lifePoints;
+    const changed =
+      meDelta !== 0
+        ? {
+            side: "me" as const,
+            kind: meDelta < 0 ? ("damage" as const) : ("heal" as const),
+            name: me.name,
+            amount: Math.abs(meDelta),
+          }
+        : foeDelta !== 0
+          ? {
+              side: "foe" as const,
+              kind: foeDelta < 0 ? ("damage" as const) : ("heal" as const),
+              name: foe.name,
+              amount: Math.abs(foeDelta),
+            }
+          : null;
+    if (!changed) return;
+    const show = window.setTimeout(() => setReaction(changed), 0);
+    const hide = window.setTimeout(() => setReaction(null), 1_450);
+    return () => {
+      window.clearTimeout(show);
+      window.clearTimeout(hide);
+    };
+  }, [state, me, foe, meKey, foeKey]);
 
   useEffect(() => {
     if (!zoomedCard) return;
@@ -486,63 +827,43 @@ export function ChronicleDuelBoard({
     setGraveyardIndex(null);
     setInspect(null);
     setForfeitArmed(false);
-  }
-
-  /** The next-step intent a phase-rail chip triggers, or null when that chip
-   *  is not a legal jump from the current phase. */
-  function phaseJumpIntent(phaseId: string): ChronicleActionIntent | null {
-    if (!myTurn || busy) return null;
-    switch (state.phase) {
-      case "draw":
-        return phaseId === "standby" ? { action: "advance-phase" } : null;
-      case "standby":
-        return phaseId === "main1" ? { action: "advance-phase" } : null;
-      case "main1":
-        if (phaseId === "battle")
-          return state.turnNumber === 1 &&
-            state.activePlayer === state.firstPlayer
-            ? null
-            : { action: "start-battle" };
-        return phaseId === "end" ? { action: "enter-end-phase" } : null;
-      case "battle":
-        return phaseId === "main2" ? { action: "enter-main-2" } : null;
-      case "main2":
-        return phaseId === "end" ? { action: "enter-end-phase" } : null;
-      default:
-        return null;
-    }
+    setDuelMenuOpen(false);
   }
 
   const responseForMe =
     state.responseWindow?.responder === meKey &&
     readyResponseId === responseWindowId;
+  const responseOwner = state.responseWindow
+    ? state[state.responseWindow.responder].name
+    : null;
   return (
     <section
-      className={`chronicle-table ${state.activeField ? "has-field" : ""} ${aiActing ? "ai-acting" : ""}`}
-      style={fieldStyle}
+      className={`chronicle-table ${state.activeField ? "has-field" : ""} ${aiActing ? "ai-acting" : ""} ${attacker !== null ? "targeting-attack" : ""} ${resolutionFx ? `resolving-${resolutionFx.kind}` : ""} ${inspected ? "inspector-open" : ""}`}
+      style={arenaStyle}
+      data-field={state.activeField?.fieldId ?? "neutral"}
+      data-attacker={attacker ?? undefined}
       aria-label="Shinobi Journey Chronicle Showdown board"
     >
       <div className="chronicle-room-banner">
         <span>CODEX HALL</span>
         <strong>{CHRONICLE_ROOM_TITLE}</strong>
-        <small>
-          Founding card pool · Sealed Limited Scroll
-          <button
-            type="button"
-            className="chronicle-sfx-toggle"
-            aria-pressed={!sfxMuted}
-            aria-label={sfxMuted ? "Unmute duel sounds" : "Mute duel sounds"}
-            title={sfxMuted ? "Unmute duel sounds" : "Mute duel sounds"}
-            onClick={() => {
-              const next = !sfxMuted;
-              setChronicleSfxMuted(next);
-              setSfxMuted(next);
-              if (!next) playChronicleSfx("draw");
-            }}
-          >
-            {sfxMuted ? "🔇" : "🔊"}
-          </button>
-        </small>
+        <div className="chronicle-room-banner__actions">
+          <small>Founding card pool · Sealed Limited Scroll</small>
+          {onExit ? (
+            <button type="button" onClick={onExit}>
+              {exitLabel}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="chronicle-sr-only" aria-live="polite">
+        {attacker !== null && attackingMonster?.cardId
+          ? `${(cardsById[attackingMonster.cardId] ?? getChronicleCard(attackingMonster.cardId))?.name ?? "Monster"} selected to attack. Focus an opponent Monster to hear its projected visible-stat outcome.`
+          : smartAssistPending
+            ? "All legal attacks are complete. Smart Phase Assist is moving to Main Phase 2."
+            : state.responseWindow
+              ? `${responseOwner} has Snare priority.`
+              : ""}
       </div>
       <header className="chronicle-duel-status">
         <div className="chronicle-combatant">
@@ -603,9 +924,16 @@ export function ChronicleDuelBoard({
           <b>+{foe.handCount - opponentHandBacks.length}</b>
         ) : null}
       </div>
-      <ol className="chronicle-phase-rail" aria-label="Turn phases">
+      <ol
+        className="chronicle-phase-rail"
+        aria-label="Turn phases"
+        style={
+          {
+            "--chronicle-phase-progress": `${((Math.max(0, phaseIndex) + 0.5) / CHRONICLE_FOUNDING_FORMAT.phases.length) * 100}%`,
+          } as CSSProperties
+        }
+      >
         {CHRONICLE_FOUNDING_FORMAT.phases.map((phase, index) => {
-          const jump = phaseJumpIntent(phase.id);
           return (
             <li
               key={phase.id}
@@ -615,62 +943,77 @@ export function ChronicleDuelBoard({
                   : index < phaseIndex
                     ? "passed"
                     : ""
-              } ${jump ? "jumpable" : ""}`}
+              }`}
               aria-current={index === phaseIndex ? "step" : undefined}
             >
-              {jump ? (
-                <button
-                  type="button"
-                  className="chronicle-phase-jump"
-                  title={`Advance to ${phase.label}`}
-                  onClick={() => act(jump)}
-                >
-                  <b>{phase.shortLabel}</b>
-                  <span>{phase.label}</span>
-                </button>
-              ) : (
-                <>
-                  <b>{phase.shortLabel}</b>
-                  <span>{phase.label}</span>
-                </>
-              )}
+              <b>{phase.shortLabel}</b>
+              <span>{phase.label}</span>
             </li>
           );
         })}
       </ol>
 
       <div className="chronicle-duel-stage">
-        <aside
-          className="chronicle-card-detail-panel"
-          aria-label="Card details"
-        >
-          <span className="eyebrow">CARD DETAILS</span>
-          {inspected ? (
-            <>
+        {inspected ? (
+          <aside
+            className="chronicle-card-detail-panel open"
+            aria-label="Card details"
+          >
+            <div className="chronicle-card-detail-panel__header">
+              <span className="eyebrow">CARD DETAILS</span>
               <button
                 type="button"
-                className="chronicle-card-detail-panel__zoom"
-                onClick={() => setZoomedCardId(inspected.id)}
-                aria-label={`Enlarge ${inspected.name}`}
+                aria-label="Close card details"
+                onClick={() => {
+                  setInspect(null);
+                  setHandIndex(null);
+                  setFieldMonster(null);
+                  setAttacker(null);
+                  setTarget(null);
+                }}
               >
-                <ChronicleCardView card={inspected} />
-                <span>Open readable card</span>
+                Close
               </button>
-              <strong>{inspected.name}</strong>
-              <small>
-                {inspected.cardClass === "monster"
-                  ? `Level ${inspected.level} ${inspected.element} ${inspected.monsterType} Monster`
-                  : `${inspected.cardClass === "magic" ? inspected.magicType : inspected.trapType} ${inspected.cardClass}`}
-              </small>
-            </>
-          ) : (
-            <div className="chronicle-card-detail-panel__empty">
-              Select a card or Monster to inspect it.
             </div>
-          )}
-        </aside>
+            <button
+              type="button"
+              className="chronicle-card-detail-panel__zoom"
+              onClick={() => setZoomedCardId(inspected.id)}
+              aria-label={`Enlarge ${inspected.name}`}
+            >
+              <ChronicleCardView card={inspected} />
+              <span>Open readable card</span>
+            </button>
+            <strong>{inspected.name}</strong>
+            <small>
+              {inspected.cardClass === "monster"
+                ? `Level ${inspected.level} ${inspected.element} ${inspected.monsterType} Monster`
+                : `${inspected.cardClass === "magic" ? inspected.magicType : inspected.trapType} ${inspected.cardClass}`}
+            </small>
+          </aside>
+        ) : null}
 
-        <div className="chronicle-playmat" ref={playmatRef}>
+        <div
+          className={`chronicle-playmat ${attacker !== null ? "targeting" : ""}`}
+          ref={playmatRef}
+        >
+          <div className="chronicle-atmosphere" aria-hidden="true">
+            {Array.from({ length: 9 }, (_, index) => (
+              <i key={index} style={{ "--particle": index } as CSSProperties} />
+            ))}
+          </div>
+          {attacker !== null ? (
+            <span className="chronicle-targeting-lane" aria-hidden="true" />
+          ) : null}
+          {resolutionFx ? (
+            <div
+              className={`chronicle-resolution-fx ${resolutionFx.kind}`}
+              aria-hidden="true"
+            >
+              <i />
+              <b>{resolutionFx.label}</b>
+            </div>
+          ) : null}
           <span className="chronicle-side-label opponent">OPPONENT FIELD</span>
           <div
             className="chronicle-zone-row opponent backrow"
@@ -716,13 +1059,19 @@ export function ChronicleDuelBoard({
             {foe.monsterZones.map((monster, index) => {
               const zoneKey = `foe-monster-${index}`;
               const legalMagicTarget = legalOpponentMagicTarget(monster);
+              const preview =
+                attacker !== null
+                  ? previewChronicleBattle(state, attacker, index)
+                  : null;
+              const previewId = `chronicle-target-preview-${index}`;
               // With an attacker armed, clicking an enemy Monster strikes it
               // immediately — no separate confirm button.
               const attackTarget =
                 myTurn &&
                 state.phase === "battle" &&
                 attacker !== null &&
-                Boolean(monster);
+                Boolean(monster) &&
+                preview?.legal !== false;
               const magicTarget =
                 myTurn &&
                 targetsOpponentMonster &&
@@ -735,6 +1084,11 @@ export function ChronicleDuelBoard({
                   ref={zoneRef(zoneKey)}
                   className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${magicTarget || attackTarget ? "legal-target" : ""} ${target === index && magicTarget ? "selected" : ""} ${!attackTarget && !magicTarget && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
+                  aria-describedby={
+                    attacker !== null && monster && preview
+                      ? previewId
+                      : undefined
+                  }
                   onClick={() => {
                     if (attackTarget) {
                       pulseFx(
@@ -770,6 +1124,15 @@ export function ChronicleDuelBoard({
                           ? ` | ${monster.position === "attack" ? monster.attack : monster.defense}`
                           : " | HIDDEN"}
                       </small>
+                      {attacker !== null && preview ? (
+                        <span
+                          id={previewId}
+                          className={`chronicle-target-preview ${preview.kind}`}
+                          title={preview.note}
+                        >
+                          {preview.label}
+                        </span>
+                      ) : null}
                     </>
                   ) : (
                     <span>MONSTER {index + 1}</span>
@@ -821,8 +1184,19 @@ export function ChronicleDuelBoard({
             </div>
             <div className="chronicle-battle-message" aria-live="polite">
               <span className="eyebrow">LATEST ACTION</span>
-              <strong key={`${state.log.length}-${state.log.at(-1) ?? ""}`}>
-                {state.log.at(-1) ?? "The duel begins."}
+              <strong
+                key={
+                  presentationEvents.at(-1)?.id ??
+                  `${state.log.length}-${state.log.at(-1) ?? ""}`
+                }
+              >
+                {presentationEvents.length
+                  ? eventTimelineCopy(
+                      presentationEvents.at(-1)!,
+                      cardsById,
+                      duelistNames,
+                    )
+                  : (state.log.at(-1) ?? "The duel begins.")}
               </strong>
             </div>
           </div>
@@ -838,6 +1212,11 @@ export function ChronicleDuelBoard({
                 selected?.cardClass === "magic" &&
                 (!targetsOwnedMonster || !legalMagicTarget);
               const canInspect = Boolean(monster?.cardId);
+              const attackCandidate =
+                myTurn &&
+                state.phase === "battle" &&
+                attacker === null &&
+                Boolean(monster?.canAttack);
               // An open zone is somewhere the picked Monster can land; an
               // occupied one is a Tribute candidate when its Level demands one.
               const placementTarget = placements.monsterZones.includes(index);
@@ -846,7 +1225,7 @@ export function ChronicleDuelBoard({
                 <button
                   type="button"
                   ref={zoneRef(zoneKey)}
-                  className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${placementTarget || tributeTarget || (targetsOwnedMonster && legalMagicTarget) ? "legal-target" : ""} ${placementTarget ? "placement-open" : ""} ${(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
+                  className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${placementTarget || tributeTarget || (targetsOwnedMonster && legalMagicTarget) || attackCandidate ? "legal-target" : ""} ${attackCandidate ? "attack-candidate" : ""} ${placementTarget ? "placement-open" : ""} ${(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
                   onClick={() => {
                     const interactive = myTurn && !blockedByMagicSelection;
@@ -982,8 +1361,9 @@ export function ChronicleDuelBoard({
         </aside>
       </div>
 
-      <div className="chronicle-player-bar">
-        <div className="chronicle-combatant">
+      <div className="chronicle-player-console">
+        <div className="chronicle-player-bar">
+          <div className="chronicle-combatant">
           <ChronicleDuelistAvatar name={me.name} avatar={playerAvatar} />
           <div className="chronicle-combatant__identity">
             <span className="eyebrow">CHALLENGER</span>
@@ -1005,20 +1385,32 @@ export function ChronicleDuelBoard({
             </div>
           </div>
         </div>
-        <div>
-          <span>Deck {me.deckCount}</span>
-          <span>Grave {me.graveyard.length}</span>
+          <div>
+            <span>Deck {me.deckCount}</span>
+            <span>Grave {me.graveyard.length}</span>
+          </div>
         </div>
-      </div>
-      {error ? (
-        <div className="chronicle-error" role="alert">
-          {error}
+        {error ? (
+          <div className="chronicle-error" role="alert">
+            {error}
+          </div>
+        ) : null}
+
+      {state.responseWindow && !responseForMe ? (
+        <div className="chronicle-response-waiting" role="status" aria-live="polite">
+          <span>SNARE PRIORITY</span>
+          <strong>
+            {state.responseWindow.responder === meKey
+              ? "Opening your response options"
+              : `${responseOwner} is deciding`}
+          </strong>
+          {timedTurns ? <b>{secondsRemaining}s</b> : <i />}
         </div>
       ) : null}
 
       {responseForMe ? (
         <div
-          className="chronicle-actions response"
+          className="chronicle-actions chronicle-command-dock response"
           role="group"
           aria-label="Snare response"
         >
@@ -1032,6 +1424,7 @@ export function ChronicleDuelBoard({
             const id = me.magicTrapZones[zoneIndex]?.cardId;
             return (
               <button
+                className="primary"
                 key={zoneIndex}
                 disabled={busy}
                 onClick={() => act({ action: "activate-trap", zoneIndex })}
@@ -1041,6 +1434,7 @@ export function ChronicleDuelBoard({
             );
           })}
           <button
+            className="secondary"
             disabled={busy}
             onClick={() => act({ action: "pass-response" })}
           >
@@ -1074,24 +1468,38 @@ export function ChronicleDuelBoard({
 
       {myTurn ? (
         <div
-          className="chronicle-actions"
+          className="chronicle-actions chronicle-command-dock"
           role="group"
           aria-label="Duel actions"
         >
+          <div className="chronicle-command-context">
+            <span>{phaseMeta?.label ?? state.phase}</span>
+            <strong>
+              {selected
+                ? selected.name
+                : attacker !== null
+                  ? "Choose a target"
+                  : state.phase === "battle"
+                    ? "Select an attacker"
+                    : "Your move"}
+            </strong>
+          </div>
           {state.phase === "draw" ? (
             <button
+              className="primary"
               disabled={busy}
               onClick={() => act({ action: "advance-phase" })}
             >
-              Standby Phase
+              Continue
             </button>
           ) : null}
           {state.phase === "standby" ? (
             <button
+              className="primary"
               disabled={busy}
               onClick={() => act({ action: "advance-phase" })}
             >
-              Main Phase 1
+              Continue
             </button>
           ) : null}
           {selected?.cardClass === "monster" && main ? (
@@ -1115,7 +1523,7 @@ export function ChronicleDuelBoard({
                 </button>
               ))}
               <button
-                className="summon-attack"
+                className="summon-attack primary"
                 disabled={
                   busy ||
                   state.normalSummonUsed ||
@@ -1134,7 +1542,7 @@ export function ChronicleDuelBoard({
                 Play Face-Up Attack
               </button>
               <button
-                className="summon-defense"
+                className="summon-defense secondary"
                 disabled={
                   busy ||
                   state.normalSummonUsed ||
@@ -1172,6 +1580,7 @@ export function ChronicleDuelBoard({
                             : "Click a glowing opponent Monster to target it."}
               </span>
               <button
+                className="primary"
                 disabled={
                   busy ||
                   !selectedMagicTargetReady ||
@@ -1200,6 +1609,7 @@ export function ChronicleDuelBoard({
                   : `Jutsu/Snare Zone ${destination + 1} chosen — set the Snare face-down.`}
               </span>
               <button
+                className="primary"
                 disabled={busy || destination === null}
                 onClick={() =>
                   act({
@@ -1220,6 +1630,7 @@ export function ChronicleDuelBoard({
             <>
               {!me.monsterZones[fieldMonster]?.faceUp ? (
                 <button
+                  className="primary"
                   disabled={
                     busy || !me.monsterZones[fieldMonster]?.canFlipSummon
                   }
@@ -1232,6 +1643,7 @@ export function ChronicleDuelBoard({
               ) : null}
               {me.monsterZones[fieldMonster]?.faceUp ? (
                 <button
+                  className="secondary"
                   disabled={
                     busy || !me.monsterZones[fieldMonster]?.canChangePosition
                   }
@@ -1257,6 +1669,7 @@ export function ChronicleDuelBoard({
           {state.phase === "main1" ? (
             <>
               <button
+                className="primary"
                 disabled={
                   busy ||
                   (state.turnNumber === 1 &&
@@ -1264,26 +1677,30 @@ export function ChronicleDuelBoard({
                 }
                 onClick={() => act({ action: "start-battle" })}
               >
-                Battle Phase
+                Start Attacking
               </button>
               <button
+                className="secondary"
                 disabled={busy}
                 onClick={() => act({ action: "enter-end-phase" })}
               >
-                End Phase
+                End Turn
               </button>
             </>
           ) : null}
           {state.phase === "battle" ? (
             <>
               <span className="chronicle-placement-help">
-                {attacker === null
+                {smartAssistPending
+                  ? "All legal strikes are complete — Smart Phase Assist is opening Main Phase 2."
+                  : attacker === null
                   ? "Choose one of your Monsters that can still strike."
                   : foe.monsterZones.some(Boolean)
                     ? "Now click an enemy Monster to strike it."
                     : "No defenders remain — strike directly."}
               </span>
               <button
+                className="primary"
                 disabled={
                   busy || attacker === null || foe.monsterZones.some(Boolean)
                 }
@@ -1300,47 +1717,100 @@ export function ChronicleDuelBoard({
                   });
                 }}
               >
-                Direct Attack
+                {directAttackPower === null
+                  ? "Direct Attack"
+                  : `Direct Attack · ${directAttackPower.toLocaleString()}`}
               </button>
               <button
-                disabled={busy}
+                className="secondary"
+                disabled={busy || smartAssistPending}
                 onClick={() => act({ action: "enter-main-2" })}
               >
-                Main Phase 2
+                {smartAssistPending ? "Advancing…" : "Finish Attacking"}
               </button>
             </>
           ) : null}
           {state.phase === "main2" ? (
             <button
+              className="primary"
               disabled={busy}
               onClick={() => act({ action: "enter-end-phase" })}
             >
-              End Phase
+              End Turn
             </button>
           ) : null}
           {state.phase === "end" ? (
-            <button disabled={busy} onClick={() => act({ action: "end-turn" })}>
-              Pass Turn
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() => act({ action: "end-turn" })}
+            >
+              Finish Turn
             </button>
           ) : null}
-          <button
-            className={`danger ${forfeitArmed ? "armed" : ""}`}
-            disabled={busy}
-            onClick={() => {
-              if (!forfeitArmed) {
-                setForfeitArmed(true);
-                return;
-              }
-              act({ action: "forfeit" });
-            }}
-          >
-            {forfeitArmed ? "Confirm forfeit?" : "Forfeit"}
-          </button>
         </div>
       ) : null}
+        <div className="chronicle-duel-utility">
+          <button
+            ref={duelMenuTriggerRef}
+            type="button"
+            className="chronicle-utility-trigger"
+            aria-label="Match options"
+            aria-expanded={duelMenuOpen}
+            aria-controls="chronicle-match-options"
+            onClick={() => setDuelMenuOpen((open) => !open)}
+          >
+            Match options
+          </button>
+          <div
+            ref={duelMenuRef}
+            id="chronicle-match-options"
+            className="chronicle-utility-menu"
+            hidden={!duelMenuOpen}
+          >
+            <strong>Match options</strong>
+            <button
+              type="button"
+              aria-pressed={sfxMuted}
+              onClick={() => {
+                const next = !sfxMuted;
+                setChronicleSfxMuted(next);
+                setSfxMuted(next);
+                if (!next) playChronicleSfx("draw");
+              }}
+            >
+              {sfxMuted ? "Turn sound on" : "Mute duel sounds"}
+            </button>
+            <button
+              type="button"
+              aria-pressed={smartAssist}
+              onClick={() => {
+                const next = !smartAssist;
+                setSmartAssist(next);
+                writeSmartAssist(next);
+              }}
+            >
+              Smart Phase Assist: {smartAssist ? "On" : "Off"}
+            </button>
+            <button
+              className={`danger ${forfeitArmed ? "armed" : ""}`}
+              disabled={busy || state.status !== "active"}
+              onClick={() => {
+                if (!forfeitArmed) {
+                  setForfeitArmed(true);
+                  return;
+                }
+                act({ action: "forfeit" });
+              }}
+            >
+              {forfeitArmed ? "Confirm forfeit?" : "Forfeit"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="chronicle-graveyards">
-        <details>
+        <details open={targetsGraveyard || undefined}>
           <summary>Your Graveyard ({me.graveyard.length})</summary>
           <div>
             {me.graveyard.map((id, index) => (
@@ -1383,14 +1853,57 @@ export function ChronicleDuelBoard({
       </div>
 
       <details className="chronicle-log">
-        <summary>Battle log</summary>
-        {state.log
-          .slice()
-          .reverse()
-          .map((line, index) => (
-            <p key={index}>{line}</p>
-          ))}
+        <summary>
+          {presentationEvents.length ? "Match timeline" : "Battle log"}
+        </summary>
+        {presentationEvents.length
+          ? presentationEvents
+              .slice()
+              .reverse()
+              .map((event) => (
+                <p key={event.id} data-event={event.kind}>
+                  <b>T{event.turnNumber}</b>{" "}
+                  {eventTimelineCopy(event, cardsById, duelistNames)}
+                </p>
+              ))
+          : state.log
+              .slice()
+              .reverse()
+              .map((line, index) => <p key={index}>{line}</p>)}
+        {presentationEvents.length ? (
+          <details className="chronicle-log__transcript">
+            <summary>Rules transcript</summary>
+            {state.log
+              .slice()
+              .reverse()
+              .map((line, index) => (
+                <p key={index}>{line}</p>
+              ))}
+          </details>
+        ) : null}
       </details>
+
+      {reaction ? (
+        <div
+          className={`chronicle-duelist-cut-in ${reaction.side} ${reaction.kind}`}
+          role="status"
+          aria-live="polite"
+        >
+          <ChronicleDuelistAvatar
+            name={reaction.name}
+            avatar={reaction.side === "me" ? playerAvatar : opponentAvatar}
+            opponent={reaction.side === "foe"}
+          />
+          <span>
+            <small>{reaction.kind === "damage" ? "DIRECT HIT" : "RECOVERY"}</small>
+            <strong>{reaction.name}</strong>
+            <b>
+              {reaction.kind === "damage" ? "-" : "+"}
+              {reaction.amount.toLocaleString()} HP
+            </b>
+          </span>
+        </div>
+      ) : null}
 
       {showIntro ? (
         <div className="chronicle-splash intro" aria-hidden="true">
