@@ -147,23 +147,72 @@ export const SECTOR_PLACES: readonly SectorPlace[] = [
     { id: 59, name: 'Northroad Saddle', region: 'lavafront', biome: 'volcano', artKey: 2 },
     { id: 60, name: 'Obsidian Forecourt', region: 'lavafront', biome: 'volcano', artKey: 52 },
 
+    // ── The 2026-07-29 expansion (61-66) ─────────────────────────────────────
+    // Six sectors filling the emptiest land on the new keyart. They are APPENDED
+    // rather than slotted into their region's block, because ids 1-60 are all
+    // spoken for and renumbering again would mean another save migration — so
+    // these regions own two id ranges each (the block test allows that). No
+    // migration is needed for these: nothing in any existing save can reference
+    // an id that did not exist.
+    //
+    // They share a same-biome sibling's floor art via artKey until bespoke art
+    // is generated (the Phase 4 regen beat) — so `artKey` is no longer unique.
+    { id: 61, name: 'Westfurrow Fields', region: 'midlands', biome: 'central', artKey: 28 },
+    { id: 62, name: 'Greycliff Landing', region: 'midlands', biome: 'central', artKey: 29 },
+    { id: 63, name: 'Tallgrass Bend', region: 'festival', biome: 'central', artKey: 33 },
+    { id: 64, name: 'Lantern Vigil', region: 'hollowroad', biome: 'shadow', artKey: 12 },
+    { id: 65, name: 'Eastwind Cirque', region: 'frostfang', biome: 'snow', artKey: 46 },
+    { id: 66, name: 'Emberspine Ridge', region: 'lavafront', biome: 'volcano', artKey: 7 },
+
     // ── Death's Gate (99) ── the lava arena; number unchanged, map-travel-only
     { id: 99, name: 'The Lavafront Gate', region: 'deathsgate', biome: 'volcano', artKey: 99 },
 ];
 
+/**
+ * Highest normal (walkable, map-listed) sector id. Sector 99 sits outside this
+ * range as a special. This is the SINGLE SOURCE for "is this a real sector?" —
+ * before it existed, `<= 60` was hardcoded in a dozen validators and adding a
+ * sector silently broke travel/traces/territory in the new ground.
+ */
+export const MAX_WILD_SECTOR = 66;
+
+/** Every normal sector id, ascending (1..MAX_WILD_SECTOR). Excludes 0 and 99. */
+export const WILD_SECTOR_IDS: readonly number[] =
+    Array.from({ length: MAX_WILD_SECTOR }, (_, i) => i + 1);
+
+/** True for a normal wilderness sector id (not the village 0, not Death's Gate). */
+export function isWildSector(sector: number): boolean {
+    return Number.isInteger(sector) && sector >= 1 && sector <= MAX_WILD_SECTOR;
+}
+
 const PLACE_BY_ID: ReadonlyMap<number, SectorPlace> = new Map(SECTOR_PLACES.map((p) => [p.id, p]));
 
 /** OLD sector number → NEW sector number (the 2026-07 renumbering, 99→99). */
+/**
+ * Highest sector id that existed in the PRE-renumbering world. `artKey` doubles
+ * as a place's old id for these — which is why the two maps below can be derived
+ * from it — but only for these. Sectors added later (61+, appended by the
+ * 2026-07-29 expansion) have NO old id, and they may SHARE a sibling's artKey
+ * for art; letting them into these maps would overwrite a real legacy entry and
+ * silently migrate old saves to the wrong sector.
+ */
+const LEGACY_WILD_MAX = 60;
+
+/** True for a sector that existed before the renumbering (so it has an old id). */
+function hasLegacyIdentity(id: number): boolean {
+    return id === 99 || (id >= 1 && id <= LEGACY_WILD_MAX);
+}
+
 export const OLD_TO_NEW_SECTOR: Readonly<Record<number, number>> = (() => {
     const m: Record<number, number> = {};
-    for (const p of SECTOR_PLACES) m[p.artKey] = p.id;
+    for (const p of SECTOR_PLACES) if (hasLegacyIdentity(p.id)) m[p.artKey] = p.id;
     return m;
 })();
 
 /** NEW sector number → OLD sector number (= artKey). */
 export const NEW_TO_OLD_SECTOR: Readonly<Record<number, number>> = (() => {
     const m: Record<number, number> = {};
-    for (const p of SECTOR_PLACES) m[p.id] = p.artKey;
+    for (const p of SECTOR_PLACES) if (hasLegacyIdentity(p.id)) m[p.id] = p.artKey;
     return m;
 })();
 

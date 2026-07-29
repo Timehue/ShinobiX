@@ -20,6 +20,7 @@ import { CW_DAMAGE } from "../constants/clan";
 import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_DAILY_WAR_SUPPLY, TERRITORY_HP_MAX, TERRITORY_SUPPLY_INTERVAL_MS, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
+import { isWildSector, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 import { warCrateServerAuthEnabled } from "./war-crate-flag";
 import { isServerSettlementReady } from "./server-settlement-gate";
 import { biomeWeatherTables } from "../data/world";
@@ -369,7 +370,7 @@ export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerr
     const territories: Record<number, SectorTerritory> = {};
     (data.territories ?? []).forEach(territory => {
         const sector = Math.floor(Number(territory?.sector ?? 0));
-        if (sector >= 1 && sector <= 60) {
+        if (isWildSector(sector)) {
             territories[sector] = normalizeSectorTerritory(sector, territory);
         }
     });
@@ -1285,7 +1286,7 @@ function produceSectorWarSupply(territory: SectorTerritory) {
 }
 
 export function loadAllSectorTerritories() {
-    return Array.from({ length: 60 }, (_, index) => loadSectorTerritory(index + 1));
+    return WILD_SECTOR_IDS.map((sector) => loadSectorTerritory(sector));
 }
 
 export function clanOwnedTerritories(clanName?: string) {

@@ -23,6 +23,7 @@
  */
 
 import { SECTOR_POINTS } from "../data/sector-points";
+import { isWildSector } from "../../../shared/sector-geo";
 
 // Default ON for everyone (opt-out per-device with localStorage
 // `weeklyBossRoam.v1 = "off"`), matching the wanderers.v1 convention. The whole
@@ -62,10 +63,10 @@ export const WEEKLY_BOSS_TRAIL_LEN = 4;
 // never dead-ends (every sector always has K neighbours).
 const ROAM_NEIGHBOR_K = 5;
 
-// The boss roams the 60 standard sectors. Sector 99 (the special lava-arena slot)
+// The boss roams every standard sector. Sector 99 (the special lava-arena slot)
 // is excluded — it isn't a normal overworld destination.
 const ROAM_SECTOR_IDS: readonly number[] = SECTOR_POINTS
-    .filter((p) => p.id >= 1 && p.id <= 60)
+    .filter((p) => isWildSector(p.id))
     .map((p) => p.id);
 
 export type WeeklyBossRoamInput = {
@@ -125,7 +126,7 @@ function hopRand(seed: number, hop: number): number {
 // precomputed once. Distance ties break by lower id so the graph is fully
 // deterministic (identical on every client).
 const NEIGHBORS: ReadonlyMap<number, readonly number[]> = (() => {
-    const pts = SECTOR_POINTS.filter((p) => p.id >= 1 && p.id <= 60);
+    const pts = SECTOR_POINTS.filter((p) => isWildSector(p.id));
     const map = new Map<number, number[]>();
     for (const a of pts) {
         const near = pts
