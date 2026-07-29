@@ -5,7 +5,7 @@ import {
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
     parseRiftQuestSeal,
 } from './_rift-quest.js';
-import { CASTLE_SECTORS, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { CASTLE_SECTORS, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 type ClientChoice = { text: string; conclusion?: string; accept?: boolean; descend?: boolean };
 type ClientPage = { title: string; scene: string; speaker: string; dialogue: string[]; choices?: ClientChoice[] };
@@ -46,9 +46,25 @@ test('riftTargetSector is deterministic, wilderness-ranged, and skips safe hubs'
     for (const player of ['Aki', 'Rill', 'ZZZ', 'a', 'player-two']) {
         const s = riftTargetSector(player, 'rift-hollow-stalker');
         assert.equal(s, riftTargetSector(player, 'rift-hollow-stalker'), 'stable per call');
-        assert.ok(s >= 1 && s <= 60, `${player}: ${s} in 1..60`);
+        assert.ok(s >= 1 && s <= MAX_WILD_SECTOR, `${player}: ${s} in 1..${MAX_WILD_SECTOR}`);
         assert.ok(!skip.has(s), `${player}: ${s} not an outskirts/castle sector`);
     }
+});
+
+test('rifts can open in EVERY eligible sector, including ones added after launch', () => {
+    // The draw spans MAX_WILD_SECTOR. Sweep enough players to show the range is
+    // genuinely reachable — otherwise a stale `% 60` would pass unnoticed as long
+    // as the handful of sampled names happened to draw low.
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    const hit = new Set<number>();
+    for (let i = 0; i < 4000; i += 1) hit.add(riftTargetSector(`sweep-${i}`, 'rift-hollow-stalker'));
+    for (const s of hit) {
+        assert.ok(s >= 1 && s <= MAX_WILD_SECTOR, `${s} inside the wild range`);
+        assert.ok(!skip.has(s), `${s} is never a safe hub`);
+    }
+    const eligible = Array.from({ length: MAX_WILD_SECTOR }, (_, i) => i + 1).filter((s) => !skip.has(s));
+    assert.deepEqual([...hit].sort((a, b) => a - b), eligible, 'every eligible sector is reachable');
+    assert.ok(hit.has(MAX_WILD_SECTOR), 'the newest sector really can host a rift');
 });
 
 test('the daily cap + cooldown are sane', () => {
@@ -59,6 +75,10 @@ test('the daily cap + cooldown are sane', () => {
 test('parseRiftQuestSeal round-trips a stamped seal and remaps a pre-reorg one', () => {
     const seal = { id: 'rift-hollow-stalker', targetSector: 22, baseline: 7, at: 1_700_000_000_000, geoV: WORLD_GEO_VERSION };
     assert.deepEqual(parseRiftQuestSeal(seal), seal);
+    // A current seal in a post-expansion sector must SURVIVE — the draw can land
+    // there, so rejecting it would silently void an in-flight rift.
+    const newest = { ...seal, targetSector: MAX_WILD_SECTOR };
+    assert.deepEqual(parseRiftQuestSeal(newest), newest);
     // A seal written before the 2026-07 renumbering (no geoV) carries an OLD
     // sector number — parse remaps it once and re-stamps. `at` defaults to 0
     // for the oldest KV writes.
@@ -74,7 +94,12 @@ test('parseRiftQuestSeal rejects malformed / unknown seals', () => {
     assert.equal(parseRiftQuestSeal([]), null);
     assert.equal(parseRiftQuestSeal({ id: 'not-a-rift', targetSector: 5, baseline: 1 }), null);
     assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 0, baseline: 1 }), null);   // sector < 1
-    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 61, baseline: 1 }), null);  // sector > 60
+    // Past the current world: rejected outright.
+    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: MAX_WILD_SECTOR + 1, baseline: 1 }), null);
+    // A PRE-reorg seal (no geoV) carries an OLD id, and the old world stopped at
+    // 60 — so a legacy seal naming a post-expansion sector has no old counterpart
+    // and must not be resurrected as a current id.
+    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 61, baseline: 1 }), null);
     assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 5, baseline: NaN }), null);
     assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 5, baseline: 1, at: -1 }), null);
 });
