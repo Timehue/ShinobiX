@@ -20,13 +20,13 @@ export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "The corridor breathes. Far below, something answers.",
     ],
     battle: [
-        "A corrupted shinobi rises from the chakra mist — eyes hollow, jutsu unstable.",
-        "Hollow Gate echoes shape themselves into a shadow-bound ronin.",
-        "Glowing pawprints stop here. From the dark, a shinobi steps forward, blade drawn.",
+        "A Hollow Hound rises from the chakra mist — eyes burning blue, fangs wet with shadow.",
+        "Hollow Gate echoes knot themselves into a stalking spirit hound.",
+        "Glowing pawprints stop here. From the dark, a Hollow Hound lowers itself to spring.",
     ],
     elite: [
-        "A masked elite from the lost shrine guard blocks the path. Their seal still burns.",
-        "Ancient ANBU script winds across the floor — and the warrior who etched it remains.",
+        "An armored Hollow Hound blocks the path. Broken shrine seals still burn across its hide.",
+        "Ancient claw-script winds across the floor — and the alpha that carved it remains.",
     ],
     trap: [
         "Ancient seals flare beneath your feet — paper-thin runes ignite!",
@@ -42,14 +42,14 @@ export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "A familiar scent drifts past — your pet pulls you toward a side passage.",
     ],
     pet_battle: [
-        "A corrupted Hollow Beast prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
+        "A corrupted Hollow Hound prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
         "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
         "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
     ],
     tile_game: [
-        "A stone table rises from the floor, nine tile-shaped slots glowing with old chakra. A challenger sits across, smiling without a face.",
-        "The shrine offers a riddle disguised as a game. Cards float between you and the shadow opponent.",
-        "Ancient seals form a 3×3 grid in the air. The mist asks for tiles — bet wrong and it bites.",
+        "An obsolete tile seal fractures. A Hollow Hound steps through the broken grid.",
+        "The shrine's old game table collapses into mist, leaving fresh claw marks across the stone.",
+        "Ancient tile sigils gutter out. A spirit hound answers in their place.",
     ],
     shard_vein: [
         "A seam of violet crystal threads the shrine stone — Hollow Shards, half-buried and humming.",
@@ -65,7 +65,7 @@ export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "A shattered mural shows shinobi sealing the Hollow Gate from the inside.",
     ],
     boss: [
-        "The corridor opens into a vast chamber. The Hollow Gate Warden waits at its center.",
+        "The corridor opens into a vast chamber. The Hollow Hound Alpha waits at its center.",
     ],
     exit: [
         "A broken torii leans across this tile, its chakra chains slackened. Beyond it, pale daylight from the world above bleeds through — the way out.",
@@ -106,17 +106,17 @@ export const hollowGateIntroPages: Array<{ title: string; imageKey: string; line
         lines: [
             "Stone teeth bite the air. Glowing pawprints pulse violet down the corridor and vanish.",
             "Behind you, the seal re-knits — there is no leaving by the way you came.",
-            "Only the Leave tile or your own corpse can carry you out of this place.",
+            "Find a Leave tile, clear the final seal, or invoke Emergency Forfeit if the Gate stops responding.",
         ],
     },
     {
         title: "What Waits Below",
         imageKey: "shrine:intro-3",
         lines: [
-            "Nine floors spiral down into the shrine, each deeper than the last and hungrier for you. Every floor forks into three wings — Treasure 🏆, Beast 🐺, and Trial ⚔. Only the Trial wing leads down; take one detour and the other seals behind you.",
+            "Five floors spiral down into the shrine, each deeper than the last and hungrier for you. Search its chambers for keys, relics, and the staircase below.",
             "Your Torch of Reiki burns down as you wander and is not rekindled by battle — feed it at chests and shrines, or the dark will turn on you.",
             "Hollow Shards torn from the depths buy shrine relics mid-run, or permanent attunements at the gate. Fall, and you keep only half your haul — unless a Second Wind carries you back.",
-            "On the deepest floor, the Hollow Gate Warden waits. Bring back his fragment. Or bring back nothing.",
+            "On the deepest floor, the Hollow Hound Alpha waits. Face it as a shinobi or send your active pet into a tactical duel.",
         ],
     },
 ];

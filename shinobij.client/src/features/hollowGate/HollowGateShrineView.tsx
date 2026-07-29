@@ -29,11 +29,6 @@ import { WING_GLYPH, WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings"
 import { isPetOnExpedition } from "../../lib/pet";
 import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind } from "../../types/character";
 
-// Board space: one dungeon tile in CSS pixels. JS math and CSS share this via
-// the --hg-tile custom property stamped on the board. Smaller on phones so the
-// camera shows a wider slice of the floor (~8 tiles across at 375px).
-const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48;
-
 type HollowGateEventModal = {
     title: string;
     body: string;
@@ -59,6 +54,8 @@ type HollowGateShrineViewProps = {
     setCharacter: (character: Character) => void;
     pushHollowGateLog: (line: string) => void;
     petEligible: boolean;
+    exitPending: boolean;
+    onEmergencyForfeit: () => void;
     onSearchHiddenChamber: () => void;
     onTakeHiddenChamberRelic: () => void;
     onCloseHiddenChamber: () => void;
@@ -80,6 +77,8 @@ export function HollowGateShrineView({
     setCharacter,
     pushHollowGateLog,
     petEligible,
+    exitPending,
+    onEmergencyForfeit,
     onSearchHiddenChamber,
     onTakeHiddenChamberRelic,
     onCloseHiddenChamber,
@@ -106,11 +105,14 @@ export function HollowGateShrineView({
         return () => ro.disconnect();
     }, []);
 
-    const boardW = run.width * TILE;
-    const boardH = run.height * TILE;
+    // Derived from the measured viewport rather than window.innerWidth at module
+    // load, so rotation, split-screen, and browser zoom update the camera.
+    const tilePx = vp.w > 0 && vp.w <= 480 ? 40 : 48;
+    const boardW = run.width * tilePx;
+    const boardH = run.height * tilePx;
     const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-    const camX = vp.w >= boardW ? (vp.w - boardW) / 2 : clamp(vp.w / 2 - (run.playerX + 0.5) * TILE, vp.w - boardW, 0);
-    const camY = vp.h >= boardH ? (vp.h - boardH) / 2 : clamp(vp.h / 2 - (run.playerY + 0.5) * TILE, vp.h - boardH, 0);
+    const camX = vp.w >= boardW ? (vp.w - boardW) / 2 : clamp(vp.w / 2 - (run.playerX + 0.5) * tilePx, vp.w - boardW, 0);
+    const camY = vp.h >= boardH ? (vp.h - boardH) / 2 : clamp(vp.h / 2 - (run.playerY + 0.5) * tilePx, vp.h - boardH, 0);
 
     return (
                         <div className="card hollow-gate-shrine" style={{ background: cardBackground, color: "#e9d5ff", padding: 16, borderRadius: 12 }}>
@@ -121,9 +123,9 @@ export function HollowGateShrineView({
                                 const isLast = hollowGateIntroPage >= hollowGateIntroPages.length - 1;
                                 return (
                                     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1100, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
-                                        <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
+                                        <div role="dialog" aria-modal="true" aria-labelledby="hg-intro-title" style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
                                             <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HOLLOW GATE — INTRODUCTION</p>
-                                            <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
+                                            <h2 id="hg-intro-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
                                             {introImage && (
                                                 <img src={introImage} alt={page.title} style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
                                             )}
@@ -139,6 +141,7 @@ export function HollowGateShrineView({
                                                         <button onClick={() => setHollowGateIntroPage(hollowGateIntroPage - 1)}>Back</button>
                                                     )}
                                                     <button
+                                                        autoFocus
                                                         onClick={() => {
                                                             if (isLast) setHollowGateIntroPage(null);
                                                             else setHollowGateIntroPage(hollowGateIntroPage + 1);
@@ -175,7 +178,13 @@ export function HollowGateShrineView({
                                             )}</span>
                                             <span style={{ color: run.threat >= 80 ? "#fda4af" : "#c4b5fd" }}>{run.threat}%</span>
                                         </div>
-                                        <div style={{
+                                        <div
+                                            role="progressbar"
+                                            aria-label="Hollow Gate threat"
+                                            aria-valuemin={0}
+                                            aria-valuemax={100}
+                                            aria-valuenow={run.threat}
+                                            style={{
                                             height: 8,
                                             background: "rgba(168,85,247,0.18)",
                                             borderRadius: 4,
@@ -359,16 +368,20 @@ export function HollowGateShrineView({
                                         return t.terrain === "wall" || (t.terrain == null && t.kind === "wall");
                                     };
                                     return (
-                                <div className="hg-viewport" ref={viewportRef} style={{ ["--hg-bh" as string]: `${boardH}px` }}>
-                                    <div
-                                        className="hg-board"
-                                        style={{
-                                            width: boardW,
-                                            height: boardH,
-                                            gridTemplateColumns: `repeat(${w}, ${TILE}px)`,
-                                            gridAutoRows: `${TILE}px`,
-                                            transform: `translate3d(${Math.round(camX)}px, ${Math.round(camY)}px, 0)`,
-                                            ["--hg-tile" as string]: `${TILE}px`,
+                                 <div className="hg-viewport" ref={viewportRef} style={{ ["--hg-bh" as string]: `${boardH}px` }} aria-label={`Hollow Gate floor ${run.floor} map`}>
+                                     <div
+                                         className="hg-board"
+                                         role="grid"
+                                         aria-label={`Floor ${run.floor} dungeon grid`}
+                                         aria-rowcount={h}
+                                         aria-colcount={w}
+                                         style={{
+                                             width: boardW,
+                                             height: boardH,
+                                             gridTemplateColumns: `repeat(${w}, ${tilePx}px)`,
+                                             gridAutoRows: `${tilePx}px`,
+                                             transform: `translate3d(${Math.round(camX)}px, ${Math.round(camY)}px, 0)`,
+                                             ["--hg-tile" as string]: `${tilePx}px`,
                                         }}
                                     >
                                     {run.tiles.map((tile, i) => {
@@ -442,9 +455,9 @@ export function HollowGateShrineView({
                                             // faces alternate left/right halves so masonry courses run
                                             // on down the wall line. Wall tops/doors stay per-cell.
                                             if (terrainKind === "room_floor" || terrainKind === "corridor_floor") {
-                                                layers.push(`url(${texture}) ${-(x % 2) * TILE}px ${-(y % 2) * TILE}px / ${TILE * 2}px ${TILE * 2}px no-repeat`);
+                                                layers.push(`url(${texture}) ${-(x % 2) * tilePx}px ${-(y % 2) * tilePx}px / ${tilePx * 2}px ${tilePx * 2}px no-repeat`);
                                             } else if (wallFace) {
-                                                layers.push(`url(${texture}) ${-(x % 2) * TILE}px ${-(TILE >> 1)}px / ${TILE * 2}px ${TILE * 2}px no-repeat`);
+                                                layers.push(`url(${texture}) ${-(x % 2) * tilePx}px ${-(tilePx >> 1)}px / ${tilePx * 2}px ${tilePx * 2}px no-repeat`);
                                             } else {
                                                 layers.push(`url(${texture}) center/cover no-repeat`);
                                             }
@@ -472,6 +485,13 @@ export function HollowGateShrineView({
 
                                         const clickable = known && !wall && !isPlayer;
                                         const isDest = walkTarget === i;
+                                        const tileLabel = isPlayer
+                                            ? `${character.name}, current location, row ${y + 1}, column ${x + 1}`
+                                            : !known
+                                                ? `Unknown tile, row ${y + 1}, column ${x + 1}`
+                                                : wall
+                                                    ? `Wall, row ${y + 1}, column ${x + 1}`
+                                                    : `${showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
 
                                         // Torch sconces: a wall face beside an OPENING in its wall
                                         // line (where a corridor/door pierces through) always carries
@@ -482,27 +502,39 @@ export function HollowGateShrineView({
 
                                         return (
                                             <div
-                                                key={i}
-                                                title={wall ? undefined : visible ? tile.kind : known ? "Explored" : undefined}
-                                                className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}`}
-                                                style={styleBg ? { background: styleBg } : undefined}
-                                                onClick={clickable ? () => onTileClick(i) : undefined}
-                                            >
-                                                {sconce && <span className="hg-flame" />}
-                                                {iconImage ? (
-                                                    <img
-                                                        src={iconImage}
-                                                        alt={iconSlotId ?? ""}
-                                                        className="hg-icon-img"
-                                                    />
-                                                ) : icon ? <span className="hg-icon">{icon}</span> : null}
+                                                 key={i}
+                                                 title={wall ? undefined : visible ? tile.kind : known ? "Explored" : undefined}
+                                                 role="gridcell"
+                                                 aria-label={tileLabel}
+                                                 aria-rowindex={y + 1}
+                                                 aria-colindex={x + 1}
+                                                 aria-current={isPlayer ? "location" : undefined}
+                                                 tabIndex={clickable ? 0 : -1}
+                                                 className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}`}
+                                                 style={styleBg ? { background: styleBg } : undefined}
+                                                 onClick={clickable ? () => onTileClick(i) : undefined}
+                                                 onKeyDown={clickable ? (event) => {
+                                                     if (event.key !== "Enter" && event.key !== " ") return;
+                                                     event.preventDefault();
+                                                     onTileClick(i);
+                                                 } : undefined}
+                                             >
+                                                 {sconce && <span className="hg-flame" aria-hidden="true" />}
+                                                 {iconImage ? (
+                                                     <img
+                                                         src={iconImage}
+                                                         alt=""
+                                                         aria-hidden="true"
+                                                         className="hg-icon-img"
+                                                     />
+                                                 ) : icon ? <span className="hg-icon" aria-hidden="true">{icon}</span> : null}
                                             </div>
                                         );
                                     })}
                                     <HollowGateAvatar
                                         tileX={run.playerX}
                                         tileY={run.playerY}
-                                        tilePx={TILE}
+                                        tilePx={tilePx}
                                         avatarImage={character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`] || pickRoleIconImage("you", 0)}
                                         name={character.name}
                                     />
@@ -512,7 +544,7 @@ export function HollowGateShrineView({
                                 })()}
 
                                 {/* Side panel */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                <div className="hg-sidepanel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                     {/* Minimap — the explored floor at a glance (the camera stays
                                         close, the minimap keeps the run orientable). */}
                                     {(() => {
@@ -546,11 +578,11 @@ export function HollowGateShrineView({
                                     {(() => {
                                         const maxFloor = hollowGateRunMaxFloor(run);
                                         const reachedFinalFloor = run.floor >= maxFloor;
-                                        const wardenDefeated = Boolean(run.completed) || run.tiles.some(t => t.kind === "boss" && t.resolved);
+                                        const alphaDefeated = Boolean(run.completed) || run.tiles.some(t => t.kind === "boss" && t.resolved);
                                         const hiddenChamberFound = run.tiles.some(t => t.kind === "shrine" && t.resolved);
                                         const objectives = [
                                             ...(maxFloor > 1 ? [{ label: `Reach Floor ${maxFloor}`, done: reachedFinalFloor }] : []),
-                                            { label: `Defeat ${hollowGateBossDisplayName(run)}`, done: wardenDefeated },
+                                            { label: `Defeat ${hollowGateBossDisplayName(run)}`, done: alphaDefeated },
                                             { label: "Find a Hidden Chamber (optional)", done: hiddenChamberFound },
                                         ];
                                         return (
@@ -611,14 +643,13 @@ export function HollowGateShrineView({
                                             };
                                             return (
                                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                                                    {legendCell("you",     "You")}      {legendCell("battle",  "Battle")}
-                                                    {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
+                                                    {legendCell("you",     "You")}      {legendCell("battle",  "Hollow Hound")}
+                                                    {legendCell("elite",   "Elite Hound")}{legendCell("boss",  "Alpha Hound")}
                                                     {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
                                                     {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
-                                                    {legendCell("pet",      "Pet")}        {legendCell("petbattle", "Hollow Beast")}
-                                                    {legendCell("tilegame", "Tile Game")}  {legendCell("npc",       "Keeper")}
-                                                    {legendCell("descend",  "Descend")}    {legendCell("exit",      "Leave")}
-                                                    {legendCell("locked",   "Locked Door")}{legendCell("wall",      "Wall")}
+                                                    {legendCell("npc",     "Keeper")}   {legendCell("descend", "Descend")}
+                                                    {legendCell("exit",    "Leave")}    {legendCell("locked",   "Locked Door")}
+                                                    {legendCell("wall",    "Wall")}
                                                 </div>
                                             );
                                         })()}
@@ -632,7 +663,7 @@ export function HollowGateShrineView({
                                             <>
                                                 <div><strong>{pet.name}</strong> · Lv. {pet.level}</div>
                                                 <div style={{ color: petEligible ? "#86efac" : "#fda4af" }}>
-                                                    {petEligible ? "Joins shrine battles" : isPetOnExpedition(pet) ? "On expedition" : "Not PvE-ready (needs Lv. 50)"}
+                                                    {petEligible ? "Available for Hollow Hound duels" : isPetOnExpedition(pet) ? "On expedition" : "Not PvE-ready (needs Lv. 50)"}
                                                 </div>
                                             </>
                                         ) : <div className="hint">No active pet selected.</div>}
@@ -640,10 +671,8 @@ export function HollowGateShrineView({
                                 </div>
                             </div>
 
-                            {/* Movement controls — note: there is no voluntary "Leave Shrine"
-                                button. You can only exit by stepping on the Exit (Leave) tile
-                                or by dying. Each entry consumes 1 Hollow Gate Key. */}
-                            <div style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                            {/* Movement and always-available recovery controls. */}
+                            <div className="hg-controls" style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
                                 <div style={{ fontSize: 12, color: "#c4b5fd" }}>Tap a tile to walk there · WASD / arrows step · or:</div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 44px)", gap: 4 }}>
                                     <div />
@@ -656,15 +685,21 @@ export function HollowGateShrineView({
                                     <button aria-label="Move down" onClick={() => moveHollowGatePlayer(0, 1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▼</button>
                                     <div />
                                 </div>
-                                <div style={{ fontSize: 11, color: "#fda4af", textAlign: "center" }}>
-                                    No retreat. Reach the<br/>Leave tile (⇩) or die.
-                                </div>
+                                <button
+                                    className="danger-button"
+                                    type="button"
+                                    disabled={exitPending}
+                                    onClick={onEmergencyForfeit}
+                                    title="Ends the run as a defeat. Use this if the run or an encounter is stuck."
+                                >
+                                    {exitPending ? "Settling Run..." : "Emergency Forfeit"}
+                                </button>
                             </div>
 
                             <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} setCharacter={setCharacter} pushLog={pushHollowGateLog} />
 
                             {/* Event log */}
-                            <div style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>
+                            <div role="log" aria-live="polite" aria-relevant="additions" style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>
                                 <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Event Log</h4>
                                 {hollowGateLog.length === 0 ? <p className="hint">The shrine watches in silence.</p> : hollowGateLog.map((line, i) => (
                                     <p key={i} style={{ margin: "2px 0" }}>• {line}</p>
@@ -683,21 +718,32 @@ export function HollowGateShrineView({
                                     : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
                                     : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
                                     : hollowGateEvent.kind === "story" ? "shrine:tile-story"
-                                    : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" ? "shrine:tile-corrupted-shinobi"
+                                    : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" || hollowGateEvent.kind === "boss" ? "shrine:tile-hollow-beast"
                                     : null;
                                 const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
                                 return (
                                     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }} onClick={() => {}}>
-                                        <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>
+                                        <div role="dialog" aria-modal="true" aria-labelledby="hg-event-title" style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>
                                             {tileImage && (
                                                 <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
                                             )}
-                                            <h3 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
+                                            <h3 id="hg-event-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
                                             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>
                                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
                                                 {hollowGateEvent.choices.map((c, i) => (
-                                                    <button key={i} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
+                                                    <button key={i} autoFocus={i === 0} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
                                                 ))}
+                                            </div>
+                                            <div style={{ marginTop: 18, paddingTop: 12, borderTop: "1px solid rgba(248,113,113,0.25)" }}>
+                                                <button
+                                                    className="danger-button"
+                                                    type="button"
+                                                    disabled={exitPending}
+                                                    onClick={onEmergencyForfeit}
+                                                    title="Ends the run as a defeat if this encounter cannot continue."
+                                                >
+                                                    {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -712,9 +758,9 @@ export function HollowGateShrineView({
                                     : "linear-gradient(180deg, rgba(30,15,50,0.97), rgba(15,5,30,0.99))";
                                 return (
                                 <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1001, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
-                                    <div style={{ background: chamberStyle, border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 28, maxWidth: 620, width: "92%", color: "#e9d5ff", boxShadow: "0 0 50px rgba(168,85,247,0.35)" }}>
+                                    <div role="dialog" aria-modal="true" aria-labelledby="hg-hidden-title" style={{ background: chamberStyle, border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 28, maxWidth: 620, width: "92%", color: "#e9d5ff", boxShadow: "0 0 50px rgba(168,85,247,0.35)" }}>
                                         <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HIDDEN CHAMBER</p>
-                                        <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>Secret Area Discovered</h2>
+                                        <h2 id="hg-hidden-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>Secret Area Discovered</h2>
                                         <p style={{ lineHeight: 1.6 }}>A ritual circle pulses violet at the chamber's center. Spirit lanterns hover above a cracked altar. An ancient tablet hums with sealed chakra, and a shrine relic floats untouched within the seal.</p>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, margin: "16px 0", fontSize: 13 }}>
                                             <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Shrine Relic</strong><br/>{hollowGateHiddenChamber.relicTaken ? "Claimed" : "Available"}</div>
@@ -722,9 +768,12 @@ export function HollowGateShrineView({
                                             <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Ancient Tablet</strong><br/>{hollowGateHiddenChamber.searched ? "Read" : "Readable"}</div>
                                         </div>
                                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                            <button disabled={hollowGateHiddenChamber.searched} onClick={onSearchHiddenChamber}>🔍 Search Chamber</button>
+                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={onSearchHiddenChamber}>🔍 Search Chamber</button>
                                             <button disabled={hollowGateHiddenChamber.relicTaken} onClick={onTakeHiddenChamberRelic}>🏺 Take Relic</button>
-                                            <button onClick={onCloseHiddenChamber} className="danger-button">Return to Shrine</button>
+                                            <button autoFocus={hollowGateHiddenChamber.searched} onClick={onCloseHiddenChamber} className="danger-button">Return to Shrine</button>
+                                            <button disabled={exitPending} onClick={onEmergencyForfeit} className="danger-button">
+                                                {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

@@ -87,6 +87,47 @@ const MAX_PROMPT_LENGTH = 1_500;
 const MAX_LABEL_LENGTH = 120;
 const MAX_DEV_IMAGE_CHARS = 3_000_000;
 const MAX_DEV_AVATAR_BYTES = 2 * 1024 * 1024;
+const CLIENT_ROOT = fileURLToPath(new URL('.', import.meta.url));
+const PUBLIC_ROOT = path.join(CLIENT_ROOT, 'public');
+const PUBLIC_AUTHORING_PREFIXES = [
+    'pet-models/qa',
+    'pet-models/sources',
+    'pet-models/proofs',
+    'pet-models/roster-concepts',
+    'pet-models/roster-references',
+] as const;
+
+/**
+ * Vite's default public copy is all-or-nothing. The pet pipeline intentionally
+ * keeps QA turnarounds, Blender sources, proofs, and concept sheets beside the
+ * reviewed runtime roster; copying that tree made a production artifact exceed
+ * 6 GB. Disable the blanket copy and merge only runtime files into the output.
+ * Authoring assets stay untouched in public/ for the local pipeline.
+ */
+function runtimePublicAssetsPlugin() {
+    const isRuntimePath = (sourcePath: string) => {
+        const relative = path.relative(PUBLIC_ROOT, sourcePath).replace(/\\/g, '/');
+        return !PUBLIC_AUTHORING_PREFIXES.some((prefix) => relative === prefix || relative.startsWith(`${prefix}/`));
+    };
+    return {
+        name: 'runtime-public-assets',
+        apply: 'build' as const,
+        enforce: 'pre' as const,
+        writeBundle(options: { dir?: string }) {
+            const outputRoot = path.resolve(CLIENT_ROOT, options.dir ?? 'dist');
+            for (const entry of fs.readdirSync(PUBLIC_ROOT, { withFileTypes: true })) {
+                const sourcePath = path.join(PUBLIC_ROOT, entry.name);
+                const destinationPath = path.join(outputRoot, entry.name);
+                if (!isRuntimePath(sourcePath)) continue;
+                fs.cpSync(sourcePath, destinationPath, {
+                    recursive: entry.isDirectory(),
+                    force: true,
+                    filter: isRuntimePath,
+                });
+            }
+        },
+    };
+}
 
 function recordId(value: unknown) {
     return value && typeof value === 'object' && 'id' in value
@@ -322,6 +363,7 @@ setInterval(() => {
 export default defineConfig({
     plugins: [
         plugin(),
+        runtimePublicAssetsPlugin(),
         ViteImageOptimizer({
             // Skip SVGs (already tiny, svgo isn't installed) and WebP. The
             // background art is pre-converted to WebP q80 via scripts/to-webp.mjs;
@@ -991,6 +1033,9 @@ export default defineConfig({
         }
     },
     build: {
+        // runtimePublicAssetsPlugin performs the filtered copy. Leaving Vite's
+        // blanket copy enabled would ship multi-gigabyte pet authoring sources.
+        copyPublicDir: false,
         // Slightly bump the warning ceiling — the app bundle is ~1.5 MB
         // unminified pre-gzip (≈ 420 KB gzipped), which is fine for an
         // interactive game shell that loads once and lazy-fetches the

@@ -138,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const offers = rollAugmentOffers(3);
             const token = randomUUID().replace(/-/g, '');
             const runToken: HollowGateRunToken = {
-                playerName, mintedAt: Date.now(), floorDepth, seed: randomUUID(),
+                playerName, mintedAt: Date.now(), floorDepth, currentFloor: 1, seed: randomUUID(),
                 entryCurrencies: entry,
                 entryFragments: itemStackCount(character.itemStacks, HG_HIGH_VALUE_ITEM_ID),
                 offeredAugmentIds: offers.map((o) => o.id), chosenAugmentId: null,

@@ -144,6 +144,8 @@ function Harness() {
                 onSearchHiddenChamber={() => {}}
                 onTakeHiddenChamberRelic={() => {}}
                 onCloseHiddenChamber={() => {}}
+                exitPending={false}
+                onEmergencyForfeit={() => {}}
             />
         </div>
     );

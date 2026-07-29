@@ -12,13 +12,23 @@
  * non-trivial in size, and contains the expected Express wiring markers.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverJs = join(root, 'dist', 'server.js');
+const clientDist = join(root, 'shinobij.client', 'dist');
 const vercelJson = join(root, 'vercel.json');
+const forbiddenClientPrefixes = [
+    'pet-models/qa/',
+    'pet-models/sources/',
+    'pet-models/proofs/',
+    'pet-models/roster-concepts/',
+    'pet-models/roster-references/',
+];
+const forbiddenClientExtensions = new Set(['.blend', '.blend1', '.psd', '.kra', '.xcf']);
+const maxClientArtifactBytes = 512 * 1024 * 1024;
 
 function fail(msg) {
     console.error(`\n[verify:dist] FAILED — ${msg}\n`);
@@ -49,4 +59,33 @@ if (existsSync(vercelJson)) {
     fail('vercel.json must not be present. Vercel is retired for this project.');
 }
 
-console.log(`[verify:dist] OK — dist/server.js present (${(st.size / 1024).toFixed(1)} KB), Express wiring intact, Vercel config absent.`);
+if (!existsSync(clientDist)) {
+    fail('shinobij.client/dist is missing. Run the client build before release verification.');
+}
+
+function walkFiles(dir) {
+    const files = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) files.push(...walkFiles(full));
+        else files.push(full);
+    }
+    return files;
+}
+
+const clientFiles = walkFiles(clientDist);
+const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
+const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
+if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
+const leakedSourceFile = clientRelativeFiles.find((file) => {
+    const dot = file.lastIndexOf('.');
+    return dot >= 0 && forbiddenClientExtensions.has(file.slice(dot).toLowerCase());
+});
+if (leakedSourceFile) fail(`client dist contains an authoring source file: ${leakedSourceFile}`);
+
+const clientArtifactBytes = clientFiles.reduce((total, file) => total + statSync(file).size, 0);
+if (clientArtifactBytes > maxClientArtifactBytes) {
+    fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
+}
+
+console.log(`[verify:dist] OK — server ${(st.size / 1024).toFixed(1)} KB; client ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB with no authoring sources; Vercel config absent.`);

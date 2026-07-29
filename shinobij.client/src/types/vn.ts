@@ -11,6 +11,35 @@
 import type { Biome } from "./core";
 import type { CurrencyRewards } from "./character";
 
+export type VnShot = "wide" | "medium" | "close" | "detail";
+export type VnFocus = "left" | "right" | "center" | "speaker";
+export type VnBackgroundMotion = "auto" | "none" | "push" | "pan-left" | "pan-right" | "drift";
+export type VnTransition = "auto" | "cut" | "crossfade" | "dip-black" | "whiteout" | "whip";
+export type VnTone = "neutral" | "warm" | "cold" | "danger" | "hollow" | "elegy";
+export type VnAtmosphere = "auto" | "none" | "embers" | "rain" | "snow" | "mist" | "motes";
+export type VnActorEntrance = "auto" | "none" | "fade" | "left" | "right" | "rise";
+export type VnImpact = "none" | "soft" | "heavy";
+/** Sparse semantic audio cues. Ordinary dialogue deliberately uses `none`;
+ *  silence is preferable to a generic UI chirp on every line. */
+export type VnSoundCue = "none" | "title" | "paper" | "reveal" | "omen" | "decision" | "battle";
+
+export type VnCinematicDirection = {
+    mode?: "auto" | "cinematic" | "classic";
+    shot?: VnShot;
+    focus?: VnFocus;
+    backgroundMotion?: VnBackgroundMotion;
+    backgroundPosition?: string;
+    backgroundImage?: string;
+    transition?: VnTransition;
+    tone?: VnTone;
+    atmosphere?: VnAtmosphere;
+    actorEntrance?: VnActorEntrance;
+    impact?: VnImpact;
+    titleCard?: boolean;
+    ambience?: "auto" | "none" | "village" | "road" | "interior" | "hollow";
+    cue?: VnSoundCue;
+};
+
 export type CreatorEvent = {
     id: string;
     name: string;
@@ -30,6 +59,7 @@ export type CreatorEvent = {
     village?: string;
     kageFinale?: boolean;
     liberatorTitle?: string;
+    cinematic?: VnCinematicDirection;
     vnPages?: {
         title: string;
         scene: string;
@@ -40,8 +70,9 @@ export type CreatorEvent = {
         // parsing the legacy `dialogue` strings; `dialogue` is kept as a mirror
         // for the line count and for older code paths, so existing VNs (which
         // have no `lines`) are unaffected.
-        lines?: { speaker: string; text: string; image?: string }[];
+        lines?: { speaker: string; text: string; image?: string; cinematic?: VnCinematicDirection }[];
         image?: string;
+        cinematic?: VnCinematicDirection;
         leftName?: string;
         leftImage?: string;
         rightName?: string;
