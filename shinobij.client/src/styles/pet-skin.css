@@ -992,6 +992,147 @@
     box-shadow: 0 2px 7px rgba(0,0,0,0.55);
 }
 
+/* Pet Coliseum fight card: entering the flagship duel should feel like accepting
+   a billed match, not submitting a generic form. */
+.pet-arena-screen .pet-coliseum-entry {
+    display: block;
+    margin-top: 0.75rem;
+}
+
+.pet-arena-screen .pet-coliseum-fight-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(180px, 0.72fr);
+    align-items: stretch;
+    gap: 0;
+    overflow: hidden;
+    width: 100%;
+    border: 1px solid rgba(251, 191, 36, 0.46);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.12), transparent 40%),
+        linear-gradient(135deg, rgba(8, 16, 34, 0.98), rgba(20, 14, 18, 0.98));
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36), inset 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.pet-arena-screen .pet-coliseum-contender {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.9rem 1rem;
+}
+
+.pet-arena-screen .pet-coliseum-contender.player {
+    border-left: 3px solid #60a5fa;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), transparent);
+}
+
+.pet-arena-screen .pet-coliseum-contender.enemy {
+    align-items: flex-end;
+    border-right: 3px solid #f87171;
+    background: linear-gradient(270deg, rgba(248, 113, 113, 0.12), transparent);
+    text-align: right;
+}
+
+.pet-arena-screen .pet-coliseum-contender strong {
+    overflow: hidden;
+    color: #f8fafc;
+    font: 900 clamp(1rem, 2vw, 1.35rem)/1.1 var(--font-display), Inter, sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pet-arena-screen .pet-coliseum-contender > span:last-child {
+    margin-top: 0.3rem;
+    color: #94a3b8;
+    font: 700 0.72rem/1 Inter, sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.pet-arena-screen .pet-coliseum-kicker {
+    margin-bottom: 0.36rem;
+    color: #fbbf24;
+    font: 900 0.58rem/1 Inter, sans-serif;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+}
+
+.pet-arena-screen .pet-coliseum-versus {
+    display: grid;
+    min-width: 72px;
+    place-content: center;
+    text-align: center;
+}
+
+.pet-arena-screen .pet-coliseum-versus span,
+.pet-arena-screen .pet-coliseum-versus small {
+    color: #94a3b8;
+    font: 800 0.55rem/1 Inter, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.pet-arena-screen .pet-coliseum-versus strong {
+    margin: 0.28rem 0;
+    color: #fff;
+    font: 900 1.6rem/1 var(--font-display), Inter, sans-serif;
+    text-shadow: 0 0 16px rgba(251, 191, 36, 0.68);
+}
+
+.pet-arena-screen button.pet-coliseum-enter {
+    display: flex;
+    min-height: 78px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-left: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 0;
+    background: linear-gradient(135deg, #b45309, #e17b12);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.22);
+    color: #fff7ed;
+    cursor: pointer;
+    font: 900 0.9rem/1 var(--font-display), Inter, sans-serif;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: filter 120ms ease, transform 120ms ease;
+}
+
+.pet-arena-screen button.pet-coliseum-enter:hover {
+    filter: brightness(1.14) saturate(1.1);
+}
+
+.pet-arena-screen button.pet-coliseum-enter:active {
+    transform: translateY(2px) scale(0.985);
+    filter: brightness(0.94);
+}
+
+.pet-arena-screen button.pet-coliseum-enter small {
+    margin-top: 0.35rem;
+    opacity: 0.76;
+    font: 800 0.58rem/1 Inter, sans-serif;
+    letter-spacing: 0.1em;
+}
+
+@media (max-width: 760px) {
+    .pet-arena-screen .pet-coliseum-fight-card {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+
+    .pet-arena-screen button.pet-coliseum-enter {
+        grid-column: 1 / -1;
+        min-height: 62px;
+        border-top: 1px solid rgba(251, 191, 36, 0.35);
+        border-left: 0;
+    }
+
+    .pet-arena-screen .pet-coliseum-contender {
+        padding: 0.78rem 0.65rem;
+    }
+}
+
 /* ----- Modal overlay (e.g. pet yard popups) ----- */
 .pet-yard-overlay {
     background: rgba(5,9,18,0.85) !important;
