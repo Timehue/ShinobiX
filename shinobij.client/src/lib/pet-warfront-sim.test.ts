@@ -147,6 +147,62 @@ test("streamed interactive opening reaches 90s before Council and applies its ch
     assert.equal(ctl.buyState("blue")[0].stacks.strike, before + 1, "Council choices apply to the next round");
 });
 
+test("Lesser Wardens path out of their dens instead of shaking at spawn", () => {
+    const ctl = startWarfrontMatch(squad("A"), squad("B"), 42, {
+        bluePolicy: "off",
+        redPolicy: "off",
+        adaptStances: false,
+    });
+    while (ctl.result.ticks < WARFRONT_TPS * 85 && !ctl.done) {
+        ctl.advanceRoundPartial(WARFRONT_TPS);
+    }
+    for (let padIdx = 0; padIdx < 4; padIdx++) {
+        const spawned = ctl.result.events.find((event) => event.type === "minispawn" && event.padIdx === padIdx);
+        assert.ok(spawned, `camp ${padIdx} never spawned`);
+        const start = spawned?.t ?? 0;
+        const frames = ctl.result.snapshots.slice(
+            start,
+            Math.min(ctl.result.snapshots.length, start + WARFRONT_TPS * 15),
+        ).map((snapshot) => snapshot.minis[padIdx]);
+        const origin = frames[0];
+        const maxTravel = Math.max(...frames.map((mini) => Math.hypot(mini.x - origin.x, mini.y - origin.y)));
+        assert.ok(maxTravel > 0.75, `camp ${padIdx} remained trapped in its den (${maxTravel.toFixed(2)}u)`);
+        assert.ok(frames.every((mini) => mini.attackPhase >= -1 && mini.attackPhase <= 1));
+    }
+});
+
+test("captured Wardens lead waves and overcharge surviving lane sentinels", () => {
+    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
+    const capture = result.events.find((event) => event.type === "minikill");
+    assert.ok(capture, "the fixture must capture a Lesser Warden");
+    if (!capture) return;
+
+    const rally = result.events.find((event) =>
+        event.type === "guardianrally"
+        && event.t === capture.t
+        && event.team === capture.team
+        && event.padIdx === capture.padIdx);
+    assert.ok(rally, "a capture must issue the sentinel rally");
+    const captureFrame = result.snapshots[capture.t];
+    assert.ok(captureFrame.guardians[capture.team].some((guardian) => guardian.rallySecs > 15));
+    assert.ok(captureFrame.guardians[capture.team].every((guardian) =>
+        guardian.attackPhase >= -1 && guardian.attackPhase <= 1));
+
+    const ward = result.events.find((event) =>
+        event.type === "guardianward"
+        && event.team === capture.team
+        && event.t >= capture.t
+        && event.t <= capture.t + WARFRONT_TPS * 16);
+    assert.ok(ward && ward.amount > 0, "an overcharged sentinel must project a real lane ward");
+
+    const vanguardHit = result.events.find((event) =>
+        event.type === "mobhit"
+        && event.targetId === `mini-${capture.padIdx}`
+        && event.t >= capture.t
+        && event.t <= capture.t + WARFRONT_TPS * 50);
+    assert.ok(vanguardHit, "the recruited Warden must clear a hostile wave during its contract");
+});
+
 test("stack cap holds and prices escalate", () => {
     assert.ok(wfPowerupCost(1) > wfPowerupCost(0));
     assert.ok(wfPowerupCost(5) > wfPowerupCost(3));
