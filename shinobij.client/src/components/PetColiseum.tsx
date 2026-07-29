@@ -51,7 +51,8 @@ import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
-import { isPetSfxMuted, setPetSfxMuted, playPetSfx } from "../lib/pet-sfx";
+import { isPetSfxMuted, setPetSfxMuted, playPetSfx, primePetSfx } from "../lib/pet-sfx";
+import { isAudioMuted, setAudioMuted, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
 import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pet-coliseum-flag";
 import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
@@ -70,6 +71,7 @@ import { duelCameraComposition } from "../lib/pet-duel-camera";
 import { resolvePetDuelVisualLayers } from "../lib/pet-duel-visual-layers";
 import { petCombatFamilyPresentation } from "../lib/pet-combat-family";
 import { petDisplayName } from "../lib/pet";
+import { petDuelBroadcastRead, petDuelRecap } from "../lib/pet-duel-broadcast";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -2536,7 +2538,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                         </group>
                     </Billboard>
                 )}
-                <Html position={[0, combatModel ? combatModel.targetHeight + 0.5 : L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
+                {showIdentity && <Html position={[0, combatModel ? combatModel.targetHeight + 0.5 : L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
                         <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {petDisplayName(pet)}</div>
                         <div style={{ position: "relative", width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
@@ -2544,7 +2546,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                             <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
                         </div>
                     </div>
-                </Html>
+                </Html>}
             </group>
             {/* Per-pet contact shadow — flat on the floor, follows the pet. */}
             <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
@@ -3243,7 +3245,7 @@ function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; cont
     return { durationSec: 1.86, contactDelayMs: 180 };
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onClashResult }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     /** False while a live duel is still simulating — see the end check below. */
@@ -3274,7 +3276,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
-    onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone, who?: string) => void;
+    onClashResult: (winnerId: string | null, loserId: string | null) => void;
+    onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone, who?: string, element?: string | null) => void;
 }) {
     const { camera, size } = useThree();
     // The QA harness can open a replay at an arbitrary tick. Treat that tick as
@@ -3628,6 +3631,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // contact flash + a touch more shake/hit-stop) even when its
                         // balance damage is small. Render-only; the sim is untouched.
                         const playerHit = e.actorId.startsWith("player");
+                        if (e.move === "Clash Break") onClashResult(e.actorId, e.targetId ?? null);
                         const contactFeedback = () => {
                             // Sound rides the contact frame (immediate, or delayed with a
                             // set-piece), so the hit/crit lands on the same beat as the
@@ -3728,7 +3732,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
                         if (spotlight && e.move && !isSig && now - lastMoveCall.current > 0.4) {
-                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack", nameById[e.actorId]);
+                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack", nameById[e.actorId], elementById[e.actorId]);
                         }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         if (spotlight) {
@@ -3738,7 +3742,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         }
                         if (spotlight && e.combo && now - lastElementChain.current > 2.2) {
                             lastElementChain.current = now;
-                            onMoveCallout(e.combo, e.actorId.startsWith("enemy") ? "enemy" : "player", "combo", nameById[e.actorId]);
+                            onMoveCallout(e.combo, e.actorId.startsWith("enemy") ? "enemy" : "player", "combo", nameById[e.actorId], elementById[e.actorId]);
                             onFlash(col, 0.22);
                         }
                         if (spotlight && e.crit) onCallout("CRITICAL!");
@@ -3868,13 +3872,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     }
                     if (spotlight && namedOpener?.move && now - lastMoveCall.current > 0.35) {
                         lastMoveCall.current = now;
-                        onMoveCallout(namedOpener.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack", nameById[e.actorId]);
+                        onMoveCallout(namedOpener.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack", nameById[e.actorId], elementById[e.actorId]);
                     }
                     // The motion and empty contact lane should sell the evade.
                     // Keep the text as a restrained tactical caption instead of a
                     // full-screen verdict that hides the actual body performance.
                     if (spotlight) {
-                        onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver", target ? nameById[target.id] : undefined);
+                        onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver", target ? nameById[target.id] : undefined, target ? elementById[target.id] : undefined);
                         savor(0.9, 0.06);
                     }
                 } else if (e.type === "dodge" && e.actorId) {
@@ -3946,7 +3950,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                     }
                     if (spotlight && now - lastMoveCall.current > 0.4) {
                         lastMoveCall.current = now;
-                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "maneuver", nameById[e.actorId]);
+                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "maneuver", nameById[e.actorId], elementById[e.actorId]);
                     }
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
                     // The UNLEASH at the caster. A status cast wears its themed muzzle glow
@@ -4032,7 +4036,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         } else {
                             // A lesser named ability — the smaller banner + a short savor beat.
                             lastMoveCall.current = now;
-                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", supportCast ? "support" : "attack", nameById[e.actorId]);
+                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", supportCast ? "support" : "attack", nameById[e.actorId], elementById[e.actorId]);
                             savor(supportCast ? 1.08 : 1.02, 0.035);
                         }
                     }
@@ -4095,6 +4099,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                             spawnShock({ x: c.x, z: c.y, color: "#ffffff", big: isBind });
                             shake.current = Math.max(shake.current, isBind ? 1.5 : 1.1);
                             hitStop.current = Math.max(hitStop.current, isBind ? 0.2 : 0.12);
+                            if (isDeflect) onClashResult(null, null);
                         }
                         spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
                         const reaction = duelFieldToFloor(c.x, c.y);
@@ -7102,6 +7107,8 @@ const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
 
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
+    const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
+    useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
     // into [min,max] — exactly what the static preset rendered) and let
     // PerformanceMonitor drop it toward the floor under sustained load, restoring
@@ -7177,6 +7184,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // director and the exit forfeit is a second path into the same settlement.
     const outcomeSent = useRef(false);
     const [ended, setEnded] = useState(false);
+    const [resultVisible, setResultVisible] = useState(false);
+    const finishScheduled = useRef(false);
+    const resultTimer = useRef<number | null>(null);
+    useEffect(() => () => {
+        if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
+    }, []);
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
@@ -7184,7 +7197,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [aftermathFx, setAftermathFx] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean }>>([]);
     const [supportFx, setSupportFx] = useState<Array<{ id: number; pos: Vec3; color: string; kind: DuelSupportKind; actorId?: string }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
-    const [cutInQueue, setCutInQueue] = useState<Array<{ id: number; pet: Pet; side: "player" | "enemy"; move: string; variant?: "command"; hold?: number }>>([]);
+    const [cutInQueue, setCutInQueue] = useState<Array<{ id: number; pet: Pet; side: "player" | "enemy"; move: string; hold?: number }>>([]);
     const cutIn = cutInQueue[0] ?? null;
     const [shocks, setShocks] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
     const [powerUps, setPowerUps] = useState<Array<{ id: number; pos: Vec3; color: string; actorId?: string; style: PetHeroMoveStyle }>>([]);
@@ -7201,14 +7214,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // before the sim even resolves the move. This is what turns "did that do
     // anything?" into "I just called that shot." Purely presentational.
     const [commandEcho, setCommandEcho] = useState<{ id: number; label: string; tone: "attack" | "signature" | "plan" } | null>(null);
+    const [clashResult, setClashResult] = useState<{ id: number; winner: string | null; loser: string | null; side: "player" | "enemy" | "draw" } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
-    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone; who?: string } | null>(null);  // tiered move ID
+    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone; who?: string; element?: string | null } | null>(null);  // tiered move ID
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     useEffect(() => {
         if (!cutIn) return;
-        const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1020);
+        const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1320);
         return () => window.clearTimeout(timer);
     }, [cutIn]);
     useEffect(() => {
@@ -7418,13 +7432,35 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
     const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
-    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack", who?: string) => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone, who }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 900 : 780); };
+    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack", who?: string, element?: string | null) => {
+        const id = seqRef.current++;
+        setMoveCallout({ id, text, side, tone, who, element });
+        // The old 780 ms pill vanished before the eye could parse actor + move.
+        // A named technique now owns a complete release beat; tactical reads stay
+        // slightly shorter so they never compete with the next contact.
+        window.setTimeout(
+            () => setMoveCallout((current) => current?.id === id ? null : current),
+            tone === "attack" || tone === "combo" ? 1180 : 980,
+        );
+    };
+    const triggerClashResult = (winnerId: string | null, loserId: string | null) => {
+        const id = seqRef.current++;
+        const next = {
+            id,
+            winner: winnerId ? (nameById[winnerId] ?? "A fighter") : null,
+            loser: loserId ? (nameById[loserId] ?? "the opponent") : null,
+            side: winnerId ? (winnerId.startsWith("player") ? "player" : "enemy") : "draw",
+        } as const;
+        setClashResult(next);
+        window.setTimeout(() => setClashResult((current) => current?.id === id ? null : current), 1850);
+    };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
-    const triggerCutIn = (actorId: string, move: string, opts?: { variant?: "command"; hold?: number }) => {
+    const triggerCutIn = (actorId: string, move: string) => {
         const r = roster.find((x) => x.id === actorId); if (!r) return;
         const id = seqRef.current++;
-        setCutInQueue((queue) => appendCapped(queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move"), variant: opts?.variant, hold: opts?.hold }, partyDuel ? 2 : 1));
+        playPetSfx("buff");
+        setCutInQueue((queue) => appendCapped(queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") }, partyDuel ? 2 : 1));
     };
     // Set during render; read from the frame loop. A ref rather than the state value
     // because advanceClock is declared above the clash block and is only ever called
@@ -7460,34 +7496,31 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (cmd.kind === "ability") {
             const moveLabel = cmd.idx === -1 ? "Strike" : (moveName ?? "Attack");
             setCommandEcho({ id: echoId, label: moveLabel, tone: "attack" });
+            playPetSfx("move");
             // EVERY move choice lands as a felt beat the instant you tap — not a silent
             // queue that waits on the sim. The name slams in, the screen flashes the pet's
             // colour, and the CAMERA jolts + punches in (bridged to DuelDirector's shake/
             // zoom). Render-only; the actual damage still resolves server/sim-side later.
             setFlash({ id: echoId, color: accent.glow, intensity: 0.5 });
-            triggerMoveCallout(moveLabel, "player", "attack");
             requestDuelCommandJolt(0.7, 1.2, 1.6);
             // Fast-forward the dead standoff so the ordered move reaches the screen fast.
             requestDuelCommandRush(tick);
-            // A chosen NAMED move that is ACTUALLY going to fire (not a basic poke, not a
-            // move on cooldown / low stamina that will only be HELD) escalates to the full
-            // anime freeze-frame cut-in — the same staging the sim uses for signatures — so
-            // the big commitment reads as an EVENT. Kept honest: the cutscene never promises
-            // a strike the pet isn't about to throw.
-            if (cmd.idx >= 0) {
-                const ab = deckControl?.abilities[cmd.idx];
-                const readyToFire = !!ab && ab.cdLeft <= 0 && (deckControl?.stamina ?? 0) >= ab.cost;
-                if (readyToFire) triggerCutIn(meId, moveLabel, { variant: "command", hold: 760 });
-            }
+            // The button owns confirmation, not the release cinematic. A Clash,
+            // target change, or other authoritative event can still intervene
+            // before the queued technique executes. The director will fire the
+            // move slate / hero cut-in on the real cast event, keeping the title,
+            // world-space VFX, contact sound, and damage on one honest timeline.
         } else if (cmd.kind === "break") {
             setCommandEcho({ id: echoId, label: "Bond Break", tone: "signature" });
+            playPetSfx("buff");
             setFlash({ id: echoId, color: "#fbbf24", intensity: 0.5 });
             // The signature call gets the hardest jolt of any command.
-            triggerMoveCallout("Bond Break", "player", "attack");
+            triggerMoveCallout("Bond Break", "player", "attack", petDisplayName(playerPet), playerPet.element);
             requestDuelCommandJolt(1.1, 1.8, 2.4);
             requestDuelCommandRush(tick);
         } else if (cmd.kind === "stance") {
             setCommandEcho({ id: echoId, label: `${["Press", "Balance", "Guard"][cmd.stance] ?? "Balance"} stance`, tone: "plan" });
+            playPetSfx("move");
         } else if (cmd.kind === "auto") {
             setCommandEcho({ id: echoId, label: cmd.on ? "Auto — pet decides" : "You have the reins", tone: "plan" });
         } else if (cmd.kind === "clash") {
@@ -7495,8 +7528,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             // camera, because this is the highest-stakes tap in the fight.
             const label = ["Strike", "Guard", "Dodge"][cmd.pick] ?? "Strike";
             setCommandEcho({ id: echoId, label: `${label}!`, tone: "signature" });
+            playPetSfx("move");
             setFlash({ id: echoId, color: accent.glow, intensity: 0.62 });
             requestDuelCommandJolt(1.3, 2, 2.6);
+        }
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+            const pattern = cmd.kind === "clash" || cmd.kind === "break" ? [18, 18, 34] : cmd.kind === "ability" ? 16 : 8;
+            navigator.vibrate(pattern);
         }
         // Optimistic echo: the control log is a record of what was TRUE at each
         // played tick, so it cannot show an order issued for the tick after this
@@ -7572,6 +7610,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             outcomeSent.current = true;
             onOutcome({ ...live.outcome(), result: "loss", winner: "enemy" });
         }
+        stopBattleMusic();
         onExit();
     };
     const deckControl = loggedControl && echo ? {
@@ -7585,6 +7624,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // hits the player is watching rather than with the buffered ones.
     const bond = live ? bondCharge(duel.events, meId, deckTick, bondSpentAt) : 0;
     const finishDuel = () => {
+        if (finishScheduled.current) return;
+        finishScheduled.current = true;
         // A live duel owns its own outcome: the mounting screen has not seen a
         // result yet, so hand it over here for reward posting. Guarded because
         // Replay remounts the director, which would otherwise settle a second time.
@@ -7592,18 +7633,69 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         // The result is its own shot. A late hero cut-in, dash ribbon, or pressure
         // volume must never remain layered over the winner/loser composition.
         setEnded(true);
+        setResultVisible(false);
         setCutInQueue([]);
         setCallout(null);
         setCombo(null);
         setAnnounce(null);
         setMoveCallout(null);
+        setClashResult(null);
         setPowerUps([]);
         setTrails([]);
         setDashFx([]);
         setPressureFx([]);
         setSetPieces([]);
+        if (duel.result === "win") playPetSfx("victory");
+        resultTimer.current = window.setTimeout(() => {
+            setResultVisible(true);
+            stopBattleMusic();
+        }, 1350);
     };
-    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; duelCmdRush.active = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setDusts([]); setScorches([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
+    const replay = () => {
+        if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
+        resultTimer.current = null;
+        finishScheduled.current = false;
+        clock.current.t = Math.max(0, initialTick);
+        clock.current.playing = false;
+        duelCmdRush.active = false;
+        setPaused(false);
+        setEnded(false);
+        setResultVisible(false);
+        setNumbers([]);
+        setImpacts([]);
+        setElementBursts([]);
+        setAftermathFx([]);
+        setSupportFx([]);
+        setFxList([]);
+        setCutInQueue([]);
+        setShocks([]);
+        setDusts([]);
+        setScorches([]);
+        setPowerUps([]);
+        setTrails([]);
+        setDashFx([]);
+        setPressureFx([]);
+        setSetPieces([]);
+        setFlash(null);
+        setCallout(null);
+        setCombo(null);
+        setAnnounce(null);
+        setMoveCallout(null);
+        setClashResult(null);
+        if (!isAudioMuted()) startBattleMusic();
+        setRunId((r) => r + 1);
+    };
+    const toggleAudio = () => {
+        const nextMuted = !audioMuted;
+        setAudioMuted(nextMuted);
+        if (!nextMuted) {
+            primePetSfx();
+            startBattleMusic();
+            playPetSfx("buff");
+        } else {
+            stopBattleMusic();
+        }
+    };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     // The live pump. Declared AFTER every clock mutation above on purpose: the
     // immutability lint treats a ref read inside an effect as pinning that ref, so
@@ -7625,7 +7717,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         }, 66);
         return () => window.clearInterval(timer);
     }, [live, onProgress]);
+    useEffect(() => {
+        if (live) return;
+        const timer = window.setInterval(() => setDeckTick(Math.max(0, Math.floor(clock.current.t))), 100);
+        return () => window.clearInterval(timer);
+    }, [live]);
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
+    const battleWinnerName = duel.result === "win"
+        ? petDisplayName(playerPet)
+        : duel.result === "loss"
+            ? petDisplayName(enemyPet)
+            : null;
+    const broadcast = useMemo(() => petDuelBroadcastRead(duel, deckTick), [deckTick, duel]);
+    const recap = useMemo(() => petDuelRecap(duel), [duel]);
 
     return createPortal((
         <div data-testid="pet-duel-root" className={mobileQa ? "pet-duel-mobile-qa" : undefined} style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: 200, width: mobileQa ? 390 : "100vw", height: mobileQa ? "min(844px,100vh)" : "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
@@ -7638,34 +7742,97 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
                 @keyframes petDuelCmdEcho { 0% { opacity: 0; transform: translateY(10px) scale(0.82); } 16% { opacity: 1; transform: translateY(0) scale(1.06); } 30% { transform: translateY(0) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px) scale(0.98); } }
-                @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
+                @keyframes petDuelMoveScene {
+                    0% { opacity: 0; transform: translate3d(var(--move-entry),8px,0) scale(.94); filter: blur(5px); }
+                    15% { opacity: 1; transform: translate3d(0,0,0) scale(1.015); filter: blur(0); }
+                    24%,76% { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
+                    100% { opacity: 0; transform: translate3d(var(--move-exit),-5px,0) scale(1.01); filter: blur(1px); }
+                }
+                @keyframes petDuelMoveRail { 0% { transform: scaleX(0); opacity: 0; } 16% { transform: scaleX(1); opacity: 1; } 78% { opacity: 1; } 100% { transform: scaleX(.72); opacity: 0; } }
+                @keyframes petDuelMoveStreak { 0% { opacity: 0; transform: translateX(var(--streak-start)) skewX(-18deg); } 22% { opacity: .58; } 100% { opacity: 0; transform: translateX(var(--streak-end)) skewX(-18deg); } }
+                @keyframes petDuelMoveWord { 0% { opacity: 0; transform: translateY(9px); letter-spacing: .16em; } 20% { opacity: 1; transform: translateY(0); letter-spacing: .035em; } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-3px); } }
                 @keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
+                @keyframes petClashResult {
+                    0% { opacity: 0; transform: translate(-50%,-50%) scale(1.65); filter: blur(4px); }
+                    16% { opacity: 1; transform: translate(-50%,-50%) scale(0.92); filter: blur(0); }
+                    25%,72% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+                    100% { opacity: 0; transform: translate(-50%,-58%) scale(1.04); }
+                }
+                @keyframes petBattleResult {
+                    0% { opacity: 0; transform: translateY(26px) scale(0.86); }
+                    20% { opacity: 1; transform: translateY(0) scale(1.04); }
+                    32%,100% { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes petBroadcastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+                @keyframes petWinnerHold { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.72); } 28% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } 42%,100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
                 @keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petSignatureCue { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); } 20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
                 @keyframes petHeroMotif { 0% { opacity: 0; transform: scale(1.65) rotate(-22deg); } 24% { opacity: .2; transform: scale(.94) rotate(4deg); } 100% { opacity: .08; transform: scale(1.08) rotate(0deg); } }
-                .pet-duel-hero-cutin { z-index: 16; padding-inline: clamp(22px,8vw,120px); gap: clamp(20px,4vw,64px); background: linear-gradient(100deg,rgba(2,6,23,0.08) 0%,rgba(2,6,23,0.94) 20%,rgba(8,12,28,0.96) 78%,rgba(2,6,23,0.08) 100%); }
+                @keyframes petCutinBars { 0% { transform: scaleY(0); } 14%,82% { transform: scaleY(1); } 100% { transform: scaleY(0); } }
+                @keyframes petCutinSlab { 0% { opacity: 0; transform: scaleX(.72) skewX(-7deg); } 13% { opacity: 1; transform: scaleX(1.02) skewX(-7deg); } 22%,82% { opacity: 1; transform: scaleX(1) skewX(-7deg); } 100% { opacity: 0; transform: scaleX(.86) skewX(-7deg); } }
+                @keyframes petCutinPortrait { 0% { opacity: 0; transform: translateX(var(--portrait-entry)) scale(1.12); filter: contrast(1.8) brightness(1.7) blur(3px); } 18% { opacity: 1; transform: translateX(0) scale(.98); filter: contrast(1.08) brightness(1.08) blur(0); } 28%,82% { opacity: 1; transform: translateX(0) scale(1); filter: contrast(1.04) brightness(1.02) blur(0); } 100% { opacity: 0; transform: translateX(var(--portrait-exit)) scale(1.025); } }
+                @keyframes petCutinTitle { 0%,10% { opacity: 0; transform: translateY(18px) scale(.94); letter-spacing: .13em; } 24% { opacity: 1; transform: translateY(0) scale(1.025); letter-spacing: .025em; } 34%,82% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: .025em; } 100% { opacity: 0; transform: translateY(-6px) scale(1.01); } }
+                @keyframes petCutinChromatic { 0%,100% { opacity: 0; transform: translateX(-8%); } 17% { opacity: .62; } 72% { opacity: .2; transform: translateX(8%); } }
+                .pet-duel-hero-cutin { z-index: 16; padding-inline: clamp(22px,8vw,120px); gap: clamp(20px,4vw,64px); background: transparent; clip-path: none; animation-duration: var(--cutin-duration); }
+                .pet-duel-hero-cutin::before { clip-path: polygon(0 22%,100% 8%,100% 78%,0 92%); animation-duration: var(--cutin-duration); z-index: 1; }
+                .pet-duel-hero-cutin .pet-cutin-slab { position: absolute; inset: 0; z-index: 0; clip-path: polygon(0 22%,100% 8%,100% 78%,0 92%); background: linear-gradient(100deg,rgba(2,6,23,.12) 0%,rgba(2,6,23,.97) 18%,rgba(8,12,28,.98) 78%,rgba(2,6,23,.12) 100%); box-shadow: inset 0 0 110px var(--hero-base); transform-origin: center; animation: petCutinSlab var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
+                .pet-duel-hero-cutin .pet-cutin-slab::after { content:""; position:absolute; inset:22% 0 18%; border-block:1px solid color-mix(in srgb,var(--hero-glow) 72%,transparent); box-shadow:0 0 22px var(--hero-glow),inset 0 0 32px rgba(255,255,255,.04); }
+                .pet-duel-hero-cutin .pet-cutin-bar { position:absolute; z-index:7; left:0; right:0; height:clamp(5px,.8vh,10px); background:#02040b; transform-origin:center; animation:petCutinBars var(--cutin-duration) ease both; }
+                .pet-duel-hero-cutin .pet-cutin-bar.top { top:0; box-shadow:0 4px 20px rgba(0,0,0,.75); }
+                .pet-duel-hero-cutin .pet-cutin-bar.bottom { bottom:0; box-shadow:0 -4px 20px rgba(0,0,0,.75); }
+                .pet-duel-hero-cutin .pet-cutin-chroma { position:absolute; z-index:1; inset:18% -12%; opacity:0; background:linear-gradient(94deg,transparent 18%,var(--hero-base) 38%,transparent 48%,var(--hero-glow) 62%,transparent 82%); mix-blend-mode:screen; filter:blur(18px); animation:petCutinChromatic var(--cutin-duration) ease both; }
                 .pet-duel-hero-cutin .pet-cutin-motif { position: absolute; z-index: 1; top: 50%; translate: 0 -50%; color: var(--hero-glow); font: 900 clamp(180px,34vw,470px)/.72 Georgia,serif; text-shadow: 0 0 36px var(--hero-glow); opacity: .08; animation: petHeroMotif 920ms cubic-bezier(.16,.84,.24,1) both; pointer-events: none; }
                 .pet-duel-hero-cutin.player .pet-cutin-motif { left: 3%; }
                 .pet-duel-hero-cutin.enemy .pet-cutin-motif { right: 3%; }
-                .pet-duel-hero-cutin .pet-cutin-portrait { position: relative; z-index: 2; filter: drop-shadow(0 14px 20px rgba(0,0,0,.68)); }
+                .pet-duel-hero-cutin .pet-cutin-portrait { --portrait-entry:-90px; --portrait-exit:16px; position: relative; z-index: 2; filter: drop-shadow(0 14px 20px rgba(0,0,0,.68)); animation:petCutinPortrait var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
+                .pet-duel-hero-cutin.enemy .pet-cutin-portrait { --portrait-entry:90px; --portrait-exit:-16px; }
+                .pet-duel-hero-cutin .pet-cutin-portrait::after { content:""; position:absolute; z-index:-1; left:8%; right:8%; bottom:5%; height:24%; border-radius:50%; background:var(--hero-glow); filter:blur(22px); opacity:.32; transform:perspective(150px) rotateX(68deg); }
                 .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-model { width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); overflow: visible; }
                 .pet-duel-hero-cutin .pet-cutin-portrait > img { display: block; width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); object-fit: contain; }
-                .pet-duel-hero-cutin .pet-cutin-text { position: relative; z-index: 2; max-width: min(52vw,760px); gap: 8px; }
+                .pet-duel-hero-cutin .pet-cutin-text { position: relative; z-index: 2; max-width: min(52vw,760px); gap: 8px; animation:petCutinTitle var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
+                .pet-duel-hero-cutin .pet-cutin-text::before { content:""; width:clamp(78px,12vw,170px); height:3px; margin-bottom:4px; background:linear-gradient(90deg,var(--hero-glow),transparent); box-shadow:0 0 12px var(--hero-glow); }
+                .pet-duel-hero-cutin.enemy .pet-cutin-text::before { background:linear-gradient(270deg,var(--hero-glow),transparent); }
                 .pet-duel-hero-cutin .pet-cutin-pet { font-size: clamp(12px,1.5vw,19px); color: var(--hero-glow); text-shadow: 0 0 16px var(--hero-glow); }
                 .pet-duel-hero-cutin .pet-cutin-move { font-size: clamp(30px,5.4vw,68px); white-space: normal; text-wrap: balance; text-shadow: 0 0 18px var(--hero-glow),0 5px 14px #000; }
-                .pet-duel-hero-cutin .pet-cutin-kicker { color: #fff4c7; font: 900 clamp(10px,1.1vw,14px)/1 var(--font-display); letter-spacing: .24em; text-transform: uppercase; }
+                .pet-duel-hero-cutin .pet-cutin-kicker { width:max-content; padding:4px 8px; border:1px solid color-mix(in srgb,var(--hero-glow) 70%,transparent); border-radius:3px; background:rgba(2,6,23,.72); color: #fff4c7; font: 900 clamp(10px,1.1vw,14px)/1 var(--font-display); letter-spacing: .24em; text-transform: uppercase; box-shadow:0 0 14px color-mix(in srgb,var(--hero-glow) 22%,transparent); }
+                .pet-duel-hero-cutin.enemy .pet-cutin-kicker { align-self:flex-end; }
+                .pet-duel-hero-cutin .pet-cutin-release { color:rgba(226,232,240,.6); font:800 9px/1 Inter,system-ui,sans-serif; letter-spacing:.32em; text-transform:uppercase; }
+                .pet-move-scene { --move-entry:-72px; --move-exit:16px; position:absolute; z-index:12; top:12%; left:4.5%; width:min(560px,58vw); pointer-events:none; color:var(--move-text); animation:petDuelMoveScene var(--move-duration) cubic-bezier(.16,.84,.24,1) both; }
+                .pet-move-scene.enemy { --move-entry:72px; --move-exit:-16px; left:auto; right:4.5%; text-align:right; }
+                .pet-move-scene .pet-move-atmosphere { position:absolute; inset:-38px -60px; z-index:-2; background:radial-gradient(ellipse at 32% 50%,color-mix(in srgb,var(--move-color) 34%,transparent),transparent 66%); filter:blur(10px); opacity:.78; }
+                .pet-move-scene.enemy .pet-move-atmosphere { background:radial-gradient(ellipse at 68% 50%,color-mix(in srgb,var(--move-color) 34%,transparent),transparent 66%); }
+                .pet-move-scene .pet-move-streaks { --streak-start:-34%; --streak-end:24%; position:absolute; z-index:-1; inset:-26px -11vw; overflow:hidden; mask-image:linear-gradient(90deg,transparent,#000 20% 80%,transparent); }
+                .pet-move-scene.enemy .pet-move-streaks { --streak-start:34%; --streak-end:-24%; }
+                .pet-move-scene .pet-move-streaks::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(173deg,transparent 0 13px,color-mix(in srgb,var(--move-color) 58%,transparent) 14px 16px,transparent 17px 28px); animation:petDuelMoveStreak var(--move-duration) ease-out both; }
+                .pet-move-scene .pet-move-card { position:relative; overflow:hidden; padding:12px 18px 13px 20px; border-left:4px solid var(--move-color); background:linear-gradient(100deg,rgba(2,6,18,.94),rgba(5,9,22,.82) 72%,transparent); clip-path:polygon(0 0,94% 0,100% 50%,94% 100%,0 100%); box-shadow:0 12px 34px rgba(0,0,0,.58),inset 0 0 32px color-mix(in srgb,var(--move-color) 10%,transparent); }
+                .pet-move-scene.enemy .pet-move-card { padding:12px 20px 13px 18px; border-left:0; border-right:4px solid var(--move-color); background:linear-gradient(260deg,rgba(2,6,18,.94),rgba(5,9,22,.82) 72%,transparent); clip-path:polygon(6% 0,100% 0,100% 100%,6% 100%,0 50%); }
+                .pet-move-scene .pet-move-card::after { content:""; position:absolute; inset:0; background:linear-gradient(110deg,transparent 22%,rgba(255,255,255,.13) 47%,transparent 61%); transform:translateX(-120%); animation:petDuelMoveStreak var(--move-duration) ease-out both; mix-blend-mode:screen; }
+                .pet-move-scene .pet-move-meta { display:flex; align-items:center; gap:8px; color:color-mix(in srgb,var(--move-text) 76%,#94a3b8); font:900 9px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; text-transform:uppercase; }
+                .pet-move-scene.enemy .pet-move-meta { justify-content:flex-end; }
+                .pet-move-scene .pet-move-glyph { display:grid; place-items:center; width:19px; height:19px; border:1px solid var(--move-color); border-radius:50%; color:var(--move-color); box-shadow:0 0 12px color-mix(in srgb,var(--move-color) 55%,transparent); }
+                .pet-move-scene .pet-move-title { margin-top:5px; color:var(--move-text); font:900 clamp(23px,3.5vw,46px)/.94 var(--font-display); letter-spacing:.035em; text-transform:uppercase; text-shadow:0 3px 10px #000,0 0 20px color-mix(in srgb,var(--move-color) 48%,transparent); text-wrap:balance; animation:petDuelMoveWord var(--move-duration) cubic-bezier(.16,.84,.24,1) both; }
+                .pet-move-scene.tactical .pet-move-title { font-size:clamp(18px,2.3vw,28px); }
+                .pet-move-scene .pet-move-rail { width:78%; height:2px; margin-top:9px; transform-origin:left; background:linear-gradient(90deg,var(--move-color),transparent); box-shadow:0 0 10px var(--move-color); animation:petDuelMoveRail var(--move-duration) ease both; }
+                .pet-move-scene.enemy .pet-move-rail { margin-left:auto; transform-origin:right; background:linear-gradient(270deg,var(--move-color),transparent); }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; }
                 .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; }
-                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } }
+                .pet-duel-mobile-qa .pet-move-scene { top:15%; left:12px; right:12px; width:auto; }
+                .pet-duel-mobile-qa .pet-move-scene .pet-move-card { padding-block:9px 10px; }
+                .pet-duel-mobile-qa .pet-move-scene .pet-move-title { font-size:25px; }
+                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } .pet-duel-hero-cutin .pet-cutin-release { letter-spacing:.18em; } .pet-move-scene { top:15%; left:12px; right:12px; width:auto; } .pet-move-scene .pet-move-card { padding-block:9px 10px; } .pet-move-scene .pet-move-title { font-size:25px; } .pet-duel-mode-badge { display: none; } .pet-duel-top-controls button { padding: 5px 7px !important; font-size: 10px !important; } }
+                @media (prefers-reduced-motion: reduce) {
+                    .pet-duel-hero-cutin,.pet-duel-hero-cutin::before,.pet-duel-hero-cutin .pet-cutin-slab,.pet-duel-hero-cutin .pet-cutin-bar,.pet-duel-hero-cutin .pet-cutin-chroma,.pet-duel-hero-cutin .pet-cutin-portrait,.pet-duel-hero-cutin .pet-cutin-text,.pet-move-scene,.pet-move-scene .pet-move-title,.pet-move-scene .pet-move-rail { animation:none !important; opacity:1; transform:none; filter:none; }
+                    .pet-move-scene .pet-move-streaks { display:none; }
+                }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             {visualLayers.post && <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />}
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
-            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || ended ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || resultVisible ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
                 {/* Adaptive DPR: drop to the tier floor under sustained load, restore with
@@ -7675,7 +7842,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
                 {visualLayers.post && <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />}
                 {roster.map((r) => (
-                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity} />
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity && !ended} />
                 ))}
                 {visualLayers.elements && Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} quality={quality} native={freeRoam3d} />
@@ -7728,13 +7895,47 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onClashResult={triggerClashResult} />
                 {visualLayers.post && <BloomFx />}
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
 
             {/* VS pre-fight intro — both fighters hold their face-off while a "VS"
                 splash slams in, then the clock starts. */}
+            {/* Persistent broadcast read: spectacle still needs an instantly
+                legible answer to "who is winning?" */}
+            {!intro && !ended && !cutIn && (
+                <div style={{
+                    position: "absolute", top: mobileQa ? 52 : 12, left: "50%",
+                    transform: "translateX(-50%)", zIndex: 11, pointerEvents: "none",
+                    width: mobileQa ? "calc(100% - 24px)" : "min(520px,48vw)",
+                    padding: mobileQa ? "7px 10px" : "8px 14px",
+                    border: "1px solid rgba(226,232,240,.22)", borderRadius: 14,
+                    background: "linear-gradient(180deg,rgba(2,6,18,.88),rgba(2,6,18,.64))",
+                    boxShadow: "0 8px 28px rgba(0,0,0,.42)",
+                    animation: "petBroadcastIn 360ms ease-out both",
+                }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10 }}>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ color: "#dbeafe", font: "900 11px/1 Inter,system-ui,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{petDisplayName(playerPet)}</div>
+                            <div style={{ height: 5, marginTop: 5, borderRadius: 99, overflow: "hidden", background: "rgba(148,163,184,.2)" }}>
+                                <div style={{ width: `${broadcast.player.percent}%`, height: "100%", background: "linear-gradient(90deg,#22c55e,#86efac)", transition: "width 180ms linear" }} />
+                            </div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                            <div style={{ color: broadcast.lead === "player" ? "#99f6e4" : broadcast.lead === "enemy" ? "#fecaca" : "#fde68a", font: "900 9px/1 Inter,system-ui,sans-serif", letterSpacing: ".12em", textTransform: "uppercase" }}>{broadcast.call}</div>
+                            <div style={{ color: "#94a3b8", font: "800 9px/1 Inter,system-ui,sans-serif", marginTop: 4 }}>{Math.floor(broadcast.elapsedSeconds / 60)}:{String(broadcast.elapsedSeconds % 60).padStart(2, "0")}</div>
+                        </div>
+                        <div style={{ minWidth: 0, textAlign: "right" }}>
+                            <div style={{ color: "#fee2e2", font: "900 11px/1 Inter,system-ui,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{petDisplayName(enemyPet)}</div>
+                            <div style={{ height: 5, marginTop: 5, borderRadius: 99, overflow: "hidden", background: "rgba(148,163,184,.2)" }}>
+                                <div style={{ width: `${broadcast.enemy.percent}%`, height: "100%", marginLeft: "auto", background: "linear-gradient(90deg,#fca5a5,#ef4444)", transition: "width 180ms linear" }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {intro && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
@@ -7759,7 +7960,6 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
                 const cutInModel = petCombatModel(cutIn.pet);
                 const cutPoseId = cutInModel ? null : posedId(cutIn.pet.id);
-                const isCommand = cutIn.variant === "command";
                 const cutInStyle = petHeroMoveStyle({
                     petId: cutIn.pet.id,
                     petName: cutIn.pet.name,
@@ -7772,14 +7972,23 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     name: cutIn.pet.name,
                     profile: cutInModel?.profile,
                 });
-                // A commanded move borrows the same freeze-frame staging but names itself
-                // honestly ("Your Order") — the marquee "Anime Break" wording stays reserved
-                // for the sim's actual signature reveal.
-                const heroMotif = isCommand ? "▶" : lunarHero ? "☾" : tidalHero ? "≋" : cutInFamily.motif;
-                const heroKicker = isCommand ? "Your Order" : lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : `Anime Break · ${cutInFamily.label}`;
+                const heroMotif = lunarHero ? "☾" : tidalHero ? "≋" : cutInFamily.motif;
+                const heroKicker = lunarHero ? "Anime Break · Moon Veil" : tidalHero ? "Anime Break · Riptide" : `Anime Break · ${cutInFamily.label}`;
                 return (
-                    <div className={`pet-cutin pet-duel-hero-cutin ${cutIn.side}`} key={`cutin-${cutIn.id}`} style={{ ["--hero-glow" as string]: elementGlow, boxShadow: `inset 0 0 90px ${elementBase}55` } as React.CSSProperties}>
-                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}42, transparent 44%)`, mixBlendMode: "screen" }} />
+                    <div
+                        className={`pet-cutin pet-duel-hero-cutin ${cutIn.side}`}
+                        key={`cutin-${cutIn.id}`}
+                        style={{
+                            ["--hero-glow" as string]: elementGlow,
+                            ["--hero-base" as string]: elementBase,
+                            ["--cutin-duration" as string]: `${cutIn.hold ?? 1320}ms`,
+                        } as React.CSSProperties}
+                    >
+                        <div className="pet-cutin-slab" />
+                        <div className="pet-cutin-chroma" />
+                        <span className="pet-cutin-bar top" aria-hidden="true" />
+                        <span className="pet-cutin-bar bottom" aria-hidden="true" />
+                        <div style={{ position: "absolute", zIndex: 1, inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}42, transparent 44%)`, mixBlendMode: "screen" }} />
                         <span className="pet-cutin-motif" aria-hidden="true">{heroMotif}</span>
                         <div className="pet-cutin-portrait">
                             {cutInModel ? (
@@ -7794,6 +8003,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                             <span className="pet-cutin-kicker">{heroKicker}</span>
                             <span className="pet-cutin-pet">{petDisplayName(cutIn.pet)}</span>
                             <span className="pet-cutin-move">{cutIn.move}!</span>
+                            <span className="pet-cutin-release">Signature release</span>
                         </div>
                     </div>
                 );
@@ -7840,38 +8050,42 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 // Now a green ▲ is always something getting stronger and an amber ⚔ is
                 // always damage, whoever threw it.
                 const cat = MOVE_CALLOUT_STYLE[moveCallout.tone];
-                const sideColor = cat.color;
-                return <div key={`move-${moveCallout.id}`} style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "9%",
-                    transform: "translateX(-50%)",
-                    maxWidth: mobileQa ? "calc(100% - 24px)" : "84%",
-                    boxSizing: "border-box",
-                    textAlign: "center",
-                    pointerEvents: "none",
-                    padding: "4px 13px",
-                    borderRadius: 999,
-                    border: `1px solid ${sideColor}`,
-                    background: `linear-gradient(180deg, ${sideColor}22, rgba(8,11,22,0.86))`,
-                    boxShadow: `0 5px 18px rgba(0,0,0,0.42), 0 0 16px ${sideColor}44`,
-                    color: cat.text,
-                    font: tactical ? "800 clamp(12px,1.6vw,18px)/1 var(--font-display)" : "900 clamp(13px,2vw,21px)/1 var(--font-display)",
-                    letterSpacing: tactical ? "0.08em" : "0.04em",
-                    textShadow: "0 2px 10px #000",
-                    whiteSpace: mobileQa ? "normal" : "nowrap",
-                    animation: tactical ? "petDuelTacticalMove 1000ms ease-out forwards" : "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards",
-                    zIndex: 12,
-                }}>
-                    <span aria-hidden style={{ marginRight: 6, opacity: 0.95 }}>{cat.glyph}</span>
-                    {/* Who threw it. "Cinder used X" is the difference between a fight
-                        you can follow and two pets flashing at each other. */}
-                    {moveCallout.who && (
-                        <span style={{ opacity: 0.66, fontWeight: 700, letterSpacing: "0.04em" }}>{moveCallout.who} · </span>
-                    )}
-                    <span style={{ opacity: 0.6, fontWeight: 700 }}>{cat.label} </span>
-                    {moveCallout.text}
-                </div>;
+                const elemental = elementColor(moveCallout.element);
+                const moveColor = moveCallout.tone === "attack" || moveCallout.tone === "combo" ? elemental.base : cat.color;
+                const category = moveCallout.tone === "attack"
+                    ? "Technique"
+                    : moveCallout.tone === "support"
+                        ? "Support art"
+                        : moveCallout.tone === "maneuver"
+                            ? "Combat shift"
+                            : "Element chain";
+                const elementName = String(moveCallout.element ?? "").trim();
+                return (
+                    <div
+                        key={`move-${moveCallout.id}`}
+                        className={`pet-move-scene ${moveCallout.side} ${tactical ? "tactical" : "hero"}`}
+                        role="status"
+                        aria-live="polite"
+                        style={{
+                            ["--move-color" as string]: moveColor,
+                            ["--move-text" as string]: cat.text,
+                            ["--move-duration" as string]: `${moveCallout.tone === "attack" || moveCallout.tone === "combo" ? 1180 : 980}ms`,
+                        } as React.CSSProperties}
+                    >
+                        <div className="pet-move-atmosphere" />
+                        <div className="pet-move-streaks" />
+                        <div className="pet-move-card">
+                            <div className="pet-move-meta">
+                                <span className="pet-move-glyph" aria-hidden="true">{cat.glyph}</span>
+                                <span>{category}</span>
+                                {elementName && <span style={{ opacity: .58 }}>· {elementName}</span>}
+                                {moveCallout.who && <span style={{ opacity: .78 }}>· {moveCallout.who}</span>}
+                            </div>
+                            <div className="pet-move-title">{moveCallout.text}</div>
+                            <div className="pet-move-rail" />
+                        </div>
+                    </div>
+                );
             })()}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
@@ -7911,6 +8125,39 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 );
             })()}
 
+            {/* Announce the resolved read, not merely the player's selection. */}
+            {clashResult && !ended && !cutIn && (
+                <div
+                    key={`clash-result-${clashResult.id}`}
+                    role="status"
+                    aria-live="assertive"
+                    style={{
+                        position: "absolute", left: "50%", top: mobileQa ? "29%" : "34%",
+                        transform: "translate(-50%,-50%)", zIndex: 28, pointerEvents: "none",
+                        width: mobileQa ? "calc(100% - 34px)" : "min(680px,82vw)",
+                        padding: mobileQa ? "15px 18px" : "20px 34px",
+                        textAlign: "center", boxSizing: "border-box",
+                        borderTop: `2px solid ${clashResult.side === "player" ? "#5eead4" : clashResult.side === "enemy" ? "#fb7185" : "#fbbf24"}`,
+                        borderBottom: `2px solid ${clashResult.side === "player" ? "#5eead4" : clashResult.side === "enemy" ? "#fb7185" : "#fbbf24"}`,
+                        background: "linear-gradient(90deg,transparent,rgba(2,6,18,.94) 15%,rgba(2,6,18,.97) 85%,transparent)",
+                        boxShadow: "0 16px 45px rgba(0,0,0,.68)",
+                        animation: "petClashResult 1850ms cubic-bezier(.16,.84,.24,1) forwards",
+                    }}
+                >
+                    <div style={{
+                        color: clashResult.side === "player" ? "#99f6e4" : clashResult.side === "enemy" ? "#fecdd3" : "#fde68a",
+                        font: `900 ${mobileQa ? 27 : 42}px/.95 var(--font-display), Inter, system-ui, sans-serif`,
+                        letterSpacing: ".045em", textTransform: "uppercase",
+                        textShadow: "0 3px 12px #000",
+                    }}>
+                        {clashResult.winner ? `${clashResult.winner} wins the Clash!` : "Clash deadlock!"}
+                    </div>
+                    <div style={{ marginTop: 8, color: "#e2e8f0", font: "800 11px/1 Inter, system-ui, sans-serif", letterSpacing: ".18em", textTransform: "uppercase" }}>
+                        {clashResult.loser ? `${clashResult.loser} is broken open` : "Both fighters are thrown back"}
+                    </div>
+                </div>
+            )}
+
             {debugAi && <DuelAiDebugHud duel={duel} clock={clock} nameById={nameById} />}
 
             {/* Lockstep stall — the shared watermark has caught up to playback and
@@ -7938,6 +8185,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {live && !live.settled && !ended && !cutIn && !intro && (
                 <PetDuelCommandDeck
                     control={deckControl}
+                    petName={petDisplayName(playerPet)}
                     bond={bond}
                     accent={elementColor(playerPet.element)}
                     keyboard={!mobileQa && canHover}
@@ -7955,8 +8203,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 deck so the read is the only thing on screen that can be answered. */}
             {clashVisible && clash && (
                 <PetDuelClashPrompt
-                    selfName={roster.find((r) => r.id === clash.selfId)?.pet.name ?? playerPet.name}
-                    foeName={roster.find((r) => r.id === clash.foeId)?.pet.name ?? enemyPet.name}
+                    selfName={nameById[clash.selfId] ?? petDisplayName(playerPet)}
+                    foeName={nameById[clash.foeId] ?? petDisplayName(enemyPet)}
                     pick={clashPick}
                     remaining={clashRemaining}
                     foeCommitted={clash.foeCommitted}
@@ -7968,21 +8216,53 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 />
             )}
 
-            {!ended && !cutIn && <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
+            {!ended && !cutIn && <div className="pet-duel-top-controls" style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={exitDuel} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
+                <button onClick={toggleAudio} style={{ ...duelBtn, borderColor: audioMuted ? "#475569" : "#fbbf24", color: audioMuted ? "#cbd5e1" : "#fde68a" }} title={audioMuted ? "Turn on Coliseum music and sound" : "Mute Coliseum audio"}>
+                    {audioMuted ? "🔇 Sound" : "🔊 Sound"}
+                </button>
                 {/* Replaying mid-fight would discard a live match, so the control is
                     offered only on the result screen there. */}
                 {!live && <button onClick={replay} style={duelBtn}>⟲ Replay</button>}
             </div>}
-            {!ended && !cutIn && <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Coliseum" : "Pet Coliseum"}</div>}
+            {!ended && !cutIn && <div className="pet-duel-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Coliseum" : "Pet Coliseum"}</div>}
 
-            {ended && (
+            {ended && !resultVisible && (
+                <div style={{ position: "absolute", inset: 0, zIndex: 30, pointerEvents: "none", background: "radial-gradient(circle at 50% 58%,transparent 0%,rgba(3,7,18,.18) 55%,rgba(3,7,18,.62) 100%)" }}>
+                    <div style={{ position: "absolute", left: "50%", top: "32%", transform: "translate(-50%,-50%)", width: "min(760px,90vw)", textAlign: "center", animation: "petWinnerHold 1350ms cubic-bezier(.16,.84,.24,1) both" }}>
+                        <div style={{ color: "#fde68a", font: "900 11px/1 Inter,system-ui,sans-serif", letterSpacing: ".28em", textTransform: "uppercase", textShadow: "0 2px 8px #000" }}>The Coliseum has spoken</div>
+                        <div style={{ marginTop: 8, color: duel.result === "win" ? "#bbf7d0" : duel.result === "loss" ? "#fecaca" : "#fef3c7", font: `900 ${mobileQa ? 38 : 64}px/.9 var(--font-display),Inter,system-ui,sans-serif`, textTransform: "uppercase", textShadow: "0 0 28px currentColor,0 5px 18px #000" }}>
+                            {battleWinnerName ? battleWinnerName : "No victor"}
+                        </div>
+                        <div style={{ marginTop: 9, color: "#fff", font: "900 14px/1 Inter,system-ui,sans-serif", letterSpacing: ".2em", textTransform: "uppercase" }}>{battleWinnerName ? "Stands victorious" : "Both fighters endure"}</div>
+                    </div>
+                </div>
+            )}
+
+            {resultVisible && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
-                    <div style={{ textAlign: "center" }}>
-                        <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{resultLabel}</div>
-                        <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>Pet Coliseum</div>
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
+                    <div style={{ width: mobileQa ? "calc(100% - 26px)" : "min(620px,88vw)", padding: mobileQa ? "22px 16px" : "30px 34px", textAlign: "center", border: "1px solid rgba(251,191,36,.35)", borderRadius: 22, background: "linear-gradient(180deg,rgba(8,11,22,.94),rgba(15,23,42,.9))", boxShadow: "0 24px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08)", animation: "petBattleResult 850ms cubic-bezier(.16,.84,.24,1) both" }}>
+                        <div style={{ color: "#cbd5e1", font: "900 12px/1 Inter, system-ui, sans-serif", letterSpacing: ".22em", textTransform: "uppercase", marginBottom: 8 }}>{resultLabel} · Pet Coliseum</div>
+                        <div style={{ font: `900 ${mobileQa ? 42 : 58}px/.95 var(--font-display), Inter, system-ui, sans-serif`, color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 0 24px currentColor, 0 4px 16px #000", textTransform: "uppercase" }}>
+                            {battleWinnerName ? `${battleWinnerName} wins!` : "Draw!"}
+                        </div>
+                        <div style={{ color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", marginTop: 10 }}>
+                            {duel.result === "win" ? "Your bond carried the arena." : duel.result === "loss" ? "The opposing pet claims the arena." : "Neither pet yields the arena."}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 18 }}>
+                            {[
+                                ["TIME", `${Math.floor(recap.durationSeconds / 60)}:${String(recap.durationSeconds % 60).padStart(2, "0")}`],
+                                ["CLASH", `${recap.playerClashWins}–${recap.enemyClashWins}${recap.clashDeadlocks ? ` · ${recap.clashDeadlocks} tie` : ""}`],
+                                ["VICTOR HP", duel.result === "draw" ? "—" : `${recap.winnerHpPercent}%`],
+                            ].map(([label, value]) => (
+                                <div key={label} style={{ padding: "9px 6px", borderRadius: 10, background: "rgba(2,6,23,.58)", border: "1px solid rgba(148,163,184,.18)" }}>
+                                    <div style={{ color: "#64748b", font: "900 8px/1 Inter,system-ui,sans-serif", letterSpacing: ".14em" }}>{label}</div>
+                                    <div style={{ color: "#f8fafc", font: "900 15px/1 Inter,system-ui,sans-serif", marginTop: 6 }}>{value}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 18 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
                             {onFightAgain && <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>}
                             <button onClick={exitDuel} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
