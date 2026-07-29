@@ -103,8 +103,9 @@ export function PetDuelClashPrompt({
                 }
                 @keyframes petClashPulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
                 @keyframes petClashSpark { 0% { opacity: 0.95; transform: scaleX(0.2); } 100% { opacity: 0; transform: scaleX(1.35); } }
+                @keyframes petClashLocked { 0% { transform: scale(1.35); opacity: 0; } 35% { transform: scale(.92); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
                 .pet-clash-call { transition: transform 110ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease; }
-                .pet-clash-call:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
+                .pet-clash-call:active:not(:disabled) { transform: translateY(5px) scale(0.91); filter: brightness(1.5) saturate(1.3); }
                 .pet-clash-call:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
                 @media (prefers-reduced-motion: reduce) {
                     .pet-clash-anim, .pet-clash-call { animation: none !important; transition: none !important; }
@@ -199,6 +200,23 @@ export function PetDuelClashPrompt({
                         ? (foeCommitted ? "Both calls are in — breaking…" : `Call made — waiting on ${foeName}`)
                         : "Call made — brace for it"}
             </div>
+
+            {locked && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                        color: CALLS[pick]?.color ?? "#fff",
+                        font: `900 ${compact ? 17 : 22}px/1 var(--font-display), Inter, system-ui, sans-serif`,
+                        letterSpacing: ".16em", textTransform: "uppercase",
+                        textShadow: `0 0 16px ${CALLS[pick]?.color ?? glow}`,
+                        animation: "petClashLocked 360ms cubic-bezier(.16,.84,.24,1) both",
+                        marginTop: compact ? -6 : -10,
+                    }}
+                >
+                    {CALLS[pick]?.label ?? "Call"} locked!
+                </div>
+            )}
 
             {/* PvP only: their call is in, but not what it was. Enough to know the
                 break is coming; not enough to turn a simultaneous read into a

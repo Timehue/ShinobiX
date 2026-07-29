@@ -27,6 +27,7 @@ import { BOND_FULL } from "../lib/pet-bond-meter";
 
 export type PetDuelCommandDeckProps = {
     control: DuelControlSnap | null;
+    petName: string;
     /** 0–BOND_FULL. At BOND_FULL the Bond Break button arms. */
     bond: number;
     /** The commanded pet's element colours, so the deck wears its identity. */
@@ -60,7 +61,7 @@ function kindColor(kind: string, support: boolean, isMove: boolean): string {
 }
 
 export function PetDuelCommandDeck({
-    control, bond, accent, compact = false, keyboard = false,
+    control, petName, bond, accent, compact = false, keyboard = false,
     onAbility, onBreak, onStance, onAuto,
 }: PetDuelCommandDeckProps) {
     const ready = bond >= BOND_FULL;
@@ -116,6 +117,11 @@ export function PetDuelCommandDeck({
     const bondPct = Math.max(0, Math.min(100, (bond / BOND_FULL) * 100));
     const staminaPct = Math.max(0, Math.min(100, control.stamina));
     const hpPct = control.maxHp > 0 ? Math.max(0, Math.min(100, (control.hp / control.maxHp) * 100)) : 0;
+    const orderedName = control.orderedIdx === -1
+        ? "Strike"
+        : control.orderedIdx >= 0
+            ? control.abilities[control.orderedIdx]?.name ?? "Technique"
+            : null;
 
     return (
         <div
@@ -134,8 +140,8 @@ export function PetDuelCommandDeck({
                 @keyframes petDeckHeld { 0%,100% { opacity: 0.9; } 50% { opacity: 0.66; } }
                 @keyframes petDeckSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(240%); } }
                 .pet-deck { pointer-events: auto; }
-                .pet-deck button { transition: transform 110ms ease, border-color 140ms ease, background 140ms ease, box-shadow 160ms ease; }
-                .pet-deck button:active:not(:disabled) { transform: translateY(1px) scale(0.975); }
+                .pet-deck button { transition: transform 90ms ease, border-color 140ms ease, background 140ms ease, box-shadow 160ms ease, filter 90ms ease; }
+                .pet-deck button:active:not(:disabled) { transform: translateY(4px) scale(0.93); filter: brightness(1.42) saturate(1.25); box-shadow: inset 0 3px 10px rgba(0,0,0,.68) !important; }
                 .pet-deck button:disabled { cursor: default; }
                 .pet-deck button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
                 @media (prefers-reduced-motion: reduce) {
@@ -148,6 +154,33 @@ export function PetDuelCommandDeck({
             <div className="pet-deck" style={{ width: compact ? "100%" : "min(560px,92%)", display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <Gauge label="Vigour" pct={hpPct} color={hpPct > 45 ? "#4ade80" : hpPct > 20 ? "#fbbf24" : "#f87171"} height={6} />
                 <Gauge label="Stamina" pct={staminaPct} color="#22d3ee" height={6} />
+            </div>
+            <div
+                className="pet-deck"
+                role="status"
+                aria-live="polite"
+                style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    minHeight: 20, marginBottom: 7, padding: "4px 11px", borderRadius: 999,
+                    background: auto ? "rgba(250,204,21,.1)" : orderedName ? `${glow}16` : "rgba(15,23,42,.68)",
+                    border: `1px solid ${auto ? "rgba(250,204,21,.45)" : orderedName ? `${glow}66` : "rgba(148,163,184,.22)"}`,
+                    color: auto ? "#fde68a" : orderedName ? "#f8fafc" : "#94a3b8",
+                    font: "800 9px/1 Inter,system-ui,sans-serif", letterSpacing: ".1em", textTransform: "uppercase",
+                    boxShadow: orderedName && !auto ? `0 0 16px ${glow}22` : undefined,
+                }}
+            >
+                <span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: auto ? "#facc15" : orderedName ? glow : "#64748b", boxShadow: orderedName ? `0 0 8px ${glow}` : undefined }} />
+                <span>{auto ? "Instinct mode" : "Command link"}</span>
+                <span style={{ opacity: .55 }}>·</span>
+                <strong style={{ color: "inherit", maxWidth: compact ? 170 : 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {auto
+                        ? `${petName} decides`
+                        : orderedName
+                            ? `${petName}: ${orderedName} locked`
+                            : compact
+                                ? `${petName}: awaiting order`
+                                : `${petName} awaits your order`}
+                </strong>
             </div>
 
             {/* Desktop puts all three zones on one line. A phone cannot fit them

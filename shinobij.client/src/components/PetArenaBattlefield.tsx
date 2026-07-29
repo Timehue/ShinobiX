@@ -819,7 +819,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         <div>
                             <span>Arena Winner</span>
                             <strong>{winnerPet.name}</strong>
-                            <p>{winnerOwner} wins the match.</p>
+                            <p>{winnerOwner === "You" ? "You win the match." : `${winnerOwner} wins the match.`}</p>
                         </div>
                         <div className="pet-victory-actions">
                             <button type="button" onClick={onFightAgain}>Fight Again</button>
