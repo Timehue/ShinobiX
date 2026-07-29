@@ -18,6 +18,7 @@ export type VnTransition = "auto" | "cut" | "crossfade" | "dip-black" | "whiteou
 export type VnTone = "neutral" | "warm" | "cold" | "danger" | "hollow" | "elegy";
 export type VnAtmosphere = "auto" | "none" | "embers" | "rain" | "snow" | "mist" | "motes";
 export type VnActorEntrance = "auto" | "none" | "fade" | "left" | "right" | "rise";
+export type VnActorPose = "neutral" | "tense" | "injured" | "resolute" | "grieving" | "defiant" | "solemn";
 export type VnImpact = "none" | "soft" | "heavy";
 /** Sparse semantic audio cues. Ordinary dialogue deliberately uses `none`;
  *  silence is preferable to a generic UI chirp on every line. */
@@ -34,6 +35,10 @@ export type VnCinematicDirection = {
     tone?: VnTone;
     atmosphere?: VnAtmosphere;
     actorEntrance?: VnActorEntrance;
+    /** Page-stable emotional pose overrides. Line direction deliberately does
+     * not change actor art so a conversation never flickers between cutouts. */
+    leftActorPose?: VnActorPose;
+    rightActorPose?: VnActorPose;
     impact?: VnImpact;
     titleCard?: boolean;
     ambience?: "auto" | "none" | "village" | "road" | "interior" | "hollow";

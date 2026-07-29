@@ -187,6 +187,7 @@
 
 .cvn-top-actions {
     display: flex;
+    position: relative;
     align-items: center;
     gap: 7px;
     pointer-events: auto;
@@ -196,13 +197,56 @@
 .cvn-quiet-control,
 .cvn-icon-control,
 .cvn-skip {
-    min-height: 36px;
+    min-height: 44px;
     border: 1px solid rgba(229, 221, 205, .16);
     border-radius: 5px;
     background: rgba(7, 10, 14, .7);
     box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
     color: rgba(240, 237, 229, .78);
     backdrop-filter: blur(10px);
+}
+
+.cvn-settings-wrap {
+    position: relative;
+    display: none;
+}
+
+.cvn-settings-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    display: grid;
+    width: min(240px, calc(100vw - 28px));
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid rgba(229, 221, 205, .2);
+    border-radius: 7px;
+    background: rgba(7, 10, 14, .96);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, .58);
+    backdrop-filter: blur(16px) saturate(.82);
+}
+
+.cvn-settings-menu button {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    border: 1px solid rgba(229, 221, 205, .16);
+    border-radius: 5px;
+    background: rgba(25, 33, 42, .84);
+    color: #f2eee6;
+    font-size: .76rem;
+    font-weight: 800;
+    text-align: left;
+    text-transform: none;
+}
+
+.cvn-settings-progress {
+    padding: 3px 5px 7px;
+    border-bottom: 1px solid rgba(229, 221, 205, .12);
+    color: var(--cvn-accent);
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .06em;
 }
 
 .cvn-progress {
@@ -228,7 +272,7 @@
 }
 
 .cvn-icon-control {
-    min-width: 38px;
+    min-width: 44px;
     font-size: 1rem;
 }
 
@@ -241,7 +285,13 @@
     stroke-width: 1.8;
 }
 
+.cvn-icon-control svg.cvn-settings-icon {
+    fill: none;
+    stroke-linejoin: round;
+}
+
 .cvn-skip {
+    min-width: 44px;
     border-color: rgba(198, 83, 89, .32);
     color: rgba(255, 224, 224, .76);
 }
@@ -377,6 +427,76 @@
     filter: saturate(.62) brightness(.67);
 }
 
+/*
+ * Player uploads can be tall cutouts, square profile art, or wide banners.
+ * Tall art keeps the authored full-body treatment. Square/wide uploads are
+ * presented in a consistent portrait plinth without rewriting the source file.
+ */
+.cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide)::before {
+    position: absolute;
+    z-index: -1;
+    right: 10%;
+    bottom: 9%;
+    left: 10%;
+    height: 66%;
+    border: 1px solid color-mix(in srgb, var(--cvn-accent) 34%, transparent);
+    border-radius: 48% 48% 8px 8px;
+    background:
+        radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--cvn-accent) 14%, transparent), transparent 46%),
+        rgba(8, 13, 19, .7);
+    box-shadow: 0 26px 48px rgba(0, 0, 0, .42);
+    content: "";
+}
+
+.cvn-actor.is-player img.cvn-avatar-square,
+.cvn-actor.is-player img.cvn-avatar-wide {
+    position: absolute;
+    right: 15%;
+    bottom: 13%;
+    left: 15%;
+    width: 70%;
+    height: 58%;
+    border: 1px solid color-mix(in srgb, var(--cvn-accent) 42%, transparent);
+    border-radius: 48% 48% 10px 10px;
+    background: rgba(8, 13, 19, .82);
+    object-fit: cover;
+    object-position: 50% 22%;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0 88%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0 88%, transparent 100%);
+}
+
+.cvn-actor.is-player img.cvn-avatar-wide {
+    object-position: 50% 28%;
+}
+
+.cvn-root.is-moonshadow .cvn-stage::before {
+    position: absolute;
+    z-index: 15;
+    inset: 8% 0 20%;
+    background:
+        radial-gradient(ellipse at 15% 52%, rgba(144, 112, 198, .22), transparent 28%),
+        radial-gradient(ellipse at 85% 52%, rgba(144, 112, 198, .22), transparent 28%);
+    content: "";
+    pointer-events: none;
+}
+
+.cvn-root.is-moonshadow .cvn-actor {
+    opacity: .82;
+    filter: saturate(.86) brightness(.86);
+}
+
+.cvn-root.is-moonshadow .cvn-actor img {
+    filter:
+        drop-shadow(0 22px 25px rgba(0, 0, 0, .72))
+        drop-shadow(0 0 1px rgba(202, 177, 255, .9))
+        drop-shadow(0 0 10px rgba(121, 86, 181, .28));
+}
+
+.cvn-root.is-moonshadow .cvn-actor.is-speaking {
+    opacity: 1;
+    filter: saturate(1.02) brightness(1.1);
+}
+
 .cvn-actor.is-player:not(.is-speaking) {
     opacity: .52;
 }
@@ -495,13 +615,26 @@
 
 .cvn-dialogue-footer .vn-controls {
     display: flex;
+    flex: 1 1 auto;
+    width: auto;
     justify-content: flex-end;
     gap: 8px;
 }
 
+.cvn-dialogue-footer .cvn-auto-status {
+    flex: 0 0 auto;
+    min-width: 56px;
+    padding: 0 12px;
+    border-color: color-mix(in srgb, var(--cvn-accent) 58%, transparent);
+    color: color-mix(in srgb, var(--cvn-accent) 78%, white);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
 .cvn-dialogue-footer button,
 .cvn-dialogue-footer .vn-choice-btn {
-    min-height: 42px;
+    min-height: 44px;
     margin: 0;
     border: 1px solid rgba(229, 221, 205, .2);
     border-radius: 4px;
@@ -765,13 +898,17 @@
 
     .cvn-chapter-mark {
         min-width: 0;
-        max-width: 44vw;
+        max-width: calc(100vw - 176px);
         padding-left: 8px;
     }
 
     .cvn-chapter-mark span,
-    .cvn-quiet-control {
+    .cvn-desktop-setting {
         display: none;
+    }
+
+    .cvn-settings-wrap {
+        display: block;
     }
 
     .cvn-chapter-mark strong {
@@ -782,20 +919,17 @@
         gap: 4px;
     }
 
-    .cvn-progress,
     .cvn-icon-control,
     .cvn-skip {
-        min-height: 38px;
+        min-height: 44px;
     }
 
     .cvn-progress {
-        min-width: 58px;
-        padding: 0 7px;
-        font-size: .64rem;
+        display: none;
     }
 
     .cvn-icon-control {
-        min-width: 38px;
+        min-width: 44px;
         padding: 5px;
     }
 
@@ -880,6 +1014,51 @@
 @media (max-width: 800px) {
     .cvn-actor.is-left { left: -12vw; }
     .cvn-actor.is-right { right: -12vw; }
+    .cvn-actor.is-player.is-left:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        left: -2vw;
+        width: 50vw;
+    }
+}
+
+.cvn-root.text-large .cvn-dialogue-text {
+    font-size: clamp(1.2rem, 2vw, 1.68rem);
+}
+
+.cvn-root.text-xlarge .cvn-dialogue-text {
+    font-size: clamp(1.38rem, 2.35vw, 1.92rem);
+    line-height: 1.58;
+}
+
+.cvn-root.contrast-high {
+    --cvn-dialogue-bg: rgba(0, 0, 0, .985);
+}
+
+.cvn-root.contrast-high .cvn-dialogue-shell {
+    border-color: rgba(255, 255, 255, .76);
+    border-left-color: var(--cvn-accent);
+    backdrop-filter: none;
+}
+
+.cvn-root.contrast-high .cvn-dialogue-text {
+    color: #fff;
+    font-weight: 500;
+    text-shadow: none;
+}
+
+.cvn-root.contrast-high .cvn-scene-caption,
+.cvn-root.contrast-high .cvn-speaker {
+    background: #000;
+    color: #fff;
+}
+
+.cvn-root.contrast-high .cvn-speaker {
+    color: var(--cvn-accent);
+}
+
+@media (max-width: 350px) {
+    .cvn-scene-caption {
+        display: none;
+    }
 }
 
 @media (min-width: 801px) and (max-height: 680px) {

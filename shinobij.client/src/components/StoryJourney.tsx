@@ -1,123 +1,108 @@
 /*
- * StoryJourney — the "story so far" replay panel in the Story Hall (owner
- * decision 6, docs/fable-5-story-rebuild.md §11): milestone chapters and
- * VN-only interludes merged into one level-ordered timeline. Read-only —
- * completed interludes replay their pages and show the choice actually made
- * (derived from character.storyTraits, the client mirror of the server story
- * record). Nothing here re-opens choices or grants anything.
+ * Story Hall archive. This deliberately returns completed story beats only:
+ * no future chapter names, level gates, waiting interludes, or live choices are
+ * put in the DOM. Replays are transcripts, so opening one cannot grant rewards,
+ * change a lane, or start another boss encounter.
  */
 
-import { useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { Character } from "../types/character";
-import { storylines } from "../data/storylines";
-import { storyInterludesByVillage, type StoryInterlude } from "../data/story-interludes";
 import { applyVnTextVars, vnTextVarsFor } from "../lib/vn";
-
-type JourneyEntry =
-    | { kind: "chapter"; level: number; title: string; bossName: string; bossIcon: string; done: boolean }
-    | { kind: "interlude"; level: number; interlude: StoryInterlude; done: boolean; chosen?: { text: string; conclusion: string } };
-
-function buildJourney(character: Character): JourneyEntry[] {
-    const village = character.storyVillage || character.village;
-    const traits = character.storyTraits ?? [];
-    const chapters = (storylines[village] ?? []).map((step, index): JourneyEntry => ({
-        kind: "chapter",
-        level: step.levelReq,
-        title: step.title,
-        bossName: step.bossName,
-        bossIcon: step.bossIcon,
-        done: (character.storyProgress ?? 0) > index,
-    }));
-    const interludes = (storyInterludesByVillage[village] ?? []).map((interlude): JourneyEntry => {
-        // Lane choices only (mid-scene conversation choices carry no trait).
-        const choices = (interlude.pages[interlude.pages.length - 1].choices ?? []).filter((choice) => !!choice.trait);
-        const picked = choices.find((choice) => choice.trait && traits.includes(choice.trait));
-        return {
-            kind: "interlude",
-            level: interlude.levelReq,
-            interlude,
-            done: !!picked,
-            chosen: picked ? { text: picked.text, conclusion: picked.conclusion ?? "" } : undefined,
-        };
-    });
-    return [...chapters, ...interludes].sort((a, b) => a.level - b.level);
-}
+import { buildCompletedStoryArchive } from "../lib/story-archive";
 
 export function StoryJourney({ character }: { character: Character }) {
     const [openId, setOpenId] = useState<string | null>(null);
-    // %name / %pet substitution vars for replayed dialogue, resolved once.
-    const textVars = vnTextVarsFor(character);
-    const journey = buildJourney(character);
-    const doneCount = journey.filter((entry) => entry.done).length;
-    if (doneCount === 0) return null; // nothing lived yet — no empty shelf
+    const archiveHeadingId = useId();
+    const textVars = useMemo(() => vnTextVarsFor(character), [character]);
+    const archive = useMemo(() => buildCompletedStoryArchive(character), [character]);
+
+    if (archive.length === 0) {
+        return (
+            <section className="story-archive story-archive-empty" aria-labelledby={archiveHeadingId}>
+                <div className="story-archive-heading">
+                    <div>
+                        <p className="act-label">VILLAGE CHRONICLE</p>
+                        <h2 id={archiveHeadingId}>Completed stories</h2>
+                    </div>
+                    <span className="story-archive-count">0 archived</span>
+                </div>
+                <p>Your first completed chapter will be preserved here. Unfinished and future storylines remain off the shelf.</p>
+            </section>
+        );
+    }
 
     return (
-        <div className="summary-box story-journey">
-            <h3>The Story So Far — {doneCount}/{journey.length} beats</h3>
-            <div className="story-journey-list">
-                {journey.map((entry) => {
-                    if (entry.kind === "chapter") {
-                        return (
-                            <div key={`ch-${entry.level}`} className={"story-journey-row" + (entry.done ? "" : " story-journey-locked")}>
-                                <span className="tile-icon">{entry.done ? entry.bossIcon : "🔒"}</span>
-                                <span>
-                                    <strong>{entry.title}</strong>
-                                    <small> — Chapter, level {entry.level}{entry.done ? ` · ${entry.bossName} defeated` : ""}</small>
-                                </span>
-                            </div>
-                        );
-                    }
-                    const { interlude } = entry;
-                    if (!entry.done) {
-                        const eligible = character.level >= interlude.levelReq && (character.storyProgress ?? 0) >= interlude.minProgress;
-                        return (
-                            <div key={interlude.id} className="story-journey-row story-journey-locked">
-                                <span className="tile-icon">{eligible ? "📜" : "🔒"}</span>
-                                <span>
-                                    <strong>{eligible ? interlude.title : "???"}</strong>
-                                    <small> — {eligible ? "a scene is waiting for you" : `level ${interlude.levelReq}`}</small>
-                                </span>
-                            </div>
-                        );
-                    }
-                    const open = openId === interlude.id;
+        <section className="story-archive" aria-labelledby={archiveHeadingId}>
+            <div className="story-archive-heading">
+                <div>
+                    <p className="act-label">VILLAGE CHRONICLE</p>
+                    <h2 id={archiveHeadingId}>Completed stories</h2>
+                </div>
+                <span className="story-archive-count">{archive.length} archived</span>
+            </div>
+            <p className="story-archive-intro">
+                A permanent, read-only record of the chapters and choices you have finished.
+            </p>
+            <div className="story-archive-list">
+                {archive.map((entry) => {
+                    const open = openId === entry.id;
+                    const panelId = `${archiveHeadingId}-${entry.id}`;
                     return (
-                        <div key={interlude.id} className="story-journey-row story-journey-done">
-                            <button className="story-journey-toggle" onClick={() => setOpenId(open ? null : interlude.id)}>
-                                <span className="tile-icon">📜</span>
-                                <span>
-                                    <strong>{interlude.title}</strong>
-                                    <small> — level {interlude.levelReq} · {open ? "close" : "replay"}</small>
+                        <article key={entry.id} className={`story-archive-entry is-${entry.kind}`}>
+                            <button
+                                type="button"
+                                className="story-archive-toggle"
+                                aria-expanded={open}
+                                aria-controls={panelId}
+                                onClick={() => setOpenId(open ? null : entry.id)}
+                            >
+                                <span className="story-archive-icon" aria-hidden="true">{entry.icon}</span>
+                                <span className="story-archive-label">
+                                    <small>{entry.eyebrow}</small>
+                                    <strong>{entry.title}</strong>
                                 </span>
+                                <span className="story-archive-action" aria-hidden="true">{open ? "Close" : "Read"}</span>
                             </button>
                             {open && (
-                                <div className="story-journey-replay">
-                                    <img
-                                        src={`/scenes/story/${interlude.id}.webp`}
-                                        alt=""
-                                        className="story-journey-scene"
-                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                    />
-                                    {interlude.pages.map((page, pageIndex) => (
-                                        <div key={pageIndex} className="story-journey-page">
-                                            <em>{page.scene}</em>
-                                            {page.dialogue.map((line, lineIndex) => (
-                                                <p key={lineIndex}><strong>{page.speaker}:</strong> {applyVnTextVars(line, textVars)}</p>
-                                            ))}
-                                        </div>
+                                <div id={panelId} className="story-archive-replay">
+                                    {entry.pages.map((page, pageIndex) => (
+                                        <section key={`${entry.id}-${pageIndex}`} className="story-archive-page">
+                                            {page.image && (
+                                                <img
+                                                    src={page.image}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    onError={(event) => { event.currentTarget.style.display = "none"; }}
+                                                />
+                                            )}
+                                            <div className="story-archive-copy">
+                                                <h4>{page.title}</h4>
+                                                <p className="story-archive-scene">{applyVnTextVars(page.scene, textVars)}</p>
+                                                <div className="story-archive-transcript">
+                                                    {page.lines.map((line, lineIndex) => (
+                                                        <p key={lineIndex}>
+                                                            <strong>{line.speaker}</strong>
+                                                            <span>{applyVnTextVars(line.text, textVars)}</span>
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </section>
                                     ))}
                                     {entry.chosen && (
-                                        <div className="story-journey-choice">
-                                            <p><strong>You chose:</strong> {applyVnTextVars(entry.chosen.text, textVars)}</p>
-                                            <p>{applyVnTextVars(entry.chosen.conclusion, textVars)}</p>
+                                        <div className="story-archive-choice">
+                                            <small>Your recorded choice</small>
+                                            <strong>{applyVnTextVars(entry.chosen.text, textVars)}</strong>
+                                            {entry.chosen.conclusion && <p>{applyVnTextVars(entry.chosen.conclusion, textVars)}</p>}
                                         </div>
                                     )}
                                 </div>
                             )}
-                        </div>
+                        </article>
                     );
                 })}
             </div>
-        </div>
+        </section>
     );
 }

@@ -107,7 +107,51 @@ test("generic VNs get deterministic automatic presentation without premium actor
     assert.deepEqual(a, b);
     assert.equal(a.premium, false);
     assert.equal(a.focus, "right");
+    assert.equal(a.leftActorPose, "neutral");
+    assert.equal(a.rightActorPose, "neutral");
     assert.equal(resolveCinematicActorImage(e.id, "Toma Reed", "/fallback.webp"), "/fallback.webp");
+});
+
+test("actor poses stay page-stable even when a line attempts an override", () => {
+    const e = event("story-stormveil-village-15-1");
+    e.biome = "forest";
+    e.vnPages = [{
+        title: "Quiet Ledger",
+        scene: "Mira reviews the village accounts.",
+        speaker: "Mira Volt",
+        dialogue: ["Mira Volt: The figures are sound."],
+        cinematic: { rightActorPose: "neutral" },
+        lines: [{
+            speaker: "Mira Volt",
+            text: "The figures are sound.",
+            cinematic: { rightActorPose: "injured", tone: "cold" },
+        }],
+    }];
+    const p = resolveVnPresentation({
+        event: e,
+        page: e.vnPages[0],
+        pageIndex: 0,
+        lineIndex: 0,
+        speaker: "Mira Volt",
+        speakingSide: "right",
+        pageImage: "/old.webp",
+    });
+    assert.equal(p.rightActorPose, "neutral");
+    assert.equal(p.tone, "cold");
+    assert.match(resolveCinematicActorImage(e.id, "Mira Volt", "/fallback.webp", p.rightActorPose), /mira-volt-neutral/);
+});
+
+test("explicit page actor art wins over automatic storywide variants", () => {
+    assert.equal(
+        resolveCinematicActorImage(
+            "story-moonshadow-village-100-8",
+            "Kage Sable Nocturne",
+            "/fallback.webp",
+            "tense",
+            "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
+        ),
+        "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
+    );
 });
 
 test("pilot recurring actors resolve to the cinematic package", () => {

@@ -4,6 +4,11 @@ Release scope: reusable village scene families plus the recurring main-story
 cast, complementing the bespoke Ashen Leaf pilot package in
 `cinematic-vn-pilot-asset-manifest-2026-07-28.md`.
 
+The follow-up pose, readability, crisis/aftermath, sound, and mobile pass is
+documented in `cinematic-vn-improvement-pass-2026-07-29.md`.
+The final soundtrack sources, processing, runtime mix, and commercial-use
+provenance are documented in `vn-soundtrack-direction-2026-07-29.md`.
+
 All new raster art was made with the built-in OpenAI image generator in
 reference-guided generation mode. Existing shipped village paintings anchored
 environment style; existing shipped portraits were strict identity references
@@ -86,21 +91,59 @@ for alpha and a minimum 900 px width.
 | `public/portraits/cinematic/storywide/kage-sable-nocturne.webp` | `public/portraits/kage-sable-nocturne.webp` | `exec-8c071536-e3f9-4086-96af-fc7f09db4496.png` |
 | `public/portraits/cinematic/storywide/shade-master-iro.webp` | `public/portraits/shade-master-iro.webp` | `exec-1ac11aed-12f0-44a9-93c7-c6d496f0f5aa.png` |
 
+### Finale expression variants
+
+The level-100 hero interventions now use four reference-guided acting variants.
+They preserve the shipped identity and costume while changing only expression
+and gesture. Green chroma masters were extracted with a soft matte, contracted
+one pixel, despilled twice, and normalized to 1000 x 1536 transparent WebP.
+
+| Final asset | Acting beat | Generated master |
+|---|---|---|
+| `public/portraits/cinematic/storywide/mira-volt-grieving.webp` | grief held under resolve | `call_GIrR94tt4jR3G3qlNlxlgtBs.png` |
+| `public/portraits/cinematic/storywide/toma-reed-resolute.webp` | protective resolve | `exec-573da33d-341a-4bb0-9775-8e6213858676.png` |
+| `public/portraits/cinematic/storywide/captain-yura-defiant.webp` | freed, unbroken defiance | `exec-58c4512d-f5d8-413a-97c2-fa20c55925ec.png` |
+| `public/portraits/cinematic/storywide/nyx-resolute.webp` | vulnerable self-possession | `exec-d00f7a0a-b168-445c-8cca-322f4a0f451a.png` |
+
+### Finale testimony variants
+
+| Final asset | Acting beat | Generated master |
+|---|---|---|
+| `public/portraits/cinematic/storywide/elder-vanta-solemn.webp` | accepts blame with the closed ledger in his hands | `call_NjfaDKcflsK8O3LSqJycsaEt.png` |
+| `public/portraits/cinematic/storywide/elder-mori-solemn.webp` | presents the measured bloom pattern | `call_w3rLSzWUJ4Rtm9dhZWJcbM6W.png` |
+| `public/portraits/cinematic/storywide/elder-sova-solemn.webp` | reads the Count book outward | `call_sRXpmI40kVN7c234Sk3B22zo.png` |
+| `public/portraits/cinematic/storywide/shade-master-iro-solemn.webp` | reads the buyer manifest without defensive posture | `call_oJJqRFjVaEPLgxdel1gwV21u.png` |
+
+### Level-100 climax environments
+
+| Final asset | Key story object | Generated master |
+|---|---|---|
+| `public/scenes/story/cinematic/storywide/stormveil-climax-blank-board.webp` | blank board and Kesa's cable maps on the storm floor | `call_1vCvHXNTyA5CK76YMp62fABM.png` |
+| `public/scenes/story/cinematic/storywide/ashen-climax-rootfire.webp` | shears on the anvil before the Rootfire | `call_osNgmGpN2yRrKpv4zmAwcrR3.png` |
+| `public/scenes/story/cinematic/storywide/frostfang-climax-meter-zero.webp` | end-stopped meter and one ridge lantern | `call_HZtGcIp13z9TW9PeP6QS2d4A.png` |
+| `public/scenes/story/cinematic/storywide/moonshadow-climax-black-glass.webp` | black-glass ripple, receipts, and unopened file | `call_YzCou1GQSp0qyH6bVy4OBG2j.png` |
+
 ## Runtime use and audio policy
 
 - Chapter-specific shipped paintings remain the opening and ending/climax
   compositions.
 - Intermediate pages resolve to a scene family from the written title/scene;
   admin-authored event/page/line direction always overrides automatic choices.
-- The next resolved backdrop and actor cutout preload only one beat ahead.
+- The next resolved backdrop and both actor cutouts preload only one beat ahead.
+- Explicit page actor art takes priority over automatic storywide pose variants,
+  preserving authored level-100 transformations.
 - Ordinary dialogue, typewriter text, Back, and Next remain silent.
+- Fifty-two hero beats carry explicit camera, tone, transition, cue, and motion
+  direction. Routine dialogue holds a static background; motion is reserved for
+  openings, crises, aftermaths, evidence, reveals, and confrontations.
 - Only title, authored paper/reveal/omen/battle beats, and visible decision
   points can emit a short semantic cue. Ambience is low, persistent across pages,
   follows the global mute, and fades on unmount.
 
 ## Certification result
 
-`npm run qa:cinematic-vn` certified 23 environments and 14 actor cutouts at
-6.77 MiB total. The certification checks file presence, 1672 x 941 environment
-dimensions, transparent actor alpha, minimum actor width, and per-file size
+`npm run qa:cinematic-vn` now certifies 35 environments, 32 actor cutouts, and
+five production score loops. The certification checks file presence,
+1672 x 941 environment dimensions, transparent actor alpha, minimum actor
+width, per-file size budgets, OGG container signatures, and audio delivery
 budgets.

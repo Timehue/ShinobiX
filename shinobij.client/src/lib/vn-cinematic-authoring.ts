@@ -8,6 +8,7 @@ export const VN_TRANSITIONS = ["auto", "cut", "crossfade", "dip-black", "whiteou
 export const VN_TONES = ["neutral", "warm", "cold", "danger", "hollow", "elegy"] as const;
 export const VN_ATMOSPHERES = ["auto", "none", "embers", "rain", "snow", "mist", "motes"] as const;
 export const VN_ENTRANCES = ["auto", "none", "fade", "left", "right", "rise"] as const;
+export const VN_ACTOR_POSES = ["neutral", "tense", "injured", "resolute", "grieving", "defiant", "solemn"] as const;
 export const VN_IMPACTS = ["none", "soft", "heavy"] as const;
 export const VN_AMBIENCES = ["auto", "none", "village", "road", "interior", "hollow"] as const;
 export const VN_CUES = ["none", "title", "paper", "reveal", "omen", "decision", "battle"] as const;
@@ -24,6 +25,8 @@ const DIRECTION_OPTIONS: Partial<Record<DirectionKey, DirectionOption>> = {
     tone: VN_TONES,
     atmosphere: VN_ATMOSPHERES,
     actorEntrance: VN_ENTRANCES,
+    leftActorPose: VN_ACTOR_POSES,
+    rightActorPose: VN_ACTOR_POSES,
     impact: VN_IMPACTS,
     ambience: VN_AMBIENCES,
     cue: VN_CUES,

@@ -1,6 +1,7 @@
 import type { VnCinematicDirection } from "../types/vn";
 import {
     VN_AMBIENCES,
+    VN_ACTOR_POSES,
     VN_ATMOSPHERES,
     VN_ENTRANCES,
     VN_FOCUSES,
@@ -89,6 +90,8 @@ export function VnCinematicDirectionEditor({
                 <summary>Advanced effects</summary>
                 <div className="vn-direction-grid">
                     <DirectionSelect label="Actor entrance" field="actorEntrance" value={value?.actorEntrance} options={VN_ENTRANCES} onChange={update} />
+                    <DirectionSelect label="Left actor pose" field="leftActorPose" value={value?.leftActorPose} options={VN_ACTOR_POSES} onChange={update} />
+                    <DirectionSelect label="Right actor pose" field="rightActorPose" value={value?.rightActorPose} options={VN_ACTOR_POSES} onChange={update} />
                     <DirectionSelect label="Impact" field="impact" value={value?.impact} options={VN_IMPACTS} onChange={update} />
                     <DirectionSelect label="Ambience" field="ambience" value={value?.ambience} options={VN_AMBIENCES} onChange={update} />
                     <label className="vn-direction-field is-checkbox">

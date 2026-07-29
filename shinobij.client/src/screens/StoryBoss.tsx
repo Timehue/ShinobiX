@@ -19,11 +19,29 @@ import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "../lib/story-fight-theme";
+import { StoryJourney } from "../components/StoryJourney";
 import {
     type CreatorEvent,
     type StoryStep,
 } from "../App";
 
+export function StoryArchiveHall({
+    character,
+    setScreen,
+}: {
+    character: Character;
+    setScreen: (screen: Screen) => void;
+}) {
+    return (
+        <div className="card cinematic-card story-hall-archive">
+            <BackToVillageButton onClick={() => setScreen("village")} />
+            <StoryJourney character={character} />
+        </div>
+    );
+}
+
+/** @deprecated The live chapter/boss launcher is retained only for old save
+ * recovery. The player-facing Story Hall now renders StoryArchiveHall. */
 export function StoryHall({
     character,
     setScreen,

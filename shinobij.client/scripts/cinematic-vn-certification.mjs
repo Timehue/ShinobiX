@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { open, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import sharp from "sharp";
@@ -6,6 +6,7 @@ import sharp from "sharp";
 const publicRoot = path.resolve("public");
 const environmentDir = path.join(publicRoot, "scenes", "story", "cinematic");
 const actorDir = path.join(publicRoot, "portraits", "cinematic");
+const scoreDir = path.join(publicRoot, "music", "vn");
 
 const environments = [
     "ashen-register-hall-wide.webp",
@@ -18,6 +19,22 @@ const environments = [
     ...["stormveil", "ashen", "frostfang", "moonshadow"].flatMap((village) =>
         ["civic", "intimate", "threshold", "sanctum"].map((family) => `storywide/${village}-${family}.webp`),
     ),
+    ...[
+        "stormveil-aftermath",
+        "stormveil-blackout",
+        "ashen-ashfall",
+        "ashen-aftermath",
+        "frostfang-whiteout",
+        "frostfang-aftermath",
+        "moonshadow-blackout",
+        "moonshadow-aftermath",
+    ].map((environment) => `storywide/${environment}.webp`),
+    ...[
+        "stormveil-climax-blank-board",
+        "ashen-climax-rootfire",
+        "frostfang-climax-meter-zero",
+        "moonshadow-climax-black-glass",
+    ].map((environment) => `storywide/${environment}.webp`),
 ];
 
 const actors = [
@@ -37,6 +54,37 @@ const actors = [
         "kage-sable-nocturne",
         "shade-master-iro",
     ].map((actor) => `storywide/${actor}.webp`),
+    ...[
+        "mira-volt-neutral",
+        "kage-sable-nocturne-readable",
+        "nyx-neutral",
+        "shade-master-iro-tense",
+        "kage-hoshina-enju-tense",
+        "captain-yura-injured",
+        "mira-volt-grieving",
+        "toma-reed-resolute",
+        "captain-yura-defiant",
+        "nyx-resolute",
+        "elder-vanta-solemn",
+        "elder-mori-solemn",
+        "elder-sova-solemn",
+        "shade-master-iro-solemn",
+    ].map((actor) => `storywide/${actor}.webp`),
+];
+
+const authoredActors = [
+    "storywide/kage-raiko-veyr-hollow.webp",
+    "storywide/kage-hoshina-enju-hollow.webp",
+    "storywide/kage-kael-whitefang-hollow.webp",
+    "storywide/kage-sable-nocturne-hollow.webp",
+];
+
+const scores = [
+    "stormveil-reasons-in-rain.ogg",
+    "ashen-future-in-fire.ogg",
+    "frostfang-warmth-we-keep.ogg",
+    "moonshadow-name-under-glass.ogg",
+    "hollow-gate-four-debts.ogg",
 ];
 
 const failures = [];
@@ -60,8 +108,30 @@ async function inspectAsset(root, relativePath, kind) {
     }
 }
 
+async function inspectScore(relativePath) {
+    const file = path.join(scoreDir, relativePath);
+    let handle;
+    try {
+        const fileStat = await stat(file);
+        handle = await open(file, "r");
+        const signature = Buffer.alloc(4);
+        await handle.read(signature, 0, signature.length, 0);
+        totalBytes += fileStat.size;
+        if (signature.toString("ascii") !== "OggS") failures.push(`${relativePath}: missing OggS container signature`);
+        if (fileStat.size < 500_000) failures.push(`${relativePath}: ${fileStat.size} bytes is unexpectedly small`);
+        if (fileStat.size > 4_000_000) failures.push(`${relativePath}: ${fileStat.size} bytes exceeds the 4 MB delivery budget`);
+        console.log(`PASS score                    ${String(fileStat.size).padStart(7)} B  ${relativePath}`);
+    } catch (error) {
+        failures.push(`${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+        await handle?.close();
+    }
+}
+
 for (const environment of environments) await inspectAsset(environmentDir, environment, "environment");
 for (const actor of actors) await inspectAsset(actorDir, actor, "actor");
+for (const actor of authoredActors) await inspectAsset(actorDir, actor, "actor");
+for (const score of scores) await inspectScore(score);
 
 if (failures.length) {
     console.error("\nCinematic VN certification failed:");
@@ -69,4 +139,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`\nCertified ${environments.length} environments and ${actors.length} actor cutouts (${(totalBytes / 1_048_576).toFixed(2)} MiB total).`);
+console.log(`\nCertified ${environments.length} environments, ${actors.length + authoredActors.length} actor cutouts, and ${scores.length} score loops (${(totalBytes / 1_048_576).toFixed(2)} MiB total).`);
