@@ -18,8 +18,8 @@ import "../styles/chronicle-duel.css";
 
 // Same replay pacing the Card Hall uses: a full beat per logged Keeper move,
 // a quiet beat for silent phase bookkeeping.
-const AI_STEP_BEAT_MS = 950;
-const AI_STEP_QUIET_MS = 400;
+const AI_STEP_BEAT_MS = 1_250;
+const AI_STEP_QUIET_MS = 650;
 
 type TileDifficulty = "easy" | "normal" | "hard";
 const ENCOUNTER_AI_DIFFICULTY: Record<TileDifficulty, ChronicleAiDifficulty> = {

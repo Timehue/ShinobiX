@@ -64,11 +64,12 @@ export function resolveCombatBodyFacing({
     }
 
     // A planted quadruped cannot sell a fast sideways slide. Turn the torso into
-    // travel, but cap the turn to 72 degrees around the opponent eyeline so the
-    // fighter never appears to abandon the exchange or show its back at random.
+    // travel, but keep the opponent inside a 45-degree forward cone. The wider
+    // 72-degree allowance let a retreating pet spend long beats looking almost
+    // completely away from the fight.
     const faceAngle = Math.atan2(face[0], face[1]);
     const moveAngle = Math.atan2(move[0], move[1]);
-    const delta = clamp(wrappedAngle(moveAngle - faceAngle), -Math.PI * 0.4, Math.PI * 0.4);
+    const delta = clamp(wrappedAngle(moveAngle - faceAngle), -Math.PI * 0.25, Math.PI * 0.25);
     const angle = faceAngle + delta;
     return [Math.sin(angle), Math.cos(angle)];
 }
