@@ -38,42 +38,70 @@
     white-space: nowrap;
 }
 
-/* Village name plates — painted-lettering over the bare banner boards baked
- * into the 2026-07 keyart. The SVG rides the art's own 1536x1024 space
- * (preserveAspectRatio: none), so the names zoom AND stretch in lockstep with
- * the painting — deliberately no --wm-marker-scale counter-scaling here. */
-.world-village-plates-svg {
+/* POI name plaques — the world keyart carries no lettering, so these name the
+ * eight headline places. Dark glass plate + hairline rule, in the register of
+ * an in-world cartouche. Pointer-events:none and below the z-10 markers, so a
+ * plate can sit near a pin without ever stealing its click. They counter-scale
+ * with --wm-marker-scale like the markers do, so mobile zoom SEPARATES plates
+ * from pins instead of inflating both. */
+.world-poi-plate {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 3;
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1));
+    transform-origin: center;
+    z-index: 4;
     pointer-events: none;
-    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    max-width: min(30%, 260px);
+    padding: 5px 12px 6px;
+    border: 1px solid rgba(250, 232, 180, 0.34);
+    border-radius: 5px;
+    background: linear-gradient(180deg, rgba(9, 13, 24, 0.82), rgba(6, 9, 17, 0.9));
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 245, 214, 0.09);
+    text-align: center;
 }
 
-.world-village-plate {
+.world-poi-plate-name {
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 700;
-    font-size: 22px; /* viewBox units — relative to the 1536px-wide painting */
-    letter-spacing: 0.04em;
-    fill: #33220f;
-    paint-order: stroke fill;
-    stroke: rgba(255, 240, 205, 0.35);
-    stroke-width: 0.8px;
+    font-size: clamp(11px, 1.05vw, 17px);
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    color: #f7ecd2;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
 }
 
-/* Sea names on the painted map — chart-italic over open water (the keyart
- * bakes in no text). Positions live in 02-world-map.css; this softens the
- * legacy CSS-map styling to sit on the painting. */
-.generated-world-map .sea-label {
-    color: rgba(226, 242, 255, 0.72);
+.world-poi-plate-tag {
     font-family: Georgia, "Times New Roman", serif;
     font-style: italic;
-    font-weight: 700;
-    font-size: clamp(14px, 1.7vw, 26px);
-    letter-spacing: 0.14em;
-    text-shadow: 0 1px 2px rgba(4, 24, 54, 0.75), 0 0 8px rgba(4, 24, 54, 0.45);
+    font-size: clamp(8px, 0.62vw, 11px);
+    line-height: 1.25;
+    color: rgba(226, 214, 190, 0.72);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Per-place accent on the plate's top rule, so each region reads at a glance. */
+.wpp-ember  { border-top-color: rgba(248, 113, 63, 0.75); }
+.wpp-leaf   { border-top-color: rgba(134, 213, 122, 0.7); }
+.wpp-frost  { border-top-color: rgba(147, 214, 255, 0.75); }
+.wpp-gold   { border-top-color: rgba(250, 214, 120, 0.8); }
+.wpp-tide   { border-top-color: rgba(110, 190, 235, 0.75); }
+.wpp-violet { border-top-color: rgba(186, 140, 255, 0.78); }
+.wpp-sand   { border-top-color: rgba(233, 196, 128, 0.75); }
+
+/* Phones: keep the name, drop the flavour line — eight taglines over a dense
+ * painting is clutter at small sizes. */
+@media (max-width: 800px) {
+    .world-poi-plate {
+        padding: 3px 8px 4px;
+        max-width: 42%;
+    }
+
+    .world-poi-plate-tag { display: none; }
 }
 
 /* "Sector N · the Midlands" sub-line under the named sector heading. */
