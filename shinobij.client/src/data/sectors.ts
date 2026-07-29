@@ -20,6 +20,7 @@
 
 import type { Biome } from "../types/core";
 import { biomeWeatherTables } from "./world";
+import { sectorBiomeOf, sectorRegionLabel, VILLAGE_OUTSKIRTS } from "../../../shared/sector-geo";
 
 export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
 
@@ -32,28 +33,21 @@ export function weatherForBiome(biome: Biome) {
 }
 
 /**
- * Map a sector number to its biome. Sector 99 is the special lava sector;
- * 1-20 are shadow, 21-35 forest, 36-45 volcano, 46-55 snow, 56-60 central.
+ * Map a sector number to its biome — table-driven from the shared geography
+ * registry (shared/sector-geo.ts), which follows the PAINTED map rather than
+ * the old numeric bands. Sector 99 is the special lava sector.
  */
 export function biomeForWorldSector(sector: number): Biome {
-    if (sector === 99) return "volcano";
-    if (sector >= 56) return "central";
-    if (sector <= 20) return "shadow";
-    if (sector <= 35) return "forest";
-    if (sector <= 45) return "volcano";
-    return "snow";
+    return sectorBiomeOf(sector) as Biome;
 }
 
 /**
- * Hard-coded sector number for each village's outskirts (where the
- * "leave village → walk into the world" gate connects to the world map).
+ * Sector number for each village's outskirts (where the "leave village → walk
+ * into the world" gate connects to the world map). Under the 2026-07
+ * region-block numbering each village's block STARTS at its own gate.
  */
 export function villageOutskirtsSectorNumber(villageName: string): number {
-    if (villageName === "Stormveil Village") return 31;
-    if (villageName === "Ashen Leaf Village") return 38;
-    if (villageName === "Frostfang Village") return 47;
-    if (villageName === "Moonshadow Village") return 11;
-    return 40;
+    return VILLAGE_OUTSKIRTS[villageName] ?? 13;
 }
 
 /** Inverse of villageOutskirtsSectorNumber — returns undefined if no match. */
@@ -70,12 +64,5 @@ export function sectorRegionName(sector: number): string {
     if (sector === 99) return "the Lavafront";
     const village = villageForOutskirtsSector(sector);
     if (village) return `the outskirts of ${village.replace(/ Village$/, "")}`;
-    switch (biomeForWorldSector(sector)) {
-        case "shadow": return "the Shadowed Wilds";
-        case "forest": return "the Deepwood";
-        case "volcano": return "the Ashen Wastes";
-        case "snow": return "the Frostreach";
-        case "central": return "the Central Provinces";
-        default: return "the far reaches";
-    }
+    return sectorRegionLabel(sector) ?? "the far reaches";
 }

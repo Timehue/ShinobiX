@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, sectorExitById, sectorExits } from '../shared/sector-links.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
-    assert.equal(SECTOR_ROAD_PAIRS.length, 82);
+    // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart link.
+    assert.equal(SECTOR_ROAD_PAIRS.length, 83);
     assert.equal(SECTOR_EXITS.length, SECTOR_ROAD_PAIRS.length * 2);
 
     for (let sector = 1; sector <= 60; sector += 1) {
         const exits = sectorExits(sector);
-        assert.ok(exits.length >= 2 && exits.length <= 4, `sector ${sector} has ${exits.length} exits`);
+        assert.ok(exits.length >= 2 && exits.length <= 5, `sector ${sector} has ${exits.length} exits`);
         assert.equal(new Set(exits.map((exit) => exit.tile)).size, exits.length, `sector ${sector} exit tiles are unique`);
         for (const exit of exits) {
             assert.ok(exit.tile >= 0 && exit.tile < 144);

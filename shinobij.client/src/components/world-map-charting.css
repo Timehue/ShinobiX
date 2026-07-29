@@ -1,0 +1,68 @@
+/* World-map charting — the road graph + region name plates + sector-name
+ * plumbing (worldRoads.v1 / worldNames). Imported by screens/WorldMap.tsx
+ * (screens own CSS imports; components never import CSS). Sits below the
+ * z-10 sector/village markers, above the ambience washes (z ≤ 2). */
+
+.world-roads-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.world-road {
+    fill: none;
+    stroke: rgba(244, 227, 188, 0.5);
+    stroke-width: 2px;
+    stroke-dasharray: 5 4;
+    stroke-linecap: round;
+    filter: drop-shadow(0 1px 1px rgba(20, 12, 4, 0.55));
+}
+
+.world-region-label {
+    position: absolute;
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1));
+    transform-origin: center;
+    z-index: 3;
+    pointer-events: none;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(11px, 1.25vw, 17px);
+    letter-spacing: 0.08em;
+    color: #f6e7c4;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 6px rgba(0, 0, 0, 0.5);
+    opacity: 0.92;
+    white-space: nowrap;
+}
+
+/* "Sector N · the Midlands" sub-line under the named sector heading. */
+.sector-panel-sub {
+    display: block;
+    margin-top: 2px;
+    opacity: 0.75;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+}
+
+/* Edge-crossing slide-in: walking off an exit swaps the board instantly and
+ * the new sector slides in from the direction of travel (the whole transition
+ * — there is no travel mask on edge crossings). */
+@keyframes sector-enter-from-top    { from { transform: translateY(-3.5%); opacity: 0.35; } to { transform: none; opacity: 1; } }
+@keyframes sector-enter-from-bottom { from { transform: translateY(3.5%);  opacity: 0.35; } to { transform: none; opacity: 1; } }
+@keyframes sector-enter-from-right  { from { transform: translateX(3.5%);  opacity: 0.35; } to { transform: none; opacity: 1; } }
+@keyframes sector-enter-from-left   { from { transform: translateX(-3.5%); opacity: 0.35; } to { transform: none; opacity: 1; } }
+
+.sector-image-map.sector-enter-north { animation: sector-enter-from-top 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+.sector-image-map.sector-enter-south { animation: sector-enter-from-bottom 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+.sector-image-map.sector-enter-east  { animation: sector-enter-from-right 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+.sector-image-map.sector-enter-west  { animation: sector-enter-from-left 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sector-image-map.sector-enter-north,
+    .sector-image-map.sector-enter-south,
+    .sector-image-map.sector-enter-east,
+    .sector-image-map.sector-enter-west { animation: none; }
+}

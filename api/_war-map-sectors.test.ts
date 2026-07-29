@@ -12,6 +12,7 @@ import {
     sectorAlias,
     isWarVillage,
 } from './_war-map-sectors.js';
+import { sectorRegionKey } from '../shared/sector-geo.js';
 
 describe('war-map-sectors: ownership invariants', () => {
     it('exactly 4 villages, 8 home sectors each, 32 total', () => {
@@ -44,16 +45,14 @@ describe('war-map-sectors: ownership invariants', () => {
         }
     });
 
-    it('home sectors stay within each village\'s biome band', () => {
-        const band = (s: number) =>
-            s <= 20 ? 'shadow' : s <= 35 ? 'forest' : s <= 45 ? 'volcano' : s <= 55 ? 'snow' : 'central';
+    it('home sectors stay within each village\'s region block (2026-07 numbering)', () => {
         const expected: Record<string, string> = {
-            'Moonshadow Village': 'shadow', 'Stormveil Village': 'forest',
-            'Ashen Leaf Village': 'volcano', 'Frostfang Village': 'snow',
+            'Moonshadow Village': 'moonshadow', 'Stormveil Village': 'stormveil',
+            'Ashen Leaf Village': 'ashenleaf', 'Frostfang Village': 'frostfang',
         };
         for (const v of WAR_VILLAGES) {
             for (const s of HOME_SECTORS[v]) {
-                assert.equal(band(s), expected[v], `sector ${s} of ${v} is outside its biome band`);
+                assert.equal(sectorRegionKey(s), expected[v], `sector ${s} of ${v} is outside its region block`);
             }
         }
     });
@@ -74,7 +73,7 @@ describe('war-map-sectors: mappers', () => {
             assert.equal(homeVillageForSector(s), undefined);
             assert.equal(isWarSector(s), false);
         }
-        assert.ok(isCentralSector(58));
+        assert.ok(isCentralSector(48));
         assert.equal(isCentralSector(8), false);
     });
 
@@ -95,7 +94,7 @@ describe('war-map-sectors: mappers', () => {
             });
         }
         assert.equal(aliases.size, 32);
-        assert.equal(sectorAlias(58), undefined); // central has no alias
+        assert.equal(sectorAlias(48), undefined); // central has no alias
     });
 
     it('isWarVillage type guard', () => {
