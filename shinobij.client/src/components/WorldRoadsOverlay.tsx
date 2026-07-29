@@ -55,10 +55,10 @@ const REGION_LABEL_POINTS: ReadonlyArray<{ key: SectorRegionKey; x: number; y: n
 // board to the right of its crest landmark. Not flag-gated — with no baked
 // text these names are load-bearing.
 const VILLAGE_BANNER_PLATES: ReadonlyArray<{ name: string; x: number; y: number; length: number }> = [
-    { name: "Ashen Leaf Village", x: 292, y: 385, length: 172 },
-    { name: "Frostfang Village", x: 1311, y: 385, length: 156 },
-    { name: "Stormveil Village", x: 291, y: 862, length: 170 },
-    { name: "Moonshadow Village", x: 1277, y: 861, length: 176 },
+    { name: "Ashen Leaf Village", x: 285, y: 385, length: 164 },
+    { name: "Frostfang Village", x: 1311, y: 383, length: 156 },
+    { name: "Stormveil Village", x: 297, y: 836, length: 170 },
+    { name: "Moonshadow Village", x: 1280, y: 839, length: 176 },
 ];
 
 export function WorldVillagePlates() {
