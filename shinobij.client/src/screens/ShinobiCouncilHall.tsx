@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import { GiGreekTemple, GiCrossedSwords, GiBlackFlag, GiCrown, GiTrophy } from "react-icons/gi";
@@ -7,14 +7,12 @@ import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";
 import { ClanBattlesTab } from "./ClanBattlesTab";
 import { VillagePill } from "../components/Pills";
-import { clanContribTotal, enhanceClanData } from "../lib/clan-math";
-import { fetchClanData } from "../lib/clan-api";
 import { villages } from "../data/sectors";
-import { type CwChallenge } from "../lib/clan-war-api";
-import {
-} from "../App";
-import { loadVillageWar, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageWar } from "../lib/world-state";
+import { type CwChallenge, type CwWar } from "../lib/clan-war-api";
+import { VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageWar } from "../lib/world-state";
 import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABEL } from "../lib/kage-challenge-state";
+import { visiblePoll } from "../lib/poll";
+import { CW_DAMAGE } from "../constants/clan";
 
 export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle, onBack }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void; onBack: () => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
@@ -24,62 +22,82 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
     const [kageStates, setKageStates] = useState<Record<string, ServerKageState>>({});
 
     // --- Village Wars ---
-    const allVillagePairs: [string, string][] = [];
-    for (let i = 0; i < villages.length; i++)
-        for (let j = i + 1; j < villages.length; j++)
-            allVillagePairs.push([villages[i], villages[j]]);
+    const [activeVillageWars, setActiveVillageWars] = useState<VillageWar[]>([]);
+    const [warLoadError, setWarLoadError] = useState("");
 
-    const activeVillageWars = allVillagePairs
-        .map(([a, b]) => loadVillageWar(a, b))
-        .filter((w): w is VillageWar => w !== null && !w.endedAt);
+    useEffect(() => {
+        let alive = true;
+        async function refreshVillageWars() {
+            try {
+                const response = await fetch("/api/world-state");
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json() as { wars?: VillageWar[] };
+                if (!alive) return;
+                setActiveVillageWars((data.wars ?? []).filter(war => !war.endedAt));
+                setWarLoadError("");
+            } catch {
+                if (alive) setWarLoadError("Live village-war data is temporarily unavailable.");
+            }
+        }
+        void refreshVillageWars();
+        const stop = visiblePoll(refreshVillageWars, 15_000);
+        return () => { alive = false; stop(); };
+    }, []);
 
-    function topContributorForVillage(village: string): string {
-        const players = playerRoster.filter(p => p.village === village);
-        if (!players.length) return "—";
-        const top = [...players].sort((a, b) =>
-            ((b.character.totalVillageRaids ?? 0) + (b.character.clanBattleContrib ?? 0)) -
-            ((a.character.totalVillageRaids ?? 0) + (a.character.clanBattleContrib ?? 0))
-        )[0];
-        return top.name;
+    function topContributorForVillage(war: VillageWar, village: string): string {
+        const top = Object.values(war.contributions ?? {})
+            .filter(entry => entry.side === village)
+            .sort((a, b) => b.damage - a.damage || b.pvpKills - a.pvpKills || b.raids - a.raids)[0];
+        return top ? `${top.name} · ${top.damage.toLocaleString()} dmg` : "—";
     }
 
     // --- Clan Wars ---
-    const [clanWars, setClanWars] = useState<{ clanA: string; clanB: string; scoreA: number; scoreB: number; villageA: string; villageB: string; endsAt: number; topA: string; topB: string }[]>([]);
+    const [clanWars, setClanWars] = useState<CwWar[]>([]);
     const [clanWarsLoading, setClanWarsLoading] = useState(true);
+    const [clanWarsError, setClanWarsError] = useState("");
 
     useEffect(() => {
-        const uniqueClans = [...new Set(playerRoster.map(p => p.character.clan).filter(Boolean))] as string[];
-        if (!uniqueClans.length) { setClanWarsLoading(false); return; }
-        const seen = new Set<string>();
-        Promise.all(uniqueClans.map(name => fetchClanData(name))).then(results => {
-            const wars: typeof clanWars = [];
-            for (const data of results) {
-                if (!data) continue;
-                const enhanced = enhanceClanData(data);
-                if (!enhanced.activeWar) continue;
-                const key = [enhanced.name, enhanced.activeWar.opponentClan].sort().join("|");
-                if (seen.has(key)) continue;
-                seen.add(key);
-                const membersA = enhanced.members;
-                const topA = membersA.length
-                    ? [...membersA].sort((a, b) => clanContribTotal(b) - clanContribTotal(a))[0]?.name ?? "—"
-                    : "—";
-                wars.push({
-                    clanA: enhanced.name,
-                    clanB: enhanced.activeWar.opponentClan,
-                    scoreA: enhanced.activeWar.ourScore,
-                    scoreB: enhanced.activeWar.enemyScore,
-                    villageA: enhanced.village,
-                    villageB: enhanced.activeWar.enemyVillage,
-                    endsAt: enhanced.activeWar.endsAt,
-                    topA,
-                    topB: "—",
-                });
+        let alive = true;
+        async function refreshClanWars() {
+            try {
+                const response = await fetch("/api/clan/war/list");
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json() as { wars?: CwWar[] };
+                if (!Array.isArray(data.wars)) throw new Error("Malformed clan-war response");
+                if (!alive) return;
+                setClanWars(data.wars.filter(war => !war.endedAt));
+                setClanWarsError("");
+            } catch {
+                if (alive) setClanWarsError("Live clan-war data is temporarily unavailable.");
+            } finally {
+                if (alive) setClanWarsLoading(false);
             }
-            setClanWars(wars);
-            setClanWarsLoading(false);
-        });
+        }
+        void refreshClanWars();
+        const stop = visiblePoll(refreshClanWars, 15_000);
+        return () => { alive = false; stop(); };
     }, []);
+
+    function topContributorForClan(war: CwWar, clan: string): string {
+        const tallies = new Map<string, { wins: number; damage: number }>();
+        for (const challenge of war.completedChallenges) {
+            if (challenge.status !== "completed" || !challenge.result || challenge.result === "draw") continue;
+            const won = (challenge.result === "from-wins" && challenge.fromClan === clan)
+                || (challenge.result === "to-wins" && challenge.fromClan !== clan);
+            if (!won) continue;
+            const winners = challenge.fromClan === clan
+                ? [challenge.fromPlayer, challenge.fromPlayer2]
+                : [challenge.acceptedPlayer, challenge.acceptedPlayer2];
+            for (const name of winners.filter((entry): entry is string => Boolean(entry))) {
+                const current = tallies.get(name) ?? { wins: 0, damage: 0 };
+                current.wins += 1;
+                current.damage += CW_DAMAGE[challenge.mode];
+                tallies.set(name, current);
+            }
+        }
+        const top = [...tallies.entries()].sort(([, a], [, b]) => b.wins - a.wins || b.damage - a.damage)[0];
+        return top ? `${top[0]} · ${top[1].wins} win${top[1].wins === 1 ? "" : "s"}` : "—";
+    }
 
     // Fetch the authoritative Kage state for every village when the tab opens.
     useEffect(() => {
@@ -155,14 +173,15 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
 
             {tab === "wars" && <><section className="council-section">
                 <h3 className="council-section-title"><GiCrossedSwords style={SCH_ICON} />Village Wars</h3>
+                {warLoadError && <p className="council-empty" role="status">{warLoadError} Retrying automatically…</p>}
                 {activeVillageWars.length === 0
                     ? <p className="council-empty">No active village wars. The world is at peace.</p>
                     : activeVillageWars.map(war => {
                         const [vA, vB] = war.villages;
                         const hpA = war.hp[vA] ?? 0;
                         const hpB = war.hp[vB] ?? 0;
-                        const topA = topContributorForVillage(vA);
-                        const topB = topContributorForVillage(vB);
+                        const topA = topContributorForVillage(war, vA);
+                        const topB = topContributorForVillage(war, vB);
                         return (
                             <div key={war.id} className="council-war-card">
                                 <div className="council-vs-row">
@@ -192,31 +211,38 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
 
             <section className="council-section">
                 <h3 className="council-section-title"><GiCrossedSwords style={SCH_ICON} />Clan Wars</h3>
+                {clanWarsError && <p className="council-empty" role="status">{clanWarsError} Retrying automatically…</p>}
                 {clanWarsLoading
                     ? <p className="council-empty">Loading clan wars…</p>
                     : clanWars.length === 0
                         ? <p className="council-empty">No active clan wars.</p>
                         : clanWars.map(cw => {
-                            const totalMax = Math.max(cw.scoreA + cw.scoreB, 1);
+                            const [clanA, clanB] = cw.clans;
+                            const hpA = cw.hp[clanA] ?? 0;
+                            const hpB = cw.hp[clanB] ?? 0;
+                            const maxA = cw.hpMax?.[clanA] ?? 1000;
+                            const maxB = cw.hpMax?.[clanB] ?? 1000;
+                            const topA = topContributorForClan(cw, clanA);
+                            const topB = topContributorForClan(cw, clanB);
                             return (
-                                <div key={`${cw.clanA}-${cw.clanB}`} className="council-war-card">
+                                <div key={cw.id} className="council-war-card">
                                     <div className="council-vs-row">
-                                        <div className={`council-side ${character.clan === cw.clanA ? "council-mine" : ""}`}>
-                                            <span className="council-village-name">{cw.clanA}</span>
-                                            <span className="council-hp-label">{cw.villageA} · {cw.scoreA.toLocaleString()} pts</span>
-                                            <HpBar current={cw.scoreA} max={totalMax} color="#a78bfa" />
-                                            <span className="council-top"><GiTrophy style={SCH_ICON} />{cw.topA}</span>
+                                        <div className={`council-side ${character.clan === clanA ? "council-mine" : ""}`}>
+                                            <span className="council-village-name">{clanA}</span>
+                                            <span className="council-hp-label">{cw.villages[clanA]} · {hpA.toLocaleString()} / {maxA.toLocaleString()} HP</span>
+                                            <HpBar current={hpA} max={maxA} color="#a78bfa" />
+                                            <span className="council-top"><GiTrophy style={SCH_ICON} />{topA}</span>
                                         </div>
                                         <div className="council-vs">VS</div>
-                                        <div className={`council-side council-side-right ${character.clan === cw.clanB ? "council-mine" : ""}`}>
-                                            <span className="council-village-name">{cw.clanB}</span>
-                                            <span className="council-hp-label">{cw.villageB} · {cw.scoreB.toLocaleString()} pts</span>
-                                            <HpBar current={cw.scoreB} max={totalMax} color="#fb923c" />
-                                            <span className="council-top"><GiTrophy style={SCH_ICON} />{cw.topB}</span>
+                                        <div className={`council-side council-side-right ${character.clan === clanB ? "council-mine" : ""}`}>
+                                            <span className="council-village-name">{clanB}</span>
+                                            <span className="council-hp-label">{cw.villages[clanB]} · {hpB.toLocaleString()} / {maxB.toLocaleString()} HP</span>
+                                            <HpBar current={hpB} max={maxB} color="#fb923c" />
+                                            <span className="council-top"><GiTrophy style={SCH_ICON} />{topB}</span>
                                         </div>
                                     </div>
                                     <div className="council-war-meta">
-                                        Ends {new Date(cw.endsAt).toLocaleString()}
+                                        Started {new Date(cw.startedAt).toLocaleString()} · {cw.completedChallenges.length} settled challenge{cw.completedChallenges.length === 1 ? "" : "s"}
                                     </div>
                                 </div>
                             );

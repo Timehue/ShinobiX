@@ -18,7 +18,6 @@
  * mobile regardless of the host's CSS — without touching App.tsx's line budget.
  */
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
@@ -43,6 +42,7 @@ import {
     STREAK_SHARD_REWARD,
 } from "../lib/daily-briefing";
 import briefingBg from "../assets/daily-briefing.webp";
+import { Modal } from "./ui/Modal";
 
 const SEEN_KEY = "dailyBriefing.seen.v1";
 // Hold the briefing until level 5. Levels 1–4 are the guided tutorial/onboarding
@@ -168,6 +168,7 @@ export function DailyBriefingModal({
             try { localStorage.setItem(SEEN_KEY, today); } catch { /* ignore */ }
         }
         setDismissed(true);
+        window.dispatchEvent(new CustomEvent("shinobix:daily-briefing-closed"));
     };
     const go = (screen: Screen) => { close(); navigate(screen); };
 
@@ -214,12 +215,11 @@ export function DailyBriefingModal({
     const objTotal = objective ? objective.requirements.length : 0;
     const objPct = objTotal ? Math.round((objDone / objTotal) * 100) : 0;
 
-    return createPortal(
-        <div className="daily-briefing-backdrop" role="dialog" aria-modal="true" aria-label="Daily Briefing" onClick={close}>
+    return (
+        <Modal open={shouldShow} onClose={close} bare ariaLabel="Daily Briefing" size="lg" className="daily-briefing-modal-shell">
             <div
                 className="daily-briefing-card"
                 style={{ backgroundImage: `linear-gradient(180deg, rgba(8,12,24,0.42), rgba(8,12,24,0.86) 46%, rgba(8,12,24,0.95)), url(${briefingBg})` }}
-                onClick={(e) => e.stopPropagation()}
             >
                 <div className="daily-briefing-header">
                     <div className="daily-briefing-titles">
@@ -466,7 +466,6 @@ export function DailyBriefingModal({
                     <button type="button" className="db-dismiss" onClick={close}>Enter the village →</button>
                 </div>
             </div>
-        </div>,
-        document.body,
+        </Modal>
     );
 }

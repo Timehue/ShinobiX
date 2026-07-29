@@ -55,6 +55,19 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const [weeklyBossLoaded, setWeeklyBossLoaded] = useState(false);
     const [weeklyBossError, setWeeklyBossError] = useState("");
     const [weeklyBossRequest, setWeeklyBossRequest] = useState(0);
+    const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
+    const [loadRequest, setLoadRequest] = useState(0);
+    function clearLoadError(key: string) {
+        setLoadErrors(current => {
+            if (!current[key]) return current;
+            const next = { ...current };
+            delete next[key];
+            return next;
+        });
+    }
+    function setLoadError(key: string, message: string) {
+        setLoadErrors(current => ({ ...current, [key]: message }));
+    }
     function selectTab(nextTab: LbTab) {
         if (nextTab === tab) return;
         if (nextTab === "weeklyBoss") { setWeeklyBossLoaded(false); setWeeklyBossError(""); }
@@ -84,11 +97,17 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     useEffect(() => {
         if (tab !== "villageWars") return;
         let alive = true;
-        fetch(WORLD_STATE_API).then(r => r.json()).then(data => {
-            if (alive && Array.isArray(data.standings)) setWarStandings(data.standings as WarStandingRecord[]);
-        }).catch(() => {});
+        fetch(WORLD_STATE_API).then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        }).then(data => {
+            if (alive && Array.isArray(data.standings)) {
+                setWarStandings(data.standings as WarStandingRecord[]);
+                clearLoadError("villageWars");
+            }
+        }).catch(() => { if (alive) setLoadError("villageWars", "Village-war records could not be refreshed."); });
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, loadRequest]);
     // Ranked season clock + last season's champions (for the ranked tab header).
     type SeasonArchiveRow = { name: string; village?: string; rating: number; rank: number };
     type SeasonInfo = {
@@ -102,26 +121,42 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     useEffect(() => {
         if (tab !== "ranked") return;
         let alive = true;
-        const grab = (mode: string) => fetch(`/api/pet-ladder?mode=${mode}&top=10`).then(r => r.ok ? r.json() : { ladder: [] }).catch(() => ({ ladder: [] }));
-        Promise.all([grab("coliseum"), grab("tactical")]).then(([c, t]) => {
-            if (alive) setPetLadders({ coliseum: (c.ladder ?? []) as PetLadderRow[], tactical: (t.ladder ?? []) as PetLadderRow[] });
+        const grab = (mode: string) => fetch(`/api/pet-ladder?mode=${mode}&top=10`).then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
         });
+        Promise.all([grab("coliseum"), grab("tactical")]).then(([c, t]) => {
+            if (alive) {
+                setPetLadders({ coliseum: (c.ladder ?? []) as PetLadderRow[], tactical: (t.ladder ?? []) as PetLadderRow[] });
+            }
+        }).catch(() => { if (alive) setLoadError("ranked", "Global pet ladders could not be loaded."); });
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, loadRequest]);
     useEffect(() => {
         if (tab !== "ranked") return;
         let alive = true;
-        fetch("/api/ranked-season").then(r => r.json()).then(data => { if (alive) setSeason(data as SeasonInfo); }).catch(() => {});
+        fetch("/api/ranked-season").then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        }).then(data => { if (alive) setSeason(data as SeasonInfo); })
+            .catch(() => { if (alive) setLoadError("ranked", "Ranked season details could not be loaded."); });
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, loadRequest]);
     // Weekly Pet Gauntlet board (shared-seed run; server-validated reward token).
     const [gauntletLb, setGauntletLb] = useState<{ weekKey: string; rows: GauntletLbRow[] } | null>(null);
     useEffect(() => {
         if (tab !== "gauntlet") return;
         let alive = true;
-        fetchGauntletLeaderboard(25).then(({ weekKey, leaderboard }) => { if (alive) setGauntletLb({ weekKey, rows: leaderboard }); });
+        fetchGauntletLeaderboard(25)
+            .then(({ weekKey, leaderboard }) => {
+                if (alive) {
+                    setGauntletLb({ weekKey, rows: leaderboard });
+                    clearLoadError("gauntlet");
+                }
+            })
+            .catch(() => { if (alive) setLoadError("gauntlet", "The gauntlet leaderboard could not be loaded."); });
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, loadRequest]);
     // Legacy system: permanent server history + the world news feed + eras.
     // null = still loading, so the tabs show a loading line instead of flashing
     // the permanent empty-state copy mid-fetch (polish-audit finding).
@@ -131,16 +166,28 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     useEffect(() => {
         if (tab !== "legends" && tab !== "news" && tab !== "eras") return;
         let alive = true;
-        if (tab === "legends") void fetchHallOfLegends().then(r => { if (alive) setHallEntries(r?.entries ?? []); });
-        else if (tab === "news") void fetchAnnouncements(30).then(r => { if (alive) setWorldNews(r?.announcements ?? []); });
+        if (tab === "legends") void fetchHallOfLegends().then(r => {
+            if (!alive) return;
+            if (!r) setLoadError("legends", "Permanent legend records could not be loaded.");
+            else { setHallEntries(r.entries ?? []); clearLoadError("legends"); }
+        });
+        else if (tab === "news") void fetchAnnouncements(30).then(r => {
+            if (!alive) return;
+            if (!r) setLoadError("news", "World news could not be loaded.");
+            else { setWorldNews(r.announcements ?? []); clearLoadError("news"); }
+        });
         else {
             // Eras also pull the Hall entries so each unlocked age can show the
             // "Legends of this Age" that were forged inside its time window.
-            void fetchEras().then(r => { if (alive) setEraViews(r?.eras ?? []); });
-            void fetchHallOfLegends().then(r => { if (alive) setHallEntries(r?.entries ?? []); });
+            void fetchEras().then(r => {
+                if (!alive) return;
+                if (!r) setLoadError("eras", "World era records could not be loaded.");
+                else { setEraViews(r.eras ?? []); clearLoadError("eras"); }
+            });
+            void fetchHallOfLegends().then(r => { if (alive && r) setHallEntries(r.entries ?? []); });
         }
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, loadRequest]);
     const all = playerRoster.length > 0
         ? playerRoster.map(p => p.character)
         : [character];
@@ -260,6 +307,12 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
             </div>
 
             <div className="hol-board">
+                {loadErrors[tab] && (
+                    <div className="summary-box" role="alert" style={{ marginBottom: "0.8rem", borderColor: "var(--danger)" }}>
+                        <span>{loadErrors[tab]}</span>{" "}
+                        <button onClick={() => { clearLoadError(tab); setLoadRequest(request => request + 1); }}>Retry</button>
+                    </div>
+                )}
                 {tab === "ranked" && (
                     <>
                         {season?.current && (() => {

@@ -265,7 +265,7 @@ async function weeklyBossLogFightCaps(actorName: string, isAdminActor: boolean):
     }
 }
 
-// Distribute rewards once 24h has elapsed. Idempotent + crash-resumable
+// Distribute rewards once the 72-hour boss window has elapsed. Idempotent + crash-resumable
 // (audit #25):
 //   1. Under the boss-lock, COMPUTE the distributionSummary (once) and persist
 //      it WITHOUT setting rewardsDistributed. The reward amounts are frozen at
@@ -373,7 +373,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 // embeds weekKey so it's scoped to this boss spawn and self-
                 // expires. On credit-write failure we roll the reservation back
                 // so a later run can retry. TTL outlives any realistic retry
-                // window (boss lifetime is 24h; 35d is generous + self-cleaning).
+                // window (boss lifetime is 72h; 35d is generous + self-cleaning).
                 const receiptKey = `weekly-boss-credit:${weekKey}:${entry.name}`;
                 const reserved = await kv.set(receiptKey, '1', { nx: true, ex: 35 * 24 * 60 * 60 });
                 if (!reserved) return true; // already credited by another pass
@@ -486,7 +486,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let boss = await loadOrInitBoss();
         // Run the expiry check on read so the leaderboard reflects the
         // post-distribution state even if no one has attacked since the
-        // 24h mark passed. Distribution is a no-op if already done.
+        // 72-hour mark passed. Distribution is a no-op if already done.
         if (boss) boss = await distributeRewardsIfExpired(boss);
         res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
         const fightEnabled = true;
@@ -531,7 +531,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!boss) return res.status(409).json({ error: 'No boss is currently spawned. An admin needs to hit "Spawn Now" in the admin panel.' });
             if (weekKey && weekKey !== boss.weekKey) return res.status(409).json({ error: 'Stale week — boss has reset.' });
 
-            // Auto-despawn + distribute. Any POST after the 24h mark
+            // Auto-despawn + distribute. Any POST after the 72-hour mark
             // triggers reward distribution before refusing further input.
             if (Date.now() >= boss.expiresAt) {
                 boss = await distributeRewardsIfExpired(boss);
@@ -873,7 +873,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (kind === 'claim') {
                 // Legacy endpoint. Rewards are now auto-distributed at the
-                // 24h despawn (see distributeRewardsIfExpired). Return the
+                // 72-hour despawn (see distributeRewardsIfExpired). Return the
                 // player's summary entry if it exists so old clients can
                 // still display it; otherwise tell them rewards aren't ready.
                 if (!boss.rewardsDistributed) {

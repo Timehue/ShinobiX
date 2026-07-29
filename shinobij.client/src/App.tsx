@@ -14,7 +14,9 @@ import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
-import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
+import { mutateDungeonRunServer } from "./lib/dungeon-api";
+import { mutateEndlessRun } from "./lib/endless-api";
+import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
@@ -90,7 +92,6 @@ import {
     endlessScaleFactor,
     endlessWaveReward,
     endlessTowerMilestoneReward,
-    applyTowerCashOut,
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
@@ -495,6 +496,7 @@ export type PendingArenaStoryBattle =
     | {
         kind: "dungeonAi";
         returnScreen: Screen;
+        eventId: string;
     }
     | {
         kind: "hollowGateShrine";
@@ -2354,6 +2356,8 @@ export default function App() {
     const [triggerPage, setTriggerPage] = useState(0);
     const [triggerLine, setTriggerLine] = useState(0);
     const [activeDungeonEvent, setActiveDungeonEvent] = useState<CreatorEvent | null>(null);
+    const dungeonActionRef = useRef(false);
+    const [activeDungeonRunToken, setActiveDungeonRunToken] = useState<string | null>(null);
     const [pendingEventEncounter, setPendingEventEncounter] = useState<PendingEventEncounter | null>(null);
     const [dungeonStage, setDungeonStage] = useState<"intro" | "tile" | "pet" | "complete">("intro");
     const [dungeonPage, setDungeonPage] = useState(0);
@@ -3289,6 +3293,10 @@ export default function App() {
                                 setTemporaryStoryAi(ctx.ai);
                                 setPendingArenaStoryBattle(restoredStoryBattle);
                                 setPendingAiProfileId(ctx.aiId);
+                                if (restoredStoryBattle.kind === "dungeonAi") {
+                                    setActiveDungeonEvent(creatorEvents.find(event => event.id === restoredStoryBattle.eventId) ?? dungeonEventTemplate());
+                                    setActiveDungeonRunToken(normalized.activeDungeonRun?.token ?? null);
+                                }
                                 const restoredGateFight = hollowGatePveFightFromStoryContext(restoredStoryBattle);
                                 if (restoredGateFight && normalized.hollowGateRun) {
                                     setHollowGateRun(normalized.hollowGateRun);
@@ -3332,7 +3340,18 @@ export default function App() {
                             setEndlessBattleActive(false);
                             setEndlessBattleWave(0);
                             setTemporaryStoryAi(null);
-                            setCharacter({ ...normalized, hp: 0, hospitalized: true, endlessTowerRun: null });
+                            setCharacter(normalized);
+                            const runToken = normalized.endlessTowerRun?.runToken;
+                            if (runToken) {
+                                void mutateEndlessRun(normalized.name, "abandon", { runToken, death: true }).then((result) => {
+                                    if (!result.character) {
+                                        gameToast(result.error || "The interrupted tower defeat will be retried on the next load.");
+                                        return;
+                                    }
+                                    latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+                                    setCharacter(result.character);
+                                });
+                            }
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "arenaStory") {
@@ -3347,6 +3366,15 @@ export default function App() {
                             if (hgRun) { setHollowGateRun(null); setHollowGateEvent(null); setHollowGateHiddenChamber(null); setHollowGateLog([]); }
                             const downed = hgRun ? { ...clawBackHollowGateLoot(normalized, hgRun, 1 - attunementLootRetention(normalized)), hollowGateRun: null } : normalized;
                             setCharacter({ ...downed, hp: 0, hospitalized: true });
+                            const dungeonToken = normalized.activeDungeonRun?.token;
+                            if (dungeonToken) {
+                                void mutateDungeonRunServer(normalized.name, "abandon", dungeonToken).then((result) => {
+                                    latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+                                    setCharacter({ ...result.character, hp: 0, hospitalized: true });
+                                }).catch(() => {
+                                    gameToast("The interrupted dungeon run remains reserved and will be reconciled on the next load.");
+                                });
+                            }
                             // If this KO recovery is the first to settle the run's token, reconcile
                             // to the server credit (single-use → a no-op if the live device already did).
                             if (hgRun) void settleHollowGateRunOnly(hgRun, "death", normalized, setCharacter);
@@ -4373,6 +4401,31 @@ export default function App() {
     // newer snapshot. Defaults to 0 = "no version known" which the server
     // treats as an allow (preserves backwards compat for stale tabs).
     const latestSaveVersionRef = useRef<number>(0);
+    const { startEndlessBattle, handleEndlessWin, endEndlessBattle, bankEndlessRewards } = useEndlessTowerActions({
+        character,
+        commitCharacter: (next, version) => {
+            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version);
+            setCharacter(next);
+        },
+        prepareOpponent: pickRandomEndlessAi,
+        enterBattle: (wave, opponentId) => {
+            setEndlessBattleActive(true);
+            setEndlessBattleWave(wave);
+            setPendingAiProfileId(opponentId);
+            setArenaKey(k => k + 1);
+            navigate("arena");
+        },
+        advanceBattle: (wave, opponentId) => {
+            setEndlessBattleWave(wave);
+            setPendingAiProfileId(opponentId);
+            setArenaKey(k => k + 1);
+        },
+        closeBattle: () => {
+            setEndlessBattleActive(false);
+            setEndlessBattleWave(0);
+            setTemporaryStoryAi(null);
+        },
+    });
     const starterPetCommitRef = useRef<{ accountName: string; promise: Promise<boolean> } | null>(null);
     useEffect(() => {
         const onSaveVersion = (event: Event) => {
@@ -5123,117 +5176,6 @@ export default function App() {
         return scaled.id;
     }
 
-    function startEndlessBattle() {
-        if (!character) return;
-        // Restore in-progress run, or start a new one at wave 1.
-        const existing = character.endlessTowerRun;
-        // Fresh-run entry fee (first Endless run each day is free; resuming is free).
-        let base = character;
-        if (!existing || existing.wave <= 0) {
-            const paid = payEndlessEntry(character);
-            if (!paid) return alert(`Entry costs ${endlessEntryCost(character).toLocaleString()} ryo — your first Endless run each day is free. Not enough ryo.`);
-            base = paid;
-        }
-        const wave = existing && existing.wave > 0 ? existing.wave : 1;
-        const run: EndlessTowerRun = existing ?? {
-            wave: 1,
-            bankedRyo: 0,
-            bankedXp: 0,
-            startedAt: Date.now(),
-        };
-        setCharacter({ ...base, endlessTowerRun: run });
-        setEndlessBattleActive(true);
-        setEndlessBattleWave(wave);
-        setPendingAiProfileId(pickRandomEndlessAi(wave));
-        setArenaKey(k => k + 1);
-        navigate("arena");
-    }
-
-    function handleEndlessWin(currentWave: number) {
-        const reward = endlessWaveReward(currentWave, character?.level ?? 1);
-        // Kill-milestone payouts (bone charms / fate shards every 5 kills,
-        // 4-step cycle) and the per-10-kill heal/restore. Both are credited
-        // directly to the player's character — no banking, no death-loss.
-        const milestonePayout = endlessTowerMilestoneReward(currentWave);
-        const isHealMilestone = currentWave > 0 && currentWave % 10 === 0;
-        const milestoneNotices: string[] = [];
-        setCharacter((current) => {
-            if (!current) return current;
-            const nextWave = currentWave + 1;
-            const prevRun = current.endlessTowerRun ?? { wave: 1, bankedRyo: 0, bankedXp: 0, startedAt: Date.now(), highestMilestoneClaimed: 0 };
-            const alreadyClaimed = prevRun.highestMilestoneClaimed ?? 0;
-            // Only grant the 5-kill payout if this wave is a new milestone
-            // (guards against accidental re-fires from save reloads).
-            const milestoneIsNew = currentWave > 0 && currentWave % 5 === 0 && currentWave > alreadyClaimed;
-            const grantedBone = milestoneIsNew ? milestonePayout.boneCharms : 0;
-            const grantedFate = milestoneIsNew ? milestonePayout.fateShards : 0;
-            if (milestoneIsNew && grantedBone > 0) milestoneNotices.push(`+${grantedBone} Bone Charms`);
-            if (milestoneIsNew && grantedFate > 0) milestoneNotices.push(`+${grantedFate} Fate Shards`);
-            const updatedRun: EndlessTowerRun = {
-                ...prevRun,
-                wave: nextWave,
-                bankedRyo: prevRun.bankedRyo + reward.ryo,
-                bankedXp: prevRun.bankedXp + reward.xp,
-                highestMilestoneClaimed: milestoneIsNew ? currentWave : alreadyClaimed,
-            };
-            // 10-kill rest stop: top HP up by 33% and refill 50% of
-            // chakra/stamina. Stacks with the wave's regular HP carry —
-            // we just bump current vitals (capped at max).
-            const healHp = isHealMilestone ? Math.floor((current.maxHp ?? 0) * 0.33) : 0;
-            const refillChakra = isHealMilestone ? Math.floor((current.maxChakra ?? 0) * 0.5) : 0;
-            const refillStamina = isHealMilestone ? Math.floor((current.maxStamina ?? 0) * 0.5) : 0;
-            if (isHealMilestone) milestoneNotices.push("33% HP heal · 50% chakra & stamina refill");
-            return {
-                ...current,
-                totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1,
-                endlessTowerBestWave: Math.max(current.endlessTowerBestWave ?? 0, currentWave),
-                endlessTowerRun: updatedRun,
-                boneCharms: (current.boneCharms ?? 0) + grantedBone,
-                fateShards: (current.fateShards ?? 0) + grantedFate,
-                hp: Math.min(current.maxHp ?? 0, Math.max(0, (current.hp ?? 0) + healHp)),
-                chakra: Math.min(current.maxChakra ?? 0, Math.max(0, (current.chakra ?? 0) + refillChakra)),
-                stamina: Math.min(current.maxStamina ?? 0, Math.max(0, (current.stamina ?? 0) + refillStamina)),
-            };
-        });
-        if (milestoneNotices.length > 0) {
-            // Defer the alert so the state update commits first — otherwise
-            // the next render that React queues can flicker the pre-credit
-            // values into the milestone toast.
-            setTimeout(() => gameToast(`⭐ ${currentWave}-Kill Milestone! ${milestoneNotices.join(" · ")}.`), 30);
-        }
-        const next = currentWave + 1;
-        setEndlessBattleWave(next);
-        setPendingAiProfileId(pickRandomEndlessAi(next));
-        setArenaKey(k => k + 1);
-    }
-
-    // Called when the player loses — banked rewards are lost on death.
-    function endEndlessBattle() {
-        setEndlessBattleActive(false);
-        setEndlessBattleWave(0);
-        setTemporaryStoryAi(null);
-        setCharacter((current) => current ? { ...current, endlessTowerRun: null } : current);
-    }
-
-    // Retreat & bank: convert banked ryo into actual progress, clear the run.
-    function bankEndlessRewards() {
-        if (!character) return;
-        const run = character.endlessTowerRun;
-        if (!run || (run.bankedRyo === 0 && run.bankedXp === 0)) {
-            setEndlessBattleActive(false);
-            setEndlessBattleWave(0);
-            setTemporaryStoryAi(null);
-            setCharacter({ ...character, endlessTowerRun: null });
-            return;
-        }
-        // XP retired: waves bank ryo only (legacy in-flight bankedXp converts
-        // to ryo inside applyTowerCashOut); gainXp is the derived-level shim.
-        setCharacter(applyTowerCashOut(character, run, currentDateKey(), gainXp));
-        setEndlessBattleActive(false);
-        setEndlessBattleWave(0);
-        setTemporaryStoryAi(null);
-    }
-
     // ── Endless-tower context persistence (battle-lock resume) ──────────
     // Mirror the live endless wave/flag + scaled enemy to localStorage so a
     // refresh can rebuild the fight (the combat snapshot itself is saved by
@@ -5454,15 +5396,28 @@ export default function App() {
         return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
     }
 
-    function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
-        if (!character) return;
+    async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
+        if (!character || dungeonActionRef.current) return;
         const event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
         // The explore-tile Hidden Dungeon (no override) is free to enter; only the
         // Central Hub relic dungeons (passed as an override) stay gated behind a key.
         if (dungeonOverride) {
             if (!ownsItem(character, DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
-            setCharacter(removeItem(character, DUNGEON_KEY_ID, 1));
+            dungeonActionRef.current = true;
+            try {
+                const result = await mutateDungeonRunServer(character.name, "start");
+                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+                setCharacter(result.character);
+                setActiveDungeonRunToken(result.token);
+            } catch (error) {
+                alert(error instanceof Error ? error.message : "The dungeon seal is unavailable.");
+                return;
+            } finally {
+                dungeonActionRef.current = false;
+            }
+        } else {
+            setActiveDungeonRunToken(null);
         }
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
@@ -5507,7 +5462,7 @@ export default function App() {
         });
         setPendingPvpOpponent(null);
         setRaidBattleKind("none");
-        setPendingArenaStoryBattle({ kind: "dungeonAi", returnScreen: "dungeon" });
+        setPendingArenaStoryBattle({ kind: "dungeonAi", returnScreen: "dungeon", eventId: activeDungeonEvent.id });
         setPendingAiProfileId(aiProfileId);
         setCurrentBiome(activeDungeonEvent.biome);
         setCurrentWeather(weatherForBiome(activeDungeonEvent.biome));
@@ -5557,7 +5512,22 @@ export default function App() {
         setScreen("arena");
     }
 
-    function leaveDungeon() {
+    async function leaveDungeon() {
+        const current = character;
+        const token = activeDungeonRunToken;
+        if (current && token && !dungeonActionRef.current) {
+            dungeonActionRef.current = true;
+            try {
+                const result = await mutateDungeonRunServer(current.name, "abandon", token);
+                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+                setCharacter(result.character);
+            } catch {
+                gameToast("The dungeon run remains reserved so it can be resumed safely.");
+            } finally {
+                dungeonActionRef.current = false;
+            }
+        }
+        setActiveDungeonRunToken(null);
         setActiveDungeonEvent(null);
         setDungeonStage("intro");
         setDungeonPage(0);
@@ -5573,8 +5543,23 @@ export default function App() {
     // returning to the dungeon screen drops them back at the intro VN
     // with no usable progression (the key was already consumed). Clears
     // all dungeon state and routes them to their village.
-    function failDungeon() {
-        if (!character) return;
+    async function failDungeon() {
+        if (!character || dungeonActionRef.current) return;
+        const token = activeDungeonRunToken ?? character.activeDungeonRun?.token;
+        if (token) {
+            dungeonActionRef.current = true;
+            try {
+                const result = await mutateDungeonRunServer(character.name, "abandon", token);
+                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+                setCharacter(result.character);
+            } catch (error) {
+                alert(error instanceof Error ? error.message : "The failed dungeon run could not be closed.");
+                return;
+            } finally {
+                dungeonActionRef.current = false;
+            }
+        }
+        setActiveDungeonRunToken(null);
         setActiveDungeonEvent(null);
         setDungeonStage("intro");
         setDungeonPage(0);
@@ -5586,10 +5571,26 @@ export default function App() {
         setScreen("village");
     }
 
-    function completeDungeon() {
-        if (!character || !activeDungeonEvent) return;
-        const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
-        setCharacter(rewarded);
+    async function completeDungeon() {
+        if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
+        const token = activeDungeonRunToken;
+        if (token) {
+            dungeonActionRef.current = true;
+            try {
+                const result = await mutateDungeonRunServer(character.name, "settle", token);
+                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+                setCharacter(result.character);
+            } catch (error) {
+                alert(error instanceof Error ? error.message : "The dungeon reward could not be verified.");
+                return;
+            } finally {
+                dungeonActionRef.current = false;
+            }
+        } else {
+            const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
+            setCharacter(rewarded);
+        }
+        setActiveDungeonRunToken(null);
         alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
         setActiveDungeonEvent(null);
         setDungeonStage("complete");
@@ -7075,7 +7076,7 @@ export default function App() {
                             // next render, so the call below would read the stale value.
                             startTriggeredEventArenaBattle(event, battle, "worldMap");
                         }}
-                        onDungeonFound={() => triggerDungeonEncounter("worldMap")}
+                        onDungeonFound={() => { void triggerDungeonEncounter("worldMap"); }}
                         onEnterHollowGate={() => { void enterHollowGateShrine(); }}
                         hollowGateEventConfig={hollowGateEventConfig}
                         onEnterHollowGateEvent={(cfg) => { void enterHollowGateShrine(cfg); }}
@@ -7237,14 +7238,17 @@ export default function App() {
                         triggeredEvents={triggeredEvents}
                         setTriggeredEvents={setTriggeredEvents}
                         onStartEndlessBattle={startEndlessBattle}
-                        onStartDungeon={(event) => triggerDungeonEncounter("centralHub", event)}
+                        onStartDungeon={(event) => { void triggerDungeonEncounter("centralHub", event); }}
+                        onServerVersion={(version) => {
+                            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version);
+                        }}
                         creatorItems={creatorItems}
                         setCreatorItems={setCreatorItems}
                         playableAis={playableAis}
                         sharedImages={sharedImages}
-                        onOpenBloodlineMaker={(rank) => {
+                        onOpenBloodlineMaker={(rank, element) => {
                             setBloodlineMakerInitialRank(rank);
-                            setBloodlineMakerInitialElement(getCharacterElements(character)[0] ?? "");
+                            setBloodlineMakerInitialElement(element ?? getCharacterElements(character)[0] ?? "");
                             setBloodlineMakerRankLocked(true);
                             setScreen("bloodlineMaker");
                         }}
