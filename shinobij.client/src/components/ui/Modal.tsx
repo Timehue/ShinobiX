@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../../lib/useBodyScrollLock";
 import { CloseButton } from "./CloseButton";
@@ -27,6 +27,42 @@ export interface ModalProps {
  * another registers later and wins.
  */
 const openModals: string[] = [];
+const inertSnapshots = new Map<HTMLElement, { inert: boolean; ariaHidden: string | null }>();
+
+function syncModalBackgroundInert() {
+  const bodyChildren = Array.from(document.body.children) as HTMLElement[];
+  const backdrops = bodyChildren.filter((element) => element.classList.contains("ui-modal-backdrop"));
+  const topmostBackdrop = backdrops.at(-1);
+
+  if (!topmostBackdrop) {
+    for (const [element, snapshot] of inertSnapshots) {
+      if (!element.isConnected) continue;
+      element.inert = snapshot.inert;
+      if (snapshot.ariaHidden === null) element.removeAttribute("aria-hidden");
+      else element.setAttribute("aria-hidden", snapshot.ariaHidden);
+    }
+    inertSnapshots.clear();
+    return;
+  }
+
+  for (const element of bodyChildren) {
+    if (element === topmostBackdrop) {
+      const snapshot = inertSnapshots.get(element);
+      element.inert = snapshot?.inert ?? false;
+      if (snapshot?.ariaHidden == null) element.removeAttribute("aria-hidden");
+      else element.setAttribute("aria-hidden", snapshot.ariaHidden);
+      continue;
+    }
+    if (!inertSnapshots.has(element)) {
+      inertSnapshots.set(element, {
+        inert: element.inert,
+        ariaHidden: element.getAttribute("aria-hidden"),
+      });
+    }
+    element.inert = true;
+    element.setAttribute("aria-hidden", "true");
+  }
+}
 
 /**
  * Canonical modal. Portals to <body> (escapes the side-rail stacking context),
@@ -45,13 +81,16 @@ export function Modal({
   children,
 }: ModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const titleId = useId();
   useBodyScrollLock(open);
 
-  // Deliberately separate from the focus/key effect below: that one depends on
-  // `onClose`, which callers routinely pass as an inline arrow, so it re-runs
-  // on every parent render. Re-running this one would re-push an outer modal
-  // to the top of the stack while an inner one is still open.
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Deliberately separate from the focus/key effect below so caller re-renders
+  // cannot re-push an outer modal while an inner one is still open.
   useEffect(() => {
     if (!open) return;
     openModals.push(titleId);
@@ -60,6 +99,14 @@ export function Modal({
       if (at >= 0) openModals.splice(at, 1);
     };
   }, [open, titleId]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    syncModalBackgroundInert();
+    return () => {
+      queueMicrotask(syncModalBackgroundInert);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,7 +130,7 @@ export function Modal({
       if (openModals[openModals.length - 1] !== titleId) return;
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
       if (e.key === "Tab") {
         const items = focusables();
@@ -106,9 +153,11 @@ export function Modal({
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      previouslyFocused?.focus();
+      // The layout-effect cleanup removes inert in a microtask. Restore focus
+      // immediately after that; focusing an inert opener is ignored by browsers.
+      queueMicrotask(() => previouslyFocused?.focus());
     };
-  }, [open, onClose, titleId]);
+  }, [open, titleId]);
 
   if (!open) return null;
 

@@ -1003,9 +1003,9 @@
     border-radius: 999px;
     font-size: 0.78rem;
     font-weight: 700;
-    color: #fff;
+    color: #07111f;
     letter-spacing: 0.5px;
-    text-shadow: 0 1px 2px rgba(0,0,0,.5);
+    text-shadow: none;
 }
 
 .hunter-rank-sub {
@@ -1038,7 +1038,8 @@
 }
 
 .hunt-rank-locked {
-    opacity: 0.55;
+    opacity: 1;
+    filter: saturate(0.65);
 }
 
 .hunt-rank-heading {

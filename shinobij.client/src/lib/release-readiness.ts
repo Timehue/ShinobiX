@@ -35,10 +35,10 @@ export const RELEASE_SYSTEM_MATRIX: ReleaseSystemRow[] = [
     },
     {
         system: "Battle Towers and Endless Tower",
-        launchState: "monitor",
-        reason: "Playable PvE goals with tests, but advanced flow should be watched during beta.",
-        risk: "Medium; refresh/resume and mobile combat layout are the main player-facing risks.",
-        requiredBeforeEnable: "Mobile tower fight smoke and first-clear reward receipt spot-check.",
+        launchState: "ready",
+        reason: "Server-issued run tokens, AI-fight proofs, first-clear receipts, and reconnect state protect both tower modes.",
+        risk: "Low to medium; continue watching long-session balance and mobile combat layout.",
+        requiredBeforeEnable: "Keep endpoint, resume, mobile layout, and reward-receipt checks green.",
     },
     {
         system: "Clan, Clan Boss, Village War, Sector War",
@@ -49,10 +49,10 @@ export const RELEASE_SYSTEM_MATRIX: ReleaseSystemRow[] = [
     },
     {
         system: "Weekly Boss",
-        launchState: "gate",
-        reason: "Client-reported boss damage is disabled unless explicitly released server-authoritatively.",
-        risk: "High if enabled too early; boss contribution can mint shared rewards.",
-        requiredBeforeEnable: "Server-authoritative damage settlement and staging receipt review.",
+        launchState: "ready",
+        reason: "Fight reservations, signed damage events, rate limits, and idempotent reward distribution are server-authoritative.",
+        risk: "Medium; shared-event balance and participation spikes still deserve operational monitoring.",
+        requiredBeforeEnable: "Keep signed-damage, distribution, and replay-protection tests green.",
     },
     {
         system: "Shinobi Chronicle Showdown",
@@ -92,13 +92,6 @@ export const RELEASE_SYSTEM_MATRIX: ReleaseSystemRow[] = [
 ];
 
 const SCREEN_NOTICES: Partial<Record<Screen, PublicBetaNotice>> = {
-    weeklyBoss: {
-        id: "weekly-boss",
-        screen: "weeklyBoss",
-        state: "gate",
-        title: "Weekly Boss is reward-gated for beta",
-        body: "Boss contribution is visible, but public damage reporting stays disabled until server-authoritative settlement is enabled.",
-    },
     villageWar: {
         id: "village-war",
         screen: "villageWar",
@@ -131,29 +124,22 @@ const SCREEN_NOTICES: Partial<Record<Screen, PublicBetaNotice>> = {
         id: "pet-arena",
         screen: "petArena",
         state: "monitor",
-        title: "Pet Arena is a soft-launch activity",
-        body: "Pet battles are good beta content, but rating, pacing, and mobile readability need launch-week monitoring.",
+        title: "Pet Arena live-service monitoring",
+        body: "Matches and ratings are live. Operations monitors pacing, disconnects, and mobile readability.",
     },
     petLadder: {
         id: "pet-ladder",
         screen: "petLadder",
         state: "monitor",
-        title: "Pet Ladder is monitored beta",
-        body: "Use the ladder for ranked pet testing; report stuck offers or confusing rating changes.",
+        title: "Pet Ladder live-service monitoring",
+        body: "The ranked ladder is live. Stuck offers and unexpected rating changes are tracked as service incidents.",
     },
     battleTowers: {
         id: "battle-towers",
         screen: "battleTowers",
         state: "monitor",
-        title: "Battle Towers are advanced PvE",
-        body: "Squad floors are release-candidate content. Mobile fights and refresh/resume should be verified before promoting them broadly.",
-    },
-    endlessTower: {
-        id: "endless-tower",
-        screen: "endlessTower",
-        state: "monitor",
-        title: "Endless Tower is an advanced climb",
-        body: "Good for repeatable beta goals; watch reward pacing, reconnects, and long-session fatigue.",
+        title: "Battle Towers live-service monitoring",
+        body: "Squad floors and first-clear rewards are live. Operations monitors mobile fights, reconnects, and reward receipts.",
     },
     hollowGateShrine: {
         id: "hollow-gate",
