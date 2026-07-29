@@ -22,6 +22,11 @@ import { starterItems } from "../data/starter-items";
 import { cloneEncounterPet } from "./pet-balance";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain, HollowGateVariant } from "../types/character";
 import type { Pet, PetRarity } from "../types/pet";
+import {
+    HOLLOW_HOUND_NAME as SHARED_HOLLOW_HOUND_NAME,
+    hollowGateHoundName,
+    type HollowGateHoundKind,
+} from "../../../shared/hollow-gate-contract";
 
 // ── Hand-designed ASCII layouts ─────────────────────────────────────────
 //
@@ -968,7 +973,19 @@ export function pickHollowGateEncounterPet(pets: Pet[], rarity: PetRarity): Pet 
 }
 
 export const HOLLOW_HOUND_TEMPLATE_ID = "mythic-4";
-export const HOLLOW_HOUND_NAME = "Hollow Hound";
+export const HOLLOW_HOUND_NAME = SHARED_HOLLOW_HOUND_NAME;
+
+/** Stable, Date-shaped seed for a sealed pet encounter. A refresh must replay
+ * the same Hollow Hound rather than rerolling an easier duel. The 13-digit base
+ * also preserves the server's sealed encounter-id contract. */
+export function hollowGatePetEncounterSeed(runId: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < runId.length; index += 1) {
+        hash ^= runId.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return 1_700_000_000_000 + (hash >>> 0);
+}
 
 /**
  * Build the one canonical Hollow Gate duel opponent: a void-reskinned Abyssal
@@ -982,6 +999,7 @@ export function buildHollowHoundOpponent(
     floorRaw: number,
     image?: string,
     encounterId = Date.now(),
+    encounterKind: HollowGateHoundKind = "beast",
 ): Pet | null {
     const oniHound = pets.find((pet) => pet.id === HOLLOW_HOUND_TEMPLATE_ID);
     if (!oniHound) return null;
@@ -990,7 +1008,7 @@ export function buildHollowHoundOpponent(
     return {
         ...oniHound,
         id: `${HOLLOW_HOUND_TEMPLATE_ID}-${encounterId}`,
-        name: HOLLOW_HOUND_NAME,
+        name: hollowGateHoundName(floor, encounterKind),
         rarity: activePet.rarity,
         level: Math.max(1, activePet.level),
         hp: Math.max(1, Math.floor(activePet.hp * difficulty)),

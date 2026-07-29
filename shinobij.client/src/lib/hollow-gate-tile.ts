@@ -20,6 +20,7 @@ import { applyAttunementToRun } from "./hollow-gate-attunement";
 import { generateHollowGateShrineRun } from "./hollow-gate-dungeon";
 import { befriendHollowGatePetServer, rollHollowLockedDoorServer } from "./hollow-gate-locked-door-api";
 import { hollowShardDrop } from "./hollow-gate-run";
+import { hollowGateFloorProfile } from "./hollow-gate-presentation";
 import { consumeHollowGateServerSecondWind, hollowGateAugmentEffects } from "./hollow-gate-server";
 import { tryHollowGateSecondWind } from "./hollow-gate-shards";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
@@ -37,6 +38,9 @@ export type HollowGateEventModal = {
     title: string;
     body: string;
     kind: HollowGateTileKind;
+    presentation?: "standard" | "boss-victory";
+    image?: string;
+    eyebrow?: string;
     choices: Array<{ label: string; onSelect: () => void; tone?: "danger" | "safe" | "primary" }>;
 } | null;
 
@@ -86,6 +90,7 @@ export function resolveHollowGateTile(
     if (!hollowGateRun || !character) return;
     const idx = y * hollowGateRun.width + x;
     const flavor = hollowGateFlavorFor(tile.kind);
+    const floorProfile = hollowGateFloorProfile(hollowGateRun.floor);
     // Mark resolved immediately so re-entering the tile doesn't fire it again.
     // CRITICAL: this MUST use the functional setHollowGateRun(prev => ...) form
     // and apply only the patch fields you actually want to change. The earlier
@@ -241,8 +246,8 @@ export function resolveHollowGateTile(
             setHollowGateEvent({
                 title: "Glowing Pawprints",
                 body: pet
-                    ? `${flavor}\n\n${pet.name} sniffs the air, then the trail fades into the dark.`
-                    : `${flavor}\n\nThe trail fades into the dark.`,
+                    ? `${floorProfile.petTrace}\n\n${pet.name} sniffs the air, then the trail fades into the dark.`
+                    : `${floorProfile.petTrace}\n\nThe trail fades into the dark.`,
                 kind: "pet_event",
                 choices: [{ label: "Onward", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
             });
@@ -251,7 +256,7 @@ export function resolveHollowGateTile(
         }
         case "shrine": {
             // Shrine tile fully refills the Torch of Reiki.
-            pushHollowGateLog(`${flavor} The Torch of Reiki flares to full.`);
+            pushHollowGateLog(`${floorProfile.shrineTitle}: ${floorProfile.shrineRite} The Torch of Reiki flares to full.`);
             setHollowGateHiddenChamber({ searched: false, relicTaken: false });
             markResolved({ setTorch: 10 });
             return;
@@ -261,8 +266,8 @@ export function resolveHollowGateTile(
             // (rewards come from chests, secret doors, and the Alpha Hound).
             pushHollowGateLog(flavor);
             setHollowGateEvent({
-                title: "Hollow Gate Echo",
-                body: `${flavor}\n\nYou study the engraving. The shrine watches.`,
+                title: floorProfile.storyTitle,
+                body: `${floorProfile.storyEcho}\n\nYou study the engraving. The shrine watches.`,
                 kind: "story",
                 choices: [{ label: "Move On", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
             });
