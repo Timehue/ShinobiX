@@ -7223,6 +7223,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
     const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone; who?: string; element?: string | null } | null>(null);  // tiered move ID
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
+    const [tacticLocked, setTacticLocked] = useState(!live || live.settled);
+    const [openingTactic, setOpeningTactic] = useState(1);
     useEffect(() => {
         if (!cutIn) return;
         const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1320);
@@ -7258,6 +7260,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setIntro(true);
         clock.current.playing = false;
         clock.current.intro = 0;   // restart the still size-up / power-gather choreography
+        // A live fight begins with a real strategic choice. Hold the face-off until
+        // the player briefs the pet; replay/watch-only paths already have a result
+        // and flow through the authored intro without controls.
+        if (live && !tacticLocked) return;
         // Clear the VS splash first, then let the gather play in the clear while the
         // simulation remains paused for the full opening.
         const splashT = window.setTimeout(() => setIntro(false), INTRO_SPLASH_END * 1000);
@@ -7267,7 +7273,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             setPaused(false);
         }, INTRO_TOTAL * 1000);
         return () => { window.clearTimeout(splashT); window.clearTimeout(fightT); };
-    }, [runId]);
+    }, [runId, live, tacticLocked]);
 
     // FX map through the SAME field→floor placement as the fighters, at mid-body
     // height, so impacts / numbers / casts land on the right pet in the 3D scene.
@@ -7513,6 +7519,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             // before the queued technique executes. The director will fire the
             // move slate / hero cut-in on the real cast event, keeping the title,
             // world-space VFX, contact sound, and damage on one honest timeline.
+        } else if (cmd.kind === "technique") {
+            const moveLabel = moveName ?? "Technique";
+            setCommandEcho({ id: echoId, label: `CALL · ${moveLabel}`, tone: "signature" });
+            playPetSfx("buff");
+            setFlash({ id: echoId, color: accent.glow, intensity: 0.64 });
+            triggerMoveCallout(moveLabel, "player", "attack", petDisplayName(playerPet), playerPet.element);
+            requestDuelCommandJolt(1.15, 1.9, 2.5);
+            requestDuelCommandRush(tick);
         } else if (cmd.kind === "break") {
             setCommandEcho({ id: echoId, label: "Bond Break", tone: "signature" });
             playPetSfx("buff");
@@ -7547,7 +7561,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             atTick: tick,
             stance: cmd.kind === "stance" ? cmd.stance : prev.atTick === tick ? prev.stance : null,
             auto: cmd.kind === "auto" ? cmd.on : prev.atTick === tick ? prev.auto : null,
-            orderedIdx: cmd.kind === "ability" ? cmd.idx : cmd.kind === "auto" && cmd.on ? -2 : prev.atTick === tick ? prev.orderedIdx : null,
+            orderedIdx: cmd.kind === "ability" || cmd.kind === "technique" ? cmd.idx : cmd.kind === "auto" && cmd.on ? -2 : prev.atTick === tick ? prev.orderedIdx : null,
             breakPending: cmd.kind === "break" ? true : cmd.kind === "auto" && cmd.on ? false : prev.atTick === tick ? prev.breakPending : null,
         }));
     };
@@ -7555,6 +7569,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // the constant "player-0" it used to be. Derived in pet-duel-live.ts so the
     // contract it rests on is pinned by tests rather than by this component.
     const meId = commandedActorId(live);
+    const chooseOpeningTactic = (stance: number) => {
+        if (!live || tacticLocked) return;
+        setOpeningTactic(stance);
+        live.controlledIds.forEach((id) => issueCommand({ kind: "stance", actorId: id, stance }));
+        setTacticLocked(true);
+    };
     const versusPlayer = isVersusPlayer(live);
     const loggedControl = live ? live.controlAt(deckTick, meId) : null;
     // ── CLASH ────────────────────────────────────────────────────────────────
@@ -7745,6 +7765,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
                 @keyframes petDuelCmdEcho { 0% { opacity: 0; transform: translateY(10px) scale(0.82); } 16% { opacity: 1; transform: translateY(0) scale(1.06); } 30% { transform: translateY(0) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+                @keyframes petDuelBriefIn { 0% { opacity: 0; transform: translateY(18px) scale(.96); } 65% { opacity: 1; transform: translateY(-3px) scale(1.01); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
                 @keyframes petDuelMoveScene {
                     0% { opacity: 0; transform: translate3d(var(--move-entry),8px,0) scale(.94); filter: blur(5px); }
                     15% { opacity: 1; transform: translate3d(0,0,0) scale(1.015); filter: blur(0); }
@@ -7940,17 +7961,43 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             )}
 
             {intro && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
-                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>
-                            {petDisplayName(playerPet)}
-                            <small style={{ display: "block", marginTop: 5, color: "#dbeafe", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{playerFamily.label} · {playerFamily.tell}</small>
-                        </span>
-                        <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
-                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>
-                            {petDisplayName(enemyPet)}
-                            <small style={{ display: "block", marginTop: 5, color: "#fee2e2", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{enemyFamily.label} · {enemyFamily.tell}</small>
-                        </span>
+                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: live && !tacticLocked ? "auto" : "none", zIndex: 12 }}>
+                    <div style={{ width: "100%" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
+                            <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>
+                                {petDisplayName(playerPet)}
+                                <small style={{ display: "block", marginTop: 5, color: "#dbeafe", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{playerFamily.label} · {playerFamily.tell}</small>
+                            </span>
+                            <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
+                            <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>
+                                {petDisplayName(enemyPet)}
+                                <small style={{ display: "block", marginTop: 5, color: "#fee2e2", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{enemyFamily.label} · {enemyFamily.tell}</small>
+                            </span>
+                        </div>
+                        {live && !tacticLocked && (
+                            <div style={{ width: mobileQa ? "calc(100% - 24px)" : "min(590px,82vw)", margin: "clamp(22px,5vh,48px) auto 0", padding: mobileQa ? "13px" : "16px 18px", borderRadius: 18, background: "linear-gradient(145deg,rgba(5,10,24,.96),rgba(2,5,14,.94))", border: "1px solid rgba(147,197,253,.42)", boxShadow: "0 18px 46px rgba(0,0,0,.68)", textAlign: "center", pointerEvents: "auto", animation: "petDuelBriefIn 620ms cubic-bezier(.16,.84,.24,1) both" }}>
+                                <div style={{ color: "#fff", font: `900 ${mobileQa ? 13 : 15}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".16em", textTransform: "uppercase" }}>Brief Your Pet</div>
+                                <div style={{ marginTop: 6, color: "#94a3b8", font: "700 10px/1.3 Inter,sans-serif" }}>This tactic shapes the whole fight. Live commands are earned during combat.</div>
+                                <div role="group" aria-label="Opening tactic" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: mobileQa ? 6 : 9, marginTop: 13 }}>
+                                    {[
+                                        { name: "Pressure", hint: "Close distance · commit", color: "#f87171" },
+                                        { name: "Adaptive", hint: "Trust its judgement", color: "#93c5fd" },
+                                        { name: "Counter", hint: "Hold range · read", color: "#5eead4" },
+                                    ].map((tactic, stance) => (
+                                        <button
+                                            key={tactic.name}
+                                            type="button"
+                                            onClick={() => chooseOpeningTactic(stance)}
+                                            aria-pressed={openingTactic === stance}
+                                            style={{ minWidth: 0, minHeight: mobileQa ? 54 : 62, padding: mobileQa ? "7px 5px" : "9px 8px", borderRadius: 12, border: `1.5px solid ${tactic.color}`, background: `linear-gradient(180deg,${tactic.color}28,rgba(4,8,18,.95))`, color: tactic.color, boxShadow: `inset 0 -2px 0 ${tactic.color}88,0 5px 16px rgba(0,0,0,.4)`, cursor: "pointer" }}
+                                        >
+                                            <strong style={{ display: "block", font: `900 ${mobileQa ? 10 : 12}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".06em", textTransform: "uppercase" }}>{tactic.name}</strong>
+                                            <span style={{ display: "block", marginTop: 6, color: "#cbd5e1", font: `700 ${mobileQa ? 8 : 9}px/1.2 Inter,sans-serif` }}>{tactic.hint}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -8193,12 +8240,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     accent={elementColor(playerPet.element)}
                     keyboard={!mobileQa && canHover}
                     compact={mobileQa}
-                    onAbility={(idx) => issueCommand({ kind: "ability", actorId: meId, idx }, idx === -1 ? "Strike" : deckControl?.abilities[idx]?.name)}
+                    onTechnique={(idx) => issueCommand({ kind: "technique", actorId: meId, idx }, deckControl?.abilities[idx]?.name)}
                     onBreak={() => { setBondSpentAt(Math.max(0, Math.floor(clock.current.t))); issueCommand({ kind: "break", actorId: meId }); }}
-                    /* Stance and Auto are team-wide: in a 2v2 the deck drives the
-                       lead, but a plan the player sets should govern both pets. */
-                    onStance={(stance) => live.controlledIds.forEach((id) => issueCommand({ kind: "stance", actorId: id, stance }))}
-                    onAuto={(on) => live.controlledIds.forEach((id) => issueCommand({ kind: "auto", actorId: id, on }))}
                 />
             )}
 

@@ -81,6 +81,12 @@ const STAM_MAX = 100;
 const STAM_REGEN = 22 / DUEL_TPS;
 const COST_BASIC = 12;
 const COST_DODGE = 20;
+/** Live-only tactical resource. A full meter buys one guaranteed technique call. */
+export const DUEL_COMMAND_FULL = 300;
+const DUEL_COMMAND_START = 75;
+const DUEL_COMMAND_HIT_GAIN = 38;
+const DUEL_COMMAND_HURT_GAIN = 22;
+const DUEL_COMMAND_DODGE_GAIN = 52;
 const CRIT_CHANCE = 0.12;
 const DMG_SCALE = 1.5;
 const TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 1.4);
@@ -557,6 +563,8 @@ interface Fighter {
     cmdIdx: number;                         // ordered move: >=0 ability index, -1 basic, -2 none
     cmdLeft: number;                        // ticks the order stays queued before it lapses
     cmdBreak: boolean;                      // Bond Break pending — unleash the signature now
+    cmdTechnique: boolean;                  // earned command-window call; owns the next combat beat
+    commandCharge: number;                  // 0..DUEL_COMMAND_FULL, live path only
     stance: number;                         // 0 aggressive · 1 balanced · 2 guarded
 }
 
@@ -701,7 +709,8 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         brawl: false, clashPick: -1,
         lungeAbIdx: -2, lungeTgtId: null, lungeStuck: 0,
         // Player control defaults OFF — every existing caller gets the shipped AI.
-        controlled: false, cmdIdx: -2, cmdLeft: 0, cmdBreak: false, stance: 1,
+        controlled: false, cmdIdx: -2, cmdLeft: 0, cmdBreak: false,
+        cmdTechnique: false, commandCharge: DUEL_COMMAND_START, stance: 1,
     };
 }
 
@@ -925,7 +934,7 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
     // HUD can flip the button from "ordered" back to ready on the same tick.
     if (f.controlled) {
         if (f.cmdBreak && idx >= 0 && f.abilities[idx].signature) f.cmdBreak = false;
-        if (f.cmdIdx === idx) { f.cmdIdx = -2; f.cmdLeft = 0; }
+        if (f.cmdIdx === idx) { f.cmdIdx = -2; f.cmdLeft = 0; f.cmdTechnique = false; }
     }
     f.pendingIdx = idx; f.pendingTargetId = targetId;
     f.state = "windup"; f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
@@ -1554,6 +1563,36 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     const dx = e.x - f.x, dy = e.y - f.y;
     const d = Math.max(1e-4, Math.sqrt(dx * dx + dy * dy));
     const hpFrac = f.hp / f.maxHp;
+    // EARNED COMMAND WINDOW — this sits ahead of the normal AI reads on purpose.
+    // The meter bought the right to seize this beat, so cooldown, stamina, spacing
+    // resets and an incoming telegraph cannot silently turn the call into a basic.
+    if (f.cmdTechnique && f.cmdIdx >= 0 && f.cmdIdx < f.abilities.length) {
+        const idx = f.cmdIdx;
+        const ab = f.abilities[idx];
+        ab.cdLeft = 0;
+        f.stamina = Math.max(f.stamina, ab.cost);
+        f.reposLeft = 0;
+        f.routeActive = false;
+        f.maneuverLeft = 0;
+        f.guardLeft = 0;
+        f.postDodgeSupport = false;
+        setIntent(
+            f,
+            ab.cls === "support" ? "prepare combo" : ab.isMove ? "reposition" : "burst",
+            d,
+            `command window: ${ab.name}`,
+            "the player spent a full command meter",
+        );
+        if (ab.isMove) {
+            beginManeuver(f, e, idx, t, events);
+            f.cmdIdx = -2;
+            f.cmdLeft = 0;
+            f.cmdTechnique = false;
+        } else {
+            beginCast(f, idx, ab.cls === "support" ? f.id : e.id, t, events);
+        }
+        return;
+    }
     // STANCE — the player's zero-APM strategic dial, folded into the same three knobs
     // the AI already reasons with. Balanced (and every uncontrolled fighter) reads the
     // style values unchanged, and both clamps are no-ops there because deriveStyle
@@ -1927,7 +1966,10 @@ function tickStatuses(f: Fighter): number {
     // A player order lapses if the pet never gets a window to use it, so an
     // unreachable or permanently-blocked command can't freeze it out of its own AI.
     // A pending Bond Break is exempt: the meter was already spent on it.
-    if (f.controlled && f.cmdLeft > 0 && --f.cmdLeft <= 0) f.cmdIdx = -2;
+    if (f.controlled && f.cmdLeft > 0 && --f.cmdLeft <= 0) {
+        f.cmdIdx = -2;
+        f.cmdTechnique = false;
+    }
     return dot;
 }
 function stepManeuver(f: Fighter, fighters: Fighter[]) {
@@ -2416,6 +2458,7 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     const t = sim.t;
     if (t >= CAP_TICKS) { sim.done = true; return false; }
     const { fighters, projectiles, nextProjId, events, snapshots, rng, accuracyEnabled } = sim;
+    const commandEventStart = events.length;
     // Load this duel's scratch state into the module globals the helpers read.
     SIM_WALLS = sim.walls;
     _stallPressure = sim.stallPressure; _forcedEngage = sim.forcedEngage;
@@ -2460,6 +2503,26 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     stepProjectiles(fighters, projectiles, rng, t, events);
     let dotDmg = 0;
     for (const f of fighters) dotDmg += tickStatuses(f);
+    // Command energy comes from participating in the exchange, not waiting on an
+    // ability cooldown. Passive gain guarantees a window in quiet matchups; clean
+    // hits, defensive reads and absorbing pressure bring the next call forward.
+    for (const f of fighters) {
+        if (f.controlled && f.hp > 0 && !f.cmdTechnique) {
+            f.commandCharge = Math.min(DUEL_COMMAND_FULL, f.commandCharge + 1);
+        }
+    }
+    for (let i = commandEventStart; i < events.length; i++) {
+        const event = events[i];
+        if (event.type === "hit") {
+            const actor = fighters.find((f) => f.id === event.actorId);
+            const target = event.targetId ? fighters.find((f) => f.id === event.targetId) : null;
+            if (actor?.controlled) actor.commandCharge = Math.min(DUEL_COMMAND_FULL, actor.commandCharge + DUEL_COMMAND_HIT_GAIN);
+            if (target?.controlled) target.commandCharge = Math.min(DUEL_COMMAND_FULL, target.commandCharge + DUEL_COMMAND_HURT_GAIN);
+        } else if (event.type === "dodge") {
+            const actor = fighters.find((f) => f.id === event.actorId);
+            if (actor?.controlled) actor.commandCharge = Math.min(DUEL_COMMAND_FULL, actor.commandCharge + DUEL_COMMAND_DODGE_GAIN);
+        }
+    }
     separateAll(fighters);
     const newlyDefeated = new Set<string>();
     for (const f of fighters) {
@@ -2577,6 +2640,7 @@ export function petCinematicArchetype(pet: Pet): Archetype {
 /** One player input. `idx` is an ability slot, or -1 for a plain basic attack. */
 export type DuelCommand =
     | { kind: "ability"; actorId: string; idx: number }
+    | { kind: "technique"; actorId: string; idx: number }
     | { kind: "break"; actorId: string }
     | { kind: "stance"; actorId: string; stance: number }
     | { kind: "auto"; actorId: string; on: boolean }
@@ -2590,6 +2654,8 @@ export interface DuelControlSnap {
     auto: boolean;
     orderedIdx: number;                 // -2 none, -1 basic, >=0 ability slot
     breakPending: boolean;
+    commandCharge: number;
+    commandReady: boolean;
     abilities: Array<{ name: string; kind: PetJutsu["kind"]; cost: number; signature: boolean; cdLeft: number; cdTicks: number; isMove: boolean; support: boolean }>;
 }
 
@@ -2708,6 +2774,24 @@ export function applyDuelCommand(sim: CinematicDuelState, cmd: DuelCommand): boo
             f.cmdIdx = cmd.idx; f.cmdLeft = DUEL_ORDER_TICKS;
             return true;
         }
+        case "technique": {
+            const ab = f.abilities[cmd.idx];
+            if (!ab || ab.signature || f.commandCharge < DUEL_COMMAND_FULL || f.cmdTechnique) return false;
+            // Cancel the old beat cleanly. decide() commits the selected technique
+            // on the very next simulation tick.
+            clearLunge(f);
+            f.state = "idle";
+            f.stateLeft = 0;
+            f.pendingIdx = -2;
+            f.pendingTargetId = null;
+            f.vx = 0;
+            f.vy = 0;
+            f.cmdIdx = cmd.idx;
+            f.cmdLeft = Math.round(DUEL_TPS * 1.5);
+            f.cmdTechnique = true;
+            f.commandCharge = 0;
+            return true;
+        }
         case "break": {
             if (!f.abilities.some((a) => a.signature)) return false;
             f.cmdBreak = true;
@@ -2720,7 +2804,7 @@ export function applyDuelCommand(sim: CinematicDuelState, cmd: DuelCommand): boo
             // "Auto" hands the fight back to the AI mid-duel: clear any standing
             // order so the brain is not still executing the last command.
             f.controlled = !cmd.on;
-            f.cmdIdx = -2; f.cmdLeft = 0; f.cmdBreak = false;
+            f.cmdIdx = -2; f.cmdLeft = 0; f.cmdBreak = false; f.cmdTechnique = false;
             return true;
         case "clash": {
             // Only accepted while this fighter is actually bound, and only once —
@@ -2792,6 +2876,8 @@ export function readDuelControl(sim: CinematicDuelState, actorId: string): DuelC
         stamina: f.stamina, hp: Math.max(0, f.hp), maxHp: f.maxHp,
         stance: f.stance, auto: !f.controlled,
         orderedIdx: f.controlled ? f.cmdIdx : -2, breakPending: f.controlled && f.cmdBreak,
+        commandCharge: Math.max(0, Math.min(DUEL_COMMAND_FULL, f.commandCharge)),
+        commandReady: f.controlled && f.commandCharge >= DUEL_COMMAND_FULL && !f.cmdTechnique,
         abilities: f.abilities.map((a) => ({
             name: a.name, kind: a.kind, cost: a.cost, signature: a.signature,
             cdLeft: a.cdLeft, cdTicks: a.cdTicks, isMove: a.isMove, support: a.cls === "support",

@@ -78,6 +78,27 @@ test('parseDuelInputLog accepts a clash read, and rejects an invented one', () =
     }
 });
 
+test('parseDuelInputLog accepts command-window techniques and rejects invalid slots', () => {
+    const parsed = parseDuelInputLog([
+        { t: 150, cmd: { kind: 'technique', actorId: 'player-0', idx: 1 } },
+    ]);
+    assert.ok(parsed);
+    assert.deepEqual(parsed[0].cmd, { kind: 'technique', actorId: 'player-0', idx: 1 });
+    for (const idx of [-1, 1.5, 99, '1', null]) {
+        assert.equal(parseDuelInputLog([{ t: 150, cmd: { kind: 'technique', actorId: 'player-0', idx } }]), null);
+    }
+});
+
+test('an unearned command-window technique is rejected by the authoritative replay', () => {
+    const log = parseDuelInputLog([
+        { t: 0, cmd: { kind: 'technique', actorId: 'player-0', idx: 1 } },
+    ]);
+    assert.ok(log);
+    const result = replayCasualPetDuel([P()], [Q()], PARAMS, log);
+    assert.equal(result.applied, 0);
+    assert.equal(result.rejected, 1);
+});
+
 test('parseDuelInputLog treats a missing log as empty, not as an error', () => {
     // A watch-only duel and every pre-replay client post no log at all. Those must
     // still settle, on the sealed baseline.
