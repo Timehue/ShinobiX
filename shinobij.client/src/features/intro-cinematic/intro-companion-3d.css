@@ -1,0 +1,36 @@
+.icx-companion-render {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    isolation: isolate;
+}
+
+.icx-companion-canvas {
+    position: absolute !important;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0;
+    filter:
+        drop-shadow(0 14px 18px rgba(0, 0, 0, 0.58))
+        drop-shadow(0 0 20px color-mix(in srgb, var(--icx-accent, #7dd3fc) 20%, transparent));
+    transition: opacity 380ms ease;
+}
+
+.icx-companion-render.is-model-ready .icx-companion-canvas {
+    opacity: 1;
+}
+
+.icx-companion-fallback {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: 100%;
+    object-fit: contain;
+    opacity: 1;
+    transition: opacity 280ms ease;
+}
+
+.icx-companion-render.is-model-ready .icx-companion-fallback {
+    opacity: 0;
+}

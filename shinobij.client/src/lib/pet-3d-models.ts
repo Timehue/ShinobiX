@@ -14,6 +14,12 @@ export type PetCombatModelConfig = {
     outlineScale: number;
 };
 
+/** Models that remain combat-readable at arena distance but do not yet meet the
+ * identity bar for large, first-impression portraits. */
+const CLOSEUP_MODEL_FALLBACKS: ReadonlySet<string> = new Set([
+    "starter-wind-l",
+]);
+
 /** Cache revision shared by all 15 starter production GLBs. */
 export const STARTER_MODEL_ASSET_REVISION = "20260728-grounded-meshopt-v2";
 
@@ -87,4 +93,37 @@ export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity"
 
 export function hasPetCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): boolean {
     return petCombatModel(pet) !== null;
+}
+
+/** Returns a model only when it is approved for a large cinematic portrait.
+ * Callers with pose artwork use null as the deliberate 2D fallback signal. */
+export function petCloseupPresentationModel(
+    pet: Pick<Pet, "id" | "evolutionStage" | "rarity">,
+): PetCombatModelConfig | null {
+    const config = petCombatModel(pet);
+    return config && !CLOSEUP_MODEL_FALLBACKS.has(config.visualId) ? config : null;
+}
+
+/** Root-hop scale for the one-shot winner celebration. Winged pets already gain
+ * silhouette from their authored clip, so their body stays near floor contact. */
+function petVictoryArcScale(
+    profile: PetCombatModelProfile,
+    aquaticSeal: boolean,
+): number {
+    if (aquaticSeal || profile === "serpentine") return 0.02;
+    if (profile === "avian") return 0.02;
+    if (profile === "heavy") return 0.03;
+    if (profile === "biped") return 0.045;
+    return 0.055;
+}
+
+/** Maximum world-space height for the celebration's launch-and-plant beat.
+ * The absolute cap prevents evolved and legendary pets from hopping farther
+ * merely because their presentation target is taller. */
+export function petVictoryArcHeight(
+    targetHeight: number,
+    profile: PetCombatModelProfile,
+    aquaticSeal: boolean,
+): number {
+    return Math.min(0.12, Math.max(0, targetHeight) * petVictoryArcScale(profile, aquaticSeal));
 }

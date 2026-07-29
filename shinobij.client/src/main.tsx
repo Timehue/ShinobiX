@@ -20,6 +20,9 @@ import { legalPageForPath } from './data/legal.ts'
 // is a tiny slug lookup with no heavy dependencies.
 // eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
 const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ default: m.LegalPage })))
+const IntroCinematicPreview = import.meta.env.DEV
+    ? lazy(() => import('./features/intro-cinematic/IntroCinematicPreview.tsx').then((m) => ({ default: m.IntroCinematicPreview })))
+    : null
 
 initSentry()
 applyLiteFxClass()
@@ -33,10 +36,15 @@ registerAssetServiceWorker()
 const legalSlug = (() => {
     try { return legalPageForPath(window.location.pathname); } catch { return null; }
 })()
+const introPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'intro'
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
-        {legalSlug ? (
+        {introPreview && IntroCinematicPreview ? (
+            <Suspense fallback={null}>
+                <IntroCinematicPreview />
+            </Suspense>
+        ) : legalSlug ? (
             <Suspense fallback={null}>
                 <LegalPage slug={legalSlug} />
             </Suspense>

@@ -13,7 +13,8 @@
 
 .coach-guide-pet {
     width: clamp(88px, 12vmin, 128px);
-    height: auto;
+    height: clamp(88px, 12vmin, 128px);
+    aspect-ratio: 1;
     flex-shrink: 0;
     /* Decorative standee — must NOT eat taps. On mobile it overlaps whatever
        screen the tutorial sent you to; if it captured pointer events it would
@@ -26,6 +27,28 @@
     margin-right: -6px;
     position: relative;
     z-index: 1;
+}
+
+.coach-guide-pet.coach-guide-pet-modal.icx-companion-render {
+    width: 112px !important;
+    height: 112px !important;
+    margin: 0 auto 4px;
+}
+
+.coach-guide-pet-fallback {
+    object-fit: contain;
+}
+
+.coach-guide-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 /* While the bubble line is typing, the standee "speaks" — a livelier wiggle. */
 .coach-guide-pet.is-talking {

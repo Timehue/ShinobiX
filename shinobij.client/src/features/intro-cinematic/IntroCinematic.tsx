@@ -20,12 +20,14 @@
  * the pet and advances onboardingStep to "training" (unmounting the overlay,
  * which is by then fully transparent).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character } from "../../App";
 import type { Pet } from "../../types/pet";
 import { STARTER_PETS, type StarterPetOption } from "../../data/starter-pets";
 import { petPoseImage } from "../../lib/pet-battle-anim";
+import { petCloseupPresentationModel } from "../../lib/pet-3d-models";
+import { villagePageImage } from "../../lib/village-page-image";
 import { isLowEndMobile, prefersReducedMotion } from "../../lib/device-tier";
 import { useBodyScrollLock } from "../../lib/useBodyScrollLock";
 import {
@@ -50,6 +52,17 @@ import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../../lib/pet-m
 import "./intro-cinematic.css";
 
 const FOX_ART = shiranuiArt;
+const loadIntroCompanion3D = () => import("./IntroCompanion3D");
+const IntroCompanion3D = lazy(() =>
+    loadIntroCompanion3D().then((module) => ({ default: module.IntroCompanion3D })),
+);
+
+function preloadCompanionModel(pet: Pet): void {
+    if (!petCloseupPresentationModel(pet)) return;
+    void loadIntroCompanion3D()
+        .then((module) => module.preloadIntroCompanion3D(pet))
+        .catch(() => { /* The existing sprite remains the safe fallback. */ });
+}
 
 // Bar scales sized so no starter pegs a bar (Spark Pup's 58 ATK and Pebble
 // Tortoise's 400 HP stay visibly distinct from the runners-up).
@@ -89,6 +102,8 @@ export function IntroCinematic({
 }) {
     const [phase, setPhase] = useState<Phase>({ kind: "dialogue", stage: "pre", idx: 0 });
     const [chosen, setChosen] = useState<StarterPetOption | null>(null);
+    const [avatarFailed, setAvatarFailed] = useState(false);
+    const [foxArtFailed, setFoxArtFailed] = useState(false);
     // Typewriter progress is keyed to the line it belongs to, so switching lines
     // derives back to 0 without a reset-setState inside the effect body.
     const [typed, setTyped] = useState<{ text: string; count: number }>({ text: "", count: 0 });
@@ -132,6 +147,9 @@ export function IntroCinematic({
     );
 
     const postLines = useMemo(() => buildPostGiftLines(character.village), [character.village]);
+    const playerAvatar = character.avatarImage
+        || sharedImages[`avatar:${character.name.trim().toLowerCase()}`]
+        || "";
     const line: CinematicLine | null =
         phase.kind === "dialogue"
             ? (companionMode ? companionLines : phase.stage === "pre" ? PRE_GIFT_LINES : postLines)[phase.idx] ?? null
@@ -199,7 +217,8 @@ export function IntroCinematic({
     // during the opening dialogue so none pop in on a cold cache.
     useEffect(() => {
         if (companionMode) return;
-        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiSpeak, shiranuiBlink]
+        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiSpeak, shiranuiBlink, playerAvatar]
+            .filter(Boolean)
             .forEach((src) => { const img = new Image(); img.src = src; void img.decode?.().catch(() => {}); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -306,17 +325,47 @@ export function IntroCinematic({
     // narrator establishing shots — the arrival IS the reveal.
     const foxOnStage = phase.kind !== "dialogue" || phase.stage === "post" || phase.idx >= 3;
     const showGiftPet = chosen != null && (departing || (phase.kind === "dialogue" && phase.stage === "post"));
+    const openingBeat = companionMode
+        ? "companion"
+        : phase.kind === "choose" || phase.kind === "confirm"
+            ? "choice"
+            : phase.kind === "whiteout"
+                ? "departure"
+                : phase.stage === "post"
+                    ? (line?.fading ? "farewell" : line?.worldReveal ? "world" : "bond")
+                    : line?.vision
+                        ? "omen"
+                        : phase.idx < 3
+                            ? "awakening"
+                            : "encounter";
+    const playerPose = openingBeat === "awakening"
+        ? "is-awakening"
+        : openingBeat === "omen"
+            ? "is-braced"
+            : openingBeat === "bond" || openingBeat === "farewell" || openingBeat === "departure"
+                ? "is-bonded"
+                : "is-listening";
 
     return createPortal(
         <div
-            className={`icx-root ${companionMode ? "is-companion" : ""} ${revealing ? "is-revealing" : ""} ${rumbling && !reduced ? "is-rumbling" : ""}`}
+            className={`icx-root is-beat-${openingBeat} ${companionMode ? "is-companion" : ""} ${revealing ? "is-revealing" : ""} ${rumbling && !reduced ? "is-rumbling" : ""}`}
             style={{
                 "--icx-bg-landscape": `url(${shrineFallsLandscape})`,
                 "--icx-bg-portrait": `url(${shrineFallsPortrait})`,
+                "--icx-village-bg": `url(${villagePageImage(character.village)})`,
             } as React.CSSProperties}
             onClick={advance}
         >
             {!companionMode && <div className="icx-scene"><div className="icx-scene-art" /></div>}
+            {!companionMode && line?.worldReveal && (
+                <div
+                    className={`icx-world-reveal is-${character.village.toLowerCase().replaceAll(" village", "").replaceAll(" ", "-")}`}
+                    aria-hidden="true"
+                >
+                    <div className="icx-world-reveal-art" />
+                    <div className="icx-world-atmosphere" />
+                </div>
+            )}
             {!liteFx && !reduced && (
                 <div className="icx-motes" aria-hidden="true">
                     {!companionMode && (
@@ -355,11 +404,24 @@ export function IntroCinematic({
             <div className={`icx-stagefill ${inDialogue && line?.speaker === "fox" ? "is-focus" : ""}`}>
                 {showActors && companionMode && companionPet && (
                     <div className={`icx-companion-pet ${!typingDone ? "is-talking" : ""}`}>
-                        <img
-                            src={petPoseImage(companionPet, sharedImages)}
-                            alt={companionPet.name}
-                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                        />
+                        <Suspense
+                            fallback={(
+                                <img
+                                    src={petPoseImage(companionPet, sharedImages)}
+                                    alt={companionPet.name}
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                />
+                            )}
+                        >
+                            <IntroCompanion3D
+                                key={companionPet.id}
+                                pet={companionPet}
+                                fallbackSrc={petPoseImage(companionPet, sharedImages)}
+                                label={`${companionPet.name}, your companion`}
+                                className="icx-companion-stage-model"
+                                enabled={!liteFx && !reduced && Boolean(petCloseupPresentationModel(companionPet))}
+                            />
+                        </Suspense>
                     </div>
                 )}
                 {/* The deity keeps watch (dimmed) while the five spirits present
@@ -372,7 +434,12 @@ export function IntroCinematic({
                             the visible src at the 150ms flap cadence, so there is no
                             decode/flash — the flicker is gone for good. (Idle blink
                             removed entirely.) */}
-                        <img className="icx-fox-base" src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
+                        <img
+                            className="icx-fox-base"
+                            src={foxArtFailed ? shiranuiSpeak : FOX_ART}
+                            alt={`${FOX_NAME}, the ancient spirit fox`}
+                            onError={() => setFoxArtFailed(true)}
+                        />
                         <img
                             className="icx-fox-alt"
                             src={foxFading ? shiranuiBlink : shiranuiSpeak}
@@ -384,18 +451,61 @@ export function IntroCinematic({
                 )}
                 {showActors && !companionMode && (
                     <>
-                        <div className="icx-avatar">
-                            {character.avatarImage ? (
-                                <img src={character.avatarImage} alt="" />
-                            ) : (
-                                <span className="icx-avatar-initial">{(character.name || "?").charAt(0).toUpperCase()}</span>
-                            )}
+                        <div className={`icx-avatar ${playerPose}`}>
+                            <div className="icx-avatar-portrait">
+                                {playerAvatar && !avatarFailed ? (
+                                    <img
+                                        src={playerAvatar}
+                                        alt={`${character.name}, your chosen shinobi`}
+                                        onError={() => setAvatarFailed(true)}
+                                    />
+                                ) : (
+                                    <span className="icx-avatar-initial">{(character.name || "?").charAt(0).toUpperCase()}</span>
+                                )}
+                            </div>
                             <span className="icx-avatar-name">{character.name}</span>
                         </div>
+                        {line?.worldReveal && (
+                            <div className="icx-world-title" aria-hidden="true">
+                                <span>YOUR JOURNEY BEGINS</span>
+                                <strong>{character.village}</strong>
+                            </div>
+                        )}
                         {showGiftPet && chosen && (
                             <div className={`icx-gift-pet ${inDialogue && phase.idx === 0 && !typingDone ? "is-talking" : ""}`}>
-                                <img src={artFor(chosen)} alt={chosen.pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                <Suspense
+                                    fallback={(
+                                        <img
+                                            src={artFor(chosen)}
+                                            alt={chosen.pet.name}
+                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                        />
+                                    )}
+                                >
+                                    <IntroCompanion3D
+                                        key={chosen.pet.id}
+                                        pet={chosen.pet}
+                                        fallbackSrc={artFor(chosen)}
+                                        label={`${chosen.pet.name}, your chosen companion`}
+                                        className="icx-companion-stage-model"
+                                        hero={openingBeat === "bond"}
+                                        enabled={!liteFx && !reduced && Boolean(petCloseupPresentationModel(chosen.pet))}
+                                    />
+                                </Suspense>
                             </div>
+                        )}
+                        {!reduced && showGiftPet && (
+                            <svg
+                                className="icx-spirit-bond"
+                                viewBox="0 0 1000 500"
+                                preserveAspectRatio="none"
+                                aria-hidden="true"
+                            >
+                                <path className="icx-spirit-bond-glow" d="M 245 270 C 420 90, 650 390, 770 270 S 875 220, 900 235" />
+                                <path className="icx-spirit-bond-core" d="M 245 270 C 420 90, 650 390, 770 270 S 875 220, 900 235" />
+                                <circle className="icx-spirit-bond-spark s1" cx="770" cy="270" r="7" />
+                                <circle className="icx-spirit-bond-spark s2" cx="900" cy="235" r="5" />
+                            </svg>
                         )}
                         {line?.vision && (
                             <div className="icx-vision">
@@ -466,7 +576,10 @@ export function IntroCinematic({
                                     type="button"
                                     className="icx-pet-card"
                                     style={{ "--icx-accent": o.accent } as React.CSSProperties}
-                                    onClick={() => setPhase({ kind: "confirm", option: o })}
+                                    onClick={() => {
+                                        preloadCompanionModel(o.pet);
+                                        setPhase({ kind: "confirm", option: o });
+                                    }}
                                 >
                                     <span className="icx-pet-art">
                                         {art ? (
@@ -501,13 +614,29 @@ export function IntroCinematic({
             {phase.kind === "confirm" && (
                 <div className="icx-choose" onClick={(e) => e.stopPropagation()}>
                     <div className="icx-confirm" style={{ "--icx-accent": phase.option.accent } as React.CSSProperties}>
-                        <span className="icx-pet-art">
-                            {artFor(phase.option) ? (
-                                <img src={artFor(phase.option)} alt={phase.option.pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                            ) : (
-                                <span className="icx-pet-emoji">{phase.option.icon}</span>
-                            )}
-                        </span>
+                        <div className="icx-confirm-pet-stage">
+                            <Suspense
+                                fallback={(
+                                    <span className="icx-pet-art">
+                                        <img
+                                            src={artFor(phase.option)}
+                                            alt={phase.option.pet.name}
+                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                        />
+                                    </span>
+                                )}
+                            >
+                                <IntroCompanion3D
+                                    key={phase.option.pet.id}
+                                    pet={phase.option.pet}
+                                    fallbackSrc={artFor(phase.option)}
+                                    label={`${phase.option.pet.name}, your first companion`}
+                                    className="icx-confirm-pet-model"
+                                    hero
+                                    enabled={!liteFx && !reduced && Boolean(petCloseupPresentationModel(phase.option.pet))}
+                                />
+                            </Suspense>
+                        </div>
                         <p className="icx-choose-kicker">Your First Companion</p>
                         <h2>Walk with {phase.option.pet.name}?</h2>
                         <p>

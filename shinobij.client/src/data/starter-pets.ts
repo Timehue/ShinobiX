@@ -37,13 +37,13 @@ export type StarterPetOption = {
 export const STARTER_PETS: StarterPetOption[] = [
     {
         element: "Fire",
-        role: "Assassin — fragile burst",
+        role: "Assassin, fragile burst",
         blurb: "Hits hardest, but fragile. Win the exchange before it can hit you back.",
         accent: "#f97316",
         icon: "🔥",
         strongVs: "Wind",
         weakVs: "Water",
-        traitEffect: "Aggressive — spawns with +15% attack",
+        traitEffect: "Aggressive. Spawns with +15% attack",
         pet: {
             id: "starter-fire",
             name: "Cinder Cub",
@@ -70,13 +70,13 @@ export const STARTER_PETS: StarterPetOption[] = [
     },
     {
         element: "Water",
-        role: "Sage — sustain healer",
+        role: "Sage, sustain healer",
         blurb: "Durable and self-healing. Out-lasts opponents in a long fight.",
         accent: "#38bdf8",
         icon: "💧",
         strongVs: "Fire",
         weakVs: "Earth",
-        traitEffect: "Loyal — trains 50% faster, grows stronger with you",
+        traitEffect: "Loyal. Trains 50% faster and grows stronger with you",
         pet: {
             id: "starter-water",
             name: "Ripple Seal",
@@ -103,13 +103,13 @@ export const STARTER_PETS: StarterPetOption[] = [
     },
     {
         element: "Wind",
-        role: "Tracker — swift skirmisher",
+        role: "Tracker, swift skirmisher",
         blurb: "Fastest on the board. Slows its prey, then strikes from range.",
         accent: "#2dd4bf",
         icon: "🌬️",
         strongVs: "Lightning",
         weakVs: "Fire",
-        traitEffect: "Swift — spawns with +20% speed, +25% battle XP while active",
+        traitEffect: "Swift. Spawns with +20% speed and gains +25% battle XP while active",
         pet: {
             id: "starter-wind",
             name: "Gale Chick",
@@ -136,13 +136,13 @@ export const STARTER_PETS: StarterPetOption[] = [
     },
     {
         element: "Lightning",
-        role: "Assassin — glass cannon",
+        role: "Assassin, glass cannon",
         blurb: "Highest single-hit damage. Marks a target, then bites with a thunderclap.",
         accent: "#facc15",
         icon: "⚡",
         strongVs: "Earth",
         weakVs: "Wind",
-        traitEffect: "Battleborn — spawns with +10% to all stats",
+        traitEffect: "Battleborn. Spawns with +10% to all stats",
         pet: {
             id: "starter-lightning",
             name: "Spark Pup",
@@ -169,13 +169,13 @@ export const STARTER_PETS: StarterPetOption[] = [
     },
     {
         element: "Earth",
-        role: "Defender — guardian tank",
+        role: "Defender, guardian tank",
         blurb: "Toughest to kill. Raises walls and shrugs off blows for its partner.",
         accent: "#c2855a",
         icon: "🪨",
         strongVs: "Water",
         weakVs: "Lightning",
-        traitEffect: "Guardian — spawns with +20% HP & DEF, cuts your battle damage 8%",
+        traitEffect: "Guardian. Spawns with +20% HP and DEF, and cuts your battle damage by 8%",
         pet: {
             id: "starter-earth",
             name: "Pebble Tortoise",

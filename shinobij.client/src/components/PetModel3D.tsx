@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { PetCombatModelConfig } from "../lib/pet-3d-models";
+import { petVictoryArcHeight, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
 import { bindPetAtlasTexture, copyPetAtlasSampling, lockPetAtlas } from "../lib/pet-atlas-material";
@@ -748,7 +748,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true }: {
         // idle: launch, crest, plant, then hold the proud silhouette. The arc is
         // deliberately single-shot so quadrupeds do not become rocking horses.
         const victoryP = Math.min(1, victoryAge / 0.72);
-        const victoryArc = f.victorious ? Math.sin(Math.PI * victoryP) * config.targetHeight * (aquaticSeal ? 0.12 : config.profile === "heavy" ? 0.055 : 0.085) : 0;
+        const victoryArc = f.victorious
+            ? Math.sin(Math.PI * victoryP) * petVictoryArcHeight(config.targetHeight, config.profile, aquaticSeal)
+            : 0;
         const victoryLift = f.victorious ? 1 - Math.pow(1 - Math.min(1, victoryAge / 0.48), 3) : 0;
         const avianDive = config.profile === "avian" && f.motion === "dash";
         const avianDiveP = avianDive ? Math.min(1, motionAge / 0.58) : 0;

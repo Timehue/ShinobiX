@@ -73,3 +73,17 @@ test("placeholders resolve with no braces left behind", () => {
     }
     assert.equal(resolveCinematicLine("{name} and {pet} and {name}", "A", "B"), "A and B and A");
 });
+
+test("player-facing intro dialogue uses clean punctuation and reveals the chosen world", () => {
+    const allLines = [
+        ...PRE_GIFT_LINES,
+        ...buildPostGiftLines(villages[0]),
+        ...buildCompanionIntroLines(villages[0], "Cinder Cub"),
+    ];
+    for (const line of allLines) {
+        assert.ok(!line.text.includes("—"), `em dash remains in player-facing line: ${line.text}`);
+    }
+    const postGift = buildPostGiftLines(villages[0]);
+    assert.ok(postGift.some((line) => line.worldReveal), "post-gift sequence must reveal the player's village");
+    assert.ok(postGift.at(-1)?.worldReveal, "the world reveal must remain visible through the farewell");
+});
