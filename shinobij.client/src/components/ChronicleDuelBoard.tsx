@@ -1488,16 +1488,10 @@ export function ChronicleDuelBoard({
                     : "Your move"}
             </strong>
           </div>
-          {state.phase === "draw" ? (
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={() => act({ action: "advance-phase" })}
-            >
-              Continue
-            </button>
-          ) : null}
-          {state.phase === "standby" ? (
+          {/* The server settles Draw, Standby and End inside the same action, so
+              a live duel never stops here. These stay as the one-click recovery
+              for a duel persisted mid-bookkeeping before that change shipped. */}
+          {state.phase === "draw" || state.phase === "standby" ? (
             <button
               className="primary"
               disabled={busy}
@@ -1743,6 +1737,8 @@ export function ChronicleDuelBoard({
               End Turn
             </button>
           ) : null}
+          {/* Same recovery path as Continue above: End Turn already hands the
+              turn over, so a live duel never presents this. */}
           {state.phase === "end" ? (
             <button
               className="primary"

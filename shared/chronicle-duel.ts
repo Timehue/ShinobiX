@@ -3863,8 +3863,8 @@ export function createMatch(
     rngState: randomSeed || 0x9e3779b9,
     turnStartedAt: now,
   };
-  // Resolve only the opening bookkeeping so a fresh duel begins at the first
-  // decision point. Later turns remain explicit through applyAction().
+  // Resolve the opening bookkeeping so a fresh duel begins at the first
+  // decision point; later turns settle the same way through applyAction().
   return advanceAutomaticPhases(state, now).state;
 }
 
@@ -6259,16 +6259,23 @@ export function endTurn(
 /**
  * Resolve phases that contain no player choice in the current format.
  *
+ * Draw, Standby and End hold no decision in this format — the Draw Phase draws,
+ * the Standby Phase does nothing, and the End Phase only clears until-End-Phase
+ * modifiers. Every applyAction() runs this so the active duelist always lands on
+ * a real decision point (Main Phase 1) instead of clicking through bookkeeping.
+ *
  * The low-level phase functions remain public for rules tests, replays, and
- * compatibility with an in-flight legacy projection. Match creation uses this
- * helper to reach the opening decision point; normal actions remain explicit.
+ * compatibility with an in-flight legacy projection.
  */
 export function advanceAutomaticPhases(
   state: ChronicleMatch,
   now = Date.now(),
 ): ChronicleResult {
   let next = state;
-  for (let safety = 0; safety < 4; safety++) {
+  // End -> Draw -> Standby -> Main 1 needs three passes plus one to detect the
+  // stop; the spare headroom keeps a future automatic phase from silently
+  // truncating the chain.
+  for (let safety = 0; safety < 8; safety++) {
     if (next.status !== "active" || next.responseWindow) break;
     const actor = next.activePlayer;
     const advanced =
@@ -7018,6 +7025,11 @@ export function applyAction(
 ): ChronicleResult {
   const result = applyActionOnce(state, actor, intent, now);
   if (!result.ok) return result;
-  appendActionPresentationEvents(state, result.state, actor, intent, now);
-  return result;
+  // Settle the choice-free phases in the same step, so "End Turn" really ends
+  // the turn and the next duelist opens on Main Phase 1 with the Draw Phase
+  // card already in hand. A pending response window stops the chain.
+  const settled = advanceAutomaticPhases(result.state, now);
+  const after = settled.ok ? settled.state : result.state;
+  appendActionPresentationEvents(state, after, actor, intent, now);
+  return success(after);
 }
