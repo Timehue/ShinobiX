@@ -139,6 +139,37 @@ function inwardTile(tile: number, edge: SectorDirection): number {
     return tile - 1;
 }
 
+/**
+ * How far inside the destination board a crossing lands, counted in tiles from
+ * the boundary lane the player steps through.
+ *
+ * This is 3 rather than 1 for a presentation reason with a real cause. A north
+ * crossing moves you from row 0 of one board to row 11 of the next — an eleven
+ * row displacement that is geographically correct (you enter the SOUTH edge of
+ * the sector to your north) but reads on screen as being teleported down the
+ * map. Landing one tile from the seam left no room to show the entry, so the
+ * arrival simply popped into place. Arriving three tiles in gives the avatar an
+ * actual walk-in to play (see walkInPath in WorldWalkFeel.tsx), which is what
+ * makes the crossing legible as movement.
+ *
+ * Keep this >= 1 and small enough that DEPTH steps from any edge stay on the
+ * board (GRID_WIDTH is 12, so anything up to 11 is safe).
+ */
+export const WALK_IN_DEPTH = 3;
+
+/** `inwardTile` applied `steps` times, stopping early at the far edge. */
+function inwardTiles(tile: number, edge: SectorDirection, steps: number): number {
+    let out = tile;
+    for (let i = 0; i < steps; i++) {
+        const next = inwardTile(out, edge);
+        if (next < 0 || next >= GRID_WIDTH * GRID_WIDTH) break;
+        // East/west steps must not wrap onto the neighbouring row.
+        if ((edge === 'east' || edge === 'west') && Math.floor(next / GRID_WIDTH) !== Math.floor(out / GRID_WIDTH)) break;
+        out = next;
+    }
+    return out;
+}
+
 type ExitDraft = Omit<SectorExit, 'destinationExitId' | 'destinationTile'>;
 
 function buildSectorExits(): readonly SectorExit[] {
@@ -178,7 +209,7 @@ function buildSectorExits(): readonly SectorExit[] {
             return {
                 ...exit,
                 destinationExitId: reverse.id,
-                destinationTile: inwardTile(reverse.tile, reverse.direction),
+                destinationTile: inwardTiles(reverse.tile, reverse.direction, WALK_IN_DEPTH),
             };
         })
         .sort((a, b) => a.sector - b.sector || a.tile - b.tile || a.destinationSector - b.destinationSector);
