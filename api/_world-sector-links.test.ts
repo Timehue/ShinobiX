@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, sectorExitById, sectorExits } from '../shared/sector-links.js';
+import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, sectorExitById, sectorExits } from '../shared/sector-links.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
@@ -40,6 +40,22 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
         const leaveLane = vertical ? exit.tile % 12 : Math.floor(exit.tile / 12);
         const arriveLane = vertical ? exit.destinationTile % 12 : Math.floor(exit.destinationTile / 12);
         assert.equal(arriveLane, leaveLane, `${exit.id} drifts lane ${leaveLane} -> ${arriveLane}`);
+    }
+
+    // ⚖ THE RULE: leave by one edge, arrive on the OPPOSITE edge of the next
+    // sector. Exit right and you appear on the LEFT of the sector you enter;
+    // exit north and you appear on its SOUTH side. That opposition is the whole
+    // reason a crossing reads as travelling a direction, so it is pinned here
+    // rather than left to the geometry happening to work out.
+    const OPPOSITE_EDGE = {
+        north: (t: number) => ({ axis: 'row', got: Math.floor(t / 12), want: 11 - WALK_IN_DEPTH }),
+        south: (t: number) => ({ axis: 'row', got: Math.floor(t / 12), want: WALK_IN_DEPTH }),
+        east: (t: number) => ({ axis: 'col', got: t % 12, want: WALK_IN_DEPTH }),
+        west: (t: number) => ({ axis: 'col', got: t % 12, want: 11 - WALK_IN_DEPTH }),
+    } as const;
+    for (const exit of SECTOR_EXITS) {
+        const { axis, got, want } = OPPOSITE_EDGE[exit.direction](exit.destinationTile);
+        assert.equal(got, want, `${exit.id} leaves ${exit.direction} but lands at ${axis} ${got}, not ${want}`);
     }
 
     // Corner lanes would alias two directions onto one tile (north lane 0 and

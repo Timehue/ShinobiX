@@ -151,19 +151,20 @@ function inwardTile(tile: number, edge: SectorDirection): number {
  * How far inside the destination board a crossing lands, counted in tiles from
  * the boundary lane the player steps through.
  *
- * This is 3 rather than 1 for a presentation reason with a real cause. A north
- * crossing moves you from row 0 of one board to row 11 of the next — an eleven
- * row displacement that is geographically correct (you enter the SOUTH edge of
- * the sector to your north) but reads on screen as being teleported down the
- * map. Landing one tile from the seam left no room to show the entry, so the
- * arrival simply popped into place. Arriving three tiles in gives the avatar an
- * actual walk-in to play (see walkInPath in WorldWalkFeel.tsx), which is what
- * makes the crossing legible as movement.
+ * ⚖ OWNER RULING (2026-07-30): the player APPEARS here and does not move again.
+ * A depth of 3 was tried together with an animated per-tile walk-in, on the
+ * theory that watching the avatar enter would stop the crossing reading as a
+ * teleport. It did the opposite: the game marched the avatar three tiles across
+ * the new sector on its own, which reads as the character wandering off under
+ * someone else's control. Arriving on the correct side was never the problem —
+ * that already worked — so the arrival is one tile in from the seam and every
+ * step after it belongs to the player.
  *
- * Keep this >= 1 and small enough that DEPTH steps from any edge stay on the
+ * Keep this >= 1 (landing ON the seam tile would sit the player on top of the
+ * gate marker) and small enough that DEPTH steps from any edge stay on the
  * board (GRID_WIDTH is 12, so anything up to 11 is safe).
  */
-export const WALK_IN_DEPTH = 3;
+export const WALK_IN_DEPTH = 1;
 
 /** `inwardTile` applied `steps` times, stopping early at the far edge. */
 function inwardTiles(tile: number, edge: SectorDirection, steps: number): number {
