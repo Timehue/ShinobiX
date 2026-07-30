@@ -25,7 +25,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, Sparkles, useGLTF } from "@react-three/drei";
+import { Billboard, Html, Line, Sparkles, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Pet } from "../types/pet";
@@ -39,7 +39,7 @@ import {
     wfCellWalkable, wfInsideField, wfLaneDistance,
     type WfTheme,
 } from "../lib/pet-warfront-map";
-import { walkTilesFromMask, arenaCameraDist, arenaModelHeight, arenaModelMotion, A3D_FOV, A3D_PITCH } from "../lib/pet-arena-3d";
+import { walkTilesFromMask, arenaCameraDist, arenaModelHeight, arenaModelMotion, A3D_FOV } from "../lib/pet-arena-3d";
 import { radialTexture3d, Fx3D, Shot3D, Floater3D } from "./PetArena3DStage";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
@@ -189,9 +189,21 @@ function objectiveEventColor(event: WarfrontResult["events"][number]): string {
 
 const TEAM_COLOR: Record<Team, string> = { blue: "#3b82f6", red: "#ef4444" };
 const TEAM_SOFT: Record<Team, string> = { blue: "#93c5fd", red: "#fca5a5" };
+const WF_CAMERA_PITCH = 1.04;
 const ROLE_TAG: Record<string, string> = { defender: "DEF", tracker: "TRK", assassin: "ASN", sage: "SGE" };
 const ELEMENT_TINT: Record<string, string> = { fire: "#fb923c", water: "#38bdf8", wind: "#86efac", lightning: "#fde047", earth: "#d3a05f" };
 const tintOf = (el?: string | null) => ELEMENT_TINT[String(el ?? "").toLowerCase()] ?? "#a5f3fc";
+const intentLabel = (intent: string) => {
+    if (intent === "recall") return "RECALL · HEALING";
+    if (intent === "respawn") return "";
+    const [lane, goal = lane] = intent.split(":");
+    const laneLabel = lane === "n" ? "TOP" : lane === "m" ? "MID" : lane === "s" ? "BOT" : "SQUAD";
+    if (goal === "warden") return "SQUAD · GATE WARDEN";
+    if (goal.startsWith("mini-")) return `${laneLabel} · CAMP`;
+    if (goal.startsWith("defend")) return `${laneLabel} · DEFEND`;
+    if (goal.startsWith("push")) return `${laneLabel} · PUSH`;
+    return `${laneLabel} · CLEAR`;
+};
 
 let wfSeq = 0;   // cosmetic FX keys — module-scoped so spawn closures stay ref-free
 
@@ -419,7 +431,7 @@ function WfFloor({ theme }: { theme: WfTheme }) {
                 // SMOOTH mesa heights — neighbours share a low-frequency swell, so
                 // the jungle reads as carved rock formations, not random steps.
                 const swell = (Math.sin(x * 0.31) + Math.cos(z * 0.43) + Math.sin((x + z) * 0.19)) / 3;
-                cells.push({ x, z, h: 1.35 + swell * 0.38 + ((hsh % 23) / 23) * 0.1, shade: (hsh % 89) / 89 });
+                cells.push({ x, z, h: 0.58 + swell * 0.14 + ((hsh % 23) / 23) * 0.06, shade: (hsh % 89) / 89 });
             }
         }
         const geo = new THREE.BoxGeometry((WF_X * 2 / WF_COLS) * 1.001, 1, (WF_Y * 2 / WF_ROWS) * 1.001);
@@ -432,9 +444,9 @@ function WfFloor({ theme }: { theme: WfTheme }) {
                 .replace("#include <begin_vertex>", "#include <begin_vertex>\n{ vec4 wfw = instanceMatrix * vec4(position, 1.0); vWfWall = (modelMatrix * wfw).xyz; }");
             s.fragmentShader = s.fragmentShader
                 .replace("#include <common>", "#include <common>\nvarying vec3 vWfWall;")
-                .replace("#include <map_fragment>", "{ vec4 sampledDiffuseColor = texture2D( map, vWfWall.xz * 0.16 + vWfWall.y * 0.05 ); diffuseColor *= sampledDiffuseColor; diffuseColor.rgb *= (0.68 + 0.32 * smoothstep(0.0, 1.1, vWfWall.y)); }\nfloat wfWallDist=distance(vWfWall.xz,cameraPosition.xz);\nfloat wfWallFade=smoothstep(3.2,7.0,wfWallDist);\nfloat wfWallNoise=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);\nif(wfWallFade<wfWallNoise) discard;");
+                .replace("#include <map_fragment>", "{ vec4 sampledDiffuseColor = texture2D( map, vWfWall.xz * 0.16 + vWfWall.y * 0.05 ); diffuseColor *= sampledDiffuseColor; diffuseColor.rgb *= (0.74 + 0.26 * smoothstep(0.0, 0.65, vWfWall.y)); }");
         };
-        mat.customProgramCacheKey = () => "warfront-camera-safe-walls-v1";
+        mat.customProgramCacheKey = () => "warfront-low-cliffs-v2";
         const m = new THREE.InstancedMesh(geo, mat, cells.length);
         const o = new THREE.Object3D();
         const col = new THREE.Color();
@@ -444,7 +456,7 @@ function WfFloor({ theme }: { theme: WfTheme }) {
             o.rotation.set(0, 0, 0);
             o.updateMatrix();
             m.setMatrixAt(i, o.matrix);
-            col.setHSL(spec.tileHue, spec.tileSat * 0.7, 0.3 + cel.shade * 0.14);   // lighter — the cliff texture multiplies it down
+            col.setHSL(spec.tileHue, spec.tileSat * 0.55, 0.34 + cel.shade * 0.12);
             m.setColorAt(i, col);
         });
         m.instanceMatrix.needsUpdate = true;
@@ -460,9 +472,9 @@ function WfFloor({ theme }: { theme: WfTheme }) {
                 if (wfCellWalkable(c, r) || !wfInsideField(x, z)) continue;
                 if (Math.hypot(x - WF_LAIR.x, z - WF_LAIR.y) <= WF_LAIR.pitR + 0.6) continue;
                 const hsh = ((c * 40503) ^ (r * 69061)) >>> 0;
-                if (hsh % 100 >= 2) continue;   // sparse silhouettes; the lanes and combat remain readable
+                if (c % 5 !== 2 || r % 5 !== 2 || hsh % 100 >= 22) continue;
                 const swell = (Math.sin(x * 0.31) + Math.cos(z * 0.43) + Math.sin((x + z) * 0.19)) / 3;
-                spots.push({ x, z, h: 1.35 + swell * 0.38, s: 0.8 + (hsh % 37) / 37 * 0.4, hsh });
+                spots.push({ x, z, h: 0.58 + swell * 0.14, s: 0.8 + (hsh % 37) / 37 * 0.4, hsh });
             }
         }
         // HAND-PAINTED TREE CARDS (crossed alpha planes off the foliage atlas)
@@ -485,27 +497,9 @@ function WfFloor({ theme }: { theme: WfTheme }) {
                 // The sprites carry their own painted lighting — basic material
                 // keeps them consistent; fog still applies for depth.
             });
-            // Near-camera tree cards used to fill the entire frame and hide pets.
-            // A screen-door fade preserves depth and depth-writing without the
-            // sorting artifacts of transparent instanced foliage.
-            mat.onBeforeCompile = (shader) => {
-                shader.vertexShader = shader.vertexShader
-                    .replace("#include <common>", "#include <common>\nvarying vec3 vWfTreeWorld;")
-                    .replace(
-                        "#include <begin_vertex>",
-                        "#include <begin_vertex>\n{ vec4 wfTreeWorld = modelMatrix * instanceMatrix * vec4(transformed, 1.0); vWfTreeWorld = wfTreeWorld.xyz; }",
-                    );
-                shader.fragmentShader = shader.fragmentShader
-                    .replace("#include <common>", "#include <common>\nvarying vec3 vWfTreeWorld;")
-                    .replace(
-                        "#include <alphatest_fragment>",
-                         "float wfTreeDist=distance(vWfTreeWorld.xz,cameraPosition.xz);\nfloat wfTreeFade=smoothstep(7.5,14.5,wfTreeDist);\nfloat wfTreeNoise=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);\nif(wfTreeFade<wfTreeNoise) discard;\n#include <alphatest_fragment>",
-                    );
-            };
-            mat.customProgramCacheKey = () => "warfront-camera-safe-foliage-v1";
             const m = new THREE.InstancedMesh(treeCardGeometry(tile), mat, list.length);
             list.forEach((sp, i) => {
-                const size = (1.55 + ((sp.hsh % 29) / 29) * 0.85) * (tile === 2 ? 1.04 : 1);
+                const size = (1.18 + ((sp.hsh % 29) / 29) * 0.48) * (tile === 2 ? 1.04 : 1);
                 o.position.set(sp.x, Math.max(0, sp.h - 0.15), sp.z);
                 o.scale.set(size, size, size);
                 o.rotation.set(0, ((sp.hsh % 71) / 71) * Math.PI, 0);
@@ -540,6 +534,17 @@ function WfFloor({ theme }: { theme: WfTheme }) {
             <primitive object={skirtMesh} />
             <primitive object={wallMesh} />
             <primitive object={canopyMesh} />
+            {(Object.entries(WF_LANES) as Array<[keyof typeof WF_LANES, typeof WF_LANES[keyof typeof WF_LANES]]>).map(([lane, points]) => (
+                <Line
+                    key={lane}
+                    points={points.map(([x, z]) => [x, 0.055, z] as [number, number, number])}
+                    color={lane === "m" ? "#a78bfa" : "#94a3b8"}
+                    lineWidth={1.15}
+                    transparent
+                    opacity={lane === "m" ? 0.24 : 0.17}
+                    depthWrite={false}
+                />
+            ))}
             <WfHollowGate glow={spec.breachGlow} />
             {/* Lesser-Warden shrine pads + team spawn rings. */}
             {WF_PADS.map(([x, y], i) => (
@@ -549,10 +554,16 @@ function WfFloor({ theme }: { theme: WfTheme }) {
                 </mesh>
             ))}
             {(["blue", "red"] as const).map((team) => (
-                <mesh key={team} rotation={[-Math.PI / 2, 0, 0]} position={[WF_SPAWNS[team][0][0] + (team === "blue" ? 0.9 : -0.9), 0.02, 0]}>
-                    <ringGeometry args={[1.3, 1.6, 44]} />
-                    <meshBasicMaterial color={TEAM_COLOR[team]} transparent opacity={0.35} depthWrite={false} />
-                </mesh>
+                <group key={team} position={[WF_SPAWNS[team][0][0] + (team === "blue" ? 0.9 : -0.9), 0, 0]}>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]}>
+                        <ringGeometry args={[1.3, 1.7, 44]} />
+                        <meshBasicMaterial color={TEAM_COLOR[team]} transparent opacity={0.5} depthWrite={false} />
+                    </mesh>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+                        <circleGeometry args={[1.28, 44]} />
+                        <meshBasicMaterial color={TEAM_COLOR[team]} transparent opacity={0.08} depthWrite={false} />
+                    </mesh>
+                </group>
             ))}
         </group>
     );
@@ -770,6 +781,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
     const shieldRef = useRef<THREE.Mesh>(null);
     const stacksRef = useRef<HTMLSpanElement>(null);
     const levelRef = useRef<HTMLSpanElement>(null);
+    const intentRef = useRef<HTMLDivElement>(null);
     const modelFrame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
@@ -850,7 +862,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         if (aura.current && auraMat.current) {
             aura.current.visible = !down;
             aura.current.position.set(motion.x, 0.03, motion.z);
-            auraMat.current.color.set(TEAM_COLOR[team]);
+            auraMat.current.color.set(a0.intent === "recall" ? "#34d399" : TEAM_COLOR[team]);
         }
         if (shadow.current) { shadow.current.visible = !down; shadow.current.position.set(motion.x, 0.045, motion.z); }
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
@@ -874,6 +886,10 @@ function WfFighter3D({ result, clock, id, pet, config }: {
             shieldRef.current.scale.setScalar(pulse);
         }
         if (levelRef.current) levelRef.current.textContent = a0.wlevel > 1 ? `★${a0.wlevel}` : "";
+        if (intentRef.current) {
+            intentRef.current.textContent = down ? "" : intentLabel(a0.intent);
+            intentRef.current.style.color = a0.intent === "recall" ? "#6ee7b7" : TEAM_SOFT[team];
+        }
         if (body.current) {
             const grow = 1 + (a0.wlevel - 1) * 0.08;   // Unite-style: levels physically GROW the pet
             body.current.scale.x = approach(body.current.scale.x, grow, 0.1, delta);
@@ -918,6 +934,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
                         <div style={{ position: "relative", width: 58, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: TEAM_COLOR[team] }} />
                         </div>
+                        <div ref={intentRef} style={{ marginTop: 1, fontSize: 7, fontWeight: 900, letterSpacing: "0.08em", textShadow: "0 1px 2px #000" }} />
                         <div ref={reviveRef} style={{ opacity: 0, color: "#fde047", fontSize: 10, fontWeight: 800, marginTop: 1 }} />
                     </div>
                 </Html>
@@ -981,12 +998,22 @@ function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableR
             {/* A clear quadruped silhouette for distant LODs: long torso,
                 separated legs, angular head/ears and a luminous muzzle. */}
             <mesh geometry={WF_HOUND_LOD.bodyGeometry} material={material.body} position={[0, 0.32, -0.04]} rotation={[Math.PI / 2, 0, 0]} scale={[0.9, 1, 0.8]} />
-            {([-0.17, 0.17] as const).map((x) => (
-                <mesh key={x} geometry={WF_HOUND_LOD.boxGeometry} material={material.leg} position={[x, 0.17, -0.015]} scale={[0.09, 0.25, 0.56]} />
+            {([[-0.16, -0.2], [0.16, -0.2], [-0.16, 0.2], [0.16, 0.2]] as const).map(([x, z]) => (
+                <mesh key={`${x}:${z}`} geometry={WF_HOUND_LOD.boxGeometry} material={material.leg} position={[x, 0.15, z]} scale={[0.085, 0.26, 0.11]} />
             ))}
             <mesh geometry={WF_HOUND_LOD.headGeometry} material={material.head} position={[0, 0.42, 0.42]} scale={[0.78, 0.78, 1.02]} />
-            <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[0, 0.61, 0.37]} rotation={[0.18, Math.PI / 4, 0]} scale={[1.25, 0.9, 0.72]} />
+            {([-0.11, 0.11] as const).map((x) => (
+                <mesh key={x} geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[x, 0.61, 0.37]} rotation={[0.18, x < 0 ? -0.3 : 0.3, x < 0 ? 0.18 : -0.18]} scale={[0.66, 0.96, 0.58]} />
+            ))}
             <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
+            {side === "hollow" ? (
+                <>
+                    <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[-0.15, 0.53, -0.1]} rotation={[0, 0, 0.5]} scale={[0.48, 1.05, 0.48]} />
+                    <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[0.15, 0.53, -0.1]} rotation={[0, 0, -0.5]} scale={[0.48, 1.05, 0.48]} />
+                </>
+            ) : (
+                <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.51, -0.04]} scale={[0.31, 0.055, 0.3]} />
+            )}
             <mesh geometry={WF_HOUND_LOD.tailGeometry} material={material.tail} position={[0, 0.39, -0.5]} rotation={[-Math.PI / 2.6, 0, 0]} />
         </group>
     );
@@ -1005,6 +1032,8 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
 }) {
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
+    const hpBar = useRef<THREE.Group>(null);
+    const hpFill = useRef<THREE.Mesh>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
@@ -1014,7 +1043,7 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
     const [side, setSide] = useState<"blue" | "red">("blue");
     const [richUi, setRichUi] = useState(false);
     const richRef = useRef(false);
-    const scale = 0.55 / Math.max(0.001, config.targetHeight);
+    const scale = 0.65 / Math.max(0.001, config.targetHeight);
     useFrame((state, delta) => {
         const g = group.current;
         if (!g) return;
@@ -1078,7 +1107,16 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
         f.timeline = seconds;
         const lunge = strikePulse * 0.12;
         g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
-        f.desperate = m1.hp / Math.max(1, m1.maxHp) < 0.35;
+        const health = Math.max(0, Math.min(1, m1.hp / Math.max(1, m1.maxHp)));
+        f.desperate = health < 0.35;
+        if (hpBar.current) {
+            hpBar.current.visible = health < 0.995;
+            hpBar.current.quaternion.copy(state.camera.quaternion);
+        }
+        if (hpFill.current) {
+            hpFill.current.scale.x = health;
+            hpFill.current.position.x = -0.3 * (1 - health);
+        }
         if (impostor.current) {
             const targetYaw = Math.atan2(f.faceX, f.faceZ);
             impostor.current.rotation.y = approachAngle(impostor.current.rotation.y, targetYaw, 0.28, delta);
@@ -1093,6 +1131,16 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
                 <planeGeometry args={[1.05, 1.05]} />
                 <meshBasicMaterial map={radialTexture3d()} color={side === "blue" ? "#38bdf8" : "#fb7185"} transparent opacity={0.38} depthWrite={false} blending={THREE.AdditiveBlending} />
             </mesh>
+            <group ref={hpBar} position={[0, 0.86, 0]} visible={false} renderOrder={8}>
+                <mesh position={[0, 0, -0.01]}>
+                    <planeGeometry args={[0.68, 0.1]} />
+                    <meshBasicMaterial color="#070b14" depthTest={false} />
+                </mesh>
+                <mesh ref={hpFill}>
+                    <planeGeometry args={[0.6, 0.055]} />
+                    <meshBasicMaterial color={side === "blue" ? "#38bdf8" : "#fb7185"} depthTest={false} />
+                </mesh>
+            </group>
             {richUi ? (
                 <WfAssetErrorBoundary fallback={<WfHollowHoundImpostor bodyRef={impostor} side={side} />} label={`${side} lane hound rig`}>
                     <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} side={side} />}>
@@ -1126,6 +1174,8 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
 }) {
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
+    const hpBar = useRef<THREE.Group>(null);
+    const hpFill = useRef<THREE.Mesh>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
     const smSpd = useRef(0);
@@ -1199,7 +1249,16 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
         f.timeline = seconds;
         const lunge = strikePulse * 0.13;
         g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
-        f.desperate = m1.hp / Math.max(1, m1.maxHp) < 0.35;
+        const health = Math.max(0, Math.min(1, m1.hp / Math.max(1, m1.maxHp)));
+        f.desperate = health < 0.35;
+        if (hpBar.current) {
+            hpBar.current.visible = health < 0.995;
+            hpBar.current.quaternion.copy(state.camera.quaternion);
+        }
+        if (hpFill.current) {
+            hpFill.current.scale.x = health;
+            hpFill.current.position.x = -0.3 * (1 - health);
+        }
         if (impostor.current) {
             const targetYaw = Math.atan2(f.faceX, f.faceZ);
             impostor.current.rotation.y = approachAngle(impostor.current.rotation.y, targetYaw, 0.28, delta);
@@ -1214,6 +1273,16 @@ function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance
                 <planeGeometry args={[1.15, 1.15]} />
                 <meshBasicMaterial map={radialTexture3d()} color="#a855f7" transparent opacity={0.4} depthWrite={false} blending={THREE.AdditiveBlending} />
             </mesh>
+            <group ref={hpBar} position={[0, 0.86, 0]} visible={false} renderOrder={8}>
+                <mesh position={[0, 0, -0.01]}>
+                    <planeGeometry args={[0.68, 0.1]} />
+                    <meshBasicMaterial color="#070b14" depthTest={false} />
+                </mesh>
+                <mesh ref={hpFill}>
+                    <planeGeometry args={[0.6, 0.055]} />
+                    <meshBasicMaterial color="#c084fc" depthTest={false} />
+                </mesh>
+            </group>
             {richUi ? (
                 <WfAssetErrorBoundary fallback={<WfHollowHoundImpostor bodyRef={impostor} />} label="Hollow hound rig">
                     <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} />}>
@@ -1247,7 +1316,7 @@ function WfMobPool({ result, clock, budget }: {
         lane: Array.from({ length: MINION_POOL }, () => null),
     });
     if (!config) return null;
-    const scale = 0.55 / Math.max(0.001, config.targetHeight);
+    const scale = 0.65 / Math.max(0.001, config.targetHeight);
     return (
         <group>
             {Array.from({ length: HOLLOW_POOL }, (_, i) => (
@@ -1625,7 +1694,7 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
     const prevHp = useRef(Number.POSITIVE_INFINITY);
     const hitAt = useRef(-10);
     const rigMotion = useRef<WardenRigMotion>({ clip: "GW_Idle", nonce: 0, speed: 1, playbackRate: 1 });
-    const H = 3.4;
+    const H = 2.45;
     useFrame((_state, delta) => {
         const { s0, s1, f: bf } = lerpFrameAt(result, clock);
         const w = s1.warden;         // discrete state (alive/winding/faceX)
@@ -1710,7 +1779,7 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
     return (
         <group ref={root} visible={false}>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]} renderOrder={1}>
-                <circleGeometry args={[2.25, 36]} />
+                <circleGeometry args={[1.62, 36]} />
                 <meshBasicMaterial
                     ref={aura}
                     map={radialTexture3d()}
@@ -2149,7 +2218,7 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
         let ox = 0, oy = 0;
         const amp = shake.current;
         if (amp > 0.01) { ox = Math.sin(state.clock.elapsedTime * 92) * amp * 0.18; oy = Math.cos(state.clock.elapsedTime * 77) * amp * 0.13; }
-        state.camera.position.set(s.fx + ox, Math.sin(A3D_PITCH) * s.d + oy, s.fz + Math.cos(A3D_PITCH) * s.d);
+        state.camera.position.set(s.fx + ox, Math.sin(WF_CAMERA_PITCH) * s.d + oy, s.fz + Math.cos(WF_CAMERA_PITCH) * s.d);
         state.camera.lookAt(s.fx + ox, 0, s.fz);
     });
     return null;
@@ -2184,7 +2253,7 @@ function WfCameraControls({ camCtlRef, onModeChange }: {
             // World units per CSS pixel at the current zoom.
             const worldPerPx = (2 * c.dist * Math.tan(((A3D_FOV / 2) * Math.PI) / 180) * (sizeRef.current.w / Math.max(1, sizeRef.current.h))) / Math.max(1, sizeRef.current.w);
             c.fx -= dx * worldPerPx;
-            c.fz -= dy * worldPerPx / Math.sin(A3D_PITCH);
+            c.fz -= dy * worldPerPx / Math.sin(WF_CAMERA_PITCH);
             clampView();
         };
         const up = () => { dragging = false; };
@@ -2311,7 +2380,7 @@ function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, renderEv
                 // broadcast so the director's view is never lost.
                 const f = wfCameraFocus(snap, view.x, view.z);
                 const d2 = Math.min(20, arenaCameraDist(f.span, tileW / Math.max(1, tileH)));
-                cam.position.set(f.fx, Math.sin(A3D_PITCH) * d2, f.fz + Math.cos(A3D_PITCH) * d2);
+                cam.position.set(f.fx, Math.sin(WF_CAMERA_PITCH) * d2, f.fz + Math.cos(WF_CAMERA_PITCH) * d2);
                 cam.lookAt(f.fx, 0, f.fz);
             } else {
                 if (!sm.current[i]) sm.current[i] = { x: a.x, z: a.y, init: true };
@@ -2885,6 +2954,35 @@ function WfFrameGovernor({ value, onPressure }: { value: WarfrontAdaptivePressur
         pressure.current = value;
         slowFor.current = 0;
     }, [value]);
+    useEffect(() => {
+        if (typeof PerformanceObserver === "undefined") return;
+        const recent: number[] = [];
+        let observer: PerformanceObserver | null = null;
+        try {
+            observer = new PerformanceObserver((list) => {
+                const now = performance.now();
+                if (now < 5000) return; // shader/model warm-up is finite, not sustained pressure
+                let emergency = false;
+                for (const entry of list.getEntries()) {
+                    if (entry.duration < 120) continue;
+                    recent.push(now);
+                    if (entry.duration >= 900) emergency = true;
+                }
+                while (recent.length && recent[0] < now - 8000) recent.shift();
+                if (!emergency && recent.length < 2) return;
+                const next = emergency ? 2 : Math.min(2, pressure.current + 1) as WarfrontAdaptivePressure;
+                if (next > pressure.current) {
+                    pressure.current = next;
+                    recent.length = 0;
+                    onPressure(next);
+                }
+            });
+            observer.observe({ type: "longtask" });
+        } catch {
+            observer?.disconnect();
+        }
+        return () => observer?.disconnect();
+    }, [onPressure]);
     useFrame((_state, delta) => {
         const dt = Math.min(0.1, Math.max(0.001, delta));
         const ms = dt * 1000;
