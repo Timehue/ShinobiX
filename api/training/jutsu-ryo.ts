@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { advanceQueuedJutsuRyoTraining, cancelQueuedJutsuRyoTraining, queueJutsuRyoTraining, settleJutsuRyoTraining, startJutsuRyoTraining, type ServerJutsuTraining } from './_jutsu-ryo.js';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
+import { loadAdminJutsuIds } from '../_admin-jutsu-catalog.js';
 
 const JUTSU_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9-]{12,80}$/;
@@ -21,6 +22,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your training.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'jutsu-ryo', 20, 60_000, identity.name))) return;
+        // Admin-authored jutsu are shared content stored on save:admin1/admin2 — a
+        // player's own record never holds a copy (creatorJutsus is server-owned),
+        // so the ownership check below has to consult those slots or every custom
+        // jutsu the client lists is rejected as unknown. Loaded outside the save
+        // lock (and memoized) so it costs nothing on the built-in path.
+        // loadAdminJutsuIds returns ids exactly as authored, so lowercase them to
+        // match the normalized jutsuId the checks below compare against.
+        const adminJutsuIds = action === 'start' || action === 'queue'
+            ? new Set([...await loadAdminJutsuIds()].map((id) => id.toLowerCase()))
+            : new Set<string>();
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, ({ record, character }) => {
             const receipts = Array.isArray(character.redeemedJutsuTrainingActions) ? (character.redeemedJutsuTrainingActions as Receipt[]).slice(-127) : [];
             if (receipts.some((entry) => entry?.requestId === requestId)) return { ok: true as const, character, recordPatch: { activeJutsuTraining: record.activeJutsuTraining ?? null }, value: { activeJutsuTraining: record.activeJutsuTraining ?? null, replayed: true, cost: 0, refund: 0 } };
@@ -32,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(Array.isArray(record.savedBloodlines) ? (record.savedBloodlines as Array<{ jutsus?: unknown[] }>).flatMap((bloodline) => Array.isArray(bloodline?.jutsus) ? bloodline.jutsus : []) : []),
                 ];
                 const customKnown = customJutsus.some((entry) => entry && typeof entry === 'object' && String((entry as Record<string, unknown>).id ?? '').toLowerCase() === jutsuId);
-                return Boolean(JUTSU_CATALOG[jutsuId] || customKnown || learned);
+                return Boolean(JUTSU_CATALOG[jutsuId] || customKnown || learned || adminJutsuIds.has(jutsuId));
             };
             if (action === 'start') {
                 if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
