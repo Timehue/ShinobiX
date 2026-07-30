@@ -33,7 +33,7 @@ test("AI deck is a legal 40-card Chronicle deck at every difficulty band", () =>
     2,
   );
 });
-test("AI obeys explicit phases and yields when the human must act", () => {
+test("ending the turn plays the AI turn and returns the human to Main Phase 1", () => {
   const session = createAiMatch(
     "match-ai",
     "Tester",
@@ -44,33 +44,25 @@ test("AI obeys explicit phases and yields when the human must act", () => {
   );
   assert.equal(session.state.activePlayer, "p1");
   assert.equal(session.state.phase, "main1");
+  // One End Turn covers the human's End Phase, the whole Keeper turn, and the
+  // human's next Draw and Standby — the player is never asked to click through.
   assert.equal(
     applyPlayerAction(session, { action: "enter-end-phase" }, 1_300).ok,
     true,
   );
   assert.equal(session.state.activePlayer, "p1");
-  assert.equal(session.state.phase, "end");
+  assert.equal(session.state.phase, "main1");
   assert.equal(session.state.status, "active");
-  assert.equal(
-    applyPlayerAction(session, { action: "end-turn" }, 1_400).ok,
-    true,
-  );
-  assert.equal(session.state.activePlayer, "p1");
-  assert.equal(session.state.phase, "draw");
+  assert.equal(session.state.normalSummonUsed, false);
   assert.ok(
     session.state.p2.monsterZones.some(Boolean),
     "AI made a legal summon",
   );
   assert.equal(
     applyPlayerAction(session, { action: "advance-phase" }, 1_500).ok,
-    true,
+    false,
+    "no bookkeeping phase is left to advance through",
   );
-  assert.equal(session.state.phase, "standby");
-  assert.equal(
-    applyPlayerAction(session, { action: "advance-phase" }, 1_600).ok,
-    true,
-  );
-  assert.equal(session.state.phase, "main1");
 });
 
 test("AI Sets concealed Flip Monsters and later reveals useful Flip effects", () => {
@@ -302,18 +294,10 @@ test("AI turns emit per-move step snapshots the client can replay", () => {
   // turn one action at a time.
   assert.equal(steps.length, 0);
   const collected: ChronicleProjection[] = [];
-  const enteredEnd = applyPlayerAction(
+  const ended = applyPlayerAction(
     session,
     { action: "enter-end-phase" },
     1_300,
-    (state) => captureAiStep(collected, state),
-  );
-  assert.equal(enteredEnd.ok, true);
-  assert.equal(collected.length, 0, "End Phase waits for the player");
-  const ended = applyPlayerAction(
-    session,
-    { action: "end-turn" },
-    1_400,
     (state) => captureAiStep(collected, state),
   );
   assert.equal(ended.ok, true);
@@ -326,7 +310,7 @@ test("AI turns emit per-move step snapshots the client can replay", () => {
   }
   const last = collected.at(-1)!;
   assert.equal(last.activePlayer, "p1");
-  assert.equal(last.phase, "draw");
+  assert.equal(last.phase, "main1");
   assert.equal(last.p2.monsterZones.filter(Boolean).length,
     session.state.p2.monsterZones.filter(Boolean).length);
 });
