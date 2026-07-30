@@ -26,19 +26,33 @@ export type SectorExit = {
 // each region's old bounding box onto its new terrain box) so each region's
 // internal topology — and therefore every derived exit direction — is
 // preserved rather than reshuffled.
+//
+// Label-clearance nudge, 2026-07-30: pins 1, 9, 24, 26, 54, 60 and 64 sit
+// directly under a landmark crest, which is exactly where WorldPoiPlates now
+// draws that landmark's name plate, so each pin was clipping a plate. (60 blocked
+// the WHOLE column under Death's Gate — note 99 renders at 36px, not the usual
+// 28px, so its plate needs more clearance than the rest.) They were moved
+// 7-25px — the smallest offset that clears the plate — under three constraints,
+// all of which MUST hold for any future nudge here:
+//   1. every derived exit direction is unchanged (buildSectorExits below reads
+//      these coordinates, and an exit's id embeds its direction, so a flip
+//      rewires travel and can orphan a persisted exit id);
+//   2. the new spot is not in the sea (checked against the keyart's own pixels);
+//   3. no pin lands within ~58px of another.
+// Nothing else about the topology moved: SECTOR_ROAD_PAIRS is untouched.
 export const SECTOR_POINTS: readonly SectorPoint[] = [
     // Stormveil Harbor (1-8) — the SW stilt harbour
-    { id: 1, x: 15, y: 82 }, { id: 2, x: 9, y: 66 }, { id: 3, x: 14, y: 63 }, { id: 4, x: 21, y: 61 },
+    { id: 1, x: 15, y: 83.5 }, { id: 2, x: 9, y: 66 }, { id: 3, x: 14, y: 63 }, { id: 4, x: 21, y: 61 },
     { id: 5, x: 28, y: 70 }, { id: 6, x: 21, y: 71 }, { id: 7, x: 6, y: 76 }, { id: 8, x: 14, y: 72 },
     // Ashen Leaf Deepwood (9-16) — the NW forest cliffs
-    { id: 9, x: 13, y: 28 }, { id: 10, x: 7, y: 21 }, { id: 11, x: 14, y: 14 }, { id: 12, x: 22, y: 11 },
+    { id: 9, x: 11.5, y: 30.5 }, { id: 10, x: 7, y: 21 }, { id: 11, x: 14, y: 14 }, { id: 12, x: 22, y: 11 },
     { id: 13, x: 29, y: 13 }, { id: 14, x: 30, y: 25 }, { id: 15, x: 20, y: 22 }, { id: 16, x: 24, y: 33 },
     // Moonshadow Wilds (17-25) — the SE violet forest
     { id: 17, x: 85, y: 77 }, { id: 18, x: 75, y: 59 }, { id: 19, x: 82, y: 54 }, { id: 20, x: 89, y: 54 },
-    { id: 21, x: 93, y: 58 }, { id: 22, x: 93, y: 70 }, { id: 23, x: 78, y: 70 }, { id: 24, x: 89, y: 68 },
+    { id: 21, x: 93, y: 58 }, { id: 22, x: 93, y: 70 }, { id: 23, x: 78, y: 70 }, { id: 24, x: 88.5, y: 66 },
     { id: 25, x: 76, y: 82 },
     // Frostfang Reach (26-33) — the NE glacier
-    { id: 26, x: 76, y: 28 }, { id: 27, x: 93, y: 28 }, { id: 28, x: 77, y: 11 }, { id: 29, x: 85, y: 12 },
+    { id: 26, x: 76, y: 30.5 }, { id: 27, x: 93, y: 28 }, { id: 28, x: 77, y: 11 }, { id: 29, x: 85, y: 12 },
     { id: 30, x: 81, y: 17 }, { id: 31, x: 85, y: 31 }, { id: 32, x: 89, y: 19 }, { id: 33, x: 67, y: 23 },
     // Frost Border (34-35) — where the ice meets the green
     { id: 34, x: 73, y: 42 }, { id: 35, x: 66, y: 35 },
@@ -50,12 +64,12 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 46, x: 52, y: 36 }, { id: 47, x: 44, y: 42 }, { id: 48, x: 49, y: 50 }, { id: 49, x: 57, y: 53 },
     { id: 50, x: 50, y: 59 }, { id: 51, x: 61, y: 45 },
     // Festival Grounds (52-54) — the southern desert outpost
-    { id: 52, x: 57, y: 88 }, { id: 53, x: 33, y: 80 }, { id: 54, x: 47, y: 86 },
+    { id: 52, x: 57, y: 88 }, { id: 53, x: 33, y: 80 }, { id: 54, x: 47, y: 84.5 },
     // The Hollow Road (55-57) — the pilgrim road past the obelisk. 57 sits
     // beside the shrine so the Hollow Gate landmark crest can own it visually.
     { id: 55, x: 59, y: 60 }, { id: 56, x: 57, y: 72 }, { id: 57, x: 67, y: 61 },
     // The Lavafront (58-60) + Death's Gate (99) — the northern ash and the cone
-    { id: 58, x: 43, y: 21 }, { id: 59, x: 57, y: 26 }, { id: 60, x: 52, y: 14 },
+    { id: 58, x: 43, y: 21 }, { id: 59, x: 57, y: 26 }, { id: 60, x: 53, y: 14 },
     { id: 99, x: 47, y: 8 },
     // The 2026-07-29 expansion (61-66) — sited on the emptiest LAND on the
     // keyart (verified against the art's own pixels, so none of them sits in
@@ -63,7 +77,7 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 61, x: 16, y: 45 },   // Westfurrow Fields  — west farmland
     { id: 62, x: 10, y: 52 },   // Greycliff Landing  — west coast road
     { id: 63, x: 67, y: 92 },   // Tallgrass Bend     — south of the outpost
-    { id: 64, x: 65, y: 74 },   // Lantern Vigil      — off the pilgrim road
+    { id: 64, x: 65, y: 75 },   // Lantern Vigil      — off the pilgrim road
     { id: 65, x: 92, y: 44 },   // Eastwind Cirque    — the far eastern snows
     { id: 66, x: 62, y: 8 },    // Emberspine Ridge   — deep in the ash
 ];
