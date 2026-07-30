@@ -134,7 +134,7 @@ interface StanceCfg {
 }
 const STANCE_CFG: Record<WfStance, StanceCfg> = {
     balanced: { engageR: 6.5, huntCdMul: 1, camps: 1, wardenShare: 0.72, snowballAt: 2, clampAhead: 2.5, structFocus: false, farmLine: 1 / 3, disengageHp: 0.22 },
-    siege: { engageR: 5.0, huntCdMul: 1.3, camps: 0, wardenShare: 0.78, snowballAt: 2, clampAhead: 3.5, structFocus: false, farmLine: 0, disengageHp: 0.25 },
+    siege: { engageR: 5.0, huntCdMul: 1.3, camps: 0, wardenShare: 0.78, snowballAt: 2, clampAhead: 3.5, structFocus: true, farmLine: 0, disengageHp: 0.25 },
     jungle: { engageR: 6.0, huntCdMul: 0.7, camps: 2, wardenShare: 0.58, snowballAt: 2, clampAhead: 2.0, structFocus: false, farmLine: 1 / 3, disengageHp: 0.22 },
     headhunt: { engageR: 8.5, huntCdMul: 0.45, camps: 0, wardenShare: 0.72, snowballAt: 1, clampAhead: 3.5, structFocus: false, farmLine: 1 / 3, disengageHp: 0.18 },
     turtle: { engageR: 6.0, huntCdMul: 1.8, camps: 0, wardenShare: 0.8, snowballAt: 2, clampAhead: 1.2, structFocus: false, farmLine: 1 / 6, disengageHp: 0.26 },
@@ -189,6 +189,9 @@ const ABILITY_CD = WARFRONT_TPS * 6;
 const CALL_TICKS = WARFRONT_TPS * 2;          // team macro "call" cadence
 const PET_BASE_SPEED = 2.9 / WARFRONT_TPS;
 const BODY_R = 0.8;
+const FOUNTAIN_R = 5.2;
+const FOUNTAIN_HEAL_PER_SEC = 0.1;             // a committed reset takes a few seconds, not the rest of the match
+const RETREAT_RECOVER_AT = 0.74;               // hysteresis: never stutter in/out of retreat at the low-HP threshold
 // Melee reach must ALWAYS beat the body-separation floor (BODY_R * 2), or two
 // melee pets chasing each other lock into a permanent 1.6u chest-bump standoff
 // where neither can ever land a hit — the great "stuck at mid" bug.
@@ -310,6 +313,7 @@ interface WfPet {
     stacks: Record<WfPowerupKind, number>; coinsEarned: number;
     xp: number; wlevel: number; ult: number; kills: number; dmgDealt: number;
     shieldHp: number; markLeft: number;
+    retreating: boolean;
 }
 interface WfStatue { x: number; y: number; hp: number; alive: boolean; attackCd: number }
 interface WfGuardian {
@@ -348,6 +352,7 @@ export interface WfActorSnap {
     x: number; y: number; faceX: number; faceY: number; hp: number; maxHp: number;
     state: WfPet["state"]; respawnSecs: number; stacksTotal: number; wlevel: number; carrying: false; statuses: string[];
     shielded: boolean;
+    intent: string;
 }
 export interface WfStructSnap { statues: Array<{ x: number; y: number; hp: number; maxHp: number; alive: boolean }>; core: { x: number; y: number; hp: number; maxHp: number; alive: boolean; exposed: boolean } }
 export interface WfSnapshot {
@@ -448,7 +453,7 @@ function makePet(slot: ArenaSlot, team: Team, i: number): WfPet {
         elemCd: WARFRONT_TPS * 10, slowLeft: 0, rootLeft: 0, assists: 0, focusCd: 0, streak: 0, hitLog: [],
         stacks: { strike: 0, guard: 0, vitality: 0, swift: 0, mend: 0 }, coinsEarned: 0,
         xp: 0, wlevel: 1, ult: 0, ultCd: 0, kills: 0, dmgDealt: 0,
-        shieldHp: 0, markLeft: 0,
+        shieldHp: 0, markLeft: 0, retreating: false,
     };
 }
 
@@ -471,7 +476,15 @@ interface WfState {
     stance: Record<Team, WfStance>;
     doctrine: Record<Team, WfDoctrine>;
     eliteWaveOwed: Record<Team, boolean>;   // Rift Devourer trophy — next wave marches elite
-    calls: Record<Team, { squad: WfCall | null; groups: [WfCall, WfCall, WfCall]; until: number; rally?: { x: number; y: number }; committed?: boolean; rallySince?: number }>;
+    calls: Record<Team, {
+        squad: WfCall | null;
+        groups: [WfCall, WfCall, WfCall];
+        assignment: [number, number, number, number];
+        until: number;
+        rally?: { x: number; y: number };
+        committed?: boolean;
+        rallySince?: number;
+    }>;
     winner: Team | "draw" | null;
     events: WfEvent[];
     snapshots: WfSnapshot[];
@@ -524,8 +537,8 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
         doctrine: { blue: "none", red: "none" },
         eliteWaveOwed: { blue: false, red: false },
         calls: {
-            blue: { squad: null, groups: [{ goal: "farm", x: -20, y: -17 }, { goal: "farm", x: -15, y: 0 }, { goal: "farm", x: -20, y: 17 }], until: 0 },
-            red: { squad: null, groups: [{ goal: "farm", x: 20, y: -17 }, { goal: "farm", x: 15, y: 0 }, { goal: "farm", x: 20, y: 17 }], until: 0 },
+            blue: { squad: null, groups: [{ goal: "farm", x: -20, y: -17 }, { goal: "farm", x: -15, y: 0 }, { goal: "farm", x: -20, y: 17 }], assignment: [0, 1, 2, 1], until: 0 },
+            red: { squad: null, groups: [{ goal: "farm", x: 20, y: -17 }, { goal: "farm", x: 15, y: 0 }, { goal: "farm", x: 20, y: 17 }], assignment: [0, 1, 2, 1], until: 0 },
         },
         winner: null, events: [], snapshots: [],
         stacksBought: { blue: [0, 1, 2, 3].map(() => [0, 0, 0, 0, 0]), red: [0, 1, 2, 3].map(() => [0, 0, 0, 0, 0]) },
@@ -680,6 +693,74 @@ function squadSiegeTarget(st: WfState, foe: Team): { x: number; y: number } {
     return fs[idx];
 }
 
+const ROLE_LANE_FIT: Record<ArenaRole, readonly [number, number, number]> = {
+    defender: [5.5, 1.5, 5.5],
+    tracker: [2.5, 5.0, 2.5],
+    assassin: [5.0, 1.0, 5.0],
+    sage: [2.5, 5.5, 2.5],
+};
+
+/**
+ * Assign the four pets to the three live lane goals as a TEAM. Blizzard's
+ * published Heroes AI model scores every map goal and assigns the most suitable
+ * hero; this is the deterministic Warfront version. Every lane keeps coverage,
+ * the highest-pressure lane receives the extra body, role fit matters, and a
+ * small previous-assignment bonus prevents two-second lane ping-pong.
+ */
+function assignLaneGroups(st: WfState, team: Team, groups: [WfCall, WfCall, WfCall]): [number, number, number, number] {
+    const pets = st.pets.filter((p) => p.team === team).sort((a, b) => a.slot - b.slot);
+    const previous = st.calls[team]?.assignment ?? [...GROUP_OF_SLOT];
+    const urgency = groups.map((call, group) => {
+        let score = call.goal.startsWith("defend") ? 12
+            : call.goal.startsWith("mini-") ? 10
+                : call.goal === "farm" ? 4
+                    : call.goal.startsWith("push") ? 3 : 2;
+        const lane = GROUP_LANE[group];
+        for (const mob of st.mobs) {
+            if (mob.side === team || mob.lane !== lane) continue;
+            const defensive = team === "blue" ? mob.x < 0 : mob.x > 0;
+            if (defensive) score += 1.25;
+        }
+        for (const foe of st.pets) {
+            if (foe.team === team || foe.state === "respawning") continue;
+            if (hyp2(foe.x - call.x, foe.y - call.y) < 7) score += 1.6;
+        }
+        return score;
+    });
+    let best: [number, number, number, number] = [...GROUP_OF_SLOT];
+    let bestScore = -Infinity;
+    // 3^4 is only 81 candidates. Stable ascending enumeration is the tie-break,
+    // so the planner is byte-identical across browsers and the server replay.
+    for (let code = 0; code < 81; code++) {
+        let n = code;
+        const pick = [0, 0, 0, 0] as [number, number, number, number];
+        const counts = [0, 0, 0];
+        for (let slot = 0; slot < 4; slot++) {
+            pick[slot] = n % 3;
+            counts[pick[slot]]++;
+            n = Math.floor(n / 3);
+        }
+        if (counts.some((count) => count < 1 || count > 2)) continue;
+        let score = 0;
+        for (const pet of pets) {
+            const group = pick[pet.slot];
+            const call = groups[group];
+            score += ROLE_LANE_FIT[pet.role][group];
+            score += urgency[group] * (counts[group] === 2 ? 0.62 : 0.42);
+            score -= hyp2(pet.x - call.x, pet.y - call.y) * 0.08;
+            if (previous[pet.slot] === group) score += 2.2;
+        }
+        // Complementary pairings read like an intentional lane duo.
+        for (let group = 0; group < 3; group++) {
+            const roles = pets.filter((pet) => pick[pet.slot] === group).map((pet) => pet.role);
+            if (roles.includes("defender") && roles.includes("sage")) score += 2.8;
+            if (roles.includes("tracker") && roles.includes("assassin")) score += 2.2;
+        }
+        if (score > bestScore) { bestScore = score; best = pick; }
+    }
+    return best;
+}
+
 function updateCall(st: WfState, team: Team) {
     const cfg = STANCE_CFG[st.stance[team]];
     const foe = other(team);
@@ -736,10 +817,20 @@ function updateCall(st: WfState, team: Team) {
                 || st.mobs.some((m) => m.toward === team && m.lane === lane && hyp2(m.x - own.x, m.y - own.y) < 6);
             if (threat) return { goal: `defend-${sIdx}`, x: own.x, y: own.y };
         }
+        // Finish a camp the team has committed resources to. Dropping an
+        // objective at single-digit health because a stance timer rolled over
+        // is strategically irrational and reads as broken AI.
+        const woundedCamp = st.minis.find((mm) =>
+            mm.alive
+            && !mm.ally
+            && mm.hp < MINI_HP * 0.6
+            && (lane === "m" ? true : lane === "n" ? mm.y < -1 : mm.y > 1)
+        );
+        if (woundedCamp) return { goal: `mini-${woundedCamp.padIdx}`, x: woundedCamp.x, y: woundedCamp.y };
         // JUNGLE REIGN takes its camp before it thinks about waves — trophies
         // ARE its wave-clear.
         if (cfg.camps === 2) {
-            const pad0 = st.minis.find((mm) => mm.alive && (lane === "m" ? true : lane === "n" ? mm.y < -1 : mm.y > 1));
+            const pad0 = st.minis.find((mm) => mm.alive && !mm.ally && (lane === "m" ? true : lane === "n" ? mm.y < -1 : mm.y > 1));
             if (pad0) return { goal: `mini-${pad0.padIdx}`, x: pad0.x, y: pad0.y };
         }
         // Clear waves on OUR defensive side (Iron Turtle defends a wider zone;
@@ -751,7 +842,7 @@ function updateCall(st: WfState, team: Team) {
         // Camps by stance: Jungle Reign rotates MID onto them too; balanced
         // sends side lanes; siege/headhunt/turtle skip camps entirely.
         if (cfg.camps > 0 && (lane !== "m" || cfg.camps === 2)) {
-            const pad = st.minis.find((mm) => mm.alive && (lane === "m" ? true : lane === "n" ? mm.y < -1 : mm.y > 1));
+            const pad = st.minis.find((mm) => mm.alive && !mm.ally && (lane === "m" ? true : lane === "n" ? mm.y < -1 : mm.y > 1));
             if (pad) return { goal: `mini-${pad.padIdx}`, x: pad.x, y: pad.y };
         }
         const fs = st.statues[foe];
@@ -769,6 +860,7 @@ function updateCall(st: WfState, team: Team) {
         if (fs[oIdx].alive) return { goal: `push-${oIdx}`, x: fs[oIdx].x, y: fs[oIdx].y };
         return { goal: "push-core", x: st.cores[foe].x, y: st.cores[foe].y };
     }) as [WfCall, WfCall, WfCall];
+    const assignment = assignLaneGroups(st, team, groups);
     // RALLY-THEN-ENGAGE: a squad push gathers at a staging point short of the
     // target and only commits once three members actually stand together —
     // trickling in one at a time was how squads fed. Commitment is sticky for
@@ -788,7 +880,7 @@ function updateCall(st: WfState, team: Team) {
         committed = sameTarget ? prev.committed : false;
         rallySince = sameTarget ? (prev.rallySince ?? st.t) : st.t;
     }
-    st.calls[team] = { squad, groups, until: st.t + CALL_TICKS, rally, committed, rallySince };
+    st.calls[team] = { squad, groups, assignment, until: st.t + CALL_TICKS, rally, committed, rallySince };
 }
 
 // ── Pet micro (fight what's near, else walk the call) ────────────────────────
@@ -975,7 +1067,7 @@ function petTick(st: WfState, p: WfPet) {
         p.respawnLeft--;
         if (p.respawnLeft <= 0) {
             const [sx, sy] = WF_SPAWNS[p.team][p.slot % 4];
-            p.x = sx; p.y = sy; p.hp = p.maxHp; p.state = "idle"; p.path = null; p.navGoal = -1; p.shieldHp = 0; p.markLeft = 0; p.streak = 0;
+            p.x = sx; p.y = sy; p.hp = p.maxHp; p.state = "idle"; p.path = null; p.navGoal = -1; p.shieldHp = 0; p.markLeft = 0; p.streak = 0; p.retreating = false;
         }
         return;
     }
@@ -989,6 +1081,17 @@ function petTick(st: WfState, p: WfPet) {
     if (p.slowLeft > 0) p.slowLeft--;
     if (p.rootLeft > 0) p.rootLeft--;
     if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen);
+    const [homeX, homeY] = WF_SPAWNS[p.team][p.slot % 4];
+    const homeDistance = hyp2(p.x - homeX, p.y - homeY);
+    const homeContested = st.pets.some((q) =>
+        q.team !== p.team
+        && q.state !== "respawning"
+        && hyp2(q.x - homeX, q.y - homeY) <= FOUNTAIN_R + 1.5
+    );
+    if (homeDistance <= FOUNTAIN_R && !homeContested) {
+        p.hp = Math.min(p.maxHp, p.hp + p.maxHp * FOUNTAIN_HEAL_PER_SEC / WARFRONT_TPS);
+        if (p.retreating && p.hp / p.maxHp >= RETREAT_RECOVER_AT) p.retreating = false;
+    }
     // Dash resolution (assassin gap-closer).
     if (p.dashLeft > 0) {
         p.dashLeft--;
@@ -1002,18 +1105,18 @@ function petTick(st: WfState, p: WfPet) {
 
     // Bloodied? Break contact and fall back toward the home gate line (unless
     // the enemy Ward Seal is exposed — then it is win-now time, stay on it).
-    if (p.hp / p.maxHp < STANCE_CFG[st.stance[p.team]].disengageHp) {
-        const foeCoreExposed = !st.statues[other(p.team)][0].alive && !st.statues[other(p.team)][1].alive;
-        const enemyNear = st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && hyp2(q.x - p.x, q.y - p.y) < 5.5);
-        if (!foeCoreExposed && enemyNear) {
-            const [hx, hy] = WF_SPAWNS[p.team][p.slot % 4];
-            walkToward(st, p, hx, hy);
-            return;
-        }
+    const foeCoreExposed = !st.statues[other(p.team)][0].alive && !st.statues[other(p.team)][1].alive;
+    const winNow = foeCoreExposed && hyp2(p.x - st.cores[other(p.team)].x, p.y - st.cores[other(p.team)].y) < 8;
+    if (!winNow && p.hp / p.maxHp < STANCE_CFG[st.stance[p.team]].disengageHp) p.retreating = true;
+    if (winNow) p.retreating = false;
+    if (p.retreating) {
+        walkToward(st, p, homeX, homeY);
+        return;
     }
 
     const callState = st.calls[p.team];
-    const call = callState.squad ?? callState.groups[GROUP_OF_SLOT[p.slot]];
+    const assignedGroup = callState.assignment[p.slot] ?? GROUP_OF_SLOT[p.slot];
+    const call = callState.squad ?? callState.groups[assignedGroup];
     // Sudden-death squad pushes TUNNEL-VISION the base: only fight enemies
     // right on top of us — two deathballs endlessly teamfighting mid was
     // burning the whole final phase without a single siege.
@@ -1229,7 +1332,7 @@ function petTick(st: WfState, p: WfPet) {
     }
     if (call.goal.startsWith("mini-")) {
         const m = st.minis[Number(call.goal.slice(5)) || 0];
-        if (m && m.alive) {
+        if (m && m.alive && !m.ally) {
             const d = hyp2(m.x - p.x, m.y - p.y);
             if (d <= Math.max(p.atkRange, 1.7)) {
                 if (p.attackCd > 6) {
@@ -1433,7 +1536,7 @@ function petTick(st: WfState, p: WfPet) {
     // Wave discipline: while pushing a LANE whose gate still stands (and it is
     // not yet deathball time), advance only ~2.5u past our own minion front.
     if (!callState.squad && call.goal.startsWith("push-") && st.t < WARFRONT_TPS * WF_PHASE_WAR) {
-        const lane = GROUP_LANE[GROUP_OF_SLOT[p.slot]];
+        const lane = GROUP_LANE[assignedGroup];
         let front = p.team === "blue" ? -6 : 6;
         for (const mm of st.mobs) {
             if (mm.side !== p.team || mm.lane !== lane) continue;
@@ -1859,6 +1962,27 @@ function miniTick(st: WfState, m: WfMini) {
             st.events.push({ t: st.t, type: "miniboon", padIdx: m.padIdx, team: m.ally, kind, x: quant(m.x), y: quant(m.y) });
         }
         const foeT = other(m.ally);
+        // Captured camps are siege vanguards first: connect them to an enemy
+        // wave before they peel off for hero combat. This creates the visible
+        // lane-pressure payoff that makes a neutral objective worth contesting.
+        let hostileMob: WfMob | null = null, hostileDistance = 22;
+        for (const mob of st.mobs) {
+            if (mob.side === m.ally) continue;
+            const distance = hyp2(mob.x - m.x, mob.y - m.y);
+            if (distance < hostileDistance) { hostileDistance = distance; hostileMob = mob; }
+        }
+        if (hostileMob) {
+            m.faceX = hostileMob.x >= m.x ? 1 : -1;
+            if (hostileDistance <= 2.1) {
+                if (m.attackCd <= 0) {
+                    m.attackCd = MINI_CD;
+                    miniStrikeMob(st, m, hostileMob);
+                }
+            } else {
+                miniAllyStep(st, m, hostileMob.x, hostileMob.y);
+            }
+            return;
+        }
         const acquired = miniTarget(st, m, (pet) => pet.team === foeT, 10, 12);
         const tgt = acquired.pet;
         const td = acquired.distance;
@@ -1870,24 +1994,6 @@ function miniTick(st: WfState, m: WfMini) {
             // VANGUARD DUTY: clear the hostile wave before following the team's
             // nearest marching wave. This makes a capture visibly turn lane
             // pressure instead of producing a boss that shadows one pet.
-            let hostileMob: WfMob | null = null, hostileDistance = 9;
-            for (const mob of st.mobs) {
-                if (mob.side === m.ally) continue;
-                const distance = hyp2(mob.x - m.x, mob.y - m.y);
-                if (distance < hostileDistance) { hostileDistance = distance; hostileMob = mob; }
-            }
-            if (hostileMob) {
-                m.faceX = hostileMob.x >= m.x ? 1 : -1;
-                if (hostileDistance <= 2.1) {
-                    if (m.attackCd <= 0) {
-                        m.attackCd = MINI_CD;
-                        miniStrikeMob(st, m, hostileMob);
-                    }
-                } else {
-                    miniAllyStep(st, m, hostileMob.x, hostileMob.y);
-                }
-                return;
-            }
             let escortMob: WfMob | null = null, escortDistance = 18;
             for (const mob of st.mobs) {
                 if (mob.side !== m.ally) continue;
@@ -2221,9 +2327,13 @@ function mobSeparation(st: WfState) {
         for (let j = i + 1; j < st.mobs.length; j++) {
             const a = st.mobs[i], b = st.mobs[j];
             if (a.side !== b.side) continue;
-            const dx = b.x - a.x, dy = b.y - a.y;
-            const d = hyp2(dx, dy);
-            if (d > 1e-6 && d < 0.9) {
+            let dx = b.x - a.x, dy = b.y - a.y;
+            let d = hyp2(dx, dy);
+            if (d <= 1e-6) {
+                const angle = ((a.id * 37 + b.id * 17) % 360) * Math.PI / 180;
+                dx = Math.cos(angle) * 0.01; dy = Math.sin(angle) * 0.01; d = 0.01;
+            }
+            if (d < 0.9) {
                 const push = (0.9 - d) * 0.35;
                 const nx = dx / d, ny = dy / d;
                 mobStep(a, -nx * push, -ny * push);
@@ -2238,9 +2348,13 @@ function separation(st: WfState) {
     for (let i = 0; i < live.length; i++) {
         for (let j = i + 1; j < live.length; j++) {
             const a = live[i], b = live[j];
-            const dx = b.x - a.x, dy = b.y - a.y;
-            const d = hyp2(dx, dy);
-            if (d > 1e-6 && d < BODY_R * 2) {
+            let dx = b.x - a.x, dy = b.y - a.y;
+            let d = hyp2(dx, dy);
+            if (d <= 1e-6) {
+                const angle = ((a.slot * 97 + b.slot * 53 + (a.team === "blue" ? 0 : 181)) % 360) * Math.PI / 180;
+                dx = Math.cos(angle) * 0.01; dy = Math.sin(angle) * 0.01; d = 0.01;
+            }
+            if (d < BODY_R * 2) {
                 const push = (BODY_R * 2 - d) * 0.5;
                 const nx = dx / d, ny = dy / d;
                 const tryMove = (pp: WfPet, mx: number, my: number) => {
@@ -2264,9 +2378,13 @@ function miniSeparation(st: WfState) {
     for (const mini of st.minis) {
         if (!mini.alive) continue;
         for (const pet of livePets) {
-            const dx = pet.x - mini.x, dy = pet.y - mini.y;
-            const d = hyp2(dx, dy);
-            if (d <= 1e-6 || d >= 1.05) continue;
+            let dx = pet.x - mini.x, dy = pet.y - mini.y;
+            let d = hyp2(dx, dy);
+            if (d <= 1e-6) {
+                const angle = ((pet.slot * 83 + mini.padIdx * 109) % 360) * Math.PI / 180;
+                dx = Math.cos(angle) * 0.01; dy = Math.sin(angle) * 0.01; d = 0.01;
+            }
+            if (d >= 1.05) continue;
             const push = Math.min(0.12, (1.05 - d) * 0.45);
             const nx = dx / d, ny = dy / d;
             const [pc, pr] = cellOf(pet.x + nx * push, pet.y + ny * push);
@@ -2278,6 +2396,15 @@ function miniSeparation(st: WfState) {
 }
 
 // ── Snapshot ─────────────────────────────────────────────────────────────────
+function petIntent(st: WfState, pet: WfPet): string {
+    if (pet.state === "respawning") return "respawn";
+    if (pet.retreating) return "recall";
+    const calls = st.calls[pet.team];
+    if (calls.squad) return `squad:${calls.squad.goal}`;
+    const group = calls.assignment[pet.slot] ?? GROUP_OF_SLOT[pet.slot];
+    return `${GROUP_LANE[group]}:${calls.groups[group].goal}`;
+}
+
 function snapshot(st: WfState): WfSnapshot {
     return {
         t: st.t,
@@ -2290,8 +2417,9 @@ function snapshot(st: WfState): WfSnapshot {
             wlevel: p.wlevel,
             stacksTotal: p.stacks.strike + p.stacks.guard + p.stacks.vitality + p.stacks.swift + p.stacks.mend,
             carrying: false as const,
-            statuses: [...(p.markLeft > 0 ? ["mark"] : []), ...(p.slowLeft > 0 ? ["slow"] : []), ...(p.rootLeft > 0 ? ["root"] : [])],
+            statuses: [...(p.markLeft > 0 ? ["mark"] : []), ...(p.slowLeft > 0 ? ["slow"] : []), ...(p.rootLeft > 0 ? ["root"] : []), ...(p.retreating ? ["recall"] : [])],
             shielded: p.shieldHp > 0,
+            intent: petIntent(st, p),
         })),
         mobs: st.mobs.map((m) => ({
             id: m.id, side: m.side, elite: m.elite, x: quant(m.x), y: quant(m.y),
