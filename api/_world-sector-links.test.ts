@@ -29,6 +29,28 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
 
     assert.equal(sectorExits(99).length, 0);
 
+    // Crossing a seam must not slide the player sideways. A lane is the
+    // cross-axis coordinate of a boundary tile — the COLUMN on a north/south
+    // exit, the ROW on an east/west one — and both ends of a road are assigned
+    // the same lane, so the lane you leave on is the lane you arrive on. This
+    // regressed once: lanes were handed out per (sector, edge), so a south
+    // crossing left column 5 and arrived at column 4.
+    for (const exit of SECTOR_EXITS) {
+        const vertical = exit.direction === 'north' || exit.direction === 'south';
+        const leaveLane = vertical ? exit.tile % 12 : Math.floor(exit.tile / 12);
+        const arriveLane = vertical ? exit.destinationTile % 12 : Math.floor(exit.destinationTile / 12);
+        assert.equal(arriveLane, leaveLane, `${exit.id} drifts lane ${leaveLane} -> ${arriveLane}`);
+    }
+
+    // Corner lanes would alias two directions onto one tile (north lane 0 and
+    // west lane 0 are both tile 0), which is why LANE_PREFERENCE omits 0 and 11.
+    for (const exit of SECTOR_EXITS) {
+        const lane = exit.direction === 'north' || exit.direction === 'south'
+            ? exit.tile % 12
+            : Math.floor(exit.tile / 12);
+        assert.ok(lane >= 1 && lane <= 10, `${exit.id} sits on corner lane ${lane}`);
+    }
+
     const reached = new Set<number>([1]);
     const queue = [1];
     while (queue.length) {

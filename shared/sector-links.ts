@@ -118,12 +118,20 @@ function directionFromTo(sector: number, destination: number): SectorDirection {
     return dy >= 0 ? 'south' : 'north';
 }
 
-function laneSlots(count: number): readonly number[] {
-    if (count <= 1) return [5];
-    if (count === 2) return [4, 7];
-    if (count === 3) return [3, 5, 7];
-    return [2, 4, 7, 9];
-}
+/**
+ * Lane preference order for road exits, centre-out.
+ *
+ * A lane is the cross-axis coordinate of a boundary tile: the COLUMN for a
+ * north/south exit, the ROW for an east/west one (see boundaryTile). Both ends
+ * of a road are given the SAME lane so a crossing preserves it — see
+ * assignRoadLanes.
+ *
+ * Lanes 0 and 11 are deliberately absent. boundaryTile maps them onto the board
+ * CORNERS, where two different directions resolve to the same tile — north lane
+ * 0 and west lane 0 are both tile 0, south lane 11 and east lane 11 are both
+ * tile 143 — which would collide two of a sector's exits onto one tile.
+ */
+const LANE_PREFERENCE: readonly number[] = [5, 4, 7, 3, 8, 2, 9, 6, 1, 10];
 
 function boundaryTile(direction: SectorDirection, lane: number): number {
     if (direction === 'north') return lane;
@@ -172,31 +180,82 @@ function inwardTiles(tile: number, edge: SectorDirection, steps: number): number
 
 type ExitDraft = Omit<SectorExit, 'destinationExitId' | 'destinationTile'>;
 
-function buildSectorExits(): readonly SectorExit[] {
-    const destinations = new Map<number, number[]>();
+/** Every road once, canonically ordered, so lane assignment is deterministic. */
+function canonicalRoads(): readonly [number, number][] {
+    const seen = new Set<string>();
+    const roads: [number, number][] = [];
     for (const [a, b] of SECTOR_ROAD_PAIRS) {
-        destinations.set(a, [...(destinations.get(a) ?? []), b]);
-        destinations.set(b, [...(destinations.get(b) ?? []), a]);
+        const low = Math.min(a, b);
+        const high = Math.max(a, b);
+        const key = `${low}-${high}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        roads.push([low, high]);
     }
+    return roads.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+}
+
+/**
+ * Gives both ends of each road the SAME lane, so walking across a seam keeps
+ * your lane instead of sliding you sideways.
+ *
+ * Lanes used to be handed out per (sector, edge): a road's lane at one end was
+ * its rank among that sector's exits in that direction, and its lane at the
+ * other end was an independent rank in the opposite direction. The two rarely
+ * agreed, so a south crossing could leave column 5 and arrive at column 4, and a
+ * west crossing could leave row 5 and arrive at row 4. Because boundaryTile uses
+ * `lane` as the cross-axis coordinate for every direction, one shared lane per
+ * road preserves the column on a north/south crossing and the row on an
+ * east/west one.
+ *
+ * Assignment is first-fit over LANE_PREFERENCE against the lanes already taken
+ * on BOTH of the road's edges. A sector has at most 5 exits, so the two edges
+ * can hold at most 8 taken lanes between them and there is always one of the 10
+ * candidates free.
+ */
+function assignRoadLanes(): Map<string, number> {
+    const takenByEdge = new Map<string, Set<number>>();
+    const edgeLanes = (sector: number, direction: SectorDirection): Set<number> => {
+        const key = `${sector}:${direction}`;
+        const existing = takenByEdge.get(key);
+        if (existing) return existing;
+        const fresh = new Set<number>();
+        takenByEdge.set(key, fresh);
+        return fresh;
+    };
+
+    const lanes = new Map<string, number>();
+    for (const [a, b] of canonicalRoads()) {
+        const takenAtA = edgeLanes(a, directionFromTo(a, b));
+        const takenAtB = edgeLanes(b, directionFromTo(b, a));
+        const lane = LANE_PREFERENCE.find((candidate) => !takenAtA.has(candidate) && !takenAtB.has(candidate));
+        if (lane === undefined) throw new Error(`No lane left for both ends of road ${a}-${b}`);
+        takenAtA.add(lane);
+        takenAtB.add(lane);
+        lanes.set(`${a}-${b}`, lane);
+    }
+    return lanes;
+}
+
+function buildSectorExits(): readonly SectorExit[] {
+    const roadLanes = assignRoadLanes();
+    const laneForRoad = (a: number, b: number): number => {
+        const lane = roadLanes.get(`${Math.min(a, b)}-${Math.max(a, b)}`);
+        if (lane === undefined) throw new Error(`Road ${a}-${b} was never assigned a lane`);
+        return lane;
+    };
 
     const drafts: ExitDraft[] = [];
-    for (const [sector, linked] of destinations) {
-        const byDirection = new Map<SectorDirection, number[]>();
-        for (const destination of linked) {
+    for (const [a, b] of canonicalRoads()) {
+        const lane = laneForRoad(a, b);
+        for (const [sector, destination] of [[a, b], [b, a]] as const) {
             const direction = directionFromTo(sector, destination);
-            byDirection.set(direction, [...(byDirection.get(direction) ?? []), destination]);
-        }
-        for (const [direction, unsorted] of byDirection) {
-            const sorted = [...unsorted].sort((a, b) => a - b);
-            const lanes = laneSlots(sorted.length);
-            sorted.forEach((destinationSector, index) => {
-                drafts.push({
-                    id: `${sector}:${direction}:${destinationSector}`,
-                    sector,
-                    tile: boundaryTile(direction, lanes[index] ?? 5),
-                    direction,
-                    destinationSector,
-                });
+            drafts.push({
+                id: `${sector}:${direction}:${destination}`,
+                sector,
+                tile: boundaryTile(direction, lane),
+                direction,
+                destinationSector: destination,
             });
         }
     }
