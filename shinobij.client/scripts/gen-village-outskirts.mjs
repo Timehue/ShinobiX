@@ -38,11 +38,10 @@ function envKey(name) {
     return '';
 }
 
-// Top-down floor style — copied verbatim from gen-sector-art.mjs (FLOOR_PRE/POST)
-// so a village territory board reads identically to a numbered-sector floor. Keep
-// these two constants in sync with that script if its worldmap style ever changes.
-const FLOOR_PRE = 'A complete top-down high-angle adventure map of one small location for a fantasy ninja RPG, drawn in the EXACT art style of a vivid high-fantasy game WORLD MAP — bright luminous highly-saturated colour, crisp clean polished detailed rendering, lush and glowing, a colourful jewel-like fantasy-map illustration, as if zooming into one region of a beautiful world map — viewed from a high bird’s-eye angle with a slight oblique tilt so trees, structures and terrain have visible height. ';
-const FLOOR_POST = ' COMPOSITION: the whole map is densely filled and reads as ONE connected, welcoming place — winding paths link every area so the eye flows naturally across the map, terrain features and groves break up the space, and the small points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map has something interesting — BUT keep the paths and clearings as clear, open, walkable lanes. Features blend and connect into one another: NO isolated single objects floating in empty space, NO evenly-spaced grid of props. ONE consistent vivid high-fantasy WORLD-MAP illustration style across the entire image — bright, luminous, highly-saturated jewel-like colour, crisp clean polished detail, lush and glowing, colourful and inviting (the biome’s own hue, but always vibrant and luminous, never murky). It must feel like a real little place, not a background. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. Match a vivid colourful high-fantasy world-map illustration — bright, saturated and luminous; NOT dark, NOT muted, NOT desaturated, NOT moody, NOT gritty, NOT photoreal, NOT pixel art, NOT a flat cartoon, NOT a tile-set, NOT cel-shaded. The artwork fills the entire frame edge to edge.';
+// Floor style comes from the SHARED keyart module so this board can never
+// drift from the numbered-sector fleet again (it previously held a verbatim
+// copy of the retired world-map-illustration style).
+import { buildFloorPrompt } from './keyart-floor-style.mjs';
 
 // slug → { region, name, floor } — `floor` is the per-village points-of-interest
 // sentence appended to its region's floorBase (same shape as SECTOR_ART[n].floor).
@@ -51,6 +50,31 @@ const VILLAGES = {
         region: 'stormveil',
         name: 'Stormveil — Outer Territory',
         floor: 'Points of interest along the boardwalks: a weathered harbor gate — a tall rope-bound timber arch hung with rows of faded signal pennants — spanning the main pier where the boardwalk meets open water, a lantern-lit harbor-watch kiosk with an azure cobalt-blue tiled roof beside it, stacked fishing crates and lashed barrels, coiled mooring ropes and hung drying nets, a small moored sampan at a pier post, and open turquoise sea filling one whole edge of the map.',
+    },
+    // NO ashenleaf-outskirts entry on purpose. Four attempts (guidance 3.8-4.6,
+    // torii named as the dominant feature, terrain pinned to 'dense emerald forest
+    // canopy to every edge', ARCHITECTURE_LINE verified present in the prompt) all
+    // returned a European abbey on a coastal headland. Ashen Leaf falls through to
+    // its virtual sector instead (13, Headland Woods) — in-region since the
+    // renumbering, and already art-QA'd. Re-add only with a different technique
+    // (e.g. Kontext restyle of sector 13's board), not another text-to-image roll.
+    'frostfang-outskirts': {
+        region: 'frostfang',
+        name: 'Frostfang — Outer Territory',
+        floor: 'Points of interest along the snow trails: the village’s outer gate of blue ice and dark timber standing over the packed-snow road seen from above, a watch hut with a snow-heaped tiled roof beside it, a double row of stone lanterns half buried in drifts, a stacked woodpile under a plank lean-to, a frozen trough of glassy blue ice, and clusters of snow-laden pines.',
+    },
+    'moonshadow-outskirts': {
+        region: 'moonshadow',
+        name: 'Moonshadow — Outer Territory',
+        floor: 'Points of interest along the pale stone paths: the village’s outer gate of dark timber with a sweeping tiled roof standing over the road seen from above, a shrouded watch hut beside it, a double row of stone lanterns with faint violet flames, glowing purple crystal clusters in the rocks, a still reflective pool in a stone basin, and drifts of luminous violet petals under amethyst canopies.',
+    },
+    // Death's Gate (sector 99). It is map-travel-only and was the LAST board still
+    // falling through to the shared legacy biome art, which is why those ten files
+    // could not be deleted until this existed.
+    's99': {
+        region: 'volcano',
+        name: 'Death’s Gate',
+        floor: 'Unbroken volcanic ground covers the whole map right to every edge — black obsidian rock, grey ash drifts and sheets of cooled dark lava, with glowing molten-orange lava channels running through it and cracked dark-lava paths winding between them. At the centre is a wide circular duelling ground of cracked black obsidian, ringed by tall bare dark stone pillars. Also on the ash: a low cooled-lava arch, a sulphur vent field with pale yellow crusts, blackened bones half sunk in the grit, and slabs of cracked cooling crust glowing warm in their seams. This is the heart of a volcanic waste in every direction.',
     },
 };
 
@@ -101,10 +125,9 @@ async function edgeCrop(sharp, buf) {
 
 function promptFor(slug) {
     const v = VILLAGES[slug];
-    const base = REGIONS[v.region].floorBase;
-    // Positive-only stillness — naming "person/people" even in negation makes flux
-    // paint MORE of them (gen-sector-art.mjs QA note).
-    return FLOOR_PRE + base + ' ' + v.floor + ' The whole place is silent, still and empty.' + FLOOR_POST;
+    // Region floorBase + the per-board points-of-interest sentence, wrapped in
+    // the shared keyart style (which carries every prompt law).
+    return buildFloorPrompt(v.region, `${REGIONS[v.region].floorBase} ${v.floor}`);
 }
 
 async function main() {
