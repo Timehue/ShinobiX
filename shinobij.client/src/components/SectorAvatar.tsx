@@ -66,11 +66,15 @@ type Puff = { id: number; x: number; y: number };
 
 export function SectorAvatar({
     targetIndex,
+    sector,
     avatarImage,
     name,
     biome,
 }: {
     targetIndex: number;
+    /** Board the tile belongs to. A change means a new board, so the figure snaps
+     *  to the tile instead of walking to it — see the walk effect below. */
+    sector: number | null;
     avatarImage?: string;
     name: string;
     biome: Biome;
@@ -79,6 +83,7 @@ export function SectorAvatar({
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
     const posRef = useRef({ col: targetIndex % GRID_W, row: Math.floor(targetIndex / GRID_W) });
+    const lastSectorRef = useRef(sector);
     const facingRef = useRef(1);
     const sizeRef = useRef({ w: 0, h: 0 });
     const metricsRef = useRef({ padX: PAD, padY: PAD, gapX: GAP, gapY: GAP });
@@ -141,15 +146,25 @@ export function SectorAvatar({
         return () => ro.disconnect();
     }, []);
 
-    // Walk toward the target whenever it changes.
+    // Walk toward the target whenever it changes — but only WITHIN one board.
     useEffect(() => {
         const tCol = targetIndex % GRID_W;
         const tRow = Math.floor(targetIndex / GRID_W);
 
-        if (prefersReducedMotion()) {
+        // Crossing to another sector replaces the board underneath the figure, so
+        // the tile you left and the tile you arrive on are not connected by any
+        // path on screen. Walking between them glides the avatar clear across the
+        // new sector — through buildings and water, in a straight diagonal line —
+        // which is the "auto walk" that reads as broken. On a sector change the
+        // figure is simply placed where it belongs.
+        const enteredNewSector = lastSectorRef.current !== sector;
+        lastSectorRef.current = sector;
+
+        if (enteredNewSector || prefersReducedMotion()) {
             posRef.current = { col: tCol, row: tRow };
             paint();
             setWalkingClass(false);
+            lastStepTileRef.current = targetIndex;
             return;
         }
 
@@ -198,7 +213,7 @@ export function SectorAvatar({
 
         rafRef.current = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(rafRef.current);
-    }, [targetIndex]);
+    }, [targetIndex, sector]);
 
     const initials = name.slice(0, 2).toUpperCase();
 
