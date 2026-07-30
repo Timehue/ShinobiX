@@ -68,7 +68,6 @@ import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
-import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
@@ -220,17 +219,17 @@ function sectorDepthImage(sector: number): string | undefined {
     return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
 }
 
-// The painted top-down ADVENTURE MAP for a sector (the new sector look). One of N
-// variants chosen deterministically per sector so same-biome sectors aren't identical.
-function sectorMapUrl(biome: Biome, seed: number): string | undefined {
-    // Bespoke per-sector floor (the seed IS the sector number at every call site);
-    // the shared per-biome variants below remain as fallback. Art files keep
-    // their pre-renumbering names — resolve through sectorArtKey.
-    if (SECTOR_FLOOR_SECTORS.has(sectorArtKey(seed))) return `/sector-map/s${sectorArtKey(seed)}.webp`;
-    const n = SECTOR_MAP[biome] ?? 0;
-    if (!n) return undefined;
-    const v = ((seed % n) + n) % n;
-    return v === 0 ? `/sector-map/${biome}.webp` : `/sector-map/${biome}-${v}.webp`;
+/*
+ * The painted top-down ADVENTURE MAP for a sector. Every sector 1-66 plus
+ * Death's Gate (99) now has bespoke art, so this is a straight lookup — the ten
+ * shared per-biome variant boards it used to fall back to were deleted
+ * 2026-07-29 once s99 got its own board (it was the last consumer).
+ *
+ * Art files keep their pre-renumbering names, so resolve through sectorArtKey.
+ */
+function sectorMapUrl(_biome: Biome, seed: number): string | undefined {
+    const artKey = sectorArtKey(seed);
+    return SECTOR_FLOOR_SECTORS.has(artKey) ? `/sector-map/s${artKey}.webp` : undefined;
 }
 
 // Ambience biome (drives drifting particles + god-ray tint) chosen to match the
@@ -2143,6 +2142,13 @@ export function WorldMap({
     // (virtualSector) is untouched. Assets: scripts/gen-village-outskirts.mjs.
     function villageOuterTerritoryMapUrl(villageName: string): string | undefined {
         if (villageName === "Stormveil Village") return "/sector-map/stormveil-outskirts.webp";
+        if (villageName === "Frostfang Village") return "/sector-map/frostfang-outskirts.webp";
+        if (villageName === "Moonshadow Village") return "/sector-map/moonshadow-outskirts.webp";
+        // Ashen Leaf deliberately has NO bespoke board: four generation attempts
+        // (guidance 3.8 → 4.6) all produced a European abbey on a coastal headland
+        // rather than a torii on forest floor, so it falls through to its virtual
+        // sector instead — which the renumbering made in-region (13, Headland
+        // Woods, an Ashen Leaf forest board that already passed art QA).
         return undefined;
     }
 
