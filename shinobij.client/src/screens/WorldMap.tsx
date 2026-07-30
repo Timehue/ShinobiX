@@ -3409,6 +3409,7 @@ export function WorldMap({
 
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
+                                sector={selectedSector}
                                 avatarImage={character.avatarImage}
                                 name={character.name}
                                 biome={ambienceBiomeForSector(selectedSector)}
@@ -4269,6 +4270,7 @@ export function WorldMap({
 
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
+                                sector={virtualSector}
                                 avatarImage={character.avatarImage}
                                 name={character.name}
                                 biome={loc.biome}
