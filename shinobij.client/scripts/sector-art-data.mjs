@@ -12,7 +12,7 @@
 // region → shared prompt fragments. `scene` fragments describe an establishing shot
 // (gen-bg.mjs appends the house STYLE suffix); `floor` fragments describe the same
 // place as a top-down adventure map (gen-sector-art.mjs wraps them in the worldmap
-// style pre/post copied from gen-sector-map.mjs).
+// style pre/post — superseded by scripts/keyart-floor-style.mjs).
 const REGION = {
     ashenleaf: {
         ambience: 'forest',
