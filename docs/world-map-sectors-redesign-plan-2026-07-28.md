@@ -119,6 +119,31 @@ prompt by dumping the whole dry-run to a file, never by truncating it.
 
 1. Rebase onto main and re-run **all** gates — tests, lint, and the full root
    build with the size check (done for the current head).
-2. Run `node scripts/migrate-world-geo.mjs --apply` at deploy.
+2. ~~Run `node scripts/migrate-world-geo.mjs --apply` at deploy.~~ **Not needed —
+   verified a no-op against production on 2026-07-30.** `world:territory:*` and
+   `world:war:*` were both **0 rows**, because those keys are only written by a
+   resolved village war or clan capture and none had ever run. The script is kept
+   for the record and is idempotent, so it remains safe to run; it just has
+   nothing to do. Every other sector-numbered key migrates itself:
+   `settleSaveRecord` remaps saves on read (confirmed live — `save:rill` came back
+   stamped `worldGeoV: 2` after the deploy), rift seals remap at parse via `geoV`,
+   and footfall / trail-signs expire on their own TTLs.
 3. Owner feel-check: walk village gate to the Lavafront without touching Travel,
    plus two-client visibility and mobile touch.
+
+## 7. Post-deploy verification (2026-07-30)
+
+Production ran commit `3a433df5e` (confirmed via `/health`). Against the live
+database: 109 saves, of which 100 sit at sector 0 (in-village, `remapLegacySector(0)
+= 0`, a true no-op), 6 carry no sector field (early return), and 2 sit at old
+sectors 1 and 7 — remapping to **51 East Ring Road** and **58 Cinder Foothills**,
+both in-region. 37 saves carry a `pendingTravel` whose `destinationSector` remaps on
+the same read path. `character.currentSector` is absent on every record, matching
+the invariant that `currentSector` is a **top-level** save field.
+
+Operational note for the next migration: this one needed the production
+`DATABASE_URL`, which is not on the dev machine, and passing it through a terminal
+proved error-prone. The Supabase MCP connector is the right tool — read-only SQL
+answers "is there anything to migrate?" in one query, before any credential
+plumbing. **Check whether a migration has rows to move before building a way to
+run it.**
