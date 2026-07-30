@@ -46,6 +46,41 @@ test("full-auto match is deterministic (byte-identical snapshots + events)", () 
     }
 });
 
+test("macro AI covers every lane and dynamically reassigns its flex fighter", () => {
+    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
+    const cleanPatterns = new Set(
+        result.snapshots
+            .filter((_, tick) => tick % (WARFRONT_TPS * 5) === 0)
+            .map((frame) => frame.actors
+                .filter((actor) => actor.team === "blue")
+                .map((actor) => actor.intent.split(":")[0]))
+            .filter((lanes) => lanes.every((lane) => lane === "n" || lane === "m" || lane === "s"))
+            .map((lanes) => lanes.join("")),
+    );
+    assert.ok(cleanPatterns.size >= 2, "the fourth fighter should rotate when lane pressure changes");
+    for (const pattern of cleanPatterns) {
+        assert.ok(pattern.includes("n") && pattern.includes("m") && pattern.includes("s"), `${pattern} abandoned a lane`);
+    }
+});
+
+test("low-health fighters can complete a recall, heal, and rejoin alive", () => {
+    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
+    let completedRecall = false;
+    for (let tick = 1; tick < result.snapshots.length && !completedRecall; tick++) {
+        const before = result.snapshots[tick - 1];
+        const after = result.snapshots[tick];
+        for (const actor of before.actors) {
+            const next = after.actors.find((candidate) => candidate.id === actor.id);
+            if (actor.intent === "recall" && next?.intent !== "recall" && next?.state !== "respawning") {
+                assert.ok(next && next.hp / next.maxHp >= 0.74, "a completed recall rejoins at the recovery threshold");
+                completedRecall = true;
+                break;
+            }
+        }
+    }
+    assert.equal(completedRecall, true, "at least one fighter should survive a fountain reset");
+});
+
 test("match always terminates with a verdict within the cap", () => {
     for (const seed of [1, 77, 20260719]) {
         const r = runWarfrontMatch(squad("A"), squad("B"), seed);
