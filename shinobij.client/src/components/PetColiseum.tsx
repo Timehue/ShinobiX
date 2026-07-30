@@ -23,7 +23,7 @@ import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, OrbitControls, OrthographicCamera, PerformanceMonitor, Sparkles } from "@react-three/drei";
+import { Billboard, Html, OrthographicCamera, PerformanceMonitor, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Pet } from "../types/pet";
 import type { PetArenaFrame, PetBattleRecord } from "../types/pet-arena";
@@ -57,6 +57,7 @@ import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pe
 import { petCloseupPresentationModel, petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
+import { PetOrbitControls } from "./PetOrbitControls";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
 import { commandedActorId } from "../lib/pet-duel-live";
 import type { LiveDuel, DuelCommand } from "../lib/pet-duel-live";
@@ -119,7 +120,7 @@ function BloomFx() {
 
 // Camera framing — fairly LEVEL (Z-A-style over-the-arena view) so the coliseum
 // backdrop's stands/crowd/sky fill the upper frame while the floor + grounded
-// pets sit lower. Shared so the Canvas, onCreated, CameraRig + OrbitControls
+// pets sit lower. Shared so the Canvas, onCreated, CameraRig + preview controls
 // all agree on the same look target.
 // Pulled back + raised to frame the ENLARGED arena (7.0×4.0 footprint) so the
 // whole tactical battlefield + four pets fit without cropping. Scales with the
@@ -1558,7 +1559,7 @@ export function PetColiseum({
                     </Html>
                 ))}
                 {!orbit && <CameraRig amp={shakeAmp} shakeKey={animIdx} target={camFollow} />}
-                {orbit && <OrbitControls target={CAM_LOOK} />}
+                {orbit && <PetOrbitControls target={CAM_LOOK} />}
                 <BloomFx />
             </Canvas>
 
