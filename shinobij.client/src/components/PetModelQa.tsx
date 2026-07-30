@@ -1,12 +1,13 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { ContactShadows, Environment, OrbitControls } from "@react-three/drei";
+import { ContactShadows, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
 import { petCombatModel } from "../lib/pet-3d-models";
 import { petVisualQuality } from "../lib/pet-visual-quality";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
+import { PetOrbitControls } from "./PetOrbitControls";
 import { STARTER_PETS } from "../data/starter-pets";
 import { rawPetPool } from "../data/pet-pool";
 import { petElementByName } from "../data/pet-elements";
@@ -175,7 +176,7 @@ export function PetModelQa() {
                 {quality.modelShadows && <ContactShadows position={[0, 0.01, 0]} opacity={0.55} scale={10} blur={2.5} far={5} resolution={quality.id === "high" ? 512 : 256} />}
                 {quality.id === "high" && <Environment preset="city" environmentIntensity={0.18} />}
                 <PetRenderStatsProbe quality={quality.id} />
-                <OrbitControls makeDefault target={[0, 1.15, 0]} minDistance={4.2} maxDistance={cameraZ + 2} enablePan={false} />
+                <PetOrbitControls target={[0, 1.15, 0]} minDistance={4.2} maxDistance={cameraZ + 2} />
             </Canvas>
             <div style={{ position: "absolute", top: 18, left: 20, padding: "9px 12px", borderRadius: 10, background: "rgba(5,10,20,.72)", border: "1px solid rgba(148,163,184,.35)", font: "700 12px Inter,system-ui,sans-serif" }}>
                 MODEL QA · {modelLabel.toUpperCase()} · {motionSheet ? "7-MOTION DEFORMATION" : allAngles ? "4-ANGLE CERTIFICATION" : angle.toUpperCase()} · {quality.id.toUpperCase()}

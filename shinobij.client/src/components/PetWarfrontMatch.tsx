@@ -25,7 +25,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, Line, Sparkles, useGLTF } from "@react-three/drei";
+import { Billboard, Html, Sparkles, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Pet } from "../types/pet";
@@ -365,6 +365,23 @@ function WfHollowGate({ glow }: { glow: string }) {
 function WfFloor({ theme }: { theme: WfTheme }) {
     const spec = WF_THEMES[theme];
     const tiles = useMemo(() => walkTilesFromMask(WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y), []);
+    const laneGuides = useMemo(() => (Object.entries(WF_LANES) as Array<
+        [keyof typeof WF_LANES, typeof WF_LANES[keyof typeof WF_LANES]]
+    >).map(([lane, points]) => new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(points.map(([x, z]) => new THREE.Vector3(x, 0.055, z))),
+        new THREE.LineBasicMaterial({
+            color: lane === "m" ? "#a78bfa" : "#94a3b8",
+            transparent: true,
+            opacity: lane === "m" ? 0.24 : 0.17,
+            depthWrite: false,
+        }),
+    )), []);
+    useEffect(() => () => {
+        for (const line of laneGuides) {
+            line.geometry.dispose();
+            line.material.dispose();
+        }
+    }, [laneGuides]);
     const instMesh = useMemo(() => {
         const geo = new THREE.BoxGeometry((WF_X * 2 / WF_COLS) * 0.995, 0.22, (WF_Y * 2 / WF_ROWS) * 0.99);
         const mat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0.04, map: groundTexture() });
@@ -534,17 +551,7 @@ function WfFloor({ theme }: { theme: WfTheme }) {
             <primitive object={skirtMesh} />
             <primitive object={wallMesh} />
             <primitive object={canopyMesh} />
-            {(Object.entries(WF_LANES) as Array<[keyof typeof WF_LANES, typeof WF_LANES[keyof typeof WF_LANES]]>).map(([lane, points]) => (
-                <Line
-                    key={lane}
-                    points={points.map(([x, z]) => [x, 0.055, z] as [number, number, number])}
-                    color={lane === "m" ? "#a78bfa" : "#94a3b8"}
-                    lineWidth={1.15}
-                    transparent
-                    opacity={lane === "m" ? 0.24 : 0.17}
-                    depthWrite={false}
-                />
-            ))}
+            {laneGuides.map((line, lane) => <primitive key={lane} object={line} />)}
             <WfHollowGate glow={spec.breachGlow} />
             {/* Lesser-Warden shrine pads + team spawn rings. */}
             {WF_PADS.map(([x, y], i) => (
@@ -1021,7 +1028,7 @@ function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableR
 
 /** One pooled hound slot: owns its refs (compiler-safe) and drives itself from
  * snap.mobs[index] every frame. Mounted once; waves never re-render React. */
-function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bindings }: {
+function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bindings, kind }: {
     result: WarfrontResult;
     clock: WfClockRef;
     index: number;
@@ -1029,7 +1036,9 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
     rigBudget: number;
     rigDistance: number;
     bindings: MutableRefObject<WfMobSlotBindings>;
+    kind: "lane" | "hollow";
 }) {
+    const isLane = kind === "lane";
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
     const hpBar = useRef<THREE.Group>(null);
@@ -1049,7 +1058,7 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
         if (!g) return;
         const { s0, s1, f: bf } = lerpFrameAt(result, clock);
         reconcileWfMobBindings(bindings.current, s1);
-        const slotId = bindings.current.lane[index];
+        const slotId = bindings.current[isLane ? "lane" : "hollow"][index];
         const m1 = slotId == null ? undefined : wfSnapshotIndex(s1).mobsById.get(slotId);
         if (!m1) {
             g.visible = false;
@@ -1061,7 +1070,7 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
             return;
         }
         g.visible = true;
-        if (m1.side !== side && (m1.side === "blue" || m1.side === "red")) setSide(m1.side);
+        if (isLane && m1.side !== side && (m1.side === "blue" || m1.side === "red")) setSide(m1.side);
         const m0 = wfSnapshotIndex(s0).mobsById.get(m1.id);
         const jump = !!m0 && ((m1.x - m0.x) ** 2 + (m1.y - m0.y) ** 2 > 9);
         const tx = m0 && !jump ? lerp(m0.x, m1.x, bf) : m1.x;
@@ -1087,7 +1096,7 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
             richRef.current = wantsRig;
             setRichUi(wantsRig);
         }
-        g.scale.setScalar(m1.elite ? 1.3 : 1);   // Gate's Wrath elites LOOM
+        g.scale.setScalar(isLane && m1.elite ? 1.3 : 1);   // Gate's Wrath elites LOOM
         const f = frame.current;
         const seconds = wfClockSeconds(clock);
         const attackPhase = m1.attackPhase >= 0
@@ -1105,7 +1114,7 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
             f.faceZ = f.moveZ;
         }
         f.timeline = seconds;
-        const lunge = strikePulse * 0.12;
+        const lunge = strikePulse * (isLane ? 0.12 : 0.13);
         g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
         const health = Math.max(0, Math.min(1, m1.hp / Math.max(1, m1.maxHp)));
         f.desperate = health < 0.35;
@@ -1120,16 +1129,24 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
         if (impostor.current) {
             const targetYaw = Math.atan2(f.faceX, f.faceZ);
             impostor.current.rotation.y = approachAngle(impostor.current.rotation.y, targetYaw, 0.28, delta);
-            impostor.current.position.y = moving ? Math.abs(Math.sin(seconds * 9 + index)) * 0.035 : 0;
-            impostor.current.rotation.z = moving ? Math.sin(seconds * 9 + index) * 0.025 : 0;
+            const gait = seconds * (isLane ? 9 : 9.5) + index;
+            impostor.current.position.y = moving ? Math.abs(Math.sin(gait)) * (isLane ? 0.035 : 0.04) : 0;
+            impostor.current.rotation.z = moving ? Math.sin(gait) * (isLane ? 0.025 : 0.028) : 0;
         }
     });
     return (
         <group ref={group} visible={false}>
-            {/* Team ground-glow: minions read at a glance even in deep jungle. */}
+            {/* Ground-glow keeps lane and Hollow hounds readable in deep jungle. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
-                <planeGeometry args={[1.05, 1.05]} />
-                <meshBasicMaterial map={radialTexture3d()} color={side === "blue" ? "#38bdf8" : "#fb7185"} transparent opacity={0.38} depthWrite={false} blending={THREE.AdditiveBlending} />
+                <planeGeometry args={isLane ? [1.05, 1.05] : [1.15, 1.15]} />
+                <meshBasicMaterial
+                    map={radialTexture3d()}
+                    color={isLane ? (side === "blue" ? "#38bdf8" : "#fb7185") : "#a855f7"}
+                    transparent
+                    opacity={isLane ? 0.38 : 0.4}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                />
             </mesh>
             <group ref={hpBar} position={[0, 0.86, 0]} visible={false} renderOrder={8}>
                 <mesh position={[0, 0, -0.01]}>
@@ -1138,167 +1155,28 @@ function WfMinionSlot({ result, clock, index, config, rigBudget, rigDistance, bi
                 </mesh>
                 <mesh ref={hpFill}>
                     <planeGeometry args={[0.6, 0.055]} />
-                    <meshBasicMaterial color={side === "blue" ? "#38bdf8" : "#fb7185"} depthTest={false} />
+                    <meshBasicMaterial color={isLane ? (side === "blue" ? "#38bdf8" : "#fb7185") : "#c084fc"} depthTest={false} />
                 </mesh>
             </group>
             {richUi ? (
-                <WfAssetErrorBoundary fallback={<WfHollowHoundImpostor bodyRef={impostor} side={side} />} label={`${side} lane hound rig`}>
-                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} side={side} />}>
+                <WfAssetErrorBoundary
+                    fallback={<WfHollowHoundImpostor bodyRef={impostor} side={isLane ? side : "hollow"} />}
+                    label={isLane ? `${side} lane hound rig` : "Hollow hound rig"}
+                >
+                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} side={isLane ? side : "hollow"} />}>
                         <group scale={scale}>
                             <PetModel3D
                                 config={config}
                                 frame={frame}
-                                element={side === "blue" ? "Water" : "Fire"}
+                                element={isLane ? (side === "blue" ? "Water" : "Fire") : "Shadow"}
                                 showIdentity={false}
-                                surfaceTreatment={WARFRONT_MINION_SURFACES[side]}
+                                surfaceTreatment={isLane ? WARFRONT_MINION_SURFACES[side] : HOLLOW_HOUND_SURFACE}
                             />
                         </group>
                     </Suspense>
                 </WfAssetErrorBoundary>
             ) : (
-                <WfHollowHoundImpostor bodyRef={impostor} side={side} />
-            )}
-        </group>
-    );
-}
-
-function WfMobSlot({ result, clock, index, config, scale, rigBudget, rigDistance, bindings }: {
-    result: WarfrontResult;
-    clock: WfClockRef;
-    index: number;
-    config: PetCombatModelConfig;
-    scale: number;
-    rigBudget: number;
-    rigDistance: number;
-    bindings: MutableRefObject<WfMobSlotBindings>;
-}) {
-    const group = useRef<THREE.Group>(null);
-    const impostor = useRef<THREE.Group>(null);
-    const hpBar = useRef<THREE.Group>(null);
-    const hpFill = useRef<THREE.Mesh>(null);
-    const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
-    const renderMotion = useRef<WarfrontMotionFilterState>(createWarfrontMotionFilter());
-    const smSpd = useRef(0);
-    const lastTick = useRef(-1);
-    const wasMoving = useRef(false);
-    const boundId = useRef(-1);
-    const [richUi, setRichUi] = useState(false);
-    const richRef = useRef(false);
-    useFrame((state, delta) => {
-        const g = group.current;
-        if (!g) return;
-        const { s0, s1, f: bf } = lerpFrameAt(result, clock);
-        // Stable id bindings survive deaths and array compaction; a slot only
-        // accepts a new id after its previous hound has actually disappeared.
-        reconcileWfMobBindings(bindings.current, s1);
-        const slotId = bindings.current.hollow[index];
-        const m1 = slotId == null ? undefined : wfSnapshotIndex(s1).mobsById.get(slotId);
-        if (!m1) {
-            g.visible = false;
-            boundId.current = -1;
-            if (richRef.current) {
-                richRef.current = false;
-                setRichUi(false);
-            }
-            return;
-        }
-        g.visible = true;
-        const m0 = wfSnapshotIndex(s0).mobsById.get(m1.id);
-        const jump = !!m0 && ((m1.x - m0.x) ** 2 + (m1.y - m0.y) ** 2 > 9);
-        const tx = m0 && !jump ? lerp(m0.x, m1.x, bf) : m1.x;
-        const tz = m0 && !jump ? lerp(m0.y, m1.y, bf) : m1.y;
-        const fresh = boundId.current !== m1.id;
-        boundId.current = m1.id;
-        const tick = wfClockTick(clock);
-        const rewound = tick < lastTick.current;
-        lastTick.current = tick;
-        const motion = advanceWarfrontMotionFilter(renderMotion.current, tx, tz, delta, fresh || jump || rewound);
-        const filteredSpeed = warfrontMotionFilterSpeed(motion);
-        smSpd.current = approach(smSpd.current, fresh ? 0 : filteredSpeed, 0.2, delta);
-        const moving = !fresh && (wasMoving.current ? smSpd.current > 0.24 : smSpd.current > 0.65);
-        wasMoving.current = moving;
-        const camDistance = Math.hypot(state.camera.position.x - motion.x, state.camera.position.z - motion.z);
-        const wantsRig = shouldRenderWarfrontHoundRig(
-            index,
-            camDistance,
-            rigBudget,
-            rigDistance + (richRef.current ? 4 : 0),
-        );
-        if (wantsRig !== richRef.current) {
-            richRef.current = wantsRig;
-            setRichUi(wantsRig);
-        }
-        const f = frame.current;
-        // Attack motion follows the authoritative cooldown window. A stationary
-        // raider with no attack remains planted instead of fake-lunging forever.
-        const seconds = wfClockSeconds(clock);
-        const attackPhase = m1.attackPhase >= 0
-            ? (m0 && m0.attackPhase >= 0 ? lerp(m0.attackPhase, m1.attackPhase, bf) : m1.attackPhase)
-            : -1;
-        const strikePulse = attackPhase >= 0 ? Math.sin(Math.PI * Math.min(1, attackPhase)) : 0;
-        const striking = attackPhase >= 0;
-        f.motion = moving ? "run" : striking ? "strike" : "idle";
-        f.moving = moving;
-        f.speed = Math.min(6, smSpd.current);
-        if (moving && filteredSpeed > 1e-6) {
-            f.moveX = motion.vx / filteredSpeed;
-            f.moveZ = motion.vz / filteredSpeed;
-            f.faceX = f.moveX;
-            f.faceZ = f.moveZ;
-        }
-        f.timeline = seconds;
-        const lunge = strikePulse * 0.13;
-        g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
-        const health = Math.max(0, Math.min(1, m1.hp / Math.max(1, m1.maxHp)));
-        f.desperate = health < 0.35;
-        if (hpBar.current) {
-            hpBar.current.visible = health < 0.995;
-            hpBar.current.quaternion.copy(state.camera.quaternion);
-        }
-        if (hpFill.current) {
-            hpFill.current.scale.x = health;
-            hpFill.current.position.x = -0.3 * (1 - health);
-        }
-        if (impostor.current) {
-            const targetYaw = Math.atan2(f.faceX, f.faceZ);
-            impostor.current.rotation.y = approachAngle(impostor.current.rotation.y, targetYaw, 0.28, delta);
-            impostor.current.position.y = moving ? Math.abs(Math.sin(seconds * 9.5 + index)) * 0.04 : 0;
-            impostor.current.rotation.z = moving ? Math.sin(seconds * 9.5 + index) * 0.028 : 0;
-        }
-    });
-    return (
-        <group ref={group} visible={false}>
-            {/* Hollow-purple ground-glow — raiders stop vanishing into the dark. */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
-                <planeGeometry args={[1.15, 1.15]} />
-                <meshBasicMaterial map={radialTexture3d()} color="#a855f7" transparent opacity={0.4} depthWrite={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            <group ref={hpBar} position={[0, 0.86, 0]} visible={false} renderOrder={8}>
-                <mesh position={[0, 0, -0.01]}>
-                    <planeGeometry args={[0.68, 0.1]} />
-                    <meshBasicMaterial color="#070b14" depthTest={false} />
-                </mesh>
-                <mesh ref={hpFill}>
-                    <planeGeometry args={[0.6, 0.055]} />
-                    <meshBasicMaterial color="#c084fc" depthTest={false} />
-                </mesh>
-            </group>
-            {richUi ? (
-                <WfAssetErrorBoundary fallback={<WfHollowHoundImpostor bodyRef={impostor} />} label="Hollow hound rig">
-                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} />}>
-                        <group scale={scale}>
-                            <PetModel3D
-                                config={config}
-                                frame={frame}
-                                element="Shadow"
-                                showIdentity={false}
-                                surfaceTreatment={HOLLOW_HOUND_SURFACE}
-                            />
-                        </group>
-                    </Suspense>
-                </WfAssetErrorBoundary>
-            ) : (
-                <WfHollowHoundImpostor bodyRef={impostor} />
+                <WfHollowHoundImpostor bodyRef={impostor} side={isLane ? side : "hollow"} />
             )}
         </group>
     );
@@ -1316,24 +1194,23 @@ function WfMobPool({ result, clock, budget }: {
         lane: Array.from({ length: MINION_POOL }, () => null),
     });
     if (!config) return null;
-    const scale = 0.65 / Math.max(0.001, config.targetHeight);
     return (
         <group>
             {Array.from({ length: HOLLOW_POOL }, (_, i) => (
-                <WfMobSlot
+                <WfHoundSlot
                     key={i}
                     result={result}
                     clock={clock}
                     index={i}
                     config={config}
-                    scale={scale}
                     rigBudget={budget.hollowHoundRigs}
                     rigDistance={budget.houndRigDistance}
                     bindings={bindings}
+                    kind="hollow"
                 />
             ))}
             {Array.from({ length: MINION_POOL }, (_, i) => (
-                <WfMinionSlot
+                <WfHoundSlot
                     key={`w${i}`}
                     result={result}
                     clock={clock}
@@ -1342,6 +1219,7 @@ function WfMobPool({ result, clock, budget }: {
                     rigBudget={budget.laneHoundRigs}
                     rigDistance={budget.houndRigDistance}
                     bindings={bindings}
+                    kind="lane"
                 />
             ))}
         </group>
