@@ -457,3 +457,4 @@ concurrency-load-evidence*.json
 dist/
 shinobij.client/dist/
 shinobij.client/scripts/.restyle-board-done.json
+shinobij.client/scripts/.restyle-keyart-done.json
