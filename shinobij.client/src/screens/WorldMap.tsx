@@ -154,11 +154,16 @@ import { FESTIVAL_SECTOR, isWildSector, sectorArtKey, sectorName } from "../../.
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
-import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkInEntryTile } from "../components/WorldWalkFeel";
+import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkInPath } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
+
+// Per-tile pace of the arrival walk-in after an edge crossing. WALK_IN_DEPTH
+// steps at this interval should land close to the 0.42s board slide-in
+// (world-map-charting.css) so the avatar and the board settle together.
+const WALK_IN_STEP_MS = 130;
 
 // Which scene-image theme each sector shows. Single source of truth shared by
 // the background image picker and the ambience-biome picker so the drifting
@@ -2291,13 +2296,21 @@ export function WorldMap({
             const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
             const destinationBiome = biomeForSector(exit.destinationSector);
             // Walk IN from the edge: appear on the boundary tile you stepped
-            // through, then take the one step inward — the avatar physically
-            // enters the new sector instead of popping into place.
-            const entryTile = walkInEntryTile(destinationTile, exit.direction);
-            setSectorPlayerPos(entryTile);
-            if (entryTile !== destinationTile) {
-                window.setTimeout(() => setSectorPlayerPos((pos) => (pos === entryTile ? destinationTile : pos)), 240);
-            }
+            // through, then take the steps inward one at a time. A crossing is a
+            // big displacement — going north puts you on row 11 of the board
+            // above, eleven rows from the row 0 exit you left — so an instant
+            // arrival reads as a teleport across the map. Walking the entry in is
+            // what shows which edge you came through. Each step is conditional on
+            // the player not having moved, so player input always wins.
+            const path = walkInPath(destinationTile, exit.direction);
+            setSectorPlayerPos(path[0]);
+            path.slice(1).forEach((tile, index) => {
+                const previous = path[index];
+                window.setTimeout(
+                    () => setSectorPlayerPos((pos) => (pos === previous ? tile : pos)),
+                    WALK_IN_STEP_MS * (index + 1),
+                );
+            });
             setCurrentBiome(destinationBiome);
             setCurrentWeather(weatherForSector(exit.destinationSector, destinationBiome));
             setCurrentSector(exit.destinationSector);
