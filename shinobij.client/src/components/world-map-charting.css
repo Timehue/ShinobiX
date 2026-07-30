@@ -54,8 +54,14 @@
     flex-direction: column;
     align-items: center;
     gap: 1px;
-    max-width: min(30%, 260px);
-    padding: 5px 12px 6px;
+    /* Must fit the WIDEST name — the name line is nowrap, and with
+       `* { box-sizing: border-box }` (01-base-app-chrome.css) this cap includes
+       the padding, so too small a value made the name overflow its own plate
+       and the border cut through it ("MOONSHADOW VILLAGE" needed ~245px of a
+       236px content box). The cap now clears the longest name with room to
+       spare, so only the shorter `tag` line can ever wrap. */
+    max-width: min(34%, 250px);
+    padding: 3px 7px 4px;
     border: 1px solid rgba(250, 232, 180, 0.34);
     border-radius: 5px;
     background: linear-gradient(180deg, rgba(9, 13, 24, 0.82), rgba(6, 9, 17, 0.9));
@@ -66,8 +72,8 @@
 .world-poi-plate-name {
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 700;
-    font-size: clamp(11px, 1.05vw, 17px);
-    letter-spacing: 0.11em;
+    font-size: clamp(9px, 0.66vw, 11px);
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     line-height: 1.1;
     color: #f7ecd2;
@@ -78,7 +84,12 @@
 .world-poi-plate-tag {
     font-family: Georgia, "Times New Roman", serif;
     font-style: italic;
-    font-size: clamp(8px, 0.62vw, 11px);
+    /* Sized so the LONGEST tag ("The Traditional Path — discipline and the old
+       ways", ~214px here) still fits the 230px content box on one line — a
+       second line is what pushed the Moonshadow plate out of shape. The floor
+       is a touch above the old 8px so mid-width laptops, where the vw term
+       governs, don't lose legibility to the smaller cap. */
+    font-size: clamp(8px, 0.48vw, 8.5px);
     line-height: 1.25;
     color: rgba(226, 214, 190, 0.72);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
@@ -98,10 +109,53 @@
 @media (max-width: 800px) {
     .world-poi-plate {
         padding: 3px 8px 4px;
-        max-width: 42%;
+        /* Same nowrap-name trap as the desktop cap above: with the tag hidden the
+           plate only has to fit the name, but 42% of a 369px board was a ~131px
+           content box against a ~172px name — a real 14px spill past the border
+           on phones. The plate is shrink-to-fit, so a roomier cap does not widen
+           it past the name it holds. */
+        max-width: 58%;
     }
 
     .world-poi-plate-tag { display: none; }
+}
+
+/* ── Small-board plate layout ────────────────────────────────────────────────
+   Below 981px the map stops being the wide desktop board. Either the
+   fit-to-screen pinch surface takes over (html.wm-zoom, the default at <=800px
+   — e.g. 369x249 on a 375px phone, stretched to MAP_AR 1.48 against desktop's
+   ~1.93) or 24-combat-mobile-restore.css force-sizes a fixed scroll canvas that
+   is WIDE but short: 1020x640, or 1100x733 up to 980px.
+
+   On all of those the tucked-under-the-icon anchors in WorldRoadsOverlay do not
+   work. Those anchors put a plate ~50px below its crest, which is sized against
+   an 860px-tall board; here the board is a third of that (or the plate is a
+   fifth of the board's width), so plates land in the dense pin field and on each
+   other. Measured with the desktop anchors: 31% of the average NAME obscured on
+   the pinch board, 33% at 900px, worst cases 58-65%. Every uniform px nudge was
+   tried (0-70px, both boards) and none got below ~9%.
+
+   So small boards keep the pre-2026-07-30 layout, which spreads the plates into
+   the map's open ground instead: that measures 0% obscured on the pinch board,
+   2.5-7.2% on the wide-short ones. It is less tidy than sitting under the icon,
+   but at these sizes legibility wins — and a phone player pinches in to read
+   anyway, at which point --wm-marker-scale separates plates from pins.
+
+   Keyed to 980px to match the force-size breakpoint exactly. These override the
+   inline left/top the component sets, so they need !important. If you re-tune a
+   desktop anchor in WorldRoadsOverlay, this block does NOT follow it. */
+@media (max-width: 980px) {
+    .wpk-deathsgate { left: 39% !important; top: 9% !important; }
+    .wpk-ashenleaf  { left: 14% !important; top: 38% !important; }
+    .wpk-frostfang  { left: 79% !important; top: 36% !important; }
+    .wpk-gates      { left: 53% !important; top: 66% !important; }
+    .wpk-stormveil  { left: 18% !important; top: 89% !important; }
+    /* 80.5, not the 79 this layout used before: pin 64 moved down to (65, 75)
+       to clear the DESKTOP plate, and on a short board its %-footprint then
+       reached the old spot (up to 51% of this name covered). */
+    .wpk-hollowgate { left: 63% !important; top: 80.5% !important; }
+    .wpk-moonshadow { left: 84% !important; top: 87% !important; }
+    .wpk-sunscar    { left: 40% !important; top: 92% !important; }
 }
 
 /* "Sector N · the Midlands" sub-line under the named sector heading. */
