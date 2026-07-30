@@ -9,32 +9,11 @@ fallback but is **RETIRED as of 2026-07-17** — Railway is the sole host. Verce
 was the original target and is also retired; the handlers keep their Vercel-style
 shape.)
 
-## Commands
-
-Run from the repo root (`shinobix-api` package) unless noted.
-
-- `npm run build`: Build everything — `build:server` (`tsc -p tsconfig.cpanel.json` → `dist/`), then `build:client`, then `verify:dist`.
-- `npm run verify:dist`: Post-build sanity check (`node scripts/verify-dist.mjs`); part of `build`, runnable on its own. Fails the build if `dist/server.js` is missing/broken, so a bad compile fails the Railway build instead of shipping.
-- `npm start`: Run the production server (`node app.js`) — the (now-retired) cPanel/Passenger entry point, kept for local use. Railway runs `node dist/server.js` directly.
-- `npm run dev`: Run the server with `node --watch app.js`.
-- `npm test`: Run the API/unit tests (`node --import tsx --test` over the colocated `*.test.ts` files). Includes `server-routes.test.ts` (route-parity) and the client `App.size.test.ts` ratchet.
-
-Frontend (run inside `shinobij.client/`):
-
-- `npm run dev`: Vite dev server (default `http://localhost:5173`).
-- `npm run build`: Type-check + bundle (`tsc -b && vite build`) → `shinobij.client/dist/`.
-- `npm run lint`: ESLint over the client.
-
 ## Architecture
 
-- **`api/`** — the backend. Each `*.ts` file is one endpoint with a Vercel-style
-  default export: `export default async function handler(req: VercelRequest, res: VercelResponse)`.
-  Subfolders group features: `player/`, `pvp/`, `clan/` & `clans/`, `village/` &
-  `village-guard/`, `missions/`, `pet/`, `jutsu/`, `bloodlines/`, `profession/`,
-  `arena/`, `bank/`, `battle/`, `festival/`, `admin/`, `cron/`, `save/`, and
-  `_realtime/` (presence/SSE helpers). Ranked lives in **root-level files**, not a
-  folder: `api/ranked-season.ts` + the `api/_ranked-*.ts` helpers (there is no
-  `api/ranked-queue/` directory).
+- **`api/`** — the backend. Each `*.ts` file is one endpoint. Ranked lives in
+  **root-level files**, not a folder: `api/ranked-season.ts` + the
+  `api/_ranked-*.ts` helpers (there is no `api/ranked-queue/` directory).
 - **Underscore-prefixed files in `api/` are shared helpers, NOT routes** —
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
@@ -50,11 +29,8 @@ Frontend (run inside `shinobij.client/`):
   Supabase DNS and forces IPv4 (CageFS/CloudLinux couldn't resolve DNS or route
   IPv6), loads `.env`, then `require('./dist/server.js')`.
 - **`shinobij.client/`** — React 19 + TypeScript + Vite SPA. `src/main.tsx` →
-  `src/App.tsx`; feature views in `src/screens/` (Village, PvP, Ranked, Clan,
-  Mission, Training, Pet, GuardDuty, BloodlineCodex), shared UI in
-  `src/components/`, game data/config in `src/data/` & `src/constants/`,
-  helpers in `src/lib/`, types in `src/types/`. `authFetch.ts` wraps
-  authenticated API calls; `fingerprint.ts` produces the `x-client-fp` header.
+  `src/App.tsx`. `authFetch.ts` wraps authenticated API calls; `fingerprint.ts`
+  produces the `x-client-fp` header.
 - **Storage** — Supabase Postgres via `@supabase/supabase-js` (and `pg`). Schema in
   `supabase-schema.sql`; historical migration notes in
   `docs/archive/SUPABASE_MIGRATION.md` (rollback section references retired
@@ -70,14 +46,14 @@ Frontend (run inside `shinobij.client/`):
   `docs/RETIRE_CPANEL_RUNBOOK.md`). During the soak, cPanel data is retained for
   rollback (re-add `KV_PROXY_URL` + `REQUIRE_DISK_OVERLAY`); after decommission the
   overlay code can be removed.
-- **`scripts/`** — one-off migration and PvP balance-simulation scripts. Also
-  `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
+- **`scripts/`** — build/test tooling (incl. `run-tests.mjs`, the test auto-discoverer
+  described under Conventions) plus one-off migration and balance-simulation scripts.
+  Notably `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
   (chapters/interludes/road events) to a review PDF from the LIVE data —
   `node --import tsx scripts/gen-story-pdf.mjs [out.pdf]` (needs `pip install reportlab`).
-- **`docs/`** — design docs (e.g. `professions.md`) and security/auth
-  references. See **`docs/auth-and-anti-cheat-patterns.md`** for the token-first
-  auth model and the server-minted single-use token pattern for client-reported
-  rewards.
+- **`docs/`** — design and security references. See
+  **`docs/auth-and-anti-cheat-patterns.md`** for the token-first auth model and the
+  server-minted single-use token pattern for client-reported rewards.
 - **`*.slnx`, `*.esproj`** — Visual Studio solution scaffolding (client project only); not the runtime. (The unused `ShinobiJ.Server/` .NET WeatherForecast stub — which also exposed unauthenticated API mirrors — was removed 2026-06.)
 
 ## Deployment
@@ -128,14 +104,8 @@ unreachable. `server-routes.test.ts` enforces this both ways
   short explicit list at the top of that script — which is why the two repo-root
   files (`cpanel-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
   tests under a scan root, or they silently never run.
-- **`shinobij.client/src/App.tsx` is the legacy frontend monolith, in active
-  drain** into `src/{screens,components,lib,data,constants,types}/`. Put **new**
-  screens/components/helpers in their own module under those folders — **not** in
-  App.tsx. A line-budget ratchet test (`src/App.size.test.ts`) fails the build if
-  App.tsx grows past its budget; when you drain code out, lower `MAX_LINES` to
-  lock the win in. Extractions are behavior-preserving verbatim moves: `export`
-  the symbols the moved code needs from App, import them back, and keep storage
-  keys / props / CSS / balance identical.
+- Frontend conventions (the App.tsx drain rule and its line-budget ratchet) live
+  in `shinobij.client/CLAUDE.md`, loaded when working under that directory.
 
 ## Security & Anti-Cheat
 
@@ -182,9 +152,7 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 ## Refactoring Rules
 
 - Preserve existing behavior unless the task explicitly asks for a behavior change.
-- Before refactoring, identify the current entry points and callers.
 - Keep old function signatures as wrappers when extracting logic.
-- Avoid moving files unless necessary.
 - After refactoring, summarize:
   - what changed
   - what stayed compatible
