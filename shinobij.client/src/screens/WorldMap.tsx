@@ -62,7 +62,6 @@ import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
 import { SectorScatter } from "../components/SectorScatter";
 import { SectorMap } from "../components/SectorMap";
-import { isSectorMapEnabled } from "../components/sector-map-flag";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
@@ -151,14 +150,13 @@ import { HUNT_PACK_STAGES, HUNT_PACK_ROUTED_QUALITY, HUNT_PACK_SURVIVED_QUALITY,
 import { bumpHuntQuality, readHuntQuality } from "../lib/hunt-run-state";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
-import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
+import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
 import { FESTIVAL_SECTOR, isWildSector, sectorArtKey, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
 import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkInEntryTile } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
-import { isLowEndMobile } from "../lib/device-tier";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
@@ -184,13 +182,16 @@ function sectorImageTheme(sector: number): string {
     return "meadow";
 }
 
+/*
+ * Backdrop for the <SectorScene> vista stack. Since the painted top-down floors
+ * cover every sector, that stack now renders ONLY for a territory carrying its
+ * own custom `backgroundImage` (creator/admin art), which is passed in directly —
+ * so this resolver is just the shared theme fallback. The 66 bespoke per-sector
+ * vistas it used to return were retired with the opt-out path (2026-07-29): they
+ * were unreachable by default and 7.3 MB of deploy weight.
+ */
 function sectorBackgroundImage(sector: number) {
     if (sector === 99) return "/deathgate-sector.webp";
-
-    // Bespoke per-sector vista (scripts/gen-sector-art.mjs) — every wild sector
-    // paints its own place on the world map; theme art below is the fallback.
-    // Art files keep their pre-renumbering names: resolve via sectorArtKey.
-    if (SECTOR_SCENE_SECTORS.has(sectorArtKey(sector))) return `/sector-scenes/s${sectorArtKey(sector)}.webp`;
 
     const village = villageForOutskirtsSector(sector);
     if (village) return villagePageImage(village);
@@ -214,9 +215,6 @@ function sectorBackgroundImage(sector: number) {
 // procedural depth in SectorScene3DScene.
 function sectorDepthImage(sector: number): string | undefined {
     if (sector === 99) return undefined;
-    // Per-sector depth pairs with the per-sector vista, so they always line up.
-    const artKey = sectorArtKey(sector);
-    if (SECTOR_SCENE_SECTORS.has(artKey) && SECTOR_SCENE_DEPTH_SECTORS.has(artKey)) return `/sector-depth/s${artKey}.webp`;
     if (villageForOutskirtsSector(sector)) return undefined;
     const theme = sectorImageTheme(sector);
     return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
@@ -240,9 +238,11 @@ function sectorMapUrl(biome: Biome, seed: number): string | undefined {
 // volcano-territory sector that paints as forest). Outskirts mirror their village.
 function ambienceBiomeForSector(sector: number): Biome {
     if (sector === 99) return "volcano";
-    // With bespoke per-sector art, ambience follows its painted region — which
-    // is now exactly the sector's gameplay biome (shared/sector-geo.ts).
-    if (SECTOR_SCENE_SECTORS.has(sectorArtKey(sector))) return biomeForWorldSector(sector);
+    // Every wild sector has painted floor art, and its painted region IS its
+    // gameplay biome now (shared/sector-geo.ts), so ambience reads straight off
+    // the registry. The village/theme fallbacks below only serve sector 0 and
+    // any id outside the registry.
+    if (sector >= 1) return biomeForWorldSector(sector);
     const village = villageForOutskirtsSector(sector);
     if (village === "Frostfang Village") return "snow";
     if (village === "Moonshadow Village") return "shadow";
@@ -2189,10 +2189,9 @@ export function WorldMap({
         }
         // Every other sector opens its scene panel on arrival: warm the exact
         // background + depth image (and, when the flag is on, the top-down map) it
-        // will paint, mirroring sectorBackgroundImage/sectorDepthImage/sectorMapUrl.
-        preloadImg(sectorBackgroundImage(sector));
-        preloadImg(sectorDepthImage(sector));
-        if (isSectorMapEnabled()) preloadImg(sectorMapUrl(biomeForSector(sector), sector));
+        // will paint. Only the floor is warmed — the vista stack no longer renders
+        // for a normal sector, so its art would be a wasted fetch.
+        preloadImg(sectorMapUrl(biomeForSector(sector), sector));
     }
     function beginSectorTravel(
         sector: number,
@@ -2364,15 +2363,10 @@ export function WorldMap({
     useEffect(() => {
         if (!selectedSector || selectedSector === FESTIVAL_SECTOR) return;
         for (const exit of roadExitsForSector(selectedSector)) {
-            const dest = exit.destinationSector;
-            preloadImg(sectorMapUrl(biomeForSector(dest), dest));
-            // Low-end mobile: warm only the floors (the board art an instant
-            // crossing lands on); vistas + depth load on arrival instead of
-            // costing several MB of prefetch per step.
-            if (!isLowEndMobile()) {
-                preloadImg(sectorBackgroundImage(dest));
-                preloadImg(sectorDepthImage(dest));
-            }
+            // The floor is the only art an instant crossing lands on now that the
+            // vista stack is retired for normal sectors, so warming it is enough —
+            // and it keeps the per-step cost small on low-end mobile too.
+            preloadImg(sectorMapUrl(biomeForSector(exit.destinationSector), exit.destinationSector));
         }
         // preload helpers are stable component-scope declarations; re-running on
         // their identities would just repeat cached no-op preloads.
@@ -3232,9 +3226,12 @@ export function WorldMap({
         // New sector look: a painted top-down adventure MAP behind the grid (flag-gated,
         // off by default). Replaces the 2D vista stack when active. Custom-territory
         // backdrops keep their own art.
-        const sectorMapSrc = (isSectorMapEnabled() && !territory.backgroundImage)
-            ? sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector)
-            : undefined;
+        // The painted floor is now unconditional: every sector has one, and the
+        // vista fallback (with its per-sector art) was retired. A territory with
+        // its own custom backdrop still gets the <SectorScene> stack below.
+        const sectorMapSrc = territory.backgroundImage
+            ? undefined
+            : sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector);
         const sectorMapMode = !!sectorMapSrc;
         const sectorTileCol = (sectorPlayerPos % 12) + 1;
         const sectorTileRow = Math.floor(sectorPlayerPos / 12) + 1;
@@ -4210,9 +4207,7 @@ export function WorldMap({
         // the lone sector view still stacking the old over-scaled vista + scattered
         // ground props + foreground foliage band, which read as a cluttered mess
         // instead of a clean backdrop. Opt-out (sectorMap.v1=off) falls back to it.
-        const sectorMapSrc = isSectorMapEnabled()
-            ? (villageOuterTerritoryMapUrl(loc.name) ?? sectorMapUrl(biome, virtualSector))
-            : undefined;
+        const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name) ?? sectorMapUrl(biome, virtualSector);
         const sectorMapMode = !!sectorMapSrc;
         return (
             <div className="map-instance">
