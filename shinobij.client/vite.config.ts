@@ -1049,6 +1049,12 @@ export default defineConfig({
         // regressions.
         chunkSizeWarningLimit: 700,
         rollupOptions: {
+            // The app does not use discarded property reads as an effect.
+            // Let Rolldown eliminate those reads inside lazy game/vendor code
+            // instead of shipping them to every browser.
+            treeshake: {
+                propertyReadSideEffects: false,
+            },
             output: {
                 // Pull React + ReactDOM into their own vendor chunk so they
                 // can be cached independently of app code. The app bundle
