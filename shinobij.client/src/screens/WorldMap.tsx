@@ -154,16 +154,15 @@ import { FESTIVAL_SECTOR, isWildSector, sectorArtKey, sectorName } from "../../.
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
-import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkInPath } from "../components/WorldWalkFeel";
+import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
 
-// Per-tile pace of the arrival walk-in after an edge crossing. WALK_IN_DEPTH
-// steps at this interval should land close to the 0.42s board slide-in
-// (world-map-charting.css) so the avatar and the board settle together.
-const WALK_IN_STEP_MS = 130;
+// Middle of the 12x12 sector board (row 6, col 6). Where a player lands after a
+// map jump that has no direction to preserve, and the initial standing tile.
+const SECTOR_CENTRE_TILE = 78;
 
 // Which scene-image theme each sector shows. Single source of truth shared by
 // the background image picker and the ambience-biome picker so the drifting
@@ -2022,7 +2021,7 @@ export function WorldMap({
         const t = setTimeout(() => setPetDecisionReady(true), 650);
         return () => clearTimeout(t);
     }, [activePetEncounter, petVnDone]);
-    const [sectorPlayerPos, setSectorPlayerPos] = useState(78);
+    const [sectorPlayerPos, setSectorPlayerPos] = useState(SECTOR_CENTRE_TILE);
     const travelRequestInFlight = useRef(false);
     // Bridge the local player's tile to the presence store so the heartbeat (which
     // lives in App) can broadcast it; other clients render us walking to this tile.
@@ -2271,6 +2270,8 @@ export function WorldMap({
         })();
     }
     function triggerTravelPoint(sector: number) {
+        // Where you stood in the sector you LEFT, captured before any state moves.
+        const originSector = currentSector;
         beginSectorTravel(sector, () => {
         if (sector === FESTIVAL_SECTOR) {
             setCurrentBiome("volcano");
@@ -2285,6 +2286,20 @@ export function WorldMap({
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
         setSelectedSector(sector);
+        // Put the player somewhere that makes sense in the sector they are
+        // ENTERING. Travelling used to leave the tile untouched, so you kept the
+        // coordinates you happened to be standing on: leave by the right-hand
+        // edge and you arrived on the RIGHT of the next sector instead of the
+        // left, leave from the top and you arrived at the top. That made every
+        // trip read as a teleport rather than as travelling a direction.
+        // Along a road, arrive on the edge facing the sector you came from —
+        // identical to walking through that gate. Otherwise it is a jump across
+        // the map with no direction to honour, so start in the middle rather
+        // than on a stale edge tile.
+        const road = originSector == null
+            ? undefined
+            : roadExitsForSector(originSector).find((exit) => exit.destinationSector === sector);
+        setSectorPlayerPos(road ? road.destinationTile : SECTOR_CENTRE_TILE);
         const splashLabel = regionSplashLabelFor(sector);
         if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
         });
@@ -2295,22 +2310,12 @@ export function WorldMap({
         beginSectorTravel(exit.destinationSector, (arrivalTile) => {
             const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
             const destinationBiome = biomeForSector(exit.destinationSector);
-            // Walk IN from the edge: appear on the boundary tile you stepped
-            // through, then take the steps inward one at a time. A crossing is a
-            // big displacement — going north puts you on row 11 of the board
-            // above, eleven rows from the row 0 exit you left — so an instant
-            // arrival reads as a teleport across the map. Walking the entry in is
-            // what shows which edge you came through. Each step is conditional on
-            // the player not having moved, so player input always wins.
-            const path = walkInPath(destinationTile, exit.direction);
-            setSectorPlayerPos(path[0]);
-            path.slice(1).forEach((tile, index) => {
-                const previous = path[index];
-                window.setTimeout(
-                    () => setSectorPlayerPos((pos) => (pos === previous ? tile : pos)),
-                    WALK_IN_STEP_MS * (index + 1),
-                );
-            });
+            // Appear on the side you came in through, and STOP. Crossing north
+            // lands you on the destination's SOUTH edge, which is what makes the
+            // move read as travelling a direction; every step after that is the
+            // player's. ⚖ An animated per-tile walk-in used to run here and was
+            // removed — see WALK_IN_DEPTH in shared/sector-links.ts for why.
+            setSectorPlayerPos(destinationTile);
             setCurrentBiome(destinationBiome);
             setCurrentWeather(weatherForSector(exit.destinationSector, destinationBiome));
             setCurrentSector(exit.destinationSector);
