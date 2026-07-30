@@ -456,3 +456,4 @@ concurrency-load-evidence*.json
 # and every local rebuild churned them on line-endings alone.
 dist/
 shinobij.client/dist/
+shinobij.client/scripts/.restyle-board-done.json
