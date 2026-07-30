@@ -828,58 +828,64 @@ test("six-phase flow reaches Main 2, End, and the next Draw Phase", () => {
   }
 });
 
-test("application flow keeps End, Draw, Standby, and the turn handoff explicit", () => {
+test("ending the turn settles End, Draw and Standby in one application step", () => {
   const state = match();
   const first = state.activePlayer;
   const second = first === "p1" ? "p2" : "p1";
   const secondHandBefore = state[second].hand.length;
-  const enteredEnd = applyAction(
+  const handedOver = applyAction(
     state,
     first,
     { action: "enter-end-phase" },
     2_000,
   );
-  assert.equal(enteredEnd.ok, true);
-  if (!enteredEnd.ok) return;
-  assert.equal(enteredEnd.state.activePlayer, first);
-  assert.equal(enteredEnd.state.phase, "end");
-  assert.equal(enteredEnd.state[second].hand.length, secondHandBefore);
-
-  const ended = applyAction(
-    enteredEnd.state,
-    first,
-    { action: "end-turn" },
-    2_100,
-  );
-  assert.equal(ended.ok, true);
-  if (!ended.ok) return;
-  assert.equal(ended.state.activePlayer, second);
-  assert.equal(ended.state.phase, "draw");
-  assert.equal(ended.state[second].hand.length, secondHandBefore + 1);
-
-  const standby = applyAction(
-    ended.state,
-    second,
-    { action: "advance-phase" },
-    2_200,
-  );
-  assert.equal(standby.ok, true);
-  if (!standby.ok) return;
-  assert.equal(standby.state.phase, "standby");
-
-  const main1 = applyAction(
-    standby.state,
-    second,
-    { action: "advance-phase" },
-    2_300,
-  );
-  assert.equal(main1.ok, true);
-  if (!main1.ok) return;
-  assert.equal(main1.state.phase, "main1");
+  assert.equal(handedOver.ok, true);
+  if (!handedOver.ok) return;
+  // One action carries End -> Draw -> Standby -> Main 1: the next duelist opens
+  // on a real decision with the Draw Phase card already in hand.
+  assert.equal(handedOver.state.activePlayer, second);
+  assert.equal(handedOver.state.phase, "main1");
+  assert.equal(handedOver.state[second].hand.length, secondHandBefore + 1);
+  assert.equal(handedOver.state.normalSummonUsed, false);
   assert.match(
-    main1.state.log.slice(-4).join(" "),
+    handedOver.state.log.slice(-4).join(" "),
     /enters the End Phase.*draws in the Draw Phase.*enters the Standby Phase.*enters Main Phase 1/,
   );
+  // Nothing is left to click through, so the phase-advance intent has no target.
+  assert.equal(
+    applyAction(handedOver.state, second, { action: "advance-phase" }, 2_100).ok,
+    false,
+  );
+  assert.equal(
+    applyAction(handedOver.state, second, { action: "end-turn" }, 2_100).ok,
+    false,
+  );
+});
+
+test("the automatic phase chain still stops for a pending response window", () => {
+  const state = summonReady("tc-01");
+  const actor = state.activePlayer;
+  const defender = actor === "p1" ? "p2" : "p1";
+  state.turnNumber = 3;
+  state[defender].magicTrapZones[0] = {
+    instanceId: "snare",
+    cardId: "chronicle-pitfall-tag-array",
+    owner: defender,
+    zoneIndex: 0,
+    faceUp: false,
+    setOnTurn: 1,
+  };
+  const summoned = applyAction(
+    state,
+    actor,
+    { action: "normal-summon", handIndex: 0, zoneIndex: 0 },
+    3_000,
+  );
+  assert.equal(summoned.ok, true);
+  if (!summoned.ok) return;
+  assert.equal(summoned.state.responseWindow?.trigger, "onMonsterSummoned");
+  assert.equal(summoned.state.activePlayer, actor);
+  assert.equal(summoned.state.phase, "main1");
 });
 
 test("direct attack is blocked by a defender and battle damage is server-computed", () => {
