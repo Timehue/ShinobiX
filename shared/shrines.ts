@@ -49,7 +49,9 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         region: 'the Stormveil Heights',
         lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.',
         blessing: 'May the tide carry your burdens out.',
-        left: 33, top: 44,
+        // Re-tuned against the 2026-07 board-style floor (the old spot landed
+        // in the pond): waterside grass on the shore, clear of the bridge.
+        left: 46, top: 47,
     },
     {
         id: 'frostveil', sector: 31, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
@@ -71,7 +73,9 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         region: 'the Pilgrim’s Approach',
         lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
         blessing: 'May the Gate stay shut behind you.',
-        left: 28, top: 46,
+        // Re-tuned against the 2026-07 board-style floor (the old spot sat on
+        // a rock outcrop): open cracked-ash ground beside the pilgrim road.
+        left: 40, top: 60,
     },
     // ——— The Ancients (the hundred legacies) ———
     {
