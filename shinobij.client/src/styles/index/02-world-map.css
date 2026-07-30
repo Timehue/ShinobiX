@@ -388,10 +388,14 @@ html.wm-zoom .world-map-scroll .generated-world-map {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    /* Displayed TALLER than the source 3:2 so the art (background-size:100% 100%)
-       stretches vertically to better fill a phone screen; driven by useWorldMapZoom
-       (must match its MAP_AR). Markers are %-positioned so they stretch with it. */
-    aspect-ratio: var(--wm-map-ar, 1.25) !important;
+    /* Displayed TALLER than the source art (16:9 since the 2026-07 keyart) so it
+       (background-size:100% 100%) stretches vertically to better fill a phone
+       screen; driven by useWorldMapZoom (must match its MAP_AR). Markers are
+       %-positioned so they stretch with it. The fallback is unreachable in
+       practice — this rule only applies under html.wm-zoom, and that is exactly
+       when the hook sets --wm-map-ar inline — but keep it equal to MAP_AR so the
+       two never disagree on inspection. */
+    aspect-ratio: var(--wm-map-ar, 1.48) !important;
     margin: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
