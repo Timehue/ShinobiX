@@ -13,7 +13,7 @@
  * (components must not import CSS — it breaks the node test runner).
  */
 import { useEffect, useRef } from "react";
-import { SECTOR_POINTS, SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
+import { SECTOR_POINTS, SECTOR_ROAD_PAIRS, WALK_IN_DEPTH } from "../../../shared/sector-links";
 import { sectorRegionKey, sectorRegionLabel, type SectorRegionKey } from "../../../shared/sector-geo";
 import type { SectorDirection } from "../../../shared/sector-links";
 
@@ -178,14 +178,44 @@ export function RouteGlowOverlay({ from, to }: { from: number; to: number | null
 
 const GRID_W = 12;
 
+/** One tile back TOWARD the edge the player crossed through, or null when that
+ *  would leave the board (east/west must not wrap onto the next row). */
+function outwardStep(tile: number, direction: SectorDirection): number | null {
+    const col = tile % GRID_W;
+    const row = Math.floor(tile / GRID_W);
+    if (direction === "north") return row < GRID_W - 1 ? tile + GRID_W : null;
+    if (direction === "south") return row > 0 ? tile - GRID_W : null;
+    if (direction === "east") return col > 0 ? tile - 1 : null;
+    return col < GRID_W - 1 ? tile + 1 : null;
+}
+
+/**
+ * The tiles the avatar walks through on arrival, boundary seam FIRST and
+ * `arrivalTile` LAST.
+ *
+ * A crossing is a big displacement — going north moves you from row 0 of one
+ * board to row 11 of the next — so without a visible entry the arrival reads as
+ * a teleport down the map rather than as walking through a gate. Stepping out
+ * to the seam and walking back in is what sells the direction you came from.
+ * `WALK_IN_DEPTH` (shared/sector-links.ts) sets how far in a crossing lands and
+ * therefore how many steps this returns; the path is clamped to the board, so a
+ * degenerate case just yields a shorter walk rather than an off-board tile.
+ */
+export function walkInPath(arrivalTile: number, direction: SectorDirection): number[] {
+    const outward: number[] = [];
+    let cursor = arrivalTile;
+    for (let step = 0; step < WALK_IN_DEPTH; step++) {
+        const next = outwardStep(cursor, direction);
+        if (next == null) break;
+        cursor = next;
+        outward.push(cursor);
+    }
+    return [...outward.reverse(), arrivalTile];
+}
+
 /** The boundary tile the player physically steps in FROM when arriving at
- *  `arrivalTile` after walking `direction` — one tile back toward the edge.
- *  Falls back to the arrival tile if the step would leave the board. */
+ *  `arrivalTile` after walking `direction`. Falls back to the arrival tile when
+ *  no step inward is possible. */
 export function walkInEntryTile(arrivalTile: number, direction: SectorDirection): number {
-    const col = arrivalTile % GRID_W;
-    const row = Math.floor(arrivalTile / GRID_W);
-    if (direction === "north") return row < GRID_W - 1 ? arrivalTile + GRID_W : arrivalTile;
-    if (direction === "south") return row > 0 ? arrivalTile - GRID_W : arrivalTile;
-    if (direction === "east") return col > 0 ? arrivalTile - 1 : arrivalTile;
-    return col < GRID_W - 1 ? arrivalTile + 1 : arrivalTile;
+    return walkInPath(arrivalTile, direction)[0];
 }
