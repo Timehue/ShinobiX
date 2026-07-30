@@ -49,9 +49,9 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         region: 'the Stormveil Heights',
         lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.',
         blessing: 'May the tide carry your burdens out.',
-        // Re-tuned against the 2026-07 board-style floor (the old spot landed
-        // in the pond): waterside grass on the shore, clear of the bridge.
-        left: 46, top: 47,
+        // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
+        // open sand beach west of the pier — earlier spots landed in the water.
+        left: 13, top: 68,
     },
     {
         id: 'frostveil', sector: 31, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
@@ -65,7 +65,9 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         region: 'the Moonshadow Wilds',
         lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.',
         blessing: 'May the moon light the path you hide.',
-        left: 54, top: 58,
+        // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
+        // wide pale stone walkway — the old spot landed in the grotto pool.
+        left: 60, top: 74,
     },
     // ——— The Hollow Gate ward ———
     {
@@ -73,9 +75,9 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         region: 'the Pilgrim’s Approach',
         lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
         blessing: 'May the Gate stay shut behind you.',
-        // Re-tuned against the 2026-07 board-style floor (the old spot sat on
-        // a rock outcrop): open cracked-ash ground beside the pilgrim road.
-        left: 40, top: 60,
+        // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
+        // wide pale pilgrim road — the old spot perched on a rock outcrop.
+        left: 58, top: 70,
     },
     // ——— The Ancients (the hundred legacies) ———
     {

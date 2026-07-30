@@ -25,10 +25,10 @@ fs.mkdirSync(OUT, { recursive: true });
 // keys by CURRENT sector number; the FLOOR FILES are keyed by artKey).
 const SHRINES = [
     { id: 'heartwood', artKey: 42, left: 54, top: 44 },
-    { id: 'tide', artKey: 34, left: 46, top: 47 },
+    { id: 'tide', artKey: 34, left: 13, top: 68 },
     { id: 'frostveil', artKey: 53, left: 26, top: 45 },
-    { id: 'moonwell', artKey: 16, left: 54, top: 58 },
-    { id: 'hollowgate', artKey: 13, left: 40, top: 60 },
+    { id: 'moonwell', artKey: 16, left: 60, top: 74 },
+    { id: 'hollowgate', artKey: 13, left: 58, top: 70 },
     { id: 'ancients', artKey: 10, left: 48, top: 45 },
 ];
 
