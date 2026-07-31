@@ -57,6 +57,7 @@ import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pe
 import { petCloseupPresentationModel, petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
+import { PetModelBoundary } from "./PetModelBoundary";
 import { PetOrbitControls } from "./PetOrbitControls";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
 import { commandedActorId } from "../lib/pet-duel-live";
@@ -1874,7 +1875,23 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
 }) {
     const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
     const poses = usePetPoses(petVisualId(pet), mirror);
-    const combatModel = useMemo(() => petCombatModel(pet), [pet]);
+    const approvedModel = useMemo(() => petCombatModel(pet), [pet]);
+    // A model that 404s or fails to parse drops this ONE fighter to the 2D
+    // standee instead of throwing past <Suspense> and taking the whole screen
+    // down (see PetModelBoundary). Nulling combatModel routes every consumer
+    // below — the frame loop, the layout and the render — down the same path a
+    // pet with no approved model already takes, so there is no second code path
+    // to keep working. Recovery is DERIVED from the failed url rather than a
+    // boolean plus a reset effect: a pet whose model differs is simply not the
+    // failed one, so the 3D path is live again with no setState in an effect.
+    //
+    // `freeRoam3d` is deliberately left alone. It is a MATCH-level mode (true
+    // only when every fighter resolved a model) owned by the parent, so a
+    // mid-fight failure leaves this one billboard moving under free-roam spacing.
+    // That reads fine — the billboard is Y-locked and camera-facing — and is far
+    // better than swapping the whole match's movement rules mid-duel.
+    const [failedModelUrl, setFailedModelUrl] = useState<string | null>(null);
+    const combatModel = approvedModel && approvedModel.url === failedModelUrl ? null : approvedModel;
     const heroMoveWindows = useMemo(() => petHeroMoveWindows(duel.events, id, { ...pet, profile: combatModel?.profile }), [combatModel?.profile, duel.events, id, pet]);
     const modelFrame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const group = useRef<THREE.Group>(null);     // floor position + lunge offset
@@ -2578,16 +2595,18 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
             <group ref={group}>
                 {combatModel ? (
                     <group ref={poseG}>
-                        <Suspense fallback={(
-                            <Billboard lockX lockZ>
-                                <mesh position={[L.meshX, L.meshY, 0]}>
-                                    <planeGeometry args={[L.planeW, L.planeH, 6, 20]} />
-                                    <primitive object={baseMat} ref={matRef} attach="material" />
-                                </mesh>
-                            </Billboard>
-                        )}>
-                            <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} surfaceTreatment={hollowHoundSurface(pet)} />
-                        </Suspense>
+                        <PetModelBoundary onFail={() => setFailedModelUrl(combatModel.url)}>
+                            <Suspense fallback={(
+                                <Billboard lockX lockZ>
+                                    <mesh position={[L.meshX, L.meshY, 0]}>
+                                        <planeGeometry args={[L.planeW, L.planeH, 6, 20]} />
+                                        <primitive object={baseMat} ref={matRef} attach="material" />
+                                    </mesh>
+                                </Billboard>
+                            )}>
+                                <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} surfaceTreatment={hollowHoundSurface(pet)} />
+                            </Suspense>
+                        </PetModelBoundary>
                     </group>
                 ) : (
                     /* Y-axis-locked billboard: yaws to face the camera but stays vertical,
@@ -2650,24 +2669,29 @@ function DuelCutInModelPortrait({ pet, config, style, move, mirror }: {
     const cameraDistance = Math.max(4.5, config.targetHeight * 1.85);
     return (
         <div className="pet-cutin-model" aria-label={`${petDisplayName(pet)} combat model`}>
-            <Canvas
-                dpr={[1, 2]}
-                camera={{ position: [0, 0, cameraDistance], fov: 32, near: 0.1, far: 30 }}
-                gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-                style={{ width: "100%", height: "100%", background: "transparent" }}
-                onCreated={({ gl }) => {
-                    gl.toneMappingExposure = 0.82;
-                }}
-            >
-                <ambientLight intensity={0.76} color="#d8e5ff" />
-                <directionalLight position={mirror ? [-3, 4, 5] : [3, 4, 5]} intensity={1.7} color="#fff4dc" />
-                <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={0.68} color={elementColor(pet.element).glow} />
-                <group position={[0, -config.targetHeight * 0.5, 0]} rotation={[0, mirror ? -0.34 : 0.34, 0]}>
-                    <Suspense fallback={null}>
-                        <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} surfaceTreatment={hollowHoundSurface(pet)} />
-                    </Suspense>
-                </group>
-            </Canvas>
+            {/* Own canvas, so the boundary can wrap it the way IntroCompanion3D
+                does: a failed portrait model renders nothing and the rest of the
+                signature cut-in still plays. */}
+            <PetModelBoundary>
+                <Canvas
+                    dpr={[1, 2]}
+                    camera={{ position: [0, 0, cameraDistance], fov: 32, near: 0.1, far: 30 }}
+                    gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+                    style={{ width: "100%", height: "100%", background: "transparent" }}
+                    onCreated={({ gl }) => {
+                        gl.toneMappingExposure = 0.82;
+                    }}
+                >
+                    <ambientLight intensity={0.76} color="#d8e5ff" />
+                    <directionalLight position={mirror ? [-3, 4, 5] : [3, 4, 5]} intensity={1.7} color="#fff4dc" />
+                    <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={0.68} color={elementColor(pet.element).glow} />
+                    <group position={[0, -config.targetHeight * 0.5, 0]} rotation={[0, mirror ? -0.34 : 0.34, 0]}>
+                        <Suspense fallback={null}>
+                            <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} surfaceTreatment={hollowHoundSurface(pet)} />
+                        </Suspense>
+                    </group>
+                </Canvas>
+            </PetModelBoundary>
         </div>
     );
 }
