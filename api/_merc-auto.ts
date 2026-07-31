@@ -10,7 +10,7 @@
  * with /api/village/war-merc so the two never drift.
  */
 import { kv } from './_storage.js';
-import { loadAdminItemObjects } from './_admin-item-catalog.js';
+import { loadAdminCombatContent } from './_admin-content.js';
 import { withKvLock } from './_lock.js';
 import { safeName } from './_utils.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
@@ -74,7 +74,7 @@ async function claimAndResolveMerc(args: {
     if (!targetChar) {
         return { battle: { winner: 'stall', mercWon: false, playerWon: false, rounds: 0, log: [] }, mercsRemaining: claim.remaining };
     }
-    const sealed = sealTowerFighter(targetChar, targetSave ?? null, {}, await loadAdminItemObjects());
+    const sealed = sealTowerFighter(targetChar, targetSave ?? null, {}, await loadAdminCombatContent());
     const seed = (args.now ^ (args.sector * 2654435761)) >>> 0;
     const battle = resolveMercBattle({ playerName: args.targetPlayer, playerSlug: args.targetPlayer, playerSealedChar: sealed, mercLevel: args.mercLevel, seed, now: args.now });
     return { battle, mercsRemaining: claim.remaining };

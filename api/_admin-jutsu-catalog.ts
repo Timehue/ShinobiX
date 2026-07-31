@@ -30,9 +30,19 @@ const MAX_ID_LENGTH = 120;
 export type AdminJutsu = Record<string, unknown> & { id: string };
 type AdminContentRecord = { creatorJutsus?: unknown };
 
+const stamp = (value: unknown): number => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
 /**
- * Reproduce the client merge for authored jutsu: later slots win an id
- * collision (Admin 2 over Admin 1), same as the Map in App.tsx getAllJutsus.
+ * Reproduce the client merge for authored jutsu: an id collision across the two
+ * slots is resolved by `updatedAt` RECENCY, ties falling to the later slot —
+ * exactly `mergeJutsusByRecency` in App.tsx, which the client applies over
+ * Admin 1 then Admin 2. Slot order alone is NOT equivalent and would serve a
+ * different jutsu than the player is looking at: `starter-universal-blitz` is
+ * the edited "Overload" (ap 40, stamped updatedAt) on admin1 and a stale
+ * "Blitz" (ap 60, no updatedAt) on admin2.
  *
  * The jutsu objects are returned AS AUTHORED — no rebalancing, no clamping of
  * balance fields (the client is explicit about this: "admin-saved values must be
@@ -50,6 +60,8 @@ export function buildAdminJutsuCatalog(records: readonly (AdminContentRecord | n
             const value = raw as Record<string, unknown>;
             const id = typeof value.id === 'string' ? value.id.trim() : '';
             if (!id || id.length > MAX_ID_LENGTH) continue;
+            const held = out.get(id);
+            if (held && stamp(held.updatedAt) > stamp(value.updatedAt)) continue;
             out.set(id, { ...value, id } as AdminJutsu);
         }
     }

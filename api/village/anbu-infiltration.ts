@@ -2,7 +2,7 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID, randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
-import { loadAdminItemObjects } from '../_admin-item-catalog.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
 import { withKvLock } from '../_lock.js';
 import { cors, safeName, clanRecordKey } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -171,7 +171,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     // Seal the raider exactly like a tower host: authoritative save + the
     // client-computed combat extras the save doesn't persist (clamped in-seal).
     const raiderLoadout = (body.raiderLoadout && typeof body.raiderLoadout === 'object') ? body.raiderLoadout as Record<string, unknown> : {};
-    const raiderCharacter = sealTowerFighter(char, rec ?? null, raiderLoadout, await loadAdminItemObjects());
+    const raiderCharacter = sealTowerFighter(char, rec ?? null, raiderLoadout, await loadAdminCombatContent());
 
     const runId = `infil-${randomUUID().replace(/-/g, '')}`;
     const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
