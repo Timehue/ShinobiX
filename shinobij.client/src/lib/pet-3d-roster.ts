@@ -15,10 +15,12 @@ const ROSTER_RARITY_COUNTS = [
     ["mythic", 10],
 ] as const;
 
-export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set(
+const APPROVED_ROSTER_MODEL_ID_LIST: readonly string[] = Object.freeze(
     ROSTER_RARITY_COUNTS.flatMap(([rarity, count]) =>
         Array.from({ length: count }, (_, index) => `${rarity}-${index}`)),
 );
+
+export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set(APPROVED_ROSTER_MODEL_ID_LIST);
 
 /**
  * Roster GLBs were replaced in-place during the reconstruction/rigging pass.
@@ -135,8 +137,11 @@ export function qaRosterBakedRetopoProofModel(pet: Pick<Pet, "id" | "name">): Pe
 }
 
 export function approvedRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatModelConfig | null {
-    const modelId = approvedModelId(pet.id);
-    return APPROVED_ROSTER_MODEL_IDS.has(modelId)
-        ? qaRosterCombatModel({ id: modelId, name: pet.name })
-        : null;
+    // Resolve to the allowlist's OWN string rather than the caller's. The returned
+    // url is fetched (the persistent colour atlas), and pet ids arrive from saves
+    // and PvP encounter snapshots, so the path segment has to be a literal this
+    // module owns — not a copy of the id that merely passed a membership check.
+    const requestedId = approvedModelId(pet.id);
+    const modelId = APPROVED_ROSTER_MODEL_ID_LIST.find((id) => id === requestedId);
+    return modelId ? qaRosterCombatModel({ id: modelId, name: pet.name }) : null;
 }
