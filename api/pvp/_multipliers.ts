@@ -45,10 +45,23 @@ type ItemLike = CatalogItem | Record<string, unknown>;
 
 /**
  * id → item lookup honoring the same priority as the client's getAllItems:
- * built-in ITEM_CATALOG wins for built-in ids; a player's custom creatorItems
- * supply everything else. Custom items are raw save objects (read defensively).
+ * built-in ITEM_CATALOG wins for built-in ids; the admin-authored catalog
+ * (save:admin1 / save:admin2, see api/_admin-item-catalog.ts) is the
+ * authoritative definition for shared custom content; a player's own
+ * creatorItems supply the rest (their forged `named-weapon-*` pieces, whose
+ * definition exists ONLY there). Custom items are raw save objects (read
+ * defensively).
+ *
+ * The admin catalog outranks the player's copy because that copy is a
+ * client-written mirror — a stale or tampered POST must not decide what an
+ * admin-authored item does. In practice this changes nothing today: every admin
+ * item that shadows a built-in id is already shadowed by ITEM_CATALOG above.
+ * `adminItems` is optional so save-less / legacy callers behave exactly as before.
  */
-export function buildItemLookup(creatorItems: unknown): (id: string) => ItemLike | undefined {
+export function buildItemLookup(
+    creatorItems: unknown,
+    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+): (id: string) => ItemLike | undefined {
     const custom = new Map<string, Record<string, unknown>>();
     if (Array.isArray(creatorItems)) {
         for (const it of creatorItems) {
@@ -60,7 +73,15 @@ export function buildItemLookup(creatorItems: unknown): (id: string) => ItemLike
             }
         }
     }
-    return (id: string) => ITEM_CATALOG[id] ?? custom.get(id);
+    // Admin entries get the same treatment as any other non-built-in item —
+    // budgeted at load, never at rest (api/_item-budget.ts covers
+    // "player/admin-authored creatorItems"). Done lazily so an unused catalog
+    // costs nothing.
+    const fromAdmin = (id: string): Record<string, unknown> | undefined => {
+        const entry = adminItems?.get(id);
+        return entry ? budgetItemBonuses(entry) : undefined;
+    };
+    return (id: string) => ITEM_CATALOG[id] ?? fromAdmin(id) ?? custom.get(id);
 }
 
 function equipmentIds(equipment: unknown): string[] {
@@ -135,14 +156,17 @@ export type DerivedMultipliers = {
 /**
  * Derive the full multiplier layer for a fighter from their authoritative save.
  * `saveCharacter` supplies equippedBloodlineId + equipment; `save` supplies the
- * top-level savedBloodlines + creatorItems. Clamping is applied by the caller.
+ * top-level savedBloodlines + creatorItems; `adminItems` (optional) supplies the
+ * admin-authored definitions the player's own array may not carry. Clamping is
+ * applied by the caller.
  */
 export function deriveCombatMultipliers(
     saveCharacter: Record<string, unknown>,
     save: Record<string, unknown> | null,
+    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
 ): DerivedMultipliers {
     const equipment = saveCharacter.equipment;
-    const getItem = buildItemLookup(save?.creatorItems);
+    const getItem = buildItemLookup(save?.creatorItems, adminItems);
     const armorTotal = sumArmorReduction(equipment, getItem);
     return {
         bloodlineMult: deriveBloodlineMultiplier(saveCharacter.equippedBloodlineId, save?.savedBloodlines),

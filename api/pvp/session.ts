@@ -11,6 +11,8 @@ import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
+import { loadAdminItemObjects, type AdminItem } from '../_admin-item-catalog.js';
+import { safeLogValue } from '../_safe-log.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
@@ -642,7 +644,20 @@ export function resolveEquippedLoadout(
 // creatorItems (∪ the built-in ITEM_CATALOG via buildItemLookup) fixes that and
 // makes weapon stats authoritative. Returns null for save-less callers (NPCs)
 // so the existing client fallback still applies.
-function resolveEquippedPvpItems(saveCharacter: Record<string, unknown>, save: Record<string, unknown> | null): unknown[] | null {
+//
+// `adminItems` (api/_admin-item-catalog.ts, loaded by the caller) closes the last
+// hole in that resolution: an ADMIN-authored item's definition lives on the admin
+// save slots, and a player's `creatorItems` is only a client-written mirror of
+// them — a stale POST can erase the entry while its id stays in `equipment`, and
+// under STRICT_RAW_SAVE_LEDGER=1 a new player's array never receives it at all.
+// Without the admin catalog those pieces resolve to nothing and the fighter
+// enters the match without their gear. (A forged `named-weapon-*` still lives
+// ONLY in the player's own array — nothing else can supply it.)
+function resolveEquippedPvpItems(
+    saveCharacter: Record<string, unknown>,
+    save: Record<string, unknown> | null,
+    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+): unknown[] | null {
     if (!save) return null;
     const equipment = saveCharacter.equipment;
     if (!equipment || typeof equipment !== 'object') return null;
@@ -650,12 +665,24 @@ function resolveEquippedPvpItems(saveCharacter: Record<string, unknown>, save: R
         Object.values(equipment as Record<string, unknown>).filter((v): v is string => typeof v === 'string'),
     )];
     if (ids.length === 0) return null;
-    const getItem = buildItemLookup(save.creatorItems);
+    const getItem = buildItemLookup(save.creatorItems, adminItems);
     const resolved: unknown[] = [];
+    const unresolved: string[] = [];
     for (const id of ids) {
         const item = getItem(id);
         if (item) resolved.push({ ...(item as Record<string, unknown>) });
-        // else: unknown id (not built-in, not in the player's creatorItems) → dropped.
+        else unresolved.push(id);
+    }
+    // An id we can't resolve is still DROPPED (never a throw — a fight must not
+    // fail to start over one piece of gear), but it no longer happens silently:
+    // this is the signature of a lost item definition (erased creatorItems entry,
+    // deleted admin item, or a renamed id) and it used to leave no trace at all.
+    if (unresolved.length > 0) {
+        console.warn(
+            '[pvp-items] unresolved equipped item id(s)',
+            safeLogValue(saveCharacter.name),
+            safeLogValue(unresolved.join(',')),
+        );
     }
     return resolved;
 }
@@ -669,7 +696,12 @@ function resolveEquippedPvpItems(saveCharacter: Record<string, unknown>, save: R
 // — same resolved equipped loadout, mastery, armor passives, stat/vital clamps, and
 // non-combat strip — instead of hand-rolling a divergent snapshot. Pure read function;
 // exporting it changes zero PvP behaviour.
-export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null): Record<string, unknown> {
+//
+// `adminItems` is the admin-authored item catalog (api/_admin-item-catalog.ts).
+// It is I/O, so the CALLER loads it (the session-create path already fans out a
+// Promise.all) and this stays synchronous. Omitting it resolves items exactly as
+// before — built-ins ∪ the player's own creatorItems.
+export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, adminItems: ReadonlyMap<string, AdminItem> | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
     // For derived fields the client computes, fall back to the client value
@@ -689,7 +721,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     const numOr = (saveVal: unknown, clientVal: unknown) =>
         saveVal != null && Number.isFinite(Number(saveVal)) ? Number(saveVal) : Number(clientVal);
     const mult = save
-        ? deriveCombatMultipliers(saveCharacter, save)
+        ? deriveCombatMultipliers(saveCharacter, save, adminItems)
         : {
             bloodlineMult:    numOr(saveCharacter.bloodlineMult,    clientCharacter.bloodlineMult),
             armorFactor:      numOr(saveCharacter.armorFactor,      clientCharacter.armorFactor),
@@ -794,7 +826,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     }
     // Resolve equipped items from the authoritative save (see resolveEquippedPvpItems);
     // fall back to the persisted/client pvpItems for save-less (NPC) callers.
-    const resolvedItems = resolveEquippedPvpItems(saveCharacter, save);
+    const resolvedItems = resolveEquippedPvpItems(saveCharacter, save, adminItems);
     merged.pvpItems = sanitizePvpItems(resolvedItems ?? saveCharacter.pvpItems ?? clientCharacter.pvpItems);
     merged.jutsu = sealV2JutsuCosts(merged.jutsu, Number(merged.level) || 1, String(merged.specialty ?? ''));
     // Strip everything that isn't combat-relevant. The session is read by
@@ -1136,10 +1168,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let finalP1Character: Record<string, unknown>;
             let finalP2Character: Record<string, unknown>;
 
-            const [p1SaveRaw, p2SaveRaw, battleLocks] = await Promise.all([
+            // adminItems: the authoritative definitions for admin-authored gear
+            // (60s-memoized read of both admin slots). Fetched alongside the saves
+            // so an equipped custom item resolves even when the fighter's own
+            // creatorItems mirror is stale/empty — see resolveEquippedPvpItems.
+            const [p1SaveRaw, p2SaveRaw, battleLocks, adminItems] = await Promise.all([
                 p1Norm ? kv.get<Record<string, unknown>>(`save:${p1Norm}`) : Promise.resolve(null),
                 p2Norm ? kv.get<Record<string, unknown>>(`save:${p2Norm}`) : Promise.resolve(null),
                 battleLockFlagsForPlayers([p1Norm ?? '', p2Norm ?? '']),
+                loadAdminItemObjects(),
             ]);
             const p1Save = p1SaveRaw
                 ? settleSaveRecord(p1SaveRaw, { battleLocked: p1Norm ? battleLocks.get(p1Norm) === true : false }).record
@@ -1149,7 +1186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : p2SaveRaw;
 
             if (p1Save?.character) {
-                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save);
+                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save, adminItems);
             } else if (identity.admin) {
                 finalP1Character = hydrateNpcCharacter(p1Character);
             } else if (identity.name === p1Norm) {
@@ -1160,7 +1197,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (p2Save?.character) {
-                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character, p2Save);
+                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character, p2Save, adminItems);
             } else if (identity.admin) {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             } else if (identity.name === p2Norm) {
