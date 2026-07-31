@@ -330,6 +330,16 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.ok(starter, `${label}: starter (flat 1.08) branch not found`);
         return [Number(ranked![1]), Number(ranked![2]), Number(ranked![3]), 1.08];
     }
+    // Gear specialty-stat fold (owner ruling 2026-07-31): the client folds
+    // equipped-item stat bonuses into combat stats (Arena characterCombatStats)
+    // and the server mirrors it in hydrateCharacterFromSave. Guard both sides
+    // actually CONSUME the fold so neither can silently drop it.
+    it('gear stat-bonus fold is consumed on both sides (not dead)', () => {
+        const SERVER_SESSION = readFileSync(join(ROOT, 'api', 'pvp', 'session.ts'), 'utf8');
+        assert.ok(SERVER_SESSION.includes('deriveEquipmentStatBonuses('), 'session.ts no longer folds gear stat bonuses — server combat lost gear specialty stats');
+        assert.ok(CLIENT_APP.includes('getEquippedItemBonus(character, allItems, "ninjutsuOffense")'), 'Arena.tsx no longer folds gear stat bonuses — client PvE lost gear specialty stats');
+    });
+
     it('bloodline multiplier table agrees (server _multipliers.ts ⇄ client combat-math.ts)', () => {
         assert.deepEqual(
             bloodlineTable(SERVER_MULT, 'api/pvp/_multipliers.ts'),
