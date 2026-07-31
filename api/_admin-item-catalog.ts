@@ -32,6 +32,12 @@ const CACHE_TTL_MS = 60_000;
 const MAX_ID_LENGTH = 120;
 // Admin "delete" tombstone — same marker api/shop/_catalog.ts honors.
 const ADMIN_DELETED_ITEM_MARKER = '__ADMIN_DELETED_ITEM__';
+// Player-forged gear (api/craft/named.ts). KEEP IN SYNC with FORGED_ITEM_ID in
+// api/save/[name].ts — the uuid is accepted with or without dashes because
+// buildNamedItem strips them today but every forged item already stored predates
+// that. Duplicated rather than imported to keep this module free of the save
+// handler's import graph.
+const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 
 export type AdminItem = Record<string, unknown> & { id: string };
 type AdminContentRecord = { creatorItems?: unknown };
@@ -57,6 +63,11 @@ export function buildAdminItemCatalog(records: readonly (AdminContentRecord | nu
             const id = typeof value.id === 'string' ? value.id.trim() : '';
             if (!id || id.length > MAX_ID_LENGTH) continue;
             if (value.name === ADMIN_DELETED_ITEM_MARKER) { out.delete(id); continue; }
+            // A player-forged piece is personal, never shared content. One that
+            // leaked onto a slot must not become a definition the server hands
+            // to other fighters — its real owner resolves it from their OWN
+            // creatorItems, which this catalog never shadows.
+            if (FORGED_ITEM_ID.test(id)) continue;
             out.set(id, { ...value, id } as AdminItem);
         }
     }
