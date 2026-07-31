@@ -67,20 +67,35 @@ export function buildItemLookup(
         for (const it of creatorItems) {
             if (it && typeof it === 'object' && typeof (it as Record<string, unknown>).id === 'string') {
                 // sub-5 defense-in-depth: budget a pre-existing custom item's
-                // bonuses whenever it loads into combat.
+                // bonuses whenever it loads into combat. This array is CLIENT-WRITTEN
+                // on the normal save path, so it is a genuine forge surface and the
+                // budget stays. (See the admin branch below for the contrast.)
                 const entry = budgetItemBonuses(it as Record<string, unknown>);
                 custom.set(String(entry.id), entry);
             }
         }
     }
-    // Admin entries get the same treatment as any other non-built-in item —
-    // budgeted at load, never at rest (api/_item-budget.ts covers
-    // "player/admin-authored creatorItems"). Done lazily so an unused catalog
-    // costs nothing.
-    const fromAdmin = (id: string): Record<string, unknown> | undefined => {
-        const entry = adminItems?.get(id);
-        return entry ? budgetItemBonuses(entry) : undefined;
-    };
+    // Admin-authored items are NOT budgeted — deliberately, and this is the whole
+    // point of the distinction.
+    //
+    // Owner ruling (2026-07-11, re-confirmed 2026-07-31): custom items from the
+    // Item Maker are SUPPOSED to be better, or potentially better, than built-in
+    // gear. They are owner-authored content, not a cheating surface — the Item
+    // Maker is admin-only and its output lives solely on save:admin1/save:admin2,
+    // which only an admin-authenticated write can touch. The save side already
+    // agrees: an admin save skips sanitizeCharacterSave entirely, so these items
+    // are stored UNCLAMPED, and clamping them here at load was the last place that
+    // still quietly cut them down to the built-in legendary envelope.
+    //
+    // What still bounds them: hydrateCharacterFromSave clamps the DERIVED combat
+    // multipliers regardless of source — itemDamagePct [0,200], absorb/reflect/
+    // lifesteal [0,100], itemShield [0,5000], armorRawDR ≤1.5 — so an authored item
+    // can be strong without being unbounded.
+    //
+    // Do NOT "harden" this back without owner sign-off: budgetItemBonuses clamps
+    // LEGITIMATE authored content, which is the opposite of the bloodline
+    // rank/point budgets (those clamp FORGED power and are correctly permanent).
+    const fromAdmin = (id: string): Record<string, unknown> | undefined => adminItems?.get(id);
     return (id: string) => ITEM_CATALOG[id] ?? fromAdmin(id) ?? custom.get(id);
 }
 
