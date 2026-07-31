@@ -1,4 +1,4 @@
-import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
+import { ITEM_CATALOG, EVENT_ITEM_IDS, type CatalogItem } from '../pvp/_item-catalog.js';
 import { clanPointMonthKey, clanPointWeekKey } from '../_clan-points.js';
 
 export const CLAN_EXCHANGE_WEEKLY_CAP = 1_000;
@@ -438,6 +438,9 @@ export function eligibleCacheItems(
     cache: 'weapon' | 'armor',
 ): { epic: CatalogItem[]; legendary: CatalogItem[]; all: CatalogItem[] } {
     const all = Object.values(catalog).filter((item) => {
+        // Story-event gear is in the catalog so equipped pieces resolve in
+        // combat, but it is earned from its event — never re-rolled from caches.
+        if (EVENT_ITEM_IDS.has(item.id)) return false;
         const rarity = String(item.rarity ?? '').toLowerCase();
         if (rarity !== 'epic' && rarity !== 'legendary') return false;
         return cache === 'weapon' ? isWeapon(item) : isArmor(item);

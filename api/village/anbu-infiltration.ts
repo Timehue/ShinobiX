@@ -36,6 +36,7 @@ import {
     type InfilRun,
 } from '../_anbu-infiltration-store.js';
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
+import { settleConsumedItemsForMember } from '../towers/_tower-store.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -265,6 +266,13 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
     if (!run) return res.status(404).json({ error: 'Run not found, expired, or already settled.' });
     if (!identity.admin && run.raiderSlug !== playerName) return res.status(403).json({ error: 'Not your run.' });
     if (run.session.status !== 'done') return res.status(409).json({ error: 'The fight is not finished.' });
+
+    // Deduct the throwables / consumables the SERVER recorded the raider
+    // spending this run (the engine decremented the sealed itemCharges;
+    // usedItemsForMember sums the actor's itemsUsed). Same helper + per-run
+    // receipt every other tower-engine mode uses — win OR wipe, spent is spent.
+    // Best-effort: a contended lock just leaves it for a report retry.
+    await settleConsumedItemsForMember({ session: run.session, slug: run.raiderSlug });
 
     if (run.session.winner !== 'squad') {
         // The Anbu held. No reward, no drain — the vault stands.

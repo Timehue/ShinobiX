@@ -142,6 +142,41 @@ export function deriveBloodlineMultiplier(equippedBloodlineId: unknown, savedBlo
     return 1.0;
 }
 
+// The 12 combat-stat fields gear can grant (mirrors the client's
+// characterCombatStats build in Arena.tsx — each stat gets
+// `+ getEquippedItemBonus(field)` BEFORE the per-rank cap).
+export const EQUIPMENT_STAT_BONUS_FIELDS = [
+    'strength', 'speed', 'intelligence', 'willpower',
+    'bukijutsuOffense', 'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
+    'genjutsuOffense', 'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense',
+] as const;
+
+/**
+ * Sum the combat-stat bonuses granted by equipped gear — the server half of the
+ * client's characterCombatStats fold (Arena.tsx), so a named weapon's rolled
+ * offense / armor's stat grants apply IDENTICALLY in PvP and every tower-engine
+ * mode, not just client-run Arena fights. Owner ruling 2026-07-31: gear stats
+ * are an even playing field (everyone can obtain them), so they fold into
+ * server combat. Uses the same budgeted lookup as every other derivation
+ * (custom/admin items pass through budgetItemBonuses), sums across the raw
+ * equipment slot values exactly like getEquippedItemBonus, and leaves rank
+ * capping to each engine's existing at-use cap — same order as the client
+ * (bonus added BEFORE perRankStatCap).
+ */
+export function deriveEquipmentStatBonuses(
+    saveCharacter: Record<string, unknown>,
+    save: Record<string, unknown> | null,
+    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+): Record<string, number> {
+    const getItem = buildItemLookup(save?.creatorItems, adminItems);
+    const out: Record<string, number> = {};
+    for (const field of EQUIPMENT_STAT_BONUS_FIELDS) {
+        const total = sumEquippedBonus(saveCharacter.equipment, getItem, field);
+        if (total) out[field] = total;
+    }
+    return out;
+}
+
 export type DerivedMultipliers = {
     bloodlineMult: number;
     armorFactor: number;

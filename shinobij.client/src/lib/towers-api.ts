@@ -238,9 +238,9 @@ export function startSpireRun(hostName: string, ascensionTier: number, allies: s
     return postJson('/api/towers/start', { hostName, mode: 'spire', ascensionTier, allies, hostLoadout });
 }
 
-/** Equip the caller's own fighter with their client-computed loadout (pvpItems + passives the
- *  save doesn't persist) — called on entering a run so a joining ally is fully geared like the
- *  host. Best-effort: a failure just means fighting without the bonuses, never a hard error. */
+/** Confirm membership in a run and fetch the session — called on entering a run. The server
+ *  seals every member's gear + passives from their OWN save at /start and ignores the client
+ *  `loadout` (kept in the body for older servers). Best-effort: a failure never hard-errors. */
 export async function joinTowerRun(runId: string, playerName: string, loadout: TowerHostLoadout): Promise<TowerSession | null> {
     try {
         const data = await postJson<{ session?: TowerSession }>('/api/towers/join', { runId, playerName, loadout });

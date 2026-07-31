@@ -27,6 +27,7 @@ import { writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { starterItems } from "../shinobij.client/src/data/starter-items.ts";
+import { eventItems } from "../shinobij.client/src/data/event-items.ts";
 import { starterSavedBloodlines } from "../shinobij.client/src/data/jutsu.ts";
 import { stackableItemIds } from "../shinobij.client/src/data/pet-config.ts";
 
@@ -81,7 +82,10 @@ function pickCombatFields(item) {
  */
 export function buildItemCatalog() {
     const catalog = {};
-    for (const item of starterItems) {
+    // Event items are obtainable gear too (the client's getAllItems merges
+    // [...starterItems, ...eventItems]) — without them here an equipped event
+    // piece is dropped (with a warn) from every server-run fight.
+    for (const item of [...starterItems, ...eventItems]) {
         catalog[item.id] = pickCombatFields(item);
     }
     return catalog;
@@ -102,11 +106,13 @@ function render(catalog, bloodlineIds) {
     const entries = ids
         .map((id) => `    ${JSON.stringify(id)}: ${JSON.stringify(catalog[id])},`)
         .join("\n");
+    const eventIds = [...eventItems.map((item) => item.id)].sort();
     return `/*
  * GENERATED FILE — do not edit by hand.
  *
  * Server-side catalog of built-in items (the canonical starterItems: armor,
- * weapons, throwables, consumables, gear), used by api/pvp/session.ts +
+ * weapons, throwables, consumables, gear — plus the story eventItems, which
+ * are obtainable equipment too), used by api/pvp/session.ts +
  * api/pvp/_multipliers.ts to derive the combat multiplier layer and resolve a
  * player's equipped weapons WITHOUT trusting the session creator's client.
  * Regenerate with:
@@ -114,8 +120,8 @@ function render(catalog, bloodlineIds) {
  *   node --import tsx scripts/item-catalog-gen.mjs
  *
  * Kept in lock-step with shinobij.client/src/data/starter-items.ts +
- * shinobij.client/src/data/jutsu.ts by scripts/item-catalog.test.mjs
- * (runs in \`npm test\`).
+ * shinobij.client/src/data/event-items.ts + shinobij.client/src/data/jutsu.ts
+ * by scripts/item-catalog.test.mjs (runs in \`npm test\`).
  */
 
 export type CatalogItem = {
@@ -148,6 +154,11 @@ ${entries}
 // Ids of the four built-in (starter) bloodlines — drives the flat-1.08 branch of
 // the server bloodline-multiplier derivation (api/pvp/_multipliers.ts).
 export const BUILTIN_BLOODLINE_IDS: readonly string[] = ${JSON.stringify(bloodlineIds)};
+
+// Ids of story-event items. In the catalog so equipped event gear resolves in
+// server combat, but EXCLUDED from generic reward pools (e.g. the Clan Exchange
+// cache rolls) — event items are earned from their events, never re-rolled.
+export const EVENT_ITEM_IDS: ReadonlySet<string> = new Set(${JSON.stringify(eventIds)});
 `;
 }
 
