@@ -13,6 +13,7 @@ import { strict as assert } from 'node:assert';
 import { hydrateCharacterFromSave } from './session.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
 import { buildAdminItemCatalog } from '../_admin-item-catalog.js';
+import type { AdminCombatContent } from '../_admin-content.js';
 
 const adminItems = buildAdminItemCatalog([
     {
@@ -35,13 +36,17 @@ function itemIds(hydrated: Record<string, unknown>): string[] {
     return (hydrated.pvpItems as Array<{ id?: string }>).map((i) => String(i.id));
 }
 
+// hydrateCharacterFromSave takes the COMBINED admin content (jutsu + items);
+// the buildItemLookup tests below still use the raw item map directly.
+const adminContent: AdminCombatContent = { jutsu: new Map(), items: adminItems };
+
 describe('equipped-item resolution against the admin catalog', () => {
     it('resolves an admin-authored item whose definition the player save lacks', () => {
         const hydrated = hydrateCharacterFromSave(
             saveCharacter({ hand: 'custom-storm-tanto' }),
             {},
             { creatorItems: [] },
-            adminItems,
+            adminContent,
         );
         assert.deepEqual(itemIds(hydrated), ['custom-storm-tanto']);
     });
@@ -56,7 +61,7 @@ describe('equipped-item resolution against the admin catalog', () => {
             saveCharacter({ hand: 'named-weapon-abc' }),
             {},
             { creatorItems: [namedWeapon] },
-            adminItems,
+            adminContent,
         );
         assert.deepEqual(itemIds(hydrated), ['named-weapon-abc']);
         assert.equal((hydrated.pvpItems as Array<{ name?: string }>)[0].name, 'Ashfall');
@@ -81,7 +86,7 @@ describe('equipped-item resolution against the admin catalog', () => {
                 saveCharacter({ hand: 'ghost-item-42', body: 'custom-ash-mantle' }),
                 {},
                 { creatorItems: [] },
-                adminItems,
+                adminContent,
             );
             assert.deepEqual(itemIds(hydrated), ['custom-ash-mantle']);
         } finally {

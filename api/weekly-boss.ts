@@ -21,7 +21,7 @@ import {
     WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
 } from './_release-flags.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor, weeklyBossEnemyTemplate } from './_authoritative-pve.js';
-import { loadAdminItemObjects } from './_admin-item-catalog.js';
+import { loadAdminCombatContent } from './_admin-content.js';
 import { readSession, sessionKey, settleConsumedItemsForMember, writeSession } from './towers/_tower-store.js';
 import {
     validateAuthoritativeWeeklyBossRun,
@@ -583,7 +583,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     seed,
                     now,
                     towerId: 'weekly-boss',
-                    adminItems: await loadAdminItemObjects(),
+                    admin: await loadAdminCombatContent(),
                     hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
                 });
                 const bossActor = session.actors.find((entry) => entry.id === session.phaseState.bossId);

@@ -45,7 +45,7 @@ import {
     failEconomyTx,
 } from './_economy-tx.js';
 import { sealTowerFighter } from './towers/_seal.js';
-import { loadAdminItemObjects } from './_admin-item-catalog.js';
+import { loadAdminCombatContent } from './_admin-content.js';
 import { awardClanPoints, MAX_CLAN_POINTS_AWARD, CLAN_POINTS_WEEKLY_CAP, clanPointWeekKey } from './_clan-points.js';
 import { meritNum } from './village/_village-merit.js';
 import {
@@ -205,7 +205,7 @@ export async function getOrSealAnbuSnapshot(village: string, anbuSlug: string, d
     const snapshot: AnbuSnapshot = {
         slug: anbuSlug,
         name: String(char.name ?? anbuSlug),
-        character: sealTowerFighter(char, save ?? null, {}, await loadAdminItemObjects()),
+        character: sealTowerFighter(char, save ?? null, {}, await loadAdminCombatContent()),
         sealedAt: t,
     };
     await kv.set(key, snapshot, { ex: ANBU_SEAL_TTL });
