@@ -7,7 +7,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { advanceQueuedJutsuRyoTraining, cancelQueuedJutsuRyoTraining, queueJutsuRyoTraining, settleJutsuRyoTraining, startJutsuRyoTraining, type ServerJutsuTraining } from './_jutsu-ryo.js';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
-import { loadAdminJutsuIds } from '../_admin-jutsu-catalog.js';
+import { loadAdminJutsuObjects, type AdminJutsu } from '../_admin-jutsu-catalog.js';
+import { characterMayUseJutsu } from '../pvp/_bloodline-gate.js';
 
 const JUTSU_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9-]{12,80}$/;
@@ -27,11 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // so the ownership check below has to consult those slots or every custom
         // jutsu the client lists is rejected as unknown. Loaded outside the save
         // lock (and memoized) so it costs nothing on the built-in path.
-        // loadAdminJutsuIds returns ids exactly as authored, so lowercase them to
-        // match the normalized jutsuId the checks below compare against.
-        const adminJutsuIds = action === 'start' || action === 'queue'
-            ? new Set([...await loadAdminJutsuIds()].map((id) => id.toLowerCase()))
-            : new Set<string>();
+        // Ids come back exactly as authored, so key a lowercase map to match the
+        // normalized jutsuId the checks below compare against. The full objects
+        // (not just ids) are needed so the bloodline gate can read the element.
+        const adminJutsuById = new Map<string, AdminJutsu>();
+        if (action === 'start' || action === 'queue') {
+            for (const [id, jutsu] of await loadAdminJutsuObjects()) adminJutsuById.set(id.toLowerCase(), jutsu);
+        }
+        const adminJutsuIds = new Set(adminJutsuById.keys());
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, ({ record, character }) => {
             const receipts = Array.isArray(character.redeemedJutsuTrainingActions) ? (character.redeemedJutsuTrainingActions as Receipt[]).slice(-127) : [];
             if (receipts.some((entry) => entry?.requestId === requestId)) return { ok: true as const, character, recordPatch: { activeJutsuTraining: record.activeJutsuTraining ?? null }, value: { activeJutsuTraining: record.activeJutsuTraining ?? null, replayed: true, cost: 0, refund: 0 } };
@@ -45,10 +49,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const customKnown = customJutsus.some((entry) => entry && typeof entry === 'object' && String((entry as Record<string, unknown>).id ?? '').toLowerCase() === jutsuId);
                 return Boolean(JUTSU_CATALOG[jutsuId] || customKnown || learned || adminJutsuIds.has(jutsuId));
             };
+            // Bloodline access gate (api/pvp/_bloodline-gate.ts): an id EXISTING is
+            // not enough — a bloodline-only jutsu can be trained only when the save
+            // carries the granting bloodline. Combat resolution now drops ungated
+            // jutsu too (resolveEquippedLoadout); rejecting here as well keeps the
+            // player from sinking ryo into a jutsu that will never seal into a fight.
+            const jutsuBloodlineBlocked = (jutsuId: string) => {
+                const fromSave = [
+                    ...(Array.isArray(record.creatorJutsus) ? record.creatorJutsus as unknown[] : []),
+                    ...(Array.isArray(record.savedBloodlines) ? (record.savedBloodlines as Array<{ jutsus?: unknown[] }>).flatMap((bloodline) => Array.isArray(bloodline?.jutsus) ? bloodline.jutsus : []) : []),
+                ].find((entry) => entry && typeof entry === 'object' && String((entry as Record<string, unknown>).id ?? '').toLowerCase() === jutsuId) as Record<string, unknown> | undefined;
+                const def = JUTSU_CATALOG[jutsuId] ?? adminJutsuById.get(jutsuId) ?? fromSave;
+                if (!def || typeof def !== 'object') return false;
+                return !characterMayUseJutsu(character, record, { id: jutsuId, element: (def as Record<string, unknown>).element });
+            };
             if (action === 'start') {
                 if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
                 const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase(); if (!JUTSU_ID.test(jutsuId)) return { ok: false as const, status: 400, error: 'invalid-jutsu-id' };
                 if (!jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
+                if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
                 changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), body.trainingBonusPct);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
@@ -56,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (action === 'queue') {
                     const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
                     if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
+                    if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
                     changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), body.trainingBonusPct);
                 } else if (action === 'cancel-queue') {
                     changed = cancelQueuedJutsuRyoTraining(character, active);

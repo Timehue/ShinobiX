@@ -10,7 +10,8 @@ import { consumeRankedMatchToken } from '../_ranked-match-token.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
-import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
+import { deriveCombatMultipliers, deriveEquipmentStatBonuses, buildItemLookup } from './_multipliers.js';
+import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
@@ -116,6 +117,13 @@ export type PvpSession = {
     // (move.ts then treats every consumable as unlimited, the old behaviour).
     itemCharges?: { p1: Record<string, number>; p2: Record<string, number> };
     itemsUsed?: { p1: Record<string, number>; p2: Record<string, number> };
+    // Which sides resolved to an authoritative SAVE at create time (real
+    // players). claim-rewards settles a side's consumables from EITHER player's
+    // claim, but ONLY for sides stamped real here — an NPC opponent that
+    // happens to share a real player's name (sector wanderers mimic player
+    // names) must never cause a deduction from that player's save. Absent on
+    // legacy in-flight sessions → claim-rewards falls back to claimer-only.
+    realFighters?: { p1: boolean; p2: boolean };
     // Environment snapshot captured at create time. /api/pvp/move reads
     // these from the session instead of trusting the request body — stops
     // clients from changing biome / weather between rounds.
@@ -610,22 +618,32 @@ export function resolveEquippedLoadout(
     if (save) {
         const bloodlines = save.savedBloodlines;
         if (Array.isArray(bloodlines)) {
+            // Only CARRIED bloodlines contribute jutsu definitions: the starter
+            // (character.bloodline, legacy alias remapped) and the currently
+            // equipped one — the same set the client's getCharacterBloodlines
+            // grants access from. A save can hold up to 5 forged bloodlines;
+            // folding them ALL in let a player field every kit at once while
+            // only one paid the multiplier.
+            const starterName = saveCharacter.bloodline === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(saveCharacter.bloodline ?? '');
+            const starterId = BUILTIN_BLOODLINES.find((b) => b.name === starterName)?.id;
+            const equippedBloodlineId = typeof saveCharacter.equippedBloodlineId === 'string' ? saveCharacter.equippedBloodlineId : '';
             // Stamp each bloodline's rank onto its jutsu so combat reads the correct
             // per-rank Wound/amp caps (move.ts woundCapForJutsu / ampTagCapForRank).
             // The rank lives on the bloodline OBJECT, not the per-jutsu objects, and
             // is taken from the AUTHORITATIVE save (the client body is never trusted).
             // Without this, A/S bloodline jutsu fall through to the BASIC caps
-            // (Wound 25 / amp 30) instead of their rank's (A 30/35, S 35/40) — so the
-            // four built-in A-rank bloodlines currently under-apply their tags.
-            // Gated by BLOODLINE_RANK_CAPS so the (small) A/S cap lift rolls out
-            // deliberately; flag-off leaves rank unstamped → basic caps, byte-
-            // identical to today. The always-on save entitlement plus the paid,
-            // one-use /bloodlines/forge path prevents forged ranks from claiming
-            // higher caps than the player legitimately earned.
+            // (Wound 25 / amp 30) instead of their rank's (A 30/35, S 35/40).
+            // The old BLOODLINE_RANK_CAPS rollout flag is RETIRED — the stamp is
+            // always on (api/pvp/_rank-caps.test.ts pins this with the env var
+            // cleared). The always-on save entitlement plus the paid, one-use
+            // /bloodlines/forge path prevents forged ranks from claiming higher
+            // caps than the player legitimately earned.
             const stampRank = true;
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object') continue;
                 const bl = b as Record<string, unknown>;
+                const blId = typeof bl.id === 'string' ? bl.id : '';
+                if (blId !== equippedBloodlineId && blId !== starterId) continue;
                 const blRank = typeof bl.rank === 'string' ? bl.rank : null;
                 let jutsus = bl.jutsus;
                 // Defense-in-depth: enforce the bloodline point budget here too, so a
@@ -648,12 +666,28 @@ export function resolveEquippedLoadout(
         jutsuObjectsById(extra, save.creatorJutsus);
     }
     const resolved: unknown[] = [];
+    const denied: string[] = [];
     for (const id of equippedIds) {
         const fromCatalog = JUTSU_CATALOG[id];
-        if (fromCatalog) { resolved.push({ ...fromCatalog }); continue; }
-        const fromExtra = extra.get(id);
-        if (fromExtra) resolved.push(fromExtra);
-        // else: unknown id (not built-in, not in the save's content) → dropped.
+        const jutsu = fromCatalog ? { ...fromCatalog } : extra.get(id);
+        if (!jutsu) continue; // unknown id (not built-in, not in the save's content) → dropped.
+        // Bloodline access gate (api/pvp/_bloodline-gate.ts): a bloodline-only
+        // jutsu is sealed into the fight ONLY when the save actually carries the
+        // granting bloodline — the client-side canEquipElementJutsu check alone
+        // let a tampered save field any built-in/authored bloodline kit. Skipped
+        // for save-less callers (NPC loadouts are server-authored).
+        if (save && !characterMayUseJutsu(saveCharacter, save, jutsu as { id?: unknown; element?: unknown })) {
+            denied.push(id);
+            continue;
+        }
+        resolved.push(jutsu);
+    }
+    if (denied.length > 0) {
+        console.warn(
+            '[pvp-loadout] bloodline-gated jutsu dropped',
+            safeLogValue(saveCharacter.name),
+            safeLogValue(denied.join(',')),
+        );
     }
     return resolved;
 }
@@ -690,12 +724,28 @@ function resolveEquippedPvpItems(
     )];
     if (ids.length === 0) return null;
     const getItem = buildItemLookup(save.creatorItems, adminItems);
+    // Elemental Core attunement overlay: api/weapon/apply-elemental-core.ts
+    // stores the attuned element in character.weaponElements (weaponId →
+    // element; server-owned — the save sanitizer forces the stored copy), but
+    // catalog copies carry no weaponElement, so without this stamp the paid
+    // attunement never reached server combat (move.ts / towers gate the
+    // bloodline boost + weather on serverItem.weaponElement). An item whose own
+    // definition already carries an authored weaponElement keeps it; the value
+    // is whitelisted downstream by sanitizePvpItems (VALID_WEAPON_ELEMENTS).
+    const attuned = saveCharacter.weaponElements && typeof saveCharacter.weaponElements === 'object' && !Array.isArray(saveCharacter.weaponElements)
+        ? saveCharacter.weaponElements as Record<string, unknown>
+        : null;
     const resolved: unknown[] = [];
     const unresolved: string[] = [];
     for (const id of ids) {
         const item = getItem(id);
-        if (item) resolved.push({ ...(item as Record<string, unknown>) });
-        else unresolved.push(id);
+        if (!item) { unresolved.push(id); continue; }
+        const copy = { ...(item as Record<string, unknown>) };
+        const attunedElement = attuned?.[id];
+        if (copy.weaponElement == null && typeof attunedElement === 'string' && attunedElement) {
+            copy.weaponElement = attunedElement;
+        }
+        resolved.push(copy);
     }
     // An id we can't resolve is still DROPPED (never a throw — a fight must not
     // fail to start over one piece of gear), but it no longer happens silently:
@@ -780,6 +830,20 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     //   Genjutsu  → genOff/genDef + intelligence + willpower
     //   Ninjutsu  → ninOff/ninDef + willpower + speed
     merged.stats = clampStatsObject(saveCharacter.stats ?? clientCharacter.stats);
+    // Gear specialty-stat fold (owner ruling 2026-07-31): equipped items'
+    // combat-stat bonuses (a named weapon's rolled offense, armor's stat
+    // grants) apply in SERVER combat exactly like the client's
+    // characterCombatStats build in Arena.tsx — added on top of the clamped
+    // base stats, BEFORE each engine's at-use per-rank cap, same order as the
+    // client. Save-backed fighters only (NPC stats are server-authored whole).
+    if (save) {
+        const gearStats = deriveEquipmentStatBonuses(saveCharacter, save, admin?.items ?? null);
+        const stats = merged.stats as Record<string, number>;
+        for (const [field, bonus] of Object.entries(gearStats)) {
+            // Keys come from the fixed EQUIPMENT_STAT_BONUS_FIELDS whitelist.
+            stats[field] = clampNumber((Number(stats[field]) || 0) + bonus, 0, SESSION_MAX_STAT, 0);
+        }
+    }
     // Vitals defense-in-depth. A tampered save could ship a huge maxHp
     // (effectively unkillable) or maxChakra (Poison ticks scale off the victim's
     // maxChakra). Clamp to the game's hard caps — HP_CAP 10000, CHAKRA/STAMINA
@@ -1464,6 +1528,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     p2: sealItemCharges(finalP2Character, (p2Save?.character as Record<string, unknown>) ?? null),
                 },
                 itemsUsed: { p1: {}, p2: {} },
+                // Which sides are real players (see the type). Sealed here so
+                // claim-rewards can settle BOTH fighters' consumables from either
+                // claim without ever touching a same-named NPC's "save".
+                realFighters: { p1: !!p1Save?.character, p2: !!p2Save?.character },
                 ...rankedStamp,
                 ...baseRewardStamp,
             };

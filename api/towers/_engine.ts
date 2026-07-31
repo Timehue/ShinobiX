@@ -215,6 +215,12 @@ function bfsNextStepToward(session: TowerSession, from: number, to: number, igno
 export function computeDamage(attacker: TowerActor, defender: TowerActor, jutsu: JutsuLike, masteryLevel: number): number {
     const offStats = (attacker.character.stats as Record<string, number>) ?? {};
     const defStats = (defender.character.stats as Record<string, number>) ?? {};
+    // DELIBERATE cross-engine difference: the +10% home-village terrain buff is
+    // a PvP-territory perk (sealed at pvp/session create from server-verified
+    // clan ownership of the fight's sector). Tower-engine fights happen inside
+    // instanced content (towers/spire/clan boss/missions/hollow gate) where no
+    // one "owns" the ground, so the seal strips homeTerrainType here — do NOT
+    // "fix" this to match PvP. Biome terrain + weather DO apply in both engines.
     const attackerCharacter = { ...attacker.character, homeTerrainType: undefined };
     const result = directDamageBaseFormula({
         jutsu: {

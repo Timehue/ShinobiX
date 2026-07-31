@@ -21,7 +21,8 @@ import { buildItemCatalog, buildBuiltinBloodlineIds } from "./item-catalog-gen.m
 // hooks the .ts require). The server side (api/pvp/session.ts, also CJS) imports
 // it normally with `from './_item-catalog.js'`.
 const require = createRequire(import.meta.url);
-const { ITEM_CATALOG, BUILTIN_BLOODLINE_IDS } = require("../api/pvp/_item-catalog.ts");
+const { ITEM_CATALOG, BUILTIN_BLOODLINE_IDS, EVENT_ITEM_IDS } = require("../api/pvp/_item-catalog.ts");
+import { eventItems } from "../shinobij.client/src/data/event-items.ts";
 
 describe("item catalog parity (server ⇄ client)", () => {
     it("committed catalog matches the freshly-derived client data", () => {
@@ -39,6 +40,16 @@ describe("item catalog parity (server ⇄ client)", () => {
             buildBuiltinBloodlineIds(),
             "api/pvp/_item-catalog.ts bloodline ids are stale — run: node --import tsx scripts/item-catalog-gen.mjs",
         );
+    });
+
+    it("contains every event item and marks it in EVENT_ITEM_IDS", () => {
+        // Event gear must resolve in server combat (it is equippable), but the
+        // id set exists so reward pools (Clan Exchange caches) can exclude it.
+        for (const item of eventItems) {
+            assert.ok(ITEM_CATALOG[item.id], `event item ${item.id} missing from the server catalog`);
+            assert.ok(EVENT_ITEM_IDS.has(item.id), `event item ${item.id} missing from EVENT_ITEM_IDS`);
+        }
+        assert.equal(EVENT_ITEM_IDS.size, eventItems.length, "EVENT_ITEM_IDS carries stale event ids");
     });
 
     it("contains the built-in armor + weapons the multiplier/weapon derivation needs", () => {

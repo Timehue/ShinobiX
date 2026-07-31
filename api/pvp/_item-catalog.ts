@@ -2,7 +2,8 @@
  * GENERATED FILE — do not edit by hand.
  *
  * Server-side catalog of built-in items (the canonical starterItems: armor,
- * weapons, throwables, consumables, gear), used by api/pvp/session.ts +
+ * weapons, throwables, consumables, gear — plus the story eventItems, which
+ * are obtainable equipment too), used by api/pvp/session.ts +
  * api/pvp/_multipliers.ts to derive the combat multiplier layer and resolve a
  * player's equipped weapons WITHOUT trusting the session creator's client.
  * Regenerate with:
@@ -10,8 +11,8 @@
  *   node --import tsx scripts/item-catalog-gen.mjs
  *
  * Kept in lock-step with shinobij.client/src/data/starter-items.ts +
- * shinobij.client/src/data/jutsu.ts by scripts/item-catalog.test.mjs
- * (runs in `npm test`).
+ * shinobij.client/src/data/event-items.ts + shinobij.client/src/data/jutsu.ts
+ * by scripts/item-catalog.test.mjs (runs in `npm test`).
  */
 
 export type CatalogItem = {
@@ -92,6 +93,15 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "elemental-pet-treat": {"id":"elemental-pet-treat","name":"Elemental Treats","slot":"item","rarity":"rare","cost":260,"stackable":true,"bonuses":{}},
     "elemental-shard": {"id":"elemental-shard","name":"Elemental Shard","slot":"item","rarity":"epic","cost":0,"stackable":true,"bonuses":{}},
     "embercoil-scythe": {"id":"embercoil-scythe","name":"Embercoil Scythe","slot":"hand","rarity":"legendary","cost":100,"levelReq":40,"weaponRange":4,"weaponCooldown":5,"weaponEp":27,"weaponEffect":"Lifesteal","weaponEffectValue":30,"bonuses":{"taijutsuOffense":128}},
+    "event-forged-die": {"id":"event-forged-die","name":"The Forged Escrow-Die","slot":"aura","rarity":"epic","cost":0,"levelReq":65,"bonuses":{"intelligence":18,"ninjutsuOffense":18}},
+    "event-kesa-marker": {"id":"event-kesa-marker","name":"Kesa's Ridge Marker","slot":"waist","rarity":"rare","cost":0,"levelReq":25,"bonuses":{"taijutsuDefense":16,"willpower":10}},
+    "event-kesa-storm-seal": {"id":"event-kesa-storm-seal","name":"Kesa's Storm-Seal","slot":"aura","rarity":"epic","cost":0,"levelReq":58,"bonuses":{"ninjutsuOffense":20,"maxChakra":80}},
+    "event-reed-tally": {"id":"event-reed-tally","name":"Reed Family Tally","slot":"head","rarity":"rare","cost":0,"levelReq":30,"bonuses":{"intelligence":15,"maxChakra":70}},
+    "event-sealed-file": {"id":"event-sealed-file","name":"A Child's Sealed File","slot":"aura","rarity":"epic","cost":0,"levelReq":58,"bonuses":{"genjutsuOffense":22,"maxChakra":90}},
+    "event-struck-nameplate": {"id":"event-struck-nameplate","name":"Aren's Struck Name-Plate","slot":"aura","rarity":"epic","cost":0,"levelReq":58,"bonuses":{"ninjutsuOffense":22,"willpower":15}},
+    "event-struck-warmth-token": {"id":"event-struck-warmth-token","name":"A Struck Warmth-Token","slot":"waist","rarity":"epic","cost":0,"levelReq":58,"bonuses":{"taijutsuDefense":20,"intelligence":12}},
+    "event-true-roll-page": {"id":"event-true-roll-page","name":"A Page of the True Roll","slot":"aura","rarity":"rare","cost":0,"levelReq":42,"bonuses":{"willpower":18,"maxStamina":80}},
+    "event-unsworn-page": {"id":"event-unsworn-page","name":"Nyx's Unsworn Page","slot":"aura","rarity":"rare","cost":0,"levelReq":30,"bonuses":{"speed":12,"intelligence":15}},
     "evo-stone-ascension": {"id":"evo-stone-ascension","name":"Ascension Stone","slot":"item","rarity":"mythic","cost":400,"bonuses":{}},
     "evo-stone-awakening": {"id":"evo-stone-awakening","name":"Awakening Stone","slot":"item","rarity":"legendary","cost":150,"bonuses":{}},
     "frostbite-cleaver": {"id":"frostbite-cleaver","name":"Frostbite Cleaver","slot":"hand","rarity":"epic","cost":980,"levelReq":25,"weaponRange":4,"weaponCooldown":5,"weaponEp":24,"weaponEffect":"Decrease Damage Given","weaponEffectValue":20,"bonuses":{"ninjutsuOffense":115}},
@@ -198,3 +208,8 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
 // Ids of the four built-in (starter) bloodlines — drives the flat-1.08 branch of
 // the server bloodline-multiplier derivation (api/pvp/_multipliers.ts).
 export const BUILTIN_BLOODLINE_IDS: readonly string[] = ["starter-bloodline-ashen-eyes","starter-bloodline-inferno-cataclysm","starter-bloodline-iron-fang","starter-bloodline-shadow-lotus"];
+
+// Ids of story-event items. In the catalog so equipped event gear resolves in
+// server combat, but EXCLUDED from generic reward pools (e.g. the Clan Exchange
+// cache rolls) — event items are earned from their events, never re-rolled.
+export const EVENT_ITEM_IDS: ReadonlySet<string> = new Set(["event-forged-die","event-kesa-marker","event-kesa-storm-seal","event-reed-tally","event-sealed-file","event-struck-nameplate","event-struck-warmth-token","event-true-roll-page","event-unsworn-page"]);
