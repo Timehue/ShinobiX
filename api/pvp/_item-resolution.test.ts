@@ -108,11 +108,32 @@ describe('equipped-item resolution against the admin catalog', () => {
         assert.equal(withoutAdmin.armorRawDR, 0);
     });
 
-    it('budgets an over-budget admin item exactly like a player creator item', () => {
-        const forged = buildAdminItemCatalog([
-            { creatorItems: [{ id: 'forged-admin', slot: 'body', bonuses: { reflectPercent: 50, shield: 5000 } }] },
+    // Owner ruling: Item Maker content is SUPPOSED to be able to exceed built-in
+    // gear. The Item Maker is admin-only and its output lives solely on the admin
+    // save slots, so it is owner content rather than a forge surface — and an admin
+    // save already skips sanitizeCharacterSave, so it is stored unclamped too.
+    // The player's own creatorItems array IS client-written, so it stays budgeted.
+    it('leaves an above-baseline ADMIN item unclamped', () => {
+        const authored = buildAdminItemCatalog([
+            { creatorItems: [{ id: 'authored-mythic', slot: 'body', bonuses: { reflectPercent: 50, shield: 5000 } }] },
         ]);
-        const getItem = buildItemLookup([], forged);
-        assert.deepEqual((getItem('forged-admin') as Record<string, unknown>).bonuses, { reflectPercent: 2, shield: 150 });
+        const getItem = buildItemLookup([], authored);
+        assert.deepEqual((getItem('authored-mythic') as Record<string, unknown>).bonuses, { reflectPercent: 50, shield: 5000 });
+    });
+
+    it("still budgets a player's OWN over-budget creator item", () => {
+        const getItem = buildItemLookup([{ id: 'forged-by-player', slot: 'body', bonuses: { reflectPercent: 50, shield: 5000 } }]);
+        assert.deepEqual((getItem('forged-by-player') as Record<string, unknown>).bonuses, { reflectPercent: 2, shield: 150 });
+    });
+
+    // The outer rails still bound what an authored item can actually do in a fight.
+    it('still clamps the DERIVED multipliers an unclamped admin item feeds', () => {
+        const authored = buildAdminItemCatalog([
+            { creatorItems: [{ id: 'authored-mythic', slot: 'body', bonuses: { reflectPercent: 500, damagePercent: 9999 } }] },
+        ]);
+        const mult = deriveCombatMultipliers(saveCharacter({ body: 'authored-mythic' }), { creatorItems: [] }, authored);
+        assert.ok(mult.itemReflectPct > 2, 'authored value is not cut to the built-in baseline');
+        assert.ok(mult.itemReflectPct <= 500, 'derived value is still a finite, bounded number');
+        assert.ok(Number.isFinite(mult.itemDamagePct));
     });
 });
