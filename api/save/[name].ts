@@ -130,6 +130,13 @@ export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat
         for (const k of SHARED_ADMIN_CONTENT_FIELDS) {
             if (k in data) out[k] = data[k];
         }
+        // A player-forged item is NEVER shared game content. One that reaches an
+        // admin slot (see stripForgedItems) would otherwise be handed to every
+        // client, which merges shared content into its own `creatorItems` and
+        // persists it — that is exactly how one forged weapon ended up mirrored
+        // into 88 unrelated saves. Filtering on the way OUT also neutralizes any
+        // copy already stored on a slot, with no data migration.
+        if (Array.isArray(out.creatorItems)) out.creatorItems = stripForgedItems(out.creatorItems);
     }
     return out;
 }
@@ -418,6 +425,25 @@ function strictRawSaveLedgerEnabled(): boolean {
 export const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 
 /**
+ * Drop every server-forged item from a `creatorItems` array.
+ *
+ * Forged gear is PERSONAL: `api/craft/named.ts` mints it into one player's own
+ * array and its definition belongs nowhere else. The `Admin 1` / `Admin 2`
+ * accounts are ordinary player saves that double as the shared-content store, so
+ * a client that still held a personal `creatorItems` state when it saved as an
+ * admin published that forged item to every player — the client merges shared
+ * admin content into its own array and persists it. Admin content and forged
+ * gear must therefore never mix.
+ */
+export function stripForgedItems(list: unknown): unknown[] {
+    if (!Array.isArray(list)) return [];
+    return list.filter((item) => {
+        if (!item || typeof item !== 'object') return true;
+        return !FORGED_ITEM_ID.test(String((item as Record<string, unknown>).id ?? ''));
+    });
+}
+
+/**
  * Re-attach server-forged items the incoming save omits.
  *
  * `creatorItems` is normally replaced wholesale by the client's copy, which is
@@ -648,6 +674,12 @@ function enforceRawSaveLedgerBoundary(
 export function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
+    // True when the target is `save:admin1` / `save:admin2` — the player saves
+    // that double as the shared-content store. Forged gear is stripped rather
+    // than preserved there: it is personal, and anything on those slots is
+    // published to every client. Defaults false, so ordinary player saves are
+    // unaffected.
+    opts: { adminContentSlot?: boolean } = {},
 ): Record<string, unknown> {
     const isFirstSave = existing == null;
     const inChar = incoming.character as Record<string, unknown> | undefined;
@@ -2030,6 +2062,10 @@ export function sanitizeCharacterSave(
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
     if (isFirstSave) out.creatorItems = [];
     else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
+    // On an admin content slot the rule inverts: strip forged gear instead of
+    // preserving it, so the shared-content store can never accumulate (or
+    // re-acquire) a personal item that would then be published to everyone.
+    else if (opts.adminContentSlot) out.creatorItems = stripForgedItems(sanitizedCreatorItems ?? existing?.creatorItems);
     else if (sanitizedCreatorItems !== undefined) out.creatorItems = preserveForgedItems(sanitizedCreatorItems, existing?.creatorItems, CREATOR_ITEM_CAP);
     for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
         if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
@@ -2459,6 +2495,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         safeIncoming = sanitizeCharacterSave(
                             incoming as Record<string, unknown>,
                             (existing as Record<string, unknown> | null) ?? null,
+                            { adminContentSlot: isAdminContentSlot(name) },
                         );
                         // Cross-validate clan / clanFounder / village against
                         // canonical clan records. This is the gate that stops
@@ -2684,6 +2721,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 _saveVersion: nextSaveVersion(adminStoredVersion),
                 _saveAt: Date.now(),
             };
+            // This path skips sanitizeCharacterSave entirely, so apply the
+            // admin-slot rule here too: personal forged gear is never shared
+            // content, no matter which write path put it there.
+            if (isAdminContentSlot(name) && Array.isArray((payload as Record<string, unknown>).creatorItems)) {
+                (payload as Record<string, unknown>).creatorItems = stripForgedItems((payload as Record<string, unknown>).creatorItems);
+            }
 
             const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
             const registryEntry = buildPublicPlayerIndexEntry(char, name);
