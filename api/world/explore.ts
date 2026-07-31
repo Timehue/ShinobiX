@@ -32,7 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : [];
             const prior = receipts.find((entry) => entry.id === requestId);
             if (prior) return { ok: true as const, character, value: { reward: prior.reward, replayed: true } };
-            const applied = applySectorExploreReward(character, body.sector, today);
+            const credit = body.credit === 'tile' ? 'tile' as const : 'full' as const;
+            const applied = applySectorExploreReward(character, body.sector, today, credit);
             if (!applied.ok) return { ok: false as const, status: 409, error: applied.reason };
             const receipt = { id: requestId, sector: applied.reward.sector, reward: applied.reward, at: Date.now() };
             return {
