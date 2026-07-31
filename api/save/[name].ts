@@ -407,6 +407,50 @@ function strictRawSaveLedgerEnabled(): boolean {
     return process.env.STRICT_RAW_SAVE_LEDGER === '1';
 }
 
+// Ids that ONLY the server can mint: api/craft/named.ts writes a forged piece
+// into the player's top-level `creatorItems` as `named-<kind>-<uuid>`
+// (api/craft/_named.ts buildNamedItem, kind = 'weapon' | 'armor').
+//
+// The uuid is accepted with OR without dashes. buildNamedItem strips them today
+// (`randomUUID().replace(/-/g, '')`), but every forged item currently in the
+// database predates that and carries the dashed form — matching only the
+// stripped shape would protect none of the live gear.
+export const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+
+/**
+ * Re-attach server-forged items the incoming save omits.
+ *
+ * `creatorItems` is normally replaced wholesale by the client's copy, which is
+ * fine for the admin-content mirror that makes up the rest of the array. It is
+ * NOT fine for a forged named weapon/armor: that definition exists nowhere else
+ * (no ITEM_CATALOG entry, not on the admin slots), so a POST from a client that
+ * had not yet seen the forge silently erased it while its id stayed in
+ * `character.equipment` — leaving gear that resolves to nothing and is dropped
+ * from every fight. The `_baseSaveVersion` guard rejects most such writes; this
+ * closes the rest.
+ *
+ * Deliberately narrow: only ids matching the server-minted pattern are revived,
+ * and only when absent from the incoming array. Everything else keeps
+ * replace-semantics, so an admin-deleted item still disappears normally and the
+ * array cannot grow without bound.
+ */
+export function preserveForgedItems(sanitized: unknown, stored: unknown, cap: number): unknown {
+    if (!Array.isArray(sanitized) || !Array.isArray(stored)) return sanitized;
+    const present = new Set(
+        (sanitized as Array<Record<string, unknown>>)
+            .map((item) => (item && typeof item === 'object' ? String(item.id ?? '') : ''))
+            .filter(Boolean),
+    );
+    const missingForged = (stored as Array<Record<string, unknown>>).filter((item) => {
+        if (!item || typeof item !== 'object') return false;
+        const id = String(item.id ?? '');
+        return FORGED_ITEM_ID.test(id) && !present.has(id);
+    });
+    if (missingForged.length === 0) return sanitized;
+    // Forged pieces go first so the cap can never be what drops them.
+    return [...missingForged, ...(sanitized as unknown[])].slice(0, cap);
+}
+
 function starterJutsuIdsForBloodline(raw: unknown): readonly string[] {
     const name = raw === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(raw ?? '');
     return STARTER_BLOODLINE_JUTSU_IDS[name] ?? [];
@@ -1986,7 +2030,7 @@ export function sanitizeCharacterSave(
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
     if (isFirstSave) out.creatorItems = [];
     else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
-    else if (sanitizedCreatorItems !== undefined) out.creatorItems = sanitizedCreatorItems;
+    else if (sanitizedCreatorItems !== undefined) out.creatorItems = preserveForgedItems(sanitizedCreatorItems, existing?.creatorItems, CREATOR_ITEM_CAP);
     for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
         if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
         else delete out[field];

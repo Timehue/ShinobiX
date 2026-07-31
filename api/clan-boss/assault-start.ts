@@ -7,6 +7,7 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { getFloor } from '../towers/_floor-catalog.js';
 import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
+import { loadAdminItemObjects } from '../_admin-item-catalog.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../towers/_encounter.js';
 import { startRound, runAiUntilHuman } from '../towers/_engine.js';
 import { makeRng } from '../towers/_sim.js';
@@ -77,6 +78,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Seal every party member from their authoritative save (host also supplies the
         // client-computed pvpItems/passives). All are LIVE humans; absent ones AFK-pass.
         const hostLoadout = (body.hostLoadout && typeof body.hostLoadout === 'object') ? body.hostLoadout as Record<string, unknown> : {};
+        // Admin-authored item definitions, loaded ONCE for the whole squad (the
+        // read is memoized anyway). Without it an admin-authored equipped item
+        // resolves to nothing and is silently dropped — see api/_admin-item-catalog.ts.
+        const adminItems = await loadAdminItemObjects();
         const squad: SquadMemberInput[] = [];
         for (let i = 0; i < partySlugs.length; i++) {
             const slug = partySlugs[i]!;
@@ -86,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             squad.push({
                 // Contiguous ids even when an ally save is skipped above.
                 id: `sq-${squad.length}`, name: String(char.name ?? slug), ownerSlug: slug, ai: false,
-                character: sealTowerFighter(char, rec!, slug === hostName ? hostLoadout : {}),
+                character: sealTowerFighter(char, rec!, slug === hostName ? hostLoadout : {}, adminItems),
                 itemCharges: sealTowerItemCharges(char),
             });
         }
