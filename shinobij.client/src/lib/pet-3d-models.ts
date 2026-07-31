@@ -74,9 +74,12 @@ export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity"
     // cloned pet does not silently lose its production model.
     const canonicalId = pet.id.replace(/-\d{10,}$/, "");
     const canonicalPet = canonicalId === pet.id ? pet : { ...pet, id: canonicalId };
-    const visualId = petVisualId(canonicalPet);
+    // Resolve to the approved list's OWN string, not the derived one: `url` below
+    // is fetched for the colour atlas, and pet ids come from saves and encounter
+    // snapshots, so the path segment must be a literal this module owns.
+    const visualId = PET_COMBAT_MODEL_IDS.find((id) => id === petVisualId(canonicalPet));
+    if (visualId === undefined) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
     const profile = MODEL_PROFILES[visualId];
-    if (!profile) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
     const isRareWaterSelkie = visualId === "starter-water-r";
     const targetHeight = MODEL_TARGET_HEIGHTS[visualId];
