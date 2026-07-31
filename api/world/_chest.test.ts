@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyAncientChestLoot, rollAncientChestLoot } from './_chest.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 function sequence(...values: number[]) { let i = 0; return () => values[i++] ?? 0; }
 
@@ -41,6 +42,16 @@ describe('ancient chest settlement', () => {
         assert.equal(next.ryo, 110);
         assert.equal(next.fateShards, 1);
         assert.deepEqual(next.inventory, ['shinobi-vest']);
+    });
+
+    it('opens in every sector the world map can find a chest in', () => {
+        // Bounds track the shared world registry — a stale ceiling would make
+        // the outermost sectors' chests unopenable, not merely unpaid.
+        for (let sector = 1; sector <= MAX_WILD_SECTOR; sector++) {
+            assert.ok(rollAncientChestLoot(sector, sequence(0.9, 0.3, 0, 0.9)), `sector ${sector}`);
+        }
+        assert.equal(rollAncientChestLoot(0, sequence(0.9, 0.3, 0, 0.9)), null);
+        assert.equal(rollAncientChestLoot(MAX_WILD_SECTOR + 1, sequence(0.9, 0.3, 0, 0.9)), null);
     });
 
     it('allows repeated stackable treat drops', () => {

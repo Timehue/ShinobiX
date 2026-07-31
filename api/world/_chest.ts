@@ -1,4 +1,5 @@
 import { gainXp } from '../_xp-engine.js';
+import { isWildSector } from '../../shared/sector-geo.js';
 
 export const DAILY_ANCIENT_CHEST_LIMIT = 23;
 export type AncientChestLoot = {
@@ -31,7 +32,8 @@ const RARE_GEAR = [
 
 export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): AncientChestLoot | null {
     const sector = Math.floor(Number(sectorRaw));
-    if (!Number.isFinite(sector) || sector < 1 || sector > 60) return null;
+    // Shared world registry, not a literal — see the note in _explore.ts.
+    if (!isWildSector(sector)) return null;
     const unit = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
     // Character XP is retired (leveling-without-xp map): the old xp line
     // (50 + sector·2) folds into a guaranteed ryo floor; the roll table below
