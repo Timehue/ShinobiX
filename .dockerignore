@@ -36,6 +36,14 @@ Shinobi Journey/
 shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/roster/
 !shinobij.client/public/pet-models/roster/*.glb
+# Stage-0 starters. These are the model EVERY new player fights with until they
+# evolve, so leaving them out 404s the Coliseum for exactly the accounts that
+# have never seen it. Ship them alongside their -r/-l evolutions.
+!shinobij.client/public/pet-models/starter-earth.glb
+!shinobij.client/public/pet-models/starter-fire.glb
+!shinobij.client/public/pet-models/starter-lightning.glb
+!shinobij.client/public/pet-models/starter-water.glb
+!shinobij.client/public/pet-models/starter-wind.glb
 !shinobij.client/public/pet-models/starter-earth-l.glb
 !shinobij.client/public/pet-models/starter-earth-r.glb
 !shinobij.client/public/pet-models/starter-fire-l.glb
