@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { sealTowerFighter, sealTowerItemCharges, clampTowerLoadout } from './_seal.js';
+import type { AdminCombatContent } from '../_admin-content.js';
 import { COMBAT_RESOURCES_V2 } from '../_xp-engine.js';
 
 describe('Battle Towers fighter sealing (P1.B)', () => {
@@ -31,6 +32,43 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         assert.ok(!('inventory' in sealed));
         assert.ok(!('battleTowerClearedFloors' in sealed));
         assert.equal(sealed.name, 'A');
+    });
+
+    // Admin-authored jutsu live ONLY on save:admin1/admin2 (`creatorJutsus` is a
+    // SERVER_LEDGER_TOPLEVEL_FIELD), so the save the sealer reads can never supply
+    // one. These callers mostly pass no client body either, so before the admin
+    // parameter an equipped authored id matched nothing and was DROPPED — the player
+    // entered Towers / Clan Boss / PvE / Anbu / merc fights a jutsu short.
+    it('seals an equipped admin-authored jutsu from the authored catalog', () => {
+        const authored = { id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', ap: 40, effectPower: 36 };
+        const saveChar = { stats: {}, equippedJutsuIds: ['starter-tai-fire-2', 'starter-universal-blitz'] };
+
+        const without = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {});
+        assert.deepEqual((without.jutsu as Array<{ id: string }>).map((j) => j.id), ['starter-tai-fire-2']);
+
+        const admin: AdminCombatContent = { jutsu: new Map([[authored.id, authored]]), items: new Map() };
+        const withAuthored = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {}, admin);
+        const ids = (withAuthored.jutsu as Array<{ id: string }>).map((j) => j.id);
+        assert.deepEqual(ids, ['starter-tai-fire-2', 'starter-universal-blitz']);
+        assert.equal((withAuthored.jutsu as Array<Record<string, unknown>>)[1].effectPower, 36);
+    });
+
+    // Gear half of the same gap (the seal path gained the admin item catalog in
+    // 9a7980971 but no seal-level test): these callers pass no client body, so
+    // without the catalog an equipped authored item resolves to nothing and the
+    // fighter is disarmed for the whole run.
+    it('seals equipped admin-authored gear from the authored catalog', () => {
+        const authored = { id: 'custom-storm-tanto', name: 'Storm Tanto', slot: 'hand', rarity: 'legendary', weaponEp: 40 };
+        const saveChar = { stats: {}, equipment: { hand: 'custom-storm-tanto' } };
+        const save = { creatorItems: [] };
+
+        const without = sealTowerFighter(saveChar, save, {});
+        assert.deepEqual((without.pvpItems as Array<{ id: string }>).map((i) => i.id), []);
+
+        const admin: AdminCombatContent = { jutsu: new Map(), items: new Map([[authored.id, authored]]) };
+        const withGear = sealTowerFighter(saveChar, save, {}, admin);
+        assert.deepEqual((withGear.pvpItems as Array<{ id: string }>).map((i) => i.id), ['custom-storm-tanto']);
+        assert.equal((withGear.pvpItems as Array<{ name: string }>)[0].name, 'Storm Tanto');
     });
 
     it('defaults an invalid specialty to Taijutsu', () => {

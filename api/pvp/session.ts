@@ -11,7 +11,7 @@ import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
-import { loadAdminItemObjects, type AdminItem } from '../_admin-item-catalog.js';
+import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
@@ -562,6 +562,23 @@ export function stripNonCombatFields(character: Record<string, unknown>): Record
 // creator jutsu come from the save; the client body is only a last-resort
 // supplement for a jutsu the save somehow lacks (no worse than the old
 // fully-client path, and still run through sanitizeJutsuList below).
+//
+// ADMIN-AUTHORED jutsu are the case the save cannot cover at all: `creatorJutsus`
+// is a SERVER_LEDGER_TOPLEVEL_FIELD (api/save/[name].ts), so a regular player's
+// record NEVER carries them — they live only on save:admin1/admin2. Without the
+// authored catalog the authoritative branch always missed them and the loadout
+// fell back to the CLIENT body (e.g. "Overload" / starter-universal-blitz); on the
+// seal paths, which pass no client body, it was dropped outright. This is the jutsu
+// twin of `adminItems` in resolveEquippedPvpItems below.
+//
+// DELIBERATE: authored jutsu still lose to JUTSU_CATALOG on a BUILT-IN id — the
+// same precedence buildItemLookup gives ITEM_CATALOG. Do NOT flip it. hydrateImages
+// (App.tsx) seeds full copies of starter jutsu into creatorJutsus just to carry
+// their images and an admin autosave persists them to save:admin1, so that array
+// holds snapshots of built-ins frozen at whatever the client bundle held when they
+// were seeded; letting them win would silently revert later balance changes.
+// Rebalance a built-in in shinobij.client/src/data/jutsu.ts and REGENERATE
+// api/pvp/_jutsu-catalog.ts.
 function jutsuObjectsById(target: Map<string, Record<string, unknown>>, arr: unknown): void {
     if (!Array.isArray(arr)) return;
     for (const j of arr) {
@@ -574,15 +591,22 @@ export function resolveEquippedLoadout(
     saveCharacter: Record<string, unknown>,
     save: Record<string, unknown> | null,
     clientCharacter: Record<string, unknown>,
+    admin: AdminCombatContent | null = null,
 ): unknown[] | null {
     const rawIds = saveCharacter.equippedJutsuIds;
     if (!Array.isArray(rawIds) || rawIds.length === 0) return null;
     const equippedIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string'))];
     if (equippedIds.length === 0) return null;
     // Non-catalog sources, lowest priority first so later sources overwrite:
-    //   client body (weakest) → save's bloodlines + creator jutsu (authoritative).
+    //   client body (weakest) → admin-authored jutsu → save's bloodlines + creator
+    //   jutsu (authoritative).
     const extra = new Map<string, Record<string, unknown>>();
     jutsuObjectsById(extra, clientCharacter.jutsu);
+    if (admin?.jutsu) {
+        for (const [id, jutsu] of admin.jutsu) {
+            if (jutsu && typeof jutsu === 'object') extra.set(id, jutsu);
+        }
+    }
     if (save) {
         const bloodlines = save.savedBloodlines;
         if (Array.isArray(bloodlines)) {
@@ -697,11 +721,12 @@ function resolveEquippedPvpItems(
 // non-combat strip — instead of hand-rolling a divergent snapshot. Pure read function;
 // exporting it changes zero PvP behaviour.
 //
-// `adminItems` is the admin-authored item catalog (api/_admin-item-catalog.ts).
-// It is I/O, so the CALLER loads it (the session-create path already fans out a
-// Promise.all) and this stays synchronous. Omitting it resolves items exactly as
-// before — built-ins ∪ the player's own creatorItems.
-export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, adminItems: ReadonlyMap<string, AdminItem> | null = null): Record<string, unknown> {
+// `admin` is the admin-authored jutsu + item content (api/_admin-content.ts,
+// composing the two catalogs). It is I/O, so the CALLER loads it (the
+// session-create path already fans out a Promise.all) and this stays synchronous.
+// Omitting it resolves exactly as before — built-ins ∪ the save's own content for
+// jutsu, built-ins ∪ the player's own creatorItems for gear.
+export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, admin: AdminCombatContent | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
     // For derived fields the client computes, fall back to the client value
@@ -721,7 +746,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     const numOr = (saveVal: unknown, clientVal: unknown) =>
         saveVal != null && Number.isFinite(Number(saveVal)) ? Number(saveVal) : Number(clientVal);
     const mult = save
-        ? deriveCombatMultipliers(saveCharacter, save, adminItems)
+        ? deriveCombatMultipliers(saveCharacter, save, admin?.items ?? null)
         : {
             bloodlineMult:    numOr(saveCharacter.bloodlineMult,    clientCharacter.bloodlineMult),
             armorFactor:      numOr(saveCharacter.armorFactor,      clientCharacter.armorFactor),
@@ -772,7 +797,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     // Resolve the equipped loadout server-side from the catalog + the save's own
     // content (see resolveEquippedLoadout). Falls back to the raw save/client
     // jutsu only for old saves with no equippedJutsuIds and for NPCs.
-    const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter);
+    const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter, admin);
     merged.jutsu = sanitizeJutsuList(resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu);
     // ── Legacy signature slot (the dedicated 16th slot) ──────────────────────
     // A LEGACY-ONLY prestige slot. Only a Legacy's own signature jutsu can ever
@@ -826,7 +851,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     }
     // Resolve equipped items from the authoritative save (see resolveEquippedPvpItems);
     // fall back to the persisted/client pvpItems for save-less (NPC) callers.
-    const resolvedItems = resolveEquippedPvpItems(saveCharacter, save, adminItems);
+    const resolvedItems = resolveEquippedPvpItems(saveCharacter, save, admin?.items ?? null);
     merged.pvpItems = sanitizePvpItems(resolvedItems ?? saveCharacter.pvpItems ?? clientCharacter.pvpItems);
     merged.jutsu = sealV2JutsuCosts(merged.jutsu, Number(merged.level) || 1, String(merged.specialty ?? ''));
     // Strip everything that isn't combat-relevant. The session is read by
@@ -1168,15 +1193,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let finalP1Character: Record<string, unknown>;
             let finalP2Character: Record<string, unknown>;
 
-            // adminItems: the authoritative definitions for admin-authored gear
+            // admin: the authoritative definitions for admin-authored jutsu AND gear
             // (60s-memoized read of both admin slots). Fetched alongside the saves
             // so an equipped custom item resolves even when the fighter's own
             // creatorItems mirror is stale/empty — see resolveEquippedPvpItems.
-            const [p1SaveRaw, p2SaveRaw, battleLocks, adminItems] = await Promise.all([
+            const [p1SaveRaw, p2SaveRaw, battleLocks, admin] = await Promise.all([
                 p1Norm ? kv.get<Record<string, unknown>>(`save:${p1Norm}`) : Promise.resolve(null),
                 p2Norm ? kv.get<Record<string, unknown>>(`save:${p2Norm}`) : Promise.resolve(null),
                 battleLockFlagsForPlayers([p1Norm ?? '', p2Norm ?? '']),
-                loadAdminItemObjects(),
+                loadAdminCombatContent(),
             ]);
             const p1Save = p1SaveRaw
                 ? settleSaveRecord(p1SaveRaw, { battleLocked: p1Norm ? battleLocks.get(p1Norm) === true : false }).record
@@ -1186,7 +1211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : p2SaveRaw;
 
             if (p1Save?.character) {
-                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save, adminItems);
+                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save, admin);
             } else if (identity.admin) {
                 finalP1Character = hydrateNpcCharacter(p1Character);
             } else if (identity.name === p1Norm) {
@@ -1197,7 +1222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (p2Save?.character) {
-                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character, p2Save, adminItems);
+                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character, p2Save, admin);
             } else if (identity.admin) {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             } else if (identity.name === p2Norm) {

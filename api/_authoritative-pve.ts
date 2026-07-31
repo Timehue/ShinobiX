@@ -1,6 +1,6 @@
 import type { CombatMissionDef } from './missions/_mission-catalog.js';
 import { sealTowerFighter, sealTowerItemCharges } from './towers/_seal.js';
-import type { AdminItem } from './_admin-item-catalog.js';
+import type { AdminCombatContent } from './_admin-content.js';
 import { buildTowerEncounter, type SquadMemberInput } from './towers/_encounter.js';
 import type { EnemySpecialty, EnemyTemplate } from './towers/_enemy-templates.js';
 import type { TowerFloor } from './towers/_floor-catalog.js';
@@ -240,7 +240,7 @@ export function buildAuthoritativeSoloEncounter(params: {
     // SYNCHRONOUS on purpose, so the async handler that calls it loads the catalog
     // (memoized) and passes it in. Omitting it seals exactly as before — and drops
     // any admin-authored equipped item silently.
-    adminItems?: ReadonlyMap<string, AdminItem> | null;
+    admin?: AdminCombatContent | null;
 }): TowerSession {
     const char = params.save.character as Record<string, unknown>;
     const squad: SquadMemberInput[] = [{
@@ -248,7 +248,7 @@ export function buildAuthoritativeSoloEncounter(params: {
         name: String(char.name ?? params.playerName),
         ownerSlug: params.playerName,
         ai: false,
-        character: sealTowerFighter(char, params.save, params.hostLoadout ?? {}, params.adminItems ?? null),
+        character: sealTowerFighter(char, params.save, params.hostLoadout ?? {}, params.admin ?? null),
         itemCharges: sealTowerItemCharges(char),
     }];
     const session = buildTowerEncounter({

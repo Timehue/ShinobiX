@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor } from '../_authoritative-pve.js';
-import { loadAdminItemObjects } from '../_admin-item-catalog.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
 import { writeSession } from '../towers/_tower-store.js';
 import {
     createStoryCombatBinding,
@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             seed,
             now,
             towerId: 'story-boss',
-            adminItems: await loadAdminItemObjects(),
+            admin: await loadAdminCombatContent(),
             hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
         });
         const binding = createStoryCombatBinding({
