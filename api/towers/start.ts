@@ -9,6 +9,7 @@ import { getSpireFloor, spireBossForFloor, isValidSpireTier, spireRequiresFullSq
 import { resolveAscensionModifiers, weeklySpireBlessing, type AscensionSeal } from './_modifiers.js';
 import { weekIndex } from '../missions/_weekly-board.js';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
+import { loadAdminItemObjects } from '../_admin-item-catalog.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
 import { makeRng } from './_sim.js';
@@ -69,6 +70,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(429).json({ error: 'Daily Battle Towers start limit reached.' });
         }
 
+        // Admin-authored item definitions, loaded ONCE for the whole squad (the
+        // read is memoized anyway). Without it an admin-authored equipped item
+        // resolves to nothing and is silently dropped — see api/_admin-item-catalog.ts.
+        const adminItems = await loadAdminItemObjects();
         const squad: SquadMemberInput[] = [];
         let hostAscensionUnlocked = 0; // host's highest spire tier cleared (unlock gate)
         for (let i = 0; i < memberSlugs.length; i++) {
@@ -89,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // from equippedJutsuIds + savedBloodlines/creatorJutsus (the save has no ready
                 // `jutsu` array) — identical to a PvP fighter. The host also supplies the
                 // client-computed pvpItems + passives. itemCharges caps consumables.
-                character: sealTowerFighter(char, rec, slug === hostName ? hostLoadout : {}),
+                character: sealTowerFighter(char, rec, slug === hostName ? hostLoadout : {}, adminItems),
                 itemCharges: sealTowerItemCharges(char),
             });
         }

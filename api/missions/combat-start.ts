@@ -17,6 +17,7 @@ import {
     missionEnemyTemplate,
     missionEnvironment,
 } from '../_authoritative-pve.js';
+import { loadAdminItemObjects } from '../_admin-item-catalog.js';
 import { writeSession } from '../towers/_tower-store.js';
 import { sealCompanionFromSave } from '../towers/_companion.js';
 
@@ -67,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             seed,
             now,
             towerId: 'combat-mission',
+            adminItems: await loadAdminItemObjects(),
             hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
         });
         // Seal the weather (if any) so the engine's wMult junction reads it; absent
