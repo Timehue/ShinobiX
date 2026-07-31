@@ -38,6 +38,13 @@ const CLIENT_GAME_CONSTS = readFileSync(join(ROOT, 'shinobij.client', 'src', 'co
 // EP-at-level scaling for display lives in the jutsu-scaling module; pinned here
 // so the EP a player SEES can't drift from the EP combat actually deals.
 const CLIENT_SCALING = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'jutsu-scaling.ts'), 'utf8');
+// The tower AI planning sim carries its own frozen statFactor copy
+// (COMBAT_FORMULA_DUPLICATION_EXCEPTION) — pinned below so AI planning can't
+// silently diverge from real damage after a retune.
+const SERVER_SIM = readFileSync(join(ROOT, 'api', 'towers', '_sim.ts'), 'utf8');
+// The bloodline offense multiplier table (1.08 starter / 1.10 B / 1.15 A /
+// 1.20 S) is hand-duplicated between the server derivation and the client.
+const SERVER_MULT = readFileSync(join(ROOT, 'api', 'pvp', '_multipliers.ts'), 'utf8');
 
 function num(src: string, name: string): number {
     const m = src.match(new RegExp(`(?:export\\s+)?const\\s+${name}(?:\\s*:[^=]+)?\\s*=\\s*([0-9.]+)`));
@@ -284,5 +291,50 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             'move.ts no longer feeds rank-capped fighters into the combat-core resolveJutsu base-damage phase — the PvP stat cap is dead',
         );
         assert.ok(CLIENT_APP.includes('perRankStatCap('), 'Arena.tsx no longer calls perRankStatCap — the PvE stat cap is dead');
+    });
+
+    // ── statFactor tuning triple-pin ──────────────────────────────────────────
+    // The core damage curve — clamp [0.35, 1.85], slope 0.85 over MAX_STAT*2 —
+    // is written out in THREE places: the authoritative server formula
+    // (combat-core/formulas.ts statFactorFromComposites), the client mirror
+    // (combat-math.ts), and the tower AI planning sim's frozen copy
+    // (towers/_sim.ts statFactor). Retuning one without the others makes PvE
+    // previews / AI planning stop matching real damage.
+    function statFactorTuning(src: string, label: string): { slope: number; lo: boolean; hi: boolean } {
+        const i = src.indexOf('(MAX_STAT * 2)) * ');
+        assert.ok(i >= 0, `${label}: statFactor slope expression "(MAX_STAT * 2)) * <slope>" not found`);
+        const around = src.slice(Math.max(0, i - 140), i + 80);
+        const slope = around.match(/\(MAX_STAT \* 2\)\) \* ([0-9.]+)/);
+        assert.ok(slope, `${label}: statFactor slope literal not found`);
+        return { slope: Number(slope![1]), lo: around.includes('0.35'), hi: around.includes('1.85') };
+    }
+    it('statFactor slope + clamp agree across formulas.ts / combat-math.ts / towers/_sim.ts', () => {
+        const server = statFactorTuning(SERVER_FORMULAS, 'combat-core/formulas.ts');
+        const client = statFactorTuning(CLIENT, 'combat-math.ts');
+        const sim = statFactorTuning(SERVER_SIM, 'towers/_sim.ts');
+        for (const [label, t] of [['server', server], ['client', client], ['sim', sim]] as const) {
+            assert.equal(t.slope, server.slope, `statFactor slope diverged in the ${label} copy`);
+            assert.ok(t.lo && t.hi, `statFactor clamp bounds [0.35, 1.85] missing from the ${label} copy`);
+        }
+    });
+
+    // ── Bloodline offense multiplier table pin (server ⇄ client) ─────────────
+    // deriveBloodlineMultiplier (api/pvp/_multipliers.ts) mirrors the client's
+    // getBloodlineMultiplier (combat-math.ts) by hand: S 1.20 / A 1.15 /
+    // other-rank 1.10, built-in starter flat 1.08. Drift means honest fighters
+    // deal different damage in PvE previews vs the sealed server fight.
+    function bloodlineTable(src: string, label: string): [number, number, number, number] {
+        const ranked = src.match(/S Rank["']\s*\?\s*([0-9.]+)\s*:[^?]*A Rank["']\s*\?\s*([0-9.]+)\s*:\s*([0-9.]+)/);
+        assert.ok(ranked, `${label}: ranked bloodline multiplier ternary not found`);
+        const starter = src.match(/return 1\.08/) ?? src.match(/\breturn ([0-9.]+); \/\/ starter/);
+        assert.ok(starter, `${label}: starter (flat 1.08) branch not found`);
+        return [Number(ranked![1]), Number(ranked![2]), Number(ranked![3]), 1.08];
+    }
+    it('bloodline multiplier table agrees (server _multipliers.ts ⇄ client combat-math.ts)', () => {
+        assert.deepEqual(
+            bloodlineTable(SERVER_MULT, 'api/pvp/_multipliers.ts'),
+            bloodlineTable(CLIENT, 'combat-math.ts'),
+            'bloodline offense multiplier table diverged between the server derivation and the client mirror',
+        );
     });
 });

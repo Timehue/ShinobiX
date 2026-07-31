@@ -2,17 +2,18 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, writeSession, sessionKey } from './_tower-store.js';
-import { clampTowerLoadout } from './_seal.js';
-import { withKvLock } from '../_lock.js';
+import { readSession } from './_tower-store.js';
 
 /*
- * POST /api/towers/join — a squad member (esp. a borrowed/invited ally) supplies their
- * client-computed loadout extras (pvpItems + equipment passives the SAVE doesn't persist) so
- * their LIVE fighter is fully equipped, exactly like the host's at /start. It merges ONLY the
- * clamped loadout fields onto the caller's OWN squad actor — never the server-authoritative
- * stats / jutsu / vitals / itemCharges (those were sealed from the save at /start). Idempotent
- * (re-merging the same clamped values is a no-op in effect). Body: { runId, playerName, loadout }.
+ * POST /api/towers/join — a squad member (esp. a borrowed/invited ally) confirms membership
+ * in a run and receives the session. Purely a read: every member's fighter — jutsu, stats,
+ * pvpItems, and the equipment-derived passives — was already sealed SERVER-SIDE from their
+ * authoritative save at /start (sealTowerFighter → hydrateCharacterFromSave derives pvpItems
+ * + multipliers via resolveEquippedPvpItems / deriveCombatMultipliers). The endpoint used to
+ * Object.assign a clamped client `loadout` onto the sealed actor, which let a tampered client
+ * overwrite its server-derived gear with inflated values (armorRawDR up to the 1.5 clamp,
+ * 5000 shield, 60-EP weapons) in a reward-paying mode — the body's `loadout` is now ignored.
+ * Body: { runId, playerName }.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -29,26 +30,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only join as yourself.' });
 
-        // Merge the caller's clamped loadout under the session lock so it can't clobber a
-        // concurrent /action turn write or /state AFK-pass (re-read fresh inside).
-        const outcome = await withKvLock(sessionKey(runId), async (): Promise<{ status: number; body: unknown }> => {
-            const session = await readSession(runId);
-            if (!session) return { status: 404, body: { error: 'Run not found.' } };
+        // Read-only membership check: the actor's loadout was sealed at /start and
+        // is immutable mid-run, so no session lock or write is needed here.
+        const session = await readSession(runId);
+        if (!session) return res.status(404).json({ error: 'Run not found.' });
 
-            // Only the caller's own LIVE squad actor (membership = ownership).
-            const myActor = session.actors.find(a => a.side === 'squad' && a.ownerSlug === playerName);
-            if (!myActor) return { status: 403, body: { error: 'Not a member of this run.' } };
-            if (session.status !== 'active') return { status: 200, body: { session } };
-
-            const loadout = (body.loadout && typeof body.loadout === 'object') ? body.loadout as Record<string, unknown> : {};
-            const clamped = clampTowerLoadout(loadout);
-            if (Object.keys(clamped).length > 0) {
-                Object.assign(myActor.character, clamped);
-                await writeSession(session);
-            }
-            return { status: 200, body: { session } };
-        });
-        return res.status(outcome.status).json(outcome.body);
+        // Only the caller's own LIVE squad actor (membership = ownership).
+        const myActor = session.actors.find(a => a.side === 'squad' && a.ownerSlug === playerName);
+        if (!myActor) return res.status(403).json({ error: 'Not a member of this run.' });
+        return res.status(200).json({ session });
     } catch (err) {
         console.error('[towers/join]', err);
         return res.status(500).json({ error: 'Internal server error.' });
