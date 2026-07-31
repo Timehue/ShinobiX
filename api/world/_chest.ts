@@ -7,10 +7,27 @@ export type AncientChestLoot = {
 };
 
 const TREATS = ['pet-treat', 'elemental-pet-treat', 'ancient-pet-treat'] as const;
-const COMMON_CARDS = [...Array.from({ length: 20 }, (_, i) => i + 1), ...Array.from({ length: 20 }, (_, i) => i + 51)]
-    .map((n) => `tc-${String(n).padStart(2, '0')}`);
-const RARE_CARDS = [...Array.from({ length: 20 }, (_, i) => i + 21), ...Array.from({ length: 20 }, (_, i) => i + 71)]
-    .map((n) => `tc-${String(n).padStart(2, '0')}`);
+const cardIds = (ranges: Array<[number, number]>) => ranges.flatMap(([from, to]) =>
+    Array.from({ length: to - from + 1 }, (_, i) => `tc-${String(from + i).padStart(2, '0')}`));
+// Mirrors the rarity split in shared/tile-cards.ts — every common and every
+// rare in the catalog, so a chest can drop the same card set the client's own
+// roll used to. `tc-91`..`tc-95` were the five rares this table used to miss.
+const COMMON_CARDS = cardIds([[1, 20], [51, 70]]);
+const RARE_CARDS = cardIds([[21, 40], [71, 95]]);
+// Mirrors the chest-eligible gear in shinobij.client/src/data/starter-items.ts
+// (rarity common/rare, excluding the `item` slot). Kept in sync by the parity
+// assertions in _chest.test.ts — the client used to pick at random from these,
+// and this table previously collapsed each tier to a single fixed item.
+const COMMON_GEAR = [
+    'shinobi-vest', 'thrown-shuriken', 'cloth-hood', 'cloth-robe', 'cloth-sash', 'cloth-pants',
+    'cloth-sandals', 'rustfang-kunai', 'training-katana', 'ash-wrapped-tanto',
+    'rookie-chain-sickle', 'cracked-bone-dagger',
+];
+const RARE_GEAR = [
+    'chakra-ring', 'thrown-senbon', 'thrown-serpent-dust', 'potion-rejuvenation', 'iron-kabuto',
+    'rare-chest-plate', 'chain-obi', 'rare-greaves', 'rare-tabi', 'mistfang-tanto',
+    'ashen-leaf-saber', 'riverbone-spear', 'iron-fang-knuckles', 'blue-thread-dagger',
+];
 
 export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): AncientChestLoot | null {
     const sector = Math.floor(Number(sectorRaw));
@@ -23,8 +40,8 @@ export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): 
     if (unit() < 0.5) loot.ryo = (loot.ryo ?? 0) + 100 + Math.floor(unit() * 401);
     const roll = unit();
     if (roll < 0.2) loot.itemId = TREATS[Math.floor(unit() * TREATS.length)];
-    else if (roll < 0.55) loot.itemId = 'shinobi-vest';
-    else if (roll < 0.65) loot.itemId = 'chakra-ring';
+    else if (roll < 0.55) loot.itemId = COMMON_GEAR[Math.floor(unit() * COMMON_GEAR.length)];
+    else if (roll < 0.65) loot.itemId = RARE_GEAR[Math.floor(unit() * RARE_GEAR.length)];
     else if (roll < 0.83) loot.cardId = COMMON_CARDS[Math.floor(unit() * COMMON_CARDS.length)];
     else if (roll < 0.92) loot.cardId = RARE_CARDS[Math.floor(unit() * RARE_CARDS.length)];
     else if (roll < 0.97) loot.fateShards = 1;
