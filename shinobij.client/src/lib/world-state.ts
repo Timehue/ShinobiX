@@ -20,7 +20,7 @@ import { CW_DAMAGE } from "../constants/clan";
 import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_DAILY_WAR_SUPPLY, TERRITORY_HP_MAX, TERRITORY_SUPPLY_INTERVAL_MS, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
-import { isWildSector, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
+import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 import { warCrateServerAuthEnabled } from "./war-crate-flag";
 import { isServerSettlementReady } from "./server-settlement-gate";
 import { biomeWeatherTables } from "../data/world";
@@ -343,7 +343,11 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
             [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
             [second]: clampNumber(Math.floor(Number(data.hp?.[second] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
         },
-        warGroundSector: clampNumber(Math.floor(Number(data.warGroundSector ?? firstOpenWarGroundSector())), 1, 60),
+        // Bound MUST match api/world-state.ts (which already reads MAX_WILD_SECTOR).
+        // This mirror kept `60` through the 61-66 expansion, so a war ground on a
+        // new sector normalized to 61-66 on the server and 60 on the client — the
+        // two disagreed about which sector the war was being fought over.
+        warGroundSector: clampNumber(Math.floor(Number(data.warGroundSector ?? firstOpenWarGroundSector())), 1, MAX_WILD_SECTOR),
         warGroundHp: clampNumber(Math.floor(Number(data.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX)), 0, VILLAGE_WAR_GROUND_HP_MAX),
         startedAt: data.startedAt ?? Date.now(),
         updatedAt: data.updatedAt ?? Date.now(),

@@ -120,6 +120,16 @@ export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
 export const NON_WALKABLE_SECTORS: readonly number[] = [99];
 
 const GRID_WIDTH = 12;
+
+/**
+ * Tiles on one sector board. Every tile id is `0 .. SECTOR_TILE_COUNT - 1`.
+ *
+ * Exported so validators bound tile ids against the board itself rather than
+ * re-deriving `143` by hand — the same hardcode-drift that let `<= 60` outlive
+ * the 61-66 sector expansion and silently broke travel into the new ground.
+ */
+export const SECTOR_TILE_COUNT = GRID_WIDTH * GRID_WIDTH;
+
 const POINT_BY_ID = new Map(SECTOR_POINTS.map((point) => [point.id, point]));
 
 function directionFromTo(sector: number, destination: number): SectorDirection {
