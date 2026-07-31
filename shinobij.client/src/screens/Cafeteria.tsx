@@ -56,7 +56,7 @@ export function Cafeteria({
                                     ? "Ordering..."
                                     : fullRestore
                                         ? `Full restore - ${meal.cost} ryo`
-                                        : `+${meal.hp} HP +${meal.chakra} Chakra +${meal.stamina} Stamina - ${meal.cost} ryo`}
+                                        : `+${meal.hpPct}% HP +${meal.chakraPct}% Chakra +${meal.staminaPct}% Stamina - ${meal.cost} ryo`}
                             </small>
                         </button>
                     );

@@ -90,6 +90,31 @@ describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => 
     });
 });
 
+describe('gear specialty-stat fold (server = client Arena build)', () => {
+    it('folds equipped-item stat bonuses into the sealed combat stats', () => {
+        // event-kesa-storm-seal carries bonuses { ninjutsuOffense: 20, maxChakra: 80 }.
+        const character = {
+            name: 'Geared',
+            equipment: { aura: 'event-kesa-storm-seal' },
+            stats: { ninjutsuOffense: 100, strength: 50 },
+        };
+        const hydrated = hydrateCharacterFromSave(character, {}, { character, creatorItems: [] });
+        const stats = hydrated.stats as Record<string, number>;
+        assert.equal(stats.ninjutsuOffense, 120, 'gear ninjutsuOffense folds into the sealed stat');
+        assert.equal(stats.strength, 50, 'unrelated stats untouched');
+    });
+
+    it('does not fold for save-less (NPC) fighters', () => {
+        const npc = {
+            name: 'Bandit',
+            equipment: { aura: 'event-kesa-storm-seal' },
+            stats: { ninjutsuOffense: 100 },
+        };
+        const hydrated = hydrateCharacterFromSave(npc, {}, null);
+        assert.equal((hydrated.stats as Record<string, number>).ninjutsuOffense, 100);
+    });
+});
+
 describe('weapon attunement reaches server combat (weaponElements overlay)', () => {
     const save = (character: Record<string, unknown>) => ({ character, creatorItems: [] });
 
