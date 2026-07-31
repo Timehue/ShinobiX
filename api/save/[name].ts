@@ -6,6 +6,7 @@ import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { budgetItemBonuses } from '../_item-budget.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody, setSafeRecordValue } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin, isFullAdmin } from '../_auth.js';
@@ -367,6 +368,12 @@ const ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS = [
     // OAuth callback (api/patreon/*). Forcing it from the stored record here
     // means a client save can never set or forge it (self-granting perks).
     'patreon',
+    // Weapon attunements (weaponId → element) — written ONLY by the
+    // Core-consuming endpoint (api/weapon/apply-elemental-core.ts) and read by
+    // server combat (resolveEquippedPvpItems stamps it onto the resolved
+    // weapon). Forcing the stored copy means a tampered autosave can never
+    // self-attune for free.
+    'weaponElements',
 ] as const;
 
 const SERVER_PAYOUT_CHARACTER_FIELDS = [
@@ -475,6 +482,82 @@ function addOwnedCount(counts: Map<string, number>, rawId: unknown, amount = 1):
     counts.set(id, (counts.get(id) ?? 0) + Math.floor(amount));
 }
 
+/**
+ * Equipment validation that runs on EVERY save write, strict flag or not.
+ *
+ * Outside STRICT_RAW_SAVE_LEDGER the equipment map used to pass through
+ * untouched, so a tampered save could equip built-in ids it never obtained
+ * (full Mythic armor → 0.48 raw DR honored by every server fight). This is the
+ * structural half of the strict branch made unconditional: slot names
+ * whitelisted, duplicate ids and canonical-slot aliases collapsed, and every
+ * equipped id required to exist somewhere the player can actually hold it —
+ * the STORED backpack/equipment (server-granted items + already-equipped gear,
+ * so nothing legit is ever unequipped) or the incoming backpack (covers a
+ * buy → equip landing in a single POST; forged named items enter `inventory`
+ * at craft time, api/craft/named.ts).
+ *
+ * Presence, not count-consumption: non-strict inventory is still client-
+ * writable, so counting would add no security while risking legit states the
+ * client represents differently. Closing inventory forgery itself remains the
+ * STRICT_RAW_SAVE_LEDGER=1 flip; strict mode replaces this with the full
+ * count-consuming version in enforceRawSaveLedgerBoundary.
+ *
+ * Slot-kind: a BUILT-IN item may only occupy a slot its definition fits
+ * (armor DR in _multipliers.ts sums per SLOT KEY, so a body plate parked in
+ * `head` would stack DR the item never earned). Placements already present on
+ * the stored save are grandfathered (same id, same slot) so no live loadout
+ * changes; ids without a resolvable built-in definition (admin/creator items —
+ * the admin catalog is async and this sanitizer is sync) skip the kind check,
+ * combat's own resolution handles those.
+ */
+function slotAcceptsItemKind(equipSlot: string, itemSlot: string): boolean {
+    const want = canonicalEquipmentSlot(equipSlot);
+    const have = canonicalEquipmentSlot(String(itemSlot));
+    if (want === have) return true;
+    // The three combat-item slots all hold slot-'item' consumables.
+    return (want === 'item2' || want === 'item3') && have === 'item1';
+}
+
+function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record<string, unknown>): void {
+    const owned = new Set<string>();
+    for (const source of [stored, char]) {
+        for (const id of Array.isArray(source.inventory) ? source.inventory : []) {
+            if (typeof id === 'string' && id.trim()) owned.add(id.trim());
+        }
+        if (Array.isArray(source.itemStacks)) {
+            for (const raw of source.itemStacks as Array<Record<string, unknown>>) {
+                const itemId = raw && typeof raw === 'object' && typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+                if (itemId && Math.floor(Number(raw.count) || 0) > 0) owned.add(itemId);
+            }
+        }
+    }
+    const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
+        ? stored.equipment as Record<string, unknown>
+        : {};
+    for (const id of Object.values(storedEquipment)) {
+        if (typeof id === 'string' && id.trim()) owned.add(id.trim());
+    }
+    const requestedEquipment = char.equipment && typeof char.equipment === 'object'
+        ? char.equipment as Record<string, unknown>
+        : {};
+    const equipment: Record<string, string> = {};
+    const equippedIds = new Set<string>();
+    const occupiedCanonicalSlots = new Set<string>();
+    for (const [slot, rawId] of Object.entries(requestedEquipment)) {
+        const id = typeof rawId === 'string' ? rawId.trim() : '';
+        const canonicalSlot = canonicalEquipmentSlot(slot);
+        if (!EQUIPMENT_SLOTS.has(slot) || !id || equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
+        if (!owned.has(id)) continue;
+        const grandfathered = String(storedEquipment[slot] ?? '') === id;
+        const builtin = ITEM_CATALOG[id];
+        if (!grandfathered && builtin && !slotAcceptsItemKind(slot, builtin.slot)) continue;
+        equipment[slot] = id;
+        equippedIds.add(id);
+        occupiedCanonicalSlots.add(canonicalSlot);
+    }
+    char.equipment = equipment;
+}
+
 function enforceRawSaveLedgerBoundary(
     char: Record<string, unknown>,
     stored: Record<string, unknown>,
@@ -514,7 +597,10 @@ function enforceRawSaveLedgerBoundary(
         return;
     }
 
-    if (!strictRawSaveLedgerEnabled()) return;
+    if (!strictRawSaveLedgerEnabled()) {
+        enforceEquipmentOwnership(char, stored);
+        return;
+    }
     for (const field of STRICT_SERVER_LEDGER_CHARACTER_FIELDS) copyStoredField(char, stored, field);
 
     const storedMastery = Array.isArray(stored.jutsuMastery) ? stored.jutsuMastery : [];

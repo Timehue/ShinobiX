@@ -152,39 +152,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const key = claimKey(playerName, battleId);
 
         // ── Server-authoritative PvP consumable deduction ───────────────────
-        // Remove the throwables / consumables / potions the SERVER recorded this
+        // Remove the throwables / consumables / potions the SERVER recorded each
         // fighter spending this fight (session.itemsUsed — sealed at create time
         // and decremented per use in move.ts) from their own save. Runs for EVERY
         // pvp fight (ranked AND casual), independent of the rating/base-reward
-        // block below, and is idempotent via a per-(player,battle) NX receipt so a
-        // claim retry can't double-deduct. Best-effort: a fighter who never claims
-        // keeps what they spent (the server-sealed cap already bounded their use).
+        // block below. Settled for BOTH fighters from EITHER player's claim —
+        // mirroring the two-sided rating settle — so a fighter can no longer
+        // keep what they spent by simply never claiming. Each side is idempotent
+        // via its own per-(player,battle) in-save NX receipt, so any mix of
+        // claims/retries deducts each save exactly once. Only sides stamped
+        // realFighters at create are touched (an NPC sharing a real player's
+        // name must never trigger a deduction); legacy sessions without the
+        // stamp fall back to settling the authenticated claimer only.
         const claimerRole: 'p1' | 'p2' | null =
             playerName === safeName(session.p1?.name ?? '') ? 'p1'
             : playerName === safeName(session.p2?.name ?? '') ? 'p2'
             : null;
-        const usedByClaimer: Record<string, number> = (claimerRole && session.itemsUsed?.[claimerRole]) || {};
-        if (claimerRole && Object.keys(usedByClaimer).length > 0) {
+        const itemSides = (['p1', 'p2'] as const)
+            .map((role) => ({
+                role,
+                slug: safeName(session[role]?.name ?? ''),
+                used: session.itemsUsed?.[role] ?? {},
+                real: session.realFighters ? session.realFighters[role] === true : role === claimerRole,
+            }))
+            .filter((side) => side.real && side.slug && Object.keys(side.used).length > 0);
+        if (itemSides.length > 0) {
             try {
-                await withSavesLocked([playerName], async () => {
-                    // Exactly-once AND atomic: the idempotency receipt lives IN the
-                    // deducted save (serverSettlementReceipts), so the deduction and
-                    // its receipt land in ONE kv.set. The old two-key pattern set the
-                    // receipt in a SEPARATE write after the save, so a crash between
-                    // them could re-deduct on retry; now a crash before the write
-                    // re-deducts (fresh) and a crash after skips (replay) — no gap.
-                    // Serialized by the save lock so concurrent claims can't double.
-                    const saveKey = `save:${playerName}`;
-                    const record = await kv.get<Record<string, unknown>>(saveKey);
-                    const char = record?.character as Record<string, unknown> | undefined;
-                    if (!record || !char) return;
-                    const sid = pvpSettlementId('items', battleId);
-                    const decision = inspectPvpCredit(char, sid, 'items');
-                    if (!decision.fresh) return; // already deducted on a prior claim
-                    const deducted = deductUsedItems(char, usedByClaimer);
-                    const withReceipt = embedPvpSettlementReceipt(deducted, decision.receipts, sid, 'items', Date.now());
-                    const next = bumpSaveVersion({ ...record, character: withReceipt });
-                    await kv.set(saveKey, mergePreservingImages(next, record));
+                await withSavesLocked(itemSides.map((side) => side.slug), async () => {
+                    for (const side of itemSides) {
+                        // Exactly-once AND atomic: the idempotency receipt lives IN the
+                        // deducted save (serverSettlementReceipts), so the deduction and
+                        // its receipt land in ONE kv.set. A crash before the write
+                        // re-deducts (fresh) and a crash after skips (replay) — no gap.
+                        // Serialized by the save locks so concurrent claims can't double.
+                        const saveKey = `save:${side.slug}`;
+                        const record = await kv.get<Record<string, unknown>>(saveKey);
+                        const char = record?.character as Record<string, unknown> | undefined;
+                        if (!record || !char) continue;
+                        const sid = pvpSettlementId('items', battleId);
+                        const decision = inspectPvpCredit(char, sid, 'items');
+                        if (!decision.fresh) continue; // already deducted on a prior claim
+                        const deducted = deductUsedItems(char, side.used);
+                        const withReceipt = embedPvpSettlementReceipt(deducted, decision.receipts, sid, 'items', Date.now());
+                        const next = bumpSaveVersion({ ...record, character: withReceipt });
+                        await kv.set(saveKey, mergePreservingImages(next, record));
+                    }
                 });
             } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
         }

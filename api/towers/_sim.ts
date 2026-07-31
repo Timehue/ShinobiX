@@ -38,7 +38,9 @@ export const EP_MULTIPLIER = 32; // move.ts:58
 export const MAX_STAT = 2500; // move.ts:53
 export const SIM_MAX_ROUNDS = 25; // mirrors move.ts MAX_ROUNDS
 
-// statFactor — inlined formula from move.ts:503, identity at off==def, clamp [0.35, 1.85].
+// statFactor — frozen copy of statFactorFromComposites (api/combat-core/formulas.ts),
+// identity at off==def, clamp [0.35, 1.85]. Pinned against the live formula + the
+// client mirror by api/_combat-formula-parity.test.ts — retune all copies together.
 export function statFactor(offense: number, defense: number): number {
     return Math.max(0.35, Math.min(1.85, 1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85));
 }

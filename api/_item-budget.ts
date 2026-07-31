@@ -6,11 +6,14 @@
  * are clamped to the built-in legendary baseline so a forged item can't out-scale
  * real gear (the uniform-endgame-gear ceiling, per the balanced-PvP pillar).
  *
- * Live impact today is small/defense-in-depth: only the passive %s + shield flow
- * into authoritative PvP (api/pvp/_multipliers.ts sumEquippedBonus). Specialty-stat
- * bonuses are NOT folded into server combat, so their budget is storage hygiene +
- * future-proofing. The ceiling includes both built-in legendary gear and the
- * legitimate Named Armor forge ranges.
+ * This budget is LOAD-BEARING for authoritative combat: the passive %s + shield
+ * flow into PvP via api/pvp/_multipliers.ts sumEquippedBonus, and — owner ruling
+ * 2026-07-31 — the specialty-stat bonuses now fold into server combat too
+ * (deriveEquipmentStatBonuses → hydrateCharacterFromSave), matching the client's
+ * Arena characterCombatStats build. The owner has approved these clamps
+ * (2026-07-31): custom/admin items are budgeted to the built-in legendary
+ * baseline in every server fight. The ceiling includes both built-in legendary
+ * gear and the legitimate Named Armor forge ranges.
  *
  * Baselines (see _item-catalog.ts legendary tiers):
  *   passive %s (damage/absorb/reflect/lifesteal) ≤ 2   (Named Armor rolls up to 2%)

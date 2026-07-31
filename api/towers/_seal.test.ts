@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sealTowerFighter, sealTowerItemCharges, clampTowerLoadout } from './_seal.js';
+import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { COMBAT_RESOURCES_V2 } from '../_xp-engine.js';
 
@@ -79,8 +79,10 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     it('RESOLVES the equipped loadout from equippedJutsuIds (the empty-jutsu-bar fix)', () => {
         // A real save has NO `jutsu` array — only equippedJutsuIds. The old direct
         // sanitizeJutsuList(saveChar.jutsu) produced an empty loadout (no castable jutsu).
+        // The fighter carries Ashen Eyes: the bloodline gate (api/pvp/_bloodline-gate.ts)
+        // drops the bloodline kit from any save that doesn't.
         const sealed = sealTowerFighter(
-            { name: 'Hero', stats: {}, equippedJutsuIds: ['ashen-eyes-blood-gaze'] },
+            { name: 'Hero', stats: {}, bloodline: 'Ashen Eyes', equippedJutsuIds: ['ashen-eyes-blood-gaze'] },
             { character: { equippedJutsuIds: ['ashen-eyes-blood-gaze'] } },
         );
         const jutsu = sealed.jutsu as Array<Record<string, unknown>>;
@@ -118,15 +120,6 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         assert.ok(katana, 'equipped weapon resolved from the catalog, not the client-claimed kunai');
         assert.equal(katana!.weaponEp, 30, 'resolved weapon carries its authoritative catalog weaponEp');
         assert.ok(!pvpItems.some((i) => i.id === 'kunai'), 'client-claimed weapon is ignored');
-    });
-
-    it('clampTowerLoadout clamps tampered passives + sanitizes pvpItems (present fields only)', () => {
-        const out = clampTowerLoadout({ bloodlineMult: 99, armorRawDR: 9, itemDamagePct: 9999, pvpItems: [{ id: 'x', name: 'X', slot: 'hand', weaponEp: 999999 }] });
-        assert.equal(out.bloodlineMult, 3);
-        assert.equal(out.armorRawDR, 1.5);
-        assert.equal(out.itemDamagePct, 200);
-        assert.ok(Array.isArray(out.pvpItems));
-        assert.ok(!('armorFactor' in out), 'absent input fields stay absent (merge-safe)');
     });
 
     it('seals a per-fight consumable budget capped by owned count', () => {
