@@ -98,7 +98,9 @@ describe("transient 401 tolerance", () => {
         }
         // The only storage references to a password are the PURGES of the old durable keys.
         for (const key of ["shinobix:activePassword", "shinobix:activePasswordPersist"]) {
-            const uses = [...source.matchAll(new RegExp(`.*${key.replace(/[:]/g, "\\$&")}.*`, "g"))].map((m) => m[0]);
+            // Line scan rather than a regex built from the key: the key is a literal
+            // and a hand-rolled escaper for it would only be a partial one.
+            const uses = source.split(/\r?\n/).filter((line) => line.includes(key));
             for (const use of uses) {
                 assert.match(use, /removeItem/, `${key} may only ever be removed, never written`);
             }

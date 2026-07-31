@@ -32,6 +32,12 @@ const CACHE_TTL_MS = 60_000;
 const MAX_ID_LENGTH = 120;
 // Admin "delete" tombstone — same marker api/shop/_catalog.ts honors.
 const ADMIN_DELETED_ITEM_MARKER = '__ADMIN_DELETED_ITEM__';
+// Player-forged gear (api/craft/named.ts). KEEP IN SYNC with FORGED_ITEM_ID in
+// api/save/[name].ts — the uuid is accepted with or without dashes because
+// buildNamedItem strips them today but every forged item already stored predates
+// that. Duplicated rather than imported to keep this module free of the save
+// handler's import graph.
+const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 
 export type AdminItem = Record<string, unknown> & { id: string };
 type AdminContentRecord = { creatorItems?: unknown };
@@ -40,10 +46,13 @@ type AdminContentRecord = { creatorItems?: unknown };
  * Reproduce the client merge for authored items: later slots win an id collision
  * (Admin 2 over Admin 1), and a tombstone entry removes the id.
  *
- * The item objects are returned AS AUTHORED — no rebalancing here. Callers that
- * feed combat run them through the existing budget/clamps (buildItemLookup in
- * api/pvp/_multipliers.ts applies budgetItemBonuses to every non-built-in item,
- * exactly as it already does for a player's own creatorItems).
+ * The item objects are returned AS AUTHORED, and they STAY that way: buildItemLookup
+ * (api/pvp/_multipliers.ts) deliberately does not run budgetItemBonuses over admin
+ * entries — owner-authored gear is meant to be able to exceed built-in items, and an
+ * admin save already skips the save sanitizer. Only the DERIVED combat multipliers
+ * are bounded (hydrateCharacterFromSave clamps itemDamagePct / absorb / reflect /
+ * lifesteal / shield / armorRawDR regardless of source). A player's OWN creatorItems
+ * are still budgeted — that array is client-written.
  *
  * Exported for tests and for callers that already hold the admin records.
  */
@@ -57,6 +66,11 @@ export function buildAdminItemCatalog(records: readonly (AdminContentRecord | nu
             const id = typeof value.id === 'string' ? value.id.trim() : '';
             if (!id || id.length > MAX_ID_LENGTH) continue;
             if (value.name === ADMIN_DELETED_ITEM_MARKER) { out.delete(id); continue; }
+            // A player-forged piece is personal, never shared content. One that
+            // leaked onto a slot must not become a definition the server hands
+            // to other fighters — its real owner resolves it from their OWN
+            // creatorItems, which this catalog never shadows.
+            if (FORGED_ITEM_ID.test(id)) continue;
             out.set(id, { ...value, id } as AdminItem);
         }
     }
