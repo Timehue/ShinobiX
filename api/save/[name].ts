@@ -31,7 +31,7 @@ import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { applyDerivedLevel, earnedForLevel, earnedStatPoints } from '../_xp-engine.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
-import { maxLoadout, maxPets, isPatreonSubscriber, isPresetAvatar } from '../_entitlements.js';
+import { maxLoadout, maxPets, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference } from '../_entitlements.js';
 import {
     CHRONICLE_RULES_VERSION,
     countChronicleCardsWithStarter,
@@ -1947,9 +1947,14 @@ export function sanitizeCharacterSave(
     //   • jutsu loadout: 12 (base) / 15 (subscriber). The legacy 16th slot is a
     //     separate additive field and is unaffected.
     //   • custom avatar: subscribers only. A non-subscriber may keep an already-
-    //     stored avatar (grandfathered) or switch to a preset, but a NEW custom
+    //     stored avatar (grandfathered), switch to a preset, or carry the
+    //     reference URL for their OWN published shared image, but a NEW custom
     //     value is reverted to the stored one (avatarImage is otherwise
-    //     unvalidated on write).
+    //     unvalidated on write). The own-reference carve-out is load-bearing:
+    //     without it the client's hydrated "/api/img?id=avatar:<name>" pointer
+    //     read as a new custom upload and was deleted on EVERY save, so no
+    //     non-subscriber's save ever carried an avatar and their own UI fell
+    //     back to initials until the shared-image manifest happened to land.
     // (Pet roster is capped above via PET_CAP = maxPets(char).)
     {
         const fc = finalChar as Record<string, unknown>;
@@ -1962,7 +1967,9 @@ export function sanitizeCharacterSave(
         if (!isPatreonSubscriber(fc)) {
             const incomingAvatar = fc.avatarImage;
             const storedAvatar = (exChar as Record<string, unknown>).avatarImage;
-            if (typeof incomingAvatar === 'string' && !isPresetAvatar(incomingAvatar) && incomingAvatar !== storedAvatar) {
+            const allowedWithoutSub = isPresetAvatar(incomingAvatar)
+                || isOwnAvatarReference(incomingAvatar, fc.name);
+            if (typeof incomingAvatar === 'string' && !allowedWithoutSub && incomingAvatar !== storedAvatar) {
                 if (typeof storedAvatar === 'string') fc.avatarImage = storedAvatar;
                 else delete fc.avatarImage;
             }
