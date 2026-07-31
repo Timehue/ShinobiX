@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applySectorExploreReward, DAILY_SECTOR_EXPLORE_LIMIT, sectorExploreReward } from './_explore.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 describe('sector exploration settlement', () => {
     it('uses the canonical sector formula and rejects out-of-world sectors', () => {
@@ -8,7 +9,17 @@ describe('sector exploration settlement', () => {
         // — sector 25: ryo (10+6) + (10+2) = 28, xp always 0.
         assert.deepEqual(sectorExploreReward(25), { sector: 25, xp: 0, ryo: 28 });
         assert.equal(sectorExploreReward(0), null);
-        assert.equal(sectorExploreReward(61), null);
+        assert.equal(sectorExploreReward(MAX_WILD_SECTOR + 1), null);
+    });
+
+    it('settles every sector the world map lets you explore', () => {
+        // The world map now FAILS an explore the server refuses, so a stale
+        // ceiling here would make the outermost sectors unexplorable rather
+        // than merely unpaid. The 2026-07 renumbering already widened the
+        // world once past the old hard-coded 60.
+        for (let sector = 1; sector <= MAX_WILD_SECTOR; sector++) {
+            assert.ok(sectorExploreReward(sector), `sector ${sector} must settle`);
+        }
     });
 
     it('commits ryo and counters from stored state (xp retired, level derived)', () => {
