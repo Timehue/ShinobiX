@@ -24,7 +24,7 @@ import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/
 import { warCrateServerAuthEnabled } from "./war-crate-flag";
 import { isServerSettlementReady } from "./server-settlement-gate";
 import { biomeWeatherTables } from "../data/world";
-import { clampNumber, currentDateKey, currentMonthKey } from "./utils";
+import { clampNumber, currentDateKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
@@ -729,37 +729,39 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
     };
 }
 
-export function claimVillageWarDailyMission(character: Character, missionIndex: number) {
-    const today = currentDateKey();
-    const progress = character.villageWarMissionDate === today ? character.villageWarRaidProgress ?? 0 : 0;
-    const completed = character.villageWarMissionDate === today ? character.villageWarMissionsCompleted ?? 0 : 0;
-    if (missionIndex !== completed) return { character, note: "Claim earlier village war missions first." };
-    // War missions do NOT count toward the daily mission cap — each can only be done once per day.
-    const required = (missionIndex + 1) * VILLAGE_WAR_RAIDS_PER_MISSION;
-    if (progress < required) return { character, note: `Raid the enemy village ${required - progress} more time(s).` };
+/**
+ * Village-war daily mission: the WAR half only.
+ *
+ * This used to award the player's side of the mission too, and every field it
+ * touched is server-owned in the save sanitizer — so the reward was discarded
+ * while the `villageWarMissionDate` stamp survived. The claim was consumed for
+ * nothing, and because `villageWarMissionsCompleted` never advanced, mission 0
+ * was the only mission a player could ever reach.
+ *
+ * The character half now belongs to /api/village/war-mission (see
+ * lib/world-reward-api.ts). What stays here is the part that was already
+ * server-backed: war HP, which `applyVillageWarDamage` persists through the
+ * shared world-state channel. The caller commits the player half FIRST and only
+ * applies this once the server has paid out.
+ *
+ * The winner's Legendary War Crate is no longer granted inline either — the
+ * sanitizer rejects the crate id (it is server-owned) and
+ * `claimPendingWarCrates` already claims it through /api/village/claim-war-crate
+ * on the next sweep, which is the only path that can actually deliver it.
+ */
+export function applyVillageWarMissionDamage(character: Character): { ok: boolean; note: string } {
+    // No gate here: /api/village/war-mission already validated the raid count
+    // and the claim order against STORED state, and has committed the reward by
+    // the time this runs. Re-checking would refuse every time, because the
+    // character handed in has the freshly incremented completed count.
     const war = activeVillageWarsFor(character.village)[0];
     const enemyVillage = war?.villages.find(village => village !== character.village);
-    if (!war || !enemyVillage) return { character, note: "Your village is not in an active war." };
+    if (!war || !enemyVillage) return { ok: false, note: "Your village is not in an active war." };
     const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
     const wonWar = Boolean(updatedWar.endedAt && updatedWar.winnerVillage === character.village);
     return {
-        character: {
-            ...character,
-            // Increment total + clan contrib but NOT dailyMissionsCompleted
-            clanMissionContrib: (character.clanMissionContrib ?? 0) + 1,
-            totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
-            clanContribMonth: currentMonthKey(),
-            inventory: wonWar ? [...character.inventory, LEGENDARY_WAR_CRATE_ID] : character.inventory,
-            // Stamp the canonical crate ID alongside the inline grant so
-            // claimPendingWarCrates can't double-credit on next sweep.
-            claimedWarCrateIds: wonWar && updatedWar.warCrateId
-                ? [...(character.claimedWarCrateIds ?? []), updatedWar.warCrateId]
-                : (character.claimedWarCrateIds ?? []),
-            villageWarMissionDate: today,
-            villageWarRaidProgress: progress,
-            villageWarMissionsCompleted: completed + 1,
-        },
-        note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.${wonWar ? " Your village won the war. +1 Legendary War Crate." : ""}`,
+        ok: true,
+        note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.${wonWar ? " Your village won the war — your Legendary War Crate is on its way." : ""}`,
     };
 }
 export function unlockVillageKageSystem(village: string, playerName: string): VillageState {
