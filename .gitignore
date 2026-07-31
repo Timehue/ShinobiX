@@ -405,6 +405,12 @@ shinobij.client/public/pet-models/
 shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/roster/
 !shinobij.client/public/pet-models/roster/*.glb
+# Stage-0 starters — the model every new player fights with before evolving.
+!shinobij.client/public/pet-models/starter-earth.glb
+!shinobij.client/public/pet-models/starter-fire.glb
+!shinobij.client/public/pet-models/starter-lightning.glb
+!shinobij.client/public/pet-models/starter-water.glb
+!shinobij.client/public/pet-models/starter-wind.glb
 !shinobij.client/public/pet-models/starter-earth-l.glb
 !shinobij.client/public/pet-models/starter-earth-r.glb
 !shinobij.client/public/pet-models/starter-fire-l.glb
