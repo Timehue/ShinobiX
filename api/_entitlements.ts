@@ -47,5 +47,34 @@ export function canCustomAvatar(character: unknown): boolean {
     return isPatreonSubscriber(character);
 }
 export function isPresetAvatar(src: unknown): boolean {
-    return typeof src === 'string' && PRESET_AVATARS.includes(src);
+    if (typeof src !== 'string') return false;
+    // The creator ships the presets with a cache-buster ("/starter-avatar-one.webp?v=2"),
+    // so compare on the path alone — an exact-string match silently stopped
+    // recognising a preset the moment that query string was added.
+    const path = src.trim().split(/[?#]/)[0];
+    return PRESET_AVATARS.includes(path);
+}
+
+// Once an avatar has been published to the shared image bucket, the client
+// hydrates `character.avatarImage` with the per-image REFERENCE URL
+// `/api/img?id=avatar:<name>` (see loadCategoryOnce / hydrateImages in
+// shinobij.client/src/App.tsx). That pointer is not a new custom upload: the
+// bytes behind it are governed by POST /api/images, which already restricts a
+// player to writing `avatar:<their-own-name>`, and every OTHER player's UI
+// resolves the portrait from that same shared bucket regardless of what this
+// save holds. Treating the pointer as a fresh custom avatar is what stripped
+// `avatarImage` from every non-subscriber's save on write, so their own profile
+// card, mobile HUD and sector marker fell back to initials on every login.
+export function isOwnAvatarReference(src: unknown, playerName: unknown): boolean {
+    if (typeof src !== 'string' || typeof playerName !== 'string') return false;
+    const name = playerName.trim().toLowerCase();
+    if (!name) return false;
+    const query = src.trim();
+    if (!query.startsWith('/api/img?')) return false;
+    try {
+        const id = new URLSearchParams(query.slice(query.indexOf('?') + 1)).get('id');
+        return typeof id === 'string' && id.trim().toLowerCase() === `avatar:${name}`;
+    } catch {
+        return false;
+    }
 }

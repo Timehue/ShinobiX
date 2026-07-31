@@ -47,5 +47,27 @@ export function canCustomAvatar(character: WithPatreon): boolean {
     return isPatreonSubscriber(character);
 }
 export function isPresetAvatar(src: unknown): boolean {
-    return typeof src === 'string' && (PRESET_AVATARS as readonly string[]).includes(src);
+    if (typeof src !== 'string') return false;
+    // Presets ship with a cache-buster ("/starter-avatar-one.webp?v=2"), so
+    // compare on the path alone — mirrors api/_entitlements.ts.
+    const path = src.trim().split(/[?#]/)[0];
+    return (PRESET_AVATARS as readonly string[]).includes(path);
+}
+
+// Mirror of api/_entitlements.ts. `/api/img?id=avatar:<name>` is the per-image
+// reference the client hydrates into character.avatarImage once the portrait is
+// in the shared bucket — a pointer to the player's own published image, not a
+// new custom upload, so it is not gated behind the subscriber perk.
+export function isOwnAvatarReference(src: unknown, playerName: unknown): boolean {
+    if (typeof src !== 'string' || typeof playerName !== 'string') return false;
+    const name = playerName.trim().toLowerCase();
+    if (!name) return false;
+    const query = src.trim();
+    if (!query.startsWith('/api/img?')) return false;
+    try {
+        const id = new URLSearchParams(query.slice(query.indexOf('?') + 1)).get('id');
+        return typeof id === 'string' && id.trim().toLowerCase() === `avatar:${name}`;
+    } catch {
+        return false;
+    }
 }

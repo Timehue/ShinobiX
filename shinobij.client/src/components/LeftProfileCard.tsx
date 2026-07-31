@@ -30,6 +30,7 @@ import {
     dailyHuntsCompleted,
 } from "../App";
 import { levelProgress } from "../lib/character-progress";
+import { useOwnAvatar } from "../lib/own-avatar";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
@@ -116,6 +117,10 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     activeJutsuTraining,
 }: ProfileCardProps) {
     useSharedNow(); // sync to global timer so mobile timers match desktop
+    // Falls back to the name-keyed shared image when the character field hasn't
+    // hydrated yet, so the rail never shows initials to a player who has a
+    // portrait everyone else can see (lib/own-avatar.ts).
+    const avatarSrc = useOwnAvatar(character);
 
     return (
         <>
@@ -125,8 +130,8 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     onClick={() => setScreen("profile")}
                     title="View character profile"
                 >
-                    {character.avatarImage ? (
-                        <img src={character.avatarImage} alt={`Character avatar for ${character.name}`} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    {avatarSrc ? (
+                        <img src={avatarSrc} alt={`Character avatar for ${character.name}`} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                         character.name.slice(0, 2).toUpperCase()
                     )}

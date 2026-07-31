@@ -185,6 +185,8 @@ import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave } from "./lib/screen-guards";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { mergePlayerRoster } from "./lib/roster-merge";
+import { setOwnAvatarFallback } from "./lib/own-avatar";
+import { isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
@@ -4164,6 +4166,10 @@ export default function App() {
         else if (cat === 'avatar')
             setCharacter(prev => {
                 if (!prev) return prev;
+                // A starter preset is a static bundled file — never trade it for
+                // the /api/img reference (same don't-clobber guard as the
+                // pet/item/bloodline branches above). See lib/own-avatar.ts.
+                if (isPresetAvatar(prev.avatarImage)) return prev;
                 const img = images['avatar:' + prev.name.toLowerCase()];
                 return img ? { ...prev, avatarImage: img } : prev;
             });
@@ -4339,6 +4345,14 @@ export default function App() {
         try { sessionStorage.removeItem(imgCacheKey('avatar')); } catch { /* ignore */ }
         void loadCategory('avatar');
     }
+
+    // The player's OWN surfaces (left rail, mobile HUD/menu, sector marker) read
+    // character.avatarImage, which is empty until the manifest hydrates it. Give
+    // them the same name-keyed fallback every other render site uses — see
+    // lib/own-avatar.ts.
+    useEffect(() => {
+        setOwnAvatarFallback(sharedImages['avatar:' + (character?.name ?? '').toLowerCase()]);
+    }, [character?.name, sharedImages]);
 
     // Keep a fresh reference to ensureAvatarsCached so the presence-store prefetch
     // callback (registered once below) always closes over the latest sharedImages.
