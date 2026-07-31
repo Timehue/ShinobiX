@@ -46,10 +46,13 @@ type AdminContentRecord = { creatorItems?: unknown };
  * Reproduce the client merge for authored items: later slots win an id collision
  * (Admin 2 over Admin 1), and a tombstone entry removes the id.
  *
- * The item objects are returned AS AUTHORED — no rebalancing here. Callers that
- * feed combat run them through the existing budget/clamps (buildItemLookup in
- * api/pvp/_multipliers.ts applies budgetItemBonuses to every non-built-in item,
- * exactly as it already does for a player's own creatorItems).
+ * The item objects are returned AS AUTHORED, and they STAY that way: buildItemLookup
+ * (api/pvp/_multipliers.ts) deliberately does not run budgetItemBonuses over admin
+ * entries — owner-authored gear is meant to be able to exceed built-in items, and an
+ * admin save already skips the save sanitizer. Only the DERIVED combat multipliers
+ * are bounded (hydrateCharacterFromSave clamps itemDamagePct / absorb / reflect /
+ * lifesteal / shield / armorRawDR regardless of source). A player's OWN creatorItems
+ * are still budgeted — that array is client-written.
  *
  * Exported for tests and for callers that already hold the admin records.
  */

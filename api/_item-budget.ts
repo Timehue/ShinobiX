@@ -1,10 +1,20 @@
 /*
  * P0.1 sub-5 — always-on server budget for CUSTOM item bonuses.
  *
- * Built-in items (api/pvp/_item-catalog.ts ITEM_CATALOG) are authoritative and
- * EXEMPT — callers only ever pass player/admin-authored creatorItems here. Those
- * are clamped to the built-in legendary baseline so a forged item can't out-scale
- * real gear (the uniform-endgame-gear ceiling, per the balanced-PvP pillar).
+ * Scope, narrowed 2026-07-31: this budget applies ONLY to a PLAYER's own
+ * `creatorItems` — the array that is client-written on the normal save path, and
+ * therefore the actual forge surface. Those are clamped to the built-in legendary
+ * baseline so a forged item can't out-scale real gear (the uniform-endgame-gear
+ * ceiling, per the balanced-PvP pillar).
+ *
+ * EXEMPT: built-in items (api/pvp/_item-catalog.ts ITEM_CATALOG), and
+ * ADMIN-AUTHORED items from save:admin1/save:admin2 (api/_admin-item-catalog.ts).
+ * The latter are owner content from the admin-only Item Maker and are SUPPOSED to
+ * exceed built-in gear — the owner's explicit ruling. An admin save already skips
+ * sanitizeCharacterSave, so they are stored unclamped; api/pvp/_multipliers.ts
+ * buildItemLookup no longer clamps them at load either. Do not re-apply this to
+ * them without owner sign-off: it clamps LEGITIMATE content, unlike the bloodline
+ * rank/point budgets, which clamp forged power and are correctly permanent.
  *
  * Live impact today is small/defense-in-depth: only the passive %s + shield flow
  * into authoritative PvP (api/pvp/_multipliers.ts sumEquippedBonus). Specialty-stat
