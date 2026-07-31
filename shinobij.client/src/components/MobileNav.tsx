@@ -18,6 +18,7 @@ import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { preloadScreen } from "../lib/screen-preload";
+import { useOwnAvatar } from "../lib/own-avatar";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { MobileProfileSheet } from "./MobileProfileSheet";
@@ -76,6 +77,9 @@ export const MobileNav = memo(function MobileNav({
     // (XP is retired — leveling-without-xp map). levelProgress also reports an
     // exam hold, so the bar doesn't just sit silently full at 20/39.
     const levelBar = levelProgress(character);
+    // Name-keyed shared image as the fallback, so the menu card doesn't drop to
+    // initials before character.avatarImage hydrates (lib/own-avatar.ts).
+    const avatarSrc = useOwnAvatar(character);
 
     function go(screen: Screen) {
         const now = Date.now();
@@ -144,8 +148,8 @@ export const MobileNav = memo(function MobileNav({
 
                     <div className="mobile-char-card">
                         <div className="mobile-char-avatar">
-                            {character.avatarImage
-                                ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            {avatarSrc
+                                ? <img src={avatarSrc} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                 : character.name.slice(0, 2).toUpperCase()
                             }
                         </div>

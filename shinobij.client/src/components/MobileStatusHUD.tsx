@@ -18,6 +18,7 @@ import { memo } from "react";
 import type { Character } from "../types/character";
 import { formatCompact, formatExact } from "../lib/format-number";
 import { GameIcon } from "./icons/GameIcon";
+import { useOwnAvatar } from "../lib/own-avatar";
 
 export const MobileStatusHUD = memo(function MobileStatusHUD({
     character,
@@ -27,6 +28,10 @@ export const MobileStatusHUD = memo(function MobileStatusHUD({
     /** When provided, a back arrow appears in the HUD's left edge. */
     onBack?: () => void;
 }) {
+    // Name-keyed shared image as the fallback, so the HUD doesn't drop to
+    // initials before character.avatarImage hydrates (lib/own-avatar.ts).
+    const avatarSrc = useOwnAvatar(character);
+
     const pct = (current: number, max: number) =>
         Math.max(0, Math.min(100, Math.round((current / Math.max(1, max)) * 100)));
 
@@ -49,9 +54,9 @@ export const MobileStatusHUD = memo(function MobileStatusHUD({
             )}
             <div className="mthd-identity">
                 <div className="mthd-avatar">
-                    {character.avatarImage ? (
+                    {avatarSrc ? (
                         <img
-                            src={character.avatarImage}
+                            src={avatarSrc}
                             alt=""
                             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                         />
