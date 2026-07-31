@@ -22,9 +22,9 @@ import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
-import type { Pet } from "../types/pet";
+import type { Pet, PetTrait } from "../types/pet";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
-import { getAllTileCards, type TileCard } from "../data/tile-cards";
+import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/character-progress";
 import { maxPets } from "../lib/entitlements";
@@ -72,7 +72,9 @@ import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
-import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter, scaleWandererPetOpponent } from "../lib/pet-balance";
+import { scaleWandererPetOpponent } from "../lib/pet-balance";
+import { befriendWildPet, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
+import { openAncientChest, recordSectorExplore, type ExploreCredit } from "../lib/world-reward-api";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
@@ -97,7 +99,7 @@ import { fetchClanData } from "../lib/clan-api";
 import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
-import { petTraitDescriptions, petTreatItems, stackableItemIds } from "../data/pet-config";
+import { petTraitDescriptions } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import worldMapBg from "../assets/Maps/world_map.webp";
 import castleImg from "../assets/castle.webp";
@@ -304,7 +306,6 @@ export function WorldMap({
     creatorRaids,
     petEncounterVn,
     ancientChestVn,
-    editablePets,
     setPendingAiProfileId,
     setPendingPvpOpponent,
     setRaidBattleKind,
@@ -342,7 +343,7 @@ export function WorldMap({
     savedBloodlines,
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
-    onImmediateSave,
+    onServerVersion,
     onLaunchWeeklyBoss,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -353,7 +354,6 @@ export function WorldMap({
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
     ancientChestVn: CreatorEvent;
-    editablePets: Pet[];
     setPendingAiProfileId: (id: string) => void;
     setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
@@ -397,7 +397,9 @@ export function WorldMap({
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
-    onImmediateSave?: (char: Character) => void;
+    // Adopt the save version returned by a server-settled action (wild-pet
+    // befriending), so the next autosave isn't rejected as stale.
+    onServerVersion?: (version?: number) => void;
     // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
     // through App's launchWeeklyBossFight so damage → the shared leaderboard and
     // the 3-attempt cap — same path as the "Fight Boss" button.
@@ -2006,6 +2008,11 @@ export function WorldMap({
         return () => clearInterval(t);
     }, [wandererDialog, character.activeQuestbook?.deadline]);
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
+    // The single-use token /api/pet/encounter-start minted for the pet on screen.
+    // Befriending spends it; the server owns the roll, the trait, and the roster
+    // write, so nothing about this pet is real until that call succeeds.
+    const petEncounterToken = useRef("");
+    const [petBefriendPending, setPetBefriendPending] = useState(false);
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
@@ -2348,7 +2355,7 @@ export function WorldMap({
             const key = e.key.toLowerCase();
             if (key === 'e') {
                 e.preventDefault();
-                exploreSector(activeSector);
+                void exploreSector(activeSector);
                 return;
             }
             if (!['w', 'a', 's', 'd'].includes(key)) return;
@@ -2398,124 +2405,139 @@ export function WorldMap({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSector]);
 
-    function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
-        // XP retired: the old xp line (50 + sector·2) is a guaranteed ryo floor
-        // now (40 + sector·2), mirroring api/world/_chest.ts.
-        const xp = 0;
-        const ryo = 40 + Math.floor(sector * 2)
-            + (Math.random() < 0.5 ? 100 + Math.floor(Math.random() * 401) : 0);
+    // rollAncientChest lived here. The Ancient Chest table is now rolled by
+    // api/world/_chest.ts (rollAncientChestLoot) under the same probabilities
+    // and the same card/gear pools — the client copy could only produce loot
+    // the save sanitizer refused to keep.
 
-        // Loot slot roll (item, card, or currency)
-        const lootRoll = Math.random();
-        let itemId: string | undefined;
-        let cardId: string | undefined;
-        let fateShards: number | undefined;
-        let boneCharms: number | undefined;
-        let auraStones: number | undefined;
-        const auraDust = Math.random() < 0.2 ? 5 + Math.floor(Math.random() * 11) : undefined;
-
-        if (lootRoll < 0.2) {
-            // 20% - pet treat
-            const treat = petTreatItems[Math.floor(Math.random() * petTreatItems.length)];
-            itemId = treat.id;
-        } else if (lootRoll < 0.55) {
-            // 35% - random common gear item
-            const commons = starterItems.filter((i) => i.rarity === "common" && i.slot !== "item");
-            if (commons.length) itemId = commons[Math.floor(Math.random() * commons.length)].id;
-        } else if (lootRoll < 0.65) {
-            // 10% - random rare gear item
-            const rares = starterItems.filter((i) => i.rarity === "rare" && i.slot !== "item");
-            if (rares.length) itemId = rares[Math.floor(Math.random() * rares.length)].id;
-        } else if (lootRoll < 0.83) {
-            // 18% - random common tile card
-            const commonCards = allCards.filter((c) => c.rarity === "common");
-            if (commonCards.length) cardId = commonCards[Math.floor(Math.random() * commonCards.length)].id;
-        } else if (lootRoll < 0.92) {
-            // 9% - random rare tile card
-            const rareCards = allCards.filter((c) => c.rarity === "rare");
-            if (rareCards.length) cardId = rareCards[Math.floor(Math.random() * rareCards.length)].id;
-        } else if (lootRoll < 0.97) {
-            // 5% - 1 Fate Shard
-            fateShards = 1;
-        } else if (lootRoll < 0.99) {
-            // 2% - 1 Bone Charm
-            boneCharms = 1;
-        } else {
-            // 1% - 1 Aura Stone
-            auraStones = 1;
-        }
-
-        return { xp, ryo, itemId, cardId, fateShards, boneCharms, auraStones, auraDust };
-    }
-
-    function claimChest(loot: ChestLoot) {
-        const leveled = gainXp(character, 0); // XP retired — derived-level recompute only
-        const newInventory = loot.itemId && (stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId))
-            ? [...character.inventory, loot.itemId]
-            : character.inventory;
-        const newTileCards = loot.cardId && !character.tileCards.includes(loot.cardId)
-            ? [...character.tileCards, loot.cardId]
-            : character.tileCards;
-        updateCharacter({
-            ...leveled,
-            ryo: leveled.ryo + (loot.ryo ?? 0),
-            fateShards: leveled.fateShards + (loot.fateShards ?? 0),
-            boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0),
-            auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0),
-            auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0),
-            inventory: newInventory,
-            tileCards: newTileCards,
-        });
+    // The chest was rolled and banked by /api/world/open-chest the moment it was
+    // found (see the explore branch), so this only dismisses the reveal. It used
+    // to credit the loot locally, which the save sanitizer then threw away.
+    function claimChest() {
         setActiveChest(null);
         setChestVnDone(false);
         setChestVnPage(0);
         setChestVnLine(0);
     }
 
-    function exploreSector(sector: number) {
+    // Bank the explored tile server-side. `totalTilesExplored` has a per-save
+    // delta of zero in the sanitizer and /api/world/explore is its only writer,
+    // so counting the tile locally never actually counted it — which is what
+    // held the genin/chunin exam gates (50 / 100 tiles) permanently shut.
+    //
+    // 'full' also pays the explore ryo, and only the no-outcome branch passes
+    // it: a tile that turned up a chest, a pet, the dungeon, or an ambush has
+    // always counted toward the total without paying the ryo line on top.
+    // Returns false when the server refused, so the caller shows nothing rather
+    // than an outcome the save is about to discard.
+    async function settleExplore(sector: number, credit: ExploreCredit): Promise<boolean> {
+        const settled = await recordSectorExplore(character.name, sector, credit);
+        if (!settled.character) {
+            alert(settled.error === "daily-limit"
+                ? "Daily tile exploration limit reached (150/150). Resets at midnight UTC."
+                : "The sector could not be explored right now. Try again in a moment.");
+            return false;
+        }
+        const explored = settled.character;
+        // Take the counters from the server (it owns them) but ADD the ryo
+        // rather than adopting its balance, so ryo earned elsewhere since the
+        // last autosave isn't rolled back.
+        updateCharacter(prev => prev ? ({
+            ...prev,
+            ryo: prev.ryo + (settled.reward?.ryo ?? 0),
+            totalTilesExplored: explored.totalTilesExplored ?? prev.totalTilesExplored,
+            dailyTilesExplored: explored.dailyTilesExplored ?? prev.dailyTilesExplored,
+            lastDailyReset: currentDateKey(),
+        }) : prev);
+        onServerVersion?.(settled.saveVersion);
+        return true;
+    }
+
+    // Async because the tile, the wild-pet roll, and the chest are all settled
+    // server-side. The in-flight guard stops a double-click from burning two
+    // tiles against the daily cap while those calls are out.
+    const exploreInFlight = useRef(false);
+    async function exploreSector(sector: number) {
+        if (exploreInFlight.current) return;
         const dailyTiles = character.dailyTilesExplored ?? 0;
         if (dailyTiles >= 150) {
             alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
             return;
         }
-        const exploredCharacter = {
-            ...character,
-            totalTilesExplored: (character.totalTilesExplored ?? 0) + 1,
-            dailyTilesExplored: dailyTiles + 1,
-            lastDailyReset: currentDateKey(),
-        };
         const biome = biomeForSector(sector);
         setSelectedVillageTerritory(null);
         setSelectedSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
+        exploreInFlight.current = true;
+        try {
+            await resolveExplore(sector);
+        } finally {
+            exploreInFlight.current = false;
+        }
+    }
+
+    async function resolveExplore(sector: number) {
         if (character.level >= hiddenDungeonVnEvent.levelReq && Math.random() < 0.02) {
-            updateCharacter(exploredCharacter);
+            if (!await settleExplore(sector, "tile")) return;
             recordMissionExplore(sector);
             onDungeonFound();
             return;
         }
-        const petEncounter = rollPetEncounter(editablePets);
+        // Wild-pet roll is SERVER-side: /api/pet/encounter-start rolls it, counts
+        // the daily attempt, and seals the pet into a single-use token that
+        // /api/pet/befriend later spends. Rolling it here instead would hand the
+        // pet to the generic save blob, where the save sanitizer rejects any pet
+        // id the stored roster doesn't already have — which is exactly how these
+        // pets used to vanish on the next reload.
+        const petEncounter = await startWildPetEncounter(character.name);
 
         if (petEncounter) {
-            updateCharacter(exploredCharacter);
+            if (!await settleExplore(sector, "tile")) return;
             recordMissionExplore(sector);
 
-            setActivePetEncounter(petEncounter);
+            petEncounterToken.current = petEncounter.token;
+            setPetBefriendPending(false);
+            setActivePetEncounter(petEncounter.pet);
             setPetVnDone(false);
             setPetVnPage(0);
             setPetVnLine(0);
             return;
         }
 
-        // 15% — Ancient Chest found
+        // 15% — Ancient Chest found. The server rolls AND banks it in one
+        // locked write (/api/world/open-chest), because the save sanitizer
+        // rejects every tile card and every premium currency a chest can pay:
+        // rolling it here meant the reveal panel showed loot the next reload
+        // erased. Banking at discovery rather than on the claim click also
+        // means walking away from the panel can no longer lose the chest.
         if (Math.random() < 0.15) {
-            updateCharacter(exploredCharacter);
+            if (!await settleExplore(sector, "tile")) return;
             recordMissionExplore(sector);
 
-            const allCards = getAllTileCards([]);
-            setActiveChest(rollAncientChest(sector, allCards));
+            const chest = await openAncientChest(character.name, sector);
+            if (!chest.loot || !chest.character) {
+                alert(chest.error === "daily-limit"
+                    ? "You have opened every Ancient Chest you can find today."
+                    : "The chest is sealed shut. Try another sector.");
+                return;
+            }
+            const banked = chest.character;
+            updateCharacter(prev => prev ? ({
+                ...prev,
+                ryo: prev.ryo + (chest.loot?.ryo ?? 0),
+                // Currencies and ownership come back absolute — they are all
+                // server-owned, so the server's copy is the only correct one.
+                fateShards: banked.fateShards ?? prev.fateShards,
+                boneCharms: banked.boneCharms ?? prev.boneCharms,
+                auraStones: banked.auraStones ?? prev.auraStones,
+                auraDust: banked.auraDust ?? prev.auraDust,
+                inventory: banked.inventory ?? prev.inventory,
+                tileCards: banked.tileCards ?? prev.tileCards,
+            }) : prev);
+            onServerVersion?.(chest.saveVersion);
+            setActiveChest(chest.loot);
             setChestVnPage(0);
             setChestVnLine(0);
             setChestVnDone(false);
@@ -2538,7 +2560,7 @@ export function WorldMap({
             const levelMatches = sorted.filter(ai => Math.abs((ai.level ?? 1) - character.level) === closestLevel);
             const randomAi = levelMatches[Math.floor(Math.random() * levelMatches.length)];
 
-            updateCharacter(exploredCharacter);
+            if (!await settleExplore(sector, "tile")) return;
             // Defer explore-mission credit until the ambush is WON (winBattle).
             // Losing/fleeing the ambush no longer counts the tile as explored.
             setPendingExploreSector(sector);
@@ -2553,17 +2575,12 @@ export function WorldMap({
             return;
         }
 
-        // XP retired: the old explore xp line folds into ryo (mirrors
-        // api/world/_explore.ts); gainXp is the derived-level recompute shim.
+        // Nothing else happened on this tile, so it pays the explore ryo — the
+        // 'full' credit. The amount comes from the server (api/world/_explore.ts
+        // holds the canonical formula) rather than being recomputed here.
         const ryoReward = 10 + Math.floor(sector / 4) + 10 + Math.floor(sector / 10);
-        const leveled = gainXp(exploredCharacter, 0);
-
+        if (!await settleExplore(sector, "full")) return;
         recordMissionExplore(sector);
-        updateCharacter({
-            ...leveled,
-            ryo: leveled.ryo + ryoReward,
-        });
-
         alert("Sector " + sector + " explored. +" + ryoReward + " ryo.");
     }
     function huntSector(sector: number) {
@@ -2861,11 +2878,11 @@ export function WorldMap({
 
                 <div className="menu">
                     <button
-                        disabled={!petDecisionReady}
+                        disabled={!petDecisionReady || petBefriendPending}
                         onClick={() => {
                             // Ignore clicks during the grace window — a rapid-click
                             // carried over from the VN must not auto-resolve this.
-                            if (!petDecisionReady) return;
+                            if (!petDecisionReady || petBefriendPending) return;
                             // Re-read length inside the handler in case of fast double-click.
                             const petCap = maxPets(character);
                             if (character.pets.length >= petCap) {
@@ -2873,27 +2890,46 @@ export function WorldMap({
                                     ? `Your Pet Yard is full (${character.pets.length}/${petCap}). Link your Patreon (Shinobi Supporter) for 5 pet slots, or release a pet.`
                                     : `Your Pet Yard is full (${petCap}/${petCap}). Release a pet before befriending another.`);
                             }
-                            // Capture the encounter and clear it immediately so a second
-                            // click before re-render finds no encounter and does nothing.
                             const encounter = activePetEncounter;
-                            setActivePetEncounter(null);
-                            const trait = rollPetTrait(encounter.rarity);
-                            const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
-                            const updatedChar = { ...character, pets: [...character.pets, petWithTrait] };
-                            updateCharacter(updatedChar);
-                            // Explicitly push to server so the pet isn't lost on reload
-                            // before the auto-save interval fires.
-                            onImmediateSave?.(updatedChar);
-                            alert(`${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
+                            const token = petEncounterToken.current;
+                            if (!token) return alert("This encounter has expired. Explore again to find another companion.");
+                            // The server rolls the trait and commits the roster. Hold the
+                            // card up (disabled) until it answers rather than showing the
+                            // pet as joined and having the save strip it a moment later.
+                            setPetBefriendPending(true);
+                            void befriendWildPet(character.name, token).then((result) => {
+                                setPetBefriendPending(false);
+                                if (!result.character) {
+                                    return alert(result.error === "pet-yard-full"
+                                        ? `Your Pet Yard is full (${petCap}/${petCap}). Release a pet before befriending another.`
+                                        : result.error === "invalid-or-spent-encounter"
+                                            ? "This encounter has expired. Explore again to find another companion."
+                                            : result.error ?? "The pet could not be befriended.");
+                                }
+                                petEncounterToken.current = "";
+                                setActivePetEncounter(null);
+                                // Adopt the server's persisted character wholesale — a
+                                // locally merged roster would be stripped on the next save.
+                                updateCharacter(result.character);
+                                onServerVersion?.(result.saveVersion);
+                                const trait = result.trait as PetTrait | null;
+                                alert(trait
+                                    ? `${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`
+                                    : `${encounter.name} joined you!`);
+                            });
                         }}
                     >
-                        {petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
+                        {petBefriendPending ? "Befriending…" : petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
                     </button>
 
                     <button
                         className="danger-button"
-                        disabled={!petDecisionReady}
-                        onClick={() => { if (petDecisionReady) setActivePetEncounter(null); }}
+                        disabled={!petDecisionReady || petBefriendPending}
+                        onClick={() => {
+                            if (!petDecisionReady || petBefriendPending) return;
+                            petEncounterToken.current = "";
+                            setActivePetEncounter(null);
+                        }}
                     >
                         Leave
                     </button>
@@ -3148,7 +3184,7 @@ export function WorldMap({
                             </div>
                         ))}
                     </div>
-                    <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
+                    <button className="chest-claim-btn" onClick={() => claimChest()}>
                         <GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />Claim All Rewards
                     </button>
                 </div>
@@ -4196,7 +4232,7 @@ export function WorldMap({
                             </section>
                         )}
                         <div className="sector-action-grid" aria-label="Sector actions">
-                            <button type="button" className="sector-action-btn is-primary" onClick={() => exploreSector(selectedSector)}>
+                            <button type="button" className="sector-action-btn is-primary" onClick={() => { void exploreSector(selectedSector); }}>
                                 <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
                                 <span>Explore</span>
                             </button>
@@ -4284,7 +4320,7 @@ export function WorldMap({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag">⚠️ Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button onClick={() => exploreSector(virtualSector)}>Explore Territory</button>
+                        <button onClick={() => { void exploreSector(virtualSector); }}>Explore Territory</button>
                         <button onClick={() => restInSector(virtualSector)}>Recover</button>
 
                         {/* Village Guard / Raid */}
@@ -4834,7 +4870,7 @@ export function WorldMap({
                                     </div>
                                 ))}
                             </div>
-                            <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
+                            <button className="chest-claim-btn" onClick={() => claimChest()}>
                                 <GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />Claim All Rewards
                             </button>
                         </div>

@@ -110,6 +110,7 @@ import villageSectorPetHandler  from './api/village/sector-pet.js';
 import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
+import villageWarMissionHandler from './api/village/war-mission.js';
 import warClaimRewardHandler from './api/war/claim-reward.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import bankTransferHandler from './api/bank/transfer.js';
@@ -1129,6 +1130,9 @@ route('/village/war-map', villageWarMapHandler);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', villageClaimWarCrateHandler);
+// Village-war daily mission claim. The reward fields are all server-owned in
+// the save sanitizer, so this is the only path that can actually pay it out.
+route('/village/war-mission', villageWarMissionHandler);
 // Complete post-war settlement: winner crate, per-side MVP, contributor
 // consolation, and lifetime war statistics are derived from locked server records.
 route('/war/claim-reward', warClaimRewardHandler);

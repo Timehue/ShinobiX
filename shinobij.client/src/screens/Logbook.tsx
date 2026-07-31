@@ -22,7 +22,8 @@ import {
     gainXp,
     type CreatorEvent,
 } from "../App";
-import { activeVillageWarsFor, claimVillageWarDailyMission, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { claimWarMissionServer } from "../lib/world-reward-api";
 import { passRankExamServer } from "../lib/exam-api";
 
 export function Logbook({
@@ -42,6 +43,7 @@ export function Logbook({
     setCurrentBiome,
     setCurrentWeather,
     setScreen,
+    onServerVersion,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -60,10 +62,14 @@ export function Logbook({
     setCurrentBiome: (biome: Biome) => void;
     setCurrentWeather: (weather: WeatherType) => void;
     setScreen: (screen: Screen) => void;
+    // Adopt the save version returned by the server-settled war-mission claim,
+    // so the next autosave isn't rejected as stale.
+    onServerVersion?: (version?: number) => void;
 }) {
     // Rank-up ceremony: set to the exam title when a promotion is claimed, so we
     // celebrate with a modal instead of a bare alert().
     const [ceremonyTitle, setCeremonyTitle] = useState<string | null>(null);
+    const [warMissionPending, setWarMissionPending] = useState(false);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const defeatedAiIds = character.defeatedAiIds ?? [];
     const availableLogbookMissions = mergeBuiltinMissions(creatorMissions);
@@ -161,10 +167,31 @@ export function Logbook({
         setScreen("worldMap");
     }
 
-    function claimWarMission(index: number) {
-        const result = claimVillageWarDailyMission(character, index);
-        updateCharacter(result.character);
-        alert(result.note);
+    // The player half of this mission is settled by /api/village/war-mission —
+    // every counter it awards is frozen by the save sanitizer, so the old inline
+    // claim burned the day's stamp and paid nothing. Commit the reward FIRST,
+    // then apply the war damage, so a refused claim leaves the war untouched.
+    async function claimWarMission(index: number) {
+        if (warMissionPending) return;
+        setWarMissionPending(true);
+        try {
+            const settled = await claimWarMissionServer(character.name, index);
+            if (!settled.character) {
+                return alert(settled.error === "not-enough-raids"
+                    ? "Raid the enemy village more times before claiming this mission."
+                    : settled.error === "out-of-order"
+                        ? "Claim earlier village war missions first."
+                        : settled.error === "no-village"
+                            ? "Your village is not in an active war."
+                            : "The mission could not be claimed right now. Try again in a moment.");
+            }
+            updateCharacter(settled.character);
+            onServerVersion?.(settled.saveVersion);
+            const war = applyVillageWarMissionDamage(settled.character);
+            alert(war.note);
+        } finally {
+            setWarMissionPending(false);
+        }
     }
 
     function abandonMission(missionId: string) {
@@ -318,7 +345,7 @@ export function Logbook({
                         <p className="hint">War Ground: Sector {activeVillageWar.warGroundSector}. Each mission needs 3 successful enemy-village raids and claims for -30 enemy village HP.</p>
                         <div className="location-grid">{villageWarDailyMissions.map((mission) => {
                             const canClaim = !mission.complete && todayWarCompleted === mission.index && mission.progress >= VILLAGE_WAR_RAIDS_PER_MISSION;
-                            return <div key={mission.title} className="location-button mission-card"><span className="tile-icon">WAR</span><span>{mission.title}</span><small>Raid enemy village from Sector {activeVillageWar.warGroundSector}: {mission.progress}/{VILLAGE_WAR_RAIDS_PER_MISSION}</small><small>Reward: -{VILLAGE_WAR_MISSION_DAMAGE} enemy village HP</small><div className="mission-progress"><span style={{ width: `${(mission.progress / VILLAGE_WAR_RAIDS_PER_MISSION) * 100}%` }}></span></div><div className="menu">{mission.complete ? <button disabled>Complete Today</button> : canClaim ? <button onClick={() => claimWarMission(mission.index)}>Claim War Damage</button> : <button onClick={goToWarGround}>Go To War Ground</button>}</div></div>;
+                            return <div key={mission.title} className="location-button mission-card"><span className="tile-icon">WAR</span><span>{mission.title}</span><small>Raid enemy village from Sector {activeVillageWar.warGroundSector}: {mission.progress}/{VILLAGE_WAR_RAIDS_PER_MISSION}</small><small>Reward: -{VILLAGE_WAR_MISSION_DAMAGE} enemy village HP</small><div className="mission-progress"><span style={{ width: `${(mission.progress / VILLAGE_WAR_RAIDS_PER_MISSION) * 100}%` }}></span></div><div className="menu">{mission.complete ? <button disabled>Complete Today</button> : canClaim ? <button disabled={warMissionPending} onClick={() => { void claimWarMission(mission.index); }}>{warMissionPending ? "Claiming…" : "Claim War Damage"}</button> : <button onClick={goToWarGround}>Go To War Ground</button>}</div></div>;
                         })}</div>
                     </section>
                 </>
