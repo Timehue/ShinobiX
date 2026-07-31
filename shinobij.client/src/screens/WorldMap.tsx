@@ -151,7 +151,7 @@ import { bumpHuntQuality, readHuntQuality } from "../lib/hunt-run-state";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
-import { FESTIVAL_SECTOR, isWildSector, sectorArtKey, sectorName } from "../../../shared/sector-geo";
+import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
@@ -448,7 +448,7 @@ export function WorldMap({
         const reopen = takeSectorReopen();
         if (reopen !== null) { setSelectedSector(reopen); return; }
         // Refresh restore: if the page was reloaded straight onto the World Map
-        // while standing in a real explorable sector (1-60), reopen that sector's
+        // while standing in a real explorable sector (see isWildSector), reopen that sector's
         // detail. selectedSector is ephemeral React state, so without this a refresh
         // dumps the player on the overview ("the refresh moved me"). currentSector is
         // reset to 0 by App whenever you're not in the field, so this only fires for a
@@ -2545,7 +2545,7 @@ export function WorldMap({
             // Drop straight into the fight (the Arena pre-fight countdown names the
             // attacker) — no interstitial popup. Remember the sector so the win's
             // "Return to Sector" lands the player back here. Only real explorable
-            // sectors (1-60) reopen a detail view; territory/virtual sectors fall
+            // sectors (see isWildSector) reopen a detail view; territory/virtual sectors fall
             // back to the world-map overview.
             setSectorReopen(isWildSector(sector) ? sector : null);
             setPendingAiProfileId(randomAi.id);
@@ -2567,8 +2567,8 @@ export function WorldMap({
         alert("Sector " + sector + " explored. +" + ryoReward + " ryo.");
     }
     function huntSector(sector: number) {
-        if (sector < 1 || sector > 60) {
-            alert("Hunting is only available in Sectors 1-60.");
+        if (!isWildSector(sector)) {
+            alert(`Hunting is only available in Sectors 1-${MAX_WILD_SECTOR}.`);
             return;
         }
 
