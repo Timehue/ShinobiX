@@ -20,10 +20,11 @@
  * flow into PvP via api/pvp/_multipliers.ts sumEquippedBonus, and — owner ruling
  * 2026-07-31 — the specialty-stat bonuses now fold into server combat too
  * (deriveEquipmentStatBonuses → hydrateCharacterFromSave), matching the client's
- * Arena characterCombatStats build. The owner has approved these clamps
- * (2026-07-31): custom/admin items are budgeted to the built-in legendary
- * baseline in every server fight. The ceiling includes both built-in legendary
- * gear and the legitimate Named Armor forge ranges.
+ * Arena characterCombatStats build. The owner has confirmed this scoped clamp
+ * (2026-07-31): a player's own creatorItems are budgeted to the built-in
+ * legendary baseline in every server fight; admin-authored gear stays exempt as
+ * above. The ceiling includes both built-in legendary gear and the legitimate
+ * Named Armor forge ranges.
  *
  * Baselines (see _item-catalog.ts legendary tiers):
  *   passive %s (damage/absorb/reflect/lifesteal) ≤ 2   (Named Armor rolls up to 2%)
