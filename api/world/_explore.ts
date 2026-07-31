@@ -1,10 +1,15 @@
 import { gainXp } from '../_xp-engine.js';
+import { isWildSector } from '../../shared/sector-geo.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
 
 export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: number; ryo: number } | null {
     const sector = Math.floor(Number(sectorRaw));
-    if (!Number.isFinite(sector) || sector < 1 || sector > 60) return null;
+    // Bounds come from the shared world registry, not a literal: the 2026-07
+    // renumbering widened the world past 60, and a stale ceiling here would
+    // refuse to settle the outermost sectors — which now fails the explore
+    // outright rather than silently paying nothing.
+    if (!isWildSector(sector)) return null;
     // Character XP is retired (leveling-without-xp map): explore is an
     // unlimited-ish repeat channel, so the old xp line (20 + sector/5) folds
     // into ryo instead — the discovery/loot layer stays the draw. `xp` stays in
