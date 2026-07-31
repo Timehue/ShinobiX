@@ -97,11 +97,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const travelMs = mode === 'edge' ? WORLD_TRAVEL_EDGE_MS : WORLD_TRAVEL_MS;
     const arrivalAt = Date.now() + travelMs;
+    // Capture the origin BEFORE starting travel. An instant edge crossing has
+    // arrivalAt === now, so startTravel's own settle fires inside that call and
+    // moves the (mutated in place) player to the DESTINATION — reading
+    // `started.sector` afterwards recorded a lease whose originSector equalled
+    // its destinationSector, i.e. a lease that says the player never left.
+    // Harmless while arrivalAt is already past (every reader takes the
+    // destination branch), but the field should mean what its name says.
+    const originSector = edgeOriginSector ?? player.sector;
     const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
     if (!started) return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
     try {
         await setTravelLease(identity.name, {
-            originSector: started.sector,
+            originSector,
             destinationSector,
             arrivalAt,
             ...(arrivalTile === undefined ? {} : { arrivalTile }),

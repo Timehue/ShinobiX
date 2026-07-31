@@ -23,7 +23,8 @@ import {
  * so no auth, just a light rate limit. Writes happen in /sector/trail-sign and
  * /sector/shrine-offer.
  *
- * Query: ?sector=<1-60>[&player=<name>]  (player → which signs YOU have sparked)
+ * Query: ?sector=<any wild sector, see isWildSector>[&player=<name>]
+ *        (player → which signs YOU have sparked)
  * → { ok, sector, footfallToday, signs:[{id,name,tile,text,at,sparks}],
  *     mySparked:[signId], shrine?: {id,name,region,blessing,tier,tierName,total,
  *     weekTotal,topWeek,lastWeek} }
