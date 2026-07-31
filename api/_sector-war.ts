@@ -20,6 +20,7 @@ import {
 } from './_war-state.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { isWarVillage, isWarSector } from './_war-map-sectors.js';
+import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 
 export interface SectorWarSession {
     /** stable id: `<sector>:<attackerSlug>-vs-<defenderSlug>` */
@@ -62,9 +63,17 @@ function slug(v: string): string {
     return String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/** Stable id for the contest of `sector` by `attacker` against `defender`. */
+/** Stable id for the contest of `sector` by `attacker` against `defender`.
+ *
+ * The sector bound is MAX_WILD_SECTOR, never a literal. These clamps are purely
+ * defensive today — `canDeclareSectorWar` rejects anything outside the 32 home
+ * war sectors (all <= 33) before an id is ever minted — but the bound was
+ * hardcoded `60` through the 61-66 expansion, so had the war map ever reached
+ * the new ground a contest on 63 would have CLAMPED to 60 and silently collided
+ * with sector 60's own war key. Clamping a sector id is lossy; keep it tied to
+ * the shared registry. */
 export function sectorWarId(sector: number, attacker: string, defender: string): string {
-    return `${clampInt(sector, 1, 60)}:${slug(attacker)}-vs-${slug(defender)}`;
+    return `${clampInt(sector, 1, MAX_WILD_SECTOR)}:${slug(attacker)}-vs-${slug(defender)}`;
 }
 
 /** A fresh sector-war session at full Control HP. `controlHpMax` lets the caller
@@ -81,7 +90,7 @@ export function newSectorWarSession(args: {
     const max = clampInt(args.controlHpMax ?? SECTOR_CONTROL_HP_MAX, 1, SECTOR_CONTROL_HP_MAX * 4);
     return {
         id: sectorWarId(args.sector, args.attackerVillage, args.defenderVillage),
-        sector: clampInt(args.sector, 1, 60),
+        sector: clampInt(args.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: args.attackerVillage,
         defenderVillage: args.defenderVillage,
         winCondition: asWinCondition(args.winCondition),
@@ -104,7 +113,7 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): Secto
         : [];
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
-        sector: clampInt(raw.sector, 1, 60),
+        sector: clampInt(raw.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: String(raw.attackerVillage),
         defenderVillage: String(raw.defenderVillage),
         winCondition: asWinCondition(raw.winCondition),
@@ -254,7 +263,7 @@ export function newSectorWarBattleToken(args: {
     return {
         battleId: String(args.battleId),
         sectorWarId: String(args.sectorWarId),
-        sector: clampInt(args.sector, 1, 60),
+        sector: clampInt(args.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: args.attackerVillage,
         defenderVillage: args.defenderVillage,
         registeredBy: args.registeredBy,
@@ -275,7 +284,7 @@ export function normalizeSectorWarBattleToken(raw: Partial<SectorWarBattleToken>
     return {
         battleId: String(raw.battleId),
         sectorWarId: String(raw.sectorWarId),
-        sector: clampInt(raw.sector, 1, 60),
+        sector: clampInt(raw.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: String(raw.attackerVillage),
         defenderVillage: String(raw.defenderVillage),
         registeredBy: String(raw.registeredBy ?? ''),
