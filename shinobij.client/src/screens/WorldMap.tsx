@@ -31,6 +31,7 @@ import { maxPets } from "../lib/entitlements";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
+import { resolveOwnAvatar } from "../lib/own-avatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
@@ -3410,7 +3411,7 @@ export function WorldMap({
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
                                 sector={selectedSector}
-                                avatarImage={character.avatarImage}
+                                avatarImage={resolveOwnAvatar(character, sharedImages)}
                                 name={character.name}
                                 biome={ambienceBiomeForSector(selectedSector)}
                             />
@@ -4271,7 +4272,7 @@ export function WorldMap({
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
                                 sector={virtualSector}
-                                avatarImage={character.avatarImage}
+                                avatarImage={resolveOwnAvatar(character, sharedImages)}
                                 name={character.name}
                                 biome={loc.biome}
                             />
