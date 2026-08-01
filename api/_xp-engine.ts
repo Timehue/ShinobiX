@@ -71,9 +71,32 @@ function normalizeStats(stats?: Partial<Record<string, unknown>>): Stats {
     }, { ...base });
 }
 
-function allocatedStatPoints(stats: Stats): number {
+export function allocatedStatPoints(stats: Stats): number {
     const base = baseStats();
     return STAT_KEYS.reduce((total, key) => total + Math.max(0, capStat(stats[key]) - base[key]), 0);
+}
+
+/**
+ * How many stat points this character has actually put into their build —
+ * the authoritative measure behind the "stats trained" progression gates.
+ *
+ * `totalStatsTrained` is a server-owned COUNTER, but only idle training
+ * increments it (api/training/_grant.ts). Points that arrive by allocating the
+ * unspent pool or by PvP stat growth raise `stats` without touching it, and the
+ * save sanitizer discards the client's attempt to bump it — so the raw counter
+ * undercounts every build that grew that way. Taking the max against the stats
+ * actually allocated closes that gap using only server-owned data (`stats` is
+ * entitlement-conserved, so it cannot be forged).
+ *
+ * Mirrors the client's Logbook measure (shinobij.client/src/lib/logbook-objectives.ts
+ * `statsTrained`) so the requirement a player SEES is the requirement the
+ * server enforces — the two used to disagree, letting the Logbook read 400/400
+ * while the Genin exam refused.
+ */
+export function effectiveStatsTrained(character: XpCharacter): number {
+    const counter = Math.max(0, Math.floor(Number(character.totalStatsTrained) || 0));
+    const stats = normalizeStats(character.stats as Partial<Record<string, unknown>> | undefined);
+    return Math.max(counter, allocatedStatPoints(stats));
 }
 
 // ── lib/stats.ts — level curve ──────────────────────────────────────────────

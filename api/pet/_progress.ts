@@ -114,3 +114,34 @@ export function settleServerPetExpedition(pet: Record<string, unknown>, expType:
     };
     return { pet: gainServerPetXp(prepared, xp), xp, statGain };
 }
+
+/**
+ * Apply the cost of summoning a pet into a CLIENT-RUN PvE fight (Arena / story
+ * boss): tick one point off the PVE gear's durability, break the gear once it is
+ * spent, and consume the battle consumable.
+ *
+ * Pure so the ledger the endpoint writes is unit-testable. `loadout` is a
+ * server-owned pet field (PET_IDENTITY_FIELDS in api/save/[name].ts), so the
+ * client's local copy of this arithmetic is only a display mirror — this is the
+ * authority. Returns the flags the caller needs for its response.
+ */
+export function applyPetSummonCost(pet: Record<string, unknown>): {
+    pet: Record<string, unknown>;
+    gearBroke: boolean;
+    consumableSpent: string | null;
+} {
+    const loadout = { ...(pet.loadout && typeof pet.loadout === 'object' ? pet.loadout as Record<string, unknown> : {}) };
+    const pveId = typeof loadout.pve === 'string' ? loadout.pve : undefined;
+    const durability = Math.max(0, Math.floor(Number(loadout.pveDurability) || 0));
+    let gearBroke = false;
+    if (pveId && durability <= 0) {
+        delete loadout.pve;
+        delete loadout.pveDurability;
+        gearBroke = true;
+    } else if (pveId) {
+        loadout.pveDurability = durability - 1;
+    }
+    const consumableSpent = typeof loadout.consumable === 'string' ? loadout.consumable : null;
+    if (consumableSpent) delete loadout.consumable;
+    return { pet: { ...pet, loadout }, gearBroke, consumableSpent };
+}

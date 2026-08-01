@@ -757,6 +757,51 @@ function enforceRawSaveLedgerBoundary(
     char.equipment = equipment;
 }
 
+/**
+ * Give every jutsu in the player's OWN validated bloodlines a level-1 mastery
+ * row if it doesn't have one.
+ *
+ * Mastery rows are server-owned: a generic save can never ADD one (see the
+ * jutsuMastery block above, which rebuilds the list from the stored rows). That
+ * is correct for trained power, but it silently broke the bloodline forge:
+ * BloodlineMaker grants level-1 mastery for the new bloodline's jutsu
+ * client-side, the save discards those rows, and after a refresh the jutsu the
+ * player just paid to forge are missing from the loadout picker — which reads
+ * as "my bloodline didn't load". The player could recover only by running the
+ * free 0→1 training on each jutsu individually.
+ *
+ * Granting them here is safe because it hands out nothing the player could not
+ * already get for free: `api/training/_jutsu-ryo.ts` makes the 0→1 step free and
+ * immediate, and these are the player's own bloodline jutsu, so the bloodline
+ * gate (api/pvp/_bloodline-gate.ts) admits them anyway. It cannot be forged into
+ * power either — a bloodline id with no pending forge entitlement is discarded
+ * by normalizeBloodlineArray before this runs, the per-jutsu numbers are clamped
+ * and point-budgeted there, and this only ever writes level 1 / xp 0 (never
+ * touching an existing row's trained progress).
+ */
+function grantOwnedBloodlineJutsuMastery(char: Record<string, unknown>, savedBloodlines: unknown): void {
+    if (!Array.isArray(savedBloodlines) || savedBloodlines.length === 0) return;
+    const mastery = Array.isArray(char.jutsuMastery)
+        ? [...(char.jutsuMastery as Array<Record<string, unknown>>)]
+        : [];
+    const known = new Set(mastery.map((row) => String(row?.jutsuId ?? '')));
+    for (const bloodline of savedBloodlines) {
+        if (!bloodline || typeof bloodline !== 'object') continue;
+        const jutsus = (bloodline as Record<string, unknown>).jutsus;
+        if (!Array.isArray(jutsus)) continue;
+        for (const jutsu of jutsus) {
+            if (!jutsu || typeof jutsu !== 'object') continue;
+            const jutsuId = String((jutsu as Record<string, unknown>).id ?? '').trim();
+            if (!jutsuId || known.has(jutsuId) || mastery.length >= 200) continue;
+            known.add(jutsuId);
+            mastery.push({ jutsuId, level: 1, xp: 0 });
+        }
+    }
+    if (mastery.length !== (Array.isArray(char.jutsuMastery) ? char.jutsuMastery.length : 0)) {
+        char.jutsuMastery = mastery;
+    }
+}
+
 export function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
@@ -2144,6 +2189,7 @@ export function sanitizeCharacterSave(
     if (!isFirstSave) out.activeTraining = existing?.activeTraining ?? null;
     if (!isFirstSave) out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
     if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
+    grantOwnedBloodlineJutsuMastery(finalChar, out.savedBloodlines);
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
     if (isFirstSave) out.creatorItems = [];
