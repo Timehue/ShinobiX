@@ -159,11 +159,13 @@ const FROZEN = {
         'villageUpgrades',
     ],
     // The individual copy-if-array statements, unified into one loop.
+    // redeemedCardClashAiSessions added in P0-2 (AI-match payout receipts) —
+    // a deliberate, reviewed extension of the frozen P0-1 membership.
     SERVER_ARRAY_LEDGER_CHARACTER_FIELDS: [
         'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
         'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
         'redeemedStoryBattles', 'redeemedPetEncounters', 'claimedCreatorEvents',
-        'claimedWarCrateIds',
+        'claimedWarCrateIds', 'redeemedCardClashAiSessions',
     ],
     BOOLEAN_LATCH_CHARACTER_FIELDS: ['academySparClaimed', 'starterPetClaimed', 'starterCardsClaimed'],
     DAILY_CLAIM_DATE_FIELDS: ['claimedVillageAgendaDate', 'claimedMapControlDate', 'warGroundBountyDate'],
