@@ -42,16 +42,16 @@ const SPECIALTIES = ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'];
  *                 (getPvpItemLoadout / getCharacterArmorFactor / …), so the host sends them.
  *                 hydrateCharacterFromSave prefers the save and only falls back to these for
  *                 the missing fields, then CLAMPS every one — same trust model as a PvP fighter.
- * @param admin  OPTIONAL admin-authored jutsu + item content (api/_admin-content.ts). Without
- *                 it, an ADMIN-authored equipped item resolves to nothing and is silently
- *                 dropped from the fight — the player's own `creatorItems` is only a
- *                 client-written mirror and may be stale, frozen, or empty — and an equipped
- *                 authored JUTSU is dropped outright, since `creatorJutsus` is server-owned
- *                 and these callers pass no client body to fall back on. It is I/O, so the
- *                 CALLER loads it (memoized) and passes it in; omitting it seals exactly as
- *                 before. PvP already does this in api/pvp/session.ts.
+ * @param admin  REQUIRED (P0-3): admin-authored jutsu + item content
+ *                 (api/_admin-content.ts loadAdminCombatContent, memoized I/O the CALLER
+ *                 loads). Without it, an ADMIN-authored equipped item resolves to nothing
+ *                 and is silently dropped from the fight — the player's own `creatorItems`
+ *                 is only a client-written mirror and may be stale, frozen, or empty — and
+ *                 an equipped authored JUTSU is dropped outright. The parameter used to
+ *                 default to null, so a future caller could regress silently; passing
+ *                 `null` is now a CONSCIOUS choice (synthetic/test characters only).
  */
-export function sealTowerFighter(saveChar: Record<string, unknown>, save: Record<string, unknown> | null = null, clientChar: Record<string, unknown> = {}, admin: AdminCombatContent | null = null): Record<string, unknown> {
+export function sealTowerFighter(saveChar: Record<string, unknown>, save: Record<string, unknown> | null, clientChar: Record<string, unknown>, admin: AdminCombatContent | null): Record<string, unknown> {
     const hydrated = hydrateCharacterFromSave(saveChar, clientChar, save, admin);
     // hydrate spreads the save's specialty verbatim; the engine defaults an invalid one at
     // use, but clamp it here too so the sealed snapshot's contract stays clean.
