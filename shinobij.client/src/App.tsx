@@ -13,6 +13,7 @@ import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
+import { enqueueClaim, removeClaim, flushClaimOutbox } from "./lib/claim-outbox";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { mutateDungeonRunServer } from "./lib/dungeon-api";
 import { mutateEndlessRun } from "./lib/endless-api";
@@ -1566,6 +1567,18 @@ export default function App() {
     useEffect(() => {
         setActivePlayer(character?.name ?? currentAccountName ?? null);
     }, [character?.name, currentAccountName]);
+
+    // Drain the durable combat-claim outbox on login/reconnect (lib/claim-outbox).
+    useEffect(() => {
+        const name = character?.name;
+        if (!name) return;
+        const drain = () => void flushClaimOutbox(name).then((v) => {
+            if (typeof v === "number") latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, v);
+        });
+        drain();
+        window.addEventListener("online", drain);
+        return () => window.removeEventListener("online", drain);
+    }, [character?.name]);
 
     // ── Achievement unlock detection ───────────────────────────────────────
     // Achievement state is SERVER-OWNED: every generic /api/save overwrites
@@ -3744,12 +3757,14 @@ export default function App() {
         return null;
     }
 
-    // Settle a won E/D combat mission server-side (lib/mission-combat-claim);
-    // without that token the Mission Hall's "Claim Reward" can only ever fail.
+    // Settle a won E/D combat mission server-side. The win parks in the durable
+    // claim outbox FIRST (lib/claim-outbox), so full offline no longer loses it.
     async function settleCombatMissionClaim(missionKey: string) {
         if (!character?.name) return;
+        enqueueClaim(character.name, missionKey);
         const result = await queueCombatMissionClaim(character.name, missionKey);
-        if (!result) return alert("Your mission win couldn't be registered with the server, so there's no reward to claim in the Mission Hall. You'll need to run the mission again.");
+        if (!result) return alert("Your mission win couldn't reach the server yet. It's saved on this device and will be registered automatically once you're back online.");
+        removeClaim(character.name, missionKey);
         latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result.saveVersion);
     }
 
