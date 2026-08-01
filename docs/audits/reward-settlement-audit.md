@@ -1,5 +1,18 @@
 # Reward-Settlement Audit — Phase 0 (2026-07-31)
 
+> **P0-2 status (2026-08-01,** branch `refactor/reward-settlement-p0-2`**):**
+> the contract is now documented (`docs/architecture/reward-settlement-contract.md`)
+> and inventoried by `api/_settlement-contract.test.ts`. Landed fixes: player
+> trade journals through economy-tx with a pending-nonce-before-debit guard
+> (the P2 double-debit/burn window); the Arena→queue mission-win handoff parks
+> in a durable client outbox (`shinobij.client/src/lib/claim-outbox.ts`) —
+> the open loss race below is closed; the ranked-season NX marker rolls back
+> on payout failure and logs; Card Clash AI settles against an in-save
+> `redeemedCardClashAiSessions` receipt (duplicate window closed). The
+> claim-mission token-before-payout ordering and the HG/casual-PvP bounded
+> client-trust items are deliberately unchanged (documented trade-offs;
+> fighter authority is P0-3). The table below remains the Phase 0 record.
+
 Baseline: `origin/main` @ `de50b3385`. Claims tagged **VERIFIED** or **INFERRED**.
 
 Legend: persistence **MPS** = `mutatePlayerSave`
