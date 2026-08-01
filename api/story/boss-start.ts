@@ -7,6 +7,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor } from '../_authoritative-pve.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { writeSession } from '../towers/_tower-store.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import {
     createStoryCombatBinding,
     storyBossEligibility,
@@ -38,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own story battle.' });
 
-        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
         const eligibility = storyBossEligibility(char);

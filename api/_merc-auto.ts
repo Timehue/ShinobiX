@@ -26,6 +26,7 @@ import { isMercTargetOnCooldown, setMercTargetCooldown, pickMercTarget, type Roa
 import { wrMercTierById } from './_war-economy.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
 import { onlineStore } from './_realtime/online-store.js';
+import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 
 export interface MercDeployResult {
     winner: 'merc' | 'player' | 'stall';
@@ -69,7 +70,7 @@ async function claimAndResolveMerc(args: {
     await setMercTargetCooldown(args.targetPlayer, args.now);
 
     // Hydrate the target's real combat loadout + resolve the battle (server-auth).
-    const targetSave = await kv.get<Record<string, unknown>>(`save:${args.targetPlayer}`);
+    const targetSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${args.targetPlayer}`));
     const targetChar = (targetSave?.character ?? null) as Record<string, unknown> | null;
     if (!targetChar) {
         return { battle: { winner: 'stall', mercWon: false, playerWon: false, rounds: 0, log: [] }, mercsRemaining: claim.remaining };
