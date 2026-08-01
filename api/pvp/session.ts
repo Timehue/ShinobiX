@@ -20,6 +20,7 @@ import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
 // combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
 // from the fighter's level + specialty, so move.ts's existing per-bar deduction
@@ -1278,12 +1279,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 battleLockFlagsForPlayers([p1Norm ?? '', p2Norm ?? '']),
                 loadAdminCombatContent(),
             ]);
-            const p1Save = p1SaveRaw
+            // P0-3: graft any equipped-but-missing forged definitions back from
+            // the durable registry before hydration (named-weapon drop fix).
+            const p1Save = await augmentSaveWithForgedDefs(p1SaveRaw
                 ? settleSaveRecord(p1SaveRaw, { battleLocked: p1Norm ? battleLocks.get(p1Norm) === true : false }).record
-                : p1SaveRaw;
-            const p2Save = p2SaveRaw
+                : p1SaveRaw);
+            const p2Save = await augmentSaveWithForgedDefs(p2SaveRaw
                 ? settleSaveRecord(p2SaveRaw, { battleLocked: p2Norm ? battleLocks.get(p2Norm) === true : false }).record
-                : p2SaveRaw;
+                : p2SaveRaw);
 
             if (p1Save?.character) {
                 finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save, admin);

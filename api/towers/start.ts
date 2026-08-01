@@ -15,6 +15,7 @@ import { startRound, runAiUntilHuman } from './_engine.js';
 import { makeRng } from './_sim.js';
 import { writeSession, setTowerInvite, bumpDailyStartCount, MAX_TOWER_STARTS_PER_DAY } from './_tower-store.js';
 import { stampTurnClock } from './_tower-mp.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
 /*
  * POST /api/towers/start — begin a Battle Towers run.
@@ -78,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let hostAscensionUnlocked = 0; // host's highest spire tier cleared (unlock gate)
         for (let i = 0; i < memberSlugs.length; i++) {
             const slug = memberSlugs[i]!;
-            const rec = await kv.get<Record<string, unknown>>(`save:${slug}`);
+            const rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${slug}`));
             const char = rec?.character as Record<string, unknown> | undefined;
             if (!char || typeof char !== 'object') {
                 if (slug === hostName) return res.status(400).json({ error: 'Your save was not found.' });

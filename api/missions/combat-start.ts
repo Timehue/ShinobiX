@@ -20,6 +20,7 @@ import {
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { writeSession } from '../towers/_tower-store.js';
 import { sealCompanionFromSave } from '../towers/_companion.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
 /** Start a sealed, server-resolved combat mission. Body: { playerName, missionId, hostLoadout? }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const mission = combatMissionByKey(missionId);
         if (!mission) return res.status(404).json({ error: 'Unknown combat mission.' });
-        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
         const eligibility = canPlayerReceiveMission(char, mission);
