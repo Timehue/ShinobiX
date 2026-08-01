@@ -197,7 +197,9 @@ const COMBAT_STRIP_TOPLEVEL_FIELDS = [
     'petEncounterVn', 'ancientChestVn', 'editablePets',
 ] as const;
 
-function combatProjection(data: Record<string, unknown>): Record<string, unknown> {
+// Exported for the ownership golden-master characterization tests only —
+// the handler remains the sole runtime caller.
+export function combatProjection(data: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = { ...data };
     for (const f of COMBAT_STRIP_TOPLEVEL_FIELDS) delete out[f];
     const char = out.character as Record<string, unknown> | undefined;
