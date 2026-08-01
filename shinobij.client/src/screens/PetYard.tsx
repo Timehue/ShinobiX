@@ -506,12 +506,13 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             });
             const data = await res.json().catch(() => ({})) as { pet?: Pet; error?: string };
             if (!res.ok || !data.pet) { setEvolveMsg(`❌ ${data.error ?? "Evolution failed."}`); return; }
-            // Point the evolved pet at its generated stage art (served from
-            // public/pet-evos/<visualId>.webp). image/bodyImage are the universal
-            // portrait/sprite source, so this lights up the cutscene reveal, the
-            // Pet Yard portrait, and the arena sprite at once.
-            const evoArt = `/pet-evos/${petVisualId(data.pet)}.webp`;
-            const evolved: Pet = { ...data.pet, image: evoArt, bodyImage: evoArt };
+            // Stage art (public/pet-evos/<visualId>.webp) is stamped SERVER-side by
+            // evolvePet, so prefer what /api/pet/evolve returned and only derive it
+            // locally as a fallback for a server that predates that. image/bodyImage
+            // are the universal portrait/sprite source, so this lights up the
+            // cutscene reveal, the Pet Yard portrait, and the arena sprite at once.
+            const evoArt = data.pet.image ?? `/pet-evos/${petVisualId(data.pet)}.webp`;
+            const evolved: Pet = { ...data.pet, image: evoArt, bodyImage: data.pet.bodyImage ?? evoArt };
             // This write lands AFTER the /api/pet/evolve await, so a concurrent
             // regen/heartbeat/image-hydration setState could clobber it (reverting
             // currency or other live state). Rebuild from the LATEST `prev`: drop

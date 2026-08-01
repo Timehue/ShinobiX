@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { masteryBonus } from '../_profession-mastery.js';
-import { gainServerPetXp, petHappiness, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, removePetItem, settleFinishedTraining } from './_progress.js';
+import { applyPetSummonCost, gainServerPetXp, petHappiness, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, removePetItem, settleFinishedTraining } from './_progress.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only update your own pet.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-progress', 30, 60_000, identity.name))) return;
         const now = Date.now();
-        const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null }>(playerName, ({ character }) => {
+        const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, ({ character }) => {
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const index = pets.findIndex((pet) => String(pet?.id ?? '') === petId); if (index < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
             const pet = pets[index]; let nextCharacter = character; let nextPet = pet;
@@ -99,6 +99,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (itemId) loadout[slot] = itemId; else delete loadout[slot];
                 if (slot === 'pve') { if (itemId) loadout.pveDurability = 20; else delete loadout.pveDurability; }
                 nextPet = { ...pet, loadout };
+            } else if (action === 'summon-spend') {
+                // Cost of summoning the pet into a CLIENT-RUN PvE fight (Arena /
+                // story boss): one point of PVE-gear durability, the gear itself
+                // once it is spent, and the battle consumable. The client used to
+                // apply this to character.pets directly, but `loadout` is a
+                // server-owned pet field (PET_IDENTITY_FIELDS in api/save/[name].ts),
+                // so the save discarded it — PVE gear never actually wore out and
+                // the consumable was never actually spent. The arithmetic lives
+                // here so the ledger matches what the battle log claims.
+                //
+                // No sealed token: this only ever DESTROYS the caller's own
+                // resources, so a replay costs the attacker, not the game. The
+                // route's rate limit bounds it.
+                const spend = applyPetSummonCost(pet);
+                nextPet = spend.pet;
+                const nextPetsSpend = pets.map((entry, i) => i === index ? nextPet : entry);
+                return {
+                    ok: true as const,
+                    character: { ...nextCharacter, pets: nextPetsSpend },
+                    value: { action, pet: nextPet, gearBroke: spend.gearBroke, consumableSpent: spend.consumableSpent },
+                };
             } else if (action === 'release') {
                 const remaining = pets.filter((_, i) => i !== index);
                 const activePetId = character.activePetId === petId ? remaining[0]?.id : character.activePetId;
