@@ -667,10 +667,14 @@ export function resolveEquippedLoadout(
     }
     const resolved: unknown[] = [];
     const denied: string[] = [];
+    const unresolved: string[] = [];
     for (const id of equippedIds) {
         const fromCatalog = JUTSU_CATALOG[id];
         const jutsu = fromCatalog ? { ...fromCatalog } : extra.get(id);
-        if (!jutsu) continue; // unknown id (not built-in, not in the save's content) → dropped.
+        // Unknown id (not built-in, not in the save's content) → dropped, but no
+        // longer silently (P0-3): this is the signature of a lost/renamed jutsu
+        // definition and it used to leave no trace at all.
+        if (!jutsu) { unresolved.push(id); continue; }
         // Bloodline access gate (api/pvp/_bloodline-gate.ts): a bloodline-only
         // jutsu is sealed into the fight ONLY when the save actually carries the
         // granting bloodline — the client-side canEquipElementJutsu check alone
@@ -687,6 +691,13 @@ export function resolveEquippedLoadout(
             '[pvp-loadout] bloodline-gated jutsu dropped',
             safeLogValue(saveCharacter.name),
             safeLogValue(denied.join(',')),
+        );
+    }
+    if (unresolved.length > 0) {
+        console.warn(
+            '[pvp-loadout] unresolved equipped jutsu id(s)',
+            safeLogValue(saveCharacter.name),
+            safeLogValue(unresolved.join(',')),
         );
     }
     return resolved;
