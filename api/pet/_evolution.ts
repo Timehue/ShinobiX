@@ -173,11 +173,22 @@ const addStat = (value: number, delta: number): number => Math.max(1, Math.round
  */
 export function evolvePet<T extends PetLike>(pet: T, nextStage: EvolveStage, evoLine: EvolutionLine): T {
     const spec = evoLine.stages[nextStage];
+    // Stage art, stamped SERVER-side. The generated portrait/sprite lives at
+    // public/pet-evos/<visualId>.webp, where visualId mirrors the client's
+    // petVisualId (shinobij.client/src/data/pet-evolutions.ts): stage 1 → "<id>-r",
+    // stage 2 → "<id>-l". The client used to derive this locally and persist it
+    // through the generic save, which left the art as the one part of an evolution
+    // the server did not own (and made it the first thing to revert if that save
+    // was ever discarded). image/bodyImage are the universal portrait/sprite
+    // source, so this drives the Pet Yard, the cutscene reveal, and the arena.
+    const evoArt = `/pet-evos/${String(pet.id ?? '')}-${nextStage === 1 ? 'r' : 'l'}.webp`;
     return {
         ...pet,
         name: spec.name,
         rarity: spec.rarity,
         evolutionStage: nextStage,
+        image: evoArt,
+        bodyImage: evoArt,
         hp: addStat(Number(pet.hp) || 0, spec.delta.hp),
         attack: addStat(Number(pet.attack) || 0, spec.delta.attack),
         defense: addStat(Number(pet.defense) || 0, spec.delta.defense),

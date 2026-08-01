@@ -7563,7 +7563,14 @@ export default function App() {
                             // for non-raid wins or when already claimed today.
                             ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
-                            auraDust: (rewarded.auraDust ?? 0) + (isFriendlyDuel ? 0 : 6),
+                            // The server's claim-rewards already credits the +6 win
+                            // auraDust and returns the post-credit balance, which
+                            // applyServerBaseReward copied onto `rewarded` above —
+                            // so adding 6 again double-counted it. Only grant the
+                            // local +6 when the server sent no auraDust value
+                            // (non-baseRewards casual sessions).
+                            auraDust: (rewarded.auraDust ?? 0)
+                                + (isFriendlyDuel || typeof serverBase?.auraDust === "number" ? 0 : 6),
                             inventory: villageWarRaid.warCrate && !warCrateServerAuthEnabled()
                                 ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID]
                                 : rewarded.inventory,
