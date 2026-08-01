@@ -8,6 +8,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
 import { buildNamedItem, debitNamedForge, rollNamedForge, type NamedRoll } from './_named.js';
+import { recordForgedItem } from '../_forged-item-registry.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,6 +40,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), token] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // P0-3: durable definition registry — the in-save creatorItems copy is a
+        // client-mirrored field, so a lost entry used to erase the item's only
+        // definition. Best-effort post-commit: replay-safe (same id, same item).
+        const mintedItem = (result.value as { item?: Record<string, unknown> })?.item;
+        if (mintedItem) await recordForgedItem(mintedItem);
         await kv.del(`named-forge:${playerName}:${token}`).catch(() => undefined);
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) { console.error('[craft/named]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
