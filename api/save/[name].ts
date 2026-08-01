@@ -23,6 +23,29 @@ import {
     isServerOwnedItemId,
 } from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, nextSaveVersion } from './_save-version.js';
+import {
+    PUBLIC_CHAR_FIELDS,
+    PUBLIC_TOPLEVEL_FIELDS,
+    PUBLIC_COMBAT_TOPLEVEL_FIELDS,
+    SHARED_ADMIN_CONTENT_FIELDS,
+    COMBAT_STRIP_CHAR_FIELDS,
+    COMBAT_STRIP_TOPLEVEL_FIELDS,
+    STRICT_SERVER_LEDGER_CHARACTER_FIELDS,
+    ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
+    SERVER_PAYOUT_CHARACTER_FIELDS,
+    SERVER_LEDGER_TOPLEVEL_FIELDS,
+    SERVER_OWNED_CLAN_POINT_FIELDS,
+    CURRENCY_CAPS,
+    LIFETIME_COUNTERS,
+    SERVER_MIRRORED_CHARACTER_FIELDS,
+    PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS,
+    SERVER_ARRAY_LEDGER_CHARACTER_FIELDS,
+    BOOLEAN_LATCH_CHARACTER_FIELDS,
+    DAILY_CLAIM_DATE_FIELDS,
+    MONOTONIC_DATE_CHARACTER_FIELDS,
+    FORBIDDEN_CREATOR_CHARACTER_FIELDS,
+    PET_IDENTITY_FIELDS,
+} from './_state-ownership.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -48,33 +71,9 @@ import {
 // logged-in player. The allowlist below is private-by-default: a newly added
 // top-level or character field is NOT public unless it is explicitly listed.
 
-// Public-safe character subset used when ANY player reads another player's save.
-// Avoids leaking PvP loadout (jutsu, equipment, computed combat multipliers,
-// stats) which an attacker could use to scout opponents and metagame them.
-const PUBLIC_CHAR_FIELDS = new Set<string>([
-    'name', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
-    'hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina',
-    'customTitle', 'hospitalized', 'hospitalizedUntil',
-    // Profession identity / progression — public so Hall of Legends and
-    // profile-view screens can render rank/XP for other players.
-    'profession', 'professionRank', 'professionXp',
-]);
-
-// Top-level (non-character) save fields exposed on a BASE non-owner read
-// (roster / profile view). Deliberately empty — a profile view needs only the
-// public character projection, and everything else at the top level is private.
-const PUBLIC_TOPLEVEL_FIELDS: readonly string[] = [];
-
-// Additional top-level fields exposed ONLY on a combat-scouting read
-// (?combatOnly=1). The live client's fetchPlayerCombatSave (shinobij.client/
-// src/lib/pvp-session.ts) reads these to build the opponent's session-create
-// payload — but the server RE-HYDRATES the opponent's authoritative loadout from
-// save:<name> at session create (session.ts resolveEquippedLoadout /
-// resolveEquippedPvpItems), so this is a bounded scouting surface, not a trust
-// boundary. Kept intentionally minimal: creator AIs/events/missions/raids/cards,
-// training state, mission progress, current sector, triggered events, and all
-// internal _-metadata are NEVER exposed to a non-owner, on any read.
-const PUBLIC_COMBAT_TOPLEVEL_FIELDS: readonly string[] = ['savedBloodlines', 'creatorJutsus', 'creatorItems'];
+// The public / combat-public field allowlists now derive from the canonical
+// ownership manifest (./_state-ownership.ts — boundaries 'public-char' and
+// 'public-combat-toplevel'). The rationale comments moved with them.
 
 // ── Shared admin-authored game content ──────────────────────────────────────
 // The `admin1` / `admin2` save slots double as the store for admin-authored
@@ -94,11 +93,8 @@ const PUBLIC_COMBAT_TOPLEVEL_FIELDS: readonly string[] = ['savedBloodlines', 'cr
 // on those slots (the admin's own character, currencies, progress) stays behind
 // the same allowlist as any other player.
 const ADMIN_CONTENT_SLOTS = new Set<string>(['admin1', 'admin2']);
-const SHARED_ADMIN_CONTENT_FIELDS: readonly string[] = [
-    'creatorJutsus', 'creatorItems', 'creatorAis', 'creatorEvents',
-    'creatorMissions', 'creatorRaids', 'creatorCards',
-    'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
-];
+// SHARED_ADMIN_CONTENT_FIELDS: imported from the ownership manifest
+// (boundary 'shared-admin-content').
 
 /** True when `name` is one of the two admin slots that hold shared game content. */
 export function isAdminContentSlot(name: string): boolean {
@@ -152,50 +148,8 @@ export function adminSaveTargetAllowed(targetName: string, fullAdmin: boolean, a
 // combat resolution (only meta progression / cosmetic / lifetime counters).
 // Whitelisting was considered but a blacklist is safer here since combat
 // touches many character fields and a missed whitelist entry would silently
-// break opponent rendering.
-const COMBAT_STRIP_CHAR_FIELDS = [
-    'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
-    'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
-    'storyTraits', 'storyTitle',
-    'weeklyBossKills', 'claimedWarCrateIds',
-    'unlockedAchievements', 'achievementUnlockedAt',
-    'battleHistory',
-    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
-    'endlessTowerRun', 'endlessTowerBestWave',
-    'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
-    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',
-    'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
-    'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
-    'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
-    'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
-    'dailyFateSpins', 'lastDailyReset',
-    'claimedVillageAgendaDate', 'claimedMapControlDate',
-    'defeatedAiIds', 'elderFocus', 'examsPassed',
-    'lastBankInterestAt', 'bankRyo',
-    'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
-    'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
-    'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
-    'clanPointHistory', 'clanExchangePurchases',
-    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
-    'lastExpeditionClaimDate', 'expeditionsClaimedToday',
-    'dailyDonatedSeals', 'dailyDonationDate',
-    'petEscortBonusReady', 'hunterRank',
-    // Currencies — combat doesn't read them, only post-fight reward grants do.
-    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
-    // Ranked stats are used elsewhere; only strip the rarely-needed ones.
-    'rankedWins', 'rankedLosses',
-    'createdAt', 'professionChosenAt',
-] as const;
-
-// Top-level (non-character) fields stripped under ?combatOnly=1. Keeps the
-// big chunks needed for rendering opponent jutsu/items/bloodlines.
-const COMBAT_STRIP_TOPLEVEL_FIELDS = [
-    'currentBiome', 'activeTraining', 'activeJutsuTraining',
-    'acceptedMissionIds', 'missionProgress',
-    'triggeredEvents', 'pendingAiProfileId', 'currentSector',
-    'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
-    'petEncounterVn', 'ancientChestVn', 'editablePets',
-] as const;
+// break opponent rendering. Both strip lists derive from the ownership
+// manifest (boundaries 'combat-strip-char' / 'combat-strip-toplevel').
 
 // Exported for the ownership golden-master characterization tests only —
 // the handler remains the sole runtime caller.
@@ -229,23 +183,8 @@ const REGISTRY_REFRESH_MS = 60_000;
 
 // Ordinary player saves may spend stored balances, but never originate gains.
 // Every positive grant must be committed by an authenticated domain endpoint.
-const CURRENCY_CAPS: Record<string, number> = {
-    fateShards: 0,
-    boneCharms: 0,
-    auraStones: 0,
-    auraDust: 0,
-    mythicSeals: 0,
-    honorSeals: 0,
-    hollowShards: 0,
-};
-const SERVER_OWNED_CLAN_POINT_FIELDS = [
-    'clanPoints',
-    'weeklyClanPoints',
-    'weeklyClanPointsWeek',
-    'lifetimeClanPoints',
-    'clanPointHistory',
-    'clanExchangePurchases',
-] as const;
+// CURRENCY_CAPS (all-zero gain caps) and SERVER_OWNED_CLAN_POINT_FIELDS now
+// derive from the ownership manifest ('currency-zero-gain' / 'clan-points-char').
 const LEVEL_CAP = 100;
 const MAX_PROFESSION_RANK = 10;
 // Healer uses 1.5× the baseline. Cumulative threshold to enter each rank,
@@ -361,48 +300,10 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
     equipment: {},
 };
 
-const STRICT_SERVER_LEDGER_CHARACTER_FIELDS = [
-    'level', 'xp', 'experience', 'ryo', 'bankRyo',
-    'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'auraDust',
-    'mythicSeals', 'hollowShards',
-    'stats', 'unspentStats', 'totalStatsTrained', 'maxHp', 'maxChakra', 'maxStamina',
-    'rankTitle', 'professionXp', 'professionRank', 'auraSphereLevel',
-    'hollowGateAttunement', 'rankedRating', 'petRankedRating',
-] as const;
-
-const ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS = [
-    'bankRyo', 'rankedRating', 'petRankedRating',
-    'professionXp', 'professionRank', 'serverSettlementReceipts',
-    // Patreon subscriber flag — written ONLY by the signature-verified webhook /
-    // OAuth callback (api/patreon/*). Forcing it from the stored record here
-    // means a client save can never set or forge it (self-granting perks).
-    'patreon',
-    // Weapon attunements (weaponId → element) — written ONLY by the
-    // Core-consuming endpoint (api/weapon/apply-elemental-core.ts) and read by
-    // server combat (resolveEquippedPvpItems stamps it onto the resolved
-    // weapon). Forcing the stored copy means a tampered autosave can never
-    // self-attune for free.
-    'weaponElements',
-] as const;
-
-const SERVER_PAYOUT_CHARACTER_FIELDS = [
-    'lastBankInterestAt', 'lastLoginRewardDate', 'loginStreak',
-    'academyChecklistClaimed', 'academyTrialClaimed',
-    'cardClashDailyWinDate', 'claimedWarCrateIds',
-    'claimedVillageAgendaDate', 'claimedMapControlDate',
-    'lastExpeditionClaimDate', 'expeditionsClaimedToday', 'petEscortBonusReady',
-    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
-    'dailyDonatedSeals', 'dailyDonationDate', 'pendingCombatMissionClaims',
-    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'lastTaxDate',
-] as const;
-
-const SERVER_LEDGER_TOPLEVEL_FIELDS = [
-    '_trainingReceipts', 'activeTraining',
-    'activeWandererQuestSeal', 'activeStoryReckoningSeal',
-    'activeRiftQuestSeal', 'activeQuestbookSeal',
-    'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents',
-    'creatorCards', 'creatorRaids',
-] as const;
+// STRICT_SERVER_LEDGER_CHARACTER_FIELDS / ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS /
+// SERVER_PAYOUT_CHARACTER_FIELDS / SERVER_LEDGER_TOPLEVEL_FIELDS now derive from
+// the ownership manifest (./_state-ownership.ts) — per-field rationale (patreon
+// webhook-only, weaponElements core-endpoint-only, …) lives on the entries there.
 
 const EQUIPMENT_SLOTS = new Set([
     'aura', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
@@ -1097,39 +998,18 @@ export function sanitizeCharacterSave(
         char.stamina = derived.stamina ?? char.stamina;
     }
     char.totalStatsTrained = Math.max(0, Math.floor(Number(exChar.totalStatsTrained) || 0));
-    if (Array.isArray(exChar.redeemedTrainingTokens)) char.redeemedTrainingTokens = exChar.redeemedTrainingTokens;
-    else delete char.redeemedTrainingTokens;
-    if (Array.isArray(exChar.redeemedJutsuTrainingActions)) char.redeemedJutsuTrainingActions = exChar.redeemedJutsuTrainingActions;
-    else delete char.redeemedJutsuTrainingActions;
-    if (Array.isArray(exChar.redeemedAiFightRewards)) char.redeemedAiFightRewards = exChar.redeemedAiFightRewards;
-    else delete char.redeemedAiFightRewards;
-    // Sector exploration rewards and their dedicated daily cap are advanced
-    // only by /api/world/explore. Generic saves cannot replay or reset them.
-    for (const field of ['serverExploreDate', 'serverExploresToday', 'redeemedSectorExplorations'] as const) {
-        if (exChar[field] !== undefined) char[field] = exChar[field];
+    // Server-owned redemption ledgers (idempotency receipts): the stored array
+    // always wins — a generic save can neither clear nor forge one. Advanced
+    // only by their domain endpoints (training, shop, craft, story, pets, …).
+    for (const field of SERVER_ARRAY_LEDGER_CHARACTER_FIELDS) {
+        if (Array.isArray(exChar[field])) char[field] = exChar[field];
         else delete char[field];
     }
-    for (const field of ['serverChestDate', 'serverChestsToday', 'redeemedAncientChests'] as const) {
-        if (exChar[field] !== undefined) char[field] = exChar[field];
-        else delete char[field];
-    }
-    if (Array.isArray(exChar.redeemedShopPurchases)) char.redeemedShopPurchases = exChar.redeemedShopPurchases;
-    else delete char.redeemedShopPurchases;
-    if (Array.isArray(exChar.redeemedShopSales)) char.redeemedShopSales = exChar.redeemedShopSales;
-    else delete char.redeemedShopSales;
-    if (Array.isArray(exChar.redeemedCrafts)) char.redeemedCrafts = exChar.redeemedCrafts;
-    else delete char.redeemedCrafts;
-    if (Array.isArray(exChar.redeemedNamedForges)) char.redeemedNamedForges = exChar.redeemedNamedForges;
-    else delete char.redeemedNamedForges;
-    // Achievement unlocks and payout claims advance together in
-    // /api/achievements/sync. Generic saves cannot add, remove, or replay them.
-    for (const field of ['unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles'] as const) {
-        if (exChar[field] !== undefined) char[field] = exChar[field];
-        else delete char[field];
-    }
-    // Endless Tower entry, wave progression, milestone currencies, cashout,
-    // daily counters, and leaderboards are committed by /api/endless/run.
-    for (const field of ['endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins', 'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions'] as const) {
+    // Server-mirrored domain state (exploration/chest daily caps, achievements,
+    // Endless Tower): copy-if-defined from stored on every save. Advanced only
+    // by /api/world/explore, /api/world/open-chest, /api/achievements/sync,
+    // /api/endless/run respectively.
+    for (const field of SERVER_MIRRORED_CHARACTER_FIELDS) {
         if (exChar[field] !== undefined) char[field] = exChar[field];
         else delete char[field];
     }
@@ -1137,22 +1017,13 @@ export function sanitizeCharacterSave(
     // /api/story/settle after an exact next-boss AI token is consumed. Generic
     // saves may reassert UI state but cannot skip chapters or replay rewards.
     char.storyProgress = Math.max(0, Math.min(9, Math.floor(Number(exChar.storyProgress) || 0)));
-    if (Array.isArray(exChar.redeemedStoryBattles)) char.redeemedStoryBattles = exChar.redeemedStoryBattles;
-    else delete char.redeemedStoryBattles;
-    // One-time Academy spar payout latch, written by /api/story/settle.
-    if (exChar.academySparClaimed === true) char.academySparClaimed = true;
-    else delete char.academySparClaimed;
-    if (exChar.starterPetClaimed === true) char.starterPetClaimed = true;
-    else delete char.starterPetClaimed;
-    // One-time Chronicle Scribe codex latch, written by /api/card-clash/claim-starter.
-    if (exChar.starterCardsClaimed === true) char.starterCardsClaimed = true;
-    else delete char.starterCardsClaimed;
-    if (Array.isArray(exChar.redeemedPetEncounters)) char.redeemedPetEncounters = exChar.redeemedPetEncounters;
-    else delete char.redeemedPetEncounters;
-    if (Array.isArray(exChar.claimedCreatorEvents)) char.claimedCreatorEvents = exChar.claimedCreatorEvents;
-    else delete char.claimedCreatorEvents;
-    if (Array.isArray(exChar.claimedWarCrateIds)) char.claimedWarCrateIds = exChar.claimedWarCrateIds;
-    else delete char.claimedWarCrateIds;
+    // One-time payout latches (Academy spar via /api/story/settle, starter pet,
+    // Chronicle Scribe codex via /api/card-clash/claim-starter): kept only when
+    // the STORED save says true.
+    for (const field of BOOLEAN_LATCH_CHARACTER_FIELDS) {
+        if (exChar[field] === true) char[field] = true;
+        else delete char[field];
+    }
     // These progression fields are written by dedicated, proof-bearing server
     // flows. Generic saves may mirror them but cannot mint achievement or combat
     // entitlement by increasing them.
@@ -1160,7 +1031,7 @@ export function sanitizeCharacterSave(
         // 'apexWeekClaimed' is the ONLY thing stopping a Hunter-Rank-5 player from
         // re-claiming the 8,000-ryo Apex purse every save: claim-mission stamps it
         // with the settled ISO week, so a client-writable copy could just be reset.
-        for (const field of ['auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'apexWeekClaimed', 'element', 'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus', 'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions', 'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount', 'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed', 'redeemedWandererQuests', 'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns', 'villageUpgrades'] as const) {
+        for (const field of PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS) {
             if (exChar[field] !== undefined) char[field] = exChar[field];
             else delete char[field];
         }
@@ -1206,55 +1077,8 @@ export function sanitizeCharacterSave(
     // generous-but-bounded delta per save cycle. The 60s rolling-window
     // limiter further bounds aggregate growth. Counters can never decrease
     // (clients legitimately don't reset these).
-    const LIFETIME_COUNTERS: Record<string, number> = {
-        totalPvpKills: 0,
-        totalAiKills: 0,
-        totalVillageRaids: 0,
-        warsWon: 0,
-        warMvpCount: 0,
-        lifetimeWarDamage: 0,
-        monthlyPvpKills: 0,
-        dailyAiKills: 0,
-        // Leaderboard / Hall-of-Legends counters — feed Hall pages directly,
-        // so a tampered save can pad them to claim top spots. All are
-        // upward-only by gameplay design. Server-side win endpoints
-        // (api/pet/battle-result, etc.) are the legitimate increment path;
-        // these caps stop a direct save POST from spoofing.
-        totalPetWins: 0,
-        totalEndlessTowerWins: 0,
-        // Battle Towers leaderboard stats — BOTH fully server-authoritative. Only
-        // api/towers/settle.ts writes them (bypassing this sanitizer), so maxDelta 0 pins
-        // each to the stored value and a tampered client save can neither raise nor lower
-        // them (bestFloor must be 0 too, else a client inflates the depth leaderboard +5/save).
-        battleTowerBestFloor: 0,
-        battleTowerRating: 0,
-        totalTournamentsCompleted: 0,
-        totalTilesExplored: 0,
-        // Hollow Gate Warden (F5 boss) kills — client-incremented and read by the
-        // weekly board (wk-gate-*). Was the one weekly-board counter with no
-        // per-save clamp, so a tampered save could pad it to auto-complete the
-        // weekly Hollow Gate mission (audit #10). The daily run cap (~2-4 dives)
-        // bounds legit warden kills well under 3/save.
-        hollowGateWardenKills: 0,
-        rankedWins: 0,
-        rankedLosses: 0,
-        // Village-war mission counter (drives the "War Veteran" achievement
-        // path). Without a clamp, a tampered save can jump 0 → 999K in one
-        // POST. 5/save matches the raid cap pacing.
-        villageWarMissionsCompleted: 0,
-        // Stats trained + missions completed lifetime counters — used by
-        // achievements but never decreased through legitimate play.
-        totalStatsTrained: 0,
-        totalMissionsCompleted: 0,
-        // Shinobi Chronicle Showdown lifetime tallies — feed quest metrics (e.g. the
-        // Card Hall progression). Client-incremented per duel, so without a
-        // per-save clamp a tampered save could jump these 0 → 999K to
-        // auto-complete a "win N card games" quest. A single save can only
-        // resolve a handful of duels, so +5 each tracks legit pacing (audit #26).
-        cardClashWins: 0,
-        cardClashLosses: 0,
-        cardClashDraws: 0,
-    };
+    // LIFETIME_COUNTERS (all zero-delta) derives from the ownership manifest
+    // ('lifetime-counter-char'); per-counter rationale lives on the entries.
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
         const exV = Math.max(0, Number((exChar as Record<string, unknown>)[field] ?? 0));
@@ -1332,15 +1156,10 @@ export function sanitizeCharacterSave(
     const PET_CAP = Math.max(maxPets(char), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
     const submittedPets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-    const PET_IDENTITY_FIELDS = [
-        'id', 'rarity', 'maxLevel', 'jutsus', 'unlockedForPve', 'trait', 'element',
-        'evolutionStage', 'wildSpawnable', 'role', 'subRole', 'updatedAt',
-        // Combat progression, timers, paid identity, and gear are all committed
-        // by dedicated pet endpoints. A generic save may remove a pet, but it
-        // cannot train, feed, rename, equip, or fabricate expedition state.
-        'level', 'xp', 'hp', 'attack', 'defense', 'speed', 'happiness',
-        'training', 'expedition', 'nickname', 'loadout',
-    ] as const;
+    // PET_IDENTITY_FIELDS derives from the ownership manifest ('pet-identity'):
+    // combat progression, timers, paid identity, and gear are all committed by
+    // dedicated pet endpoints. A generic save may remove a pet, but it cannot
+    // train, feed, rename, equip, or fabricate expedition state.
     // Once strict settlement is enabled, pet identity and progression must
     // come from dedicated endpoints. Compatibility mode retains bounded legacy
     // pet rewards until every caller has migrated.
@@ -1851,13 +1670,7 @@ export function sanitizeCharacterSave(
     // source of truth is save:admin*. If a tampered client tries to inject
     // these fields into a non-admin save, strip them outright so they can't
     // round-trip into anyone's gameplay state.
-    delete char.creatorJutsus;
-    delete char.creatorItems;
-    delete char.creatorAis;
-    delete char.creatorMissions;
-    delete char.creatorEvents;
-    delete char.creatorCards;
-    delete char.creatorRaids;
+    for (const field of FORBIDDEN_CREATOR_CHARACTER_FIELDS) delete char[field];
 
     // Daily-claim date stamps (claimedVillageAgendaDate / claimedMapControlDate)
     // gate once-per-UTC-day rewards on the client. If the client could write
@@ -1873,7 +1686,8 @@ export function sanitizeCharacterSave(
     // ryo, +1 Fate Shard — see App.tsx). Same backdating risk as the other
     // daily-claim stamps: setting it to a different date re-opens the bounty.
     // Locked to the server's UTC today by the same rule below. (audit #12)
-    const DAILY_CLAIM_DATE_FIELDS = ['claimedVillageAgendaDate', 'claimedMapControlDate', 'warGroundBountyDate'] as const;
+    // DAILY_CLAIM_DATE_FIELDS derives from the ownership manifest
+    // ('daily-claim-date-char').
     for (const field of DAILY_CLAIM_DATE_FIELDS) {
         const incomingDate = char[field];
         if (typeof incomingDate !== 'string' || incomingDate === '') continue;
@@ -1933,7 +1747,7 @@ export function sanitizeCharacterSave(
     // monotonic-forward: an incoming date older than the stored one is reverted to
     // the stored value, so the backdate can't persist. A forward move to a newer
     // date (the legit midnight reset) is untouched, as is the first-ever set.
-    for (const field of ['lastDailyReset', 'lastHuntReset'] as const) {
+    for (const field of MONOTONIC_DATE_CHARACTER_FIELDS) {
         const stored = typeof exChar[field] === 'string' ? (exChar[field] as string) : '';
         const incoming = typeof char[field] === 'string' ? (char[field] as string) : '';
         if (stored && incoming && incoming < stored) char[field] = stored;
