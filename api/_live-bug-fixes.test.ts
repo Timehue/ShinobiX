@@ -125,14 +125,20 @@ describe('evolution art is stamped server-side', () => {
     const line = EVOLUTION_LINES[Object.keys(EVOLUTION_LINES)[0]!]!;
     const petId = Object.keys(EVOLUTION_LINES)[0]!;
 
+    // Typed as the open pet shape the endpoint actually passes — evolvePet is
+    // generic over its input, so a narrow object literal would not carry the
+    // stamped art fields in the return type.
+    const petAt = (rarity: string, level: number): Record<string, unknown> =>
+        ({ id: petId, rarity, level, hp: 100, attack: 10, defense: 10, speed: 10 });
+
     it('stage 1 points at the "-r" art', () => {
-        const out = evolvePet({ id: petId, rarity: 'standard', level: 30, hp: 100, attack: 10, defense: 10, speed: 10 }, 1, line);
+        const out = evolvePet(petAt('standard', 30), 1, line);
         assert.equal(out.image, `/pet-evos/${petId}-r.webp`);
         assert.equal(out.bodyImage, `/pet-evos/${petId}-r.webp`);
     });
 
     it('stage 2 points at the "-l" art', () => {
-        const out = evolvePet({ id: petId, rarity: 'rare', level: 60, hp: 100, attack: 10, defense: 10, speed: 10 }, 2, line);
+        const out = evolvePet(petAt('rare', 60), 2, line);
         assert.equal(out.image, `/pet-evos/${petId}-l.webp`);
     });
 });
