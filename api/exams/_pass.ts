@@ -1,4 +1,4 @@
-import { applyDerivedLevel } from '../_xp-engine.js';
+import { applyDerivedLevel, effectiveStatsTrained } from '../_xp-engine.js';
 
 const EXAMS = ['genin', 'chunin', 'jonin', 'specialJonin'] as const;
 type ExamKey = typeof EXAMS[number];
@@ -18,7 +18,12 @@ export function passRankExam(character: Record<string, unknown>, examRaw: unknow
     const highestMastery = mastery.reduce((max, row) => Math.max(max, n(row?.level)), 0);
     const missions = Math.max(n(character.totalMissionsCompleted), n(character.clanMissionContrib));
     let ready = false;
-    if (exam === 'genin') ready = n(character.level) >= 20 && elements.size >= 1 && n(character.totalStatsTrained) >= 400 && missions >= 20 && n(character.totalAiKills) >= 20 && n(character.totalTilesExplored) >= 50 && highestMastery >= 3;
+    // Stats trained reads the EFFECTIVE measure (counter vs points actually
+    // allocated) so the gate matches the Logbook the player is reading — the raw
+    // totalStatsTrained counter only tracks idle training, so a build grown by
+    // allocating the unspent pool or by PvP stat growth showed 400/400 in the UI
+    // while this check still refused. See effectiveStatsTrained in _xp-engine.ts.
+    if (exam === 'genin') ready = n(character.level) >= 20 && elements.size >= 1 && effectiveStatsTrained(character) >= 400 && missions >= 20 && n(character.totalAiKills) >= 20 && n(character.totalTilesExplored) >= 50 && highestMastery >= 3;
     if (exam === 'chunin') ready = n(character.level) >= 39 && elements.size >= 2 && missions >= 50 && n(character.totalTilesExplored) >= 100 && Boolean(String(character.clan ?? '').trim()) && defeated.has('builtin-ai-exam-proctor');
     if (exam === 'jonin') ready = n(character.level) >= 50 && n(character.totalPvpKills) >= 10 && n(character.totalVillageRaids) >= 20 && defeated.has('builtin-ai-rogue-ninja');
     if (exam === 'specialJonin') ready = n(character.level) >= 80 && n(character.totalPvpKills) >= 100 && Boolean(leadership.isKage || leadership.isElder);

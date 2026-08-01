@@ -86,6 +86,7 @@ import {
     petHappiness,
 } from "../lib/pet";
 import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
+import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -1878,6 +1879,12 @@ export function Arena({
         const healedFinal = Math.min(character.maxHp, playerHp + heal + consHeal);
         if (heal + consHeal > 0) setPlayerHp(healedFinal);
         updateCharacter({ ...character, hp: healedFinal, pets: nextPets });
+        // `loadout` is a server-owned pet field, so the local nextPets edit above
+        // is only the optimistic mirror — without this call the durability tick
+        // and the consumable spend are discarded by the save and the gear never
+        // actually wears out. Fire-and-forget: a failure just leaves the pet's
+        // gear intact, and combat continues on the local state either way.
+        void spendPetSummonCost(character.name, activeBattlePet.id);
         const brokeNote = gearBroke ? ` ${petPveGearById(pveId)?.name ?? "Its PVE gear"} has worn out and breaks.` : "";
         const healNote = heal > 0 ? ` It steadies you — +${heal} HP.` : "";
         const consNote = consHeal > 0 ? ` ${petConsumableById(consId)?.name ?? "A consumable"} shields you for +${consHeal} HP.` : "";

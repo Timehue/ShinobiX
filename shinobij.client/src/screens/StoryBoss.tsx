@@ -13,6 +13,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getOffenseStat } from "../lib/combat-math";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
+import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { storylines, getCurrentStory } from "../data/storylines";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
@@ -246,6 +247,10 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
         const healedFinal = Math.min(character.maxHp, playerHp + heal + consHeal);
         if (heal + consHeal > 0) setPlayerHp(healedFinal);
         updateCharacter({ ...character, hp: healedFinal, pets: nextPets });
+        // `loadout` is server-owned, so the nextPets edit above is only the
+        // optimistic mirror — this is what actually spends the durability and the
+        // consumable. Fire-and-forget (see spendPetSummonCost).
+        void spendPetSummonCost(character.name, activeBattlePet.id);
         const brokeNote = gearBroke ? ` ${petPveGearById(pveId)?.name ?? "Its PVE gear"} has worn out and breaks.` : "";
         const healNote = heal > 0 ? ` It steadies you — +${heal} HP.` : "";
         const consNote = consHeal > 0 ? ` ${petConsumableById(consId)?.name ?? "A consumable"} shields you for +${consHeal} HP.` : "";
