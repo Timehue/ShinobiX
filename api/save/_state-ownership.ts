@@ -210,6 +210,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('redeemedStoryBattles', 'character', 'server-payout-stamp', 'story', ['server-array-ledger-char']),
     f('redeemedPetEncounters', 'character', 'server-payout-stamp', 'pets', ['server-array-ledger-char']),
     f('claimedCreatorEvents', 'character', 'server-payout-stamp', 'events', ['server-array-ledger-char']),
+    f('redeemedCardClashAiSessions', 'character', 'server-payout-stamp', 'card-clash', ['server-array-ledger-char'], 'P0-2: per-session AI-match payout receipts (card-clash/ai-move settle)'),
 
     // ── One-time boolean latches ────────────────────────────────────────────
     f('academySparClaimed', 'character', 'server-payout-stamp', 'academy', ['boolean-latch-char'], 'story/settle'),

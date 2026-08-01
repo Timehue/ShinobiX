@@ -55,7 +55,7 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'clan/treasury/transfer.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx'] },
     { file: 'village/treasury/transfer.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx'] },
     { file: 'card-clash/open-pack.ts', mechanism: 'state-machine', markers: ['mutatePlayerSave'] },
-    { file: 'card-clash/ai-move.ts', mechanism: 'state-machine', markers: ['settledAt'] },
+    { file: 'card-clash/ai-move.ts', mechanism: 'in-save-receipt', markers: ['redeemedCardClashAiSessions'] },
     { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'trade:nonce:'] },
     { file: 'cron/_ranked-season.ts', mechanism: 'nx-marker', markers: [/nx:\s*true/, 'SEASON_REWARDED_PREFIX'] },
 ];
