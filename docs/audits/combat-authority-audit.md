@@ -1,5 +1,24 @@
 # Combat-Authority Audit — Fighter/Loadout Construction — Phase 0 (2026-07-31)
 
+> **P0-3 status (2026-08-01,** branch `refactor/fighter-authority-p0-3`**):**
+> landed — (1) `sealTowerFighter`'s admin-content parameter is now REQUIRED
+> (no null default; the finding-4 latent regression is compile-blocked), with
+> a guard suite (`api/_fighter-authority.test.ts`) pinning that every
+> production caller threads the catalog AND that sealTowerFighter output
+> deep-equals the PvP hydration (the unification contract); (2) the unknown-
+> jutsu drop (`session.ts:673`) now logs — no fully-silent drops remain;
+> (3) the named-weapon loss mode has a durable fix: `craft/named.ts` records
+> every minted definition in a `forged-item:<id>` registry and all nine
+> sealing entry points graft missing equipped definitions back before
+> hydration (`api/_forged-item-registry.ts`); pre-existing forged items need
+> the P1-4 scanner backfill.
+> **Staged, NOT yet migrated** (each rewrites live client combat and needs
+> its own flagged rollout): Hollow Gate PvE combat, Endless Tower, generic AI
+> fights, and legacy E/D missions still build fighters client-side
+> (Pipeline C below); retiring `clientTrustedCombatMissionRewardAllowed`
+> follows the E/D migration. The strict-ledger flip now depends only on P0-4
+> (admin `creatorItems` publish path) plus the forged-item backfill.
+
 Baseline: `origin/main` @ `de50b3385`. Claims tagged **VERIFIED** or **INFERRED**.
 
 ## 1. How many fighter-builder pipelines exist?
