@@ -1,5 +1,18 @@
 # State-Ownership Audit — Phase 0 (2026-07-31)
 
+> **P0-1 status (2026-08-01):** the scattered ownership lists this audit
+> inventoried are now DERIVED from one canonical manifest,
+> `api/save/_state-ownership.ts` (branch `refactor/state-ownership-p0-1`), with
+> golden-master, parity, and ratchet tests
+> (`api/save/_ownership-golden-master.test.ts`,
+> `_state-ownership-parity.test.ts`, `_state-ownership-ratchet.test.ts`).
+> Behavior is unchanged — the line numbers below refer to pre-extraction
+> `api/save/[name].ts` @ de50b3385 and remain the historical record. The
+> `?signal=1` auth boundary was re-verified during P0-1 (admin auth required;
+> 401 otherwise) — the remaining `?signal=1` risk is locking/version
+> consistency, still P0-4. Durable reference:
+> `docs/architecture/state-ownership-contract.md`.
+
 Baseline: `origin/main` @ `de50b3385` on branch `audit/shinobix-stabilization-phase-0`.
 Every claim is tagged **VERIFIED** (read directly from current code) or **INFERRED**
 (consistent with current code but not opened line-by-line). Live-data questions are
