@@ -62,6 +62,11 @@ type StoredSession = AiMatchSession & { settledReward?: SettledReward };
 async function settle(
   session: StoredSession,
   now: number,
+  // Stable per-session id (the session's KV key): the in-save receipt below is
+  // keyed on it so a retry after a crash-between-payout-and-session-mark
+  // replays the recorded reward instead of paying twice (P0-2 — this was the
+  // codebase's one duplicate-direction settlement window).
+  receiptId: string,
 ): Promise<
   | {
       ok: true;
@@ -79,11 +84,26 @@ async function settle(
   const settled = await mutatePlayerSave(
     session.playerName,
     ({ character }) => {
+      // In-save replay receipt: if this session already paid (a retry after a
+      // crash between the payout write and the session settledAt mark), hand
+      // back the recorded reward without paying again.
+      const redeemed = Array.isArray(character.redeemedCardClashAiSessions)
+        ? (character.redeemedCardClashAiSessions as Array<{ id?: unknown; reward?: SettledReward }>)
+        : [];
+      const prior = redeemed.find((e) => e && typeof e === "object" && e.id === receiptId);
+      if (prior?.reward) {
+        return { ok: true as const, character, value: prior.reward };
+      }
       const alreadyWonToday =
         String(character.cardClashDailyWinDate ?? "") === today;
       const reward = quickWin
         ? { ryo: 0, dailyBonus: false }
         : cardClashAiReward(winner, alreadyWonToday);
+      const value: SettledReward = {
+        result: winner,
+        ryo: reward.ryo,
+        dailyBonus: reward.dailyBonus,
+      };
       const nextCharacter = {
         ...character,
         ryo: num(character.ryo) + reward.ryo,
@@ -96,16 +116,13 @@ async function settle(
         cardClashDailyWinDate: reward.dailyBonus
           ? today
           : character.cardClashDailyWinDate,
+        // Receipt rides the SAME write as the payout (atomic by construction).
+        redeemedCardClashAiSessions: [
+          ...redeemed.slice(-39),
+          { id: receiptId, reward: value },
+        ],
       };
-      return {
-        ok: true as const,
-        character: nextCharacter,
-        value: {
-          result: winner,
-          ryo: reward.ryo,
-          dailyBonus: reward.dailyBonus,
-        } as SettledReward,
-      };
+      return { ok: true as const, character: nextCharacter, value };
     },
   );
   if (!settled.ok)
@@ -150,7 +167,7 @@ async function persistOrSettle(
       body: { ok: true, session: projectAiMatch(session), ...steps },
     };
   }
-  const paid = await settle(session, now);
+  const paid = await settle(session, now, key);
   if (!paid.ok) {
     await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
     return { status: paid.status as 404 | 503, body: { error: paid.error } };
