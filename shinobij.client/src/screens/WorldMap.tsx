@@ -1588,7 +1588,14 @@ export function WorldMap({
                 gift?: { ryo: number; fateShards: number; boneCharms: number };
                 totals?: { ryo: number; fateShards: number; boneCharms: number };
             };
-            coolWanderer(w.id); // pilgrim has given (or had nothing left) — gone for a few hours
+            // Only a REAL answer retires the pilgrim. This used to run
+            // unconditionally, so any rejected request — a 5xx, a dropped
+            // connection, or the wild-field presence gate refusing a request
+            // sent before presence settled — burned the encounter for hours
+            // even though nothing was given. A refusal must cost the player
+            // nothing; the server's own "nothing left" / "cooldown" answers
+            // still arrive as 200 and retire it as before.
+            if (res.ok) coolWanderer(w.id);
             if (data.ok && data.gift && data.totals) {
                 updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo, fateShards: data.totals!.fateShards, boneCharms: data.totals!.boneCharms }) : prev);
                 const parts = [`${data.gift.ryo} ryo`];
