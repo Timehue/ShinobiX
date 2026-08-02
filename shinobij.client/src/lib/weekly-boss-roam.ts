@@ -18,8 +18,9 @@
  * boss-state shape. No React, no UI — Phase 2 renders a marker from this; Phase 3
  * spawns the in-sector actor when the player enters `currentSector`.
  *
- * Shipping inert: nothing imports this yet; it is wired behind `weeklyBossRoam.v1`
- * in later phases.
+ * LIVE: WorldMap renders the roaming marker from this and the weekly boss is
+ * fought by hunting it in the sector it is roaming, behind `weeklyBossRoam.v1`
+ * (default ON, opt out per-device with `weeklyBossRoam.v1 = "off"`).
  */
 
 import { SECTOR_POINTS } from "../data/sector-points";
