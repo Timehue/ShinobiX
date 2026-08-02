@@ -1362,9 +1362,7 @@ function starterBloodlineJutsuRank(jutsuId: string): Rank | undefined {
 }
 
 export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character?: Character | null) {
-    // Deletion tombstones live IN creatorJutsus (they must, so the delete
-    // survives a publish and beats the other admin slot's copy) but they are
-    // not jutsu — drop them here, the one place every consumer funnels through.
+    // Tombstones ride in creatorJutsus so a delete survives publish; not jutsu.
     creatorJutsus = creatorJutsus.filter((j) => !isDeletedJutsuEntry(j));
     const starterBloodlineName = character?.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character?.bloodline;
     const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
