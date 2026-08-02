@@ -60,6 +60,7 @@ import adminGrantSubscriptionHandler from './api/admin/grant-subscription.js';
 import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
+import adminContentPublishHandler from './api/admin/content-publish.js';
 import clansListHandler  from './api/clans/list.js';
 import chatHandler       from './api/village/chat.js';
 import guardQueueHandler from './api/village-guard/queue.js';
@@ -437,6 +438,21 @@ if (process.env.DISABLE_VILLAGE_WAR !== '1') process.env.ENABLE_VILLAGE_WAR = '1
 // Weekly Clan Boss Gauntlet — ON by default in the testing phase (every clan-boss
 // handler + the cron gate on ENABLE_CLAN_BOSS==='1'). Kill-switch: DISABLE_CLAN_BOSS=1.
 if (process.env.DISABLE_CLAN_BOSS !== '1') process.env.ENABLE_CLAN_BOSS = '1';
+
+// Legacy is the one live system with a REQUIRED opt-in: api/_legacy-track.ts
+// gates on ENABLE_LEGACY==='1' and every /legacy/* route 404s without it — while
+// the client keeps rendering the Legacy tab, so the failure is invisible to
+// operators and merely broken for players. It is deliberately NOT force-set
+// here (that would be a balance decision, not a config fix); say so loudly at
+// startup instead, so a missing var shows up in the deploy log rather than in
+// a player report.
+if (process.env.ENABLE_LEGACY !== '1') {
+    console.warn(
+        '[startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) '
+        + 'is OFF and every /legacy/* route will 404, but the client still shows its UI. '
+        + 'Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.',
+    );
+}
 
 const app = express();
 
@@ -1004,6 +1020,7 @@ route('/admin/grant-subscription', adminGrantSubscriptionHandler);
 route('/admin/player-index-health', adminPlayerIndexHealthHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
+route('/admin/content-publish', adminContentPublishHandler);
 
 // Clans
 route('/clans/list', clansListHandler);

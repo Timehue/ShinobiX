@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applySectorExploreReward } from './_explore.js';
+import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 
 function cleanRequestId(value: unknown): string {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -24,6 +25,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your exploration.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'world-explore', 180, 60_000, identity.name))) return;
+
+        // The wild pays out only to someone actually standing in it — the same
+        // rule attacking already follows. Without this, a client can report
+        // sector 0 (unattackable town presence) and still farm the field.
+        const presenceBlock = sectorPresenceBlock(playerName, body.sector);
+        if (presenceBlock && !identity.admin) {
+            return res.status(presenceBlock.status).json({ error: presenceBlock.error, reason: presenceBlock.reason });
+        }
 
         const today = new Date().toISOString().slice(0, 10);
         const result = await mutatePlayerSave(playerName, ({ character }) => {

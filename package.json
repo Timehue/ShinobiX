@@ -27,7 +27,12 @@
         "backup:kv": "node scripts/kv-backup.mjs export",
         "restore:kv": "node scripts/kv-backup.mjs restore",
         "drill:restore": "node scripts/kv-backup.mjs drill",
-        "test:backup": "node --test scripts/kv-backup.test.mjs"
+        "test:backup": "node --test scripts/kv-backup.test.mjs",
+        "certify:release": "node scripts/release-certification.mjs",
+        "soak": "node scripts/load-soak.mjs",
+        "scan:data": "node --import tsx scripts/data-integrity-scan.mjs",
+        "ledger:audit": "node --import tsx scripts/currency-ledger-audit.mjs",
+        "ledger:backfill": "node --import tsx scripts/currency-ledger-audit.mjs --backfill"
     },
     "dependencies": {
         "@sentry/node": "^10.58.0",

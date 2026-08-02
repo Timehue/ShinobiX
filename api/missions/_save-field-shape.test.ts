@@ -84,16 +84,22 @@ function rawFieldReads(source: string): string[] {
 }
 
 describe('save-field shape contract', () => {
-    it('pins the three fields as TOP-LEVEL save fields, per the save endpoint itself', () => {
-        // api/save/[name].ts strips these as non-character fields under
-        // ?combatOnly=1 — the repo's own declaration of where they live. If a
-        // future change moves one onto the character, this fails first and the
-        // producers below need revisiting in the same breath.
-        const saveEndpoint = read('save/[name].ts');
-        const block = saveEndpoint.match(/COMBAT_STRIP_TOPLEVEL_FIELDS\s*=\s*\[([\s\S]*?)\]/);
-        assert.ok(block, 'save/[name].ts must declare COMBAT_STRIP_TOPLEVEL_FIELDS');
+    it('pins the three fields as TOP-LEVEL save fields, per the ownership manifest', async () => {
+        // The save pipeline's declaration of where these fields live moved into
+        // the canonical ownership manifest (P0-1). If a future change moves one
+        // onto the character, this fails first and the producers below need
+        // revisiting in the same breath.
+        const ownership = await import('../save/_state-ownership.js');
         for (const field of TOP_LEVEL_SAVE_FIELDS) {
-            assert.ok(block![1].includes(`'${field}'`), `${field} must be declared a top-level save field`);
+            assert.ok(
+                ownership.COMBAT_STRIP_TOPLEVEL_FIELDS.includes(field),
+                `${field} must be declared a top-level save field`,
+            );
+            const defs = ownership.definitionsFor(field);
+            assert.ok(
+                defs.some((d) => d.scope === 'top') && !defs.some((d) => d.scope === 'character'),
+                `${field} must be classified at top scope only`,
+            );
         }
     });
 

@@ -14,6 +14,7 @@ import { makeRng } from '../towers/_sim.js';
 import { readSession, writeSession, setTowerInvite } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { loadAssault, saveAssault, selectClanBossParty } from './_assault.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import {
     CB_ASSAULT_HP_CAP, CB_MAX_PARTY, clanBossAttemptsLeft,
     clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
@@ -85,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const squad: SquadMemberInput[] = [];
         for (let i = 0; i < partySlugs.length; i++) {
             const slug = partySlugs[i]!;
-            const rec = slug === hostName ? hostRec : await kv.get<Record<string, unknown>>(`save:${slug}`);
+            const rec = await augmentSaveWithForgedDefs(slug === hostName ? hostRec : await kv.get<Record<string, unknown>>(`save:${slug}`));
             const char = rec?.character as Record<string, unknown> | undefined;
             if (!char) { if (slug === hostName) return res.status(400).json({ error: 'Your save was not found.' }); continue; }
             squad.push({

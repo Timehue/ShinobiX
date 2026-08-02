@@ -35,6 +35,16 @@ export async function writeVersionedPlayerSave(
     ]);
     const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch);
     await kv.set(saveKey, mergePreservingImages(out.record, currentRecord));
+    // Project the currency slice into its side-car ledger (P0-5). The blob
+    // above is and stays authoritative; this only builds the evidence a future
+    // read cutover needs. It costs nothing when the write did not move
+    // currency, and can never fail the save — see api/_currency-ledger.ts.
+    const { syncCurrencyLedger } = await import('../_currency-ledger.js');
+    await syncCurrencyLedger(
+        saveKey.slice('save:'.length),
+        out.record,
+        { previousCharacter: (currentRecord.character ?? null) as PlayerCharacter | null },
+    );
     return out;
 }
 

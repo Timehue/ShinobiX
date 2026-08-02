@@ -23,6 +23,7 @@ import {
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor, weeklyBossEnemyTemplate } from './_authoritative-pve.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { readSession, sessionKey, settleConsumedItemsForMember, writeSession } from './towers/_tower-store.js';
+import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import {
     validateAuthoritativeWeeklyBossRun,
     weeklyBossRunKey,
@@ -555,7 +556,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return res.status(429).json({ error: `Locked out â€” you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
                     }
                 }
-                const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
+                const actorSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${actorName}`));
                 const actorChar = actorSave?.character as Record<string, unknown> | undefined;
                 if (!actorSave || !actorChar) return res.status(404).json({ error: 'Player save not found.' });
                 if (!identity.admin && Number(actorChar.stamina ?? 0) < 20) {

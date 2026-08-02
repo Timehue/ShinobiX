@@ -242,10 +242,24 @@ async function performRollover(fresh: RankedSeason, now: number): Promise<Season
                     }
                 }
                 const updated = bumpSaveVersion({ ...rec, character: next });
-                await kv.set(`${SAVE_PREFIX}${slug}`, mergePreservingImages(updated, rec));
+                try {
+                    await kv.set(`${SAVE_PREFIX}${slug}`, mergePreservingImages(updated, rec));
+                } catch (err) {
+                    // P0-2: the NX once-marker was consumed but the payout write
+                    // failed — roll the marker back so a rollover re-run can pay,
+                    // instead of stranding the podium reward forever.
+                    if (reward && payReward) {
+                        await kv.del(`${SEASON_REWARDED_PREFIX}${fresh.id}:${slug}`).catch(() => undefined);
+                    }
+                    throw err;
+                }
                 resetCount += 1;
                 if (reward && payReward) rewardedCount += 1;
-            }, { failClosed: true }).catch(() => undefined);
+            }, { failClosed: true }).catch((err) => {
+                // Logged, not silently swallowed: a skipped save here is a lost
+                // soft-reset (self-heals next season) or a rolled-back reward.
+                console.error('[ranked-season] rollover apply failed', slug, err);
+            });
         };
         for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {
             const slice = playerKeys.slice(i, i + MAX_PARALLEL).map((k) => k.slice(SAVE_PREFIX.length));
