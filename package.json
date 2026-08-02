@@ -30,6 +30,7 @@
         "test:backup": "node --test scripts/kv-backup.test.mjs",
         "certify:release": "node scripts/release-certification.mjs",
         "soak": "node scripts/load-soak.mjs",
+        "scan:data": "node --import tsx scripts/data-integrity-scan.mjs",
         "ledger:audit": "node --import tsx scripts/currency-ledger-audit.mjs",
         "ledger:backfill": "node --import tsx scripts/currency-ledger-audit.mjs --backfill"
     },
