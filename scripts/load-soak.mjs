@@ -39,6 +39,8 @@ const PLAYERS = numArg('players', 100);
 const SECONDS = numArg('seconds', 60);
 const RAMP_SECONDS = numArg('ramp', Math.min(30, Math.max(5, Math.round(PLAYERS / 20))));
 const PORT = numArg('port', 41_988);
+// How many distinct sectors the population occupies (1 = worst-case hub crush).
+const SECTORS = numArg('sectors', 40);
 const BASE = EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 
 // A real client autosaves on a debounce and the server enforces one save per
@@ -140,6 +142,11 @@ function syntheticIp(index) {
 
 async function provisionPlayer(index) {
     const name = `soak${randomBytes(3).toString('hex')}${index}`;
+    // Spread players across sectors. Presence lookups are sector-scoped
+    // (onlineStore.listSector), so parking every virtual player in ONE sector
+    // measures a worst-case hub crush rather than normal play. Use --sectors=1
+    // deliberately to measure that hub case.
+    const sector = SECTORS <= 1 ? 12 : 1 + (index % SECTORS);
     const password = `Soak-${randomBytes(6).toString('hex')}A1!`;
     const ip = syntheticIp(index);
     for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -150,7 +157,7 @@ async function provisionPlayer(index) {
                 body: { character: character(name), _baseSaveVersion: 0 },
             });
             if (created.status !== 200) { await sleep(400); continue; }
-            return { name, token: reg.body.token, ip, version: Number(created.body._saveVersion ?? 0) };
+            return { name, token: reg.body.token, ip, sector, version: Number(created.body._saveVersion ?? 0) };
         }
         await sleep(300 + attempt * 300 + Math.random() * 200);
     }
@@ -159,7 +166,7 @@ async function provisionPlayer(index) {
 
 /** STEADY STATE (measured): behave like a live client until the clock runs out. */
 async function virtualPlayer(session, stopAt) {
-    const { name, token, ip } = session;
+    const { name, token, ip, sector } = session;
     // Mirror the live client: authFetch.observeSaveVersion adopts `_saveVersion`
     // out of ANY response body and advances monotonically. A harness that only
     // read it from autosave replies would manufacture 409s the real client
@@ -198,7 +205,7 @@ async function virtualPlayer(session, stopAt) {
             while (Date.now() < stopAt) {
                 adopt(await timed('heartbeat', () => api('/api/player/heartbeat', {
                     method: 'POST', token, asName: name, ip,
-                    body: { name, sector: 12, character: { name, hp: 100, maxHp: 100 } },
+                    body: { name, sector, character: { name, hp: 100, maxHp: 100 } },
                 })));
                 await sleep(HEARTBEAT_INTERVAL_MS + Math.random() * 500);
             }
