@@ -128,6 +128,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Only the fields that actually published are mirrored, under the slot's
         // own save lock so a concurrent admin save can't interleave.
         let mirrored = false;
+        // Echoed so the publishing admin's client adopts the slot's new version
+        // (authFetch.observeSaveVersion picks `_saveVersion` out of any response)
+        // — without it their next autosave would 409 and roll back in-flight state.
+        let slotSaveVersion: number | undefined;
         if (Object.keys(published).length > 0) {
             const saveKey = `save:${slot}`;
             try {
@@ -138,8 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     for (const field of Object.keys(published)) {
                         patch[field] = field === 'creatorItems' ? stripForgedItems(rawFields[field]) : rawFields[field];
                     }
-                    const next = bumpSaveVersion({ ...existing, ...patch });
+                    const next = bumpSaveVersion({ ...existing, ...patch }) as Record<string, unknown>;
                     await kv.set(saveKey, mergePreservingImages(next, existing));
+                    slotSaveVersion = Number(next._saveVersion);
                     mirrored = true;
                 }, { failClosed: true });
             } catch (err) {
@@ -155,6 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             slot,
             published,
             mirrored,
+            ...(typeof slotSaveVersion === 'number' && Number.isFinite(slotSaveVersion) ? { _saveVersion: slotSaveVersion } : {}),
             ...(conflicts.length > 0
                 ? { conflicts, error: 'Someone else published newer content for those fields. Reload before saving.' }
                 : {}),
