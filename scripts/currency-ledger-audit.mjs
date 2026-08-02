@@ -16,7 +16,9 @@
  * Exit codes: 0 = no divergence, 1 = at least one DIVERGENT record (same
  * save version, different balances), which is a real bug and blocks cutover.
  */
-import { kv } from '../api/_storage.js';
+import { loadProjectEnv } from './_load-env.mjs';
+await loadProjectEnv();
+const { kv } = await import('../api/_storage.js');
 import { compareLedger, syncCurrencyLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
 
 const args = new Set(process.argv.slice(2));
