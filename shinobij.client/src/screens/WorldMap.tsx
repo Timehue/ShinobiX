@@ -778,7 +778,8 @@ export function WorldMap({
         return () => { alive = false; clearInterval(id); };
     }, [selectedSector, character.name, character.village]);
 
-    // Roaming weekly boss (weeklyBossRoam.v1, default OFF). Poll the boss state
+    // Roaming weekly boss (weeklyBossRoam.v1, default ON — opt out per-device
+    // with `weeklyBossRoam.v1 = "off"`). Poll the boss state
     // so the overworld can show where it's rampaging. The live sector + countdown
     // are derived CLIENT-side from startedAt (weeklyBossRoamState), so a slow poll
     // is plenty — GET /api/weekly-boss is edge-cached (s-maxage=10).
