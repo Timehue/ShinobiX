@@ -40,6 +40,16 @@ defect. No pre-existing test failures were found.
 | `npm run build` | PASS | runs inside root `npm run build` (`build:client` = `npm ci && npm run build`) |
 | `npm run test:e2e` | **PASS — 29 passed, 13 skipped, 0 failed** (exit 0, ~1.0 min) | Playwright, 7 projects: chromium/firefox/webkit desktop, chromium compact+mobile, webkit mobile, chromium tablet |
 
+> **P0-6 status (2026-08-01,** branch `test/release-certification-p0-6`**):**
+> the gap described below is now covered. `npm run certify:release` boots the
+> REAL Express server and walks a fresh account through register → first save
+> → tampered autosave → reward → refresh → relog → retry → stale autosave →
+> foreign read (28 checks), with no database or secrets required, and runs in
+> CI on every PR. The Playwright suite still certifies UI against a mocked
+> preview; the two are complementary. Postgres-specific behavior is still not
+> covered locally — point the harness at staging with `--url=` for that.
+> See `docs/runbooks/release-certification.md`.
+
 **E2E coverage caveat:** the Playwright suite runs against `vite preview`
 (`playwright.config.ts` webServer) — a **backend-less** static server with
 `page.route()` network mocks and service workers blocked. It certifies UI
