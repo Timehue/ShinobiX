@@ -12,6 +12,7 @@
 // Entries leave the outbox when the server ACKS (queued, or a definitive
 // queued:false decision) or when they age out. Network failures keep the entry.
 
+import { useEffect } from 'react';
 import { queueCombatMissionClaim } from './mission-combat-claim';
 
 export type ClaimOutboxStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -105,4 +106,27 @@ export async function flushClaimOutbox(
         flushInFlight = false;
     }
     return latestVersion;
+}
+
+/**
+ * Drain the outbox on login and whenever the browser reconnects.
+ *
+ * Lives here rather than in App.tsx so the retry policy sits next to the queue
+ * it drains (and so App.tsx keeps shrinking). `onSaveVersion` receives the
+ * newest `_saveVersion` the server returned, so the caller can advance its
+ * optimistic-concurrency base without this module knowing about save state.
+ */
+export function useClaimOutboxDrain(playerName: string | undefined, onSaveVersion: (version: number) => void): void {
+    useEffect(() => {
+        if (!playerName) return;
+        const drain = () => void flushClaimOutbox(playerName).then((version) => {
+            if (typeof version === 'number') onSaveVersion(version);
+        });
+        drain();
+        window.addEventListener('online', drain);
+        return () => window.removeEventListener('online', drain);
+        // onSaveVersion is a stable ref-setter at the call site; keying on the
+        // player alone keeps a re-render from re-registering the listener.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [playerName]);
 }
