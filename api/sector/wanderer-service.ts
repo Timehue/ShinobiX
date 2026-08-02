@@ -20,6 +20,7 @@ import {
 } from './_wanderer-service.js';
 import { bumpEraContribution } from '../_era.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
+import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 
 type FavorRecord = {
     id: string;
@@ -66,6 +67,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'You can only act for your own account.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, `wanderer-service-${action}`, 20, 60_000, identity.name))) return;
+
+        // Same wild-field rule as exploring and attacking: a wanderer service is
+        // an in-sector encounter, so the payout requires actually being there
+        // (api/_sector-presence-gate.ts). Actions that carry no sector are not
+        // gated — the helper ignores anything below sector 1.
+        const presenceBlock = sectorPresenceBlock(playerName, body.sector);
+        if (presenceBlock && !identity.admin) {
+            return res.status(presenceBlock.status).json({ error: presenceBlock.error, reason: presenceBlock.reason });
+        }
 
         if (action === 'merchant' || action === 'medic' || action === 'favor-start') {
             const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';

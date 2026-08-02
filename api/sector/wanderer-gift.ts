@@ -15,6 +15,7 @@ import {
 } from './_wanderer-encounter.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
+import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 
 /*
  * /api/sector/wanderer-gift — POST only
@@ -53,6 +54,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'You can only act for your own account.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'wanderer-gift', 12, 60_000, identity.name))) return;
+
+        // Wanderer encounters happen in the wild and pay out, so they follow the
+        // same rule as exploring and attacking: you must actually be standing in
+        // the sector you are claiming (api/_sector-presence-gate.ts).
+        const presenceBlock = sectorPresenceBlock(playerName, sector);
+        if (presenceBlock && !identity.admin) {
+            return res.status(presenceBlock.status).json({ error: presenceBlock.error, reason: presenceBlock.reason });
+        }
 
         const dayKey = `wanderer-gift:${playerName}:${utcDateKey()}`;
 
