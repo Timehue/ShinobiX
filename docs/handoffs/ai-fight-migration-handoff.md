@@ -55,7 +55,7 @@ For AI fights, `ai-fight-start.ts` should do the same but:
 - Return the `runId` alongside the existing token fields so a flagged client can
   pick the server path.
 
-Step 2 is fully server-side and unit/​source-testable — no client risk. Land it
+Step 2 is fully server-side and unit/source-testable — no client risk. Land it
 before touching the client.
 
 ## Then (later sessions, do NOT rush these)
