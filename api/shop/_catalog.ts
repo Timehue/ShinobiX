@@ -1,6 +1,7 @@
 import { kv } from '../_storage.js';
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
+import { loadPublishedContent } from '../_content-store.js';
 
 const ADMIN_DELETED_ITEM_MARKER = '__ADMIN_DELETED_ITEM__';
 const ADMIN_SAVE_KEYS = ['save:admin1', 'save:admin2'] as const;
@@ -81,6 +82,17 @@ export function buildSettlementCatalogs(adminRecords: readonly AdminContentRecor
 }
 
 export async function loadSettlementCatalogs(): Promise<SettlementCatalogs> {
-    const records = await Promise.all(ADMIN_SAVE_KEYS.map((key) => kv.get<AdminContentRecord>(key)));
+    // Dual-read (P0-4): the canonical content store is appended LAST, matching
+    // this builder's Admin-2-wins-collisions rule. Empty until the first
+    // publish, so shop/sell settlement resolves exactly as before until then.
+    // NOTE: this builder's tombstone semantics differ from the combat item
+    // catalog (a deletion here also blocks a later live copy) — that
+    // divergence is pre-existing and deliberately left alone; see
+    // docs/audits/shared-content-audit.md finding 6.
+    const [slots, published] = await Promise.all([
+        Promise.all(ADMIN_SAVE_KEYS.map((key) => kv.get<AdminContentRecord>(key))),
+        loadPublishedContent().catch(() => ({}) as Record<string, unknown>),
+    ]);
+    const records = [...slots, published as AdminContentRecord];
     return buildSettlementCatalogs(records.filter((record): record is AdminContentRecord => !!record));
 }

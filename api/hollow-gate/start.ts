@@ -19,6 +19,7 @@ import {
 } from './_run-token.js';
 import { RIFT_QUESTS } from '../sector/_rift-quest.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { loadPublishedContent } from '../_content-store.js';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -70,10 +71,14 @@ export function normalizePublishedEventGate(raw: unknown, requestedId: string): 
 
 async function readPublishedEventGate(requestedId: string): Promise<PublishedEventGate | null> {
     if (!requestedId || requestedId.startsWith('rift-')) return null;
-    const saves = await Promise.all([
+    // Dual-read (P0-4): the canonical content store is one more source; the
+    // existing updatedAt-recency sort decides, so it is a no-op until published.
+    const [slot1, slot2, published] = await Promise.all([
         kv.get<Record<string, unknown>>('save:admin1'),
         kv.get<Record<string, unknown>>('save:admin2'),
+        loadPublishedContent().catch(() => ({}) as Record<string, unknown>),
     ]);
+    const saves = [slot1, slot2, published];
     const latest = saves
         .map((save) => save?.hollowGateEventConfig)
         .filter((raw): raw is Record<string, unknown> => Boolean(raw && typeof raw === 'object'))
