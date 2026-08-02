@@ -64,6 +64,7 @@ import {
 } from './_anbu-infiltration.js';
 import type { TowerKv, TowerLock } from './towers/_tower-store.js';
 import type { TowerSession } from './towers/_tower-session.js';
+import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 
 // ─── injectable deps (tower-store pattern) ───────────────────────────────────
 export type StoreDeps = { kv?: TowerKv; lock?: TowerLock; now?: () => number };
@@ -199,7 +200,7 @@ export async function getOrSealAnbuSnapshot(village: string, anbuSlug: string, d
     const key = anbuSealKey(villageSlug(village), anbuSlug, utcDateKey(t));
     const cached = await kv.get<AnbuSnapshot>(key);
     if (cached && cached.character) return cached;
-    const save = await kv.get<Record<string, unknown>>(`save:${anbuSlug}`);
+    const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${anbuSlug}`));
     const char = save?.character as Record<string, unknown> | undefined;
     if (!char || typeof char !== 'object') return null;
     const snapshot: AnbuSnapshot = {

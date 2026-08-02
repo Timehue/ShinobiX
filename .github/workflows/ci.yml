@@ -65,6 +65,14 @@ jobs:
       - name: Root build
         run: npm run build
 
+      # Boots the real Express server against the isolated in-memory backend
+      # and walks a brand-new account through register → first save → tampered
+      # autosave → reward → refresh → relog → retry → stale autosave. Runs
+      # after the build so it certifies the built dist/server.js. Needs no
+      # database and no secrets.
+      - name: Fresh-account release certification
+        run: npm run certify:release
+
       - name: Client lint
         working-directory: shinobij.client
         run: npm run lint

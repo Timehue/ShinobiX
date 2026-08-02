@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -23,6 +23,7 @@ import {
     COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
 } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
+import { writeSaveProjected } from '../save/_projected-write.js';
 import {
     APEX_REWARD,
     APEX_STAT_POINTS,
@@ -282,7 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const heal = clearStalePendingCombatClaim(char, def.key);
                     if (heal.cleared) {
                         const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char });
-                        await kv.set(saveKey, mergePreservingImages(healed, record));
+                        await writeSaveProjected(saveKey, healed, record);
                     }
                     return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
                 }
@@ -475,7 +476,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,
             });
-            await kv.set(saveKey, mergePreservingImages(updated, record));
+            await writeSaveProjected(saveKey, updated, record);
             if (progressReceiptKeyToClear) {
                 await kv.del(progressReceiptKeyToClear).catch(() => 0);
             }

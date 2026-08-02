@@ -1,0 +1,1064 @@
+{
+  "existing-player-autosave.nonstrict": {
+    "character": {
+      "name": "GoldenMaster",
+      "village": "Ember",
+      "level": 20,
+      "xp": 500,
+      "rankTitle": "Genin",
+      "ryo": 4200,
+      "bankRyo": 2000,
+      "lastBankInterestAt": 1700000000000,
+      "fateShards": 10,
+      "boneCharms": 3,
+      "auraStones": 0,
+      "auraDust": 0,
+      "mythicSeals": 1,
+      "honorSeals": 2,
+      "hollowShards": 0,
+      "stats": {
+        "strength": 50,
+        "speed": 50,
+        "intelligence": 50,
+        "willpower": 50,
+        "bukijutsuOffense": 50,
+        "bukijutsuDefense": 50,
+        "taijutsuOffense": 50,
+        "taijutsuDefense": 50,
+        "genjutsuOffense": 50,
+        "genjutsuDefense": 50,
+        "ninjutsuOffense": 50,
+        "ninjutsuDefense": 50
+      },
+      "unspentStats": 5,
+      "totalStatsTrained": 100,
+      "maxHp": 900,
+      "maxChakra": 400,
+      "maxStamina": 400,
+      "hp": 900,
+      "chakra": 400,
+      "stamina": 400,
+      "createdAt": 1600000000000,
+      "levelLedgerMigrated": true,
+      "profession": "healer",
+      "professionXp": 400,
+      "professionRank": 3,
+      "patreon": false,
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "itemStacks": [
+        {
+          "itemId": "ration",
+          "count": 3
+        }
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai"
+      },
+      "pets": [
+        {
+          "id": "pet-1",
+          "rarity": "standard",
+          "level": 4,
+          "xp": 10,
+          "hp": 40,
+          "attack": 20,
+          "defense": 20,
+          "speed": 20,
+          "nickname": "Scout",
+          "role": "striker"
+        }
+      ],
+      "activePetId": "pet-1",
+      "jutsuMastery": [
+        {
+          "jutsuId": "ashen-eyes-blood-gaze",
+          "level": 2,
+          "xp": 5
+        }
+      ],
+      "equippedJutsuIds": [
+        "ashen-eyes-blood-gaze"
+      ],
+      "storyProgress": 3,
+      "redeemedStoryBattles": [
+        "story-1"
+      ],
+      "examsPassed": [
+        "genin"
+      ],
+      "unlockedAchievements": [
+        "first-blood"
+      ],
+      "achievementUnlockedAt": {
+        "first-blood": 1
+      },
+      "claimedAchievementRewards": [
+        "first-blood"
+      ],
+      "earnedTitles": [
+        "First Blood"
+      ],
+      "serverTitles": [
+        "Era Herald"
+      ],
+      "legacy": {
+        "id": "sage",
+        "stage": 1,
+        "titles": [
+          "Sage Ascendant"
+        ]
+      },
+      "redeemedCrafts": [
+        "craft-1"
+      ],
+      "redeemedNamedForges": [],
+      "serverSettlementReceipts": {
+        "pvp": [
+          "r-1"
+        ]
+      },
+      "weaponElements": {
+        "rustfang-kunai": "fire"
+      },
+      "clanPoints": 10,
+      "weeklyClanPoints": 2,
+      "weeklyClanPointsWeek": "2026-W01",
+      "lifetimeClanPoints": 10,
+      "clanPointHistory": [],
+      "clanExchangePurchases": [],
+      "hunterRank": 2,
+      "hollowGateWardenKills": 1,
+      "hollowGateAttunement": {
+        "extra-dive": 1
+      },
+      "totalPvpKills": 4,
+      "totalAiKills": 9,
+      "rankedRating": 1050,
+      "petRankedRating": 1000,
+      "customTitle": "",
+      "nindo": "A new creed.",
+      "nindoBg": "frost",
+      "avatarImage": "preset:leaf-1",
+      "lastDailyReset": "2020-01-02",
+      "dailyMissionsCompleted": 2,
+      "warGroundBountyDate": "2020-01-01",
+      "claimedVillageAgendaDate": "2020-01-01",
+      "claimedMapControlDate": "",
+      "battleTowerBestFloor": 6,
+      "battleTowerRating": 1010,
+      "someUnknownCharField": "kept-by-current-behavior",
+      "totalVillageRaids": 0,
+      "warsWon": 0,
+      "warMvpCount": 0,
+      "lifetimeWarDamage": 0,
+      "monthlyPvpKills": 0,
+      "dailyAiKills": 0,
+      "totalPetWins": 0,
+      "totalEndlessTowerWins": 0,
+      "totalTournamentsCompleted": 0,
+      "totalTilesExplored": 0,
+      "rankedWins": 0,
+      "rankedLosses": 0,
+      "villageWarMissionsCompleted": 0,
+      "totalMissionsCompleted": 0,
+      "cardClashWins": 0,
+      "cardClashLosses": 0,
+      "cardClashDraws": 0,
+      "clanBattleContrib": 0,
+      "clanEventContrib": 0,
+      "clanMissionContrib": 0
+    },
+    "acceptedMissionIds": [
+      "m-1"
+    ],
+    "missionProgress": {
+      "m-1": 1
+    },
+    "currentSector": "s13",
+    "triggeredEvents": [
+      "intro"
+    ],
+    "activeTraining": {
+      "stat": "strength",
+      "endsAt": 1
+    },
+    "activeJutsuTraining": null,
+    "_trainingReceipts": [
+      "t-1"
+    ],
+    "creatorItems": [
+      {
+        "id": "named-weapon-00000000-0000-4000-8000-000000000001",
+        "name": "Soulrender",
+        "slot": "hand"
+      },
+      {
+        "id": "admin-blade",
+        "name": "Admin Blade",
+        "slot": "hand"
+      }
+    ],
+    "savedBloodlines": [],
+    "pendingBloodlineForges": [],
+    "worldGeoV": 2,
+    "_saveVersion": 7,
+    "someUnknownTopLevel": "kept-by-current-behavior"
+  },
+  "existing-player-autosave.strict": {
+    "character": {
+      "name": "GoldenMaster",
+      "village": "Ember",
+      "level": 20,
+      "xp": 500,
+      "rankTitle": "Genin",
+      "ryo": 5000,
+      "bankRyo": 2000,
+      "lastBankInterestAt": 1700000000000,
+      "fateShards": 10,
+      "boneCharms": 3,
+      "auraStones": 0,
+      "auraDust": 0,
+      "mythicSeals": 1,
+      "honorSeals": 2,
+      "hollowShards": 0,
+      "stats": {
+        "strength": 50,
+        "speed": 50,
+        "intelligence": 50,
+        "willpower": 50,
+        "bukijutsuOffense": 50,
+        "bukijutsuDefense": 50,
+        "taijutsuOffense": 50,
+        "taijutsuDefense": 50,
+        "genjutsuOffense": 50,
+        "genjutsuDefense": 50,
+        "ninjutsuOffense": 50,
+        "ninjutsuDefense": 50
+      },
+      "unspentStats": 5,
+      "totalStatsTrained": 100,
+      "maxHp": 900,
+      "maxChakra": 400,
+      "maxStamina": 400,
+      "hp": 900,
+      "chakra": 400,
+      "stamina": 400,
+      "createdAt": 1600000000000,
+      "levelLedgerMigrated": true,
+      "profession": "healer",
+      "professionXp": 400,
+      "professionRank": 3,
+      "patreon": false,
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "itemStacks": [
+        {
+          "itemId": "ration",
+          "count": 3
+        }
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai"
+      },
+      "pets": [
+        {
+          "id": "pet-1",
+          "rarity": "standard",
+          "level": 4,
+          "xp": 10,
+          "hp": 40,
+          "attack": 20,
+          "defense": 20,
+          "speed": 20,
+          "nickname": "Scout",
+          "role": "striker"
+        }
+      ],
+      "activePetId": "pet-1",
+      "jutsuMastery": [
+        {
+          "jutsuId": "ashen-eyes-blood-gaze",
+          "level": 2,
+          "xp": 5
+        }
+      ],
+      "equippedJutsuIds": [
+        "ashen-eyes-blood-gaze"
+      ],
+      "storyProgress": 3,
+      "redeemedStoryBattles": [
+        "story-1"
+      ],
+      "examsPassed": [
+        "genin"
+      ],
+      "unlockedAchievements": [
+        "first-blood"
+      ],
+      "achievementUnlockedAt": {
+        "first-blood": 1
+      },
+      "claimedAchievementRewards": [
+        "first-blood"
+      ],
+      "earnedTitles": [
+        "First Blood"
+      ],
+      "serverTitles": [
+        "Era Herald"
+      ],
+      "legacy": {
+        "id": "sage",
+        "stage": 1,
+        "titles": [
+          "Sage Ascendant"
+        ]
+      },
+      "redeemedCrafts": [
+        "craft-1"
+      ],
+      "redeemedNamedForges": [],
+      "serverSettlementReceipts": {
+        "pvp": [
+          "r-1"
+        ]
+      },
+      "weaponElements": {
+        "rustfang-kunai": "fire"
+      },
+      "clanPoints": 10,
+      "weeklyClanPoints": 2,
+      "weeklyClanPointsWeek": "2026-W01",
+      "lifetimeClanPoints": 10,
+      "clanPointHistory": [],
+      "clanExchangePurchases": [],
+      "hunterRank": 2,
+      "hollowGateWardenKills": 1,
+      "hollowGateAttunement": {
+        "extra-dive": 1
+      },
+      "totalPvpKills": 4,
+      "totalAiKills": 9,
+      "rankedRating": 1050,
+      "petRankedRating": 1000,
+      "customTitle": "",
+      "nindo": "A new creed.",
+      "nindoBg": "frost",
+      "avatarImage": "preset:leaf-1",
+      "lastDailyReset": "2020-01-02",
+      "dailyMissionsCompleted": 2,
+      "warGroundBountyDate": "2020-01-01",
+      "claimedVillageAgendaDate": "2020-01-01",
+      "claimedMapControlDate": "",
+      "battleTowerBestFloor": 6,
+      "battleTowerRating": 1010,
+      "someUnknownCharField": "kept-by-current-behavior",
+      "totalVillageRaids": 0,
+      "warsWon": 0,
+      "warMvpCount": 0,
+      "lifetimeWarDamage": 0,
+      "monthlyPvpKills": 0,
+      "dailyAiKills": 0,
+      "totalPetWins": 0,
+      "totalEndlessTowerWins": 0,
+      "totalTournamentsCompleted": 0,
+      "totalTilesExplored": 0,
+      "rankedWins": 0,
+      "rankedLosses": 0,
+      "villageWarMissionsCompleted": 0,
+      "totalMissionsCompleted": 0,
+      "cardClashWins": 0,
+      "cardClashLosses": 0,
+      "cardClashDraws": 0,
+      "clanBattleContrib": 0,
+      "clanEventContrib": 0,
+      "clanMissionContrib": 0
+    },
+    "acceptedMissionIds": [
+      "m-1"
+    ],
+    "missionProgress": {
+      "m-1": 1
+    },
+    "currentSector": "s13",
+    "triggeredEvents": [
+      "intro"
+    ],
+    "activeTraining": {
+      "stat": "strength",
+      "endsAt": 1
+    },
+    "activeJutsuTraining": null,
+    "_trainingReceipts": [
+      "t-1"
+    ],
+    "creatorItems": [
+      {
+        "id": "admin-blade",
+        "name": "Admin Blade",
+        "slot": "hand"
+      },
+      {
+        "id": "named-weapon-00000000-0000-4000-8000-000000000001",
+        "name": "Soulrender",
+        "slot": "hand"
+      }
+    ],
+    "savedBloodlines": [],
+    "pendingBloodlineForges": [],
+    "worldGeoV": 2,
+    "_saveVersion": 7,
+    "someUnknownTopLevel": "kept-by-current-behavior"
+  },
+  "first-save.nonstrict": {
+    "character": {
+      "name": "Newcomer",
+      "village": "Ember",
+      "level": 1,
+      "xp": 0,
+      "ryo": 100,
+      "bankRyo": 0,
+      "fateShards": 0,
+      "mythicSeals": 0,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "intelligence": 10,
+        "willpower": 10,
+        "bukijutsuOffense": 10,
+        "bukijutsuDefense": 10,
+        "taijutsuOffense": 10,
+        "taijutsuDefense": 10,
+        "genjutsuOffense": 10,
+        "genjutsuDefense": 10,
+        "ninjutsuOffense": 10,
+        "ninjutsuDefense": 10
+      },
+      "unspentStats": 20,
+      "createdAt": 1600000000000,
+      "bloodline": "Ashen Eyes",
+      "jutsuMastery": [
+        {
+          "jutsuId": "ashen-eyes-blood-gaze",
+          "level": 1,
+          "xp": 0
+        }
+      ],
+      "equippedJutsuIds": [
+        "ashen-eyes-blood-gaze"
+      ],
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "pets": [],
+      "equipment": {},
+      "boneCharms": 0,
+      "auraStones": 0,
+      "auraDust": 0,
+      "honorSeals": 0,
+      "hollowShards": 0,
+      "professionXp": 0,
+      "professionRank": 1,
+      "levelLedgerMigrated": true,
+      "rankTitle": "Academy Student",
+      "maxHp": 500,
+      "maxChakra": 1000,
+      "maxStamina": 1000,
+      "hp": 500,
+      "chakra": 1000,
+      "stamina": 1000,
+      "totalStatsTrained": 0,
+      "totalEndlessTowerWins": 0,
+      "storyProgress": 0,
+      "totalPvpKills": 0,
+      "totalAiKills": 0,
+      "totalVillageRaids": 0,
+      "warsWon": 0,
+      "warMvpCount": 0,
+      "lifetimeWarDamage": 0,
+      "monthlyPvpKills": 0,
+      "dailyAiKills": 0,
+      "totalPetWins": 0,
+      "battleTowerBestFloor": 0,
+      "battleTowerRating": 0,
+      "totalTournamentsCompleted": 0,
+      "totalTilesExplored": 0,
+      "hollowGateWardenKills": 0,
+      "rankedWins": 0,
+      "rankedLosses": 0,
+      "villageWarMissionsCompleted": 0,
+      "totalMissionsCompleted": 0,
+      "cardClashWins": 0,
+      "cardClashLosses": 0,
+      "cardClashDraws": 0,
+      "clanBattleContrib": 0,
+      "clanEventContrib": 0,
+      "clanMissionContrib": 0,
+      "itemStacks": [],
+      "examsPassed": [],
+      "tileCards": [],
+      "auraSphereLevel": 1,
+      "defeatedAiIds": [],
+      "weeklyBossKills": {},
+      "redeemedAuraFeeds": [],
+      "redeemedHunterRanks": [],
+      "elements": [],
+      "claimedAwakenings": [],
+      "redeemedAwakeningActions": [],
+      "activeDungeonRun": null,
+      "redeemedDungeonRuns": [],
+      "redeemedHollowGateRuns": [],
+      "redeemedPetBattleTokens": [],
+      "redeemedPetExpeditionTokens": [],
+      "claimedServerMissions": [],
+      "redeemedPetGauntletRuns": [],
+      "petGauntletRewardCount": 0,
+      "petGauntletFateClaimed": false,
+      "petGauntletBoneClaimed": false,
+      "redeemedWandererQuests": [],
+      "redeemedWandererAmbushes": [],
+      "wandererAmbushRewardCount": 0,
+      "redeemedQuestbookRuns": [],
+      "villageUpgrades": {},
+      "dailyPetWins": 0,
+      "dailyTilesExplored": 0,
+      "dailyMissionsCompleted": 0,
+      "rankedSeasonsWon": 0,
+      "battleTowerAscension": 0,
+      "hunterRank": 0
+    },
+    "creatorItems": [],
+    "someUnknownTopLevel": "kept",
+    "pendingBloodlineForges": [],
+    "worldGeoV": 2
+  },
+  "first-save.strict": {
+    "character": {
+      "name": "Newcomer",
+      "village": "Ember",
+      "level": 1,
+      "xp": 0,
+      "ryo": 100,
+      "bankRyo": 0,
+      "fateShards": 0,
+      "mythicSeals": 0,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "intelligence": 10,
+        "willpower": 10,
+        "bukijutsuOffense": 10,
+        "bukijutsuDefense": 10,
+        "taijutsuOffense": 10,
+        "taijutsuDefense": 10,
+        "genjutsuOffense": 10,
+        "genjutsuDefense": 10,
+        "ninjutsuOffense": 10,
+        "ninjutsuDefense": 10
+      },
+      "unspentStats": 20,
+      "createdAt": 1600000000000,
+      "bloodline": "Ashen Eyes",
+      "jutsuMastery": [
+        {
+          "jutsuId": "ashen-eyes-blood-gaze",
+          "level": 1,
+          "xp": 0
+        }
+      ],
+      "equippedJutsuIds": [
+        "ashen-eyes-blood-gaze"
+      ],
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "pets": [],
+      "equipment": {},
+      "boneCharms": 0,
+      "auraStones": 0,
+      "auraDust": 0,
+      "honorSeals": 0,
+      "hollowShards": 0,
+      "professionXp": 0,
+      "professionRank": 1,
+      "levelLedgerMigrated": false,
+      "rankTitle": "Academy Student",
+      "maxHp": 500,
+      "maxChakra": 1000,
+      "maxStamina": 1000,
+      "hp": 500,
+      "chakra": 1000,
+      "stamina": 1000,
+      "totalStatsTrained": 0,
+      "totalEndlessTowerWins": 0,
+      "storyProgress": 0,
+      "totalPvpKills": 0,
+      "totalAiKills": 0,
+      "totalVillageRaids": 0,
+      "warsWon": 0,
+      "warMvpCount": 0,
+      "lifetimeWarDamage": 0,
+      "monthlyPvpKills": 0,
+      "dailyAiKills": 0,
+      "totalPetWins": 0,
+      "battleTowerBestFloor": 0,
+      "battleTowerRating": 0,
+      "totalTournamentsCompleted": 0,
+      "totalTilesExplored": 0,
+      "hollowGateWardenKills": 0,
+      "rankedWins": 0,
+      "rankedLosses": 0,
+      "villageWarMissionsCompleted": 0,
+      "totalMissionsCompleted": 0,
+      "cardClashWins": 0,
+      "cardClashLosses": 0,
+      "cardClashDraws": 0,
+      "clanBattleContrib": 0,
+      "clanEventContrib": 0,
+      "clanMissionContrib": 0,
+      "itemStacks": [],
+      "examsPassed": [],
+      "tileCards": [],
+      "auraSphereLevel": 1,
+      "defeatedAiIds": [],
+      "weeklyBossKills": {},
+      "redeemedAuraFeeds": [],
+      "redeemedHunterRanks": [],
+      "elements": [],
+      "claimedAwakenings": [],
+      "redeemedAwakeningActions": [],
+      "activeDungeonRun": null,
+      "redeemedDungeonRuns": [],
+      "redeemedHollowGateRuns": [],
+      "redeemedPetBattleTokens": [],
+      "redeemedPetExpeditionTokens": [],
+      "claimedServerMissions": [],
+      "redeemedPetGauntletRuns": [],
+      "petGauntletRewardCount": 0,
+      "petGauntletFateClaimed": false,
+      "petGauntletBoneClaimed": false,
+      "redeemedWandererQuests": [],
+      "redeemedWandererAmbushes": [],
+      "wandererAmbushRewardCount": 0,
+      "redeemedQuestbookRuns": [],
+      "villageUpgrades": {},
+      "dailyPetWins": 0,
+      "dailyTilesExplored": 0,
+      "dailyMissionsCompleted": 0,
+      "rankedSeasonsWon": 0,
+      "battleTowerAscension": 0,
+      "hunterRank": 0
+    },
+    "creatorItems": [],
+    "someUnknownTopLevel": "kept",
+    "pendingBloodlineForges": [],
+    "worldGeoV": 2
+  },
+  "admin-content-slot-save.nonstrict": {
+    "character": {
+      "name": "admin1",
+      "village": "Ember",
+      "level": 20,
+      "xp": 500,
+      "rankTitle": "Genin",
+      "ryo": 5000,
+      "bankRyo": 2000,
+      "lastBankInterestAt": 1700000000000,
+      "fateShards": 10,
+      "boneCharms": 3,
+      "auraStones": 0,
+      "auraDust": 0,
+      "mythicSeals": 1,
+      "honorSeals": 2,
+      "hollowShards": 0,
+      "stats": {
+        "strength": 50,
+        "speed": 50,
+        "intelligence": 50,
+        "willpower": 50,
+        "bukijutsuOffense": 50,
+        "bukijutsuDefense": 50,
+        "taijutsuOffense": 50,
+        "taijutsuDefense": 50,
+        "genjutsuOffense": 50,
+        "genjutsuDefense": 50,
+        "ninjutsuOffense": 50,
+        "ninjutsuDefense": 50
+      },
+      "unspentStats": 5,
+      "totalStatsTrained": 100,
+      "maxHp": 900,
+      "maxChakra": 400,
+      "maxStamina": 400,
+      "hp": 900,
+      "chakra": 400,
+      "stamina": 400,
+      "createdAt": 1600000000000,
+      "levelLedgerMigrated": true,
+      "profession": "healer",
+      "professionXp": 400,
+      "professionRank": 3,
+      "patreon": false,
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "itemStacks": [
+        {
+          "itemId": "ration",
+          "count": 3
+        }
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai"
+      },
+      "pets": [
+        {
+          "id": "pet-1",
+          "rarity": "standard",
+          "level": 4,
+          "xp": 10,
+          "hp": 40,
+          "attack": 20,
+          "defense": 20,
+          "speed": 20,
+          "nickname": "Scout",
+          "role": "striker"
+        }
+      ],
+      "activePetId": "pet-1",
+      "jutsuMastery": [
+        {
+          "jutsuId": "ashen-eyes-blood-gaze",
+          "level": 2,
+          "xp": 5
+        }
+      ],
+      "equippedJutsuIds": [
+        "ashen-eyes-blood-gaze"
+      ],
+      "storyProgress": 3,
+      "redeemedStoryBattles": [
+        "story-1"
+      ],
+      "examsPassed": [
+        "genin"
+      ],
+      "unlockedAchievements": [
+        "first-blood"
+      ],
+      "achievementUnlockedAt": {
+        "first-blood": 1
+      },
+      "claimedAchievementRewards": [
+        "first-blood"
+      ],
+      "earnedTitles": [
+        "First Blood"
+      ],
+      "serverTitles": [
+        "Era Herald"
+      ],
+      "legacy": {
+        "id": "sage",
+        "stage": 1,
+        "titles": [
+          "Sage Ascendant"
+        ]
+      },
+      "redeemedCrafts": [
+        "craft-1"
+      ],
+      "redeemedNamedForges": [],
+      "serverSettlementReceipts": {
+        "pvp": [
+          "r-1"
+        ]
+      },
+      "weaponElements": {
+        "rustfang-kunai": "fire"
+      },
+      "clanPoints": 10,
+      "weeklyClanPoints": 2,
+      "weeklyClanPointsWeek": "2026-W01",
+      "lifetimeClanPoints": 10,
+      "clanPointHistory": [],
+      "clanExchangePurchases": [],
+      "hunterRank": 2,
+      "hollowGateWardenKills": 1,
+      "hollowGateAttunement": {
+        "extra-dive": 1
+      },
+      "totalPvpKills": 4,
+      "totalAiKills": 9,
+      "rankedRating": 1050,
+      "petRankedRating": 1000,
+      "customTitle": "",
+      "nindo": "My way.",
+      "nindoBg": "ember",
+      "avatarImage": "preset:leaf-1",
+      "lastDailyReset": "2020-01-02",
+      "dailyMissionsCompleted": 2,
+      "warGroundBountyDate": "2020-01-01",
+      "claimedVillageAgendaDate": "2020-01-01",
+      "claimedMapControlDate": "",
+      "battleTowerBestFloor": 6,
+      "battleTowerRating": 1010,
+      "totalVillageRaids": 0,
+      "warsWon": 0,
+      "warMvpCount": 0,
+      "lifetimeWarDamage": 0,
+      "monthlyPvpKills": 0,
+      "dailyAiKills": 0,
+      "totalPetWins": 0,
+      "totalEndlessTowerWins": 0,
+      "totalTournamentsCompleted": 0,
+      "totalTilesExplored": 0,
+      "rankedWins": 0,
+      "rankedLosses": 0,
+      "villageWarMissionsCompleted": 0,
+      "totalMissionsCompleted": 0,
+      "cardClashWins": 0,
+      "cardClashLosses": 0,
+      "cardClashDraws": 0,
+      "clanBattleContrib": 0,
+      "clanEventContrib": 0,
+      "clanMissionContrib": 0
+    },
+    "acceptedMissionIds": [
+      "m-1"
+    ],
+    "missionProgress": {
+      "m-1": 1
+    },
+    "currentSector": "s12",
+    "triggeredEvents": [
+      "intro"
+    ],
+    "activeTraining": {
+      "stat": "strength",
+      "endsAt": 1
+    },
+    "activeJutsuTraining": null,
+    "_trainingReceipts": [
+      "t-1"
+    ],
+    "creatorItems": [
+      {
+        "id": "admin-blade",
+        "name": "Admin Blade v2",
+        "slot": "hand",
+        "updatedAt": 5
+      }
+    ],
+    "savedBloodlines": [],
+    "pendingBloodlineForges": [],
+    "worldGeoV": 2,
+    "_saveVersion": 7
+  },
+  "public-dto.base": {
+    "character": {
+      "name": "GoldenMaster",
+      "level": 20,
+      "village": "Ember",
+      "avatarImage": "preset:leaf-1",
+      "storyProgress": 3,
+      "hp": 900,
+      "maxHp": 900,
+      "chakra": 400,
+      "maxChakra": 400,
+      "stamina": 400,
+      "maxStamina": 400,
+      "customTitle": "",
+      "profession": "healer",
+      "professionRank": 3,
+      "professionXp": 400
+    }
+  },
+  "public-dto.combat": {
+    "character": {
+      "name": "GoldenMaster",
+      "level": 20,
+      "village": "Ember",
+      "avatarImage": "preset:leaf-1",
+      "storyProgress": 3,
+      "hp": 900,
+      "maxHp": 900,
+      "chakra": 400,
+      "maxChakra": 400,
+      "stamina": 400,
+      "maxStamina": 400,
+      "customTitle": "",
+      "profession": "healer",
+      "professionRank": 3,
+      "professionXp": 400
+    },
+    "savedBloodlines": [],
+    "creatorItems": [
+      {
+        "id": "admin-blade",
+        "name": "Admin Blade",
+        "slot": "hand"
+      },
+      {
+        "id": "named-weapon-00000000-0000-4000-8000-000000000001",
+        "name": "Soulrender",
+        "slot": "hand"
+      }
+    ]
+  },
+  "public-dto.shared-content": {
+    "character": {
+      "name": "GoldenMaster",
+      "level": 20,
+      "village": "Ember",
+      "avatarImage": "preset:leaf-1",
+      "storyProgress": 3,
+      "hp": 900,
+      "maxHp": 900,
+      "chakra": 400,
+      "maxChakra": 400,
+      "stamina": 400,
+      "maxStamina": 400,
+      "customTitle": "",
+      "profession": "healer",
+      "professionRank": 3,
+      "professionXp": 400
+    },
+    "creatorItems": [
+      {
+        "id": "admin-blade",
+        "name": "Admin Blade",
+        "slot": "hand"
+      }
+    ]
+  },
+  "combat-projection": {
+    "character": {
+      "name": "GoldenMaster",
+      "village": "Ember",
+      "level": 20,
+      "xp": 500,
+      "rankTitle": "Genin",
+      "stats": {
+        "strength": 50,
+        "speed": 50,
+        "intelligence": 50,
+        "willpower": 50,
+        "bukijutsuOffense": 50,
+        "bukijutsuDefense": 50,
+        "taijutsuOffense": 50,
+        "taijutsuDefense": 50,
+        "genjutsuOffense": 50,
+        "genjutsuDefense": 50,
+        "ninjutsuOffense": 50,
+        "ninjutsuDefense": 50
+      },
+      "unspentStats": 5,
+      "maxHp": 900,
+      "maxChakra": 400,
+      "maxStamina": 400,
+      "hp": 900,
+      "chakra": 400,
+      "stamina": 400,
+      "levelLedgerMigrated": true,
+      "profession": "healer",
+      "professionXp": 400,
+      "professionRank": 3,
+      "patreon": false,
+      "equipment": {
+        "hand": "rustfang-kunai"
+      },
+      "pets": [
+        {
+          "id": "pet-1",
+          "rarity": "standard",
+          "level": 4,
+          "xp": 10,
+          "hp": 40,
+          "attack": 20,
+          "defense": 20,
+          "speed": 20,
+          "nickname": "Scout",
+          "role": "striker"
+        }
+      ],
+      "activePetId": "pet-1",
+      "jutsuMastery": [
+        {
+          "jutsuId": "ashen-eyes-blood-gaze",
+          "level": 2,
+          "xp": 5
+        }
+      ],
+      "equippedJutsuIds": [
+        "ashen-eyes-blood-gaze"
+      ],
+      "storyProgress": 3,
+      "redeemedStoryBattles": [
+        "story-1"
+      ],
+      "claimedAchievementRewards": [
+        "first-blood"
+      ],
+      "earnedTitles": [
+        "First Blood"
+      ],
+      "serverTitles": [
+        "Era Herald"
+      ],
+      "legacy": {
+        "id": "sage",
+        "stage": 1,
+        "titles": [
+          "Sage Ascendant"
+        ]
+      },
+      "redeemedCrafts": [
+        "craft-1"
+      ],
+      "redeemedNamedForges": [],
+      "serverSettlementReceipts": {
+        "pvp": [
+          "r-1"
+        ]
+      },
+      "weaponElements": {
+        "rustfang-kunai": "fire"
+      },
+      "rankedRating": 1050,
+      "petRankedRating": 1000,
+      "customTitle": "",
+      "nindo": "My way.",
+      "nindoBg": "ember",
+      "avatarImage": "preset:leaf-1",
+      "warGroundBountyDate": "2020-01-01"
+    },
+    "_trainingReceipts": [
+      "t-1"
+    ],
+    "creatorItems": [
+      {
+        "id": "admin-blade",
+        "name": "Admin Blade",
+        "slot": "hand"
+      },
+      {
+        "id": "named-weapon-00000000-0000-4000-8000-000000000001",
+        "name": "Soulrender",
+        "slot": "hand"
+      }
+    ],
+    "savedBloodlines": [],
+    "pendingBloodlineForges": [],
+    "worldGeoV": 2,
+    "_saveVersion": 7
+  }
+}

@@ -10,7 +10,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
             name: 'Cheater', level: 50, specialty: 'Ninjutsu',
             stats: { taijutsuOffense: 999999, willpower: -50 },
             maxHp: 999999, maxChakra: 999999, bloodlineMult: 99,
-        });
+        }, null, {}, null);
         const stats = sealed.stats as Record<string, number>;
         assert.equal(stats.taijutsuOffense, 2500);
         assert.equal(stats.willpower, 0);
@@ -21,13 +21,13 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     });
 
     it('sanitizes the jutsu loadout (caps effectPower)', () => {
-        const sealed = sealTowerFighter({ stats: {}, jutsu: [{ id: 'j1', effectPower: 999999, type: 'Ninjutsu' }] });
+        const sealed = sealTowerFighter({ stats: {}, jutsu: [{ id: 'j1', effectPower: 999999, type: 'Ninjutsu' }] }, null, {}, null);
         const jutsu = sealed.jutsu as Array<Record<string, unknown>>;
         assert.ok((jutsu[0].effectPower as number) <= 600, 'effectPower clamped by sanitizeJutsuList');
     });
 
     it('strips currencies + inventory + battleTower ledgers', () => {
-        const sealed = sealTowerFighter({ name: 'A', ryo: 1e9, inventory: [1, 2, 3], battleTowerClearedFloors: [1, 2, 3], stats: {} });
+        const sealed = sealTowerFighter({ name: 'A', ryo: 1e9, inventory: [1, 2, 3], battleTowerClearedFloors: [1, 2, 3], stats: {} }, null, {}, null);
         assert.ok(!('ryo' in sealed));
         assert.ok(!('inventory' in sealed));
         assert.ok(!('battleTowerClearedFloors' in sealed));
@@ -43,7 +43,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const authored = { id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', ap: 40, effectPower: 36 };
         const saveChar = { stats: {}, equippedJutsuIds: ['starter-tai-fire-2', 'starter-universal-blitz'] };
 
-        const without = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {});
+        const without = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {}, null);
         assert.deepEqual((without.jutsu as Array<{ id: string }>).map((j) => j.id), ['starter-tai-fire-2']);
 
         const admin: AdminCombatContent = { jutsu: new Map([[authored.id, authored]]), items: new Map() };
@@ -62,7 +62,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const saveChar = { stats: {}, equipment: { hand: 'custom-storm-tanto' } };
         const save = { creatorItems: [] };
 
-        const without = sealTowerFighter(saveChar, save, {});
+        const without = sealTowerFighter(saveChar, save, {}, null);
         assert.deepEqual((without.pvpItems as Array<{ id: string }>).map((i) => i.id), []);
 
         const admin: AdminCombatContent = { jutsu: new Map(), items: new Map([[authored.id, authored]]) };
@@ -72,7 +72,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     });
 
     it('defaults an invalid specialty to Taijutsu', () => {
-        const sealed = sealTowerFighter({ specialty: 'Hacking', stats: {} });
+        const sealed = sealTowerFighter({ specialty: 'Hacking', stats: {} }, null, {}, null);
         assert.equal(sealed.specialty, 'Taijutsu');
     });
 
@@ -84,6 +84,8 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const sealed = sealTowerFighter(
             { name: 'Hero', stats: {}, bloodline: 'Ashen Eyes', equippedJutsuIds: ['ashen-eyes-blood-gaze'] },
             { character: { equippedJutsuIds: ['ashen-eyes-blood-gaze'] } },
+            {},
+            null,
         );
         const jutsu = sealed.jutsu as Array<Record<string, unknown>>;
         assert.ok(Array.isArray(jutsu) && jutsu.length === 1, 'equipped jutsu resolved from the catalog');
@@ -111,6 +113,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
             },
             // client claims inflated passives + a bogus weapon — ALL must be ignored.
             { pvpItems: [{ id: 'kunai', name: 'Kunai', slot: 'thrown', weaponEp: 999999 }], bloodlineMult: 3, armorRawDR: 1.5, itemDamagePct: 200 },
+            null,
         );
         assert.equal(sealed.bloodlineMult, 1.2, 'bloodlineMult derived from the S-Rank bloodline, not client 3');
         assert.ok(Math.abs((sealed.armorRawDR as number) - 0.14) < 1e-9, 'armorRawDR derived from the two Legendary pieces (0.07+0.07), not client 1.5');

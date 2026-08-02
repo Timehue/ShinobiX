@@ -13,6 +13,7 @@ import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
+import { enqueueClaim, removeClaim, useClaimOutboxDrain } from "./lib/claim-outbox";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { mutateDungeonRunServer } from "./lib/dungeon-api";
 import { mutateEndlessRun } from "./lib/endless-api";
@@ -1000,6 +1001,7 @@ export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v
 // ./data/village-leadership (import from those modules, not from App).
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "./data/village-leadership";
 import { setVillageLeadershipImagesCache } from "./lib/village-leadership-images";
+import { isDeletedJutsuEntry, deletedJutsuEntry } from "../../shared/admin-content-tombstone";
 
 // Village upgrade system (definitions, levels/bonuses, costs + the derived
 // bonus helpers) extracted to ./lib/village-upgrades. The symbols still
@@ -1360,6 +1362,10 @@ function starterBloodlineJutsuRank(jutsuId: string): Rank | undefined {
 }
 
 export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character?: Character | null) {
+    // Deletion tombstones live IN creatorJutsus (they must, so the delete
+    // survives a publish and beats the other admin slot's copy) but they are
+    // not jutsu — drop them here, the one place every consumer funnels through.
+    creatorJutsus = creatorJutsus.filter((j) => !isDeletedJutsuEntry(j));
     const starterBloodlineName = character?.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character?.bloodline;
     const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
     const equippedBloodline = savedBloodlines.find((b) => b.id === character?.equippedBloodlineId);
@@ -1566,6 +1572,9 @@ export default function App() {
     useEffect(() => {
         setActivePlayer(character?.name ?? currentAccountName ?? null);
     }, [character?.name, currentAccountName]);
+
+    // Drain the durable combat-claim outbox on login/reconnect (lib/claim-outbox).
+    useClaimOutboxDrain(character?.name, (v) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, v); });
 
     // ── Achievement unlock detection ───────────────────────────────────────
     // Achievement state is SERVER-OWNED: every generic /api/save overwrites
@@ -3744,12 +3753,14 @@ export default function App() {
         return null;
     }
 
-    // Settle a won E/D combat mission server-side (lib/mission-combat-claim);
-    // without that token the Mission Hall's "Claim Reward" can only ever fail.
+    // Settle a won E/D combat mission server-side. The win parks in the durable
+    // claim outbox FIRST (lib/claim-outbox), so full offline no longer loses it.
     async function settleCombatMissionClaim(missionKey: string) {
         if (!character?.name) return;
+        enqueueClaim(character.name, missionKey);
         const result = await queueCombatMissionClaim(character.name, missionKey);
-        if (!result) return alert("Your mission win couldn't be registered with the server, so there's no reward to claim in the Mission Hall. You'll need to run the mission again.");
+        if (!result) return alert("Your mission win couldn't reach the server yet. It's saved on this device and will be registered automatically once you're back online.");
+        removeClaim(character.name, missionKey);
         latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result.saveVersion);
     }
 

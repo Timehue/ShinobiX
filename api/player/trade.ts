@@ -9,6 +9,7 @@ import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
 import { recordEconomyTxn } from '../_economy.js';
+import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx } from '../_economy-tx.js';
 
 /*
  * /api/player/trade — POST (direct player-to-player transfer)
@@ -78,18 +79,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } catch { /* fail open — a broken anti-cheat check must not block a legit transfer */ }
         }
 
-        // Optional idempotency: a client-supplied nonce makes a retried send a
-        // no-op instead of a double-debit. The nonce receipt is written ONLY
-        // after a successful commit (see below) and stores the original receipt,
-        // so a genuine retry replays that receipt rather than re-running the
-        // transfer. Checking it here is read-only — a request that failed AFTER
-        // a pre-commit nonce write (e.g. lock contention 500, insufficient funds,
-        // missing save) never persisted a nonce, so its retry runs for real.
+        // Idempotency (P0-2): the client nonce receipt is written as `pending`
+        // BEFORE the sender debit, then upgraded to the final receipt after the
+        // commit. Three retry cases:
+        //   • prior.receipt      → the transfer committed; replay the receipt.
+        //   • prior pending only → a previous attempt debited (or was about to)
+        //     and never finished — the economy-tx journal has the trail. Refuse
+        //     to re-run: re-running is exactly the double-debit this closes.
+        //   • no prior           → first attempt (or a pre-debit failure that
+        //     rolled its pending marker back); run for real.
         const nonce = typeof body.nonce === 'string' ? body.nonce.slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, '') : '';
         const nonceKey = nonce ? `trade:nonce:${playerName}:${nonce}` : '';
         if (nonceKey) {
             const prior = await kv.get<Record<string, unknown>>(nonceKey);
             if (prior?.receipt) return res.status(200).json({ ...(prior.receipt as Record<string, unknown>), duplicate: true });
+            if (prior) {
+                return res.status(409).json({
+                    error: 'A previous attempt of this transfer is still settling. It was NOT sent twice — refresh your balance before retrying.',
+                    pending: true,
+                    txId: typeof prior.txId === 'string' ? prior.txId : undefined,
+                });
+            }
         }
 
         const now = Date.now();
@@ -112,11 +122,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const plan = planTrade(currency, amount, num(senderChar[currency]));
                 if (!plan.ok) return { status: 400, body: { error: plan.reason } };
 
+                // P0-2: journal the two-save settlement (reserve → debit-applied
+                // → complete / needs-reconcile) so a failure between the two
+                // writes leaves a durable reconcile trail (admin
+                // economy-reconcile) instead of silently burning the sender's
+                // funds — the pattern treasury transfers already use.
+                const txId = makeEconomyTxId('player-trade');
+                await reserveEconomyTx({
+                    id: txId, kind: 'player-trade',
+                    debitKey: senderKey, creditKey: recipientKey,
+                    resource: currency, amount: plan.debit,
+                    meta: { credit: plan.credit, burned: plan.burned, nonce: nonce || undefined },
+                });
+                // Pending nonce marker BEFORE the debit: a retry of anything
+                // that fails past this point sees it and refuses to re-debit.
+                if (nonceKey) {
+                    await kv.set(nonceKey, { ts: now, txId, pending: true }, { ex: NONCE_TTL_SECONDS, nx: true } as never).catch(() => undefined);
+                }
+
                 const senderBalance = num(senderChar[currency]) - plan.debit;
-                const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: senderBalance } });
-                await kv.set(senderKey, mergePreservingImages(senderUpdated, senderRec));
-                const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } });
-                await kv.set(recipientKey, mergePreservingImages(recipientUpdated, recipientRec));
+                try {
+                    const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: senderBalance } });
+                    await kv.set(senderKey, mergePreservingImages(senderUpdated, senderRec));
+                } catch (err) {
+                    // Nothing moved. Roll the pending marker back so a retry may
+                    // run for real, and journal the failure.
+                    if (nonceKey) await kv.del(nonceKey).catch(() => undefined);
+                    await failEconomyTx(txId, err, { note: 'debit write failed; no funds moved' }).catch(() => undefined);
+                    return { status: 502, body: { error: 'The transfer could not start. Nothing was sent.' } };
+                }
+                await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
+                try {
+                    const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } });
+                    await kv.set(recipientKey, mergePreservingImages(recipientUpdated, recipientRec));
+                } catch (err) {
+                    // Debit committed, credit did not: loss-direction, never a
+                    // mint. Keep the pending nonce (blocks a re-debit) and flag
+                    // the journal for reconciliation.
+                    await failEconomyTx(txId, err, { note: `debited ${plan.debit} ${currency}; recipient credit failed — reconcile` }).catch(() => undefined);
+                    console.error('[player/trade] credit write failed after debit', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
+                    return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
+                }
+                await completeEconomyTx(txId).catch(() => undefined);
                 return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
             }, { failClosed: true }),
         { failClosed: true });

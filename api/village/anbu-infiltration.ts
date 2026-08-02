@@ -37,6 +37,7 @@ import {
 } from '../_anbu-infiltration-store.js';
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
 import { settleConsumedItemsForMember } from '../towers/_tower-store.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -121,7 +122,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     if (!sector) return res.status(400).json({ error: 'Missing sector.' });
 
     // The raider: save exists, level 100+, belongs to a village.
-    const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
     const char = rec?.character as Record<string, unknown> | undefined;
     if (!char) return res.status(404).json({ error: 'Your save was not found.' });
     const level = Math.floor(Number(char.level) || 0);
