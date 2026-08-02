@@ -13,7 +13,7 @@ import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
-import { enqueueClaim, removeClaim, flushClaimOutbox } from "./lib/claim-outbox";
+import { enqueueClaim, removeClaim, useClaimOutboxDrain } from "./lib/claim-outbox";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { mutateDungeonRunServer } from "./lib/dungeon-api";
 import { mutateEndlessRun } from "./lib/endless-api";
@@ -1569,16 +1569,7 @@ export default function App() {
     }, [character?.name, currentAccountName]);
 
     // Drain the durable combat-claim outbox on login/reconnect (lib/claim-outbox).
-    useEffect(() => {
-        const name = character?.name;
-        if (!name) return;
-        const drain = () => void flushClaimOutbox(name).then((v) => {
-            if (typeof v === "number") latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, v);
-        });
-        drain();
-        window.addEventListener("online", drain);
-        return () => window.removeEventListener("online", drain);
-    }, [character?.name]);
+    useClaimOutboxDrain(character?.name, (v) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, v); });
 
     // ── Achievement unlock detection ───────────────────────────────────────
     // Achievement state is SERVER-OWNED: every generic /api/save overwrites
