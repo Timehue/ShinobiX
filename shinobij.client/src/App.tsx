@@ -1001,7 +1001,7 @@ export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v
 // ./data/village-leadership (import from those modules, not from App).
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "./data/village-leadership";
 import { setVillageLeadershipImagesCache } from "./lib/village-leadership-images";
-import { isDeletedJutsuEntry, deletedJutsuEntry } from "../../shared/admin-content-tombstone";
+import { isDeletedJutsuEntry } from "../../shared/admin-content-tombstone";
 
 // Village upgrade system (definitions, levels/bonuses, costs + the derived
 // bonus helpers) extracted to ./lib/village-upgrades. The symbols still
