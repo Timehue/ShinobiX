@@ -60,6 +60,7 @@ import adminGrantSubscriptionHandler from './api/admin/grant-subscription.js';
 import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
+import adminContentPublishHandler from './api/admin/content-publish.js';
 import clansListHandler  from './api/clans/list.js';
 import chatHandler       from './api/village/chat.js';
 import guardQueueHandler from './api/village-guard/queue.js';
@@ -1004,6 +1005,7 @@ route('/admin/grant-subscription', adminGrantSubscriptionHandler);
 route('/admin/player-index-health', adminPlayerIndexHealthHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
+route('/admin/content-publish', adminContentPublishHandler);
 
 // Clans
 route('/clans/list', clansListHandler);
