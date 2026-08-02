@@ -11,6 +11,7 @@ import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import { SERVER_ARENA_PETS } from './_arena-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { writeSaveProjected } from '../save/_projected-write.js';
 
 // Pet Arena reward recorder. Non-ranked wins require a short-lived start token
 // minted by /api/pet/battle-start for the same reportKey. The battle is still
@@ -436,7 +437,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // can show "recorded" instead of silently no-op'ing.
             if (outcome === 'loss' || outcome === 'draw') {
                 const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await kv.set(saveKey, mergePreservingImages(spentRecord, record));
+                await writeSaveProjected(saveKey, spentRecord, record);
                 if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
                 return {
                     ok: true,
@@ -455,7 +456,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // doesn't see error spam — they just stop earning).
             if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
                 const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await kv.set(saveKey, mergePreservingImages(spentRecord, record));
+                await writeSaveProjected(saveKey, spentRecord, record);
                 if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
                 return {
                     ok: true,
@@ -478,7 +479,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastDailyReset: today,
             };
             const updated = bumpSaveVersion({ ...record, character: updatedChar });
-            await kv.set(saveKey, mergePreservingImages(updated, record));
+            await writeSaveProjected(saveKey, updated, record);
             if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
             return {
                 ok: true,
