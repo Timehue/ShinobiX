@@ -79,6 +79,7 @@ import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeader
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
+import { useAdminContentPublisher } from "../lib/content-publish";
 
 type EditableVnPage = {
     title: string;
@@ -2173,12 +2174,29 @@ export function AdminPanel({
 
     const [adminSaving, setAdminSaving] = useState(false);
     const [adminSaveMsg, setAdminSaveMsg] = useState("");
+    const publishAuthoredContent = useAdminContentPublisher(adminPw);
     async function handleAdminSave() {
         setAdminSaving(true); setAdminSaveMsg("");
-        try { await onSave(); setAdminSaveMsg("Saved!"); }
-        catch { setAdminSaveMsg("Save failed."); }
+        try {
+            // Authored content publishes through the guarded endpoint FIRST
+            // (lib/content-publish). The ordinary save path treats these fields
+            // as server-owned and freezes them to the stored copy, so this is
+            // what actually gets an edit to players — and it version-checks, so
+            // a second admin tab is told to reload instead of silently
+            // reverting newer content. The server mirrors what it publishes
+            // back into the admin slot, so the save below stays consistent.
+            await publishAuthoredContent({
+                creatorJutsus, creatorItems, creatorAis, creatorEvents,
+                creatorMissions, creatorRaids, creatorCards,
+                editablePets, petEncounterVn, ancientChestVn, hollowGateEventConfig,
+            });
+            await onSave();
+            setAdminSaveMsg("Saved!");
+        } catch (err) {
+            setAdminSaveMsg(err instanceof Error && err.message ? `Save failed: ${err.message}` : "Save failed.");
+        }
         setAdminSaving(false);
-        setTimeout(() => setAdminSaveMsg(""), 3000);
+        setTimeout(() => setAdminSaveMsg(""), 6000);
     }
 
     return (
