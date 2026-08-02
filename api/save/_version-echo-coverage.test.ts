@@ -33,6 +33,7 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  */
 const ECHOES_VERSION = new Set([
     '_anbu-infiltration-store.ts',
+    'admin/content-publish.ts',
     'bank/claim-interest.ts',
     'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
     'clan/war/declare.ts',
