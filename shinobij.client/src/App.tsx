@@ -1001,7 +1001,7 @@ export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v
 // ./data/village-leadership (import from those modules, not from App).
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "./data/village-leadership";
 import { setVillageLeadershipImagesCache } from "./lib/village-leadership-images";
-import { isDeletedJutsuEntry, deletedJutsuEntry } from "../../shared/admin-content-tombstone";
+import { isDeletedJutsuEntry } from "../../shared/admin-content-tombstone";
 
 // Village upgrade system (definitions, levels/bonuses, costs + the derived
 // bonus helpers) extracted to ./lib/village-upgrades. The symbols still
@@ -1362,9 +1362,7 @@ function starterBloodlineJutsuRank(jutsuId: string): Rank | undefined {
 }
 
 export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character?: Character | null) {
-    // Deletion tombstones live IN creatorJutsus (they must, so the delete
-    // survives a publish and beats the other admin slot's copy) but they are
-    // not jutsu — drop them here, the one place every consumer funnels through.
+    // Tombstones ride in creatorJutsus so a delete survives publish; not jutsu.
     creatorJutsus = creatorJutsus.filter((j) => !isDeletedJutsuEntry(j));
     const starterBloodlineName = character?.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character?.bloodline;
     const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
