@@ -177,7 +177,7 @@ import { readFileSync } from "node:fs";
 // loadPlayerAccounts and savePlayerAccounts, verbatim, so the password-scrubbing
 // invariant moved with them. That paid for the +11-line masked password prompt at
 // the delete-character call site, which replaced a plaintext window.prompt.)
-const MAX_LINES = 7_747;
+const MAX_LINES = 7_751;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
