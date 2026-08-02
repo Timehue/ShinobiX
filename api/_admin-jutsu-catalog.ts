@@ -22,6 +22,7 @@
  */
 import { kv } from './_storage.js';
 import { safeLogValue } from './_safe-log.js';
+import { isDeletedJutsuEntry } from '../shared/admin-content-tombstone.js';
 import { loadPublishedContent } from './_content-store.js';
 
 const ADMIN_SAVE_KEYS = ['save:admin1', 'save:admin2'] as const;
@@ -53,7 +54,12 @@ const stamp = (value: unknown): number => {
  * Exported for tests and for callers that already hold the admin records.
  */
 export function buildAdminJutsuCatalog(records: readonly (AdminContentRecord | null | undefined)[]): Map<string, AdminJutsu> {
-    const out = new Map<string, AdminJutsu>();
+    // Resolve per id FIRST, then emit — so a deletion tombstone competes on
+    // recency like any other entry and cannot be resurrected by a live copy
+    // sitting in a later slot. (The item catalog deletes in-place instead,
+    // which is exactly why a later slot CAN resurrect a deleted item there —
+    // shared-content audit finding 6. Do not copy that shape here.)
+    const best = new Map<string, { value: Record<string, unknown>; ts: number; deleted: boolean }>();
     for (const record of records) {
         const list = Array.isArray(record?.creatorJutsus) ? record.creatorJutsus as unknown[] : [];
         for (const raw of list) {
@@ -61,10 +67,17 @@ export function buildAdminJutsuCatalog(records: readonly (AdminContentRecord | n
             const value = raw as Record<string, unknown>;
             const id = typeof value.id === 'string' ? value.id.trim() : '';
             if (!id || id.length > MAX_ID_LENGTH) continue;
-            const held = out.get(id);
-            if (held && stamp(held.updatedAt) > stamp(value.updatedAt)) continue;
-            out.set(id, { ...value, id } as AdminJutsu);
+            const ts = stamp(value.updatedAt);
+            const held = best.get(id);
+            // Ties fall to the later record, matching the previous behaviour.
+            if (held && held.ts > ts) continue;
+            best.set(id, { value, ts, deleted: isDeletedJutsuEntry(value) });
         }
+    }
+    const out = new Map<string, AdminJutsu>();
+    for (const [id, entry] of best) {
+        if (entry.deleted) continue; // the newest word on this id is "deleted"
+        out.set(id, { ...entry.value, id } as AdminJutsu);
     }
     return out;
 }

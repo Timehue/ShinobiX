@@ -80,6 +80,7 @@ import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
+import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 
 type EditableVnPage = {
     title: string;
@@ -1672,7 +1673,13 @@ export function AdminPanel({
                 totalPoints: remaining.reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
             } : bloodline));
         } else if (creatorJutsus.some((jutsu) => jutsu.id === jutsuId)) {
-            setCreatorJutsus(creatorJutsus.filter((jutsu) => jutsu.id !== jutsuId));
+            // Replace with a tombstone rather than dropping the entry: the two
+            // admin slots are UNIONED by every reader, so a plain removal is
+            // resurrected by the other slot's copy and the jutsu comes back.
+            setCreatorJutsus([
+                ...creatorJutsus.filter((jutsu) => jutsu.id !== jutsuId),
+                deletedJutsuEntry(jutsuId, Date.now()) as unknown as Jutsu,
+            ]);
         } else {
             return alert("That's a built-in starter jutsu — it can't be deleted, only overridden via Save Loaded Jutsu.");
         }
