@@ -62,15 +62,21 @@ describe('sector presence gate', () => {
 });
 
 describe('wild-field endpoints enforce the gate', () => {
-    for (const rel of ['world/explore.ts', 'world/open-chest.ts']) {
+    // Every wild-field earner. Adding a new one that pays out for being in a
+    // sector means adding it here too — otherwise it becomes the next hole.
+    for (const rel of [
+        'world/explore.ts', 'world/open-chest.ts',
+        'sector/wanderer-gift.ts', 'sector/wanderer-quest.ts', 'sector/wanderer-service.ts',
+    ]) {
         it(`${rel} gates its payout on presence`, () => {
             const src = readFileSync(join(process.cwd(), 'api', rel), 'utf8');
-            assert.match(src, /sectorPresenceBlock\(playerName, body\.sector\)/);
+            assert.match(src, /sectorPresenceBlock\(playerName, /);
             // The gate must run BEFORE the payout, not alongside it.
-            assert.ok(
-                src.indexOf('sectorPresenceBlock(') < src.indexOf('mutatePlayerSave('),
-                'the presence gate must precede the reward mutation',
+            const gateAt = src.indexOf('sectorPresenceBlock(');
+            const payAt = Math.min(
+                ...['mutatePlayerSave(', 'withKvLock('].map((m) => (src.indexOf(m) === -1 ? Number.MAX_SAFE_INTEGER : src.indexOf(m))),
             );
+            assert.ok(gateAt > 0 && gateAt < payAt, 'the presence gate must precede the reward mutation');
         });
     }
 });

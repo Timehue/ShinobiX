@@ -15,6 +15,7 @@ import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
+import { writeSaveProjected } from '../save/_projected-write.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
@@ -195,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const deducted = deductUsedItems(char, side.used);
                         const withReceipt = embedPvpSettlementReceipt(deducted, decision.receipts, sid, 'items', Date.now());
                         const next = bumpSaveVersion({ ...record, character: withReceipt });
-                        await kv.set(saveKey, mergePreservingImages(next, record));
+                        await writeSaveProjected(saveKey, next, record);
                     }
                 });
             } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
@@ -277,7 +278,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (decision.fresh) {
                     const credited = embedPvpSettlementReceipt({ ...char, ...r.patch }, decision.receipts, sid, `rating-${role}`, Date.now());
                     const next = bumpSaveVersion({ ...record, character: credited });
-                    await kv.set(saveKey, mergePreservingImages(next, record));
+                    await writeSaveProjected(saveKey, next, record);
                     return { field: ratingField, value: r.newRating, delta: r.delta };
                 }
                 // Already settled — return the stored authoritative rating.
@@ -392,7 +393,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // the payout and its marker persist together in one atomic write.
                     const credited = embedPvpSettlementReceipt(finalChar, decision.receipts, sid, 'base', Date.now());
                     const next = bumpSaveVersion({ ...record, character: credited });
-                    await kv.set(saveKey, mergePreservingImages(next, record));
+                    await writeSaveProjected(saveKey, next, record);
                     return summary;
                 }
                 return {
