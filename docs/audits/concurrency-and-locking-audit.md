@@ -1,5 +1,20 @@
 # Concurrency, Locks, and Stale-Write Audit — Phase 0 (2026-07-31)
 
+> **P0-5 status (2026-08-01,** branch `refactor/currency-ledger-p0-5`**):**
+> first step taken against **F8** (multi-replica stale-read risk) and **F9**
+> (KV sagas instead of transactions). Player currencies are now projected into
+> a versioned side-car ledger (`ledger:currency:<name>`,
+> `api/_currency-ledger.ts`) on every hooked save write. The blob remains
+> authoritative and nothing reads the ledger for gameplay — the projection
+> exists to produce the evidence a read cutover needs, and it reports the one
+> signal that matters (same `_saveVersion`, different balances) as a bug.
+> `npm run ledger:audit` / `ledger:backfill` are the verification tools;
+> the gated sequence to make currency authoritative — hook the remaining
+> hand-rolled writers, flag the read cutover, then use a real transaction for
+> money moves — is in `docs/runbooks/currency-ledger-cutover.md`. **F8 and F9
+> themselves remain open**; this phase buys the ability to close them safely,
+> it does not close them.
+
 Baseline: `origin/main` @ `de50b3385`. Claims tagged **VERIFIED** (read from current
 code) or **INFERRED**.
 
