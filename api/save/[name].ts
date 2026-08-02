@@ -49,6 +49,7 @@ import {
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { mirrorSlotContent } from '../_content-store.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
@@ -2613,33 +2614,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
-            // Admin save path — lock first, then read + write, then signal reload.
-            await kv.set(adminLockKey, 1, { ex: 300 });
-            const existing = await kv.get(key);
-            const adminStoredVersion = Number((existing as Record<string, unknown> | null)?._saveVersion ?? 0);
-            const adminMerged = existing ? mergePreservingImages(incoming, existing) : incoming;
-            const payload = {
-                ...(adminMerged as Record<string, unknown>),
-                _saveVersion: nextSaveVersion(adminStoredVersion),
-                _saveAt: Date.now(),
-            };
-            // This path skips sanitizeCharacterSave entirely, so apply the
-            // admin-slot rule here too: personal forged gear is never shared
-            // content, no matter which write path put it there.
-            if (isAdminContentSlot(name) && Array.isArray((payload as Record<string, unknown>).creatorItems)) {
-                (payload as Record<string, unknown>).creatorItems = stripForgedItems((payload as Record<string, unknown>).creatorItems);
+            // ── Admin save path (?signal=1) ─────────────────────────────────
+            // P0-4: this used to read-modify-write with NO lock and NO version
+            // check, so two admin tabs raced and a stale one silently reverted
+            // newer content (shared-content audit, finding 4). It now runs
+            // under the SAME save lock every other writer uses, and honours the
+            // `_saveVersion` the editor loaded: admin tooling reads the record
+            // and posts it back, so a stale body is detectable. A body with NO
+            // version is still accepted (scripts / older tooling) — the lock
+            // alone already removes the interleave.
+            try {
+                return await withKvLock(`save:${name.toLowerCase()}`, async () => {
+                    // Inside the lock so a player autosave in flight can no
+                    // longer slip between the signal and this read.
+                    await kv.set(adminLockKey, 1, { ex: 300 });
+                    const existing = await kv.get(key);
+                    const adminStoredVersion = Number((existing as Record<string, unknown> | null)?._saveVersion ?? 0);
+                    const incomingVersionRaw = (incoming as Record<string, unknown>)?._saveVersion;
+                    const incomingVersion = Number(incomingVersionRaw);
+                    if (
+                        incomingVersionRaw !== undefined
+                        && Number.isFinite(incomingVersion)
+                        && adminStoredVersion > 0
+                        && incomingVersion < adminStoredVersion
+                    ) {
+                        return res.status(409).json({
+                            error: 'This record changed since you loaded it. Reload before saving so you do not revert newer content.',
+                            storedVersion: adminStoredVersion,
+                            baseVersion: incomingVersion,
+                        });
+                    }
+                    const adminMerged = existing ? mergePreservingImages(incoming, existing) : incoming;
+                    const payload = {
+                        ...(adminMerged as Record<string, unknown>),
+                        _saveVersion: nextSaveVersion(adminStoredVersion),
+                        _saveAt: Date.now(),
+                    };
+                    // This path skips sanitizeCharacterSave entirely, so apply the
+                    // admin-slot rule here too: personal forged gear is never shared
+                    // content, no matter which write path put it there.
+                    if (isAdminContentSlot(name) && Array.isArray((payload as Record<string, unknown>).creatorItems)) {
+                        (payload as Record<string, unknown>).creatorItems = stripForgedItems((payload as Record<string, unknown>).creatorItems);
+                    }
+
+                    const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
+                    const registryEntry = buildPublicPlayerIndexEntry(char, name);
+
+                    await Promise.all([
+                        kv.set(key, payload),
+                        kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
+                    ]);
+                    // Keep the canonical content store in step with a legacy
+                    // publish, so a slot write can never leave the store stale
+                    // (dual-read would then serve older content). Best-effort:
+                    // the slot write above already committed.
+                    if (isAdminContentSlot(name)) {
+                        await mirrorSlotContent(payload as Record<string, unknown>, { actor: `legacy-signal:${name}` })
+                            .catch(() => undefined);
+                    }
+                    // Set reset-signal after the new save is committed so the client reloads that exact version.
+                    await kv.set(resetSignalKey, 1, { ex: 300 });
+                    return res.status(200).end();
+                }, { failClosed: true });
+            } catch (lockErr) {
+                if (lockErr instanceof LockContendedError) {
+                    return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                }
+                throw lockErr;
             }
-
-            const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
-            const registryEntry = buildPublicPlayerIndexEntry(char, name);
-
-            await Promise.all([
-                kv.set(key, payload),
-                kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
-            ]);
-            // Set reset-signal after the new save is committed so the client reloads that exact version.
-            await kv.set(resetSignalKey, 1, { ex: 300 });
-            return res.status(200).end();
         } catch (err) {
             console.error('[save POST]', safeLogValue(err));
             return res.status(500).json({ error: 'Internal server error.' });
