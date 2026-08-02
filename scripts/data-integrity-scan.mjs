@@ -26,7 +26,9 @@
  *
  * Exit 0 = clean, 1 = findings that block a cutover, 2 = the scan itself failed.
  */
-import { kv } from '../api/_storage.js';
+import { loadProjectEnv } from './_load-env.mjs';
+await loadProjectEnv();
+const { kv } = await import('../api/_storage.js');
 import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { loadAdminItemObjects } from '../api/_admin-item-catalog.js';
 import { FORGED_ITEM_ID, forgedItemKey, recordForgedItem } from '../api/_forged-item-registry.js';
