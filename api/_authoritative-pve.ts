@@ -175,6 +175,70 @@ export function weeklyBossEnemyTemplate(profile: Record<string, unknown> | null 
     };
 }
 
+/** The jutsu-object shape an EnemyTemplate carries (server-resolved, cast by the AI). */
+export type EnemyJutsu = NonNullable<EnemyTemplate['jutsu']>[number];
+
+/**
+ * Build a defeatable enemy template from an AI profile — the server side of the
+ * generic AI-fight migration (combat-mode-migration.md, step 1).
+ *
+ * The distinction from `weeklyBossEnemyTemplate`: that one is a score-attack
+ * boss (99M HP, generic signature jutsu). A generic AI fight is a REAL, winnable
+ * opponent, so this reproduces the authored profile faithfully — its own stats,
+ * its explicit (finite) HP, its armor, and its actual resolved jutsu loadout —
+ * rather than substituting a generic mob. The engine still clamps every stat to
+ * the per-rank cap for `level` (see EnemyTemplate.level), so an over-authored
+ * profile cannot exceed its rank band.
+ *
+ * Pure: `resolvedJutsu` is the profile's `jutsuIds` already resolved to full
+ * objects by the caller (against JUTSU_CATALOG ∪ admin content), so this stays
+ * free of the catalog/IO graph and fully unit-testable. When empty, it falls
+ * back to a generic signature so the opponent is never left unable to act.
+ */
+export function aiOpponentEnemyTemplate(
+    profile: Record<string, unknown> | null | undefined,
+    resolvedJutsu: EnemyJutsu[] = [],
+): EnemyTemplate {
+    const stats = profile?.stats && typeof profile.stats === 'object' ? profile.stats as Record<string, unknown> : {};
+    const level = clampInt(profile?.level, 1, 100, 20);
+    // Dominant offense axis → specialty (same rule the weekly-boss template uses).
+    const axes: Array<[EnemySpecialty, string]> = [
+        ['Taijutsu', 'taijutsuOffense'],
+        ['Bukijutsu', 'bukijutsuOffense'],
+        ['Ninjutsu', 'ninjutsuOffense'],
+        ['Genjutsu', 'genjutsuOffense'],
+    ];
+    const specialty = [...axes].sort((a, b) => Number(stats[b[1]] ?? 0) - Number(stats[a[1]] ?? 0))[0]?.[0] ?? 'Ninjutsu';
+
+    // Preserve EVERY authored stat (a real opponent fights with its whole sheet,
+    // not just its main axis), clamped to non-negative integers. The engine caps
+    // each to statCapForLevel(level) at cast time.
+    const outStats: Record<string, number> = {};
+    for (const key of ['strength', 'speed', 'intelligence', 'willpower',
+        'taijutsuOffense', 'taijutsuDefense', 'bukijutsuOffense', 'bukijutsuDefense',
+        'ninjutsuOffense', 'ninjutsuDefense', 'genjutsuOffense', 'genjutsuDefense']) {
+        outStats[key] = clampInt(stats[key], 0, 100_000, 0);
+    }
+
+    return {
+        name: typeof profile?.name === 'string' ? profile.name.slice(0, 80) : 'Opponent',
+        specialty,
+        level,
+        // The profile's explicit, finite HP is what makes the fight winnable.
+        // Clamp to a sane floor/ceiling; fall back to a level curve if unset.
+        hp: clampInt(profile?.hp, 50, 5_000_000, clampInt(240 + level * level * 1.05, 250, 20_000, 1_000)),
+        stats: outStats,
+        visual: typeof profile?.id === 'string' ? profile.id : 'ai-opponent',
+        boss: profile?.isBossAi === true,
+        armorRawDR: Math.max(0, Math.min(1.5, Number(profile?.armorRawDR ?? 0))),
+        maxChakra: clampInt(profile?.chakra, 100, 20_000, 120 + level * 4),
+        maxStamina: clampInt(profile?.stamina, 100, 20_000, 120 + level * 4),
+        // The AI's real authored loadout when the caller resolved it; a generic
+        // signature otherwise so it is never left basic-attacks-only by mistake.
+        jutsu: resolvedJutsu.length > 0 ? resolvedJutsu : genericEnemyJutsu(level, specialty, `ai-${typeof profile?.id === 'string' ? profile.id : 'x'}`),
+    };
+}
+
 // Per-mission battlefield theme: the biome drives the board art AND the shared
 // +10% school-vs-biome terrain buff (already wired in the resolver); the optional
 // weather adds the ±element outgoing-damage term via the engine's wMult junction.
