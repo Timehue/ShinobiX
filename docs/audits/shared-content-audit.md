@@ -1,5 +1,31 @@
 # Shared & Admin-Authored Content Audit — Phase 0 (2026-07-31)
 
+> **P0-4 status (2026-08-01,** branch `refactor/shared-content-p0-4`**):**
+> **Finding 1 (High) is RESOLVED.** The legacy `?signal=1` publish path now
+> runs inside the save lock (429 on contention), sets its admin-edit signal
+> inside that lock before its own read, and rejects a body whose
+> `_saveVersion` is older than stored with a 409 — a stale admin tab can no
+> longer revert newer content. Content also has a canonical home:
+> `content:<field>` keys written only through the new locked,
+> version-guarded `/api/admin/content-publish` (`api/_content-store.ts`), with
+> all four server readers dual-reading it as an appended last source, and the
+> Admin Panel publishing through it. Both publish paths keep the store and the
+> slots in step, so nothing is migrated and live behavior is unchanged until
+> content is published.
+>
+> **Also fixed along the way:** the ordinary save path freezes the six
+> `creator*` fields even on the admin slots, so a plain admin save could never
+> publish a jutsu/AI/event/mission/raid/card edit at all. The new endpoint is
+> now what carries those edits to players.
+>
+> **Still open, sequenced in `docs/runbooks/shared-content-cutover.md`:**
+> backfilling pre-P0-4 content into the store, moving the client off the
+> slots, dropping the mirror, freezing the slots, and unifying the two
+> tombstone semantics (finding 6). Finding 5 (unvalidated `editablePets` / VN
+> / gate-config on the ordinary admin-slot path) is unchanged and
+> admin-auth-gated. The `STRICT_RAW_SAVE_LEDGER=1` flip is no longer blocked
+> by the publish path; it still needs the P0-3 forged-item backfill.
+
 Baseline: `origin/main` @ `de50b3385`. Claims tagged **VERIFIED** or **INFERRED**.
 
 ## Architecture summary
