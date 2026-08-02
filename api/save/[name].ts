@@ -50,6 +50,7 @@ import { shouldWriteRegistry } from './_registry-throttle.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
+import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
@@ -2599,6 +2600,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(key, payload),
                         ...(writeRegistry ? [kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
                     ]);
+                    // Project the currency slice (P0-5). Player saves only —
+                    // clan blobs carry no character. Skipped automatically when
+                    // this write did not move currency, which is the common
+                    // case for an autosave.
+                    if (!isClanSave) {
+                        await syncCurrencyLedger(name, payload as Record<string, unknown>, {
+                            previousCharacter: (existingObj?.character ?? null) as Record<string, unknown> | null,
+                        });
+                    }
                     return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
                     }, { failClosed: true });
                     return; // the locked closure already sent the response
