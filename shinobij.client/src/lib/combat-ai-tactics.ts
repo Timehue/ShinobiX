@@ -86,7 +86,9 @@ export interface PlayerRead {
 
 // Buffs the AI considers worth a 60-AP Clear. Trivial / cosmetic positives are
 // excluded so a single throwaway buff doesn't bait the AI into wasting a turn.
-const MEANINGFUL_BUFFS = new Set<string>([
+// Exported so the server mirror (api/_pve-ai-tactics.ts) can be parity-tested
+// against it — this list is the source of truth.
+export const MEANINGFUL_BUFFS = new Set<string>([
     "Increase Damage Given",
     "Increase Generals",
     "Increase Discipline",
