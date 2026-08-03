@@ -30,14 +30,16 @@ describe('_release-flags', () => {
         assert.equal(combatMissionClaimAuthorityAllowed(high, { authority: 'server-combat', runId: 'mission-1' }, {}), true);
     });
 
-    // Step 2 of the AI-fight migration lands the server encounter builder but
-    // must not change what any live player experiences: the client half (step 3)
-    // does not exist yet, so this flag stays OFF until it does.
-    it('keeps server-side AI combat disabled unless explicitly enabled', () => {
-        assert.equal(serverAiCombatEnabled({}), false);
-        assert.equal(serverAiCombatEnabled({ ENABLE_SERVER_AI_COMBAT: '0' }), false);
-        assert.equal(serverAiCombatEnabled({ ENABLE_SERVER_AI_COMBAT: 'true' }), false);
-        assert.equal(serverAiCombatEnabled({ ENABLE_SERVER_AI_COMBAT: '1' }), true);
+    // Step 3d landed the client half, so server-side AI combat ships ON. An empty
+    // env must arm it — "ships on" cannot silently regress to a dark feature —
+    // and only the explicit kill switch takes it back out.
+    it('arms server-side AI combat by default, with an explicit kill switch', () => {
+        assert.equal(serverAiCombatEnabled({}), true);
+        assert.equal(serverAiCombatEnabled({ DISABLE_SERVER_AI_COMBAT: '1' }), false);
+        // Anything other than the exact '1' opt-out leaves it armed, so a typo or
+        // a stale 'true'/'0' cannot quietly disable the migrated path.
+        assert.equal(serverAiCombatEnabled({ DISABLE_SERVER_AI_COMBAT: '0' }), true);
+        assert.equal(serverAiCombatEnabled({ DISABLE_SERVER_AI_COMBAT: 'true' }), true);
     });
 
     it('keeps player AI image generation admin-only unless explicitly enabled', () => {

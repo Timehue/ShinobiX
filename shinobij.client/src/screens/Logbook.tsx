@@ -23,6 +23,7 @@ import {
     type CreatorEvent,
 } from "../App";
 import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { requestAiFight } from "../lib/ai-fight-request";
 import { claimWarMissionServer } from "../lib/world-reward-api";
 import { passRankExamServer } from "../lib/exam-api";
 
@@ -151,11 +152,20 @@ export function Logbook({
     function startRaid(raid: CreatorRaid) {
         if (character.level < raid.levelReq) return alert(`Requires level ${raid.levelReq}.`);
         if (raid.targetSector) setCurrentSector(raid.targetSector);
-        setPendingAiProfileId(raid.aiProfileId || "");
-        setRaidBattleKind("raidAi");
         setCurrentBiome(raid.biome);
         setCurrentWeather(weatherForBiome(raid.biome));
-        setScreen("arena");
+        requestAiFight({
+            opponentId: raid.aiProfileId || "",
+            opponentLevel: raid.levelReq,
+            battleKind: "raidAi",
+            opponentName: raid.name,
+            sector: raid.targetSector,
+            playLocally: () => {
+                setPendingAiProfileId(raid.aiProfileId || "");
+                setRaidBattleKind("raidAi");
+                setScreen("arena");
+            },
+        });
     }
 
     function goToWarGround() {
@@ -207,8 +217,19 @@ export function Logbook({
     function startExamFight(aiId: string) {
         const ai = creatorAis.find((candidate) => candidate.id === aiId);
         if (!ai) return alert("Exam AI is not available.");
-        setPendingAiProfileId(ai.id);
-        setScreen("arena");
+        // A practice bout: `practice` grants nothing on either route (see
+        // lib/ai-fight-settle) — the exam is a skill check, not a faucet.
+        requestAiFight({
+            opponentId: ai.id,
+            opponentLevel: ai.level ?? character.level,
+            battleKind: "practice",
+            opponentName: ai.name,
+            enemyAvatar: ai.image,
+            playLocally: () => {
+                setPendingAiProfileId(ai.id);
+                setScreen("arena");
+            },
+        });
     }
 
     // Academy graduation capstone — one-time, server-authoritative reward for
