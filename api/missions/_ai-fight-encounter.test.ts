@@ -125,19 +125,55 @@ describe('buildAiFightEncounter', () => {
         assert.ok(!without.pendingCompanion, 'no pet, no companion seal');
     });
 
-    it('applies a SERVER-derived level override, clamped to the legal band', () => {
-        const scaled = buildAiFightEncounter({ ...base, save: makeSave(), profile, levelOverride: 60 });
-        assert.equal(scaled.actors.find((a) => a.id === 'boss')?.character?.level, 60);
-        for (const [override, expected] of [[0, 1], [-5, 1], [999, 100]] as const) {
-            const s = buildAiFightEncounter({ ...base, save: makeSave(), profile, levelOverride: override });
-            assert.equal(s.actors.find((a) => a.id === 'boss')?.character?.level, expected, `override ${override}`);
+    it('REBUILDS the opponent when scaled — stats and HP move with the level', () => {
+        const bossAt = (scaling?: { level: number; statBonus?: number; hpFloor?: number }) => {
+            const s = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling });
+            return s.actors.find((a) => a.id === 'boss')!;
+        };
+        const authored = bossAt();
+        const scaled = bossAt({ level: 60 });
+        assert.equal(scaled.character?.level, 60);
+        // The bug this guards: stamping a bare level would leave the level-18
+        // profile's stats and HP untouched, so a "level 60" foe would fight like
+        // a level 18 one — a secretly easier fight than the client shows.
+        assert.ok(
+            scaled.maxHp > authored.maxHp,
+            `HP must scale up with the level (authored ${authored.maxHp} → scaled ${scaled.maxHp})`,
+        );
+        const authoredStats = authored.character?.stats as Record<string, number>;
+        const scaledStats = scaled.character?.stats as Record<string, number>;
+        assert.ok(
+            scaledStats.ninjutsuOffense > authoredStats.ninjutsuOffense,
+            'stats must be redistributed on the higher level budget',
+        );
+    });
+
+    it('applies the stat bonus and the HP floor, and clamps the level', () => {
+        const bossAt = (scaling: { level: number; statBonus?: number; hpFloor?: number }) => {
+            const s = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling });
+            return s.actors.find((a) => a.id === 'boss')!;
+        };
+        const plain = bossAt({ level: 30 });
+        const bonused = bossAt({ level: 30, statBonus: 55 });
+        const plainStats = plain.character?.stats as Record<string, number>;
+        const bonusedStats = bonused.character?.stats as Record<string, number>;
+        assert.equal(bonusedStats.strength, plainStats.strength + 55, 'the rank bonus lifts every stat');
+        // The floor only binds below the natural curve — that is the client's rule.
+        assert.ok(bossAt({ level: 2, hpFloor: 1400 }).maxHp >= 1400, 'a low-level foe is floored, not one-tappable');
+        assert.equal(
+            bossAt({ level: 60, hpFloor: 1400 }).maxHp,
+            bossAt({ level: 60 }).maxHp,
+            'above the curve the floor is a no-op',
+        );
+        for (const [level, expected] of [[0, 1], [-5, 1], [999, 100]] as const) {
+            assert.equal(bossAt({ level }).character?.level, expected, `level ${level} must clamp`);
         }
     });
 
-    it('does not mutate the shared catalog profile when overriding the level', () => {
-        const before = profile.level;
-        buildAiFightEncounter({ ...base, save: makeSave(), profile, levelOverride: 77 });
-        assert.equal(profile.level, before, 'the generated catalog entry must stay pristine');
+    it('does not mutate the shared catalog profile when scaling', () => {
+        const before = JSON.stringify(profile);
+        buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 77, statBonus: 90, hpFloor: 9000 } });
+        assert.equal(JSON.stringify(profile), before, 'the generated catalog entry must stay pristine');
     });
 
     it('still builds a fighting opponent from a profile with no resolvable jutsu', () => {
