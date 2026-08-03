@@ -95,7 +95,35 @@ the contract: `relevelBuiltinAi` **drops `hpFloorExempt`** (see the hazard note
 in `lib/apex-contract.ts`), and `distributeStatBudget`'s rounding-stall branch
 is **`STAT_KEYS`-order dependent** (the server list is asserted identical).
 
-## Next: step 3b — the PvE difficulty band layer
+## Half-done: step 3b — the PvE difficulty band layer
+
+**The port has landed** (`api/_pve-difficulty.ts` + `scripts/pve-difficulty-parity.test.ts`,
+mutation-verified twice). **The wiring has not.** Two pieces remain, and the
+second has a constraint that must not be shortcut:
+
+1. **Seal time** (easy) — in `buildAiFightEncounter`, scale the opponent by
+   `pveDifficultyHpMultiplier(level)` and `pveDifficultyStatMultiplier(level)`
+   before building the template, mirroring `Arena.tsx:691` / `:695-699`. Gate to
+   standard PvE; endless has its own endpoint and must not double-dip.
+2. **The hit guard** (delicate) — ⚠ **the client guards PRE-shield and
+   PRE-absorb** (`Arena.tsx:4677`: `enemyDamage = guardEnemyHit(enemyDamage)`
+   THEN `blocked = min(playerShield, enemyDamage)`), and it guards before
+   Wound/Siphon derive from the number (`:4203`), and **player DoT ticks count
+   against the same turn budget** (`:4964`). So a post-hoc HP-delta clamp in the
+   engine is WRONG: a shielded player would get a larger real allowance and
+   bleed/lifesteal would come off an unclamped figure.
+
+   The faithful seam is a **two-pass resolve in `_engine.ts` `runJutsu`**:
+   resolve once on copies to learn the raw pre-shield hit, then re-resolve with
+   `wMult` scaled by `clamp / raw`. Deterministic (the resolver is pure), and it
+   leaves the shared PvP resolver `api/pvp/move.ts` untouched — which matters,
+   because that file is live PvP balance. Turn state (`playerHpTurnStart`,
+   `dealtThisTurn`) resets in `refreshAp`, which runs at every turn start.
+
+Also still to wire: `pveAiMasteryForLevel` into the AI's cast path, and
+`pveAiCompetence` / the easy-band pacing helpers into `bestAffordableJutsu`.
+
+## Reference: what 3b's port covers
 
 `shinobij.client/src/lib/pve-difficulty.ts` has **no server counterpart at all**
 (`grep pveDifficulty api/` is empty). It supplies:
