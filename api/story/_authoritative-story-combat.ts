@@ -44,6 +44,14 @@ export interface StoryCombatBinding {
     expiresAt: number;
     status: 'active' | 'won' | 'lost' | 'abandoned';
     settledAt?: number;
+    /**
+     * Which story-lane fight this binding seals. Absent means 'boss', so
+     * bindings written before the Academy spar migration keep validating as
+     * milestone bosses — the field is additive, never a re-interpretation.
+     * A spar binding carries no milestone: its gate is onboarding state
+     * (api/story/_academy-spar.ts), not storyProgress.
+     */
+    kind?: 'boss' | 'spar';
 }
 
 export type StoryCombatValidation =
@@ -104,23 +112,24 @@ export function createStoryCombatBinding(params: {
     };
 }
 
-export function validateCompletedStoryCombatSession(params: {
+/**
+ * The checks that are true of ANY sealed story-lane run, milestone or not:
+ * the binding is ours, unspent and unexpired, and the session it names really
+ * did complete as a win with this player on the squad side. Split out so the
+ * Academy spar (api/story/_academy-spar.ts) can demand exactly these without
+ * inheriting the milestone and reward-fingerprint checks, which mean nothing
+ * for a tutorial bout.
+ */
+export function validateSealedStoryRun(params: {
     binding: StoryCombatBinding | null | undefined;
     session: TowerSession | null | undefined;
     playerName: string;
-    character: Record<string, unknown>;
     now?: number;
 }): StoryCombatValidation {
-    const { binding, session, playerName, character } = params;
+    const { binding, session, playerName } = params;
     const now = params.now ?? Date.now();
     if (!binding || binding.version !== 1 || !binding.sessionId || !binding.runId) return { ok: false, reason: 'invalid-binding' };
     if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
-    // The save's CURRENT milestone must still be the one that was sealed —
-    // a stale session from an earlier chapter (or another village) cannot pay
-    // the next milestone.
-    const progressIndex = Math.max(0, Math.floor(Number(character.storyProgress) || 0));
-    const village = typeof character.village === 'string' ? character.village : '';
-    if (binding.progressIndex !== progressIndex || binding.village !== village) return { ok: false, reason: 'wrong-milestone' };
     if (!session || binding.runId !== session.runId) return { ok: false, reason: 'wrong-run' };
     if (binding.expiresAt <= now) return { ok: false, reason: 'expired' };
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
@@ -129,10 +138,34 @@ export function validateCompletedStoryCombatSession(params: {
     if (!session.actors.some((actor) => actor.side === 'squad' && actor.ownerSlug === playerName)) {
         return { ok: false, reason: 'not-a-member' };
     }
-    if (binding.rewardFingerprint !== storyCombatRewardFingerprint(binding.village, binding.progressIndex)) {
+    return { ok: true, binding };
+}
+
+export function validateCompletedStoryCombatSession(params: {
+    binding: StoryCombatBinding | null | undefined;
+    session: TowerSession | null | undefined;
+    playerName: string;
+    character: Record<string, unknown>;
+    now?: number;
+}): StoryCombatValidation {
+    const { binding, character } = params;
+    // A spar binding can never settle a milestone, whatever else it satisfies.
+    if (binding?.kind === 'spar') return { ok: false, reason: 'wrong-milestone' };
+    // The save's CURRENT milestone must still be the one that was sealed —
+    // a stale session from an earlier chapter (or another village) cannot pay
+    // the next milestone. Checked BEFORE the shared run checks so the reason
+    // codes stay exactly what they were.
+    if (binding && binding.version === 1 && binding.sessionId && binding.runId && binding.playerName === params.playerName) {
+        const progressIndex = Math.max(0, Math.floor(Number(character.storyProgress) || 0));
+        const village = typeof character.village === 'string' ? character.village : '';
+        if (binding.progressIndex !== progressIndex || binding.village !== village) return { ok: false, reason: 'wrong-milestone' };
+    }
+    const shared = validateSealedStoryRun(params);
+    if (!shared.ok) return shared;
+    if (shared.binding.rewardFingerprint !== storyCombatRewardFingerprint(shared.binding.village, shared.binding.progressIndex)) {
         return { ok: false, reason: 'reward-drift' };
     }
-    return { ok: true, binding };
+    return { ok: true, binding: shared.binding };
 }
 
 export function settleStoryCombatBinding(binding: StoryCombatBinding, now = Date.now()): StoryCombatBinding {
