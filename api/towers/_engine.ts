@@ -28,10 +28,19 @@ import {
     companionHealOnSummonPct, companionMoveDamage, companionObeys, companionOwnerLifestealPct,
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
-import { directDamageBaseFormula } from '../combat-core/formulas.js';
+import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from '../combat-core/formulas.js';
 import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
-import { pveGuardedEnemyHit } from '../_pve-difficulty.js';
+import {
+    pveAiCompetence,
+    pveAiMasteryForLevel,
+    pveEasyBandAllowsLethal,
+    pveEasyBandHoldsBurst,
+    pveGuardedEnemyHit,
+    pveIsBurstJutsuAp,
+} from '../_pve-difficulty.js';
+import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
+import { activeCombatStatuses } from '../combat-core/statuses.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
 import {
@@ -1760,10 +1769,60 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     startRound(session);
 }
 
+// ─── Easy-band AI pacing (api/_pve-difficulty.ts behaviour helpers) ──────────
+// The band-competence layer the client applies at Arena.tsx:780 (burst hold),
+// :4019 (lethal intent) and :4812 (clear / cleanse). Gated on a SEALED
+// `session.pveGuard` AND `side === 'enemy'`, so squad AI (async allies, AFK
+// humans) and every mode that seals no guard are byte-identical.
+
+/** The band inputs for `actor`, or undefined when the band AI does not apply. */
+function pveBandFor(session: TowerSession, actor: TowerActor): { enemyLevel: number } | undefined {
+    const guard = session.pveGuard;
+    if (!guard || actor.side !== 'enemy') return undefined;
+    // The ENCOUNTER's sealed level, same input the hit guard bands on — the
+    // client reads `opponentLevel` at each of the call sites above.
+    return { enemyLevel: guard.enemyLevel };
+}
+
+/** Effective mastery for `actor`'s cast of `jutsu` — the same lookup applyJutsu
+ *  performs (sealed per-jutsu entry, rank-capped), falling back to the band's
+ *  level-derived mastery when the template carries no array. Estimate only. */
+function aiMasteryFor(actor: TowerActor, jutsu: JutsuLike): number {
+    const level = Number(actor.character.level) || 1;
+    const entries = actor.character.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }> | null | undefined;
+    if (Array.isArray(entries)) {
+        const hit = entries.find(m => String(m?.jutsuId ?? '') === String(jutsu.id ?? ''));
+        if (hit) return Math.max(0, Math.min(JUTSU_MAX_LEVEL, Number(hit.level) || 0, jutsuLevelCapForLevel(level)));
+    }
+    return pveAiMasteryForLevel(level);
+}
+
+/**
+ * Rough damage `jutsu` would land on `target`, for the lethal-intent gate only.
+ * It is an ESTIMATE — computeDamage is the base-damage port, while the real cast
+ * goes through applyPvpJutsu (statuses, tags, terrain) — exactly as the client's
+ * `estimateAiJutsuDamage` is an estimate of its own resolver.
+ *
+ * DELIBERATELY UNCAPPED: this is the RAW hit, not what survives the PvE guard,
+ * mirroring the client — which scans with `estimateAiJutsuDamage` and applies
+ * `pveGuardedEnemyHit` separately at resolution. Folding the cap in here would
+ * make the gate dead code rather than conservative: the easy-band per-hit cap is
+ * 20% of max HP while the gate only engages above 25%, so a capped estimate can
+ * never reach the KO threshold and every jutsu would read as non-lethal.
+ */
+function estimateAiHit(actor: TowerActor, target: TowerActor, jutsu: JutsuLike): number {
+    return computeDamage(actor, target, jutsu, aiMasteryFor(actor, jutsu));
+}
+
 // ─── Deterministic AI policy (v1 — nearest-target; richer policy = P1.A3) ─────
-function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: number): JutsuLike | undefined {
+function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: number, target?: TowerActor): JutsuLike | undefined {
     const list = actor.character.jutsu;
     if (!Array.isArray(list)) return undefined;
+    const band = pveBandFor(session, actor);
+    // "Teach, don't ambush": an easy-band foe holds its 60+ AP burst jutsu for
+    // the opening rounds, so a new player meets the weaker attacks first.
+    // Mirrors Arena.tsx's applyEasyBurstHold; a strict no-op elsewhere.
+    const holdsBurst = !!band && pveEasyBandHoldsBurst(band.enemyLevel, session.round);
     const opts = (list as JutsuLike[])
         .filter(j => j && typeof j.id === 'string')
         .filter(j => Math.max(1, Number(j.range ?? 1)) >= dist)
@@ -1773,8 +1832,20 @@ function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: num
         .filter(j => actor.chakra >= Math.max(0, Number(j.chakraCost ?? 0)) && actor.stamina >= Math.max(0, Number(j.staminaCost ?? 0)))
         // skip zero-damage utility + ground-placed jutsu — the AI casts straightforward damage
         .filter(j => Number(j.effectPower ?? 0) > 0 && String((j as { target?: string }).target ?? '') !== 'EMPTY_GROUND')
+        .filter(j => !holdsBurst || !pveIsBurstJutsuAp(Number(j.ap ?? 40)))
         // deterministic: highest effectPower, ties by id
         .sort((a, b) => (Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0)) || (String(a.id) < String(b.id) ? -1 : 1));
+    // Lethal intent: in the easy band the AI does not deliberately reach for the
+    // kill until the player is already very low. Like the client this only
+    // DEPRIORITIZES — it prefers the strongest non-lethal option and still casts
+    // the best available one when every option would finish them, so the AI is
+    // never disarmed into passivity and an incidental kill remains possible.
+    if (band && target && opts.length > 1
+        && !pveEasyBandAllowsLethal(band.enemyLevel, target.hp / Math.max(1, target.maxHp))) {
+        const ko = target.hp + Math.max(0, target.shield);
+        const spared = opts.find(j => estimateAiHit(actor, target, j) < ko);
+        if (spared) return spared;
+    }
     return opts[0];
 }
 // ─── Focus-fire target selection (deterministic; opt-in via character.aiTargetMode) ──
@@ -1806,7 +1877,7 @@ function actorDefComposite(actor: TowerActor): number {
 function canHitThisTurn(session: TowerSession, attacker: TowerActor, opp: TowerActor): boolean {
     const d = hexDistance(attacker.pos, opp.pos, session.map.width);
     if (d <= 1 && canAct(session, BASIC_ATTACK_AP)) return true;
-    return !!bestAffordableJutsu(session, attacker, d);
+    return !!bestAffordableJutsu(session, attacker, d, opp);
 }
 function pickFocusTarget(session: TowerSession, actor: TowerActor, mode: TowerTargetMode): TowerActor | undefined {
     const w = session.map.width;
@@ -1919,8 +1990,28 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         ?? nearestOpponent(session, actor);
     if (!target) return { actorId: actor.id, type: 'wait' };
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
+    // Band competence (standard PvE only): strip the player's stacked buffs, or
+    // shed our own debuffs, before committing the turn to damage. Mirrors the
+    // client's order — Arena.tsx runs this block ahead of the jutsu pick. Easy
+    // band leaves both thresholds Infinity, so a new player is never answered
+    // by a Clear. The cooldown check matters: the AI loop re-enters pickAiAction
+    // after each applied action, and cooldowns['clear'] is what stops a repeat.
+    const band = pveBandFor(session, actor);
+    if (band) {
+        const comp = pveAiCompetence(band.enemyLevel);
+        if (Number.isFinite(comp.clearBuffThreshold)
+            && canAct(session, CLEAR_AP) && (actor.cooldowns['clear'] ?? 0) <= 0
+            && pveMeaningfulBuffCount(activeCombatStatuses(target.statuses, session.round)) >= comp.clearBuffThreshold) {
+            return { actorId: actor.id, type: 'clear', targetId: target.id };
+        }
+        if (Number.isFinite(comp.cleanseSelfThreshold)
+            && canAct(session, CLEANSE_AP) && (actor.cooldowns['cleanse'] ?? 0) <= 0) {
+            const debuffs = activeCombatStatuses(actor.statuses, session.round).filter(s => s.kind === 'negative').length;
+            if (debuffs >= comp.cleanseSelfThreshold) return { actorId: actor.id, type: 'cleanse' };
+        }
+    }
     // Combat first: attack if we possibly can this turn.
-    const j = bestAffordableJutsu(session, actor, dist);
+    const j = bestAffordableJutsu(session, actor, dist, target);
     if (j && j.id) return { actorId: actor.id, type: 'jutsu', jutsuId: j.id, targetId: target.id };
     if (dist <= 1 && canAct(session, BASIC_ATTACK_AP)) return { actorId: actor.id, type: 'attack', targetId: target.id };
     if (canAct(session, MOVE_AP)) {

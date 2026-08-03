@@ -28,6 +28,7 @@ i.e. it is groundwork for step 3d. No file overlap; the rebase was clean.
 | 3a | Server port of the AI level curves + `relevelBuiltinAi` | `api/_ai-level-curves.ts` |
 | 3b | Server port of the PvE difficulty layer | `api/_pve-difficulty.ts` |
 | 3b | `damageCap` threaded through the damage resolver; guard wired | `api/combat-core/resolveJutsu.ts`, `api/pvp/move.ts`, `api/towers/_engine.ts` |
+| A | The four band-behaviour helpers wired into the engine's action picker | `api/towers/_engine.ts`, `api/_pve-ai-tactics.ts` |
 
 Parity/behaviour tests: `scripts/ai-profile-catalog.test.mjs`,
 `scripts/ai-level-curve-parity.test.ts` (~38.6k comparisons),
@@ -67,15 +68,49 @@ balance change. Very likely why some server PvE reads as limp.
 
 ## Next, in order
 
-### A. Wire the four AI-behaviour helpers (smallest, do first)
+### ~~A. Wire the four AI-behaviour helpers~~ — DONE
 
-`pveAiCompetence`, `pveIsBurstJutsuAp`, `pveEasyBandHoldsBurst`,
-`pveEasyBandAllowsLethal` are ported and parity-tested but have **zero
-production consumers** — the only genuinely unwired thing in this work. They
-belong in the engine's `bestAffordableJutsu` / `pickAiAction`
-(`api/towers/_engine.ts`), gated on `session.pveGuard` like the rest. The client
-applies them at `Arena.tsx:780` (burst hold), `:4019` (lethal intent) and
-`:4848/:4852` (clear-buffs / cleanse thresholds).
+All four now drive `bestAffordableJutsu` / `pickAiAction`, gated on a sealed
+`session.pveGuard` **and** `side === 'enemy'` (so squad-side AI — async allies,
+AFK humans — and every mode that seals no guard stay byte-identical):
+
+- **burst hold** — `pveEasyBandHoldsBurst` + `pveIsBurstJutsuAp` filter 60+ AP
+  jutsu out of the pool for rounds 1-2 in the easy band. `session.round` is the
+  right mirror of the client's `turn` (both advance once per full round).
+- **lethal intent** — `pveEasyBandAllowsLethal` makes the AI *prefer* the
+  strongest non-lethal option against a player above 25% HP. It only
+  DEPRIORITIZES, like the client: with no weaker option it still casts, so the
+  AI is never disarmed into passivity.
+- **competence** — `pveAiCompetence` emits `clear` / `cleanse` actions at the
+  band thresholds, ahead of the jutsu pick (the client's order).
+
+Two of `PveAiCompetence`'s five fields have no server analogue and are
+deliberately **not** wired — see the header of `api/_pve-ai-tactics.ts`:
+`usesSmartScorer` (the engine has one policy, not two) and `readsBehavior`.
+`readsBehavior` needs no port because it is **inert on the client too**: it is
+applied as `readsBehavior && justPoweredUp ? 1 : clearBuffThreshold`, and it is
+true only in the hard and peer bands, which already carry `clearBuffThreshold:
+1`. That ternary can never change the threshold, so no server-side action memory
+is needed to match client behaviour. It also means the server never needs the
+profile's `masterAi` flag (the sole input `usesSmartScorer` depends on) — which
+is just as well, since `aiOpponentEnemyTemplate` does not carry it through.
+
+⚠ Two traps this turned up:
+
+- **Folding the PvE hit cap into the lethal estimate makes the gate dead code.**
+  The easy-band per-hit cap is 20% of max HP while the gate only engages above
+  25%, so a capped estimate can never reach the KO threshold. The estimate is
+  the RAW hit, mirroring the client (which scans raw and clamps separately at
+  resolution).
+- **The burst hold changes turn 1 of every easy-band AI fight** — the foe now
+  approaches instead of opening with a nuke. This broke the *correctly written*
+  non-vacuity assertion in `_pve-guard.test.ts` ("the enemy must land damage"),
+  which was updated to advance until the enemy actually swings.
+
+New tests: `api/towers/_pve-band-ai.test.ts` (14 cases, incl. the two no-op
+guarantees) and `scripts/pve-ai-tactics-parity.test.ts`. Both mutation-verified —
+disabling the hold, inverting the lethal gate, shifting the Clear threshold,
+letting the band reach squad actors, and drifting the buff list each fail them.
 
 ### B. Extend the guard + band to the other PvE modes
 
@@ -143,6 +178,11 @@ no re-seal — correct; a prior tampering hole there is closed.
 ## Working rules that held
 
 - Gate on the **exit code**, never a quiet log. Pipes mask failures.
+- **Check the shell's cwd before trusting a gate.** A `npm run build` left over
+  in `shinobij.client/` runs the CLIENT build and never rebuilds
+  `dist/server.js`. `certify:release` then boots the STALE `dist/server.js`
+  (`release-certification.mjs:96` prefers it and only falls back to `server.ts`
+  via tsx when absent), which is how a clean tree produced a phantom 27/28.
 - `gh run watch --exit-status` returns 0 on FAILED runs — cross-check
   `gh pr checks` before relying on CI.
 - Full local gates before a main push: `npm test`, `npm run build` (chains
