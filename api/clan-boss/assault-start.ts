@@ -15,6 +15,7 @@ import { readSession, writeSession, setTowerInvite } from '../towers/_tower-stor
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { loadAssault, saveAssault, selectClanBossParty } from './_assault.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 import {
     CB_ASSAULT_HP_CAP, CB_MAX_PARTY, clanBossAttemptsLeft,
     clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
@@ -140,6 +141,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // the persistent clan boss being chipped, not a fresh chunk.
             const bossActor = session.actors.find(a => a.id === session!.phaseState.bossId);
             if (bossActor) { bossActor.hp = bossHp; bossActor.maxHp = bossHp; }
+            // Arm the standard-PvE hit guard. MUST precede startRound/runAiUntilHuman,
+            // and MUST follow the shared-pool HP override above so it never touches
+            // the persistent clan-boss HP.
+            //
+            // Guard only — no HP/stat band. The boss HP is the SHARED clan pool
+            // (authoritative, chipped across assaults) and the floor is already
+            // party-scaled, so a level-keyed multiplier here would both corrupt the
+            // pool and double-dip.
+            sealPveDifficultyBand(session, { mode: 'CLAN_BOSS', scaleHp: false, scaleStats: false });
             startRound(session);
             runAiUntilHuman(session, floor, makeRng(seed));
             stampTurnClock(session, reserved.receipt.at);

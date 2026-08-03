@@ -21,6 +21,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { writeSession } from '../towers/_tower-store.js';
 import { sealCompanionFromSave } from '../towers/_companion.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 
 /** Start a sealed, server-resolved combat mission. Body: { playerName, missionId, hostLoadout? }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -80,6 +81,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // supplies the pet's HP/damage, and the seal is consumed on use.
         const companion = sealCompanionFromSave(char);
         if (companion) session.pendingCompanion = companion;
+        // Arm the standard-PvE difficulty layer (band + hit guard). Sealed BEFORE
+        // the session is written, so the very first enemy turn is already guarded.
+        sealPveDifficultyBand(session, { mode: 'MISSION' });
         const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
         await writeSession(session);
         await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
