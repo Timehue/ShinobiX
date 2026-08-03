@@ -40,8 +40,8 @@ fails them) rather than trusted for being green.
 ## ⚠ Steps A, B and C are committed but NOT PUSHED
 
 Branch `claude/new-session-188194` — `86f6d5a90` (A), `f4c9d05c8` (B),
-`df99c0152` (C). Gates green at C: `npm test` **4623/4623**, tsc, root build
-(sizecheck PASS 6.80 MB), certify **28/28**, client lint 0 errors.
+`df99c0152` (C), `5286e35c5` (3c). Gates green at 3c: `npm test`
+**4630/4630**, tsc, root build (sizecheck PASS 6.80 MB), certify **28/28**.
 
 **B and C are a matched pair — ship them together.** B alone softens server PvE
 (it adds mercy caps to modes that had none); C alone would spike it (~3.3×
@@ -197,9 +197,22 @@ have caught the store dropping it.
 
 ### D. Finish the migration
 
-- **3c** — derive `scaling` per entry point from SERVER state: combat mission →
-  `missionAiLevelAndBonus(mission, save.character.level)`; hunt → the hunt def;
-  apex → `APEX_ROSTER`; rift → the shrine picker; endless → the wave.
+- ~~**3c**~~ — **DONE** (`5286e35c5`), `api/missions/_ai-fight-scaling.ts`.
+
+  ⚠ **Much smaller than this plan assumed, and that is a finding.**
+  `relevelBuiltinAi` has exactly **ONE** call site in the entire client
+  (`Arena.tsx`'s `pendingAiProfile` memo), gated on `missionBattleActive` + a
+  combat-mission lookup. **Combat missions are the only entry point that
+  re-levels its opponent.** Hunts, apex, rifts, endless, raid and defense all
+  use the profile at its AUTHORED level — exactly what the server already
+  produces when `scaling` is omitted. So `undefined` for those is the
+  verified-correct answer, not a gap; it is what keeps the two sides identical.
+  Do not "finish" 3c by inventing curves for them.
+
+  `scripts/ai-fight-scaling-parity.test.ts` pins that premise: it asserts
+  Arena.tsx still has exactly one `relevelBuiltinAi` call site and that it is
+  still the combat-mission one. A second one → that mode silently diverges → the
+  test fails instead.
 - **3d** — route the client's ~8 AI-fight launches to the server-combat screen.
   `dd85f6667` already did this shape for story/weekly/anbu — follow it.
 - **4** — derive the reward from the settled session (retire the client-claimed
