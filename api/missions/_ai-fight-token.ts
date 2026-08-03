@@ -16,6 +16,15 @@ export type AiFightToken = {
     opponentId?: string;
     opponentLevel?: number;
     battleKind?: AiFightBattleKind;
+    /**
+     * The sealed server encounter this token belongs to, when one was built
+     * (ENABLE_SERVER_AI_COMBAT). One token = one battle lifecycle, so carrying
+     * the runId here keeps the whole lifecycle on ONE record instead of needing
+     * a second binding key. Step 4 derives the reward from this session's
+     * settled outcome instead of the client-claimed win; until then it is
+     * written but not read.
+     */
+    runId?: string;
 };
 
 export type AiFightRewardClaim =
@@ -35,8 +44,10 @@ export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; runId?: unknown } = {},
 ): AiFightToken {
+    const runIdRaw = typeof context.runId === 'string' ? context.runId.trim().slice(0, 96) : '';
+    const runId = /^[A-Za-z0-9:_-]+$/.test(runIdRaw) ? runIdRaw : undefined;
     const opponentIdRaw = typeof context.opponentId === 'string' ? context.opponentId.trim().slice(0, 96) : '';
     const opponentId = /^[A-Za-z0-9:_-]+$/.test(opponentIdRaw) ? opponentIdRaw : undefined;
     const opponentLevelNum = Math.floor(Number(context.opponentLevel ?? 0));
@@ -65,6 +76,7 @@ export function createAiFightTokenRecord(
         ...(Number.isFinite(baseXp) && Number.isFinite(baseRyo) ? { rewardSource: 'server-save' as const } : {}),
         ...(opponentId ? { opponentId } : {}),
         ...(opponentLevel ? { opponentLevel } : {}),
+        ...(runId ? { runId } : {}),
     };
 }
 
