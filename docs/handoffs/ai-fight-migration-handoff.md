@@ -1,21 +1,33 @@
 # Handoff — Generic AI-Fight Migration + PvE difficulty authority
 
-Rewritten 2026-08-02 after pushing steps 2, 3a and 3b to `main`. Read this first.
+Rewritten 2026-08-03 after pushing steps 3d, 4 and the PvE-defeat pass to `main`.
+Read this first.
 
 ## Where main is
 
-`main` is **52dc1a221**, pushed 2026-08-03. Steps A, B, C, 3c and the 3d server
-half are all ON it. Gates run immediately before the push, all exit 0:
-`npm test` **4640/4640**, `tsc -p tsconfig.cpanel.json`, `npm run build`
-(verify:dist OK, sizecheck PASS 6.80 MB), `npm run certify:release` **28/28**,
-client `npm run lint` 0 errors.
+`main` is **6ebe7cd65**, pushed 2026-08-03. Steps 1–4 are ALL on it, plus four
+real bug fixes found by auditing them (see "Bugs this pass fixed"). Gates run
+immediately before the push, all exit 0: `npm test` **4692/4692**,
+`tsc -p tsconfig.cpanel.json`, client `tsc`, `npm run build` (sizecheck PASS
+6.80 MB), `npm run certify:release` **28/28**, client `npm run lint` 0 errors.
+`origin/main` was still at `e01da2589` at push time, so this was a clean
+fast-forward — no rebase, and the gates above were run on the exact pushed tree.
 
-⚠ **This push CHANGED LIVE PvE BALANCE.** Everything before it was inert behind
-`ENABLE_SERVER_AI_COMBAT`; steps B and C are not. Combat missions, story bosses,
-tower/Spire floors and the clan boss now run the standard-PvE hit guard, and
-their AI enemies now cast at real jutsu mastery instead of 30%. Both ship ON,
-with rollback switches (below). B and C were deliberately pushed TOGETHER — B
-alone softens PvE, C alone spikes it; they are the equilibrium only as a pair.
+### Bugs this pass fixed (all were LIVE)
+
+| Bug | Effect before |
+|---|---|
+| Weekly boss had no boss→player clamp or guard cycle | boss dealt its raw sheet — ~9k on a 10k-HP fighter, a near-one-shot |
+| Apex kill receipt never written | the Apex purse could **never** be claimed |
+| No server PvE mode charged for a defeat | losing a mission / story boss / AI fight cost nothing; instant full-HP retry |
+| An unverifiable settle resolved quietly | one dropped request on a win = reward silently lost, token unspent |
+
+⚠ **Earlier pushes CHANGED LIVE PvE BALANCE.** Steps B and C (already on main
+before this pass) are not inert. Combat missions, story bosses, tower/Spire
+floors and the clan boss run the standard-PvE hit guard, and their AI enemies
+cast at real jutsu mastery instead of 30%. Both ship ON, with rollback switches
+below. B and C were deliberately pushed TOGETHER — B alone softens PvE, C alone
+spikes it; they are the equilibrium only as a pair.
 
 **Rollback, in order of bluntness:**
 
@@ -40,6 +52,12 @@ its own `playLocally` fallback.
 | Switch | Effect |
 |---|---|
 | `DISABLE_SERVER_AI_COMBAT=1` | no encounter is sealed; every AI fight plays on the local Arena |
+| `DISABLE_WEEKLY_BOSS_GUARD=1` | undo the weekly-boss clamp AND its guard cycle (matched pair) |
+
+**There is no kill switch for the defeat cost** (`/api/pve/fight-outcome`), and
+that is deliberate: it restores behaviour the local Arena always had. Losing a
+fight is supposed to cost something. If it ever needs backing out, stop passing
+`outcomeFn` at the call sites rather than adding a flag.
 
 ## Done
 
