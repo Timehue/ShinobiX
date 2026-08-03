@@ -95,33 +95,55 @@ the contract: `relevelBuiltinAi` **drops `hpFloorExempt`** (see the hazard note
 in `lib/apex-contract.ts`), and `distributeStatBudget`'s rounding-stall branch
 is **`STAT_KEYS`-order dependent** (the server list is asserted identical).
 
-## Half-done: step 3b — the PvE difficulty band layer
+## Mostly done: step 3b — the PvE difficulty band layer
 
-**The port has landed** (`api/_pve-difficulty.ts` + `scripts/pve-difficulty-parity.test.ts`,
-mutation-verified twice). **The wiring has not.** Two pieces remain, and the
-second has a constraint that must not be shortcut:
+Port landed (`api/_pve-difficulty.ts` + `scripts/pve-difficulty-parity.test.ts`,
+mutation-verified twice). Wiring landed for three of four pieces:
 
-1. **Seal time** (easy) — in `buildAiFightEncounter`, scale the opponent by
-   `pveDifficultyHpMultiplier(level)` and `pveDifficultyStatMultiplier(level)`
-   before building the template, mirroring `Arena.tsx:691` / `:695-699`. Gate to
-   standard PvE; endless has its own endpoint and must not double-dip.
-2. **The hit guard** (delicate) — ⚠ **the client guards PRE-shield and
-   PRE-absorb** (`Arena.tsx:4677`: `enemyDamage = guardEnemyHit(enemyDamage)`
-   THEN `blocked = min(playerShield, enemyDamage)`), and it guards before
-   Wound/Siphon derive from the number (`:4203`), and **player DoT ticks count
-   against the same turn budget** (`:4964`). So a post-hoc HP-delta clamp in the
-   engine is WRONG: a shielded player would get a larger real allowance and
-   bleed/lifesteal would come off an unclamped figure.
+- ✅ **AI jutsu mastery.** ⚠ **Found while wiring: NO server enemy template has
+  ever carried `character.jutsuMastery`,** which `api/pvp/move.ts` `applyJutsu`
+  reads off the caster — so every server-sealed AI casts at mastery 0, i.e.
+  `masteryDamageFrac(0) = 0.3`, **30% of the jutsu damage** the client's PvE AI
+  deals (it passes `pveAiMasteryForLevel` explicitly). `buildAiFightEncounter`
+  now seals it. **This gap still exists for combat missions, story bosses,
+  hollow gate and the towers** — their templates were hand-tuned with mastery 0
+  in place, so correcting them is a real balance change and needs its own pass.
+  Worth doing; it is very likely why some server PvE reads as limp.
+- ✅ **Band HP + stat multipliers** at seal time (mirrors `Arena.tsx:691/:695`).
+  Order matters and is tested: the re-level applies the HP floor, THEN the band
+  multiplies — same as the client.
+- ✅ **`session.pveGuard` sealed** (`api/towers/_tower-session.ts`). Presence is
+  the gate; no existing mode seals it, so all of them stay byte-identical.
+- ❌ **The engine clamp itself is NOT wired yet.** `pveGuard` is armed but
+  nothing reads it.
 
-   The faithful seam is a **two-pass resolve in `_engine.ts` `runJutsu`**:
-   resolve once on copies to learn the raw pre-shield hit, then re-resolve with
-   `wMult` scaled by `clamp / raw`. Deterministic (the resolver is pure), and it
-   leaves the shared PvP resolver `api/pvp/move.ts` untouched — which matters,
-   because that file is live PvP balance. Turn state (`playerHpTurnStart`,
-   `dealtThisTurn`) resets in `refreshAp`, which runs at every turn start.
+### The remaining piece, and why it is not a five-minute job
 
-Also still to wire: `pveAiMasteryForLevel` into the AI's cast path, and
-`pveAiCompetence` / the easy-band pacing helpers into `bestAffordableJutsu`.
+⚠ **The client guards PRE-shield and PRE-absorb** (`Arena.tsx:4677`:
+`enemyDamage = guardEnemyHit(enemyDamage)` THEN
+`blocked = min(playerShield, enemyDamage)`), it guards before Wound/Siphon
+derive from the number (`:4203`), and **player DoT ticks count against the same
+turn budget** (`:4964`).
+
+A post-hoc HP-delta clamp in `_engine.ts` is therefore WRONG — a shielded player
+would get a larger real allowance, and bleed/lifesteal would come off an
+unclamped figure. Two candidate seams were checked and both fail to give the
+raw number: `res.opponent.hp` is post-shield, and `fx.amount`
+(`CombatFxEvent`) is post-shield/post-absorb as well.
+
+**So the clamp has to go inside the resolver:** add an OPTIONAL `damageCap`
+parameter to `applyJutsu` (`api/pvp/move.ts`), defaulting to `Infinity` so every
+existing PvP and PvE caller is byte-identical, applied at the exact point the
+client applies it. That is a change to live PvP code, so it wants its own
+commit, a careful read of the damage pipeline, and a PvP-unchanged regression
+test alongside the new PvE one.
+
+Then: reset the turn state in `refreshAp` (runs at every turn start), and route
+squad DoT damage in `applyRoundStatusTicks` through the same budget.
+
+Still to wire after that: `pveAiCompetence` and the easy-band pacing helpers
+(`pveEasyBandHoldsBurst`, `pveEasyBandAllowsLethal`) into the engine's
+`bestAffordableJutsu` / `pickAiAction`.
 
 ## Reference: what 3b's port covers
 
