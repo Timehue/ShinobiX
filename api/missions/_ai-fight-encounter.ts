@@ -42,6 +42,12 @@ import {
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
 import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
+import {
+    pveAiMasteryForLevel,
+    pveDifficultyHpMultiplier,
+    pveDifficultyStatMultiplier,
+    scaleStatsForPveDifficulty,
+} from '../_pve-difficulty.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 
 /** Floor ids for AI fights. Kept clear of the combat-mission band (9_100+) and
@@ -137,7 +143,21 @@ export function buildAiFightEncounter(params: {
             loadout,
         ) as unknown as AiFightProfile
         : params.profile;
-    const bossTemplate = aiOpponentEnemyTemplate(profile, loadout);
+
+    // PvE difficulty band (api/_pve-difficulty.ts), keyed off the ENCOUNTER's
+    // level exactly like Arena.tsx:691/:695 — the enemy soaks fewer hits and
+    // fights with scaled stats in the sub-peer bands. Without this the server
+    // opponent is strictly tougher than the one the client shows.
+    const level = Math.max(1, Math.floor(Number(profile.level) || 1));
+    const tuned: AiFightProfile = {
+        ...profile,
+        hp: Math.max(1, Math.floor(Number(profile.hp) * pveDifficultyHpMultiplier(level))),
+        stats: scaleStatsForPveDifficulty(
+            (profile.stats ?? {}) as Record<string, number>,
+            pveDifficultyStatMultiplier(level),
+        ),
+    };
+    const bossTemplate = aiOpponentEnemyTemplate(tuned, loadout);
     const session = buildAuthoritativeSoloEncounter({
         playerName: params.playerName,
         save: params.save,
@@ -158,5 +178,33 @@ export function buildAiFightEncounter(params: {
     const char = params.save.character as Record<string, unknown> | undefined;
     const companion = char ? sealCompanionFromSave(char) : null;
     if (companion) session.pendingCompanion = companion;
+
+    // Seal the AI's JUTSU MASTERY. api/pvp/move.ts applyJutsu reads the caster's
+    // `character.jutsuMastery`, and no server enemy template has ever carried
+    // one — so every server-sealed AI casts at mastery 0, i.e.
+    // masteryDamageFrac(0) = 0.3, THIRTY PERCENT of the jutsu damage the
+    // client's PvE AI deals (it passes pveAiMasteryForLevel explicitly). Left
+    // alone, a migrated AI fight would be a pushover.
+    //
+    // Scoped to this session on purpose: the same gap exists for missions,
+    // story bosses, hollow gate and the towers, whose enemy templates were
+    // hand-tuned with mastery 0 in place. Fixing those is a balance change and
+    // needs its own deliberate pass — see the handoff.
+    const mastery = pveAiMasteryForLevel(Number(bossTemplate.level) || 1);
+    const boss = session.actors.find((actor) => actor.id === 'boss');
+    if (boss && Array.isArray(boss.character.jutsu)) {
+        boss.character.jutsuMastery = (boss.character.jutsu as Array<{ id?: unknown }>)
+            .map((jutsu) => ({ jutsuId: String(jutsu?.id ?? ''), level: mastery }))
+            .filter((entry) => entry.jutsuId);
+    }
+
+    // Arm the standard-PvE hit guard for this session. Presence is the gate —
+    // no existing mode seals this, so none of them change. The band is keyed to
+    // the opponent's SEALED level so the client cannot shift it mid-fight.
+    session.pveGuard = {
+        enemyLevel: Number(bossTemplate.level) || 1,
+        turnStartHp: {},
+        dealtThisTurn: {},
+    };
     return session;
 }
