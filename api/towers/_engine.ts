@@ -38,6 +38,8 @@ import {
     pveEasyBandHoldsBurst,
     pveGuardedEnemyHit,
     pveIsBurstJutsuAp,
+    weeklyBossDamageMultiplier,
+    weeklyBossGuardedHit,
 } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
@@ -872,6 +874,17 @@ function pveHitCapFor(session: TowerSession, actor: TowerActor, target: TowerAct
     const guard = session.pveGuard;
     if (!guard || selfCast) return undefined;
     if (actor.side !== 'enemy' || target.side !== 'squad') return undefined;
+    // The weekly boss runs its OWN clamp — a flat 8%/hit, 15%/turn with no band
+    // and no mercy floor. It reuses this whole path (turn reset, the per-target
+    // tally, the pre-shield damageCap, the AoE-splash cap) because those are the
+    // parts that were hard to get right; only the ceiling formula differs.
+    if (guard.kind === 'weeklyBoss') {
+        return weeklyBossGuardedHit(
+            Number.MAX_SAFE_INTEGER,
+            target.maxHp,
+            guard.dealtThisTurn[target.id] ?? 0,
+        );
+    }
     const capped = pveGuardedEnemyHit(Number.MAX_SAFE_INTEGER, {
         enemyLevel: guard.enemyLevel,
         playerMaxHp: target.maxHp,
@@ -882,6 +895,22 @@ function pveHitCapFor(session: TowerSession, actor: TowerActor, target: TowerAct
     // raw input there, so treat a saturated result as "no ceiling" and skip the
     // cap entirely rather than clamping at MAX_SAFE_INTEGER.
     return capped >= Number.MAX_SAFE_INTEGER ? undefined : capped;
+}
+
+/**
+ * Player → boss damage multiplier for the weekly-boss guard cycle: the boss
+ * raises its guard for most rounds and drops it every CYCLE-th round, so a
+ * player who times their nuke to an OPEN round is rewarded. 1 (no change) for
+ * every other mode, for the boss's own casts, and for self-casts — otherwise an
+ * open round would double a squad member's healing too.
+ *
+ * `session.round` is the right mirror of the client's `turn`: both advance once
+ * per full round.
+ */
+function weeklyBossPlayerMult(session: TowerSession, actor: TowerActor, target: TowerActor, selfCast: boolean): number {
+    if (session.pveGuard?.kind !== 'weeklyBoss') return 1;
+    if (selfCast || actor.side !== 'squad' || target.side !== 'enemy') return 1;
+    return weeklyBossDamageMultiplier(session.round ?? 1);
 }
 
 /** Add applied damage to the current enemy turn's tally for `target`. */
@@ -913,12 +942,15 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
     // rather than on the post-shield HP delta. Absent for every mode that did
     // not seal a guard, and never applied to the squad's own casts.
     const cap = pveHitCapFor(session, actor, target, selfCast);
+    // The weekly boss's guard cycle rides the SAME multiplier the tower env
+    // already folds in, so guarded/open rounds land pre-mitigation exactly like
+    // the client applies them. 1 for every other mode.
     const res = resolveTowerPlayerJutsu({
         session,
         actor,
         target: selfCast ? actor : target,
         jutsu: jutsu as Parameters<typeof applyPvpJutsu>[2],
-        wMult,
+        wMult: wMult * weeklyBossPlayerMult(session, actor, target, selfCast),
         resolver: applyPvpJutsu,
         damageCap: cap,
     });

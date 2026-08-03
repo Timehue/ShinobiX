@@ -19,11 +19,16 @@
  * rationale (band intent, tuning notes); this one deliberately does not restate
  * it, so there is one place to update when the curve is tuned.
  *
+ * The weekly-boss helpers ARE ported now (bottom of this file). The earlier note
+ * here said they were deliberately left out because "the weekly boss is a
+ * separate mode with its own server authority in api/weekly-boss.ts" — that was
+ * true when the weekly boss ran on the client. It does not any more: it builds a
+ * Tower session and resolves on THIS engine, so leaving them out did not keep
+ * one home for the mechanic, it left the server with NO boss→player clamp and no
+ * guard cycle. The boss dealt its raw stat sheet, which is a near-one-shot on a
+ * 10k-HP fighter, and its signature guard-up/guard-down rounds did not exist.
+ *
  * NOT ported (deliberately):
- *  • the weekly-boss helpers (weeklyBossGuardedHit / the guard cycle). The
- *    weekly boss is a separate mode with its own server authority in
- *    api/weekly-boss.ts and is not part of this migration. Porting it here
- *    would create a second home for that mechanic.
  *  • `scaleStatsForPveDifficulty`'s Stats typing nuance — the server version
  *    takes a plain record, since sealed stat blocks are already normalized.
  */
@@ -181,4 +186,57 @@ export function scaleStatsForPveDifficulty<T extends Record<string, number>>(sta
         }
     }
     return out as T;
+}
+
+// ─── Weekly boss ─────────────────────────────────────────────────────────────
+// A hand port of the client's weekly-boss helpers, constant-for-constant. Kept
+// beside the standard band because both feed the same engine clamp, but they are
+// SEPARATE mechanics — see the note at the top of this file.
+//
+// Source of truth for the design rationale:
+// shinobij.client/src/lib/pve-difficulty.ts. Parity is asserted by
+// scripts/pve-difficulty-parity.test.ts.
+
+// Boss → player: a flat per-hit fraction of the player's max HP plus a per-TURN
+// ceiling, so a chained multi-action boss turn cannot stack into a kill. On a
+// 10k-HP fighter: <=800 per hit, <=1,500 per turn — many rounds of grind instead
+// of the ~9k near-one-shots the raw stat sheet would otherwise deal.
+export const WEEKLY_BOSS_MAX_HIT_FRACTION = 0.08;
+export const WEEKLY_BOSS_MAX_TURN_FRACTION = 0.15;
+
+// Player → boss: the guard cycle. Guarded rounds soak most of the blow; open
+// rounds let the player through for bonus damage.
+export const WEEKLY_BOSS_GUARD_CYCLE = 4;             // one OPEN round per this many
+export const WEEKLY_BOSS_GUARDED_DAMAGE_MULT = 0.30;  // guard up: ~70% of the blow soaked
+export const WEEKLY_BOSS_OPEN_DAMAGE_MULT = 2.0;      // guard down: double damage
+
+/**
+ * OPEN (guard-down) round test. Offset so turn 1 is OPEN: a strong opening hit
+ * teaches the boss CAN be hurt, then the guard raises for the next CYCLE-1
+ * rounds and drops again on the cycle boundary (open on 1, 5, 9, … for CYCLE=4).
+ */
+export function isWeeklyBossOpenRound(turn: number): boolean {
+    const t = Math.max(1, Math.floor(turn || 1));
+    return (t - 1) % Math.max(1, WEEKLY_BOSS_GUARD_CYCLE) === 0;
+}
+
+/** Player → boss damage multiplier for the current round. */
+export function weeklyBossDamageMultiplier(turn: number): number {
+    return isWeeklyBossOpenRound(turn) ? WEEKLY_BOSS_OPEN_DAMAGE_MULT : WEEKLY_BOSS_GUARDED_DAMAGE_MULT;
+}
+
+/**
+ * Boss → player hit clamp. Mirrors pveGuardedEnemyHit's structure but with
+ * boss-specific fractions and NO band or mercy logic — the boss is high-level
+ * and must stay a grind, not become survivable. `dealtThisTurn` is the damage
+ * already applied earlier in THIS enemy turn, so the per-turn ceiling bounds a
+ * chained multi-action turn rather than just a single hit.
+ */
+export function weeklyBossGuardedHit(rawHit: number, playerMaxHp: number, dealtThisTurn: number): number {
+    const hit = Math.max(0, Math.floor(Number.isFinite(rawHit) ? rawHit : 0));
+    const maxHp = Number.isFinite(playerMaxHp) ? Math.max(1, playerMaxHp) : 1;
+    const dealt = Math.max(0, Number.isFinite(dealtThisTurn) ? dealtThisTurn : 0);
+    const perHit = Math.max(1, Math.floor(maxHp * WEEKLY_BOSS_MAX_HIT_FRACTION));
+    const perTurn = Math.max(1, Math.floor(maxHp * WEEKLY_BOSS_MAX_TURN_FRACTION));
+    return Math.max(0, Math.min(hit, perHit, Math.max(0, perTurn - dealt)));
 }

@@ -305,6 +305,17 @@ export function buildAuthoritativeSoloEncounter(params: {
     // (memoized) and passes it in. Omitting it seals exactly as before — and drops
     // any admin-authored equipped item silently.
     admin?: AdminCombatContent | null;
+    /**
+     * Seal a non-standard PvE clamp before the fight starts. Only the weekly
+     * boss uses this today; omitting it leaves `pveGuard` undefined, which is
+     * every other caller's existing behaviour, byte-identical.
+     *
+     * ⚠ It must be sealed HERE, not by the caller after this returns: the two
+     * lines below run the opening enemy turn INLINE, so a guard applied
+     * afterwards would miss the boss's first swing — the exact trap that bit the
+     * towers and the clan boss in step B.
+     */
+    pveGuardKind?: 'weeklyBoss';
 }): TowerSession {
     const char = params.save.character as Record<string, unknown>;
     const squad: SquadMemberInput[] = [{
@@ -326,6 +337,16 @@ export function buildAuthoritativeSoloEncounter(params: {
         embedFloor: true,
         towerId: params.towerId,
     });
+    if (params.pveGuardKind === 'weeklyBoss') {
+        const boss = session.actors.find(a => a.id === session.phaseState?.bossId)
+            ?? session.actors.find(a => a.side === 'enemy');
+        session.pveGuard = {
+            kind: 'weeklyBoss',
+            enemyLevel: Math.max(1, Math.floor(Number(boss?.character?.level) || 1)),
+            turnStartHp: {},
+            dealtThisTurn: {},
+        };
+    }
     startRound(session);
     runAiUntilHuman(session, params.floor, makeRng(params.seed));
     stampTurnClock(session, params.now);
