@@ -93,6 +93,28 @@ export function aiFightPaysReward(outcome: AiFightOutcome, battleKind: string | 
     return outcome === 'win' && battleKind !== 'practice';
 }
 
+/** The Academy spar's sealed session (api/story/spar-start.ts). */
+const ACADEMY_SPAR_TOWER_ID = 'academy-spar';
+
+/**
+ * Whether this run's own SETTLEMENT already owns the player's HP on a win, so
+ * the outcome report must leave it alone.
+ *
+ * Exactly one mode does: the Academy spar grants a scripted post-spar HP
+ * (`maxHp - 25` in applyAcademySparSettlement) rather than the HP the fight
+ * left. Both writes land through mutatePlayerSave the moment the fight
+ * resolves, so without this the tutorial's ending HP would depend on which
+ * mutation got there first.
+ *
+ * Deliberately narrow, and keyed off the SESSION's towerId rather than anything
+ * the caller says — a client cannot opt its fight out of paying for itself.
+ * A LOST spar is untouched by this and reports normally, which is what puts a
+ * knocked-out beginner in the Hospital.
+ */
+export function settlementOwnsHpOnWin(session: TowerSession | null | undefined): boolean {
+    return session?.towerId === ACADEMY_SPAR_TOWER_ID;
+}
+
 /**
  * Write the fight's physical consequence onto the character: the surviving HP on
  * any resolved outcome, and the hospital stay on a defeat or a forfeit. Mirrors

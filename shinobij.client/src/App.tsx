@@ -190,7 +190,7 @@ import { mergePlayerRoster } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
-import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
+import { builtinAis, balanceExistingAiProfiles, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
@@ -587,6 +587,7 @@ import {
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
+import { buildAcademySparDummy } from "./lib/academy-spar";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
@@ -1926,6 +1927,7 @@ export default function App() {
         } catch { /* quota / SSR */ }
     }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
+    const [storyFightOpen, setStoryFightOpen] = useState(false); // sealed story-lane fights are body portals, so `screen` never changes — screen-keyed chrome checks this instead
     // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged
     // into the arena's AI list only (never into the saved creatorAis).
     const [wandererAis, setWandererAis] = useState<CreatorAi[]>([]);
@@ -5470,46 +5472,36 @@ export default function App() {
         setScreen("arena");
     }
 
-    // Onboarding "guaranteed first win" — launch a scripted spar against a
-    // deliberately weak Lv-1 training dummy via the existing story-battle infra
-    // (temporaryStoryAi + pendingArenaStoryBattle). The dummy has tiny HP and
-    // Lv-1 offense, so a new player (who spawns combat-ready with 3 bloodline
-    // jutsu) wins in a few hits. The win advances onboardingStep -> "cafeteria" in
-    // completePendingArenaStoryBattle; a loss just returns to the village and
-    // re-prompts. Fully client-side (AI fight) — no server/PvP path.
+    // Onboarding "guaranteed first win" — a scripted spar against a deliberately
+    // weak Lv-1 training dummy (lib/academy-spar), which the player beats in a
+    // few hits. The win advances onboardingStep -> "cafeteria"; a loss returns to
+    // the village and re-prompts via the OnboardingCoach's Hospital step.
+    //
+    // Preferred path: the SEALED server fight (api/story/spar-start), hosted by
+    // StoryBossFightHost like every other story-lane bout. `playLocally` below is
+    // the designed degrade — the local Arena spar this used to be, still exact,
+    // still settling through /api/story/settle with the temp-* token. This is the
+    // first minute of the game: a failed round-trip costs the seal, not the spar.
     function startAcademySparringMatch() {
         if (!character) return;
-        const sparLevel = 1;
-        // A couple of weak basic jutsu so the dummy pokes back (teaches that
-        // enemies act), but Lv-1 stats mean it can't threaten the player.
-        const sparJutsus = aiJutsuLoadout("balanced", starterJutsus).slice(0, 2);
-        const sparAiId = `temp-academy-spar-${Date.now()}`;
-        const sparBiome = villageBiomeMap[character.village] ?? "central";
-        setTemporaryStoryAi({
-            id: sparAiId,
-            name: "Academy Training Dummy",
-            icon: "🎯",
-            image: academyTrainingDummyImg,
-            level: sparLevel,
-            village: character.village,
-            hp: 50, // deliberately tiny — falls in a few hits for a sub-60s first win
-            chakra: maxChakraForLevel(sparLevel),
-            stamina: maxStaminaForLevel(sparLevel),
-            stats: aiStatsForLevel(sparLevel, sparJutsus),
-            armorRawDR: 0,
-            armorFactor: aiArmorFactorFromRaw(0),
-            loadoutId: "balanced",
-            jutsuIds: sparJutsus.map((jutsu) => jutsu.id),
-            rules: buildBasicCombatAiRules(sparJutsus, "balanced"),
+        const village = character.village;
+        requestStoryBossFight({
+            kind: "academySpar",
+            bossName: "Academy Training Dummy",
+            bossPortrait: academyTrainingDummyImg,
+            playLocally: () => {
+                const sparBiome = villageBiomeMap[village] ?? "central";
+                const dummy = buildAcademySparDummy({ id: `temp-academy-spar-${Date.now()}`, village, image: academyTrainingDummyImg });
+                setTemporaryStoryAi(dummy); setPendingAiProfileId(dummy.id);
+                setPendingPvpOpponent(null);
+                setRaidBattleKind("none");
+                setPendingArenaStoryBattle({ kind: "academySparring", returnScreen: "village" });
+                setCurrentBiome(sparBiome);
+                setCurrentWeather(weatherForBiome(sparBiome));
+                setArenaKey((key) => key + 1);
+                setScreen("arena");
+            },
         });
-        setPendingPvpOpponent(null);
-        setRaidBattleKind("none");
-        setPendingArenaStoryBattle({ kind: "academySparring", returnScreen: "village" });
-        setPendingAiProfileId(sparAiId);
-        setCurrentBiome(sparBiome);
-        setCurrentWeather(weatherForBiome(sparBiome));
-        setArenaKey((key) => key + 1);
-        setScreen("arena");
     }
 
     async function leaveDungeon() {
@@ -6608,7 +6600,7 @@ export default function App() {
                 />
             )}
 
-            <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={(character, version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); setCharacter(character); }} />
+            <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={(character, version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); setCharacter(character); }} onFightOpenChange={setStoryFightOpen} />
 
             {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host starts the fight, then routes it to the server arena or back to the caller's local Arena when nothing was sealed. `hooks` are the world/mission side effects the server does NOT own — the same callbacks Arena's win path fires, so both routes stay equivalent. */}
             <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: recordMissionRaid, onExploreAmbushWon: () => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }, onHuntBeastDefeated: completeHuntForAi }} onSettled={(result) => { if (!result.character) return; latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion); setCharacter(result.character); }} onClose={(back) => { setMissionBattleActive(false); setPendingExploreSector(null); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
@@ -7000,8 +6992,9 @@ export default function App() {
 
                 {character
                     && normalizeOnboardingStep(character.onboardingStep) !== "done"
-                    // Coach is hidden during the spar (the in-battle SparCoach handles it).
-                    && screen !== "arena"
+                    // Coach is hidden during the spar (the in-battle SparCoach handles it) —
+                    // on the local Arena by screen, and on the SEALED spar by the portal flag.
+                    && screen !== "arena" && !storyFightOpen
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
                     && (

@@ -8,6 +8,7 @@ import {
     applyAiFightOutcomeToCharacter,
     isPveFightMember,
     resolveAiFightOutcome,
+    settlementOwnsHpOnWin,
 } from './_ai-fight-outcome.js';
 
 function actor(overrides: Partial<TowerActor>): TowerActor {
@@ -194,5 +195,34 @@ describe('isPveFightMember — a client-supplied runId must be your own', () => 
             actors: [{ ...actor({}), id: 'foe', side: 'enemy', ai: true, ownerSlug: 'Mallory' }],
         });
         assert.equal(isPveFightMember(spoofed, 'Mallory'), false);
+    });
+});
+
+describe('settlementOwnsHpOnWin — who writes the winning HP', () => {
+    it('defers only for the Academy spar, whose settlement grants a scripted HP', () => {
+        assert.equal(settlementOwnsHpOnWin(session({ towerId: 'academy-spar' } as Partial<TowerSession>)), true);
+    });
+
+    it('leaves every other mode alone, so their wins still carry surviving HP back', () => {
+        for (const towerId of ['ai-fight', 'story-boss', 'mission', 'tower', 'spire', 'clan-boss', undefined]) {
+            assert.equal(
+                settlementOwnsHpOnWin(session({ towerId } as Partial<TowerSession>)),
+                false,
+                `${String(towerId)} must keep reporting its own outcome`,
+            );
+        }
+        assert.equal(settlementOwnsHpOnWin(null), false);
+    });
+
+    it('is about the WIN only — a lost spar still costs, which is what hospitalizes a beginner', () => {
+        // The predicate is deliberately outcome-blind; the endpoint pairs it with
+        // `outcome === 'win'`. This pins the pairing's premise: a lost spar run
+        // still resolves as a loss and still applies the KO.
+        const lost = session({ towerId: 'academy-spar', winner: 'enemy' } as Partial<TowerSession>);
+        assert.equal(resolveAiFightOutcome(lost), 'loss');
+        const downed = { ...actor({}), id: 'p1', side: 'squad', ai: false, hp: 0, maxHp: 300 } as TowerActor;
+        const after = applyAiFightOutcomeToCharacter({ maxHp: 300, hp: 300 }, 'loss', downed, 1_700_000_000_000);
+        assert.equal(after.hp, 0);
+        assert.equal(after.hospitalized, true);
     });
 });

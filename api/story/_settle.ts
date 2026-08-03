@@ -39,6 +39,12 @@ export function storyOpponentId(village: string, level: number): string {
     return `story-ai-${village.toLowerCase().replace(/\W+/g, '-')}-${level}`;
 }
 
+/** The sealed Academy sparring dummy's id. Declared here, the leaf of the story
+ *  module graph, because both the settlement below and the opponent builder
+ *  (./_academy-spar.ts, which imports this file transitively) need it — putting
+ *  it in the builder would close an import cycle. */
+export const ACADEMY_SPAR_OPPONENT_ID = 'academy-spar-dummy';
+
 export type StorySettlement =
     | { ok: true; character: PlayerCharacter; progress: number; xp: number; statPoints: number; ryo: number; auraDust: number; finale: boolean; title?: string }
     | { ok: false; status: number; error: string };
@@ -51,7 +57,13 @@ export function applyAcademySparSettlement(character: PlayerCharacter, token: Ai
     if (onboardingStep !== 'academySpar' && onboardingStep !== 'spar') {
         return { ok: false, status: 409, error: 'Academy spar is not the current onboarding step.' };
     }
-    if (!/^temp-academy-spar-\d{10,16}$/.test(String(token.opponentId ?? ''))) {
+    // Two opponent ids are the Academy spar: the SEALED server dummy
+    // (api/story/_academy-spar.ts, reached through /api/story/spar-start), and
+    // the `temp-academy-spar-<ts>` id the local fallback still mints when the
+    // sealed start is unavailable. Both are checked here rather than at the
+    // call site so neither channel can settle some other fight as the spar.
+    const opponentId = String(token.opponentId ?? '');
+    if (opponentId !== ACADEMY_SPAR_OPPONENT_ID && !/^temp-academy-spar-\d{10,16}$/.test(opponentId)) {
         return { ok: false, status: 409, error: 'AI fight token does not match the Academy spar.' };
     }
     // The teaching reward: +20 pool points (replacing the old one-time 60 XP)

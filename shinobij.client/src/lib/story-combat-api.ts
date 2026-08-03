@@ -58,3 +58,37 @@ export async function settleStoryBossCombat(params: {
     if (!response.ok || data.ok !== true) throw new Error(data.error ?? 'The story reward could not be verified.');
     return data as StoryBossSettleResult;
 }
+
+/*
+ * The onboarding spar, sealed the same way (step 5 of the AI-fight migration).
+ * /api/story/spar-start owns the dummy end to end — no opponent, level or stat
+ * is sent — and the settle below pays from the completed session instead of the
+ * mint-at-start token the local spar had to attest with.
+ */
+export async function startAcademySparCombat(params: {
+    playerName: string;
+    hostLoadout?: TowerHostLoadout;
+}): Promise<StoryBossStartResult> {
+    const response = await fetch('/api/story/spar-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+    });
+    const data = await response.json().catch(() => ({})) as Partial<StoryBossStartResult>;
+    if (!response.ok || !data.runId || !data.session) throw new Error(data.error ?? 'The sparring match could not start.');
+    return data as StoryBossStartResult;
+}
+
+export async function settleAcademySparCombat(params: {
+    playerName: string;
+    runId: string;
+}): Promise<StoryBossSettleResult> {
+    const response = await fetch('/api/story/settle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...params, kind: 'academySparring' }),
+    });
+    const data = await response.json().catch(() => ({})) as Partial<StoryBossSettleResult>;
+    if (!response.ok || data.ok !== true) throw new Error(data.error ?? 'The sparring reward could not be verified.');
+    return data as StoryBossSettleResult;
+}

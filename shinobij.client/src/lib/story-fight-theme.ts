@@ -16,6 +16,14 @@ import type { CreatorEvent } from "../types/vn";
  */
 
 export type StoryFightTheme = {
+    /**
+     * Which story-lane fight to seal. Absent means 'boss' (every existing
+     * caller). 'academySpar' starts /api/story/spar-start instead and settles
+     * as the tutorial spar — step 5 of the AI-fight migration, which moved the
+     * spar's opponent from a client-invented `temp-*` dummy to a server-owned
+     * one so the fight could be sealed at all.
+     */
+    kind?: "boss" | "academySpar";
     bossName: string;
     chapterLabel?: string;
     backdropImage?: string;
@@ -31,6 +39,15 @@ export type StoryFightTheme = {
     ally?: { name: string; lines: string[] };
     /** Village key for the shared chapter seal cue (lib/story-sfx). */
     village?: string;
+    /**
+     * The DESIGNED DEGRADE, same contract as the AI-fight bus: arrange the
+     * caller's own local fight. Called when no host is mounted and when the
+     * sealed start fails for any reason. The Academy spar sets it because it is
+     * the first minute of the game — a network hiccup must cost a server fight,
+     * never the tutorial. A boss omits it and keeps today's "alert and stay put"
+     * behaviour.
+     */
+    playLocally?: () => void;
 };
 
 type Listener = (theme: StoryFightTheme) => void;
@@ -42,9 +59,14 @@ export function onStoryBossFightRequest(fn: Listener): () => void {
     return () => { if (listener === fn) listener = null; };
 }
 
-/** Returns false when no host is mounted (caller should fall back / alert). */
+/** Returns false when no host is mounted (caller should fall back / alert).
+ *  A theme carrying `playLocally` has ALREADY had it run in that case, so those
+ *  callers can ignore the return value — emitting can never drop a fight. */
 export function requestStoryBossFight(theme: StoryFightTheme): boolean {
-    if (!listener) return false;
+    if (!listener) {
+        theme.playLocally?.();
+        return false;
+    }
     listener(theme);
     return true;
 }

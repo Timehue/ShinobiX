@@ -19,7 +19,13 @@ test("StoryBossFightHost renders MissionArenaFight, not the tower shell", () => 
 });
 
 test("StoryBossFightHost wires the story theme + server settle into the arena shell", () => {
-    assert.match(host, /storyTheme=\{theme\}/, "the chapter theme (backdrop/label/barks) must reach the fight");
+    // A CHAPTER fight must still receive the theme (backdrop / label / barks).
+    // The host now also carries the Academy spar, which is deliberately themeless
+    // — it has no chapter, and the theme layer is what fires the chapter-seal and
+    // victory stings — so the theme is passed conditionally rather than always.
+    // What must never happen is the theme not reaching a chapter boss at all.
+    assert.match(host, /storyTheme=\{(theme|isSpar \? undefined : theme)\}/, "the chapter theme (backdrop/label/barks) must reach a chapter fight");
+    assert.doesNotMatch(host, /storyTheme=\{undefined\}/, "a chapter boss must never be stripped of its theme outright");
     assert.match(host, /settleFn=\{settle\}/, "the server-authoritative story settle must reach the fight");
     assert.match(host, /settleStoryBossCombat\(/, "settle must call the /api/story/settle wrapper");
 });
