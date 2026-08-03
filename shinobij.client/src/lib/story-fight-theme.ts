@@ -19,6 +19,10 @@ export type StoryFightTheme = {
     bossName: string;
     chapterLabel?: string;
     backdropImage?: string;
+    /** The chapter antagonist's authored portrait, shown as the enemy on the fight
+     *  board (dossier + bark face). Resolved from the chapter's VN art at launch;
+     *  absent → the arena shell falls back to initials. Display-only. */
+    bossPortrait?: string;
     /** Ordered bark lines: [0] on fight start, [1] at ~2/3 boss HP, [2] at ~1/3. */
     barks?: string[];
     /** The boss's last authored words — spoken on the killing blow. */

@@ -137,8 +137,14 @@ export function buildInfiltrationEncounter(p: BuildInfiltrationParams): { sessio
     const floor = makeInfiltrationFloor(biome);
     const W = floor.map.width, H = floor.map.height;
     const midRow = Math.floor(H / 2);
-    const raiderPos = midRow * W + 1;          // left flank
-    const anbuPos = midRow * W + (W - 2);       // right flank (defending the vault)
+    const mid = Math.floor(W / 2);
+    // Duel spacing: the raider enters from the left and the Anbu guards the vault on
+    // the right, but they start a few hexes apart (not full board edge-to-edge) so the
+    // fight opens on a real exchange. The solo arena has no Dash (that's tower-only),
+    // so wide spawns would turn the opening into a multi-turn walk — mirror the shared
+    // encounter's "each side owns its half, but starts closer" spacing.
+    const raiderPos = midRow * W + (mid - 2);   // left of centre (W=12 → col 4)
+    const anbuPos = midRow * W + (mid + 2);      // right of centre, defending the vault (col 8)
 
     const raider = fighterActor('sq-0', 'squad', p.raider, raiderPos, { ai: false });
     const anbu = fighterActor('boss', 'enemy', p.anbu, anbuPos, { ai: true, boss: true });
