@@ -31,6 +31,7 @@ import {
 import { directDamageBaseFormula } from '../combat-core/formulas.js';
 import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
+import { pveGuardedEnemyHit } from '../_pve-difficulty.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
 import {
@@ -838,6 +839,49 @@ function writeBackFighter(a: TowerActor, f: PvpFighter): void {
     // TOWER grid by applyDisplacement (called from resolveHit); Barrier tile-blocking is not yet
     // ported (tracked separately).
 }
+// ─── Standard-PvE difficulty guard (api/_pve-difficulty.ts) ──────────────────
+// Only sessions that sealed `pveGuard` run this; every other mode is untouched.
+// The state mirrors Arena.tsx's enemyTurnStartHpRef / enemyTurnDealtRef.
+
+/** Snapshot squad HP and clear the damage tally — called at the start of an
+ *  ENEMY actor's turn, the unit the per-turn cap and mercy floor are scoped to. */
+function resetPveGuardTurn(session: TowerSession): void {
+    const guard = session.pveGuard;
+    if (!guard) return;
+    guard.turnStartHp = {};
+    guard.dealtThisTurn = {};
+    for (const a of session.actors) {
+        if (a.side !== 'squad') continue;
+        guard.turnStartHp[a.id] = a.hp;
+        guard.dealtThisTurn[a.id] = 0;
+    }
+}
+
+/** The ceiling for one enemy→squad cast, or undefined when the guard does not
+ *  apply (no seal, squad attacker, self-cast, or a non-squad target). */
+function pveHitCapFor(session: TowerSession, actor: TowerActor, target: TowerActor, selfCast: boolean): number | undefined {
+    const guard = session.pveGuard;
+    if (!guard || selfCast) return undefined;
+    if (actor.side !== 'enemy' || target.side !== 'squad') return undefined;
+    const capped = pveGuardedEnemyHit(Number.MAX_SAFE_INTEGER, {
+        enemyLevel: guard.enemyLevel,
+        playerMaxHp: target.maxHp,
+        playerHpTurnStart: guard.turnStartHp[target.id] ?? target.hp,
+        dealtThisTurn: guard.dealtThisTurn[target.id] ?? 0,
+    });
+    // The peer band is uncapped by design — pveGuardedEnemyHit hands back the
+    // raw input there, so treat a saturated result as "no ceiling" and skip the
+    // cap entirely rather than clamping at MAX_SAFE_INTEGER.
+    return capped >= Number.MAX_SAFE_INTEGER ? undefined : capped;
+}
+
+/** Add applied damage to the current enemy turn's tally for `target`. */
+function notePveGuardDamage(session: TowerSession, target: TowerActor, dealt: number): void {
+    const guard = session.pveGuard;
+    if (!guard || target.side !== 'squad' || !(dealt > 0)) return;
+    guard.dealtThisTurn[target.id] = (guard.dealtThisTurn[target.id] ?? 0) + Math.max(0, Math.floor(dealt));
+}
+
 /** Resolve one jutsu/weapon/attack from `actor` onto `target` (target===actor for a
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
@@ -854,6 +898,12 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
         return;
     }
     const sf = actorToFighter(actor);
+    // Standard-PvE hit guard: a sealed pveGuard caps what an ENEMY cast may deal
+    // to a squad member (per-hit / per-turn / easy-band mercy). Passed as a
+    // damageCap so the clamp lands PRE-shield — where the client applies it —
+    // rather than on the post-shield HP delta. Absent for every mode that did
+    // not seal a guard, and never applied to the squad's own casts.
+    const cap = pveHitCapFor(session, actor, target, selfCast);
     const res = resolveTowerPlayerJutsu({
         session,
         actor,
@@ -861,9 +911,14 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
         jutsu: jutsu as Parameters<typeof applyPvpJutsu>[2],
         wMult,
         resolver: applyPvpJutsu,
+        damageCap: cap,
     });
     writeBackFighter(actor, res.self);
     if (!selfCast) writeBackFighter(target, res.opponent);
+    // Meter the per-turn budget with the damage the resolver actually applied
+    // (post-cap). An HP delta would be post-shield and would let a shielded
+    // player absorb far more than the band intends across a chained turn.
+    if (cap !== undefined) notePveGuardDamage(session, target, res.metadata?.damage ?? 0);
     // Endless Spire heal-cut: throttle net HEALING a squad caster receives (self-heal / Lifesteal
     // / Siphon all land on res.self → actor.hp). `gained` is the realized post-writeback delta, so
     // max(0,…) is load-bearing: a Recoil / self-damage cast is a NEGATIVE delta that must NOT be
@@ -903,6 +958,11 @@ function applyAoeSplash(session: TowerSession, actor: TowerActor, primary: Tower
     const caught: string[] = [];
     for (const e of session.actors) {
         if (e.id === primary.id || e.hp <= 0 || !hostileSidesFor(actor.side).includes(e.side) || !area.has(e.pos)) continue;
+        // Splash victims get the SAME standard-PvE guard as the primary target.
+        // This path resolves directly (not via runJutsu), so without its own cap
+        // a multi-target enemy blast would walk straight through the per-turn
+        // ceiling and the easy-band mercy floor.
+        const splashCap = pveHitCapFor(session, actor, e, false);
         const res = resolveTowerPlayerJutsu({
             session,
             actor,
@@ -910,8 +970,10 @@ function applyAoeSplash(session: TowerSession, actor: TowerActor, primary: Tower
             jutsu: jutsu as Parameters<typeof applyPvpJutsu>[2],
             wMult,
             resolver: applyPvpJutsu,
+            damageCap: splashCap,
         });
         writeBackFighter(e, res.opponent); // only the victim — caster effects already applied on the primary
+        if (splashCap !== undefined) notePveGuardDamage(session, e, res.metadata?.damage ?? 0);
         caught.push(e.name);
     }
     return caught;
@@ -1059,8 +1121,26 @@ function resolveHit(
 function applyRoundStatusTicks(session: TowerSession): void {
     for (const a of session.actors) {
         if (a.hp <= 0) continue;
+        const hpBefore = a.hp;
         const dot = applyDoTs(actorToFighter(a), session.round);
         a.hp = Math.max(0, Math.min(a.maxHp, Math.floor(dot.fighter.hp)));
+        // A bleed must not slip a squad member under the easy-band mercy floor,
+        // and it spends the same per-turn budget (the client counts the player's
+        // DoT tick in endEnemyTurn, Arena.tsx:4964). Round end follows the enemy
+        // turn, so the tally in flight is the right one to charge.
+        if (session.pveGuard && a.side === 'squad') {
+            const dealt = hpBefore - a.hp;
+            if (dealt > 0) {
+                const allowed = pveGuardedEnemyHit(dealt, {
+                    enemyLevel: session.pveGuard.enemyLevel,
+                    playerMaxHp: a.maxHp,
+                    playerHpTurnStart: session.pveGuard.turnStartHp[a.id] ?? hpBefore,
+                    dealtThisTurn: session.pveGuard.dealtThisTurn[a.id] ?? 0,
+                });
+                if (allowed < dealt) a.hp = Math.max(0, Math.min(a.maxHp, hpBefore - allowed));
+                notePveGuardDamage(session, a, allowed);
+            }
+        }
         a.chakra = Math.max(0, Math.floor(dot.fighter.chakra));
         if (dot.lines.length) session.log.push(...dot.lines);
         a.statuses = tickStatuses(actorToFighter(a), session.round).statuses;
@@ -1115,6 +1195,10 @@ function tickCooldowns(actor: TowerActor): void {
 }
 function refreshAp(session: TowerSession): void {
     const actor = activeActor(session);
+    // An ENEMY actor taking the field starts a fresh guard window: snapshot squad
+    // HP (the mercy floor reads it) and clear the per-turn damage tally. This is
+    // the one hook that runs at every turn start (startRound + endTurn).
+    if (actor && actor.side === 'enemy') resetPveGuardTurn(session);
     if (actor) tickCooldowns(actor);
     if (actor && COMBAT_RESOURCES_V2) {
         // combatResourcesV2: the active actor regenerates chakra/stamina at turn start

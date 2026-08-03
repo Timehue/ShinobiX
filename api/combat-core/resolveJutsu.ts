@@ -84,11 +84,33 @@ export type ResolveJutsuArgs<TFighter, TJutsu, TStats, TFx> = {
     round: number;
     masteryLevel: number;
     healBoost: number;
+    /**
+     * OPTIONAL ceiling on the resolved damage, applied AFTER mitigation but
+     * BEFORE the post-damage pipeline — so shield, reflect, absorb, Wound,
+     * Recoil, Lifesteal and Siphon all derive from the capped figure.
+     *
+     * That placement is the whole point: it is exactly where the client applies
+     * its PvE guard (Arena.tsx clamps `enemyDamage` before `blocked`), so a
+     * server-resolved PvE fight matches the one the player is shown. Clamping
+     * the post-shield HP delta instead would give a shielded player a larger
+     * real allowance and let bleed/lifesteal derive from an unclamped number.
+     *
+     * Undefined (the default) is a strict no-op — the damage is threaded
+     * through untouched, so PvP and every un-migrated PvE mode are
+     * byte-identical. Only api/towers/_engine.ts sets it, and only for a
+     * session that sealed `pveGuard`.
+     */
+    damageCap?: number;
     phases: ResolveJutsuPhases<TFighter, TJutsu, TStats, TFx>;
 };
 
 export type ResolveJutsuMetadata = {
+    /** damage actually applied (post-`damageCap` when one was supplied) */
     damage: number;
+    /** damage BEFORE `damageCap`; equals `damage` when no cap was supplied.
+     *  Callers that meter a per-turn budget spend the capped `damage`, but this
+     *  is here so a clamp can be observed rather than inferred. */
+    rawDamage: number;
     baseDamage: number;
     effectiveDR: number;
     pierce: boolean;
@@ -119,6 +141,7 @@ export function resolveJutsu<TFighter, TJutsu, TStats, TFx>(
         round,
         masteryLevel,
         healBoost,
+        damageCap,
         phases,
     } = args;
 
@@ -131,7 +154,7 @@ export function resolveJutsu<TFighter, TJutsu, TStats, TFx>(
     const logLines = status.lines;
     const hitFx: TFx[] = [];
 
-    const damage = phases.resolveDamageNumber(
+    const rawDamage = phases.resolveDamageNumber(
         self,
         opponent,
         jutsu,
@@ -142,6 +165,12 @@ export function resolveJutsu<TFighter, TJutsu, TStats, TFx>(
         status.pierce,
         base.effectiveDR,
     );
+    // Optional external ceiling (see `damageCap`). Strictly no-op when absent —
+    // the identity branch keeps PvP and un-migrated PvE byte-identical rather
+    // than relying on Math.min(x, Infinity) round-tripping every value.
+    const damage = damageCap === undefined
+        ? rawDamage
+        : Math.max(0, Math.min(rawDamage, damageCap));
 
     if (damage > 0) {
         const post = phases.resolvePostDamage(s, o, jutsu, round, damage, status.pierce, healBoost);
@@ -167,6 +196,7 @@ export function resolveJutsu<TFighter, TJutsu, TStats, TFx>(
         hitFx,
         metadata: {
             damage,
+            rawDamage,
             baseDamage: base.baseDmg,
             effectiveDR: base.effectiveDR,
             pierce: status.pierce,

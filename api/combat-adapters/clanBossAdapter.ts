@@ -45,6 +45,11 @@ export type TowerPlayerJutsuResult = {
     opponent: PvpFighter;
     lines: string[];
     fx: CombatFxEvent[];
+    /** Present when the resolver reports it (api/pvp/move.ts applyJutsu does).
+     *  `metadata.damage` is the damage actually applied, POST-`damageCap` —
+     *  the number a per-turn damage budget must meter, since an HP delta would
+     *  be post-shield. Optional so any other resolver stays compatible. */
+    metadata?: { damage: number; rawDamage: number };
 };
 
 export type TowerPlayerJutsuResolver = (
@@ -54,6 +59,9 @@ export type TowerPlayerJutsuResolver = (
     wMult: number,
     biome: string,
     round: number,
+    /** Optional damage ceiling, threaded to the core resolver. See
+     *  ResolveJutsuArgs.damageCap — undefined is a strict no-op. */
+    damageCap?: number,
 ) => TowerPlayerJutsuResult;
 
 export function towerActorToCombatFighter(actor: TowerActor): CombatFighter {
@@ -164,6 +172,8 @@ export function resolveTowerPlayerJutsu(args: {
     resolver: TowerPlayerJutsuResolver;
     wMult?: number;
     cooldownKey?: string;
+    /** Optional damage ceiling for this one cast (PvE difficulty guard). */
+    damageCap?: number;
 }): TowerPlayerJutsuResult & { normalized: TowerPlayerJutsuCombatInput } {
     const normalized = normalizeTowerPlayerJutsuCombat(args);
     const self = towerActorToPvpFighter(args.actor);
@@ -175,6 +185,7 @@ export function resolveTowerPlayerJutsu(args: {
         normalized.environment.wMult,
         normalized.environment.biome,
         normalized.environment.round,
+        args.damageCap,
     );
     return { ...result, normalized };
 }
