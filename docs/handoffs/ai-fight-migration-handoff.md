@@ -1,12 +1,52 @@
 # Handoff — Generic AI-Fight Migration + PvE difficulty authority
 
 Rewritten 2026-08-03 after pushing steps 3d, 4 and the PvE-defeat pass to `main`.
-Read this first.
+Updated later the same day with step 5 subsystems 1–2. Read this first.
 
-## Where main is
+## Where main is (2026-08-03, latest pass)
 
-`main` is **ecb4e3bbf**, pushed 2026-08-03. **CI ✅ success, CodeQL ✅ success.**
-Steps 1–4 are ALL on it, plus four real bug fixes found by auditing them (see
+`main` is **aa42320ad**. The five commits of this pass, oldest first:
+
+| SHA | What | State |
+|---|---|---|
+| `ede2f1c5c` | Step 5 subsystem 1 — Academy spar fought on the server | ✅ CI+CodeQL green, DEPLOYED |
+| `632b6da19` | Tower reward channels pay CATALOG floors only (live leak) | ✅ green, DEPLOYED |
+| `c624e7a5d` | Unblock red main — `brace-expansion` advisory | ✅ green, DEPLOYED |
+| `aa0d19a88` | Step 5 subsystem 2 **server half** — sealed Endless waves | ✅ green, DEPLOYED, INERT |
+| `aa42320ad` | Certify the spar by actually playing it | CI in flight at handoff time |
+
+Production was last seen serving `aa0d19a88`. Gates on each: `npm test`
+4740/4740, both tscs, client lint 0, root build (sizecheck PASS), and
+`certify:release` — now **47/47**, up from 28.
+
+**Start here:** the only unfinished thing is the Endless client half. See
+"Next: subsystem 2's client half" below — it has the exact call sites.
+
+### Three traps this pass, worth reading before you touch anything
+
+1. **A red CI is not automatically your diff.** `632b6da19` was server-only and
+   went red at the **Client audit** step: a new advisory
+   (`brace-expansion` GHSA-rgw5-rvv9-x895) was published against a tree that had
+   not moved, and `npm audit --audit-level=high` started failing. Dev dependency
+   (`eslint → minimatch`), nothing shipped. Fix was
+   `npm audit fix --package-lock-only` in `shinobij.client/`, lockfile only.
+   **Check whether the SAME step passed on the previous commit before you go
+   hunting in your own changes.** A red main also blocks the Railway deploy, so
+   whatever is queued behind it is not live — here that was a security guard.
+2. **A green guard means nothing until you make it fail.** One of this pass's
+   source guards had a literal **backspace byte** where `\b` was meant (a
+   scripted edit wrote `"\b"` through a non-raw string), so its regex matched
+   nothing and it passed vacuously. Mutation-verify every guard you add.
+   Related: the certify fight loop first timed out with the run still `active`,
+   because a refused move still returns a session — read `applied`, not the
+   session's presence.
+3. **The `Monitor` tool went silent twice** on GitHub-run watches that did
+   complete. `Bash` with `run_in_background` and an `until` loop that exits on
+   the terminal state reported reliably every time. Prefer that.
+
+## Older context: steps 1–4
+
+Steps 1–4 are ALL on main, plus four real bug fixes found by auditing them (see
 "Bugs this pass fixed").
 
 ⚠ **Read this before your next main push — it cost a red main for ~6 hours.**
@@ -438,10 +478,10 @@ already pays, and the purse itself is unchanged — still separate, still gated 
   `playLocally` fallbacks can only go once ALL of them land; the abandoned-token
   waste (below) disappears with them.
 
-#### ✅ Step 5, subsystem 1/7 — Academy spar (BUILT, NOT COMMITTED)
+#### ✅ Step 5, subsystem 1/7 — Academy spar (`ede2f1c5c`, DEPLOYED)
 
-Worktree `new-session-58dbc0`. The spar was the cheapest of the six because its
-opponent is CONSTANT: no run state, no scaling, no authored content to read.
+The spar was the cheapest of the six because its opponent is CONSTANT: no run
+state, no scaling, no authored content to read.
 
 - **Server owns the dummy.** `api/story/_academy-spar.ts` (constants + template
   + eligibility + binding + validation) and `POST /api/story/spar-start`
@@ -498,6 +538,94 @@ Guards: `scripts/academy-spar-parity.test.ts` (cross-root, behaviour),
 `api/story/_academy-spar.test.ts` (eligibility/start-settle agreement, binding
 swaps, replay), `shinobij.client/src/lib/academy-spar-wiring.test.ts` (the three
 above, as source guards — the rules with logic are behaviour-tested).
+
+**✅ Certified by playthrough** (`aa42320ad`). `scripts/release-certification.mjs`
+now registers a player, seals a spar, **fights it to a win** through
+`/api/towers/action`, and settles: +20 stat points, +30 ryo, `onboardingStep →
+cafeteria`, claim latched, repeat settle pays nothing more. It also proves the
+other direction — a start body asking for a level-100 apex opponent is ignored,
+an unfinished settle is refused and pays nothing, and a spar past the onboarding
+step cannot be started.
+⚠ The sealed dummy arrives at **37 HP, not the authored 50** — the shared PvE
+band softens it for a level-1 player. Assert `<= 50`, never `=== 50`.
+
+#### ✅ Step 5, subsystem 2/7 — Endless Tower, SERVER HALF (`aa0d19a88`)
+
+⚠ **Endless is the odd mode of the six.** Its ECONOMY has been
+server-authoritative for a long time — `api/endless/_run.ts` recomputes the entry
+cost, per-wave ryo, milestone drops and cash-out from the wave number alone.
+Only the FIGHT was client-owned. Do not re-migrate the economy.
+
+⚠ **The old proof does not prove what it looks like.** The `AiFightToken` whose
+`opponentId` ends in `-w<wave>` is minted BEFORE the first blow lands: it attests
+a wave-N fight was STARTED, never that it was won. `action:'win'` was the client
+saying "I beat wave N, and these are the vitals I finished on".
+
+Three new modules, all landed and INERT (nothing calls `wave-start`, no client
+sends `waveRunId`):
+
+- **`api/endless/_wave-opponent.ts`** — generates the wave from the run token,
+  the wave counter and the save's level. **Deterministic, not random**: the
+  client could use `Math.random()`, the server cannot, because a reconnect or a
+  late settle must re-derive the SAME opponent instead of rerolling one.
+  ⚠ The server pool (generated catalog) is deliberately NOT the client's pool
+  (its roster **plus** admin `creatorAis`). Matching them would mean trusting the
+  client's roster. So the cross-root parity test pins the **scaling math only**,
+  never the pick — do not "fix" it to compare picks.
+- **`api/endless/_wave-session.ts`** — seals it into a Tower session **plus a
+  binding**. The split is the point: the session says what happened, the binding
+  says which run and which wave it was FOR. Without it a cheap sealed wave 1 is
+  redeemable against wave 40, which pays several times more.
+- **`api/endless/wave-start.ts`** — registered in `server.ts`. Reads the wave
+  from the save's run record; the body carries no opponent, level or stats.
+
+`run.ts` gained a sealed channel on `'win'` where the SESSION decides and the
+vitals come off it. The legacy token channel stays until the last local fallback
+goes.
+⚠ **The sealed win's replay receipt is keyed by the wave run id**, so the replay
+lookup tries `body.waveRunId` FIRST. Without that a retry after a lost response
+misses its own receipt, falls through, finds the binding spent and 409s — telling
+the player the tower could not verify a victory it had already paid for.
+
+`buildAiFightEncounter` took optional `floorId` / `towerId` (defaults unchanged,
+so the generic AI-fight path is byte-identical) rather than growing a parallel
+builder, so a wave inherits the jutsu-mastery seal, the PvE band and the
+companion seal. Endless keeps the `'AI_FIGHT'` band dial on purpose — a wave is a
+generic AI fight in every way that matters there.
+
+`scripts/endless-wave-parity.test.ts` additionally pins `endlessScaleFactor`,
+which had been duplicated across the build-root boundary for a long time with
+nothing holding the copies together.
+
+#### ▶ NEXT: subsystem 2's client half — the exact call sites
+
+Nothing else in step 5 is started. This is a refactor of a LIVE loop, so a
+half-finished state strands a run mid-tower. Do it in one pass, with the local
+fallback intact throughout.
+
+- **`shinobij.client/src/App.tsx:4431`** — `useEndlessTowerActions({...})`.
+  `prepareOpponent: pickRandomEndlessAi` (App.tsx ~5172) picks + scales locally;
+  `enterBattle` / `advanceBattle` set `endlessBattleActive` + `pendingAiProfileId`
+  and `navigate("arena")`. These are where a `POST /api/endless/wave-start`
+  attempt goes, falling back to today's local path when nothing seals.
+- **`shinobij.client/src/lib/use-endless-tower-actions.ts:43`** —
+  `handleEndlessWin(currentWave, aiFightToken, vitals)` posts
+  `action:'win'`. The sealed path sends `waveRunId` instead and stops sending
+  vitals; keep the token arm for local waves.
+- **`shinobij.client/src/screens/Arena.tsx:6484`** — the local win path that
+  calls `onEndlessWin`. Unchanged for the fallback.
+- **Rendering** — the sealed wave needs `MissionArenaFight`. `StoryBossFightHost`
+  already hosts two kinds (`boss`, `academySpar`) through the
+  `requestStoryBossFight` bus and is mounted once in App; adding a third kind
+  costs **zero** App.tsx mount lines, which matters because App.tsx is **exactly
+  at its 7,727-line budget**. A new host means finding a drain first.
+- ⚠ **The resume path is the extra trap.** `endlessCtxKey` (App.tsx ~5182)
+  mirrors the live wave + scaled enemy to localStorage so a refresh rebuilds the
+  fight, and the battle-lock boot path (App.tsx ~3286) rehydrates it. A sealed
+  wave must resume from its `runId`, not from a client-rebuilt enemy.
+- The three spar traps apply verbatim: screen-local UI vanishing on the shared
+  shell, chapter theming that does not belong, and the body-portal/`screen`
+  mismatch (`onFightOpenChange`).
 
 ### ✅ Fixed: the weekly boss could near-one-shot players
 
@@ -564,6 +692,33 @@ Spire, clan boss and Anbu — which have their own run economies — are untouch
   expires unspent, and the daily counter increments on report, not on start) but
   it does halve the effective `ai-fight-start` rate-limit budget. It disappears
   with step 5.
+
+## ⚠ A LIVE leak this pass closed — check it for every new solo mode
+
+`632b6da19`. **Any finished mission could write your public tower standing.**
+
+`/api/towers/settle` gates on three things: the session exists, you are on its
+squad, and it is a completed squad win. All three are true of your own finished
+combat mission, story boss, weekly boss, AI fight or Academy spar — every one of
+those is a real `TowerSession`, because `buildAuthoritativeSoloEncounter` builds
+them on the tower engine and passes `embedFloor: true`, so the session carries a
+synthetic floor under a reserved id (9_100+) and `floorForSession` PREFERS it.
+
+No currency leaked (a dynamic floor's `firstClearReward` is `{}`), but
+`creditFloorClear` still wrote `battleTowerBestFloor = max(current, floorId)`,
+added the clear score to `battleTowerRating`, and pushed a phantom entry into
+`battleTowerClearedFloors`. The first two are **public leaderboard fields**
+(`api/player/_public-index.ts`), and the first-clear receipt has no TTL, so it
+was permanent.
+
+`isCatalogFloorRun` in `api/towers/_tower-store.ts` now gates BOTH the
+first-clear and assist channels. Stated positively ("catalog floors only") so a
+future mode that invents a floor some other way is refused by default.
+
+⚠ Anbu infiltration was safe only **by accident** — it sets `session.floor` to
+9101 without embedding a floor, so the old `!floor` check caught it. That is
+also why the 9101 id it shares with `combat-d-errand` never mattered.
+**Whenever a new solo mode joins the tower engine, re-check this.**
 
 ## Traps found the hard way — do not re-learn these
 
