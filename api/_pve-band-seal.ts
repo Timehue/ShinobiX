@@ -87,15 +87,21 @@ export function pveDifficultyGuardEnabled(mode: PveBandMode, env: NodeJS.Process
 const enemiesOf = (session: TowerSession): TowerActor[] => session.actors.filter(a => a.side === 'enemy');
 
 /**
- * The level the band keys off: the 'boss' actor when there is one (every solo
- * encounter builder names it that), else the highest enemy level on the board so
- * a boss+adds floor bands on the boss rather than on its weakest mob.
- * Deterministic — a settle recompute reproduces it.
+ * The level the band keys off: the encounter's BOSS when there is one, else the
+ * highest enemy level on the board — so a boss+adds floor bands on the boss
+ * rather than on its weakest mob. Deterministic; a settle recompute reproduces it.
+ *
+ * The boss is found via `phaseState.bossId` first, because the tower/spire/
+ * clan-boss builders assign generated ids and only the solo encounter builders
+ * literally name the actor 'boss'. Matching on the string alone would silently
+ * fall through to the max-scan on every tower floor.
  */
 export function pveBandLevelForSession(session: TowerSession): number {
     const enemies = enemiesOf(session);
     if (enemies.length === 0) return 1;
-    const boss = enemies.find(a => a.id === 'boss');
+    const bossId = session.phaseState?.bossId;
+    const boss = (bossId ? enemies.find(a => a.id === bossId) : undefined)
+        ?? enemies.find(a => a.id === 'boss');
     const pick = boss ?? enemies.reduce((hi, a) =>
         (Number(a.character.level) || 1) > (Number(hi.character.level) || 1) ? a : hi, enemies[0]);
     return Math.max(1, Math.floor(Number(pick.character.level) || 1));

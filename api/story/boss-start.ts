@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor } from '../_authoritative-pve.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
+import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { writeSession } from '../towers/_tower-store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -77,6 +78,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Arm the standard-PvE difficulty layer (band + hit guard) before the
         // session is written, so the first enemy turn is already guarded.
         sealPveDifficultyBand(session, { mode: 'STORY' });
+        // Give the AI its jutsu mastery — without this it casts at 30% (step C).
+        // Must follow the guard above, which bounds the uplift.
+        sealPveAiMastery(session, { mode: 'STORY' });
         const binding = createStoryCombatBinding({
             runId,
             playerName,
