@@ -256,3 +256,93 @@ describe('Battle Towers borrowed-ally assist (capped, once per run)', () => {
         assert.equal(kv.store.has('tower-assist-paid:runX:ally'), false, 'denied cap rolls back the receipt');
     });
 });
+
+describe('the tower reward channels pay CATALOG floors only', () => {
+    // Regression: every solo mode built by buildAuthoritativeSoloEncounter
+    // (combat missions, story bosses, the weekly boss, generic AI fights, the
+    // Academy spar) EMBEDS a synthetic floor in the session under a reserved id
+    // outside the catalog. floorForSession prefers that embedded floor, so those
+    // runs reached the tower payout path — and each is a genuinely won,
+    // member-owned TowerSession, so no other check refused them.
+    //
+    // They paid no currency (a dynamic floor's firstClearReward is {}), but the
+    // clear still wrote battleTowerBestFloor / battleTowerRating, which are
+    // PUBLIC leaderboard fields. Finish any mission, POST its runId to
+    // /api/towers/settle, and your public tower standing was whatever you liked.
+    const dynamicFloor = (id: number): TowerFloor => ({
+        id,
+        name: 'academy-spar',
+        biome: 'central',
+        objective: 'defeat-boss',
+        roundBudget: 24,
+        map: { width: 12, height: 10 },
+        fieldRule: { kind: 'none' },
+        enemies: [],
+        boss: { aiId: 'academy-spar-dummy' },
+        balanceFor: 1,
+        firstClearReward: {},
+    } as unknown as TowerFloor);
+
+    function dynamicRun(runId: string, slug: string, floorId: number) {
+        return makeSession(runId, floorId, slug, { encounterFloor: dynamicFloor(floorId) });
+    }
+
+    it('refuses a first-clear settle for an embedded, non-catalog floor', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'cheat');
+        const res = await settleFloorForMember({ session: dynamicRun('spar-1', 'cheat', 9_250), slug: 'cheat' }, { kv, lock: passLock, now });
+        assert.equal(res.paid, false);
+        assert.equal(res.reason, 'not-a-catalog-floor');
+    });
+
+    it('writes NOTHING to the public tower standing', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'cheat', { battleTowerBestFloor: 3, battleTowerRating: 120 });
+        await settleFloorForMember({ session: dynamicRun('spar-2', 'cheat', 9_250), slug: 'cheat' }, { kv, lock: passLock, now });
+        const char = charOf(kv, 'cheat');
+        assert.equal(char.battleTowerBestFloor, 3, 'a mission/spar run must not become your best tower floor');
+        assert.equal(char.battleTowerRating, 120, 'nor add to the all-time rating');
+        assert.equal(char.battleTowerClearedFloors, undefined, 'nor push a phantom cleared floor');
+        assert.equal(kv.store.has(firstClearKey('cheat', 9_250)), false, 'and must not burn a PERMANENT first-clear receipt');
+    });
+
+    it('covers every id the solo modes reserve, not just the spar', async () => {
+        // combat missions 9_100+, Anbu 9_101, story 9_200+, weekly boss 9_200,
+        // the spar 9_250, generic AI fights 9_300.
+        for (const id of [9_100, 9_101, 9_200, 9_208, 9_250, 9_300]) {
+            const kv = fakeKv();
+            seedSave(kv, 'cheat');
+            const res = await settleFloorForMember({ session: dynamicRun(`run-${id}`, 'cheat', id), slug: 'cheat' }, { kv, lock: passLock, now });
+            assert.equal(res.reason, 'not-a-catalog-floor', `floor ${id} still reaches the tower payout`);
+        }
+    });
+
+    it('refuses the assist channel too, so it cannot burn a daily assist slot', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'ally');
+        const res = await settleAssistForAlly({ session: dynamicRun('spar-3', 'ally', 9_250), slug: 'ally' }, { kv, lock: passLock, now });
+        assert.equal(res.paid, false);
+        assert.equal(res.reason, 'not-a-catalog-floor');
+        assert.equal(kv.store.has(assistCountKey('ally', '2023-11-14')), false, 'the day\'s assist count must be untouched');
+    });
+
+    it('a REAL tower floor still settles — the guard must not close the tower itself', async () => {
+        // The unguarded precondition: if this ever stops paying, the two tests
+        // above are passing for the wrong reason.
+        const kv = fakeKv();
+        seedSave(kv, 'climber');
+        const res = await settleFloorForMember({ session: makeSession('tower-1', 1, 'climber'), slug: 'climber' }, { kv, lock: passLock, now });
+        assert.equal(res.paid, true, 'floor 1 is a catalog floor and must still pay');
+        assert.equal(charOf(kv, 'climber').battleTowerBestFloor, 1);
+    });
+
+    it('an embedded floor that IS a catalog id still settles by that id', async () => {
+        // The rule is about the id being in the catalog, not about the embedding
+        // mechanism — a co-op tower run may legitimately carry its floor along.
+        const kv = fakeKv();
+        seedSave(kv, 'climber');
+        const session = makeSession('tower-2', 1, 'climber', { encounterFloor: getFloor(1)! });
+        const res = await settleFloorForMember({ session, slug: 'climber' }, { kv, lock: passLock, now });
+        assert.equal(res.paid, true);
+    });
+});
