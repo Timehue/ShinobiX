@@ -137,6 +137,7 @@ export function StoryHall({
             bossName: step.bossName,
             chapterLabel: `Chapter ${character.storyProgress + 1}/${storyLine.length} — ${step.title}`,
             backdropImage: storySceneBg || undefined,
+            bossPortrait: sharedImages[`event:${chapterId}:avatar`] || sharedImages[`vn:${chapterId}:page:0:right`] || undefined,
             barks: script.barks,
             defeatLine: script.defeatLine,
             ally: extractMentorLines(step.pages, step.bossName, character.name, step.dialogue),
