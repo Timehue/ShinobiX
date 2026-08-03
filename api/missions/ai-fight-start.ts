@@ -9,6 +9,7 @@ import { serverAiCombatEnabled } from '../_release-flags.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { writeSession } from '../towers/_tower-store.js';
+import type { TowerSession } from '../towers/_tower-session.js';
 import { buildAiFightEncounter, loadAiFightProfile } from './_ai-fight-encounter.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
@@ -34,20 +35,26 @@ import {
  */
 
 /**
- * Build + persist the sealed encounter for this fight, returning its runId.
+ * Build + persist the sealed encounter for this fight, returning its runId AND
+ * the sealed session.
+ *
+ * The session is returned because the client's server-combat screen
+ * (`MissionArenaFight`) takes `initialSession` as a REQUIRED prop — step 3d
+ * cannot mount the shell from a runId alone. This mirrors
+ * `api/story/boss-start.ts`, which has always returned `{ ok, runId, session }`
+ * for exactly that reason. The sealed session carries combat fields but no art,
+ * so this adds no image payload.
  *
  * Returns undefined on ANY failure (unknown opponent, missing save, storage
- * error). That is deliberate: while the client half is unbuilt, the encounter
- * is an unused extra, and a sealing problem must never block a player from
- * starting a fight they can already start today. Once step 3 routes the client
- * onto this path, a missing runId means "play it locally", which is the same
- * fallback the flag itself provides.
+ * error). That is deliberate: a sealing problem must never block a player from
+ * starting a fight they can already start today. A missing runId means "play it
+ * locally", which is the same fallback the flag itself provides.
  */
 async function sealAiFightEncounter(
     playerName: string,
     body: Record<string, unknown>,
     rawSave: Record<string, unknown>,
-): Promise<string | undefined> {
+): Promise<{ runId: string; session: TowerSession } | undefined> {
     try {
         const profile = await loadAiFightProfile(body.opponentId);
         if (!profile) return undefined;
@@ -80,7 +87,7 @@ async function sealAiFightEncounter(
                 : undefined,
         });
         await writeSession(session);
-        return runId;
+        return { runId, session };
     } catch (err) {
         console.error('[missions/ai-fight-start] seal failed', safeLogValue(err));
         return undefined;
@@ -113,9 +120,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // can carry its runId (one token = one battle lifecycle). Best-effort:
         // an unknown opponent or any sealing failure leaves runId undefined and
         // the fight runs the existing client path, unchanged.
-        const runId = serverAiCombatEnabled()
+        const sealed = serverAiCombatEnabled()
             ? await sealAiFightEncounter(playerName, body, save)
             : undefined;
+        const runId = sealed?.runId;
 
         const token = randomUUID().replace(/-/g, '');
         const record = createAiFightTokenRecord(playerName, token, Date.now(), {
@@ -137,7 +145,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             baseXp: record.baseXp,
             baseRyo: record.baseRyo,
             trait: reward.trait,
-            ...(record.runId ? { runId: record.runId } : {}),
+            // `session` rides along with `runId` so the client can mount the
+            // server-combat screen directly (step 3d). Both are absent together
+            // when no encounter was sealed, which is the "play it locally"
+            // signal — the client must keep working on runId-absent.
+            ...(record.runId && sealed ? { runId: record.runId, session: sealed.session } : {}),
         });
     } catch (err) {
         console.error('[missions/ai-fight-start]', safeLogValue(err));
