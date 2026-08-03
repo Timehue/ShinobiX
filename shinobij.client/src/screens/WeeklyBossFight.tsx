@@ -1,6 +1,7 @@
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { Character } from "../types/character";
 import type { TowerSession } from "../lib/towers-api";
+import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 
 // Weekly Boss = a SOLO score-attack against an unkillable, server-shared boss,
 // rendered on the normal Arena shell (MissionArenaFight) — the same format as
@@ -30,6 +31,14 @@ export function WeeklyBossFight({
     settleFn: (runId: string, playerName: string) => Promise<unknown>;
     onExit: () => void;
 }) {
+    // Being knocked out by the boss costs the same as being knocked out by
+    // anything else. This is safe here precisely because the hospital keys off
+    // the player being DOWN, not off losing: outlasting the round budget is the
+    // GOOD ending of a weekly assault and must not be punished, and a player who
+    // walks out simply keeps the HP they walked out with.
+    async function reportOutcome(fightRunId: string, playerName: string) {
+        return reportPveFightOutcome(fightRunId, playerName);
+    }
     return (
         <MissionArenaFight
             character={character}
@@ -38,6 +47,7 @@ export function WeeklyBossFight({
             initialSession={initialSession}
             settleFn={settleFn}
             settleOnAnyDone
+            outcomeFn={reportOutcome}
             onExit={onExit}
             renderResult={({ won, settleState, settleResult }) => {
                 const dealt = (settleResult as { dealt?: number } | null)?.dealt;
