@@ -10,6 +10,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { writeSession } from '../towers/_tower-store.js';
 import { buildAiFightEncounter, loadAiFightProfile } from './_ai-fight-encounter.js';
+import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
     aiFightTokenKey,
@@ -55,6 +56,16 @@ async function sealAiFightEncounter(
         const save = await augmentSaveWithForgedDefs(rawSave);
         if (!save?.character) return undefined;
         const runId = `aifight-${randomUUID().replace(/-/g, '')}`;
+        // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
+        // for the encounter — a client-chosen level is a client-chosen
+        // difficulty. Combat missions are the only entry point that re-levels
+        // its opponent (see _ai-fight-scaling.ts); everything else resolves to
+        // undefined and is built at its authored level, matching the client.
+        const scaling = resolveAiFightScaling({
+            opponentId: body.opponentId,
+            battleKind: body.battleKind,
+            playerLevel: (save.character as Record<string, unknown> | undefined)?.level,
+        });
         const session = buildAiFightEncounter({
             playerName,
             save,
@@ -62,6 +73,7 @@ async function sealAiFightEncounter(
             runId,
             seed: randomInt(1, 0x7fffffff),
             now: Date.now(),
+            ...(scaling ? { scaling } : {}),
             admin: await loadAdminCombatContent(),
             hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object'
                 ? body.hostLoadout as Record<string, unknown>
