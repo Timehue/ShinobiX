@@ -15,6 +15,7 @@ import { startRound, runAiUntilHuman } from './_engine.js';
 import { makeRng } from './_sim.js';
 import { writeSession, setTowerInvite, bumpDailyStartCount, MAX_TOWER_STARTS_PER_DAY } from './_tower-store.js';
 import { stampTurnClock } from './_tower-mp.js';
+import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
 /*
@@ -124,6 +125,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
         const now = Date.now();
         const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
+        // Arm the standard-PvE hit guard. MUST precede startRound/runAiUntilHuman
+        // below, or the first enemy turn resolves unguarded.
+        //
+        // Guard only — no HP/stat band. Tower and Spire floors already carry
+        // three scaling layers of their own (the floor catalog's balance
+        // baseline, applyPartyScaling for a short squad, and the Spire's
+        // ascension modifiers), so a fourth level-keyed multiplier on top would
+        // double-dip against content that was tuned with them in place.
+        sealPveDifficultyBand(session, { mode: 'TOWER', scaleHp: false, scaleStats: false });
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(seed)); // advance to the first human's turn (or auto-resolve)
         stampTurnClock(session, now);                   // start the AFK clock for whoever is up

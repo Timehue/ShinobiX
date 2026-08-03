@@ -5,6 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor } from '../_authoritative-pve.js';
+import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { writeSession } from '../towers/_tower-store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -73,6 +74,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             admin: await loadAdminCombatContent(),
             hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
         });
+        // Arm the standard-PvE difficulty layer (band + hit guard) before the
+        // session is written, so the first enemy turn is already guarded.
+        sealPveDifficultyBand(session, { mode: 'STORY' });
         const binding = createStoryCombatBinding({
             runId,
             playerName,
