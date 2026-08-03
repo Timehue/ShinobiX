@@ -39,8 +39,9 @@ test("leaving an unresolved fight reports a forfeit before unmounting", () => {
     assert.match(leave, /outcomeReportedRef\.current = true/, "and must not double-report a run already settled");
 });
 
-test("story bosses and combat missions both pass the outcome reporter", () => {
-    for (const [name, source] of [["StoryBossFightHost", storyHost], ["Missions", missions]] as const) {
+test("every mode on the shared arena shell passes the outcome reporter", () => {
+    const weeklyBoss = readFileSync(new URL("../screens/WeeklyBossFight.tsx", import.meta.url), "utf8");
+    for (const [name, source] of [["StoryBossFightHost", storyHost], ["Missions", missions], ["WeeklyBossFight", weeklyBoss]] as const) {
         assert.match(source, /outcomeFn=\{/, `${name} must wire outcomeFn, or its defeats cost nothing`);
         assert.match(source, /reportPveFightOutcome\(/, `${name} must call the shared outcome endpoint`);
     }
