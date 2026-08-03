@@ -347,16 +347,48 @@ already pays, and the purse itself is unchanged — still separate, still gated 
   the component/handler they could only be grep-asserted, and a grep cannot tell
   a live branch from a dead one — `if (false && …)` passed a source guard that
   looked right. They are unit-tested and mutation-verified instead.
-- **5 — NEXT, and blocked.** Retiring the local Arena AI-fight path needs two
-  things first:
-  1. The client-authored `temp-*` opponents (dungeon warden, academy spar, VN
-     battles, Hollow Gate, endless clones) each need a real catalog profile, or a
-     server builder that accepts an authored template.
-  2. **Hunt quality must move server-side** (above), or retiring the local path
-     deletes it.
+- **5 — NOT a cleanup. It is the migration of five more subsystems.**
 
-  Only once both land can `serverAiCombatEnabled` and the `playLocally` fallbacks
-  go. The abandoned-token waste (below) disappears with them.
+  Retiring the local Arena AI-fight path is often written down as "flip the flag
+  and delete the fallbacks". It is not, and the reason is one function:
+
+  ```
+  api/missions/_ai-fight-encounter.ts  loadAiFightProfile(id)
+      → builtinAiProfile(id)                  // the generated catalog
+      → else kv 'shared:ai-profiles'          // admin-authored, server-stored
+      → else null                             // "play it locally"
+  ```
+
+  **Every remaining local fight has an opponent that matches NEITHER source**,
+  because the CLIENT invents it at launch time and stashes it in
+  `temporaryStoryAi`:
+
+  | Mode | Runtime id | Built from |
+  |---|---|---|
+  | Dungeon warden | `temp-dungeon-ai-<lvl>-<ts>` | `activeDungeonEvent` + starter jutsu |
+  | Academy spar | `temp-academy-spar-<ts>` | a hardcoded Lv-1 dummy |
+  | VN chapter battle | `temp-vn-ai-<event>-<ts>` | the authored `CreatorEvent` |
+  | Endless wave | `endless-<base>-w<wave>` | `pickScaledEndlessAi` (lib/endless-tower) |
+  | Hollow Gate | `buildHollowGatePveEncounter(...)` | run state + augments |
+  | Wanderers / quest bosses | `makeBuiltinAi(...)` at runtime | sector + arc state |
+
+  ⚠ **The obvious shortcut is the one thing that must not be done.** Adding a
+  "seal this template I'm sending you" parameter would let a client hand the
+  server a 1-HP boss — the exact authority this migration exists to remove. Each
+  mode's opponent has to be GENERATED server-side from state the server already
+  holds. The good news is that most of it is deterministic and already extracted:
+  `pickScaledEndlessAi` is pure, the dungeon/VN opponents derive from
+  admin-authored events the server can read, and the academy dummy is constant.
+
+  Plus the seventh blocker, which is not an opponent at all:
+  **hunt quality must move server-side** (above), or retiring the local path
+  deletes the Hunter Guild's tracking payoff.
+
+  **Suggested order** (each is independently shippable and each shrinks the
+  fallback surface): academy spar → endless → dungeon warden → VN battles → hunt
+  quality → wanderers → Hollow Gate. `serverAiCombatEnabled` and the
+  `playLocally` fallbacks can only go once ALL of them land; the abandoned-token
+  waste (below) disappears with them.
 
 ### ✅ Fixed: the weekly boss could near-one-shot players
 
