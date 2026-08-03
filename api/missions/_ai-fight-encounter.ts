@@ -86,10 +86,14 @@ export async function loadAiFightProfile(opponentId: unknown): Promise<AiFightPr
     }
 }
 
+/** Floor id for a sealed Endless Tower wave. Its own id so a wave is never
+ *  mistaken for a generic AI fight in a log, a receipt or a session dump. */
+export const ENDLESS_WAVE_FLOOR_ID = 9_310;
+
 /** The sealed battlefield for an AI fight. Neutral biome (see the scope note). */
-export function aiFightFloor(profile: AiFightProfile): TowerFloor {
+export function aiFightFloor(profile: AiFightProfile, floorId = AI_FIGHT_FLOOR_ID): TowerFloor {
     return dynamicBossFloor({
-        id: AI_FIGHT_FLOOR_ID,
+        id: floorId,
         name: typeof profile.name === 'string' ? profile.name.slice(0, 80) : profile.id,
         bossAiId: profile.id,
         objective: 'defeat-boss',
@@ -130,6 +134,19 @@ export function buildAiFightEncounter(params: {
     admin?: AdminCombatContent | null;
     hostLoadout?: Record<string, unknown>;
     scaling?: AiFightScaling;
+    /**
+     * Which sealed mode this encounter belongs to. Both default to the generic
+     * AI fight, so every existing caller is byte-identical.
+     *
+     * The Endless Tower (step 5 subsystem 2) passes its own pair rather than
+     * getting a parallel builder: a wave IS a generic AI fight in every way that
+     * matters here — one sealed opponent, no run state inside the fight — so
+     * sharing this path means it inherits the jutsu-mastery seal, the PvE band
+     * and the companion seal, and every future fix to them, for free. The band's
+     * rollback dial stays 'AI_FIGHT' for the same reason.
+     */
+    floorId?: number;
+    towerId?: string;
 }): TowerSession {
     const admin = params.admin ?? null;
     // Resolve the kit FIRST: the discipline mix picks the archetype weights the
@@ -167,12 +184,12 @@ export function buildAiFightEncounter(params: {
     const session = buildAuthoritativeSoloEncounter({
         playerName: params.playerName,
         save: params.save,
-        floor: aiFightFloor(profile),
+        floor: aiFightFloor(profile, params.floorId ?? AI_FIGHT_FLOOR_ID),
         bossTemplate,
         runId: params.runId,
         seed: params.seed,
         now: params.now,
-        towerId: 'ai-fight',
+        towerId: params.towerId ?? 'ai-fight',
         admin,
         hostLoadout: params.hostLoadout,
     });
