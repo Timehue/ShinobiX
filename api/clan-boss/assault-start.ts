@@ -16,6 +16,7 @@ import { stampTurnClock } from '../towers/_tower-mp.js';
 import { loadAssault, saveAssault, selectClanBossParty } from './_assault.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
+import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import {
     CB_ASSAULT_HP_CAP, CB_MAX_PARTY, clanBossAttemptsLeft,
     clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
@@ -150,6 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // party-scaled, so a level-keyed multiplier here would both corrupt the
             // pool and double-dip.
             sealPveDifficultyBand(session, { mode: 'CLAN_BOSS', scaleHp: false, scaleStats: false });
+            // Give the AI its jutsu mastery — without this it casts at 30% (step C).
+            // Must follow the guard above, and precede startRound like it.
+            sealPveAiMastery(session, { mode: 'CLAN_BOSS' });
             startRound(session);
             runAiUntilHuman(session, floor, makeRng(seed));
             stampTurnClock(session, reserved.receipt.at);
