@@ -65,25 +65,70 @@ So step 2 had to start by mirroring the catalog:
 Flag OFF is a byte-identical no-op, and sealing is best-effort: any failure
 returns no `runId` and the fight runs the existing path.
 
-## Next: step 3 (big) — route the client onto it
+## Done (step 3a) — server-side AI level curves
 
-Route the client's AI-fight launches (~8 entry points: Arena, WorldMap,
-HunterBoard, hunt-encounter, apex-contract, endless-tower) to the server-combat
-screen (`MissionArenaFight`-style) instead of the local engine, behind the flag.
-This is where care matters most — a half-migration is worse than none.
+**Step 3 is not "route 8 entry points."** Surveying the client turned up two
+layers that live ONLY on the client and that the server applies none of. Route
+the client without porting them and the fight it plays is not the fight it was
+shown — in opposite directions:
 
-**Two things step 2 deliberately left for step 3** (both are commented at the top
-of `_ai-fight-encounter.ts`):
+- **Opponent re-leveling** → the server fight would be systematically WEAKER.
+- **PvE difficulty bands** → the server fight would be systematically HARDER,
+  worst for brand-new players.
 
-1. **Opponent level.** The encounter is built at the profile's AUTHORED level.
-   The client re-levels built-ins per entry point (`relevelBuiltinAi`: missions
-   align the foe to the player, hunts scale by sector, rifts rebase to
-   player+15) and that rule lives only on the client. `opponentLevel` from the
-   request body is NOT read — a client-chosen level is a client-chosen
-   difficulty, which is the authority this migration exists to remove. Each
-   entry point's scaling rule has to move server-side as part of the routing.
-2. **Terrain.** The floor uses the neutral `central` biome, not the client's
-   sector terrain, so no unearned +10% school buff is sealed in.
+3a closes the first one:
+
+- **`api/_ai-level-curves.ts`** — hand port of `lib/ai-stats.ts` + the
+  `makeBuiltinAi` → `normalizeAiProfile` → `relevelBuiltinAi` chain. Formulas,
+  not data, so no generated mirror is possible. Shared constants and player
+  curves are reused from `api/_xp-engine.ts`.
+- **`scripts/ai-level-curve-parity.test.ts`** — sweeps the whole legal input
+  space (~38.6k exact comparisons: all 71 built-ins × 17 levels × 8 rank
+  bonuses × 4 HP floors, plus every level × toughness × loadout shape).
+  Mutation-verified: changing the HP curve 1.12 → 1.13 fails three cases.
+- `buildAiFightEncounter` now takes `scaling {level, statBonus, hpFloor}` and
+  REBUILDS the profile through those curves. (Step 2's `levelOverride` stamped
+  a bare level without rescaling — a "level 60" foe kept level-18 stats.)
+
+Two client quirks are reproduced on purpose, because the client's behavior is
+the contract: `relevelBuiltinAi` **drops `hpFloorExempt`** (see the hazard note
+in `lib/apex-contract.ts`), and `distributeStatBudget`'s rounding-stall branch
+is **`STAT_KEYS`-order dependent** (the server list is asserted identical).
+
+## Next: step 3b — the PvE difficulty band layer
+
+`shinobij.client/src/lib/pve-difficulty.ts` has **no server counterpart at all**
+(`grep pveDifficulty api/` is empty). It supplies:
+
+- `pveDifficultyHpMultiplier` / `pveDifficultyStatMultiplier` — enemy scaling
+  applied on top of the profile (`Arena.tsx:691`).
+- `pveEnemyHitCap` / `pveGuardedEnemyHit` — per-hit mercy caps that make the
+  early-game bands effectively unloseable. **This is the load-bearing one:**
+  without it a new player's first server fight is far harsher than today's.
+- `pveAiCompetence`, `pveEasyBandHoldsBurst`, `pveEasyBandAllowsLethal` — which
+  tactics the AI is allowed to use per band.
+
+Port it the same way (parity test in `scripts/`), then wire it into the sealed
+encounter and the engine's damage path. This slice touches `_engine.ts`, so it
+is the riskiest one — keep it its own commit.
+
+## Then step 3c / 3d
+
+- **3c** — derive `scaling` per entry point from SERVER state: combat mission →
+  `missionAiLevelAndBonus(mission, save.character.level)`; hunt → the hunt def;
+  apex → `APEX_ROSTER`; rift → the shrine picker; endless → the wave.
+- **3d** — route the client screens to `MissionArenaFight`, behind the flag.
+
+**Open ruling needed before 3c/3d (Arena practice spar).** `Arena.tsx:5359` is a
+free 1–`MAX_LEVEL` opponent-level input, and it drives a fight that pays the
+normal AI-fight reward. The reward is flat (100 XP / 75 ryo, `computeAiFightBaseReward`)
+and daily-soft-capped regardless of opponent level, so a player picking level 1
+gains only throughput, bounded by that cap — no worse than today's fake-a-win.
+Still, "the client picks the difficulty" is the authority being removed, so pick
+one: (a) keep the slider and let the server seal whatever level was chosen,
+(b) clamp it server-side to a band around the player's level, or (c) make the
+practice spar pay nothing (there is precedent — the player-vs-player Spar
+already grants zero). Everything else in 3c is mechanical once this is settled.
 - **Step 4:** derive the reward from the settled session (retire the
   client-claimed win in `report-ai-fight`); keep the `redeemedAiFightRewards`
   receipt for idempotency.
