@@ -112,16 +112,46 @@ guarantees) and `scripts/pve-ai-tactics-parity.test.ts`. Both mutation-verified 
 disabling the hold, inverting the lethal gate, shifting the Clear threshold,
 letting the band reach squad actors, and drifting the buff list each fail them.
 
-### B. Extend the guard + band to the other PvE modes
+### ~~B. Extend the guard + band to the other PvE modes~~ — DONE
 
-Seal `pveGuard` and apply the band HP/stat multipliers in
-`missions/combat-start.ts`, `story/boss-start.ts`, `towers/start.ts`,
-`clan-boss/assault-start.ts`, `village/anbu-infiltration.ts`, `weekly-boss.ts`.
-Default ON, kill switch `DISABLE_PVE_DIFFICULTY_GUARD=1`. The engine half
-already works — a sealed `pveGuard` is the only gate.
+`api/_pve-band-seal.ts` is the single place every entry point calls.
+**Shipped ON**; `DISABLE_PVE_DIFFICULTY_GUARD=1` is a rollback, and each mode
+also has `DISABLE_PVE_DIFFICULTY_GUARD_<MODE>`. A test asserts an empty env arms
+every mode, so "ships on" cannot silently regress.
 
-⚠ **Weekly boss has its OWN guard cycle** (`weeklyBossGuardedHit`, deliberately
-not ported). Do not double-clamp it.
+| Mode | Guard | Band | Why |
+|---|---|---|---|
+| missions, story | ✅ | ✅ | canonical standard PvE — solo, level-keyed, AI template |
+| towers / Spire, clan boss | ✅ | ❌ | already floor- + party- + ascension-scaled; clan boss HP is the SHARED pool |
+| AI fights | ✅ | ✅ | unchanged maths, now answers the kill switch |
+| weekly boss, Anbu | ❌ | ❌ | see below |
+
+⚠ **Towers and clan boss call `startRound`/`runAiUntilHuman` inline at start** —
+the seal must precede them or the opening enemy turn resolves unguarded. Pinned
+by a test.
+
+⚠ **The seal is idempotent on two levels** (session `pveGuard`, per-actor
+`pveBandScaled`). Compounding 0.6 × 0.6 would trivialize a tuned fight; the
+per-actor stamp is what protects a scale-only call, which leaves no guard behind.
+
+**Correction to the previous handoff.** It warned that arming the weekly boss
+would "double-clamp" its own guard cycle. The real reason to leave it out is
+sharper: `weeklyBossGuardedHit` is **8% per hit / 15% per turn, no band, no
+mercy** — roughly **5× TIGHTER** than the hard band this layer would install
+(45%/70%). Arming the standard guard there applies the *wrong* mechanic, not a
+safer one. And it was never ported, so **the server weekly boss has NO
+boss→player clamp today while the client has one** — a real gap, worth its own
+commit. (The per-hit cap in `_weekly-boss-fight-token.ts` is the OPPOSITE
+direction: anti-cheat validation of client-reported PLAYER→boss damage.)
+
+**Anbu** is excluded because its opponent is `getOrSealAnbuSnapshot(...)` — a
+sealed snapshot of a REAL player's ANBU defender, i.e. exactly the
+`opponentCharacter` case the client's `isStandardPve` carves out.
+
+⚠ **This is a live balance change, not a parity fix.** These modes are resolved
+by the SERVER engine (`MissionArenaFight` posts to `/api/towers/action`), so the
+client's `isStandardPve` band never applied to them. They get **easier until C
+lands**.
 
 ### C. Then enemy jutsu mastery everywhere
 
