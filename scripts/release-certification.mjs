@@ -257,6 +257,134 @@ async function certify() {
     } else {
         check(false, `could not register the observer account → ${otherReg.status}`);
     }
+
+    // 9 ── The Academy spar, fought on the server.
+    //
+    // Step 5 subsystem 1 of the AI-fight migration moved the onboarding spar's
+    // opponent server-side so the fight could be sealed at all. This is the
+    // journey the runbook asks for per migrated mode, and it is the closest
+    // thing to "a real account played the tutorial": a registered player, the
+    // real HTTP API, the real handlers.
+    //
+    // The two failure modes worth a live check are opposites — a spar that
+    // cannot pay out (the player fights for nothing), and a payout without a
+    // won fight (the thing the migration exists to prevent).
+    step('academy spar');
+    await settleSaveBurst();
+    const sparSave = await api(`/api/save/${player}`, { token });
+    const sparBase = sparSave.body.character ?? {};
+    const sparWrite = await api(`/api/save/${player}`, {
+        method: 'POST', token,
+        body: {
+            character: { ...sparBase, onboardingStep: 'academySpar' },
+            _baseSaveVersion: sparSave.body._saveVersion ?? 0,
+        },
+    });
+    if (check(sparWrite.status === 200, `onboarding set to the spar step → ${sparWrite.status}`)) {
+        // The body deliberately tries to choose the fight. None of it is read:
+        // the endpoint takes the opponent from api/story/_academy-spar.ts.
+        const started = await api('/api/story/spar-start', {
+            method: 'POST', token,
+            body: { playerName: player, opponentId: 'apex-ai-ancient-chakra-beast', opponentLevel: 100, hp: 1 },
+        });
+        if (check(started.status === 200 && !!started.body.runId, `spar sealed → ${started.status}`)) {
+            const boss = (started.body.session?.actors ?? []).find((actor) => actor.id === 'boss');
+            check(!!boss, 'the sealed session carries a boss actor');
+            check(Number(boss?.character?.level ?? boss?.level) === 1, `the dummy is level 1 (got ${boss?.character?.level ?? boss?.level})`);
+            // <= rather than ===: the shared PvE band may soften it further, but
+            // it must never be TOUGHER than the authored 50-HP dummy.
+            check(Number(boss?.maxHp ?? 0) > 0 && Number(boss?.maxHp ?? 0) <= 50, `the dummy keeps its tutorial HP (got ${boss?.maxHp})`);
+            check(!/Ancient/i.test(String(boss?.name ?? '')), 'the request could not swap in a level-100 opponent');
+
+            // The reward must not be payable from a run that was never won.
+            const early = await api('/api/story/settle', {
+                method: 'POST', token,
+                body: { playerName: player, kind: 'academySparring', runId: started.body.runId },
+            });
+            check(early.status === 409, `settling an unfinished spar is refused → ${early.status}`);
+            const afterEarly = await api(`/api/save/${player}`, { token });
+            check(
+                Number(afterEarly.body.character?.ryo ?? 0) === Number(sparBase.ryo ?? 0),
+                'the refused settle paid nothing',
+            );
+            check(afterEarly.body.character?.academySparClaimed !== true, 'and did not latch the one-time claim');
+
+            // Now actually FIGHT it. Everything above proves the spar cannot be
+            // cheated; this proves it can be WON, which is the half a new player
+            // actually experiences. Close on the dummy and swing until the run
+            // resolves — a level-1 basic attack against the tutorial dummy.
+            const runId = started.body.runId;
+            let session = started.body.session;
+            const width = Number(session?.map?.width ?? 12);
+            for (let turn = 0; turn < 160 && session?.status !== 'done'; turn++) {
+                const mine = (session.actors ?? []).find((a) => a.side === 'squad' && a.ownerSlug === player);
+                const foe = (session.actors ?? []).find((a) => a.id === 'boss');
+                if (!mine || !foe) break;
+                const dx = (foe.pos % width) - (mine.pos % width);
+                const dy = Math.floor(foe.pos / width) - Math.floor(mine.pos / width);
+                const adjacent = Math.max(Math.abs(dx), Math.abs(dy)) <= 1;
+                const step = mine.pos + Math.sign(dx) + Math.sign(dy) * width;
+                const move = adjacent
+                    ? { type: 'attack', targetId: foe.id }
+                    : { type: 'move', tile: step };
+                const acted = await api('/api/towers/action', { method: 'POST', token, body: { playerName: player, runId, ...move } });
+                // A refused move still comes back WITH a session (out of AP, a
+                // blocked tile, not our turn), so `applied` is the thing to read —
+                // keying off the session alone spins forever without ever ending
+                // the turn. `wait` hands over and refills AP.
+                let next = acted.body?.session;
+                if (acted.status !== 200 || acted.body?.applied === false) {
+                    const passed = await api('/api/towers/action', { method: 'POST', token, body: { playerName: player, runId, type: 'wait' } });
+                    next = passed.body?.session ?? next;
+                    if (passed.status !== 200 && acted.status !== 200) break;
+                }
+                if (!next) break;
+                session = next;
+            }
+            if (check(session?.status === 'done', `the spar was fought to a resolution (status ${session?.status})`)) {
+                check(session.winner === 'squad', `the tutorial dummy falls to a level-1 player (winner ${session.winner})`);
+                const paid = await api('/api/story/settle', {
+                    method: 'POST', token,
+                    body: { playerName: player, kind: 'academySparring', runId },
+                });
+                if (check(paid.status === 200 && paid.body.ok === true, `the won spar settles → ${paid.status}`)) {
+                    const won = paid.body.character ?? {};
+                    check(Number(paid.body.statPoints ?? 0) === 20, `the teaching reward is +20 stat points (got ${paid.body.statPoints})`);
+                    check(Number(won.ryo ?? 0) === Number(sparBase.ryo ?? 0) + 30, `+30 ryo (got ${won.ryo} from ${sparBase.ryo})`);
+                    check(won.onboardingStep === 'cafeteria', `onboarding advances past the spar (got ${won.onboardingStep})`);
+                    check(won.academySparClaimed === true, 'the one-time claim is latched');
+                    // The whole point of a one-time grant: a second settle of the
+                    // same run must replay, not pay again.
+                    const again = await api('/api/story/settle', {
+                        method: 'POST', token,
+                        body: { playerName: player, kind: 'academySparring', runId },
+                    });
+                    const afterReplay = await api(`/api/save/${player}`, { token });
+                    check(
+                        again.status !== 200 || Number(afterReplay.body.character?.ryo ?? 0) === Number(won.ryo ?? 0),
+                        'a repeat settle of the same run pays nothing further',
+                    );
+                }
+            }
+        }
+
+        // Past the onboarding step, the spar cannot be opened at all — a fight
+        // the settle would refuse must never be startable, because the outcome
+        // report would still charge the player for it.
+        await settleSaveBurst();
+        const doneSave = await api(`/api/save/${player}`, { token });
+        const advanced = await api(`/api/save/${player}`, {
+            method: 'POST', token,
+            body: {
+                character: { ...(doneSave.body.character ?? {}), onboardingStep: 'cafeteria' },
+                _baseSaveVersion: doneSave.body._saveVersion ?? 0,
+            },
+        });
+        if (check(advanced.status === 200, `onboarding advanced → ${advanced.status}`)) {
+            const late = await api('/api/story/spar-start', { method: 'POST', token, body: { playerName: player } });
+            check(late.status === 409, `a spar past the onboarding step is refused → ${late.status}`);
+        }
+    }
 }
 
 // ── Run ─────────────────────────────────────────────────────────────────────
