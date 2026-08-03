@@ -247,8 +247,8 @@ have caught the store dropping it.
   (`scaleEndlessAiClone` + the pure half of `pickRandomEndlessAi` →
   `lib/endless-tower`) took the ratchet **7,754 → 7,734**.
 
-  **Routed:** hunt beasts, explore ambushes, village-guard raids (×4), sector
-  raids (WorldMap + Logbook), the Academy exam bout, creator field missions.
+  **Routed:** explore ambushes, village-guard raids (×4), sector raids (WorldMap
+  + Logbook), the Academy exam bout, creator field missions, the **Apex**.
 
   **Deliberately NOT routed — each for a reason, do not "finish" these:**
   - *Every App.tsx site* + wanderers / quest bosses / story reckonings — their
@@ -257,7 +257,16 @@ have caught the store dropping it.
     — their win **queues a claim** and pays nothing; routing them would pay the
     AI-fight reward AND skip the claim. Rank C+ already has its own server path
     via `combat-start`.
-  - *`HunterBoard.faceApex`* — see the bug below.
+  - ⚠ *The tracked hunt beast* (`WorldMap.launchHuntBeastFight`) — **routing it
+    silently deletes Hunt Quality.** `applyHuntOpening` is what makes tracking
+    well matter: a good trail corners the beast (less HP, `hpFloorExempt`), a bad
+    one enrages it (+stats). That transform is applied CLIENT-side from a
+    client-held score, and the server builds from the catalog profile, so the
+    beast would fight identically whether you read every sign or blundered in.
+    **Blocked on the SERVER owning hunt quality** — it cannot simply be sent,
+    because "cornered" makes the beast weaker and a client-chosen difficulty is
+    exactly the authority this migration exists to remove. Its progress receipt
+    would have to record the trail's quality. Pinned by a test.
 
   ⚠ **Reward authority was already server-side, which is why 3d before 4 is
   safe.** The token carries `baseXp`/`baseRyo` (`rewardSource: 'server-save'`),
@@ -285,31 +294,78 @@ have caught the store dropping it.
   the bus fallback, dropping the hunt credit, and weakening the runId+session
   guard each fail them.
 
-### ⚠ Found in passing: the Apex kill receipt is never produced
+### ✅ Fixed: the Apex kill receipt was never produced
 
-`HunterBoard.faceApex` sets `pendingAiProfileId` and nothing else — no
-`raidBattleKind`, no `missionBattleActive` — so Arena's win path takes the
+`HunterBoard.faceApex` set `pendingAiProfileId` and nothing else — no
+`raidBattleKind`, no `missionBattleActive` — so Arena's win path took the
 `isPlainPractice` branch, which returns **before** `report-ai-fight` is called.
-That endpoint is the only writer of `apexKillReceiptKey`, so an Apex kill leaves
-no receipt and the purse can never be claimed. Left alone here on purpose:
-routing it as `raidAi` would fix it but also start paying hunt-shaped rewards,
-which is a balance change and belongs in its own commit, not a plumbing one.
+That endpoint is the only writer of `apexKillReceiptKey`, so an Apex kill left no
+receipt and **the purse could never be claimed at all**.
 
-- **4 — NEXT.** Derive the reward from the settled session: `report-ai-fight`
-  should read the sealed `token.runId`'s session and require a completed, WON
-  one instead of accepting the client's say-so. Keep `redeemedAiFightRewards`
-  for idempotency; the token already carries `runId`, so no second binding key
-  is needed. Everything else about the reward is already server-owned (above).
+The Apex IS a hunt, and every other hunt beast is fought as a `raidAi`, so it now
+is too — on both routes (`setRaidBattleKind` had to be threaded into HunterBoard;
+it had no way to say so). Unlike a tracked hunt it has no trail and nothing about
+its encounter is modified client-side, so it is safe to seal.
 
-  ⚠ **The local Arena path cannot produce a settled session**, so gating on one
-  would break every fight that still falls back — which is all of App.tsx's
-  temp-AI launches. Step 4 needs a two-track rule (session present → require the
-  win; token with no runId → today's behaviour) until step 5 removes the second
-  track.
-- **5** — retire the local Arena AI-fight path and the flag. Blocked on the
-  launches that cannot seal today: the client-authored `temp-*` opponents would
-  each need a real catalog profile (or a server builder that accepts an authored
-  template) before the local engine can go.
+⚠ **Consequence, stated plainly:** the Apex fight now pays the same hunt-shaped
+reward as any other beast (ryo + honor seals + aura dust + a territory scroll)
+where it previously paid nothing. That is the same reward every regular hunt beast
+already pays, and the purse itself is unchanged — still separate, still gated on
+`apexWeekClaimed`.
+
+- ~~**4**~~ — **DONE.** `api/missions/_ai-fight-outcome.ts` + `report-ai-fight`.
+
+  **Two authority tracks, chosen by whether the token carries a runId.** The
+  local Arena path cannot produce a settled session, so gating on one outright
+  would break every fight that still falls back (all of App.tsx's temp-AI
+  launches). Session present → the SESSION decides. No runId → today's behaviour,
+  until step 5 removes the second track.
+
+  ⚠ **The reward was the SMALL half of step 4.** Amounts were already sealed, so
+  the real exposure was that nothing reported a DEFEAT. Found by audit:
+
+  - **A server AI fight cost nothing to lose.** The local Arena writes surviving
+    HP back and does `{hp: 0, hospitalized: true}` on defeat. No server-resolved
+    mode did either — not combat missions, not story bosses. Routing AI fights
+    would have deleted the entire risk side of hunts, guards and ambushes.
+  - **`MissionArenaFight.leaveFight` makes no server call at all**, so a player
+    about to lose could close the screen and walk away untouched — a free retry,
+    every time, strictly better than winning carefully.
+
+  Both close in the same rule: an `active` session settles as a **forfeit** and
+  hospitalizes exactly like a defeat; a win carries its surviving HP back, in the
+  SAME `mutatePlayerSave` as the payout, so a win can never bank the reward while
+  losing the damage it cost. A **missing** session is `unknown` — it neither pays
+  nor punishes, because a lapsed store TTL is far likelier than a cheat.
+
+  The client settles on EVERY resolution (`settleOnAnyDone`) and on close
+  (`shouldSettleOnClose`). Practice still settles — losing a practice bout costs
+  the same hospital stay — but `aiFightPaysReward` keeps it paying nothing,
+  matching Arena's `isPlainPractice` early return.
+
+  ⚠ **Both rules are functions, not inline conditions, on purpose.** Inlined in
+  the component/handler they could only be grep-asserted, and a grep cannot tell
+  a live branch from a dead one — `if (false && …)` passed a source guard that
+  looked right. They are unit-tested and mutation-verified instead.
+- **5 — NEXT, and blocked.** Retiring the local Arena AI-fight path needs two
+  things first:
+  1. The client-authored `temp-*` opponents (dungeon warden, academy spar, VN
+     battles, Hollow Gate, endless clones) each need a real catalog profile, or a
+     server builder that accepts an authored template.
+  2. **Hunt quality must move server-side** (above), or retiring the local path
+     deletes it.
+
+  Only once both land can `serverAiCombatEnabled` and the `playLocally` fallbacks
+  go. The abandoned-token waste (below) disappears with them.
+
+### Still open elsewhere — not this migration's to fix, but now known
+
+Combat missions (rank C+) and story bosses run on the server engine and **also
+persist no HP and never hospitalize on defeat** — the same hole step 4 just closed
+for AI fights. Losing a story boss or a C-rank mission currently costs nothing.
+The fix is the same shape: read the settled session in their settle endpoints
+(`api/story/settle.ts`, `queue-combat-claim`) and apply
+`applyAiFightOutcomeToCharacter`, which is written to be reusable.
 
   `Arena.tsx:861`'s `battleStarted` token-mint effect is the other half of this:
   it is now the FALLBACK path's minting only. Note the host also mints a token

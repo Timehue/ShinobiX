@@ -2773,19 +2773,21 @@ export function WorldMap({
         // against the accepted hunt to stamp the kill receipt. Registering the
         // clone puts it ahead of the catalog original in the Arena's lookup.
         registerWandererAi(applyHuntOpening(ai, readHuntQuality(mission.id)));
-        requestAiFight({
-            opponentId: ai.id,
-            opponentLevel: ai.level ?? character.level,
-            battleKind: "raidAi",
-            opponentName: ai.name,
-            enemyAvatar: ai.image,
-            sector: currentSector,
-            playLocally: () => {
-                setPendingAiProfileId(ai.id);
-                setRaidBattleKind("raidAi");
-                setScreen("arena");
-            },
-        });
+        // ⚠ NOT routed to the server arena, and this is load-bearing.
+        // applyHuntOpening is what makes tracking WELL matter: a good trail
+        // corners the beast (less HP, hpFloorExempt) and a bad one enrages it
+        // (+stats). That transform is applied HERE, on the client, from a
+        // client-held quality score. The server builds the encounter from the
+        // catalog profile, so routing this fight would silently delete Hunt
+        // Quality from the Hunter Guild loop — the beast would fight identically
+        // whether you read every sign or blundered in.
+        // Blocked on the SERVER owning hunt quality: it cannot simply be sent,
+        // because "cornered" makes the beast weaker and a client-chosen
+        // difficulty is exactly the authority this migration exists to remove.
+        // Its own progress receipt would have to record the trail's quality.
+        setPendingAiProfileId(ai.id);
+        setRaidBattleKind("raidAi");
+        setScreen("arena");
     }
 
     /**
