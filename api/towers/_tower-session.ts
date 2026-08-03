@@ -157,6 +157,31 @@ export type TowerSession = {
      */
     pendingCompanion?: import('./_companion.js').CompanionSeal;
 
+    /**
+     * Standard-PvE difficulty guard (generic AI fights — see api/_pve-difficulty.ts
+     * and docs/runbooks/combat-mode-migration.md step 3b).
+     *
+     * PRESENCE IS THE GATE: only a session that sealed this runs the per-hit /
+     * per-turn / mercy-floor clamp on enemy→squad damage. Every existing mode
+     * (towers, spire, clan boss, missions, story, hollow gate) leaves it
+     * undefined and is byte-identical — this must NOT be turned on for them
+     * without a deliberate balance pass, because their enemy templates were
+     * hand-tuned without it.
+     *
+     * `enemyLevel` is the band input (the ENCOUNTER's level, not the player's),
+     * sealed at start so the client cannot move the band mid-fight. The two
+     * records are per-squad-actor turn state, reset at the start of each enemy
+     * actor's turn — the server equivalent of Arena.tsx's enemyTurnStartHpRef /
+     * enemyTurnDealtRef.
+     */
+    pveGuard?: {
+        enemyLevel: number;
+        /** squad actor id → HP at the start of the current enemy turn */
+        turnStartHp: Record<string, number>;
+        /** squad actor id → damage already taken during the current enemy turn */
+        dealtThisTurn: Record<string, number>;
+    };
+
     // ── Endless Spire — sealed ascension state (Wave 1) ──────────────────────────
     // All optional; every engine read defaults (?? ...) so story/legacy sessions are
     // byte-identical. Sealed ONCE at spire entry (before the first writeSession), then

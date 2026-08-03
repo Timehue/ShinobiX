@@ -8,6 +8,8 @@ import {
     type AiFightProfile,
 } from './_ai-fight-encounter.js';
 import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
+import { pveAiMasteryForLevel, pveDifficultyHpMultiplier, pveDifficultyStatMultiplier } from '../_pve-difficulty.js';
+import { relevelAiProfile } from '../_ai-level-curves.js';
 
 /*
  * Step 2 of the generic AI-fight migration (docs/runbooks/combat-mode-migration.md):
@@ -86,7 +88,14 @@ describe('buildAiFightEncounter', () => {
         const boss = session.actors.find((a) => a.id === 'boss');
         assert.ok(boss, 'the encounter must contain a boss actor');
         assert.equal(boss.name, profile.name);
-        assert.equal(boss.maxHp, profile.hp, 'the opponent fights at its authored HP');
+        // Authored HP, then the PvE band multiplier for the encounter's level
+        // (Arena.tsx:691 does the same). Composed explicitly rather than
+        // loosened to an inequality, so a change to EITHER factor still fails.
+        assert.equal(
+            boss.maxHp,
+            Math.max(1, Math.floor(Number(profile.hp) * pveDifficultyHpMultiplier(Number(profile.level)))),
+            'authored HP scaled by the encounter band',
+        );
         assert.ok(boss.maxHp < 1_000_000, 'a generic AI fight is winnable, not a 99M-HP score attack');
         assert.equal(boss.character?.level, profile.level);
     });
@@ -157,9 +166,27 @@ describe('buildAiFightEncounter', () => {
         const bonused = bossAt({ level: 30, statBonus: 55 });
         const plainStats = plain.character?.stats as Record<string, number>;
         const bonusedStats = bonused.character?.stats as Record<string, number>;
-        assert.equal(bonusedStats.strength, plainStats.strength + 55, 'the rank bonus lifts every stat');
+        // The rank bonus is applied by the re-level, THEN the band multiplier
+        // scales the whole block — so the observed lift is the bonus times the
+        // band factor. Asserted as that exact composition (not just "bigger"),
+        // so dropping either step still fails.
+        assert.equal(
+            bonusedStats.strength - plainStats.strength,
+            Math.round(55 * pveDifficultyStatMultiplier(30)),
+            'the rank bonus lifts every stat, scaled by the encounter band',
+        );
+        assert.ok(bonusedStats.strength > plainStats.strength, 'and it is a lift, not a cut');
         // The floor only binds below the natural curve — that is the client's rule.
-        assert.ok(bossAt({ level: 2, hpFloor: 1400 }).maxHp >= 1400, 'a low-level foe is floored, not one-tappable');
+        // ORDER MATTERS: the re-level applies the floor, THEN the band scales the
+        // result — same order as the client (relevelBuiltinAi floors, then
+        // Arena.tsx:692 multiplies by enemyHpDifficultyFactor). So the effective
+        // pool is the floor times the band factor, not the raw floor.
+        assert.equal(
+            bossAt({ level: 2, hpFloor: 1400 }).maxHp,
+            Math.max(1, Math.floor(1400 * pveDifficultyHpMultiplier(2))),
+            'the HP floor binds before the band multiplier',
+        );
+        assert.ok(bossAt({ level: 2, hpFloor: 1400 }).maxHp > bossAt({ level: 2 }).maxHp, 'and the floor still lifts a low-level foe');
         assert.equal(
             bossAt({ level: 60, hpFloor: 1400 }).maxHp,
             bossAt({ level: 60 }).maxHp,
@@ -174,6 +201,56 @@ describe('buildAiFightEncounter', () => {
         const before = JSON.stringify(profile);
         buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 77, statBonus: 90, hpFloor: 9000 } });
         assert.equal(JSON.stringify(profile), before, 'the generated catalog entry must stay pristine');
+    });
+
+    // ── PvE difficulty band wiring (step 3b) ────────────────────────────────
+    it('seals the AI jutsu mastery — without it the opponent casts at 30% damage', () => {
+        // api/pvp/move.ts applyJutsu reads the CASTER's character.jutsuMastery.
+        // No server enemy template carries one, so an unsealed AI casts at
+        // mastery 0 → masteryDamageFrac(0) = 0.3. This is the single biggest
+        // faithfulness gap in the migrated fight.
+        const session = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 60 } });
+        const boss = session.actors.find((a) => a.id === 'boss')!;
+        const mastery = boss.character.jutsuMastery as Array<{ jutsuId: string; level: number }>;
+        assert.ok(Array.isArray(mastery) && mastery.length > 0, 'the AI must carry a mastery entry per jutsu');
+        assert.equal(mastery.length, (boss.character.jutsu as unknown[]).length, 'one entry per sealed jutsu');
+        assert.equal(mastery[0].level, pveAiMasteryForLevel(60));
+        assert.ok(mastery.every((m) => m.jutsuId), 'no blank jutsu ids');
+        // The rank cap still binds: a low-level AI cannot cast at full mastery.
+        const low = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 5 } });
+        const lowMastery = low.actors.find((a) => a.id === 'boss')!.character.jutsuMastery as Array<{ level: number }>;
+        assert.equal(lowMastery[0].level, pveAiMasteryForLevel(5));
+        assert.ok(lowMastery[0].level < mastery[0].level, 'mastery must rise with the AI level');
+    });
+
+    it('applies the PvE band HP and stat multipliers', () => {
+        // Sub-peer bands soak fewer hits and fight with scaled stats
+        // (Arena.tsx:691/:695). Peer (91+) is full strength on purpose.
+        const easy = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 20 } });
+        const easyBoss = easy.actors.find((a) => a.id === 'boss')!;
+        const rebuilt = relevelAiProfile(profile as never, 20, 0, 0, []);
+        assert.equal(
+            easyBoss.maxHp,
+            Math.max(1, Math.floor(rebuilt.hp * pveDifficultyHpMultiplier(20))),
+            'easy-band HP must be multiplied down',
+        );
+        assert.ok(pveDifficultyHpMultiplier(20) < 1, 'fixture check: the easy band is a nerf');
+
+        const peer = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 95 } });
+        const peerRebuilt = relevelAiProfile(profile as never, 95, 0, 0, []);
+        assert.equal(
+            peer.actors.find((a) => a.id === 'boss')!.maxHp,
+            peerRebuilt.hp,
+            'the peer band keeps its full HP pool',
+        );
+    });
+
+    it('arms the standard-PvE hit guard with the SEALED opponent level', () => {
+        const session = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 12 } });
+        assert.deepEqual(session.pveGuard, { enemyLevel: 12, turnStartHp: {}, dealtThisTurn: {} });
+        // Presence is the gate for the engine clamp; the level must come from
+        // the sealed opponent, never from anything the client can move.
+        assert.equal(session.pveGuard?.enemyLevel, session.actors.find((a) => a.id === 'boss')?.character?.level);
     });
 
     it('still builds a fighting opponent from a profile with no resolvable jutsu', () => {
