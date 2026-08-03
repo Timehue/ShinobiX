@@ -97,9 +97,12 @@ export function fireLocalAiFightSideEffects(
  * Settle a resolved (or abandoned) server AI fight. The server reads the sealed
  * session, so this call does not assert an outcome — it asks for one.
  *
- * A refused settle still resolves (`settled: false`) rather than throwing: the
- * fight happened, and the result card must say nothing was granted instead of
- * promising a reward the server already declined.
+ * THROWS when the settle could not be verified at all. That is deliberate: the
+ * arena shell wraps `settleFn` in a 4x backoff retry and only then offers a
+ * manual Retry button, and resolving quietly here made all of that dead code —
+ * one dropped request on a WIN showed "no reward was granted" while the token
+ * sat unspent, with nothing the player could do. The token is single-use and the
+ * redemption ledger makes a repeat idempotent, so retrying is always safe.
  */
 export async function settleAiFight(params: {
     playerName: string;
@@ -110,23 +113,24 @@ export async function settleAiFight(params: {
     hooks?: AiFightSettleHooks;
 }): Promise<AiFightSettleResult> {
     const reported: AiFightReportResult | null = await reportAiFightWin(params.playerName, params.token);
-    const outcome = (reported?.outcome ?? null) as AiFightOutcome | null;
-    // Gated on the server having ACCEPTED the win. A refused settle, a defeat or
-    // a forfeit must not burn the player's accepted hunt or raid progress.
-    if (reported && outcome === "win") {
+    if (!reported) throw new Error("The fight could not be settled.");
+    const outcome = (reported.outcome ?? null) as AiFightOutcome | null;
+    // Gated on the server having accepted a WIN. A defeat or a forfeit must not
+    // burn the player's accepted hunt or raid progress.
+    if (outcome === "win") {
         fireLocalAiFightSideEffects(params.battleKind, params.opponentId, params.sector, params.hooks ?? {});
     }
-    const settledCharacter = (reported?.character ?? null) as Character | null;
+    const settledCharacter = (reported.character ?? null) as Character | null;
     return {
-        settled: !!reported,
+        settled: true,
         outcome,
-        ryo: Number(reported?.ryo) || 0,
-        capped: reported?.capped === true,
-        replayed: reported?.replayed === true,
+        ryo: Number(reported.ryo) || 0,
+        capped: reported.capped === true,
+        replayed: reported.replayed === true,
         character: settledCharacter && outcome === "win"
             ? applyLocalAiFightCounters(settledCharacter, params.battleKind)
             : settledCharacter,
-        _saveVersion: reported?._saveVersion,
+        _saveVersion: reported._saveVersion,
     };
 }
 
