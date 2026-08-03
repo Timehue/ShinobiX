@@ -85,6 +85,38 @@ describe('standard-PvE hit guard (engine wiring)', () => {
         assert.ok(uncapped.metadata.damage > 0, 'fixture check: the cast deals damage');
     });
 
+    it('sealed jutsu mastery actually raises the damage the AI deals', () => {
+        // Closes the loop on the step-3b finding. The encounter test asserts the
+        // mastery array is SEALED; this asserts it has EFFECT — i.e. that an
+        // unsealed enemy really was casting at masteryDamageFrac(0) = 0.3.
+        const attacker = (mastery: number | null) => ({
+            name: 'A', hp: 500, maxHp: 500, chakra: 500, maxChakra: 500,
+            stamina: 500, maxStamina: 500, shield: 0, statuses: [], pos: 0,
+            character: {
+                level: 80, stats: { ninjutsuOffense: 900, ninjutsuDefense: 200 }, jutsu: [],
+                ...(mastery === null ? {} : { jutsuMastery: [{ jutsuId: 'j', level: mastery }] }),
+            },
+        });
+        const defender = () => ({
+            name: 'D', hp: 5000, maxHp: 5000, chakra: 500, maxChakra: 500,
+            stamina: 500, maxStamina: 500, shield: 0, statuses: [], pos: 0,
+            character: { level: 80, stats: { ninjutsuOffense: 200, ninjutsuDefense: 200 }, jutsu: [] },
+        });
+        const jutsu = { id: 'j', name: 'J', type: 'Ninjutsu', element: 'Fire', ap: 60, range: 3, effectPower: 30, tags: [] };
+
+        const unsealed = applyJutsu(attacker(null) as never, defender() as never, jutsu as never, 1, 'central', 1);
+        const sealed = applyJutsu(attacker(50) as never, defender() as never, jutsu as never, 1, 'central', 1);
+        assert.ok(
+            sealed.metadata.damage > unsealed.metadata.damage,
+            `mastery must raise damage (${unsealed.metadata.damage} → ${sealed.metadata.damage})`,
+        );
+        // masteryDamageFrac is 0.3 at mastery 0 and 1.0 at 50, so the sealed cast
+        // should land near 3.3x. Asserted as a band, not an exact figure, so a
+        // tuning change to the ramp does not spuriously fail this.
+        const ratio = sealed.metadata.damage / Math.max(1, unsealed.metadata.damage);
+        assert.ok(ratio > 2.5 && ratio < 4, `expected roughly a 3.3x lift, got ${ratio.toFixed(2)}x`);
+    });
+
     it('clamps to the cap, and does so BEFORE shield absorbs', () => {
         const attacker = {
             name: 'A', hp: 500, maxHp: 500, chakra: 500, maxChakra: 500,
