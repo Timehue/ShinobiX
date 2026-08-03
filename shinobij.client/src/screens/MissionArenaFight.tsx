@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
+import type { StoryFightTheme } from "../lib/story-fight-theme";
+import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
+import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase,
     // Command-deck glyphs (one per basic action), matching Arena + PvP.
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "react-icons/gi";
-import type { Character } from "../types/character";
+import type { Character, BattleHistoryEntry } from "../types/character";
 import {
     submitTowerAction, fetchTowerState, TOWER_TURN_AFK_MS,
     type TowerSession, type TowerStatus,
@@ -43,21 +46,30 @@ import { equipSlotForItem } from "../lib/equipment";
 import { tagMatchesName } from "../lib/tags";
 import { gameConfirm } from "../components/GameAlert";
 
-// ─── Mission Arena Fight ──────────────────────────────────────────────────────
-// Renders the server-authoritative combat-mission session (tower:<runId>) using
+// ─── Solo Arena Fight (missions + story bosses) ───────────────────────────────
+// Renders a server-authoritative solo 1v1 sealed session (tower:<runId>) using
 // the SAME shell as the normal Arena PvE duel — CombatSideHud dossiers, the
 // arena-top-panel header, the dual-AP bar, the identical 12×10 hex board, and the
 // basic-action-bar + jutsu/item cards — instead of the tactical "Battle Tower"
 // rail layout. The fight is still resolved 100% server-side: every button submits
 // a move to /api/towers/action and reflects the returned session; nothing is
-// computed on the client. This closes the "combat missions look like an older PvP
-// model" gap while keeping the reward-integrity guarantee (C/B/A/S missions are
-// won on a completed server session, not a client-attested outcome).
+// computed on the client. This closes the "combat looks like an older PvP model"
+// gap while keeping the reward-integrity guarantee (the reward is settled on a
+// completed server session, not a client-attested outcome).
+//
+// TWO callers share this screen because their fights are structurally identical
+// (both are solo `defeat-boss` TowerSessions built by buildAuthoritativeSoloEncounter):
+//   • Missions (Missions.tsx) — settles via /api/missions/queue-combat-claim.
+//   • Story bosses (StoryBossFightHost.tsx) — settles via /api/story/settle and
+//     passes `storyTheme` (backdrop/chapter label/boss barks) + a `renderResult`
+//     that shows the chapter-reward card. Story presentation is display-only —
+//     it never touches stats, damage, or rewards. When `storyTheme` is absent the
+//     screen behaves byte-identically to the original mission-only version.
 //
 // The board geometry is byte-identical to Arena.tsx (HEX_W/HEX_H, odd-q offset,
 // 12 wide × 10 tall, ORB 52), so the tiles/orbs line up exactly with the arena
-// skin's CSS. A combat mission is always solo 1v1 (one player vs one boss), so
-// there is no squad rail, pylons, hazards, or spire chrome to draw.
+// skin's CSS. A solo fight is always 1v1 (one player vs one boss), so there is no
+// squad rail, pylons, hazards, or spire chrome to draw.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
 type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; method?: string; image?: string; tags?: Array<{ name?: string }> };
@@ -99,6 +111,13 @@ export function MissionArenaFight({
     creatorItems,
     settleFn,
     onExit,
+    storyTheme,
+    renderResult,
+    actionFn,
+    settleOnAnyDone,
+    onRecordBattle,
+    recordMode,
+    enemyAvatarOverride,
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
@@ -111,9 +130,42 @@ export function MissionArenaFight({
     savedBloodlines?: SavedBloodline[];
     creatorJutsus?: Jutsu[];
     creatorItems?: GameItem[];
-    /** Queue the server-authoritative claim on a win (Missions.settleAuthoritativeMission). */
+    /** Settle the server-authoritative outcome on a win (missions queue the claim,
+     *  story pays the chapter reward). Its resolved value is handed to renderResult. */
     settleFn: (runId: string, playerName: string) => Promise<unknown>;
     onExit: () => void;
+    /** Story-boss presentation (display-only — never touches stats or rewards):
+     *  chapter backdrop art, a chapter label, and boss "barks" spoken at fight
+     *  start and as the boss's HP falls. See lib/story-fight-theme.ts. */
+    storyTheme?: StoryFightTheme;
+    /** Optional result-overlay override. When provided it fully replaces the
+     *  built-in mission result card — the story lane uses this to show its own
+     *  chapter-reward / defeat card. Absent → the mission card renders as before. */
+    renderResult?: (ctx: {
+        won: boolean;
+        draw: boolean;
+        settleState: "idle" | "pending" | "settled" | "failed";
+        settleResult: unknown;
+        retry: () => void;
+        onExit: () => void;
+    }) => ReactNode;
+    /** Action-sender override — the Anbu Vault fight submits moves to its own route
+     *  (api/village/anbu-infiltration action:'act') instead of /api/towers/action.
+     *  Same request/response shape (both run the shared tower engine). */
+    actionFn?: typeof submitTowerAction;
+    /** Settle on ANY resolution, not just a squad win — the Weekly Boss banks damage
+     *  on a knockout, and the Anbu raid reports win OR loss. Default (unset) keeps the
+     *  mission/story rule of settling only on a win. */
+    settleOnAnyDone?: boolean;
+    /** Record the fight to Profile → Battles when it resolves (win or loss). */
+    onRecordBattle?: (entry: BattleHistoryEntry) => void;
+    /** Human label for the recorded battle's mode (e.g. "Anbu Vault"). Default "Duel". */
+    recordMode?: string;
+    /** Force the enemy's portrait (dossier + bark face). Used when the correct art
+     *  isn't sealed into the session or published under `ai:<visual>` — e.g. the story
+     *  boss's authored chapter portrait, or the Anbu defender's masked art. Falls
+     *  through to the sealed avatar / published art / initials when absent. */
+    enemyAvatarOverride?: string;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
@@ -128,6 +180,20 @@ export function MissionArenaFight({
     // the reward is waiting, and must not offer a clean exit, while it is still
     // in flight or has failed. See the retry loop below.
     const [settleState, setSettleState] = useState<"idle" | "pending" | "settled" | "failed">("idle");
+    // The resolved settle value (handed to renderResult so the story lane can show
+    // its reward breakdown). Mission callers ignore it (they claim later in the Hall).
+    const [settleResult, setSettleResult] = useState<unknown>(null);
+
+    // ── Story presentation (display-only): the boss speaks its own authored VN
+    // lines at fight start / 2⁄3 / 1⁄3 HP and its last words on the killing blow;
+    // the mentor cuts in when the PLAYER is hurting; the last-stand threshold adds a
+    // vignette + sting. One bubble at a time, ~6s. Ported from BattleTowerFight so
+    // the story flavor is preserved on the arena shell. All gated on `storyTheme`.
+    const [bark, setBark] = useState<{ name: string; text: string; side: "boss" | "ally" } | null>(null);
+    const barkStageRef = useRef(0);
+    const allyStageRef = useRef(0);
+    const barkTimerRef = useRef(0);
+    const stingRef = useRef({ opened: false, finalPhase: false, victory: false });
 
     const me = character.name;
     const meSlug = me.toLowerCase();
@@ -184,7 +250,8 @@ export function MissionArenaFight({
         setSettleState("pending");
         for (let attempt = 0; attempt < 4; attempt++) {
             try {
-                await settleFn(runId, me);
+                const result = await settleFn(runId, me);
+                setSettleResult(result);
                 setSettleState("settled");
                 return;
             } catch {
@@ -195,11 +262,97 @@ export function MissionArenaFight({
     }, [runId, me, settleFn]);
 
     useEffect(() => {
-        if (session.status === "done" && session.winner === "squad" && !settledRef.current) {
+        const done = session.status === "done";
+        // Missions/story settle only on a win; Weekly Boss (score-attack) and the
+        // Anbu raid pass settleOnAnyDone to settle on any resolution.
+        const shouldSettle = settleOnAnyDone ? done : (done && session.winner === "squad");
+        if (shouldSettle && !settledRef.current) {
             settledRef.current = true;
             void runSettle();
         }
-    }, [session.status, session.winner, runSettle]);
+    }, [session.status, session.winner, runSettle, settleOnAnyDone]);
+
+    // Reflection log (display-only): record the fight once it resolves (win OR loss)
+    // so it shows on Profile → Battles. De-duped by runId, so a refresh on the result
+    // screen re-records harmlessly. Mirrors BattleTowerFight's recorder.
+    const recordedRef = useRef(false);
+    useEffect(() => {
+        if (session.status !== "done" || recordedRef.current || !onRecordBattle) return;
+        recordedRef.current = true;
+        const allyNames = session.actors.filter(a => a.side === "squad" || a.side === "npc").map(a => a.name);
+        const enemyNames = session.actors.filter(a => a.side === "enemy").map(a => a.name);
+        const outcome: BattleHistoryEntry["outcome"] = session.winner === "squad" ? "win" : session.winner === "draw" ? "draw" : "loss";
+        onRecordBattle(makeBattleEntry({
+            id: `arena-${runId}`,
+            ts: Date.now(),
+            mode: recordMode ?? "Duel",
+            opponent: enemyNames[0] ?? "Enemy",
+            outcome,
+            rounds: session.round ?? 1,
+            self: me,
+            actions: buildActionsFromTowerLog(session.log ?? [], allyNames, enemyNames),
+        }));
+        // Fire once on resolve; recordedRef makes later session updates no-ops.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session.status]);
+
+    // ── Story flavor: the boss (enemy) speaks at fight start / 2⁄3 / 1⁄3 HP and on
+    // the killing blow; the mentor cuts in when the PLAYER is hurting. Display-only.
+    const storyDone = session.status === "done";
+    const storyBossHpFrac = enemy ? Math.max(0, enemy.hp) / Math.max(1, enemy.maxHp) : 1;
+    const storySelfHpFrac = myActor ? Math.max(0, myActor.hp) / Math.max(1, myActor.maxHp) : 1;
+    const storyFinalPhase = !!storyTheme && !storyDone && storyBossHpFrac <= 1 / 3;
+    useEffect(() => {
+        if (!storyTheme) return;
+        if (!stingRef.current.opened) {
+            stingRef.current.opened = true;
+            primeStorySfx();
+            playStoryChapterSting(storyTheme.village);
+        }
+        const show = (name: string, text: string, side: "boss" | "ally") => {
+            setBark({ name, text, side });
+            window.clearTimeout(barkTimerRef.current);
+            barkTimerRef.current = window.setTimeout(() => setBark(null), 6500);
+        };
+        const bossName = storyTheme.bossName || enemy?.name || "???";
+        if (storyDone) {
+            if (session.winner === "squad" && !stingRef.current.victory) {
+                stingRef.current.victory = true;
+                playStoryVictorySting();
+                if (storyTheme.defeatLine && barkStageRef.current < 4) {
+                    barkStageRef.current = 4;
+                    show(bossName, storyTheme.defeatLine, "boss");
+                }
+            }
+            return;
+        }
+        const barks = storyTheme.barks ?? [];
+        const next = barkStageRef.current < 1 && barks[0] ? 0
+            : barkStageRef.current < 2 && storyBossHpFrac <= 2 / 3 && barks[1] ? 1
+                : barkStageRef.current < 3 && storyBossHpFrac <= 1 / 3 && barks[2] ? 2 : -1;
+        if (next >= 0) {
+            barkStageRef.current = next + 1;
+            show(bossName, barks[next], "boss");
+            return;
+        }
+        const ally = storyTheme.ally;
+        if (ally?.lines[0] && allyStageRef.current < 1 && storySelfHpFrac <= 0.5) {
+            allyStageRef.current = 1;
+            show(ally.name, ally.lines[0], "ally");
+            return;
+        }
+        if (ally?.lines[1] && allyStageRef.current < 2 && storySelfHpFrac <= 0.2) {
+            allyStageRef.current = 2;
+            show(ally.name, ally.lines[1], "ally");
+        }
+    }, [storyTheme, storyBossHpFrac, storySelfHpFrac, storyDone, session.winner, enemy?.name]);
+    useEffect(() => {
+        if (storyFinalPhase && !stingRef.current.finalPhase) {
+            stingRef.current.finalPhase = true;
+            playStoryFinalPhaseSting();
+        }
+    }, [storyFinalPhase]);
+    useEffect(() => () => window.clearTimeout(barkTimerRef.current), []);
 
     // ── Loadout: jutsu + equipped weapons/consumables from the sealed fighter ──
     // Plain derivations (the React Compiler auto-memoizes the component); the
@@ -277,7 +430,7 @@ export function MissionArenaFight({
         if (busy) return;
         setBusy(true); setReject(null);
         try {
-            const res = await submitTowerAction(runId, me, action);
+            const res = await (actionFn ?? submitTowerAction)(runId, me, action);
             setSession(res.session);
             if (!res.applied) setReject(res.reason ?? "That move wasn't allowed.");
         } catch (e) {
@@ -330,7 +483,7 @@ export function MissionArenaFight({
     const playerAvatar = character.avatarImage || me.slice(0, 2).toUpperCase();
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
-    const enemyAvatar = sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
+    const enemyAvatar = enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
@@ -402,7 +555,24 @@ export function MissionArenaFight({
     }
 
     return createPortal(
-        <div className={`arena-fullscreen pvp-battle-layout mission-arena-fight arena-bg-${biome}`}>
+        <div
+            className={`arena-fullscreen pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
+            style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
+        >
+            {/* Story flavor overlays (display-only) — float above the arena board. */}
+            {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
+            {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
+            {bark && (
+                <div className={`story-fight-bark${bark.side === "ally" ? " story-fight-bark--ally" : ""}`} role="status">
+                    {bark.side === "boss" && isImageAvatar(enemyAvatar) && (
+                        <img className="story-fight-bark-face" src={enemyAvatar} alt="" />
+                    )}
+                    <div className="story-fight-bark-body">
+                        <strong>{bark.name}</strong>
+                        <span>{bark.text}</span>
+                    </div>
+                </div>
+            )}
             <div className={`combat-layout${hasActionNotice ? " has-rookie-tip" : ""}`}>
                 {/* Player dossier */}
                 <CombatSideHud
@@ -709,24 +879,27 @@ export function MissionArenaFight({
                 />
             </div>
 
-            {done && (
-                <div className="battle-ended-overlay">
-                    <div className="card battle-ended-card">
-                        <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : "Defeat"}</h2>
-                        <p>
-                            {!won
-                                ? "The mission failed. No reward was earned — you can try again from the Mission Hall."
-                                : settleState === "settled"
-                                    ? `${missionName ?? "Mission"} cleared. Return to the Mission Hall to claim your reward.`
-                                    : settleState === "failed"
-                                        ? `${missionName ?? "Mission"} cleared, but the reward could not be registered with the server. Retry before leaving — otherwise there will be nothing to claim.`
-                                        : `${missionName ?? "Mission"} cleared. Registering your reward…`}
-                        </p>
-                        {won && settleState === "failed"
-                            ? <button className="start-primary-btn" onClick={() => { void runSettle(); }}>Retry</button>
-                            : <button className="start-primary-btn" disabled={won && settleState === "pending"} onClick={onExit}>Return to Mission Hall</button>}
+            {done && (renderResult
+                ? renderResult({ won, draw: session.winner === "draw", settleState, settleResult, retry: () => { void runSettle(); }, onExit })
+                : (
+                    <div className="battle-ended-overlay">
+                        <div className="card battle-ended-card">
+                            <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : "Defeat"}</h2>
+                            <p>
+                                {!won
+                                    ? "The mission failed. No reward was earned — you can try again from the Mission Hall."
+                                    : settleState === "settled"
+                                        ? `${missionName ?? "Mission"} cleared. Return to the Mission Hall to claim your reward.`
+                                        : settleState === "failed"
+                                            ? `${missionName ?? "Mission"} cleared, but the reward could not be registered with the server. Retry before leaving — otherwise there will be nothing to claim.`
+                                            : `${missionName ?? "Mission"} cleared. Registering your reward…`}
+                            </p>
+                            {won && settleState === "failed"
+                                ? <button className="start-primary-btn" onClick={() => { void runSettle(); }}>Retry</button>
+                                : <button className="start-primary-btn" disabled={won && settleState === "pending"} onClick={onExit}>Return to Mission Hall</button>}
+                        </div>
                     </div>
-                </div>
+                )
             )}
         </div>,
         document.body,

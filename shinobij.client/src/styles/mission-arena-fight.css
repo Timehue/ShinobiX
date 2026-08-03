@@ -85,6 +85,21 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
+/* ── Story lane (StoryBossFightHost renders this screen with a storyTheme) ──
+   The chapter label + boss barks + last-stand vignette are display-only flavor
+   ported from the retired tower shell. They must FLOAT above the arena board, not
+   take a grid row — the arena shell fills the viewport (overflow hidden), unlike
+   the tower shell it replaces, which scrolled. `.story-fight-chapter` ships as
+   `position: sticky` (in-flow); pin it absolute here so the board keeps its full
+   height. The bark bubble and vignette are already absolute in battle-skin.css. */
+.arena-fullscreen.mission-arena-fight.story-arena-fight .story-fight-chapter {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+}
+
 /* Plain battle-log lines (this screen shows the raw server log, newest first). */
 .mission-arena-fight .combat-log-line {
     margin: 0 0 4px;

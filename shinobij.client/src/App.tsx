@@ -148,7 +148,7 @@ const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardB
 const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
-const BattleTowerFight = lazyWithRetry(() => import("./screens/BattleTowerFight").then(m => ({ default: m.BattleTowerFight })));
+const WeeklyBossFight = lazyWithRetry(() => import("./screens/WeeklyBossFight").then(m => ({ default: m.WeeklyBossFight })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
@@ -5739,6 +5739,7 @@ export default function App() {
                 bossName: battle.bossName || event.name,
                 chapterLabel: `Chapter ${Number(chapterIdx) + 1} — ${event.vnTitle ?? event.name}`,
                 backdropImage: sharedImages[`event:${event.id}:bg`] || sharedImages[`vn:${event.id}:page:0`] || undefined,
+                bossPortrait: sharedImages[`event:${event.id}:avatar`] || sharedImages[`vn:${event.id}:page:0:right`] || undefined,
                 ...extractStoryFightScript(event.vnPages, battle.bossName || ""),
                 ally: extractMentorLines(event.vnPages, battle.bossName || "", character?.name ?? ""), village: event.village || character?.village,
             });
@@ -6630,7 +6631,7 @@ export default function App() {
                 />
             )}
 
-            <StoryBossFightHost character={character} sharedImages={sharedImages} onSettled={handleServerStoryBossSettled} />
+            <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} />
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
@@ -7374,12 +7375,11 @@ export default function App() {
                     <BattleTowers character={character} updateCharacter={setCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && authoritativeWeeklyBossFight && (
-                    <BattleTowerFight
+                    <WeeklyBossFight
                         character={character}
                         sharedImages={sharedImages}
                         runId={authoritativeWeeklyBossFight.runId}
                         initialSession={authoritativeWeeklyBossFight.session}
-                        settleOnAnyDone
                         settleFn={async (runId) => {
                             const response = await fetch("/api/weekly-boss", {
                                 method: "POST",

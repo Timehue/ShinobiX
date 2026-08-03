@@ -8,7 +8,7 @@ import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
-import { BattleTowerFight } from "./BattleTowerFight";
+import { WeeklyBossFight } from "./WeeklyBossFight";
 import type { TowerSession } from "../lib/towers-api";
 
 // ─── Weekly Boss Arena ────────────────────────────────────────────────────────
@@ -101,13 +101,12 @@ export function WeeklyBossArena({
 
     if (fight) {
         return (
-            <BattleTowerFight
+            <WeeklyBossFight
                 character={character}
                 sharedImages={sharedImages}
                 runId={fight.runId}
                 initialSession={fight.session}
                 settleFn={settleAuthoritativeFight}
-                settleOnAnyDone
                 onExit={() => { setFight(null); void refresh(); }}
             />
         );
