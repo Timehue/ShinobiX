@@ -12,18 +12,22 @@
  * the admin-authored `shared:ai-profiles` fallback) and
  * `buildAiFightEncounter` is a synchronous function of its inputs.
  *
- * ── Scope note for step 3 ──────────────────────────────────────────────────
- * The opponent is built at its AUTHORED level. The client re-levels built-in
- * AIs per entry point (relevelBuiltinAi: a combat mission aligns the foe to the
- * player, hunts scale by sector, rifts rebase to player+15), and that scaling
- * rule currently lives only on the client. It is NOT read from the request
- * body on purpose — a client-chosen opponent level is a client-chosen
- * difficulty, which is the exact authority this migration exists to remove.
- * Moving each entry point's scaling rule server-side is step 3's job; until
- * then `levelOverride` exists for a SERVER-derived level and is never fed from
- * user input. Same for terrain: the floor uses the neutral 'central' biome
- * rather than the client's sector terrain (a biome grants the +10% school
- * buff), so no unearned terrain advantage is sealed in.
+ * ── Opponent scaling ───────────────────────────────────────────────────────
+ * Absent a `scaling` argument the opponent is built at its AUTHORED level. The
+ * client re-levels built-in AIs per entry point (`relevelBuiltinAi`: a combat
+ * mission aligns the foe to the player, hunts scale by sector, rifts rebase to
+ * player+15), so a faithful server fight needs the same rebuild — that is what
+ * `scaling` does, through the parity-tested curves in api/_ai-level-curves.ts.
+ *
+ * `scaling` must be derived from SERVER-KNOWN state (the save's level, the
+ * mission/contract definition), never from the request body. A client-chosen
+ * opponent level is a client-chosen difficulty, which is the exact authority
+ * this migration exists to remove. `ai-fight-start` deliberately does not read
+ * `opponentLevel`; wiring each entry point's rule is the rest of step 3.
+ *
+ * Terrain is likewise neutral: the floor uses the 'central' biome rather than
+ * the client's sector terrain (a biome grants the +10% school buff), so no
+ * unearned terrain advantage is sealed in.
  */
 import type { TowerFloor } from '../towers/_floor-catalog.js';
 import type { TowerSession } from '../towers/_tower-session.js';
@@ -37,6 +41,7 @@ import {
 } from '../_authoritative-pve.js';
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
 import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 
 /** Floor ids for AI fights. Kept clear of the combat-mission band (9_100+) and
@@ -87,11 +92,26 @@ export function aiFightFloor(profile: AiFightProfile): TowerFloor {
 }
 
 /**
+ * How an entry point rebuilds the opponent for this fight. Mirrors the client's
+ * `relevelBuiltinAi(base, level, statBonus, hpFloor)` argument-for-argument.
+ * Derive it from server-known state only — see the scaling note above.
+ */
+export type AiFightScaling = {
+    level: number;
+    /** Rank/tier stat bonus added to every stat (combat missions use 0-90). */
+    statBonus?: number;
+    /** Minimum HP, so an early-game foe is not one-tapped. No-op above the curve. */
+    hpFloor?: number;
+};
+
+/**
  * Build the sealed encounter. Mirrors api/missions/combat-start.ts, with the
  * opponent coming from an AI profile instead of a mission definition.
  *
- * `levelOverride` is for a SERVER-derived level only (step 3). Absent, the
- * profile's authored level is used.
+ * With `scaling`, the profile is REBUILT at the target level through the
+ * parity-tested curves — stats, HP, pools and armor all move together. Stamping
+ * a bare level would produce a level-60 opponent still carrying level-18 stats,
+ * which is a weaker fight than the client shows, not a faithful one.
  */
 export function buildAiFightEncounter(params: {
     playerName: string;
@@ -102,19 +122,22 @@ export function buildAiFightEncounter(params: {
     now: number;
     admin?: AdminCombatContent | null;
     hostLoadout?: Record<string, unknown>;
-    levelOverride?: number;
+    scaling?: AiFightScaling;
 }): TowerSession {
     const admin = params.admin ?? null;
-    // An explicitly supplied level always applies (clamped to the legal band);
-    // only an absent / non-finite value falls through to the authored level.
-    // `0` must NOT read as "no override" — that silently restores full power.
-    const profile = params.levelOverride != null && Number.isFinite(params.levelOverride)
-        ? { ...params.profile, level: Math.max(1, Math.min(100, Math.floor(params.levelOverride))) }
+    // Resolve the kit FIRST: the discipline mix picks the archetype weights the
+    // re-level distributes stats by, so this has to happen before scaling.
+    const loadout = resolveAiProfileJutsu(params.profile.jutsuIds, admin);
+    const profile = params.scaling && Number.isFinite(params.scaling.level)
+        ? relevelAiProfile(
+            params.profile as unknown as RelevelableProfile,
+            params.scaling.level,
+            params.scaling.statBonus ?? 0,
+            params.scaling.hpFloor ?? 0,
+            loadout,
+        ) as unknown as AiFightProfile
         : params.profile;
-    const bossTemplate = aiOpponentEnemyTemplate(
-        profile,
-        resolveAiProfileJutsu(profile.jutsuIds, admin),
-    );
+    const bossTemplate = aiOpponentEnemyTemplate(profile, loadout);
     const session = buildAuthoritativeSoloEncounter({
         playerName: params.playerName,
         save: params.save,
