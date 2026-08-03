@@ -16,14 +16,18 @@ export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.
 /**
  * Generic AI fights on the server engine (docs/runbooks/combat-mode-migration.md).
  *
- * OFF by default and staying that way until the client half (step 3) routes AI
- * fights to the server-combat screen. While off, `ai-fight-start` behaves
- * exactly as before — it mints the reward token and nothing else. While on, it
- * ALSO seals a real encounter and returns its runId, so a flagged client can
- * pick the server path; the token path stays as the fallback either way.
+ * ON by default now that the client half (step 3d) routes AI fights to the
+ * server-combat screen. `ai-fight-start` seals a real encounter and returns its
+ * runId + session; the client mounts MissionArenaFight when both come back.
+ *
+ * Turning it OFF (`DISABLE_SERVER_AI_COMBAT=1`) is the rollback: the endpoint
+ * seals nothing, returns no runId, and every launch site degrades to the local
+ * Arena via its `playLocally` fallback. That degrade is exercised on every
+ * fight whose opponent the catalog cannot resolve, so it is not a cold path.
+ * The reward token is minted either way — sealing is purely additive.
  */
 export function serverAiCombatEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return env.ENABLE_SERVER_AI_COMBAT === '1';
+    return env.DISABLE_SERVER_AI_COMBAT !== '1';
 }
 
 /** Rollback switch only: story-boss wins normally require a completed server session. */

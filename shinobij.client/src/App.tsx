@@ -93,6 +93,7 @@ import {
     endlessScaleFactor,
     endlessWaveReward,
     endlessTowerMilestoneReward,
+    pickScaledEndlessAi,
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
@@ -587,6 +588,7 @@ import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
+import { AiFightHost } from "./components/AiFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
@@ -5165,36 +5167,11 @@ export default function App() {
         }
     }
 
-    function scaleEndlessAiClone(baseAi: CreatorAi, wave: number): CreatorAi {
-        const factor = endlessScaleFactor(wave);
-        // Clone stats and multiply offensive/defensive stats; cap HP/chakra/stamina at ×4 baseline.
-        const scaledStats: Stats = { ...baseAi.stats };
-        (Object.keys(scaledStats) as (keyof Stats)[]).forEach((k) => {
-            scaledStats[k] = Math.floor(scaledStats[k] * Math.min(4, factor));
-        });
-        return {
-            ...baseAi,
-            id: `endless-${baseAi.id}-w${wave}`,
-            name: wave % 10 === 0 ? `★ ${baseAi.name} (Floor ${wave})` : `${baseAi.name} (Floor ${wave})`,
-            hp: Math.floor(baseAi.hp * Math.min(5, factor)),
-            chakra: Math.floor(baseAi.chakra * Math.min(3, factor * 0.8)),
-            stamina: Math.floor(baseAi.stamina * Math.min(3, factor * 0.8)),
-            stats: scaledStats,
-        };
-    }
-
     function pickRandomEndlessAi(wave: number): string {
-        if (playableAis.length === 0) return "";
-        // Scale difficulty: allow AIs up to player level + 5 per wave, capped at 100.
-        // Boss AIs only appear on milestone floors (every 10).
-        const cap = Math.min(100, (character?.level ?? 1) + wave * 5);
-        const allowBoss = wave % 10 === 0;
-        const candidates = playableAis.filter(ai => allowBoss || !ai.isBossAi);
-        const pool = candidates.filter(ai => (ai.level ?? 1) <= cap);
-        const fallback = candidates.length > 0 ? candidates : playableAis;
-        const chosen = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback[Math.floor(Math.random() * fallback.length)];
-        // Build a scaled clone, register it as the temporary AI so the arena uses it.
-        const scaled = scaleEndlessAiClone(chosen, wave);
+        // Selection + scaling live in lib/endless-tower; only registering the
+        // clone as the temporary AI (App-local state) stays here.
+        const scaled = pickScaledEndlessAi(playableAis, character?.level ?? 1, wave);
+        if (!scaled) return "";
         setTemporaryStoryAi(scaled);
         return scaled.id;
     }
@@ -6632,6 +6609,9 @@ export default function App() {
             )}
 
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} />
+
+            {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host starts the fight, then routes it to the server arena or back to the caller's local Arena when nothing was sealed. `hooks` are the world/mission side effects the server does NOT own — the same callbacks Arena's win path fires, so both routes stay equivalent. */}
+            <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: recordMissionRaid, onExploreAmbushWon: () => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }, onHuntBeastDefeated: completeHuntForAi }} onSettled={(result) => { if (!result.character) return; latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion); setCharacter(result.character); }} onClose={(back) => { setMissionBattleActive(false); setPendingExploreSector(null); if (back) navigate(back as Screen); }} />
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
