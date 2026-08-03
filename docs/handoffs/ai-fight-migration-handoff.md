@@ -37,6 +37,20 @@ Parity/behaviour tests: `scripts/ai-profile-catalog.test.mjs`,
 The three parity suites were **mutation-verified** (a deliberate wrong constant
 fails them) rather than trusted for being green.
 
+## ⚠ Steps A, B and C are committed but NOT PUSHED
+
+Branch `claude/new-session-188194` — `86f6d5a90` (A), `f4c9d05c8` (B),
+`df99c0152` (C). Gates green at C: `npm test` **4623/4623**, tsc, root build
+(sizecheck PASS 6.80 MB), certify **28/28**, client lint 0 errors.
+
+**B and C are a matched pair — ship them together.** B alone softens server PvE
+(it adds mercy caps to modes that had none); C alone would spike it (~3.3×
+enemy jutsu damage). Together they are the intended equilibrium. Do not push one
+without the other.
+
+The one gap left open: **the server weekly boss has NO boss→player clamp**, so
+it is excluded from both B and C. See step B below.
+
 ## ⚠ The finding that matters most: server AI casts at 30% damage
 
 `api/pvp/move.ts` `applyJutsu` reads jutsu mastery off the **caster's**
@@ -153,9 +167,33 @@ by the SERVER engine (`MissionArenaFight` posts to `/api/towers/action`), so the
 client's `isStandardPve` band never applied to them. They get **easier until C
 lands**.
 
-### C. Then enemy jutsu mastery everywhere
+### ~~C. Then enemy jutsu mastery everywhere~~ — DONE
 
-Default ON, kill switch `DISABLE_PVE_AI_MASTERY=1`. Must follow B.
+`api/_pve-ai-mastery.ts`, shipped ON with `DISABLE_PVE_AI_MASTERY=1` plus a
+per-mode `DISABLE_PVE_AI_MASTERY_<MODE>`.
+
+Armed: missions, story, tower story floors, **Spire**, clan boss — all of which
+got the guard in B, which is the ordering the ruling requires. A test asserts
+guard-before-mastery-before-`startRound`, so the order cannot silently invert.
+
+Not armed: **weekly boss** (no server boss→player clamp at all — this is the
+"mastery before the guard" failure; land it WITH the `weeklyBossGuardedHit`
+port), **Anbu** (`sealTowerFighter` already carries the real player's own
+mastery), AI fights (self-sealed at 3b), Hollow Gate (not migrated).
+
+⚠ **Spire has its own dial.** Its level-100 bosses are PEER band, where the B
+guard is an intentional no-op — so the Spire is the one armed mode where the
+~3.3× uplift is **unbounded**, and the biggest single swing in the change.
+
+⚠ The seal **never overwrites an existing `jutsuMastery` array.** That is what
+makes it safe for actors sealed from a real save and idempotent on re-seal.
+
+**Also fixed during the A/B tie-in audit:** `pveBandLevelForSession` was matching
+the literal actor id `'boss'`, which only the SOLO builders use — every tower
+floor was silently falling through to the max-level scan. It now reads
+`phaseState.bossId` first. And a round-trip test now proves `pveGuard` survives
+`writeSession`/`readSession`; every other test works in memory and would not
+have caught the store dropping it.
 
 ### D. Finish the migration
 
