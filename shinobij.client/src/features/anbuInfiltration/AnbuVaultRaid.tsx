@@ -35,7 +35,7 @@ import {
     INFIL_CACHE_ITEM_IDS,
     type InfilReportResponse,
 } from "../../lib/anbu-infiltration-api";
-import { BattleTowerFight } from "../../screens/BattleTowerFight";
+import { MissionArenaFight } from "../../screens/MissionArenaFight";
 import { getAllItems } from "../../lib/items";
 import { getBloodlineMultiplier } from "../../lib/combat-math";
 import { getPvpItemLoadout, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus } from "../../lib/equipment-stats";
@@ -300,11 +300,17 @@ export function AnbuVaultRaid({
     }
 
     if (phase === "fight" && fight) {
+        // Reuse the normal Arena shell (MissionArenaFight) — the same server-authoritative
+        // 1v1 board PvE/missions/story use — instead of the tower rail. The vault fight is
+        // a plain 1v1 TowerSession; only the move route differs (actionFn=infiltrationAct).
+        // The raider's loadout is already sealed at startInfiltration (line ~180), so no
+        // co-op join-seal / hostLoadout is needed here. On resolve, settleInfiltration flips
+        // this screen to its own `phase === "result"` spoils panel, so the in-fight result
+        // card only shows transiently (while the report is in flight) or on report failure.
         return (
-            <BattleTowerFight
+            <MissionArenaFight
                 character={character}
                 sharedImages={sharedImages}
-                hostLoadout={hostLoadout}
                 runId={fight.runId}
                 initialSession={fight.session}
                 onExit={() => {
@@ -315,9 +321,32 @@ export function AnbuVaultRaid({
                     if (report) setPhase("result"); else onExit();
                 }}
                 onRecordBattle={onRecordBattle}
+                recordMode="Anbu Vault"
+                enemyAvatarOverride={anbuAvatar ?? undefined}
                 actionFn={infiltrationAct}
                 settleFn={settleInfiltration}
                 settleOnAnyDone
+                renderResult={({ settleState, retry }) => (
+                    <div className="battle-ended-overlay">
+                        <div className="card battle-ended-card">
+                            {settleState === "failed" ? (
+                                <>
+                                    <h2>Report Failed</h2>
+                                    <p>The raid finished, but the outcome couldn&apos;t be reported to the server. Retry — leaving now spends your attempt with no spoils.</p>
+                                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                        <button className="start-primary-btn" onClick={retry}>Retry</button>
+                                        <button onClick={() => { try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ } onExit(); }}>Leave</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <h2>Raid Resolved</h2>
+                                    <p>Reporting the outcome to the vault ledger…</p>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
             />
         );
     }

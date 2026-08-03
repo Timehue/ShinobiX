@@ -88,14 +88,19 @@ test('buildInfiltrationEncounter: raider (squad) vs sealed Anbu (enemy boss)', (
     assert.equal(floor.objective, 'defeat-boss');
 });
 
-test('buildInfiltrationEncounter: raider left flank, Anbu right flank (they do not overlap)', () => {
+test('buildInfiltrationEncounter: raider and Anbu start a few hexes apart on their own sides', () => {
     const { session } = build();
     const raider = session.actors.find(a => a.id === 'sq-0')!;
     const anbu = session.actors.find(a => a.id === 'boss')!;
     const W = INFILTRATION_MAP.width;
-    assert.equal(raider.pos % W, 1);        // left column
-    assert.equal(anbu.pos % W, W - 2);      // right column
+    const mid = Math.floor(W / 2);
+    assert.equal(raider.pos % W, mid - 2);                                  // left of centre
+    assert.equal(anbu.pos % W, mid + 2);                                    // right of centre (guarding the vault)
+    assert.equal(Math.floor(raider.pos / W), Math.floor(anbu.pos / W));     // same row
     assert.notEqual(raider.pos, anbu.pos);
+    // The solo arena has no Dash (tower-only), so the two must NOT start full-board
+    // apart, or the opening becomes a multi-turn walk. Keep the duel spacing tight.
+    assert.ok((anbu.pos % W) - (raider.pos % W) <= 5, 'duel spacing stays tight');
 });
 
 test('buildInfiltrationEncounter: deterministic (same inputs → identical session)', () => {
