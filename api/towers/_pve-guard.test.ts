@@ -155,11 +155,21 @@ describe('standard-PvE hit guard (engine wiring)', () => {
         const session = build(20);
         startRound(session);
         const player = () => session.actors.find((a) => a.ai === false)!;
-        const before = player().hp;
-        assert.equal(before, player().maxHp, 'fixture check: starts at full HP');
-        runEnemyTurns(session, 1);
+        assert.equal(player().hp, player().maxHp, 'fixture check: starts at full HP');
+        // The easy band HOLDS its burst jutsu for the opening rounds
+        // (pveEasyBandHoldsBurst, wired into bestAffordableJutsu), so the first
+        // landed hit is not necessarily on turn 1. Advance until the enemy
+        // actually swings and assert the guarantee on THAT turn.
+        let hpAtTurnStart = player().hp;
+        let landed = false;
+        for (let i = 0; i < 6 && session.status === 'active'; i++) {
+            hpAtTurnStart = player().hp;
+            runEnemyTurns(session, 1);
+            if (player().hp < hpAtTurnStart) { landed = true; break; }
+        }
         // NON-VACUITY: the enemy must actually have hit, or "survived" proves nothing.
-        assert.ok(player().hp < before, `the enemy must land damage (hp ${before} → ${player().hp})`);
+        assert.ok(landed, 'the enemy must land damage within the opening turns');
+        assert.equal(hpAtTurnStart, player().maxHp, 'the first landed hit must arrive while the player is still at full HP');
         assert.ok(player().hp > 0, 'a full-HP player must survive one easy-band enemy turn');
     });
 
