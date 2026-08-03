@@ -3,7 +3,13 @@ import type { Character } from "../types/character";
 import type { TowerSession } from "../lib/towers-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
-import { startStoryBossCombat, settleStoryBossCombat, type StoryBossSettleResult } from "../lib/story-combat-api";
+import {
+    startStoryBossCombat,
+    settleStoryBossCombat,
+    startAcademySparCombat,
+    settleAcademySparCombat,
+    type StoryBossSettleResult,
+} from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 
@@ -38,6 +44,7 @@ export function StoryBossFightHost({
     creatorItems,
     onSettled,
     onOutcome,
+    onFightOpenChange,
 }: {
     character: Character | null;
     sharedImages: Record<string, string>;
@@ -47,6 +54,17 @@ export function StoryBossFightHost({
     creatorJutsus?: Jutsu[];
     creatorItems?: GameItem[];
     onSettled: (result: StoryBossSettleResult) => void;
+    /**
+     * Fires when a sealed fight opens and again when it closes.
+     *
+     * The fight is a body portal, so App's `screen` never changes and anything
+     * keyed off the screen stays mounted UNDER it. That is fine for nav chrome,
+     * which the portal simply covers — but not for the OnboardingCoach's spar
+     * modal, which carries a live r3f companion canvas with no demand frameloop.
+     * Left mounted it renders a second WebGL context behind an opaque fullscreen
+     * fight for the whole tutorial battle, on the phone of a brand-new player.
+     */
+    onFightOpenChange?: (open: boolean) => void;
     /** Adopt the character the fight's PHYSICAL cost was written onto (surviving
      *  HP, or the hospital stay on a defeat). Separate from onSettled, which
      *  carries the chapter REWARD and only fires on a win. */
@@ -64,27 +82,53 @@ export function StoryBossFightHost({
             // Warm the code-split combat chunk alongside the start-combat network
             // round-trip so MissionArenaFight is ready the moment the session opens.
             void import("../screens/MissionArenaFight");
-            startStoryBossCombat({ playerName, bossName: theme.bossName })
+            const start = theme.kind === "academySpar"
+                ? startAcademySparCombat({ playerName })
+                : startStoryBossCombat({ playerName, bossName: theme.bossName });
+            start
                 .then((started) => setFight({ theme, runId: started.runId, session: started.session }))
-                .catch((error) => alert(error instanceof Error ? error.message : "The story battle could not start."))
+                .catch((error) => {
+                    // A theme with a local fallback takes it rather than showing
+                    // an error — see StoryFightTheme.playLocally. The Academy
+                    // spar is the first minute of the game; it must not be the
+                    // thing a failed round-trip blocks.
+                    if (theme.playLocally) theme.playLocally();
+                    else alert(error instanceof Error ? error.message : "The story battle could not start.");
+                })
                 .finally(() => { startingRef.current = false; });
         });
     }, [playerName]);
 
+    // Announced from an effect, not from render, and with a cleanup so an
+    // unmount mid-fight still closes it out.
+    const open = !!fight;
+    useEffect(() => {
+        onFightOpenChange?.(open);
+        return () => { if (open) onFightOpenChange?.(false); };
+    }, [open, onFightOpenChange]);
+
     if (!fight || !character) return null;
     const theme = fight.theme;
+    const isSpar = theme.kind === "academySpar";
 
     // Settle the sealed run server-side (pays the chapter reward from the completed,
     // winning session — the client never attests the outcome). The resolved reward
     // row is handed back to MissionArenaFight's renderResult for the reward card.
     async function settle(runId: string, settlingPlayer: string): Promise<StoryBossSettleResult> {
-        const settled = await settleStoryBossCombat({ playerName: settlingPlayer, runId });
+        const settled = isSpar
+            ? await settleAcademySparCombat({ playerName: settlingPlayer, runId })
+            : await settleStoryBossCombat({ playerName: settlingPlayer, runId });
         onSettled(settled);
         return settled;
     }
 
     // The fight's physical cost. Fires on any resolution and on a forfeit exit —
     // a chapter boss that beat you must not leave you at full HP.
+    //
+    // A WON spar reports too — the server, which owns the session, is what
+    // declines to overwrite the scripted post-spar HP (see
+    // sparSettlementOwnsHp in api/missions/_ai-fight-outcome.ts). The client
+    // never gates this call: doing so is how a lost fight stops costing anything.
     async function reportOutcome(runId: string, settlingPlayer: string) {
         const applied = await reportPveFightOutcome(runId, settlingPlayer);
         if (applied?.character) onOutcome?.(applied.character, applied._saveVersion);
@@ -112,10 +156,41 @@ export function StoryBossFightHost({
                 // straight back in — and the defeat card already tells them to
                 // "recover and try again".
                 outcomeFn={reportOutcome}
-                storyTheme={theme}
+                // The spar deliberately gets NO storyTheme. It is the chapter
+                // presentation layer: passing it would fire the chapter-seal
+                // sting when a training dummy walks on, the story victory sting
+                // when it falls, and the chapter backdrop treatment — all for a
+                // tutorial bout with no chapter, no barks and no boss. The
+                // portrait and the result card are separate props, so the spar
+                // keeps both.
+                storyTheme={isSpar ? undefined : theme}
+                coach={isSpar ? "academySpar" : undefined}
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
                 renderResult={({ won, settleState, settleResult }) => {
+                    // The tutorial spar gets its own plain-language card: a new
+                    // player has no chapter context yet, and the loss path has to
+                    // point at the Hospital (the OnboardingCoach's recovery step)
+                    // rather than at a Story Hall they have not seen.
+                    if (isSpar) {
+                        const result = settleResult as StoryBossSettleResult | null;
+                        return (
+                            <div className="story-fight-complete" role="dialog" aria-label={won ? "Sparring match won" : "Sparring match lost"}>
+                                <div className="story-fight-complete-card">
+                                    <p className="story-fight-complete-kicker">{won ? "First Win" : "Knocked Down"}</p>
+                                    <h2>Academy Sparring Match</h2>
+                                    {won
+                                        ? (settleState !== "settled" || !result
+                                            ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified — reload and try the spar again." : "Sealing your reward…"}</p>
+                                            : result.replayed
+                                                ? <p className="story-fight-complete-rewards">This sparring reward was already collected.</p>
+                                                : <p className="story-fight-complete-rewards">+{result.statPoints ?? 20} stat points · +{result.ryo} ryo</p>)
+                                        : <p className="story-fight-complete-boss">The dummy got the better of you. Patch up at the Hospital and step back onto the mat.</p>}
+                                    <button onClick={closeFight}>Continue</button>
+                                </div>
+                            </div>
+                        );
+                    }
                     // WIN — the chapter-complete reward card. Its entrance is delayed a
                     // beat (see .story-fight-complete) so the boss's final authored bark
                     // lands first. Reward numbers come from the server settle response.

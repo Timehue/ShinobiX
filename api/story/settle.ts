@@ -13,6 +13,7 @@ import {
     STORY_BOSS_CLIENT_TRUST_DISABLED_REASON,
 } from '../_release-flags.js';
 import { applyAcademySparSettlement, applyStoryBossSettlement } from './_settle.js';
+import { validateCompletedAcademySparSession } from './_academy-spar.js';
 import {
     settleStoryCombatBinding,
     storyCombatBindingKey,
@@ -54,6 +55,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isSpar = body.kind === 'academySparring';
 
         // ── Authoritative channel: completed server session referenced by runId ──
+        if (isSpar && runId) {
+            const outcome = await settleSealedAcademySpar({ runId, playerName });
+            if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+            return res.status(200).json({ ok: true, ...outcome.value, character: outcome.character, _saveVersion: outcome._saveVersion });
+        }
         if (!isSpar && runId) {
             const bindingKey = storyCombatBindingKey(runId);
             const outcome = await withKvLock(bindingKey, async () => {
@@ -128,4 +134,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('[story/settle]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
+}
+
+/**
+ * The Academy spar's authoritative channel (step 5 of the AI-fight migration).
+ * Structurally identical to the story-boss runId branch above — same binding
+ * key, same lock, same `run:<runId>` redemption receipt so a refresh on the
+ * results screen replays instead of erroring — but validated as a SPAR
+ * (api/story/_academy-spar.ts): onboarding state is the gate, not a milestone.
+ *
+ * The spar's payout is fixed by applyAcademySparSettlement (+20 pool points,
+ * +30 ryo, and the scripted HP cost), so nothing here reads a number off the
+ * request. The only thing the sealed session supplies that the legacy token
+ * channel could not is the fact of the win itself.
+ */
+async function settleSealedAcademySpar(params: { runId: string; playerName: string }) {
+    const { runId, playerName } = params;
+    const bindingKey = storyCombatBindingKey(runId);
+    return withKvLock(bindingKey, async () => {
+        const binding = await kv.get<StoryCombatBinding>(bindingKey);
+        const session = await readSession(runId);
+        const result = await mutatePlayerSave(playerName, async ({ character }) => {
+            const redeemed = Array.isArray(character.redeemedStoryBattles)
+                ? (character.redeemedStoryBattles as unknown[]).filter((entry): entry is StoryRedemption => !!entry && typeof entry === 'object' && typeof (entry as StoryRedemption).token === 'string')
+                : [];
+            const redemptionKey = `run:${runId}`;
+            const prior = redeemed.find((entry) => entry.token === redemptionKey);
+            // A replay reports the recorded row, not a re-derived one — the
+            // results card reads `replayed` first and shows "already collected",
+            // so restating the grant here would only be a number free to drift.
+            if (prior) return { ok: true as const, character, value: { ...prior, replayed: true } };
+            const validation = validateCompletedAcademySparSession({ binding, session, playerName, character });
+            if (!validation.ok) return { ok: false as const, status: 409, error: `Sparring match could not be verified (${validation.reason}).` };
+            const settled = applyAcademySparSettlement(character, { opponentId: validation.binding.opponentId } as AiFightToken);
+            if (!settled.ok) return settled;
+            const redemption: StoryRedemption = { token: redemptionKey, progress: settled.progress, xp: settled.xp, ryo: settled.ryo, auraDust: settled.auraDust, finale: settled.finale };
+            return {
+                ok: true as const,
+                character: { ...settled.character, redeemedStoryBattles: [...redeemed.slice(-19), redemption] },
+                value: { ...redemption, statPoints: settled.statPoints, replayed: false },
+            };
+        });
+        if (result.ok && !(result.value as { replayed?: boolean }).replayed && binding) {
+            await settleConsumedItemsForMember({ session: session!, slug: playerName });
+            await kv.set(bindingKey, settleStoryCombatBinding(binding), { ex: STORY_COMBAT_SESSION_TTL_SECONDS });
+        }
+        return result;
+    }, { failClosed: true });
 }
