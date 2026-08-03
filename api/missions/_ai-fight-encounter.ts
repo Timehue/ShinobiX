@@ -42,6 +42,7 @@ import {
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
 import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
+import { pveDifficultyGuardEnabled } from '../_pve-band-seal.js';
 import {
     pveAiMasteryForLevel,
     pveDifficultyHpMultiplier,
@@ -149,7 +150,12 @@ export function buildAiFightEncounter(params: {
     // fights with scaled stats in the sub-peer bands. Without this the server
     // opponent is strictly tougher than the one the client shows.
     const level = Math.max(1, Math.floor(Number(profile.level) || 1));
-    const tuned: AiFightProfile = {
+    // Same rollback switch as every other PvE mode (api/_pve-band-seal.ts). The
+    // band is applied to the PROFILE here rather than to the built actors, so
+    // this path keeps its own arithmetic — but it must answer to the same
+    // switch, or DISABLE_PVE_DIFFICULTY_GUARD=1 would leave AI fights armed.
+    const banded = pveDifficultyGuardEnabled('AI_FIGHT');
+    const tuned: AiFightProfile = !banded ? profile : {
         ...profile,
         hp: Math.max(1, Math.floor(Number(profile.hp) * pveDifficultyHpMultiplier(level))),
         stats: scaleStatsForPveDifficulty(
@@ -201,10 +207,12 @@ export function buildAiFightEncounter(params: {
     // Arm the standard-PvE hit guard for this session. Presence is the gate —
     // no existing mode seals this, so none of them change. The band is keyed to
     // the opponent's SEALED level so the client cannot shift it mid-fight.
-    session.pveGuard = {
-        enemyLevel: Number(bossTemplate.level) || 1,
-        turnStartHp: {},
-        dealtThisTurn: {},
-    };
+    if (banded) {
+        session.pveGuard = {
+            enemyLevel: Number(bossTemplate.level) || 1,
+            turnStartHp: {},
+            dealtThisTurn: {},
+        };
+    }
     return session;
 }
