@@ -213,8 +213,37 @@ have caught the store dropping it.
   Arena.tsx still has exactly one `relevelBuiltinAi` call site and that it is
   still the combat-mission one. A second one → that mode silently diverges → the
   test fails instead.
-- **3d** — route the client's ~8 AI-fight launches to the server-combat screen.
-  `dd85f6667` already did this shape for story/weekly/anbu — follow it.
+- **3d** — server half **DONE** (`06055d252`); **client half NOT STARTED**.
+
+  `ai-fight-start` now returns `{ ok, runId, session, token, ... }`.
+  `MissionArenaFight` takes `initialSession` as a **REQUIRED** prop, so a runId
+  alone could never mount it — that was the blocker. `runId` and `session` are
+  spread under ONE condition so they can never diverge; both absent stays the
+  "play it locally" signal.
+
+  **The client half, precisely.** Follow `StoryBossFightHost.tsx` — it is the
+  whole pattern in 140 lines: a request bus (`lib/story-fight-theme.ts`) → a
+  single host mounted in App → start endpoint → `MissionArenaFight` with
+  `runId` + `initialSession` + `settleFn` + `renderResult` + `onExit`.
+
+  1. `lib/ai-fight-api.ts` — `startAiFight()` wrapping `/api/missions/ai-fight-start`.
+  2. `lib/ai-fight-request.ts` — the request bus (mirror `story-fight-theme`).
+  3. `components/AiFightHost.tsx` — mounted once in App; on request, start, then
+     render `MissionArenaFight` if a `runId` came back, **else fall back to the
+     local Arena path**. That fallback is not a feature gate — it is the
+     designed degrade for `ENABLE_SERVER_AI_COMBAT` off or a failed seal.
+  4. Re-point the launch sites onto the bus.
+
+  ⚠ **All ~8 launch sites are inside `App.tsx`**, which is under the
+  line-budget ratchet (`src/App.size.test.ts`) and the drain rule in
+  `shinobij.client/CLAUDE.md`. New code goes in the modules above, NOT App.tsx;
+  the launch sites should shrink to a bus emit, so the ratchet should be
+  lowered, not raised.
+
+  ⚠ **Ordering trap:** today Arena fetches the token from *inside* the battle
+  (`Arena.tsx:861`, a `battleStarted` effect), so the runId arrives AFTER the
+  local fight is already underway. The host must start the fight BEFORE the
+  battle screen is chosen, or there is nothing to route.
 - **4** — derive the reward from the settled session (retire the client-claimed
   win in `report-ai-fight`); keep `redeemedAiFightRewards` for idempotency. The
   token already carries `runId`, so no second binding key is needed.
