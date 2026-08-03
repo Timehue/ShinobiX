@@ -219,6 +219,7 @@ import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.js';
 import missionsCombatStartHandler from './api/missions/combat-start.js';
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
+import pveFightOutcomeHandler from './api/pve/fight-outcome.js';
 import patreonOauthStartHandler       from './api/patreon/oauth-start.js';
 import patreonOauthCallbackHandler    from './api/patreon/oauth-callback.js';
 import patreonWebhookHandler          from './api/patreon/webhook.js';
@@ -1269,6 +1270,9 @@ route('/missions/claim-mission',    missionsClaimMissionHandler);
 route('/missions/queue-combat-claim', missionsQueueCombatClaimHandler);
 route('/missions/combat-start', missionsCombatStartHandler);
 route('/missions/record-progress',  missionsRecordProgressHandler);
+// The physical cost of a server-resolved PvE fight (surviving HP / hospital on a
+// defeat or a forfeit). Pays nothing — the reward settles stay where they are.
+route('/pve/fight-outcome', pveFightOutcomeHandler);
 // Patreon — OAuth account-link + membership webhook + subscriber status.
 // Perks are gated on the server-owned character.patreon flag, written ONLY by
 // the signature-verified webhook / OAuth callback (api/patreon/_patreon.ts).

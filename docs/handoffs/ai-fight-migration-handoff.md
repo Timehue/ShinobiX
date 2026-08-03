@@ -388,14 +388,34 @@ whether or not the clamp runs. The precondition also disproved an assumption in
 the comments: the boss deals **0** on the first turn or two because it is closing
 distance, so a one-turn window proves nothing either.
 
-### Still open elsewhere — not this migration's to fix, but now known
+### ✅ Fixed: combat missions and story bosses cost nothing to lose
 
-Combat missions (rank C+) and story bosses run on the server engine and **also
-persist no HP and never hospitalize on defeat** — the same hole step 4 just closed
-for AI fights. Losing a story boss or a C-rank mission currently costs nothing.
-The fix is the same shape: read the settled session in their settle endpoints
-(`api/story/settle.ts`, `queue-combat-claim`) and apply
-`applyAiFightOutcomeToCharacter`, which is written to be reusable.
+Same hole as the AI fights, in the two other modes on this engine. Losing a
+C-rank mission or a chapter boss left the player at full HP, un-hospitalized, and
+free to walk straight back in — while the defeat card told them to "recover and
+try again".
+
+Closed by a **new shared endpoint, `POST /api/pve/fight-outcome`**, rather than by
+teaching each reward settle to handle a loss. Those settles (`api/story/settle`,
+`queue-combat-claim`, `report-ai-fight`) all refuse a losing run *by design*, so
+threading a defeat through them would mean teaching each one to pay nothing while
+still writing a save. One endpoint, one rule, reused by every mode: it pays
+nothing and only writes what the fight cost (surviving HP, or the hospital stay
+on a defeat/forfeit), reusing `applyAiFightOutcomeToCharacter`.
+
+`MissionArenaFight` gained an opt-in `outcomeFn`, fired on ANY resolution **and**
+on leaving an unresolved run. Modes that don't pass it are unchanged, so towers,
+Spire, clan boss and Anbu — which have their own run economies — are untouched.
+
+⚠ **Two traps specific to this endpoint:**
+- Its runId is **client-supplied**, unlike the AI-fight path (whose runId comes
+  from a token sealed under the caller's own name). Membership is verified with
+  `isPveFightMember` — without it, handing in a stranger's *winning* session
+  would write their surviving HP onto your save, i.e. a free heal.
+- The write is **not naturally idempotent**: re-applying a defeat pushes
+  `hospitalizedUntil` further out, so a refresh on the results screen would make
+  a defeat get worse the more you looked at it. A per-run KV receipt gates it,
+  and a test pins the hazard so the receipt cannot be dropped as redundant.
 
   `Arena.tsx:861`'s `battleStarted` token-mint effect is the other half of this:
   it is now the FALLBACK path's minting only. Note the host also mints a token
