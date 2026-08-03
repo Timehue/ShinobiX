@@ -49,7 +49,6 @@ import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPve
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
-import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
@@ -840,7 +839,7 @@ export function Arena({
     // the victory handler from manufacturing a fresh token on demand.
     const aiFightTokenPromiseRef = useRef<Promise<string> | null>(null);
     useEffect(() => {
-        if (!battleStarted || battleEnded || opponentCharacter || (!aiFightServerAuthEnabled() && !pendingStoryBattle)) return;
+        if (!battleStarted || battleEnded || opponentCharacter) return;
         if (aiFightTokenPromiseRef.current) return;
         const payload = {
             playerName: character.name,
@@ -3199,40 +3198,36 @@ export function Arena({
         // village-war side effects above already ran synchronously, so only the
         // XP/ryo grant defers to the endpoint. If the endpoint cannot verify the
         // reward, the win still resolves locally but grants 0 XP/ryo.
-        if (aiFightServerAuthEnabled()) {
-            const rewardPayload = {
-                playerName: character.name,
-                opponentId: pendingAiProfile?.id ?? "",
-                opponentLevel: aiLevel,
-                xp: xpGain,
-                ryo: ryoGain,
-            };
-            const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
-            tokenRequest
-                .then((aiFightToken) => {
-                    if (!aiFightToken) return null;
-                    return fetch("/api/missions/report-ai-fight", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ ...rewardPayload, aiFightToken }),
-                    }).then((r) => (r.ok ? r.json() : null));
-                })
-                .then((data: { xp?: unknown; ryo?: unknown; character?: Partial<Character> } | null) => {
-                    updateCharacter(buildWin(data?.character));
-                    // Report what the server actually paid, not what we predicted.
-                    // A null `data` means the token was missing or the report was
-                    // refused — that grants nothing, and the banner must say so.
-                    const grantedRyo = Number(data?.ryo);
-                    announceWinRewards(Number.isFinite(grantedRyo) ? grantedRyo : 0);
-                })
-                .catch(() => {
-                    updateCharacter({ ...base, hp: playerHp });
-                    announceWinRewards(0);
-                });
-            aiFightTokenPromiseRef.current = null;
-        } else {
-            updateCharacter({ ...base, hp: Math.min(base.hp, playerHp) });
-        }
+        const rewardPayload = {
+            playerName: character.name,
+            opponentId: pendingAiProfile?.id ?? "",
+            opponentLevel: aiLevel,
+            xp: xpGain,
+            ryo: ryoGain,
+        };
+        const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
+        tokenRequest
+            .then((aiFightToken) => {
+                if (!aiFightToken) return null;
+                return fetch("/api/missions/report-ai-fight", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...rewardPayload, aiFightToken }),
+                }).then((r) => (r.ok ? r.json() : null));
+            })
+            .then((data: { xp?: unknown; ryo?: unknown; character?: Partial<Character> } | null) => {
+                updateCharacter(buildWin(data?.character));
+                // Report what the server actually paid, not what we predicted.
+                // A null `data` means the token was missing or the report was
+                // refused — that grants nothing, and the banner must say so.
+                const grantedRyo = Number(data?.ryo);
+                announceWinRewards(Number.isFinite(grantedRyo) ? grantedRyo : 0);
+            })
+            .catch(() => {
+                updateCharacter({ ...base, hp: playerHp });
+                announceWinRewards(0);
+            });
+        aiFightTokenPromiseRef.current = null;
         if (exploreAmbushActive && raidBattleKind === "none") {
             // Explore-mission credit deferred from exploreSector — granted only
             // now that the ambush was won. Flag the win so the victory overlay
@@ -3278,11 +3273,7 @@ export function Arena({
         // used to promise rewards the server had already refused. Announce the
         // win now, and let announceWinRewards (called from the report response)
         // restate the line with the amounts actually granted.
-        if (!aiFightServerAuthEnabled()) {
-            announceWinRewards(ryoGain);
-        } else {
-            setLog(`${opponentName} defeated. Tallying rewards…`);
-        }
+        setLog(`${opponentName} defeated. Tallying rewards…`);
         setRaidBattleKind("none");
         setClanWarPointsActive(0);
     }
