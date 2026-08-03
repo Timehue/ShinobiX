@@ -37,6 +37,7 @@ import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceG
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { WANDERER_PENDING_KEY, type WandererFightResult } from "../lib/wanderer-fight";
+import { requestAiFight } from "../lib/ai-fight-request";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -1114,6 +1115,32 @@ export function WorldMap({
             localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode, stage, sector, baselineKills: character.totalAiKills ?? 0, at: Date.now(), ...extra }));
         } catch { /* private mode — chain just won't auto-continue */ }
         setScreen("arena");
+    }
+    /**
+     * Raid an AI village guard / sector target. `setup` runs on BOTH routes (it is
+     * world state — sector, biome, weather — not battle state); only the local
+     * Arena entry is deferred to `playLocally`, which runs when the server sealed
+     * no encounter.
+     *
+     * Wanderer / quest-boss / story-reckoning fights deliberately do NOT come
+     * through here: their AIs are built at runtime by makeBuiltinAi, so their ids
+     * are absent from the server's profile catalog and could only ever fall back.
+     * Routing them would buy a start round-trip and nothing else.
+     */
+    function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void) {
+        setPendingPvpOpponent(null);
+        setup?.();
+        requestAiFight({
+            opponentId: aiId,
+            opponentLevel: level,
+            battleKind: "raidAi",
+            sector,
+            playLocally: () => {
+                setPendingAiProfileId(aiId);
+                setRaidBattleKind("raidAi");
+                setScreen("arena");
+            },
+        });
     }
     function startWandererAttack(w: Wanderer, nemesis = false) {
         if (selectedSector == null) return;
@@ -2578,8 +2605,18 @@ export function WorldMap({
             // sectors (see isWildSector) reopen a detail view; territory/virtual sectors fall
             // back to the world-map overview.
             setSectorReopen(isWildSector(sector) ? sector : null);
-            setPendingAiProfileId(randomAi.id);
-            setScreen("arena");
+            requestAiFight({
+                opponentId: randomAi.id,
+                opponentLevel: randomAi.level ?? character.level,
+                battleKind: "explore",
+                opponentName: randomAi.name,
+                enemyAvatar: randomAi.image,
+                sector,
+                playLocally: () => {
+                    setPendingAiProfileId(randomAi.id);
+                    setScreen("arena");
+                },
+            });
             return;
         }
 
@@ -2736,9 +2773,19 @@ export function WorldMap({
         // against the accepted hunt to stamp the kill receipt. Registering the
         // clone puts it ahead of the catalog original in the Arena's lookup.
         registerWandererAi(applyHuntOpening(ai, readHuntQuality(mission.id)));
-        setPendingAiProfileId(ai.id);
-        setRaidBattleKind("raidAi");
-        setScreen("arena");
+        requestAiFight({
+            opponentId: ai.id,
+            opponentLevel: ai.level ?? character.level,
+            battleKind: "raidAi",
+            opponentName: ai.name,
+            enemyAvatar: ai.image,
+            sector: currentSector,
+            playLocally: () => {
+                setPendingAiProfileId(ai.id);
+                setRaidBattleKind("raidAi");
+                setScreen("arena");
+            },
+        });
     }
 
     /**
@@ -4025,12 +4072,11 @@ export function WorldMap({
                                                     alert(`Requires level ${raid.levelReq}.`);
                                                     return;
                                                 }
-                                                setCurrentSector(raid.targetSector!);
-                                                setPendingAiProfileId(raid.aiProfileId || "");
-                                                setRaidBattleKind("raidAi");
-                                                setCurrentBiome(raid.biome);
-                                                setCurrentWeather(weatherForBiome(raid.biome));
-                                                setScreen("arena");
+                                                launchAiGuardRaid(raid.aiProfileId || "", raid.levelReq, raid.targetSector!, () => {
+                                                    setCurrentSector(raid.targetSector!);
+                                                    setCurrentBiome(raid.biome);
+                                                    setCurrentWeather(weatherForBiome(raid.biome));
+                                                });
                                             }}
                                             title={`${raid.name} | ${raid.waves} waves | Lvl ${raid.levelReq}`}
                                         >
@@ -4109,23 +4155,19 @@ export function WorldMap({
                                         if (guard) {
                                             fetchSavedPlayerCharacter(guard.name).then((guardCharacter) => {
                                                 if (guardCharacter) return startPvpRaid(guardCharacter, selectedSector, biome, sectorWeather);
-                                                setPendingPvpOpponent(null);
-                                                setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
-                                                setRaidBattleKind("raidAi");
-                                                setCurrentSector(selectedSector);
-                                                setCurrentBiome(biome);
-                                                setCurrentWeather(sectorWeather);
-                                                setScreen("arena");
+                                                launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, selectedSector, () => {
+                                                    setCurrentSector(selectedSector);
+                                                    setCurrentBiome(biome);
+                                                    setCurrentWeather(sectorWeather);
+                                                });
                                             });
                                             return;
                                         }
-                                        setPendingPvpOpponent(null);
-                                        setPendingAiProfileId(pickGuardAi(character.level));
-                                        setRaidBattleKind("raidAi");
-                                        setCurrentSector(selectedSector);
-                                        setCurrentBiome(biome);
-                                        setCurrentWeather(sectorWeather);
-                                        setScreen("arena");
+                                        launchAiGuardRaid(pickGuardAi(character.level), character.level, selectedSector, () => {
+                                            setCurrentSector(selectedSector);
+                                            setCurrentBiome(biome);
+                                            setCurrentWeather(sectorWeather);
+                                        });
                                     }}>
                                         <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
                                         <span>Raid Enemy Village</span>
@@ -4134,13 +4176,11 @@ export function WorldMap({
                             )}
                             {territory.ownerClan && territory.ownerClan !== character.clan && (
                                 <button type="button" className="danger-button sector-action-btn is-danger" onClick={() => {
-                                    setPendingPvpOpponent(null);
-                                    setPendingAiProfileId(pickGuardAi(character.level));
-                                    setRaidBattleKind("raidAi");
-                                    setCurrentSector(selectedSector);
-                                    setCurrentBiome(biome);
-                                    setCurrentWeather(sectorWeather);
-                                    setScreen("arena");
+                                    launchAiGuardRaid(pickGuardAi(character.level), character.level, selectedSector, () => {
+                                        setCurrentSector(selectedSector);
+                                        setCurrentBiome(biome);
+                                        setCurrentWeather(sectorWeather);
+                                    });
                                 }}>
                                     <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
                                     <span>Raid Controlled Sector</span>
@@ -4422,9 +4462,7 @@ export function WorldMap({
                                             }
 
                                             // No guard character — AI fallback
-                                            setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
-                                            setRaidBattleKind("raidAi");
-                                            setScreen("arena");
+                                            launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, currentSector);
                                         }}
                                     >
                                         🛡️ Challenge Guard
@@ -4437,13 +4475,11 @@ export function WorldMap({
                                 <>
                                     <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>Village Undefended</p>
                                     <button onClick={() => {
-                                        setPendingPvpOpponent(null);
-                                        setPendingAiProfileId(pickGuardAi(character.level));
-                                        setRaidBattleKind("raidAi");
-                                        setCurrentSector(virtualSector);
-                                        setCurrentBiome(biome);
-                                        setCurrentWeather(weather);
-                                        setScreen("arena");
+                                        launchAiGuardRaid(pickGuardAi(character.level), character.level, virtualSector, () => {
+                                            setCurrentSector(virtualSector);
+                                            setCurrentBiome(biome);
+                                            setCurrentWeather(weather);
+                                        });
                                     }}>
                                         Raid {loc.name.split(" ")[0]}
                                     </button>
