@@ -22,6 +22,7 @@ import { writeSession } from '../towers/_tower-store.js';
 import { sealCompanionFromSave } from '../towers/_companion.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
+import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 
 /** Start a sealed, server-resolved combat mission. Body: { playerName, missionId, hostLoadout? }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -84,6 +85,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Arm the standard-PvE difficulty layer (band + hit guard). Sealed BEFORE
         // the session is written, so the very first enemy turn is already guarded.
         sealPveDifficultyBand(session, { mode: 'MISSION' });
+        // Give the AI its jutsu mastery — without this it casts at 30% (step C).
+        // Must follow the guard above, which bounds the uplift.
+        sealPveAiMastery(session, { mode: 'MISSION' });
         const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
         await writeSession(session);
         await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });

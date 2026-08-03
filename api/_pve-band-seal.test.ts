@@ -8,6 +8,7 @@ import {
     sealPveDifficultyBand,
     type PveBandMode,
 } from './_pve-band-seal.js';
+import { readSession, writeSession } from './towers/_tower-store.js';
 import type { TowerSession, TowerActor } from './towers/_tower-session.js';
 
 /*
@@ -105,6 +106,19 @@ describe('sealPveDifficultyBand', () => {
             const s = session(actor('add-1', 'enemy', 90, 100), actor('boss', 'enemy', 20, 100));
             assert.equal(pveBandLevelForSession(s), 20);
         });
+        it('finds a tower/spire boss by phaseState.bossId, not the literal id "boss"', () => {
+            // Only the SOLO encounter builders name the actor 'boss'. Tower,
+            // Spire and clan-boss floors generate ids, so matching the string
+            // alone would silently fall through to the max-scan and band a boss
+            // floor on whichever mob happened to be highest.
+            const s = session(actor('en-0', 'enemy', 40, 100), actor('en-1', 'enemy', 80, 9000));
+            (s as unknown as { phaseState: { bossId: string } }).phaseState = { bossId: 'en-1' };
+            assert.equal(pveBandLevelForSession(s), 80, 'bands on the boss');
+            // ...and the boss is NOT merely the highest here:
+            const s2 = session(actor('en-0', 'enemy', 90, 100), actor('en-1', 'enemy', 40, 9000));
+            (s2 as unknown as { phaseState: { bossId: string } }).phaseState = { bossId: 'en-1' };
+            assert.equal(pveBandLevelForSession(s2), 40, 'the boss wins over a higher-level add');
+        });
         it('falls back to the highest enemy level when there is no boss', () => {
             const s = session(actor('add-1', 'enemy', 12, 100), actor('add-2', 'enemy', 44, 100));
             assert.equal(pveBandLevelForSession(s), 44);
@@ -148,6 +162,33 @@ describe('sealPveDifficultyBand', () => {
             assert.equal(pveDifficultyGuardEnabled('MISSION', { DISABLE_PVE_DIFFICULTY_GUARD: 'true' }), true);
             assert.equal(pveDifficultyGuardEnabled('MISSION', { DISABLE_PVE_DIFFICULTY_GUARD: '0' }), true);
         });
+    });
+});
+
+describe('the sealed guard survives the session store', () => {
+    it('round-trips through writeSession/readSession intact', async () => {
+        // Every test above works on an in-memory session, so none of them would
+        // notice the store dropping the field. The guard is only useful if it is
+        // still there on the NEXT request — the engine reads it per action, not
+        // once at start.
+        const s = session(actor('sq-0', 'squad', 20, 800), actor('boss', 'enemy', 20, 1000));
+        (s as unknown as { runId: string }).runId = 'tower-band-roundtrip';
+        sealPveDifficultyBand(s, { mode: 'MISSION', env: {} });
+        assert.ok(s.pveGuard, 'fixture check: sealed before the write');
+
+        const store = new Map<string, unknown>();
+        const fakeKv = {
+            get: async <T>(k: string) => (JSON.parse(JSON.stringify(store.get(k) ?? null)) as T),
+            set: async (k: string, v: unknown) => { store.set(k, v); },
+        };
+        await writeSession(s, { kv: fakeKv as never });
+        const back = await readSession('tower-band-roundtrip', { kv: fakeKv as never });
+        assert.deepEqual(back?.pveGuard, s.pveGuard, 'pveGuard survived the round-trip');
+        assert.equal(
+            (back?.actors.find(a => a.id === 'boss')!.character.stats as Record<string, number>).ninjutsuOffense,
+            600,
+            'and so did the banded stats',
+        );
     });
 });
 

@@ -16,6 +16,7 @@ import { makeRng } from './_sim.js';
 import { writeSession, setTowerInvite, bumpDailyStartCount, MAX_TOWER_STARTS_PER_DAY } from './_tower-store.js';
 import { stampTurnClock } from './_tower-mp.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
+import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
 /*
@@ -134,6 +135,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ascension modifiers), so a fourth level-keyed multiplier on top would
         // double-dip against content that was tuned with them in place.
         sealPveDifficultyBand(session, { mode: 'TOWER', scaleHp: false, scaleStats: false });
+        // Give the AI its jutsu mastery — without this every enemy casts at 30%
+        // while the merc ALLIES in the same fight are built with mastery 50
+        // (_merc-fighters.ts). Spire carries its own switch: its level-100 bosses
+        // sit in the peer band, where the guard above is an intentional no-op, so
+        // the uplift is unbounded there.
+        sealPveAiMastery(session, { mode: mode === 'spire' ? 'SPIRE' : 'TOWER' });
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(seed)); // advance to the first human's turn (or auto-resolve)
         stampTurnClock(session, now);                   // start the AFK clock for whoever is up
