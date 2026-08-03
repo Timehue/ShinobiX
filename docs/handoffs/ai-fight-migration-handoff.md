@@ -30,41 +30,60 @@ Full plan: `docs/runbooks/combat-mode-migration.md`.
 `aiOpponentEnemyTemplate(profile, resolvedJutsu?)` in `api/_authoritative-pve.ts`
 — a defeatable `EnemyTemplate` built faithfully from an AI profile (finite HP,
 whole stat sheet, armor, pools, real jutsu loadout). Pure, 9 tests in
-`api/_ai-opponent-template.test.ts`. **Nothing calls it yet** — it's the verified
-foundation.
+`api/_ai-opponent-template.test.ts`.
 
-## Next: step 2 — `ai-fight-start` builds a real sealed encounter
+## Done (step 2)
 
-Template to copy: **`api/missions/combat-start.ts`** (91 lines). It:
-1. reads the save (`augmentSaveWithForgedDefs(kv.get(save:...))`),
-2. `buildAuthoritativeSoloEncounter({ save, floor, bossTemplate, runId, seed, now, towerId, admin: await loadAdminCombatContent(), hostLoadout })`,
-3. `writeSession(session)` and returns the runId.
+`ai-fight-start` now seals a real encounter behind `ENABLE_SERVER_AI_COMBAT`
+(default OFF) and returns its `runId` alongside the existing token fields.
 
-For AI fights, `ai-fight-start.ts` should do the same but:
-- build `bossTemplate` from `aiOpponentEnemyTemplate(profile, resolvedJutsu)`,
-  where `profile` comes from the AI profiles the fight already uses (built-in
-  catalog and/or `shared:ai-profiles`), and `resolvedJutsu` is the profile's
-  `jutsuIds` resolved against `JUTSU_CATALOG` ∪ admin content (see how
-  `resolveEquippedLoadout` / the client resolves them),
-- use a `dynamicBossFloor(...)` (see `_authoritative-pve.ts`) with a normal
-  `objective: 'defeat-boss'` and a sensible `roundBudget`,
-- do it **behind a flag** (add `ENABLE_SERVER_AI_COMBAT` or a `.v1` client flag,
-  default OFF for now) so the existing token path stays the default until the
-  client half (step 3) is ready. Keep the current token-minting behavior as the
-  fallback when the flag is off.
-- Return the `runId` alongside the existing token fields so a flagged client can
-  pick the server path.
+**The step-2 note above was wrong about one thing, and it mattered:** the server
+had NO source of AI profiles. `builtinAis` is derived at import time on the
+CLIENT (`shinobij.client/src/lib/combat-ai.ts` — `makeBuiltinAi` runs the level
+curves), and `shared:ai-profiles` is a read-only key nothing has ever written.
+So step 2 had to start by mirroring the catalog:
 
-Step 2 is fully server-side and unit/source-testable — no client risk. Land it
-before touching the client.
+- **`api/_ai-profile-catalog.ts`** — GENERATED mirror of the 71 built-in AI
+  profiles, via `scripts/ai-profile-catalog-gen.mjs`, drift-guarded by
+  `scripts/ai-profile-catalog.test.mjs`. Same cross-build-root pattern as
+  `api/pvp/_jutsu-catalog.ts`. **Regenerate after any change to `builtinAis`:**
+  `node --import tsx scripts/ai-profile-catalog-gen.mjs`. `rules` is deliberately
+  not mirrored (random ids each import; the tower engine runs its own AI).
+- **`api/_ai-opponent-loadout.ts`** — `resolveAiProfileJutsu(jutsuIds, admin)`:
+  `JUTSU_CATALOG` ∪ admin content, built-ins winning collisions (same precedence
+  as `resolveEquippedLoadout`), run through `sanitizeJutsuList`.
+- **`api/towers/_enemy-templates.ts`** — `EnemyTemplate['jutsu']` widened with
+  `target` / `tags`. Type-only: the encounter builder already spreads jutsu
+  through, but the narrow type would have silently disarmed every tag the AI
+  casts. Watch for this if you add more fields.
+- **`api/missions/_ai-fight-encounter.ts`** — `loadAiFightProfile` (mirror, then
+  `shared:ai-profiles`) + `buildAiFightEncounter`. Seals the active pet, same as
+  `combat-start`.
+- The token record now carries `runId` — one token = one battle lifecycle, so
+  step 4 has no second binding key to invent.
 
-## Then (later sessions, do NOT rush these)
+Flag OFF is a byte-identical no-op, and sealing is best-effort: any failure
+returns no `runId` and the fight runs the existing path.
 
-- **Step 3 (big):** route the client's AI-fight launches (~8 entry points:
-  Arena, WorldMap, HunterBoard, hunt-encounter, apex-contract, endless-tower)
-  to the server-combat screen (`MissionArenaFight`-style) instead of the local
-  engine, behind the flag. This is where care matters most — a half-migration
-  is worse than none.
+## Next: step 3 (big) — route the client onto it
+
+Route the client's AI-fight launches (~8 entry points: Arena, WorldMap,
+HunterBoard, hunt-encounter, apex-contract, endless-tower) to the server-combat
+screen (`MissionArenaFight`-style) instead of the local engine, behind the flag.
+This is where care matters most — a half-migration is worse than none.
+
+**Two things step 2 deliberately left for step 3** (both are commented at the top
+of `_ai-fight-encounter.ts`):
+
+1. **Opponent level.** The encounter is built at the profile's AUTHORED level.
+   The client re-levels built-ins per entry point (`relevelBuiltinAi`: missions
+   align the foe to the player, hunts scale by sector, rifts rebase to
+   player+15) and that rule lives only on the client. `opponentLevel` from the
+   request body is NOT read — a client-chosen level is a client-chosen
+   difficulty, which is the authority this migration exists to remove. Each
+   entry point's scaling rule has to move server-side as part of the routing.
+2. **Terrain.** The floor uses the neutral `central` biome, not the client's
+   sector terrain, so no unearned +10% school buff is sealed in.
 - **Step 4:** derive the reward from the settled session (retire the
   client-claimed win in `report-ai-fight`); keep the `redeemedAiFightRewards`
   receipt for idempotency.
