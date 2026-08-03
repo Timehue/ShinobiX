@@ -106,7 +106,19 @@ export function applyAiFightOutcomeToCharacter(
     now: number,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
-    if (outcome === 'loss' || outcome === 'forfeit') {
+    // No actor to read means no evidence of what the fight cost. Guessing would
+    // be worse than doing nothing — this is also the local-fallback track, which
+    // still applies its own HP client-side.
+    if (!playerActor) return character;
+
+    // ⚠ The hospital keys off the player being DOWN, not off `winner !== squad`.
+    // A run can end with the player alive and standing: the weekly boss is
+    // explicitly won by OUTLASTING the round budget, and a mission or story run
+    // that times out is a failure the player walked away from. Hospitalizing on
+    // "not a squad win" would send someone at full HP to a hospital bed for
+    // surviving, which is the opposite of what the local Arena does — it
+    // hospitalizes in its KO paths and nowhere else.
+    if (num(playerActor.hp) <= 0) {
         return {
             ...character,
             hp: 0,
@@ -115,11 +127,14 @@ export function applyAiFightOutcomeToCharacter(
             hospitalizedUntil: now + AI_FIGHT_HOSPITAL_DURATION_MS,
         };
     }
-    // Won or drew: carry the surviving HP back. Clamp to the save's own maxHp so
-    // a stale session (sealed before a level-up shrank/grew the pool) can never
-    // set HP above the real ceiling.
-    if (!playerActor) return character;
+
+    // Survived — win, draw, timeout, or walked out mid-fight. Carry the HP back.
+    // This is what makes a forfeit cost something without over-punishing it: you
+    // leave at the HP you left with, so bailing out of a fight you are losing
+    // still means healing before the next one.
+    //
+    // Clamped to the SAVE's own maxHp so a stale session (sealed before a level
+    // changed the pool) can never set HP above the real ceiling.
     const maxHp = Math.max(1, num(character.maxHp));
-    const surviving = Math.max(1, Math.min(maxHp, num(playerActor.hp)));
-    return { ...character, hp: surviving };
+    return { ...character, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
 }

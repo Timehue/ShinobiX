@@ -93,29 +93,53 @@ describe('applyAiFightOutcomeToCharacter — a fight costs the same on either en
     const now = 1_700_000_000_000;
     const base = { hp: 300, maxHp: 300, hospitalized: false, hospitalizedAt: 0, hospitalizedUntil: 0 };
 
+    const downed = session({ winner: 'enemy', actors: [{ ...actor({}), side: 'squad', ai: false, hp: 0, maxHp: 300 }] });
+
     it('carries the surviving HP back on a win', () => {
         const next = applyAiFightOutcomeToCharacter({ ...base }, 'win', aiFightPlayerActor(session({})), now);
         assert.equal(next.hp, 42, 'the win must cost the HP the fight actually cost');
         assert.equal(next.hospitalized, false);
     });
 
-    it('hospitalizes on a loss, matching the local Arena defeat', () => {
-        const next = applyAiFightOutcomeToCharacter({ ...base }, 'loss', aiFightPlayerActor(session({})), now);
+    it('hospitalizes when the player is DOWN, matching the local Arena KO paths', () => {
+        const next = applyAiFightOutcomeToCharacter({ ...base }, 'loss', aiFightPlayerActor(downed), now);
         assert.equal(next.hp, 0);
         assert.equal(next.hospitalized, true);
         assert.equal(next.hospitalizedAt, now);
         assert.equal(next.hospitalizedUntil, now + AI_FIGHT_HOSPITAL_DURATION_MS);
     });
 
-    it('hospitalizes on a forfeit exactly like a loss', () => {
-        const next = applyAiFightOutcomeToCharacter({ ...base }, 'forfeit', undefined, now);
-        assert.equal(next.hp, 0);
-        assert.equal(next.hospitalized, true);
+    it('does NOT hospitalize a player who lost but SURVIVED', () => {
+        // A run can end with the player alive and standing: the weekly boss is
+        // won by OUTLASTING the round budget, and a mission or story run that
+        // times out is a failure the player walked away from. Keying the hospital
+        // off `winner !== squad` would send someone at full HP to a hospital bed
+        // for surviving — the opposite of what the local Arena does.
+        const timedOut = session({ winner: 'enemy' }); // player actor is on 42 HP
+        const next = applyAiFightOutcomeToCharacter({ ...base }, 'loss', aiFightPlayerActor(timedOut), now);
+        assert.equal(next.hospitalized, false, 'surviving a timeout must not hospitalize');
+        assert.equal(next.hp, 42, 'but it still costs the HP the fight cost');
+    });
+
+    it('a forfeit costs the HP you walked out with, not a hospital bed', () => {
+        // This is what keeps bailing out of a losing fight from being free
+        // WITHOUT over-punishing someone who quits at full HP: you leave at the
+        // HP you left with, so you still have to heal before the next fight.
+        const bailed = session({ status: 'active', winner: null });
+        const next = applyAiFightOutcomeToCharacter({ ...base }, 'forfeit', aiFightPlayerActor(bailed), now);
+        assert.equal(next.hospitalized, false);
+        assert.equal(next.hp, 42);
     });
 
     it('leaves the character untouched when the outcome is unknown', () => {
         const next = applyAiFightOutcomeToCharacter({ ...base }, 'unknown', aiFightPlayerActor(session({})), now);
         assert.deepEqual(next, base, 'a vanished session must not punish an honest player');
+    });
+
+    it('leaves the character untouched when there is no actor to read', () => {
+        // The local-fallback track, which still applies its own HP client-side.
+        // Guessing a cost with no evidence would be worse than doing nothing.
+        assert.deepEqual(applyAiFightOutcomeToCharacter({ ...base }, 'loss', undefined, now), base);
     });
 
     it('clamps surviving HP to the SAVE maxHp, never the stale session one', () => {
@@ -127,9 +151,9 @@ describe('applyAiFightOutcomeToCharacter — a fight costs the same on either en
         assert.equal(next.hp, 30);
     });
 
-    it('never leaves a survivor on 0 HP (a win is not a silent KO)', () => {
-        const zeroed = session({ actors: [{ ...actor({}), side: 'squad', ai: false, hp: 0, maxHp: 300 }] });
-        const next = applyAiFightOutcomeToCharacter({ ...base }, 'win', aiFightPlayerActor(zeroed), now);
+    it('never leaves a survivor on 0 HP — 1 HP is the floor for anyone still up', () => {
+        const barely = session({ actors: [{ ...actor({}), side: 'squad', ai: false, hp: 1, maxHp: 300 }] });
+        const next = applyAiFightOutcomeToCharacter({ ...base }, 'win', aiFightPlayerActor(barely), now);
         assert.equal(next.hp, 1);
         assert.equal(next.hospitalized, false);
     });
@@ -138,8 +162,9 @@ describe('applyAiFightOutcomeToCharacter — a fight costs the same on either en
         // Documents the hazard /api/pve/fight-outcome's per-run receipt guards
         // against: this write is not naturally idempotent, so a refresh on the
         // results screen would make a defeat get worse the more you looked at it.
-        const first = applyAiFightOutcomeToCharacter({ ...base }, 'loss', undefined, now);
-        const second = applyAiFightOutcomeToCharacter(first, 'loss', undefined, now + 30_000);
+        const ko = aiFightPlayerActor(downed);
+        const first = applyAiFightOutcomeToCharacter({ ...base }, 'loss', ko, now);
+        const second = applyAiFightOutcomeToCharacter(first, 'loss', ko, now + 30_000);
         assert.ok(
             Number(second.hospitalizedUntil) > Number(first.hospitalizedUntil),
             'a second apply extends the stay — the caller MUST gate this behind a receipt',
