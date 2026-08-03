@@ -58,6 +58,26 @@ describe('_ai-fight-token', () => {
         assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p2', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 100, ryo: 75, trait: null });
     });
 
+    // One token = one battle lifecycle, so when ai-fight-start seals a server
+    // encounter (ENABLE_SERVER_AI_COMBAT) the token carries its runId. Step 4
+    // reads it to derive the reward from the settled session instead of the
+    // client-claimed win, so it must round-trip and reject junk.
+    it('carries the sealed encounter runId when one was built', () => {
+        const token = createAiFightTokenRecord('Player', 'abc123', 1, { runId: 'aifight-deadbeef' });
+        assert.equal(token.runId, 'aifight-deadbeef');
+    });
+
+    it('omits the runId when absent or malformed', () => {
+        assert.equal(createAiFightTokenRecord('Player', 'abc123', 1).runId, undefined);
+        for (const bad of ['', '  ', 'has spaces', 'bad/slash', 42, null, {}]) {
+            assert.equal(
+                createAiFightTokenRecord('Player', 'abc123', 1, { runId: bad }).runId,
+                undefined,
+                `should reject runId ${JSON.stringify(bad)}`,
+            );
+        }
+    });
+
     it('rejects claims that exceed the sealed ceiling', () => {
         const token = createAiFightTokenRecord('Player', 'abc123');
         assert.deepEqual(validateAiFightRewardClaim(token, MAX_AI_FIGHT_XP + 1, 90), {

@@ -38,8 +38,17 @@ export type EnemyTemplate = {
     armorRawDR?: number;
     /** signature jutsu the enemy AI casts (bestAffordableJutsu). Bosses use these to actually
      *  THREATEN a geared party — a 60-AP damage jutsu hits ~4-5× a basic attack. Copied verbatim
-     *  onto the actor's character.jutsu by the encounter builder. Absent = basic-attacks only. */
-    jutsu?: Array<{ id: string; name?: string; type?: string; element?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string }>;
+     *  onto the actor's character.jutsu by the encounter builder. Absent = basic-attacks only.
+     *
+     *  `target` / `tags` mirror the engine's JutsuLike (api/towers/_engine.ts): the
+     *  resolver reads them for EMPTY_GROUND placement, ground zones, Push/Pull and
+     *  every status tag. The hand-authored templates below carry neither, but a
+     *  template built from a real authored loadout (api/_ai-opponent-loadout.ts,
+     *  the generic AI-fight migration) does — and dropping them at the TYPE
+     *  boundary would have silently disarmed every tag the AI is supposed to cast.
+     *  The encounter builder already copies jutsu with a spread, so this is a
+     *  type-only widening: no runtime behavior changes for existing templates. */
+    jutsu?: Array<{ id: string; name?: string; type?: string; element?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; target?: string; tags?: unknown[] }>;
     /** chakra/stamina pool override (bosses that cast want a bigger pool than the 100 default) */
     maxChakra?: number;
     maxStamina?: number;

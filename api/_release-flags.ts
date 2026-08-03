@@ -13,6 +13,19 @@ export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.
     return env.ENABLE_PLAYER_AI_IMAGE_GENERATION === '1';
 }
 
+/**
+ * Generic AI fights on the server engine (docs/runbooks/combat-mode-migration.md).
+ *
+ * OFF by default and staying that way until the client half (step 3) routes AI
+ * fights to the server-combat screen. While off, `ai-fight-start` behaves
+ * exactly as before — it mints the reward token and nothing else. While on, it
+ * ALSO seals a real encounter and returns its runId, so a flagged client can
+ * pick the server path; the token path stays as the fallback either way.
+ */
+export function serverAiCombatEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.ENABLE_SERVER_AI_COMBAT === '1';
+}
+
 /** Rollback switch only: story-boss wins normally require a completed server session. */
 export function clientTrustedStoryBossAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.ENABLE_CLIENT_TRUSTED_STORY_BOSS === '1';

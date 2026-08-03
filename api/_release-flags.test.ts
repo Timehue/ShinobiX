@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { COMBAT_MISSIONS } from './missions/_mission-catalog.js';
-import { clientTrustedCombatMissionRewardAllowed, combatMissionClaimAuthorityAllowed, playerAiImageGenerationEnabled, weeklyBossClientDamageEnabled } from './_release-flags.js';
+import { clientTrustedCombatMissionRewardAllowed, combatMissionClaimAuthorityAllowed, playerAiImageGenerationEnabled, serverAiCombatEnabled, weeklyBossClientDamageEnabled } from './_release-flags.js';
 
 describe('_release-flags', () => {
     it('keeps weekly boss client-reported contribution disabled unless explicitly enabled', () => {
@@ -28,6 +28,16 @@ describe('_release-flags', () => {
         assert.equal(combatMissionClaimAuthorityAllowed(high, null, {}), false);
         assert.equal(combatMissionClaimAuthorityAllowed(high, { authority: 'legacy-client' }, {}), false);
         assert.equal(combatMissionClaimAuthorityAllowed(high, { authority: 'server-combat', runId: 'mission-1' }, {}), true);
+    });
+
+    // Step 2 of the AI-fight migration lands the server encounter builder but
+    // must not change what any live player experiences: the client half (step 3)
+    // does not exist yet, so this flag stays OFF until it does.
+    it('keeps server-side AI combat disabled unless explicitly enabled', () => {
+        assert.equal(serverAiCombatEnabled({}), false);
+        assert.equal(serverAiCombatEnabled({ ENABLE_SERVER_AI_COMBAT: '0' }), false);
+        assert.equal(serverAiCombatEnabled({ ENABLE_SERVER_AI_COMBAT: 'true' }), false);
+        assert.equal(serverAiCombatEnabled({ ENABLE_SERVER_AI_COMBAT: '1' }), true);
     });
 
     it('keeps player AI image generation admin-only unless explicitly enabled', () => {
