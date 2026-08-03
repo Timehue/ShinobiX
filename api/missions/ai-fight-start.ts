@@ -26,12 +26,12 @@ import {
  * consumes this token and only accepts XP/ryo claims within the sealed ceilings,
  * so a direct client report can no longer mint arbitrary rewards.
  *
- * With ENABLE_SERVER_AI_COMBAT=1 it ALSO seals a real server-resolved encounter
- * for the fight (step 2 of docs/runbooks/combat-mode-migration.md) and returns
- * its `runId`, so a flagged client can play the fight on the tower engine
- * instead of the local Arena engine. The flag is OFF by default and the token
+ * It ALSO seals a real server-resolved encounter for the fight (step 2 of
+ * docs/runbooks/combat-mode-migration.md) and returns its `runId` + `session`,
+ * so the client plays the fight on the tower engine instead of the local Arena
+ * engine. This ships ON; `DISABLE_SERVER_AI_COMBAT=1` is the rollback. The token
  * is minted either way: sealing the encounter is purely ADDITIVE, and a failure
- * to seal one degrades to today's behavior rather than failing the fight.
+ * to seal one degrades to the local path rather than failing the fight.
  */
 
 /**

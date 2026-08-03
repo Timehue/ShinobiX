@@ -30,8 +30,16 @@ alone softens PvE, C alone spikes it; they are the equilibrium only as a pair.
 PEER band where the hit guard is an intentional no-op, so the ~3.3x mastery
 uplift is **unbounded** there — the largest single difficulty swing in the push.
 
-The AI-fight path itself is still inert: `ENABLE_SERVER_AI_COMBAT` remains OFF,
-and the client half of 3d is unbuilt.
+**3d is now COMPLETE (client + server) and the AI-fight path ships ON.** The flag
+inverted: `serverAiCombatEnabled()` reads `DISABLE_SERVER_AI_COMBAT !== '1'`, so
+an empty env arms it and only the explicit kill switch takes it out (pinned by a
+test, so "ships on" cannot silently regress). Turning it off makes the endpoint
+seal nothing, and every routed launch site degrades to the local Arena through
+its own `playLocally` fallback.
+
+| Switch | Effect |
+|---|---|
+| `DISABLE_SERVER_AI_COMBAT=1` | no encounter is sealed; every AI fight plays on the local Arena |
 
 ## Done
 
@@ -219,41 +227,96 @@ have caught the store dropping it.
   Arena.tsx still has exactly one `relevelBuiltinAi` call site and that it is
   still the combat-mission one. A second one → that mode silently diverges → the
   test fails instead.
-- **3d** — server half **DONE** (`06055d252`); **client half NOT STARTED**.
+- ~~**3d**~~ — **DONE, both halves.** Server: `06055d252`. Client: this commit.
 
-  `ai-fight-start` now returns `{ ok, runId, session, token, ... }`.
-  `MissionArenaFight` takes `initialSession` as a **REQUIRED** prop, so a runId
-  alone could never mount it — that was the blocker. `runId` and `session` are
-  spread under ONE condition so they can never diverge; both absent stays the
-  "play it locally" signal.
+  `lib/ai-fight-request.ts` (the launch bus) → `components/AiFightHost.tsx`
+  (mounted once in App) → `lib/ai-fight-api.ts` (start + report) →
+  `lib/ai-fight-settle.ts` (redeem + the client-owned side effects) →
+  `MissionArenaFight`. `lib/ai-fight-loadout.ts` builds the host loadout.
 
-  **The client half, precisely.** Follow `StoryBossFightHost.tsx` — it is the
-  whole pattern in 140 lines: a request bus (`lib/story-fight-theme.ts`) → a
-  single host mounted in App → start endpoint → `MissionArenaFight` with
-  `runId` + `initialSession` + `settleFn` + `renderResult` + `onExit`.
+  ⚠ **The previous plan's premise was WRONG and cost real time — read this.**
+  It said "all ~8 launch sites are inside `App.tsx`". They are, but **every one
+  of them builds a client-authored temporary AI** (`temp-dungeon-ai-*`,
+  `temp-academy-spar-*`, `temp-vn-ai-*`, the Hollow Gate encounter, the endless
+  `endless-<base>-w<wave>` clone) and stashes it in `temporaryStoryAi`. The
+  server resolves `opponentId` against the catalog ∪ admin AIs, so **not one of
+  those ids can ever seal** — routing them buys a start round-trip and a
+  guaranteed fallback. The sealable launch sites are in **`WorldMap.tsx`,
+  `Missions.tsx`, `Logbook.tsx` and `HunterBoard.tsx`**, none of which are under
+  the App.tsx ratchet. App.tsx grew by only the 2-line host mount, and a drain
+  (`scaleEndlessAiClone` + the pure half of `pickRandomEndlessAi` →
+  `lib/endless-tower`) took the ratchet **7,754 → 7,734**.
 
-  1. `lib/ai-fight-api.ts` — `startAiFight()` wrapping `/api/missions/ai-fight-start`.
-  2. `lib/ai-fight-request.ts` — the request bus (mirror `story-fight-theme`).
-  3. `components/AiFightHost.tsx` — mounted once in App; on request, start, then
-     render `MissionArenaFight` if a `runId` came back, **else fall back to the
-     local Arena path**. That fallback is not a feature gate — it is the
-     designed degrade for `ENABLE_SERVER_AI_COMBAT` off or a failed seal.
-  4. Re-point the launch sites onto the bus.
+  **Routed:** hunt beasts, explore ambushes, village-guard raids (×4), sector
+  raids (WorldMap + Logbook), the Academy exam bout, creator field missions.
 
-  ⚠ **All ~8 launch sites are inside `App.tsx`**, which is under the
-  line-budget ratchet (`src/App.size.test.ts`) and the drain rule in
-  `shinobij.client/CLAUDE.md`. New code goes in the modules above, NOT App.tsx;
-  the launch sites should shrink to a bus emit, so the ratchet should be
-  lowered, not raised.
+  **Deliberately NOT routed — each for a reason, do not "finish" these:**
+  - *Every App.tsx site* + wanderers / quest bosses / story reckonings — their
+    ids are built at runtime, so they can only ever fall back.
+  - *E/D-rank combat missions* (`Missions.startMissionBattle`, `mission.min <= 5`)
+    — their win **queues a claim** and pays nothing; routing them would pay the
+    AI-fight reward AND skip the claim. Rank C+ already has its own server path
+    via `combat-start`.
+  - *`HunterBoard.faceApex`* — see the bug below.
 
-  ⚠ **Ordering trap:** today Arena fetches the token from *inside* the battle
-  (`Arena.tsx:861`, a `battleStarted` effect), so the runId arrives AFTER the
-  local fight is already underway. The host must start the fight BEFORE the
-  battle screen is chosen, or there is nothing to route.
-- **4** — derive the reward from the settled session (retire the client-claimed
-  win in `report-ai-fight`); keep `redeemedAiFightRewards` for idempotency. The
-  token already carries `runId`, so no second binding key is needed.
-- **5** — retire the local Arena AI-fight path and the flag.
+  ⚠ **Reward authority was already server-side, which is why 3d before 4 is
+  safe.** The token carries `baseXp`/`baseRyo` (`rewardSource: 'server-save'`),
+  so `validateAiFightRewardClaim` **ignores** whatever XP/ryo a client sends;
+  `report-ai-fight` pays, applies the secondary rewards, and writes the hunt +
+  apex receipts from the SEALED `battleKind`/`opponentId` in one atomic save
+  mutation. The only client-claimed thing left is "I won" — which is exactly
+  what step 4 closes. The new settle sends **no amount at all** (pinned).
+
+  ⚠ **Practice grants NOTHING on either route.** `settleAiFightWin` returns
+  early for `battleKind: 'practice'` without reporting, mirroring Arena's
+  `isPlainPractice` early return. Without that guard the server path would have
+  started paying ryo for bouts that are meant to pay nothing.
+
+  ⚠ **`lib/combat-math` and `lib/world-state` import back from `../App`**, which
+  drags a component (and its `.css`) into the module graph and makes anything
+  above them unloadable under node's test runner. That is why the host loadout
+  lives in its own `lib/ai-fight-loadout.ts` and why the sector-territory hit is
+  passed into the settle as an `onSectorRaidDamage` hook instead of imported.
+  Keep `lib/ai-fight-{api,request,settle}.ts` free of that back-edge.
+
+  New tests: `lib/ai-fight-request.test.ts` (bus + host source guards),
+  `lib/ai-fight-settle.test.ts` (the authority split). All mutation-verified —
+  removing the practice guard, firing side effects on a refused report, dropping
+  the bus fallback, dropping the hunt credit, and weakening the runId+session
+  guard each fail them.
+
+### ⚠ Found in passing: the Apex kill receipt is never produced
+
+`HunterBoard.faceApex` sets `pendingAiProfileId` and nothing else — no
+`raidBattleKind`, no `missionBattleActive` — so Arena's win path takes the
+`isPlainPractice` branch, which returns **before** `report-ai-fight` is called.
+That endpoint is the only writer of `apexKillReceiptKey`, so an Apex kill leaves
+no receipt and the purse can never be claimed. Left alone here on purpose:
+routing it as `raidAi` would fix it but also start paying hunt-shaped rewards,
+which is a balance change and belongs in its own commit, not a plumbing one.
+
+- **4 — NEXT.** Derive the reward from the settled session: `report-ai-fight`
+  should read the sealed `token.runId`'s session and require a completed, WON
+  one instead of accepting the client's say-so. Keep `redeemedAiFightRewards`
+  for idempotency; the token already carries `runId`, so no second binding key
+  is needed. Everything else about the reward is already server-owned (above).
+
+  ⚠ **The local Arena path cannot produce a settled session**, so gating on one
+  would break every fight that still falls back — which is all of App.tsx's
+  temp-AI launches. Step 4 needs a two-track rule (session present → require the
+  win; token with no runId → today's behaviour) until step 5 removes the second
+  track.
+- **5** — retire the local Arena AI-fight path and the flag. Blocked on the
+  launches that cannot seal today: the client-authored `temp-*` opponents would
+  each need a real catalog profile (or a server builder that accepts an authored
+  template) before the local engine can go.
+
+  `Arena.tsx:861`'s `battleStarted` token-mint effect is the other half of this:
+  it is now the FALLBACK path's minting only. Note the host also mints a token
+  it then abandons whenever a fight degrades to local — harmless (the token just
+  expires unspent, and the daily counter increments on report, not on start) but
+  it does halve the effective `ai-fight-start` rate-limit budget. It disappears
+  with step 5.
 
 ## Traps found the hard way — do not re-learn these
 
