@@ -95,7 +95,29 @@ the contract: `relevelBuiltinAi` **drops `hpFloorExempt`** (see the hazard note
 in `lib/apex-contract.ts`), and `distributeStatBudget`'s rounding-stall branch
 is **`STAT_KEYS`-order dependent** (the server list is asserted identical).
 
-## Mostly done: step 3b — the PvE difficulty band layer
+## OWNER RULINGS (2026-08-02)
+
+1. **Guard first, then mastery everywhere.** Finish the guard, extend it to all
+   server PvE modes, and only then turn on enemy jutsu mastery across the board.
+2. **Extend the guard + band layer to every server PvE mode, default ON with a
+   kill switch** (matches the ship-on-not-gated-off preference).
+3. Arena practice spar keeps its player-chosen level slider; the server seals
+   whatever level was chosen.
+
+### Next two commits, in this order
+
+- **Extend the guard to the other PvE modes.** Seal `pveGuard` + apply the band
+  HP/stat multipliers in `missions/combat-start.ts`, `story/boss-start.ts`,
+  `towers/start.ts`, `clan-boss/assault-start.ts`,
+  `village/anbu-infiltration.ts`, `weekly-boss.ts`. Default ON, kill switch
+  `DISABLE_PVE_DIFFICULTY_GUARD=1`. The engine half already works — presence of
+  a sealed `pveGuard` is the only gate. ⚠ Weekly boss has its OWN guard cycle
+  (`weeklyBossGuardedHit`, not ported); do not double-clamp it.
+- **Then enemy jutsu mastery everywhere**, default ON, kill switch
+  `DISABLE_PVE_AI_MASTERY=1`. Must come second — those modes currently have no
+  mercy caps, so tripling enemy jutsu damage first would wreck onboarding.
+
+## Done: step 3b — the PvE difficulty band layer
 
 Port landed (`api/_pve-difficulty.ts` + `scripts/pve-difficulty-parity.test.ts`,
 mutation-verified twice). Wiring landed for three of four pieces:
