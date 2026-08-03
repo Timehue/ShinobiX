@@ -4,18 +4,34 @@ Rewritten 2026-08-02 after pushing steps 2, 3a and 3b to `main`. Read this first
 
 ## Where main is
 
-`main` is **2be6e4776**, pushed green. Gates run immediately before the push, all
-exit 0: `npm test` **4566/4566**, `tsc -p tsconfig.cpanel.json`, `npm run build`
-(sizecheck PASS, 6.80 MB), `npm run certify:release` **28/28**.
+`main` is **52dc1a221**, pushed 2026-08-03. Steps A, B, C, 3c and the 3d server
+half are all ON it. Gates run immediately before the push, all exit 0:
+`npm test` **4640/4640**, `tsc -p tsconfig.cpanel.json`, `npm run build`
+(verify:dist OK, sizecheck PASS 6.80 MB), `npm run certify:release` **28/28**,
+client `npm run lint` 0 errors.
 
-Everything below is **server-side and inert in production**: the new fight path
-is behind `ENABLE_SERVER_AI_COMBAT` (default OFF), and the engine's PvE guard
-only activates on a session that sealed `pveGuard` — which only the flagged path
-does. No live player behaviour changed.
+⚠ **This push CHANGED LIVE PvE BALANCE.** Everything before it was inert behind
+`ENABLE_SERVER_AI_COMBAT`; steps B and C are not. Combat missions, story bosses,
+tower/Spire floors and the clan boss now run the standard-PvE hit guard, and
+their AI enemies now cast at real jutsu mastery instead of 30%. Both ship ON,
+with rollback switches (below). B and C were deliberately pushed TOGETHER — B
+alone softens PvE, C alone spikes it; they are the equilibrium only as a pair.
 
-A parallel session landed `dd85f6667` ("Render solo tower fights on the Arena
-shell") just before this. It routes story/weekly/anbu onto `MissionArenaFight` —
-i.e. it is groundwork for step 3d. No file overlap; the rebase was clean.
+**Rollback, in order of bluntness:**
+
+| Switch | Effect |
+|---|---|
+| `DISABLE_PVE_AI_MASTERY=1` | enemies return to 30% jutsu damage (undo C) |
+| `DISABLE_PVE_DIFFICULTY_GUARD=1` | removes the band + hit guard (undo B) |
+| `DISABLE_PVE_AI_MASTERY_<MODE>` | one mode only: `MISSION` `STORY` `TOWER` `SPIRE` `CLAN_BOSS` |
+| `DISABLE_PVE_DIFFICULTY_GUARD_<MODE>` | one mode only: `MISSION` `STORY` `AI_FIGHT` `TOWER` `CLAN_BOSS` |
+
+`SPIRE` is the dial most likely to be wanted: its level-100 bosses sit in the
+PEER band where the hit guard is an intentional no-op, so the ~3.3x mastery
+uplift is **unbounded** there — the largest single difficulty swing in the push.
+
+The AI-fight path itself is still inert: `ENABLE_SERVER_AI_COMBAT` remains OFF,
+and the client half of 3d is unbuilt.
 
 ## Done
 
@@ -29,6 +45,10 @@ i.e. it is groundwork for step 3d. No file overlap; the rebase was clean.
 | 3b | Server port of the PvE difficulty layer | `api/_pve-difficulty.ts` |
 | 3b | `damageCap` threaded through the damage resolver; guard wired | `api/combat-core/resolveJutsu.ts`, `api/pvp/move.ts`, `api/towers/_engine.ts` |
 | A | The four band-behaviour helpers wired into the engine's action picker | `api/towers/_engine.ts`, `api/_pve-ai-tactics.ts` |
+| B | The band + hit guard armed on every other server PvE mode | `api/_pve-band-seal.ts` |
+| C | Server AI enemies given their real jutsu mastery | `api/_pve-ai-mastery.ts` |
+| 3c | Encounter scaling derived from SERVER state | `api/missions/_ai-fight-scaling.ts` |
+| 3d | `ai-fight-start` returns the sealed session (server half only) | `api/missions/ai-fight-start.ts` |
 
 Parity/behaviour tests: `scripts/ai-profile-catalog.test.mjs`,
 `scripts/ai-level-curve-parity.test.ts` (~38.6k comparisons),
@@ -36,20 +56,6 @@ Parity/behaviour tests: `scripts/ai-profile-catalog.test.mjs`,
 `api/towers/_pve-guard.test.ts`, `api/missions/_ai-fight-encounter.test.ts`.
 The three parity suites were **mutation-verified** (a deliberate wrong constant
 fails them) rather than trusted for being green.
-
-## ⚠ Steps A, B and C are committed but NOT PUSHED
-
-Branch `claude/new-session-188194` — `86f6d5a90` (A), `f4c9d05c8` (B),
-`df99c0152` (C), `5286e35c5` (3c). Gates green at 3c: `npm test`
-**4630/4630**, tsc, root build (sizecheck PASS 6.80 MB), certify **28/28**.
-
-**B and C are a matched pair — ship them together.** B alone softens server PvE
-(it adds mercy caps to modes that had none); C alone would spike it (~3.3×
-enemy jutsu damage). Together they are the intended equilibrium. Do not push one
-without the other.
-
-The one gap left open: **the server weekly boss has NO boss→player clamp**, so
-it is excluded from both B and C. See step B below.
 
 ## ⚠ The finding that matters most: server AI casts at 30% damage
 
