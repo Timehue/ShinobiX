@@ -12,6 +12,7 @@ import {
     applyAiFightOutcomeToCharacter,
     isPveFightMember,
     resolveAiFightOutcome,
+    settlementOwnsHpOnWin,
 } from '../missions/_ai-fight-outcome.js';
 
 /*
@@ -93,6 +94,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const outcome = resolveAiFightOutcome(session);
         if (outcome === 'unknown') return res.status(200).json({ ok: true, outcome, applied: false });
+        // One mode's own settlement writes the winning HP itself (the Academy
+        // spar's scripted post-spar HP). Writing here too would race it for the
+        // same field. Only the WIN is skipped — losing still costs.
+        if (outcome === 'win' && settlementOwnsHpOnWin(session)) {
+            return res.status(200).json({ ok: true, outcome, applied: false, deferredToSettlement: true });
+        }
 
         const applied = await withKvLock(outcomeReceiptKey(runId), async () => {
             const seen = await kv.get<{ runId: string }>(outcomeReceiptKey(runId));

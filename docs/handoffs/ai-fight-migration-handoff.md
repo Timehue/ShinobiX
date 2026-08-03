@@ -438,6 +438,67 @@ already pays, and the purse itself is unchanged — still separate, still gated 
   `playLocally` fallbacks can only go once ALL of them land; the abandoned-token
   waste (below) disappears with them.
 
+#### ✅ Step 5, subsystem 1/7 — Academy spar (BUILT, NOT COMMITTED)
+
+Worktree `new-session-58dbc0`. The spar was the cheapest of the six because its
+opponent is CONSTANT: no run state, no scaling, no authored content to read.
+
+- **Server owns the dummy.** `api/story/_academy-spar.ts` (constants + template
+  + eligibility + binding + validation) and `POST /api/story/spar-start`
+  (registered in `server.ts`), built on `buildAuthoritativeSoloEncounter` with
+  both difficulty seals in the usual order. The request body carries no
+  opponent, level or stats.
+- **The settle got an authoritative channel.** `/api/story/settle` with
+  `kind: 'academySparring'` + a runId validates a `kind: 'spar'`
+  StoryCombatBinding and pays from the completed session; the legacy token
+  channel stays for the local fallback. `applyAcademySparSettlement` accepts the
+  sealed `academy-spar-dummy` id alongside `temp-academy-spar-<ts>`.
+- **Client routes through the EXISTING story bus** (`requestStoryBossFight` +
+  `StoryBossFightHost`) with two new theme fields, `kind` and `playLocally`.
+  App.tsx 7,734 → 7,727 (the dummy drained to `lib/academy-spar.ts`).
+
+⚠ **`ACADEMY_SPAR_OPPONENT_ID` lives in `_settle.ts`, not the builder.**
+`_academy-spar.ts` → `_authoritative-story-combat.ts` → `_settle.ts`, so
+declaring it in the builder closes an import cycle.
+
+⚠ **The dummy is NOT `builtin-ai-academy-sparring`** — that is the E-rank drill
+AI. The real sheet is hp 50, level 1, stats 11–13, about a hundredth of a
+generic level-1 mission enemy. `scripts/academy-spar-parity.test.ts` pins client
+against server (mutation-verified). Adding it to `builtinAis` was rejected:
+that list feeds `playableAis`, so it would become a selectable opponent.
+
+⚠ **Two writers raced for the player's HP, and the fix belongs on the SERVER.**
+`applyAcademySparSettlement` writes a scripted `maxHp - 25` on a win while
+`/api/pve/fight-outcome` writes the session's surviving HP — both fire the
+moment the fight resolves. `settlementOwnsHpOnWin(session)` (keyed off
+`towerId === 'academy-spar'`) now skips the outcome write on a **win only**; a
+lost spar still reports, which is what hospitalizes a beginner.
+⛔ Do NOT fix this in the client: `pve-outcome-wiring.test.ts` asserts the arena
+shell's outcome effect contains no `winner === "squad"`, because that gate is
+exactly how a lost fight stops costing anything. That guard caught the first
+attempt.
+
+⚠ **Three things the shared host would have silently taken from the tutorial**,
+all found by auditing rather than by a failing test:
+1. *Coaching.* `SparCoach` (the "Basic Attack → now a jutsu → press Wait" hints)
+   lived in `Arena.tsx` only, so the sealed path had none. It now mounts in
+   `MissionArenaFight` behind a `coach` prop — and needed a `zIndex` prop,
+   because it portals to `document.body` at 9000 while that screen's portal sits
+   at 1000000, so it would have rendered *behind* the fight it coaches.
+2. *Chapter presentation.* Passing `storyTheme` fires `playStoryChapterSting`
+   when the opponent walks on and the story victory sting when it falls. The
+   spar passes `storyTheme: undefined` and keeps only the portrait and its own
+   result card.
+3. *The onboarding modal.* The fight is a body portal, so `screen` never changes
+   and the coach modal stayed mounted underneath — carrying a live r3f companion
+   canvas with no demand frameloop through the whole tutorial fight.
+   `onFightOpenChange` → `storyFightOpen` hides it.
+
+Guards: `scripts/academy-spar-parity.test.ts` (cross-root, behaviour),
+`api/story/_academy-spar.test.ts` (eligibility/start-settle agreement, binding
+swaps, replay), `shinobij.client/src/lib/academy-spar-wiring.test.ts` (the three
+above, as source guards — the rules with logic are behaviour-tested).
+
 ### ✅ Fixed: the weekly boss could near-one-shot players
 
 The weekly boss builds a Tower session and resolves on the server engine, but

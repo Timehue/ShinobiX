@@ -5,6 +5,7 @@ import "../styles/mission-arena-fight.css";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
+import { SparCoach } from "../components/SparCoach";
 import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase,
     // Command-deck glyphs (one per basic action), matching Arena + PvP.
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "react-icons/gi";
@@ -112,6 +113,7 @@ export function MissionArenaFight({
     settleFn,
     onExit,
     storyTheme,
+    coach,
     renderResult,
     actionFn,
     settleOnAnyDone,
@@ -139,6 +141,14 @@ export function MissionArenaFight({
      *  chapter backdrop art, a chapter label, and boss "barks" spoken at fight
      *  start and as the boss's HP falls. See lib/story-fight-theme.ts. */
     storyTheme?: StoryFightTheme;
+    /**
+     * In-battle tutorial coaching. `"academySpar"` renders the SparCoach banner
+     * — the same read-only "use Basic Attack → now a jutsu → press Wait" hints
+     * the local Arena spar shows. Without it the sealed spar (step 5 of the
+     * AI-fight migration) would be the one fight in the game where a brand-new
+     * player gets no guidance, because the coaching lived in Arena.tsx only.
+     */
+    coach?: "academySpar";
     /** Optional result-overlay override. When provided it fully replaces the
      *  built-in mission result card — the story lane uses this to show its own
      *  chapter-reward / defeat card. Absent → the mission card renders as before. */
@@ -195,6 +205,10 @@ export function MissionArenaFight({
     // The resolved settle value (handed to renderResult so the story lane can show
     // its reward breakdown). Mission callers ignore it (they claim later in the Hall).
     const [settleResult, setSettleResult] = useState<unknown>(null);
+
+    // Tutorial coaching progress (display-only — see the `coach` prop).
+    const [sparAttacked, setSparAttacked] = useState(false);
+    const [sparCasted, setSparCasted] = useState(false);
 
     // ── Story presentation (display-only): the boss speaks its own authored VN
     // lines at fight start / 2⁄3 / 1⁄3 HP and its last words on the killing blow;
@@ -450,6 +464,11 @@ export function MissionArenaFight({
 
     async function send(action: Parameters<typeof submitTowerAction>[2]) {
         if (busy) return;
+        // Display-only tutorial progress (drives the SparCoach banner). Recorded
+        // on SUBMIT rather than from the log so the hint advances the moment the
+        // player does the thing they were told to do; it never touches combat.
+        if (action.type === "attack") setSparAttacked(true);
+        if (action.type === "jutsu") setSparCasted(true);
         setBusy(true); setReject(null);
         try {
             const res = await (actionFn ?? submitTowerAction)(runId, me, action);
@@ -590,6 +609,19 @@ export function MissionArenaFight({
             className={`arena-fullscreen pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
+            {/* Onboarding coaching (display-only). Portals to document.body like the
+                fight itself, so it is given a z-index ABOVE this portal's 1000000. */}
+            {coach === "academySpar" && enemy && (
+                <SparCoach
+                    attacked={sparAttacked}
+                    casted={sparCasted}
+                    ap={myAp}
+                    enemyHp={enemy.hp}
+                    enemyMaxHp={enemy.maxHp}
+                    zIndex={1_000_001}
+                />
+            )}
+
             {/* Story flavor overlays (display-only) — float above the arena board. */}
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}

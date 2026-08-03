@@ -10,13 +10,19 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 
 export function SparCoach({
-    attacked, casted, ap, enemyHp, enemyMaxHp,
+    attacked, casted, ap, enemyHp, enemyMaxHp, zIndex = 9000,
 }: {
     attacked: boolean;
     casted: boolean;
     ap: number;
     enemyHp: number;
     enemyMaxHp: number;
+    /** Stacking order for the banner, which portals to `document.body` and so
+     *  competes with whatever fight screen is open. The default clears Arena's
+     *  local spar; the SEALED spar renders inside MissionArenaFight, whose own
+     *  portal sits at z-index 1000000, so that caller passes a higher value.
+     *  Get this wrong and the coaching is silently painted behind the fight. */
+    zIndex?: number;
 }) {
     const [hidden, setHidden] = useState(false);
     if (hidden || enemyHp <= 0) return null;
@@ -52,7 +58,7 @@ export function SparCoach({
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                zIndex: 9000,
+                zIndex,
                 boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
                 fontSize: 14,
             }}
