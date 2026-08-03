@@ -30,6 +30,23 @@ export function serverAiCombatEnabled(env: NodeJS.ProcessEnv = process.env): boo
     return env.DISABLE_SERVER_AI_COMBAT !== '1';
 }
 
+/**
+ * The weekly boss's own PvE clamp — 8%/hit + 15%/turn boss→player, and the
+ * guard-cycle multiplier player→boss (api/_pve-difficulty.ts).
+ *
+ * ON by default. Both halves were client-only, so once the weekly boss moved to
+ * the server engine it ran with NO boss→player ceiling — a level-100 boss's raw
+ * stat sheet is a near-one-shot on a 10k-HP fighter — and with none of its
+ * guard-up/guard-down texture. This is a bug fix, not a difficulty knob.
+ *
+ * ⚠ The two halves are a MATCHED PAIR, like the B/C difficulty pass before them:
+ * the clamp alone makes the boss softer, the cycle alone makes it swingier. The
+ * kill switch takes out both together rather than letting them drift apart.
+ */
+export function weeklyBossGuardEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_WEEKLY_BOSS_GUARD !== '1';
+}
+
 /** Rollback switch only: story-boss wins normally require a completed server session. */
 export function clientTrustedStoryBossAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.ENABLE_CLIENT_TRUSTED_STORY_BOSS === '1';
