@@ -1,10 +1,15 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { serverAiCombatEnabled } from '../_release-flags.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { writeSession } from '../towers/_tower-store.js';
+import { buildAiFightEncounter, loadAiFightProfile } from './_ai-fight-encounter.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
     aiFightTokenKey,
@@ -18,7 +23,57 @@ import {
  * Mints a single-use token for one AI-fight reward report. The report endpoint
  * consumes this token and only accepts XP/ryo claims within the sealed ceilings,
  * so a direct client report can no longer mint arbitrary rewards.
+ *
+ * With ENABLE_SERVER_AI_COMBAT=1 it ALSO seals a real server-resolved encounter
+ * for the fight (step 2 of docs/runbooks/combat-mode-migration.md) and returns
+ * its `runId`, so a flagged client can play the fight on the tower engine
+ * instead of the local Arena engine. The flag is OFF by default and the token
+ * is minted either way: sealing the encounter is purely ADDITIVE, and a failure
+ * to seal one degrades to today's behavior rather than failing the fight.
  */
+
+/**
+ * Build + persist the sealed encounter for this fight, returning its runId.
+ *
+ * Returns undefined on ANY failure (unknown opponent, missing save, storage
+ * error). That is deliberate: while the client half is unbuilt, the encounter
+ * is an unused extra, and a sealing problem must never block a player from
+ * starting a fight they can already start today. Once step 3 routes the client
+ * onto this path, a missing runId means "play it locally", which is the same
+ * fallback the flag itself provides.
+ */
+async function sealAiFightEncounter(
+    playerName: string,
+    body: Record<string, unknown>,
+    rawSave: Record<string, unknown>,
+): Promise<string | undefined> {
+    try {
+        const profile = await loadAiFightProfile(body.opponentId);
+        if (!profile) return undefined;
+        // Same augmentation combat-start applies, so a forged weapon resolves to
+        // its real definition instead of being dropped from the sealed loadout.
+        const save = await augmentSaveWithForgedDefs(rawSave);
+        if (!save?.character) return undefined;
+        const runId = `aifight-${randomUUID().replace(/-/g, '')}`;
+        const session = buildAiFightEncounter({
+            playerName,
+            save,
+            profile,
+            runId,
+            seed: randomInt(1, 0x7fffffff),
+            now: Date.now(),
+            admin: await loadAdminCombatContent(),
+            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object'
+                ? body.hostLoadout as Record<string, unknown>
+                : undefined,
+        });
+        await writeSession(session);
+        return runId;
+    } catch (err) {
+        console.error('[missions/ai-fight-start] seal failed', safeLogValue(err));
+        return undefined;
+    }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -42,6 +97,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!save || !character) return res.status(404).json({ error: 'Player save not found.' });
         const reward = computeAiFightBaseReward(character);
 
+        // Seal the server-side encounter BEFORE minting the token so the token
+        // can carry its runId (one token = one battle lifecycle). Best-effort:
+        // an unknown opponent or any sealing failure leaves runId undefined and
+        // the fight runs the existing client path, unchanged.
+        const runId = serverAiCombatEnabled()
+            ? await sealAiFightEncounter(playerName, body, save)
+            : undefined;
+
         const token = randomUUID().replace(/-/g, '');
         const record = createAiFightTokenRecord(playerName, token, Date.now(), {
             opponentId: body.opponentId,
@@ -49,6 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             baseXp: reward.xp,
             baseRyo: reward.ryo,
             battleKind: body.battleKind,
+            runId,
         });
         await kv.set(aiFightTokenKey(playerName, token), record, { ex: AI_FIGHT_TOKEN_TTL_SECONDS });
 
@@ -61,6 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             baseXp: record.baseXp,
             baseRyo: record.baseRyo,
             trait: reward.trait,
+            ...(record.runId ? { runId: record.runId } : {}),
         });
     } catch (err) {
         console.error('[missions/ai-fight-start]', safeLogValue(err));
