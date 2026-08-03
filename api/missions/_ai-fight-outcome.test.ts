@@ -6,6 +6,7 @@ import {
     aiFightPlayerActor,
     aiFightPaysReward,
     applyAiFightOutcomeToCharacter,
+    isPveFightMember,
     resolveAiFightOutcome,
 } from './_ai-fight-outcome.js';
 
@@ -131,5 +132,42 @@ describe('applyAiFightOutcomeToCharacter — a fight costs the same on either en
         const next = applyAiFightOutcomeToCharacter({ ...base }, 'win', aiFightPlayerActor(zeroed), now);
         assert.equal(next.hp, 1);
         assert.equal(next.hospitalized, false);
+    });
+
+    it('re-applying a defeat PUSHES the hospital stay out — which is why the receipt exists', () => {
+        // Documents the hazard /api/pve/fight-outcome's per-run receipt guards
+        // against: this write is not naturally idempotent, so a refresh on the
+        // results screen would make a defeat get worse the more you looked at it.
+        const first = applyAiFightOutcomeToCharacter({ ...base }, 'loss', undefined, now);
+        const second = applyAiFightOutcomeToCharacter(first, 'loss', undefined, now + 30_000);
+        assert.ok(
+            Number(second.hospitalizedUntil) > Number(first.hospitalizedUntil),
+            'a second apply extends the stay — the caller MUST gate this behind a receipt',
+        );
+    });
+});
+
+describe('isPveFightMember — a client-supplied runId must be your own', () => {
+    const solo = session({});
+
+    it('accepts the player who actually fought', () => {
+        assert.equal(isPveFightMember(solo, 'Rill'), true);
+    });
+
+    it("refuses a stranger's run — on a WIN that would be a free heal", () => {
+        // /api/pve/fight-outcome takes the runId from the request body, unlike the
+        // AI-fight path whose runId comes from a token sealed under the caller's
+        // own name. Without this, handing in someone else's winning session would
+        // write THEIR surviving HP onto YOUR save.
+        assert.equal(isPveFightMember(solo, 'Mallory'), false);
+        assert.equal(isPveFightMember(solo, ''), false);
+        assert.equal(isPveFightMember(null, 'Rill'), false);
+    });
+
+    it('never matches on the enemy side', () => {
+        const spoofed = session({
+            actors: [{ ...actor({}), id: 'foe', side: 'enemy', ai: true, ownerSlug: 'Mallory' }],
+        });
+        assert.equal(isPveFightMember(spoofed, 'Mallory'), false);
     });
 });

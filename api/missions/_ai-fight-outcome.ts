@@ -39,6 +39,20 @@ export function aiFightPlayerActor(session: TowerSession | null | undefined): To
 }
 
 /**
+ * Whether `playerName` actually fought in this session.
+ *
+ * Load-bearing for /api/pve/fight-outcome, where the runId is CLIENT-supplied
+ * (unlike the AI-fight path, whose runId comes from a sealed token stored under
+ * the caller's own name). Without this check a player could hand in a stranger's
+ * runId and apply that session's outcome to their own save — and on a WINNING
+ * session, "apply the surviving HP" is a free heal.
+ */
+export function isPveFightMember(session: TowerSession | null | undefined, playerName: string): boolean {
+    if (!session || !playerName) return false;
+    return session.actors.some(a => a.side === 'squad' && a.ownerSlug === playerName);
+}
+
+/**
  * Resolve what actually happened.
  *
  * A session that is still `active` is a FORFEIT, not a no-op: the fight screen's

@@ -6608,7 +6608,7 @@ export default function App() {
                 />
             )}
 
-            <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} />
+            <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={(character, version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); setCharacter(character); }} />
 
             {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host starts the fight, then routes it to the server arena or back to the caller's local Arena when nothing was sealed. `hooks` are the world/mission side effects the server does NOT own — the same callbacks Arena's win path fires, so both routes stay equivalent. */}
             <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: recordMissionRaid, onExploreAmbushWon: () => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }, onHuntBeastDefeated: completeHuntForAi }} onSettled={(result) => { if (!result.character) return; latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion); setCharacter(result.character); }} onClose={(back) => { setMissionBattleActive(false); setPendingExploreSector(null); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />

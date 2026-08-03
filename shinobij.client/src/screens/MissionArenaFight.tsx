@@ -115,6 +115,7 @@ export function MissionArenaFight({
     renderResult,
     actionFn,
     settleOnAnyDone,
+    outcomeFn,
     onRecordBattle,
     recordMode,
     enemyAvatarOverride,
@@ -166,6 +167,17 @@ export function MissionArenaFight({
      *  boss's authored chapter portrait, or the Anbu defender's masked art. Falls
      *  through to the sealed avatar / published art / initials when absent. */
     enemyAvatarOverride?: string;
+    /**
+     * Report the fight's PHYSICAL cost — surviving HP, and the hospital stay on a
+     * defeat or a forfeit (lib/pve-outcome-api). Separate from `settleFn`, which
+     * is the REWARD and refuses a losing run by design; without this a lost
+     * server fight costs nothing and can be retried instantly at full HP.
+     *
+     * Fires on any resolution AND on leaving an unresolved run, because walking
+     * out of a fight you are losing must not be cheaper than finishing it.
+     * Opt-in: modes that do not pass it are unchanged.
+     */
+    outcomeFn?: (runId: string, playerName: string) => Promise<unknown>;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
@@ -271,6 +283,16 @@ export function MissionArenaFight({
             void runSettle();
         }
     }, [session.status, session.winner, runSettle, settleOnAnyDone]);
+
+    // The fight's physical cost, reported on ANY resolution — including the
+    // losses `settleFn` refuses. Fire-and-forget: it grants nothing, so a failure
+    // must never block the result screen or a reward already earned.
+    const outcomeReportedRef = useRef(false);
+    useEffect(() => {
+        if (session.status !== "done" || outcomeReportedRef.current || !outcomeFn) return;
+        outcomeReportedRef.current = true;
+        void outcomeFn(runId, me).catch(() => { /* the run simply costs nothing */ });
+    }, [session.status, runId, me, outcomeFn]);
 
     // Reflection log (display-only): record the fight once it resolves (win OR loss)
     // so it shows on Profile → Battles. De-duped by runId, so a refresh on the result
@@ -551,7 +573,16 @@ export function MissionArenaFight({
 
     async function leaveFight() {
         if (done) { onExit(); return; }
-        if (await gameConfirm("Leave this mission fight? You'll forfeit the run and earn no reward.")) onExit();
+        if (!(await gameConfirm("Leave this fight? You'll forfeit the run — no reward, and you take the loss."))) return;
+        // Report the forfeit BEFORE unmounting. Leaving an unresolved run used to
+        // be free, which made walking out of a fight you were losing strictly
+        // better than finishing it — the server scores an unresolved session as a
+        // defeat, but only if someone tells it the player left.
+        if (outcomeFn && !outcomeReportedRef.current) {
+            outcomeReportedRef.current = true;
+            void outcomeFn(runId, me).catch(() => { /* the run simply costs nothing */ });
+        }
+        onExit();
     }
 
     return createPortal(
