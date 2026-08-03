@@ -11,7 +11,7 @@ import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL, SPIRAL_RADIUS } f
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { adjustedApCost } from '../combat-core/resources.js';
-import { resolveJutsu as resolveCoreJutsu } from '../combat-core/resolveJutsu.js';
+import { resolveJutsu as resolveCoreJutsu, type ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import {
     DISCIPLINE_OFFENSE_FIELD,
     DRAIN_BASE_TICK,
@@ -965,7 +965,7 @@ const pvpResolveJutsuPhases = {
 // Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts)
 // and the characterization snapshot (_applyjutsu-characterization.test.ts), which
 // pin the "lingering tags don't fire on the cast turn" behaviour + exact numbers.
-export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
+export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1, damageCap?: number): { self: PvpFighter; opponent: PvpFighter; lines: string[]; fx: HitFxEvent[]; metadata: ResolveJutsuMetadata } {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
@@ -999,10 +999,17 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         round,
         masteryLevel,
         healBoost: increaseHealMult(self, round),
+        // Undefined for every PvP caller — see ResolveJutsuArgs.damageCap. Only
+        // the tower engine's sealed PvE guard supplies one.
+        damageCap,
         phases: pvpResolveJutsuPhases,
     });
 
-    return { self: resolved.self, opponent: resolved.opponent, lines: resolved.logLines, fx: resolved.hitFx };
+    // `metadata` is additive: existing callers destructure {self, opponent,
+    // lines, fx} and are unaffected. The tower engine reads metadata.damage to
+    // meter its per-turn damage budget instead of inferring it from an HP delta
+    // (which would be post-shield, and therefore the wrong number).
+    return { self: resolved.self, opponent: resolved.opponent, lines: resolved.logLines, fx: resolved.hitFx, metadata: resolved.metadata };
 }
 
 // ─── DoTs applied at start of each turn ───────────────────────────────────────

@@ -191,6 +191,10 @@ test('resolveJutsu owns phase order while phase callbacks own formulas', () => {
     assert.equal(result.opponent.hp, 89);
     assert.deepEqual(result.metadata, {
         damage: 11,
+        // No damageCap supplied → the clamp is an identity, so rawDamage must
+        // equal damage. This is the byte-identical guarantee every PvP and
+        // un-migrated PvE caller relies on.
+        rawDamage: 11,
         baseDamage: 10,
         effectiveDR: 0.25,
         pierce: false,
