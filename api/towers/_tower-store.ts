@@ -153,6 +153,35 @@ function isSquadMember(session: TowerSession, slug: string): boolean {
     return session.actors.some(a => a.side === 'squad' && a.ownerSlug === slug);
 }
 
+/**
+ * Is this run one of the CATALOG floors the tower reward channels exist to pay?
+ *
+ * This restores the invariant stated at the top of this file — "the floor + reward
+ * are resolved from the catalog BY ID" — which `session.encounterFloor` had opened
+ * a hole in. Every solo mode built by `buildAuthoritativeSoloEncounter` (combat
+ * missions, story bosses, the weekly boss, generic AI fights, the Academy spar)
+ * EMBEDS a synthetic floor in the session so the engine can run it, with a
+ * reserved id far outside the catalog (9_100+). `floorForSession` prefers that
+ * embedded floor, so those sessions sailed past the `!floor` check and reached
+ * the tower payout path — and every one of them is a real, member-owned, won
+ * TowerSession, so nothing else here refused them.
+ *
+ * They paid no currency (a dynamic floor's `firstClearReward` is `{}`), but
+ * `creditFloorClear` still wrote `battleTowerBestFloor = max(current, 9_300)`,
+ * added the clear score to `battleTowerRating`, and pushed a phantom floor into
+ * `battleTowerClearedFloors` — and the first two are PUBLIC leaderboard fields
+ * (api/player/_public-index.ts). Finish any mission, hand its runId to
+ * /api/towers/settle, and your public tower standing was whatever you liked,
+ * permanently: the first-clear receipt has no TTL.
+ *
+ * Stated positively rather than as "reject embedded floors" so a future mode that
+ * invents a floor some other way is refused by default too.
+ */
+function isCatalogFloorRun(session: TowerSession): boolean {
+    const floor = floorForSession(session);
+    return !!floor && !!getFloor(floor.id);
+}
+
 // Apply a first-clear reward + score to a character. The one-time gate is the SERVER
 // firstClearKey NX receipt (placed by the caller) — so this ALWAYS credits when reached.
 // Character XP is retired (leveling-without-xp map): the floor's old XP value converts
@@ -264,6 +293,9 @@ export async function settleFloorForMember(
     if (!isSquadMember(session, slug)) return { paid: false, reason: 'not-a-member' };
     const floor = floorForSession(session);
     if (!floor) return { paid: false, reason: 'no-floor' };
+    // A mission/story/AI-fight/spar run is a won TowerSession the caller really is
+    // a member of — only this refuses it. See isCatalogFloorRun.
+    if (!isCatalogFloorRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
 
     const reward = computeFloorReward(floor);                            // sealed catalog reward
     const score = computeFloorClearScore(clearMetrics(session), floor);  // server-computed
@@ -321,6 +353,10 @@ export async function settleAssistForAlly(
     if (!isSquadMember(session, slug)) return { paid: false, reason: 'not-a-member' };
     const floor = floorForSession(session);
     if (!floor) return { paid: false, reason: 'no-floor' };
+    // Same rule as the first-clear channel. A dynamic floor pays no assist ryo
+    // either, but reaching here still burns one of the day's assist slots and
+    // writes a ledger row for a run that was never a tower assist.
+    if (!isCatalogFloorRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
     const reward = computeAssistReward(floor);
 
     let result: SettleResult = { paid: false, reason: 'unknown' };
