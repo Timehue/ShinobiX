@@ -3,6 +3,10 @@ import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { applyJutsu } from './pvp/move.js';
+import { endTurn, runAiUntilHuman, startRound } from './towers/_engine.js';
+import { makeRng } from './towers/_sim.js';
+import { buildAiFightEncounter } from './missions/_ai-fight-encounter.js';
+import { AI_PROFILE_CATALOG } from './_ai-profile-catalog.js';
 import { pveAiMasteryForLevel } from './_pve-difficulty.js';
 import { pveAiMasteryEnabled, sealPveAiMastery, type PveMasteryMode } from './_pve-ai-mastery.js';
 import type { TowerSession, TowerActor } from './towers/_tower-session.js';
@@ -140,6 +144,72 @@ describe('sealPveAiMastery', () => {
             assert.equal(pveAiMasteryEnabled('MISSION', { DISABLE_PVE_AI_MASTERY: 'true' }), true);
             assert.equal(pveAiMasteryEnabled('MISSION', { DISABLE_PVE_AI_MASTERY: '0' }), true);
         });
+    });
+});
+
+describe('the sealed mastery reaches the damage the ENGINE applies', () => {
+    it('a sealed enemy out-damages an unsealed one over a real enemy turn', () => {
+        // End-to-end, and the reason it matters: the tests above prove an array
+        // was written and that applyJutsu responds to one, but the engine
+        // resolves through actorToFighter -> towerActorToPvpFighter -> the PvP
+        // resolver. Both of those rebuild the fighter object; if either ever
+        // narrows `character` instead of passing it by reference, step C becomes
+        // a silent no-op and nothing else here would notice.
+        //
+        // Level 95 on purpose: the PEER band, where the step-B hit guard is an
+        // intentional no-op. In any lower band the per-hit cap would clamp both
+        // runs to the same ceiling and mask the difference entirely.
+        const build = (seal: boolean): TowerSession => {
+            const s = buildAiFightEncounter({
+                playerName: 'Rill',
+                save: {
+                    character: {
+                        name: 'Rill', level: 60, specialty: 'Ninjutsu', maxHp: 40_000, hp: 40_000,
+                        stats: {
+                            strength: 100, speed: 100, intelligence: 100, willpower: 100,
+                            ninjutsuOffense: 200, ninjutsuDefense: 100, taijutsuOffense: 100,
+                            taijutsuDefense: 100, bukijutsuOffense: 100, bukijutsuDefense: 100,
+                            genjutsuOffense: 100, genjutsuDefense: 100,
+                        },
+                        equippedJutsuIds: ['starter-universal-flicker'],
+                    },
+                    savedBloodlines: [], creatorJutsus: [],
+                },
+                profile: AI_PROFILE_CATALOG['builtin-ai-academy-sparring'] as never,
+                runId: `mastery-e2e-${seal}`, seed: 99, now: 1_770_000_000_000,
+                scaling: { level: 95, statBonus: 200 },
+            });
+            // buildAiFightEncounter seals its own mastery (step 3b). Strip it to
+            // model the pre-step-C world, then re-seal via THIS module for the
+            // sealed arm, so both arms differ only by the mastery.
+            const boss = s.actors.find(a => a.id === 'boss')!;
+            delete boss.character.jutsuMastery;
+            if (seal) assert.equal(sealPveAiMastery(s, { mode: 'MISSION', env: {} }), 1);
+            startRound(s);
+            return s;
+        };
+
+        const damageOverOneEnemyTurn = (s: TowerSession): number => {
+            const floor = s.encounterFloor as never;
+            const rng = makeRng(s.seed);
+            const hero = () => s.actors.find(a => a.ai === false)!;
+            const before = hero().hp;
+            endTurn(s, floor);                 // human passes -> the enemy is up
+            runAiUntilHuman(s, floor, rng);    // enemy acts, then stops at the human
+            return before - hero().hp;
+        };
+
+        const unsealed = damageOverOneEnemyTurn(build(false));
+        const sealed = damageOverOneEnemyTurn(build(true));
+
+        // NON-VACUITY: both arms must actually have landed a hit, or "sealed is
+        // bigger" could hold for two zeroes or one missed turn.
+        assert.ok(unsealed > 0, `fixture check: the unsealed enemy must land damage (got ${unsealed})`);
+        assert.ok(sealed > 0, `fixture check: the sealed enemy must land damage (got ${sealed})`);
+        assert.ok(
+            sealed > unsealed,
+            `the sealed mastery must reach the engine's damage (${unsealed} -> ${sealed})`,
+        );
     });
 });
 
