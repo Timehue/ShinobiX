@@ -17,6 +17,14 @@ import {
     type AiFightToken,
 } from './_ai-fight-token.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
+import { readSession } from '../towers/_tower-store.js';
+import {
+    aiFightPaysReward,
+    aiFightPlayerActor,
+    applyAiFightOutcomeToCharacter,
+    resolveAiFightOutcome,
+    type AiFightOutcome,
+} from './_ai-fight-outcome.js';
 import { huntMissionByAiProfileId } from './_mission-catalog.js';
 import {
     applyMissionProgressEvent,
@@ -34,27 +42,34 @@ import {
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
-// P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
+// Settles ONE AI fight against its single-use token from /api/missions/ai-fight-start.
+// The token seals opponentId, battleKind, the reward ceilings and (when the fight
+// was resolved by the server engine) its runId; everything paid here is derived
+// from that seal, never from the request body.
 //
-// The client reports the base XP/ryo it computed for an AI win with a single-use
-// token minted by /api/missions/ai-fight-start. The server validates the claim
-// against that sealed token, applies the authoritative daily soft-cap, and returns
-// the allowed amounts. The client then grants exactly that, inside its single save
-// write.
+// TWO AUTHORITY TRACKS, chosen by whether the token carries a runId:
 //
-// Why return-only (not credit-on-the-server): the AI-win grant is entangled — the
-// client must still write territory/kills/crates/missions to the save — so if this
-// endpoint ALSO wrote the save we'd have two writers racing on save:<name>. By
-// returning the allowed amount and letting the client apply it, there is exactly
-// one writer and no race. AI-fight rewards affect PROGRESSION SPEED, not the PvP
-// power ceiling, so capping honest play here (the 90-day-curve concern) is the goal;
-// the existing per-save / per-minute save-sanitizer caps remain the floor against a
-// tampered client.
+//   runId present — the server engine resolved this fight, so its SESSION decides
+//     (step 4, api/missions/_ai-fight-outcome.ts): whether the player won, the HP
+//     they survived with, and the hospital stay on a defeat or a forfeit. Nothing
+//     is taken on trust. This is the track every migrated launch site uses.
 //
-// The client only calls this (and honors the result) when aiFightServerAuth.v1 is
-// on; stale clients never call it. The endpoint credits nothing, so it is safe to
-// expose unconditionally — the only state it touches is the caller's own daily
-// counter (auth-gated to the player's own name).
+//   no runId — the local-Arena fallback (a client-authored `temp-*` opponent the
+//     profile catalog cannot resolve, or DISABLE_SERVER_AI_COMBAT). There is no
+//     session to read, so calling this endpoint IS still the claim of a win, and
+//     the client keeps applying the HP/defeat itself. Step 5 retires this track
+//     along with the local engine.
+//
+// The reward amounts were never client-supplied on either track: the token carries
+// baseXp/baseRyo (rewardSource 'server-save'), so validateAiFightRewardClaim
+// ignores whatever the body says. AI-fight rewards affect PROGRESSION SPEED, not
+// the PvP power ceiling, which is why the daily soft cap (the 90-day-curve
+// concern) is the lever here — see feedback_balanced_pvp_design_pillar.
+//
+// The payout, the secondary rewards and the physical outcome all land in ONE
+// mutatePlayerSave, so a win cannot bank its reward while losing the damage it
+// cost. The hunt/apex kill receipts are written after it, best-effort, and never
+// fail an already-applied reward.
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -82,11 +97,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: 'missing-ai-fight-token' });
         }
         const tokenKey = aiFightTokenKey(playerName, aiFightToken);
-        // Peek the token's sealed opponentId BEFORE the reward mutation consumes it —
-        // the hunt-kill producer below matches it against an accepted hunt's beast AI.
-        const sealedOpponentId = await kv.get<AiFightToken>(tokenKey)
-            .then((t) => (typeof t?.opponentId === 'string' ? t.opponentId : ''))
-            .catch(() => '');
+        // Peek the token BEFORE the reward mutation consumes it: the hunt-kill
+        // producer below matches its sealed opponentId against an accepted hunt,
+        // and its sealed runId selects which authority track this report takes.
+        const peeked = await kv.get<AiFightToken>(tokenKey).catch(() => null);
+        const sealedOpponentId = typeof peeked?.opponentId === 'string' ? peeked.opponentId : '';
+        const sealedRunId = typeof peeked?.runId === 'string' ? peeked.runId : '';
+        const sealedBattleKind = peeked?.battleKind ?? 'practice';
+
+        // ── Step 4: the SESSION decides, not the caller ──────────────────────
+        // When the token carries a runId, this fight was resolved by the server
+        // engine and its session is the authority on both questions that used to
+        // be taken on trust: did the player win, and what HP did they walk away
+        // with. A token WITHOUT a runId is the local-Arena fallback (every
+        // client-authored `temp-*` opponent, or the kill switch), which has no
+        // session to read — that track keeps the old behaviour until step 5
+        // retires it.
+        const sealedSession = sealedRunId ? await readSession(sealedRunId).catch(() => null) : null;
+        const outcome: AiFightOutcome = sealedRunId ? resolveAiFightOutcome(sealedSession) : 'win';
+        const playerActor = aiFightPlayerActor(sealedSession);
+        // A vanished session neither pays nor punishes — see _ai-fight-outcome.
+        // 409 so the client's settle retry can pick it up if it was a slow read.
+        if (outcome === 'unknown') {
+            return res.status(409).json({ error: 'The sealed fight could not be verified.', outcome });
+        }
+        const paysReward = aiFightPaysReward(outcome, sealedBattleKind);
         const result = await mutatePlayerSave(playerName, async ({ character }) => {
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
                 ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number } =>
@@ -103,16 +138,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const claim = validateAiFightRewardClaim(tokenData, body.xp, body.ryo);
             if (!claim.ok) return { ok: false as const, status: 409, error: claim.reason };
 
+            // A loss, draw or forfeit consumes the token and writes the physical
+            // consequence, but pays nothing and never touches the daily counter —
+            // the counter is a REWARD counter, and a defeat earned no reward.
+            if (!paysReward) {
+                const settled = applyAiFightOutcomeToCharacter(character, outcome, playerActor, Date.now());
+                const redemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
+                return {
+                    ok: true as const,
+                    character: { ...settled, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] },
+                    value: { ...redemption, replayed: false },
+                };
+            }
+
             const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
             const reward = aiFightReward(claim.xp, claim.ryo, dailyCount);
             const leveled = gainXp(character, reward.xp) as Record<string, unknown>;
             const paid = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
-            const nextCharacter = applyAiFightSecondaryRewards(
+            const rewarded = applyAiFightSecondaryRewards(
                 paid,
                 tokenData,
                 dailyCount <= AI_FIGHT_HARD_CAP_PER_DAY,
                 randomInt(100) < 15,
             );
+            // The surviving HP rides in the SAME mutation as the payout, so a win
+            // can never bank the reward while losing the damage it cost (or the
+            // other way round). No-op on the local-fallback track, which has no
+            // session to read an HP from.
+            const nextCharacter = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now());
             const redemption = { token: aiFightToken, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount };
             return {
                 ok: true as const,
@@ -128,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy
         // eligibility too. Style kills bucket by the save's declared specialty.
-        if (!reward.replayed && legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
+        if (paysReward && !reward.replayed && legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
             try {
                 const char = result.character;
                 const deltas: LegacyStatDeltas = { pveKills: 1 };
@@ -151,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // tracking already done (applyMissionProgressEvent only flips huntKill once
         // exploreCount has reached target-1). Best-effort + idempotent (the sealed
         // token id dedups), and never fails the already-applied reward.
-        if (!reward.replayed && sealedOpponentId) {
+        if (paysReward && !reward.replayed && sealedOpponentId) {
             const hunt = huntMissionByAiProfileId(sealedOpponentId);
             // acceptedMissionIds is a top-level save-record field, not a character
             // one — reading it off result.character always found nothing, so the
@@ -181,7 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // client cannot re-report an older Apex to farm the purse. The claim
         // still gates on rank/level and stamps apexWeekClaimed, so this receipt
         // alone can never pay twice. Best-effort — never fails a paid reward.
-        if (!reward.replayed && sealedOpponentId.startsWith('apex-ai-')) {
+        if (paysReward && !reward.replayed && sealedOpponentId.startsWith('apex-ai-')) {
             try {
                 const rc = result.character as Record<string, unknown> | undefined;
                 const weekKey = isoWeekKey(new Date());
@@ -192,7 +245,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 console.error('[report-ai-fight apex-kill]', e);
             }
         }
-        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });
+        // `outcome` lets the client's result card state what actually happened
+        // instead of assuming a win — a forfeit and a loss read differently.
+        return res.status(200).json({ ok: true, outcome, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
         console.error('[missions/report-ai-fight]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
