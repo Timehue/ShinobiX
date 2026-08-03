@@ -31,6 +31,7 @@ import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
 import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { requestAiFight } from "../lib/ai-fight-request";
+import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { sectorPhrase } from "../lib/hollow-rifts";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { TowerSession, TowerHostLoadout } from "../lib/towers-api";
@@ -191,6 +192,14 @@ export function Missions({
         return data;
     }
 
+    /** The mission fight's physical cost — surviving HP, or the hospital stay on
+     *  a defeat or a forfeit. Pays nothing; the reward stays on the claim step. */
+    async function reportMissionFightOutcome(runId: string, playerName: string) {
+        const applied = await reportPveFightOutcome(runId, playerName);
+        if (applied?.character) updateCharacter(applied.character);
+        return applied;
+    }
+
     if (authoritativeFight) {
         return (
             <MissionArenaFight
@@ -203,6 +212,10 @@ export function Missions({
                 creatorJutsus={creatorJutsus}
                 creatorItems={creatorItems}
                 settleFn={settleAuthoritativeMission}
+                // A failed mission has to cost something. settleAuthoritativeMission
+                // only runs on a win, so without this a defeat left the player at
+                // full HP and free to re-enter immediately.
+                outcomeFn={reportMissionFightOutcome}
                 onExit={() => setAuthoritativeFight(null)}
             />
         );

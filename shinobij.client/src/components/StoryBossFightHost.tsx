@@ -5,6 +5,7 @@ import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { startStoryBossCombat, settleStoryBossCombat, type StoryBossSettleResult } from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
+import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 
 // Story-boss fights render through MissionArenaFight — the SAME server-authoritative
 // arena shell combat missions use (a sealed tower:<runId> session, /api/towers/action
@@ -36,6 +37,7 @@ export function StoryBossFightHost({
     creatorJutsus,
     creatorItems,
     onSettled,
+    onOutcome,
 }: {
     character: Character | null;
     sharedImages: Record<string, string>;
@@ -45,6 +47,10 @@ export function StoryBossFightHost({
     creatorJutsus?: Jutsu[];
     creatorItems?: GameItem[];
     onSettled: (result: StoryBossSettleResult) => void;
+    /** Adopt the character the fight's PHYSICAL cost was written onto (surviving
+     *  HP, or the hospital stay on a defeat). Separate from onSettled, which
+     *  carries the chapter REWARD and only fires on a win. */
+    onOutcome?: (character: Character, saveVersion?: number) => void;
 }) {
     const [fight, setFight] = useState<{ theme: StoryFightTheme; runId: string; session: TowerSession } | null>(null);
     const startingRef = useRef(false);
@@ -77,6 +83,14 @@ export function StoryBossFightHost({
         return settled;
     }
 
+    // The fight's physical cost. Fires on any resolution and on a forfeit exit —
+    // a chapter boss that beat you must not leave you at full HP.
+    async function reportOutcome(runId: string, settlingPlayer: string) {
+        const applied = await reportPveFightOutcome(runId, settlingPlayer);
+        if (applied?.character) onOutcome?.(applied.character, applied._saveVersion);
+        return applied;
+    }
+
     function closeFight() {
         setFight(null);
     }
@@ -92,6 +106,12 @@ export function StoryBossFightHost({
                 creatorJutsus={creatorJutsus}
                 creatorItems={creatorItems}
                 settleFn={settle}
+                // A chapter boss that beat you has to cost something. `settle`
+                // only runs on a win (the story settle refuses a losing run), so
+                // without this a defeat left the player at full HP, free to walk
+                // straight back in — and the defeat card already tells them to
+                // "recover and try again".
+                outcomeFn={reportOutcome}
                 storyTheme={theme}
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
