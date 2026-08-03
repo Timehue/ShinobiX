@@ -30,6 +30,7 @@ import { gainXp } from "../App";
 import { rankUpHunterServer } from "../lib/hunter-rank-api";
 import { countItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { requestAiFight } from "../lib/ai-fight-request";
 import { gameConfirm } from "../components/GameAlert";
 
 export function HunterBoard({
@@ -44,6 +45,7 @@ export function HunterBoard({
     // older "fight straight from the board" path. The Apex Contract is exactly
     // that, so it finally has a use.
     setPendingAiProfileId,
+    setRaidBattleKind,
     setScreen,
 }: {
     character: Character;
@@ -54,6 +56,8 @@ export function HunterBoard({
     missionProgress: Record<string, number>;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     setPendingAiProfileId: (id: string) => void;
+    /** Required for the Apex fight to register as a hunt — see faceApex. */
+    setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     setScreen: (s: Screen) => void;
 }) {
     const hunterRank = character.hunterRank ?? 0;
@@ -178,10 +182,30 @@ export function HunterBoard({
     function faceApex() {
         if (!requireServerSettlement("fieldHuntMissions")) return;
         if (!canTakeApex(character)) return;
-        // apex-ai-* profiles are real builtins (lib/combat-ai.ts), so the Arena
-        // resolves them by id with no registration step.
-        setPendingAiProfileId(apexBeastForWeek(apexWeek).apexAiId);
-        setScreen("arena");
+        // apex-ai-* profiles are real builtins (lib/combat-ai.ts), so both the
+        // Arena and the server's profile catalog resolve them by id with no
+        // registration step — and, unlike a tracked hunt, the Apex has no trail,
+        // so nothing about the encounter is modified client-side. That makes it
+        // safe to seal.
+        //
+        // ⚠ setRaidBattleKind is REQUIRED, not decoration. Without it the fight
+        // registered as neither a mission nor a raid, so Arena.winBattle took its
+        // `isPlainPractice` branch and returned BEFORE reporting — and
+        // report-ai-fight is the only writer of the apex kill receipt. The kill
+        // was never recorded and the purse could never be claimed. The Apex IS a
+        // hunt; every other hunt beast is fought as a raidAi, and now so is this.
+        const apexAiId = apexBeastForWeek(apexWeek).apexAiId;
+        requestAiFight({
+            opponentId: apexAiId,
+            opponentLevel: character.level,
+            battleKind: "raidAi",
+            opponentName: apexBeastForWeek(apexWeek).name,
+            playLocally: () => {
+                setPendingAiProfileId(apexAiId);
+                setRaidBattleKind("raidAi");
+                setScreen("arena");
+            },
+        });
     }
 
     /**

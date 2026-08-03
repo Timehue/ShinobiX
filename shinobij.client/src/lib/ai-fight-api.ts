@@ -77,6 +77,8 @@ export async function startAiFight(params: {
 
 export type AiFightReportResult = {
     ok: boolean;
+    /** What the SESSION said happened. Absent on the local-fallback track. */
+    outcome?: "win" | "loss" | "draw" | "forfeit";
     xp: number;
     ryo: number;
     capped?: boolean;
@@ -86,14 +88,15 @@ export type AiFightReportResult = {
 };
 
 /**
- * Redeem an AI-fight win. The server pays from the SEALED token — XP/ryo, the
- * secondary rewards (stamina, territory scroll, honor seals, aura dust, kill
- * counters) and the hunt/apex kill receipts all come off `battleKind` and
- * `opponentId` as sealed at start, inside one atomic save mutation. The body
- * carries only the token; there is no client-supplied amount to inflate.
+ * Settle an AI fight against its sealed token. The SERVER decides the outcome by
+ * reading the sealed session — this does not assert a win, it asks for one — and
+ * pays, applies the surviving HP, or hospitalizes accordingly, all from the seal.
+ * The body carries only the token; there is nothing here to inflate.
  *
- * Returns null when the report could not be verified — the caller must then
- * announce that nothing was granted rather than assume the predicted reward.
+ * Returns null when the settle could not be verified (including the 409 the
+ * server returns when the sealed session has vanished, which pays nothing and
+ * punishes nothing). The caller must then say nothing was granted rather than
+ * assume the predicted reward.
  */
 export async function reportAiFightWin(playerName: string, token: string): Promise<AiFightReportResult | null> {
     if (!token) return null;
