@@ -122,23 +122,26 @@ test("a FORFEIT is reported as such and grants nothing", async () => {
     assert.deepEqual(spy.fired, []);
 });
 
-test("a refused settle burns NO hunt or raid progress", async () => {
+test("an unverifiable settle THROWS so the arena shell's retry engages", async () => {
+    // The shell wraps settleFn in a 4x backoff retry and only then offers a
+    // manual Retry button. Resolving quietly made all of that dead code: one
+    // dropped request on a WIN showed "no reward was granted" while the token sat
+    // unspent, with nothing the player could do about it.
     respond = () => ({ ok: false, payload: { error: 'The sealed fight could not be verified.' } });
     const spy = hookSpy();
-    const result = await settleAiFight({
-        playerName: "Rill", token: "tok", opponentId: "ai-hunt-beast", battleKind: "raidAi", sector: 41, hooks: spy.hooks,
-    });
-    assert.equal(result.settled, false);
-    assert.equal(result.outcome, null);
-    assert.deepEqual(spy.fired, []);
+    await assert.rejects(
+        settleAiFight({ playerName: "Rill", token: "tok", opponentId: "ai-hunt-beast", battleKind: "raidAi", sector: 41, hooks: spy.hooks }),
+        /could not be settled/,
+    );
+    assert.deepEqual(spy.fired, [], "a settle that never landed must burn no hunt or raid progress");
 });
 
-test("a network failure resolves as unsettled rather than throwing into the result card", async () => {
+test("a network failure throws too — retrying is safe because the token is single-use", async () => {
     (globalThis as Record<string, unknown>).fetch = async () => { throw new Error("offline"); };
-    const result = await settleAiFight({
-        playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "raidAi", sector: 3,
-    });
-    assert.equal(result.settled, false);
+    await assert.rejects(
+        settleAiFight({ playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "raidAi", sector: 3 }),
+        /could not be settled/,
+    );
 });
 
 test("leaving an unresolved fight forfeits it — closing is not an escape hatch", () => {
