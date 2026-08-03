@@ -358,6 +358,36 @@ already pays, and the purse itself is unchanged — still separate, still gated 
   Only once both land can `serverAiCombatEnabled` and the `playLocally` fallbacks
   go. The abandoned-token waste (below) disappears with them.
 
+### ✅ Fixed: the weekly boss could near-one-shot players
+
+The weekly boss builds a Tower session and resolves on the server engine, but
+**both halves of its difficulty design were client-only**:
+
+- `weeklyBossGuardedHit` — the 8%-per-hit / 15%-per-turn boss→player ceiling.
+  Without it the boss dealt its raw stat sheet, which on a 10k-HP fighter is the
+  ~9k near-one-shot the clamp exists to prevent.
+- the **guard cycle** (`weeklyBossDamageMultiplier` / `isWeeklyBossOpenRound`) —
+  guard-up rounds soak 70%, one open round every 4 doubles the player's damage.
+  Missing entirely, so the fight had no texture and players out-damaged the
+  intended curve by ~38%.
+
+Both are ported into `api/_pve-difficulty.ts` (constant-for-constant) and sealed
+via `pveGuard.kind: 'weeklyBoss'`, which **reuses the whole existing clamp path** —
+turn reset, the per-target tally, the pre-shield `damageCap`, the AoE-splash cap.
+Only the ceiling formula differs. Shipped ON; `DISABLE_WEEKLY_BOSS_GUARD=1` takes
+out **both halves together** (they are a matched pair, like B/C: the clamp alone
+softens the boss, the cycle alone makes it swingier).
+
+⚠ The seal happens INSIDE `buildAuthoritativeSoloEncounter`, before the
+`startRound` + `runAiUntilHuman` it runs inline — the step-B trap.
+
+⚠ **Two vacuous tests were caught writing this**, both by adding an unguarded
+PRECONDITION that fails loudly when the scenario stops exercising the thing.
+Asserting "the boss stayed under the ceiling" against a sturdy player passes
+whether or not the clamp runs. The precondition also disproved an assumption in
+the comments: the boss deals **0** on the first turn or two because it is closing
+distance, so a one-turn window proves nothing either.
+
 ### Still open elsewhere — not this migration's to fix, but now known
 
 Combat missions (rank C+) and story bosses run on the server engine and **also

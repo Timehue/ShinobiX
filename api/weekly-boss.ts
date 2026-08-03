@@ -19,6 +19,7 @@ import {
 } from './_weekly-boss-fight-token.js';
 import {
     WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+    weeklyBossGuardEnabled,
 } from './_release-flags.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor, weeklyBossEnemyTemplate } from './_authoritative-pve.js';
 import { loadAdminCombatContent } from './_admin-content.js';
@@ -586,6 +587,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     towerId: 'weekly-boss',
                     admin: await loadAdminCombatContent(),
                     hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
+                    // The weekly boss's own clamp: 8% per hit / 15% per turn
+                    // boss→player, plus the guard cycle player→boss. Both were
+                    // client-only, so this fight previously ran with NO
+                    // boss→player ceiling at all — the raw stat sheet on a
+                    // level-100 boss is a near-one-shot — and with none of its
+                    // guard-up/guard-down texture. Sealed inside the builder so
+                    // it covers the opening enemy turn it runs inline.
+                    ...(weeklyBossGuardEnabled() ? { pveGuardKind: 'weeklyBoss' as const } : {}),
                 });
                 const bossActor = session.actors.find((entry) => entry.id === session.phaseState.bossId);
                 if (!bossActor) return res.status(500).json({ error: 'Weekly Boss encounter could not be built.' });
