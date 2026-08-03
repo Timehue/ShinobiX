@@ -61,7 +61,7 @@ test("AiFightHost falls back to the local fight when no encounter was sealed", (
 });
 
 test("every routed launch site supplies a local fallback", () => {
-    const sources = ["../screens/WorldMap.tsx", "../screens/Missions.tsx", "../screens/Logbook.tsx"];
+    const sources = ["../screens/WorldMap.tsx", "../screens/Missions.tsx", "../screens/Logbook.tsx", "../screens/HunterBoard.tsx"];
     for (const relative of sources) {
         const text = readFileSync(new URL(relative, import.meta.url), "utf8");
         const calls = text.split("requestAiFight({").length - 1;
@@ -69,4 +69,33 @@ test("every routed launch site supplies a local fallback", () => {
         const fallbacks = text.split("playLocally:").length - 1;
         assert.equal(fallbacks, calls, `${relative}: every requestAiFight call must carry a playLocally fallback`);
     }
+});
+
+test("a defeat and an abandoned fight both reach the server", () => {
+    // Two separate holes, one consequence: if either is lost, a server AI fight
+    // becomes free to lose and free to retry, and the whole risk side of hunts
+    // and raids disappears. The forfeit RULE is behaviour-tested in
+    // ai-fight-settle.test.ts (shouldSettleOnClose); this only pins that the host
+    // still asks it.
+    assert.match(host, /settleOnAnyDone/, "losses must settle, not just wins");
+    assert.match(host, /shouldSettleOnClose\(/, "closing an unsettled fight must consult the forfeit rule");
+});
+
+test("the Apex fight registers as a hunt, or its kill receipt is never written", () => {
+    // report-ai-fight is the ONLY writer of the apex kill receipt, and it is only
+    // reached for a non-practice fight. Without raidAi the purse is unclaimable.
+    const board = readFileSync(new URL("../screens/HunterBoard.tsx", import.meta.url), "utf8");
+    const faceApex = board.slice(board.indexOf("function faceApex"), board.indexOf("function faceApex") + 1400);
+    assert.match(faceApex, /battleKind: "raidAi"/, "the sealed Apex fight must be a hunt");
+    assert.match(faceApex, /setRaidBattleKind\("raidAi"\)/, "the local Apex fallback must be a hunt too");
+});
+
+test("the tracked hunt beast is NOT routed — Hunt Quality is applied client-side", () => {
+    // applyHuntOpening (cornered/enraged) is what makes tracking well matter, and
+    // the server builds the encounter from the catalog profile. Routing this
+    // fight would silently delete Hunt Quality from the Hunter Guild loop.
+    const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
+    const launch = worldMap.slice(worldMap.indexOf("function launchHuntBeastFight"), worldMap.indexOf("function launchHuntBeastFight") + 2200);
+    assert.match(launch, /applyHuntOpening\(/, "the hunt opening must still be applied");
+    assert.doesNotMatch(launch, /requestAiFight\(/, "do not route the tracked hunt until the SERVER owns hunt quality");
 });

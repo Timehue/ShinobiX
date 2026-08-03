@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, BattleHistoryEntry } from "../types/character";
 import type { TowerSession } from "../lib/towers-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
@@ -7,7 +7,8 @@ import { startAiFight } from "../lib/ai-fight-api";
 import { aiFightHostLoadout } from "../lib/ai-fight-loadout";
 import { onAiFightRequest, type AiFightRequest } from "../lib/ai-fight-request";
 import {
-    settleAiFightWin,
+    settleAiFight,
+    shouldSettleOnClose,
     stampAiFightOutcome,
     type AiFightSettleHooks,
     type AiFightSettleResult,
@@ -58,6 +59,7 @@ export function AiFightHost({
     hooks,
     onSettled,
     onClose,
+    onRecordBattle,
 }: {
     character: Character | null;
     sharedImages: Record<string, string>;
@@ -70,9 +72,15 @@ export function AiFightHost({
     hooks?: AiFightSettleHooks;
     onSettled: (result: AiFightSettleResult) => void;
     onClose?: (returnScreen?: string) => void;
+    /** Profile → Battles reflection log, same as the local Arena records. */
+    onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     const [fight, setFight] = useState<ActiveFight | null>(null);
     const startingRef = useRef(false);
+    // One settle per fight. The screen settles on resolve; closeFight settles an
+    // ABANDONED fight (the server scores that a forfeit), and this stops the two
+    // from both firing when the player closes an already-resolved result card.
+    const settledRef = useRef(false);
     const playerName = character?.name ?? "";
     // Read through a ref so the subscription does not resubscribe (and drop the
     // single-listener registration) every time a catalog prop changes identity.
@@ -80,17 +88,24 @@ export function AiFightHost({
     // a user interaction, i.e. after the commit that refreshed this.
     const latest = useRef({ character, creatorItems, savedBloodlines });
     useEffect(() => { latest.current = { character, creatorItems, savedBloodlines }; });
+    // `fight` itself is not readable from the bus callback (it closes over the
+    // mount render), so mirror "a fight is on screen" into a ref.
+    const activeRef = useRef(false);
+    useEffect(() => { activeRef.current = fight !== null; }, [fight]);
 
     useEffect(() => {
         if (!playerName) return;
         return onAiFightRequest((request) => {
             const me = latest.current.character;
             if (!me) return request.playLocally();
-            // One fight at a time. A second tap while a start is in flight is
-            // dropped rather than queued — two sealed encounters would mint two
-            // tokens for one intended fight.
-            if (startingRef.current) return;
+            // One fight at a time. A second request while a start is in flight —
+            // or while a fight is already on screen — is dropped rather than
+            // queued: two sealed encounters would mint two tokens for one
+            // intended fight, and the second would silently replace the first,
+            // leaving the abandoned run to be scored a forfeit.
+            if (startingRef.current || activeRef.current) return;
             startingRef.current = true;
+            settledRef.current = false;
             void import("../screens/MissionArenaFight");
             startAiFight({
                 playerName: me.name,
@@ -121,7 +136,8 @@ export function AiFightHost({
     // from the token (battleKind + opponentId sealed at start), so there is no
     // client-supplied amount here to inflate.
     async function settle(_runId: string, settlingPlayer: string): Promise<AiFightSettleResult> {
-        const settled = await settleAiFightWin({
+        settledRef.current = true;
+        const settled = await settleAiFight({
             playerName: settlingPlayer,
             token: fight!.token,
             opponentId: fight!.request.opponentId,
@@ -134,7 +150,17 @@ export function AiFightHost({
     }
 
     function closeFight() {
-        const returnScreen = fight?.request.returnScreen;
+        const active = fight;
+        const returnScreen = active?.request.returnScreen;
+        // Leaving an UNSETTLED fight is a forfeit, not an escape. Without this a
+        // player about to lose could close the screen and take no damage at all,
+        // making every fight free to retry — strictly better than winning
+        // carefully. The server scores it: an `active` session settles as a
+        // forfeit and hospitalizes, exactly like a defeat.
+        if (shouldSettleOnClose(!!active, settledRef.current) && active) {
+            settledRef.current = true;
+            void settle(active.runId, playerName).catch(() => { /* the run stays open; the seal expires */ });
+        }
         setFight(null);
         onClose?.(returnScreen);
     }
@@ -150,6 +176,11 @@ export function AiFightHost({
                 creatorJutsus={creatorJutsus}
                 creatorItems={creatorItems}
                 settleFn={settle}
+                // Settle on ANY resolution, not just a win: a defeat has to reach
+                // the server or it costs the player nothing.
+                settleOnAnyDone
+                onRecordBattle={onRecordBattle}
+                recordMode={request.battleKind === "practice" ? "Practice" : "AI Fight"}
                 enemyAvatarOverride={request.enemyAvatar}
                 onExit={closeFight}
                 renderResult={(ctx) => (
@@ -195,22 +226,27 @@ function AiFightResultCard({
 
     if (!won) {
         return (
-            <div className="story-fight-complete" role="dialog" aria-label="Fight lost">
+            <div className="story-fight-complete" role="dialog" aria-label={draw ? "Fight drawn" : "Fight lost"}>
                 <div className="story-fight-complete-card">
                     <p className="story-fight-complete-kicker">{draw ? "Stalemate" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
                     <p className="story-fight-complete-boss">
-                        {draw ? "Neither side could finish it. No reward was earned." : `${opponentName} stands over you. No reward was earned.`}
+                        {draw
+                            ? "Neither side could finish it. No reward was earned."
+                            : `${opponentName} stands over you. You are carried to the hospital — no reward was earned.`}
                     </p>
-                    <button onClick={onExit}>Return</button>
+                    {settleState === "failed"
+                        ? <button onClick={onRetry}>Retry</button>
+                        : <button disabled={settleState === "pending"} onClick={onExit}>Return</button>}
                 </div>
             </div>
         );
     }
 
-    // WIN. Reward numbers come from the server's report response — never a local
+    // WIN. Reward numbers come from the server's settle response — never a local
     // prediction, because the daily soft cap and a profession payout can both
     // change what is actually granted.
+    const grantedNothing = settleResult && settleResult.outcome === "win" && settleResult.ryo <= 0;
     return (
         <div className="story-fight-complete" role="dialog" aria-label="Fight won">
             <div className="story-fight-complete-card">
@@ -222,16 +258,20 @@ function AiFightResultCard({
                             {settleState === "failed" ? "The reward could not be verified." : "Tallying rewards…"}
                         </p>
                     )
-                    : !settleResult.paid
+                    : !settleResult.settled
                         ? <p className="story-fight-complete-rewards">No reward was granted for this fight.</p>
                         : settleResult.replayed
                             ? <p className="story-fight-complete-rewards">This reward was already collected.</p>
-                            : (
-                                <p className="story-fight-complete-rewards">
-                                    +{settleResult.ryo} ryo{settleResult.capped ? " (daily cap reached)" : ""}
-                                    <span className="story-fight-complete-title">Stat points come from training, your dailies, and serious PvP.</span>
-                                </p>
-                            )}
+                            : grantedNothing
+                                // A practice bout pays nothing by design — say so
+                                // plainly rather than showing a bare "+0 ryo".
+                                ? <p className="story-fight-complete-rewards">Practice bout — no rewards.</p>
+                                : (
+                                    <p className="story-fight-complete-rewards">
+                                        +{settleResult.ryo} ryo{settleResult.capped ? " (daily cap reached)" : ""}
+                                        <span className="story-fight-complete-title">Stat points come from training, your dailies, and serious PvP.</span>
+                                    </p>
+                                )}
                 {settleState === "failed"
                     ? <button onClick={onRetry}>Retry</button>
                     : <button disabled={settleState === "pending"} onClick={onExit}>Continue</button>}

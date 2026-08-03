@@ -7,27 +7,24 @@ import { stampWandererFightResult } from "./wanderer-fight";
 /*
  * Settling a SERVER-resolved AI fight.
  *
- * The split of authority, so the two halves are not re-derived at each call
- * site:
+ * The split of authority, so the two halves are not re-derived at each call site:
  *
- * SERVER (api/missions/report-ai-fight, from the token sealed at start) — XP,
- *   ryo, stamina, the territory scroll, honor seals, aura dust, bone charms,
- *   fate shards, totalAiKills / dailyAiKills / totalVillageRaids / defeatedAiIds
- *   / aiKills, the Legacy kill credit, and the hunt + apex kill RECEIPTS. All of
- *   it keyed off the SEALED battleKind and opponentId, in one atomic save
- *   mutation, so none of it can be inflated from here.
+ * SERVER (api/missions/report-ai-fight) — reads the sealed SESSION and decides
+ *   everything that matters: whether the player won, the XP/ryo, the secondary
+ *   rewards (stamina, territory scroll, honor seals, aura dust, kill counters),
+ *   the Legacy credit, the hunt + apex kill RECEIPTS, the surviving HP, and the
+ *   hospital stay on a defeat or a forfeit. All of it in one atomic save
+ *   mutation, none of it inflatable from here — this module sends only the token.
  *
- * CLIENT (this module) — only what the server does not own: the shared sector
- *   territory pool, the accepted-mission raid/explore progress counters, the
- *   local hunt-board mirror, and the daily-mission counter. Exactly the set
- *   Arena.winBattle fires for an AI win, so the two paths stay equivalent until
- *   step 5 retires the local one.
+ * CLIENT (this module) — only the world/mission state the server does not own:
+ *   the shared sector territory pool, the accepted-mission raid/explore progress
+ *   counters, the local hunt-board mirror, and the daily-mission counter. Exactly
+ *   the set Arena.winBattle fires for an AI win, so the two engines stay
+ *   equivalent until step 5 retires the local one.
  *
- * `battleKind` alone selects the branch, matching how Arena computes it:
- *   raidAi   → sector territory damage + raid credit + hunt-board mirror
- *   explore  → explore-mission credit
- *   mission  → the daily-mission counter
- *   defense / practice / endless → nothing local
+ * The settle runs on EVERY resolution, not just a win. A loss must reach the
+ * server or the defeat costs nothing, and an abandoned fight must reach it too or
+ * a losing player can simply close the screen and retry for free.
  */
 
 export type AiFightSettleHooks = {
@@ -48,24 +45,37 @@ export type AiFightSettleHooks = {
     onHuntBeastDefeated?: (opponentId: string) => void;
 };
 
+/** What the server says happened. `unknown` never reaches a settled result. */
+export type AiFightOutcome = "win" | "loss" | "draw" | "forfeit";
+
 export type AiFightSettleResult = {
-    /** True when the server verified and paid the win. */
-    paid: boolean;
+    /** True when the server verified and settled the fight (win OR loss). */
+    settled: boolean;
+    outcome: AiFightOutcome | null;
     /** What the server actually granted — never a client-side prediction. */
     ryo: number;
     capped: boolean;
     replayed: boolean;
-    /** The post-payout character, with the client-owned counters folded in. */
+    /** The post-settle character, with the client-owned counters folded in. */
     character: Character | null;
     _saveVersion?: number;
 };
 
-/** The client-owned counters, applied on top of the server's paid character. */
+/** The client-owned counters, applied on top of the server's settled character. */
 export function applyLocalAiFightCounters(character: Character, battleKind: AiFightBattleKind): Character {
     return battleKind === "mission" ? markMissionCompleted(character) : character;
 }
 
-/** The world/mission side effects the server does not own. Safe to call once per win. */
+/**
+ * The world/mission side effects the server does not own. Fires only on a WIN —
+ * a defeat must never consume an accepted hunt or bank raid progress.
+ *
+ * `battleKind` alone selects the branch, matching how Arena computes it:
+ *   raidAi   → sector territory damage + raid credit + hunt-board mirror
+ *   explore  → explore-mission credit
+ *   mission  → nothing here (the daily counter rides on the character)
+ *   defense / practice / endless → nothing local
+ */
 export function fireLocalAiFightSideEffects(
     battleKind: AiFightBattleKind,
     opponentId: string,
@@ -84,12 +94,14 @@ export function fireLocalAiFightSideEffects(
 }
 
 /**
- * Settle a won server AI fight: redeem the sealed token, then fire the
- * client-owned side effects. A refused report still resolves (paid: false) —
- * the fight happened, and the result card must say nothing was granted rather
- * than promise a reward the server already declined.
+ * Settle a resolved (or abandoned) server AI fight. The server reads the sealed
+ * session, so this call does not assert an outcome — it asks for one.
+ *
+ * A refused settle still resolves (`settled: false`) rather than throwing: the
+ * fight happened, and the result card must say nothing was granted instead of
+ * promising a reward the server already declined.
  */
-export async function settleAiFightWin(params: {
+export async function settleAiFight(params: {
     playerName: string;
     token: string;
     opponentId: string;
@@ -97,30 +109,40 @@ export async function settleAiFightWin(params: {
     sector?: number;
     hooks?: AiFightSettleHooks;
 }): Promise<AiFightSettleResult> {
-    // A plain practice bout grants NOTHING — no ryo, stats, currency, items or
-    // kill credit. Arena's win path returns before it reports one, so reporting
-    // here would silently start paying for fights that are meant to pay nothing.
-    // Progression comes from missions/hunts/raids, real PvP and training.
-    if (params.battleKind === "practice") {
-        return { paid: false, ryo: 0, capped: false, replayed: false, character: null };
-    }
     const reported: AiFightReportResult | null = await reportAiFightWin(params.playerName, params.token);
-    // The side effects are NOT gated on the report succeeding for a replayed
-    // token (the reward was already paid on the first pass), but they ARE gated
-    // on the server having accepted the win at all — otherwise a refused report
-    // would still burn the player's accepted hunt or raid progress.
-    if (reported) {
+    const outcome = (reported?.outcome ?? null) as AiFightOutcome | null;
+    // Gated on the server having ACCEPTED the win. A refused settle, a defeat or
+    // a forfeit must not burn the player's accepted hunt or raid progress.
+    if (reported && outcome === "win") {
         fireLocalAiFightSideEffects(params.battleKind, params.opponentId, params.sector, params.hooks ?? {});
     }
-    const paidCharacter = (reported?.character ?? null) as Character | null;
+    const settledCharacter = (reported?.character ?? null) as Character | null;
     return {
-        paid: !!reported,
+        settled: !!reported,
+        outcome,
         ryo: Number(reported?.ryo) || 0,
         capped: reported?.capped === true,
         replayed: reported?.replayed === true,
-        character: paidCharacter ? applyLocalAiFightCounters(paidCharacter, params.battleKind) : null,
+        character: settledCharacter && outcome === "win"
+            ? applyLocalAiFightCounters(settledCharacter, params.battleKind)
+            : settledCharacter,
         _saveVersion: reported?._saveVersion,
     };
+}
+
+/**
+ * Whether closing the fight screen must still settle the run.
+ *
+ * Leaving an unresolved fight is a FORFEIT, not an escape — the server scores an
+ * `active` session as one and hospitalizes. Without this a player about to lose
+ * could close the screen and take no damage at all, making every fight free to
+ * retry, which is strictly better than winning carefully.
+ *
+ * Its own function so the rule is testable: inlined in the component it could
+ * only be grep-asserted, and a grep cannot tell a live branch from a dead one.
+ */
+export function shouldSettleOnClose(hasFight: boolean, alreadySettled: boolean): boolean {
+    return hasFight && !alreadySettled;
 }
 
 /** Stamp the authoritative outcome onto any pending wanderer/ambush/hunt-pack record. */

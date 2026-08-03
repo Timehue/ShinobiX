@@ -13,7 +13,7 @@ const store = new Map<string, string>();
     get length() { return store.size; },
 };
 
-const { settleAiFightWin } = await import("./ai-fight-settle");
+const { settleAiFight, shouldSettleOnClose } = await import("./ai-fight-settle");
 const { requestAiFight } = await import("./ai-fight-request");
 
 type Call = { url: string; body: Record<string, unknown> };
@@ -21,10 +21,14 @@ let calls: Call[] = [];
 let respond: () => { ok: boolean; payload: unknown };
 const realFetch = globalThis.fetch;
 
+function win(extra: Record<string, unknown> = {}) {
+    return { ok: true, payload: { ok: true, outcome: "win", xp: 0, ryo: 75, capped: false, character: { name: "Rill", ryo: 75 }, ...extra } };
+}
+
 beforeEach(() => {
     calls = [];
     store.clear();
-    respond = () => ({ ok: true, payload: { ok: true, xp: 0, ryo: 75, capped: false, character: { name: "Rill", ryo: 75 } } });
+    respond = win;
     (globalThis as Record<string, unknown>).fetch = async (url: string, init?: { body?: string }) => {
         calls.push({ url: String(url), body: JSON.parse(init?.body ?? "{}") });
         const { ok, payload } = respond();
@@ -47,74 +51,109 @@ function hookSpy() {
     };
 }
 
-test("a practice bout reports nothing and grants nothing", async () => {
+test("the settle asks for an outcome — it never asserts one", async () => {
+    await settleAiFight({ playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "raidAi", sector: 4 });
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /report-ai-fight$/);
+    assert.deepEqual(Object.keys(calls[0].body).sort(), ["aiFightToken", "playerName"],
+        "the body must carry ONLY the token — no amount, no outcome, nothing to inflate");
+});
+
+test("a practice bout still settles, so a practice defeat costs the same hospital stay", async () => {
+    // The server decides practice pays nothing; the client must NOT skip the
+    // call, or losing a practice bout would be free while losing a raid is not.
     const spy = hookSpy();
-    const result = await settleAiFightWin({
+    respond = () => win({ ryo: 0 });
+    const result = await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-dummy", battleKind: "practice", hooks: spy.hooks,
     });
-    assert.equal(calls.length, 0, "practice must never reach report-ai-fight");
-    assert.equal(result.paid, false);
+    assert.equal(calls.length, 1, "practice must still reach the server");
     assert.equal(result.ryo, 0);
     assert.deepEqual(spy.fired, [], "practice fires no world side effects");
 });
 
-test("a raid win redeems the token and fires the raid + hunt side effects", async () => {
+test("a raid win fires the raid + hunt side effects", async () => {
     const spy = hookSpy();
-    const result = await settleAiFightWin({
+    const result = await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-hunt-beast", battleKind: "raidAi", sector: 41, hooks: spy.hooks,
     });
-    assert.equal(calls.length, 1);
-    assert.match(calls[0].url, /report-ai-fight$/);
-    assert.equal(calls[0].body.aiFightToken, "tok");
-    // The reward is paid from the SEALED token — the body must carry no amount.
-    assert.equal(calls[0].body.ryo, undefined, "the client must not send a reward amount");
-    assert.equal(calls[0].body.xp, undefined, "the client must not send a reward amount");
-    assert.equal(result.paid, true);
+    assert.equal(result.settled, true);
+    assert.equal(result.outcome, "win");
     assert.equal(result.ryo, 75, "the announced reward is the server's number, not a prediction");
     assert.deepEqual(spy.fired, ["damage:41", "raid:41", "hunt:ai-hunt-beast"]);
 });
 
 test("an explore ambush win fires ONLY the explore credit", async () => {
     const spy = hookSpy();
-    await settleAiFightWin({
+    await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-bandit", battleKind: "explore", sector: 7, hooks: spy.hooks,
     });
     assert.deepEqual(spy.fired, ["explore"], "an ambush is not a raid — no territory damage, no hunt credit");
 });
 
-test("a field-mission win folds the daily-mission counter onto the paid character", async () => {
-    respond = () => ({ ok: true, payload: { ok: true, xp: 0, ryo: 75, character: { name: "Rill", totalMissionsCompleted: 3 } } });
-    const spy = hookSpy();
-    const result = await settleAiFightWin({
-        playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "mission", hooks: spy.hooks,
+test("a field-mission win folds the daily-mission counter onto the settled character", async () => {
+    respond = () => win({ character: { name: "Rill", totalMissionsCompleted: 3 } });
+    const result = await settleAiFight({
+        playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "mission",
     });
-    assert.equal(result.character?.totalMissionsCompleted, 4, "markMissionCompleted must apply on top of the server character");
-    assert.deepEqual(spy.fired, [], "a field mission fires no world side effects");
+    assert.equal(result.character?.totalMissionsCompleted, 4, "markMissionCompleted applies on top of the server character");
 });
 
-test("a refused report burns NO hunt or raid progress", async () => {
-    respond = () => ({ ok: false, payload: { error: "AI fight token is invalid or already spent." } });
+test("a LOSS burns no progress but still returns the hospitalized character", async () => {
     const spy = hookSpy();
-    const result = await settleAiFightWin({
+    respond = () => ({ ok: true, payload: { ok: true, outcome: "loss", xp: 0, ryo: 0, character: { name: "Rill", hp: 0, hospitalized: true } } });
+    const result = await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-hunt-beast", battleKind: "raidAi", sector: 41, hooks: spy.hooks,
     });
-    assert.equal(result.paid, false);
-    assert.equal(result.ryo, 0);
-    assert.deepEqual(spy.fired, [], "a refused win must not consume the accepted hunt or raid");
+    assert.equal(result.outcome, "loss");
+    assert.equal(result.character?.hospitalized, true, "the defeat must reach the character or losing costs nothing");
+    assert.deepEqual(spy.fired, [], "a defeat must not consume the accepted hunt or raid");
+    assert.equal(result.character?.totalMissionsCompleted, undefined);
 });
 
-test("a network failure resolves as unpaid rather than throwing into the result card", async () => {
+test("a FORFEIT is reported as such and grants nothing", async () => {
+    const spy = hookSpy();
+    respond = () => ({ ok: true, payload: { ok: true, outcome: "forfeit", xp: 0, ryo: 0, character: { name: "Rill", hp: 0, hospitalized: true } } });
+    const result = await settleAiFight({
+        playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "raidAi", sector: 2, hooks: spy.hooks,
+    });
+    assert.equal(result.outcome, "forfeit");
+    assert.equal(result.ryo, 0);
+    assert.deepEqual(spy.fired, []);
+});
+
+test("a refused settle burns NO hunt or raid progress", async () => {
+    respond = () => ({ ok: false, payload: { error: 'The sealed fight could not be verified.' } });
+    const spy = hookSpy();
+    const result = await settleAiFight({
+        playerName: "Rill", token: "tok", opponentId: "ai-hunt-beast", battleKind: "raidAi", sector: 41, hooks: spy.hooks,
+    });
+    assert.equal(result.settled, false);
+    assert.equal(result.outcome, null);
+    assert.deepEqual(spy.fired, []);
+});
+
+test("a network failure resolves as unsettled rather than throwing into the result card", async () => {
     (globalThis as Record<string, unknown>).fetch = async () => { throw new Error("offline"); };
-    const result = await settleAiFightWin({
+    const result = await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "raidAi", sector: 3,
     });
-    assert.equal(result.paid, false);
+    assert.equal(result.settled, false);
 });
 
-test("the bus and the settle agree on the battle kinds the server seals", () => {
-    // A kind the token record does not recognise silently degrades to 'practice'
-    // server-side (createAiFightTokenRecord), which pays nothing — so a typo here
-    // would quietly zero out a reward instead of failing.
+test("leaving an unresolved fight forfeits it — closing is not an escape hatch", () => {
+    // The free-retry hole. A player about to lose must not be able to close the
+    // screen and take no damage; the server scores an abandoned run a forfeit,
+    // but only if the client actually settles it on the way out.
+    assert.equal(shouldSettleOnClose(true, false), true, "an unsettled fight must settle on close");
+    assert.equal(shouldSettleOnClose(true, true), false, "an already-settled fight must not settle twice");
+    assert.equal(shouldSettleOnClose(false, false), false, "no fight, nothing to settle");
+});
+
+test("the bus accepts exactly the battle kinds the token record recognises", () => {
+    // A kind createAiFightTokenRecord does not recognise silently degrades to
+    // 'practice' server-side, which pays nothing — so a typo here would quietly
+    // zero out a reward instead of failing.
     for (const battleKind of ["practice", "mission", "raidAi", "defense", "explore", "endless"] as const) {
         assert.equal(requestAiFight({ opponentId: "x", opponentLevel: 1, battleKind, playLocally: () => {} }), false);
     }
