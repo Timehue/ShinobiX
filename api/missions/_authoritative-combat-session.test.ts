@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { combatMissionByKey } from './_mission-catalog.js';
 import {
+    createMissionCombatActivePointer,
     createMissionCombatBinding,
     missionCombatRewardFingerprint,
+    resumableMissionCombatSession,
     settleMissionCombatBinding,
     validateCompletedMissionCombatSession,
 } from './_authoritative-combat-session.js';
@@ -64,4 +66,41 @@ test('mission binding rejects non-member settlement, encounter drift, reward dri
     const settled = settleMissionCombatBinding(binding, now + 5);
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding: settled, session, playerName: 'beta-cert-player', mission, now: now + 6 })), 'already-settled');
     assert.deepEqual(settleMissionCombatBinding(settled, now + 7), settled);
+});
+
+test('mission start recovery reuses only a coherent active unsettled session', () => {
+    const activeSession = { ...session, status: 'active', winner: null, expiresAt: now + 60_000 } as SoloPveSession;
+    const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
+    const active = createMissionCombatActivePointer({ runId, playerName: 'beta-cert-player', mission, now });
+    assert.equal(resumableMissionCombatSession({
+        active,
+        binding,
+        session: activeSession,
+        playerName: 'beta-cert-player',
+        mission,
+        now: now + 1_000,
+    }), activeSession);
+
+    for (const candidate of [
+        { active: { ...active, runId: 'other' }, binding, session: activeSession },
+        { active, binding: { ...binding, status: 'won' as const, settledAt: now + 1 }, session: activeSession },
+        { active, binding, session: { ...activeSession, ownerSlug: 'other' } },
+        { active, binding, session: { ...activeSession, settlementState: 'settled' as const } },
+        { active: { ...active, expiresAt: now }, binding, session: activeSession },
+        { active, binding, session: { ...activeSession, expiresAt: now } },
+    ]) {
+        assert.equal(resumableMissionCombatSession({
+            ...candidate,
+            playerName: 'beta-cert-player',
+            mission,
+            now,
+        }), null);
+    }
+});
+
+test('mission start recovery also returns terminal evidence pending settlement', () => {
+    const terminal = { ...session, expiresAt: now + 60_000 } as SoloPveSession;
+    const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
+    const active = createMissionCombatActivePointer({ runId, playerName: 'beta-cert-player', mission, now });
+    assert.equal(resumableMissionCombatSession({ active, binding, session: terminal, playerName: 'beta-cert-player', mission, now }), terminal);
 });
