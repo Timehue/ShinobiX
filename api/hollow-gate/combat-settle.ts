@@ -7,7 +7,8 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { gainXp } from '../_xp-engine.js';
-import { readSession, settleConsumedItemsForMember } from '../towers/_tower-store.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
 import {
     hollowGateCombatBindingKey,
@@ -16,9 +17,8 @@ import {
     hollowGateEncounterKey,
     HOLLOW_GATE_COMBAT_TTL_SECONDS,
     settleHollowGateCombatBinding,
-    validateHollowGateCombatSession,
     validateHollowGatePetClaim,
-    validateHollowGatePveClaim,
+    validateHollowGateSoloPveSession,
     type HollowGateCombatBinding,
     type HollowGateCombatReward,
 } from './_combat-session.js';
@@ -114,10 +114,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const token = String(body.token ?? '').slice(0, 64);
         const runId = String(body.runId ?? '').slice(0, 96);
-        const claimedOutcome = body.outcome === 'win' || body.outcome === 'loss' || body.outcome === 'fled'
-            ? body.outcome
-            : null;
-        const claimedSurvivingHp = Math.max(0, Math.floor(Number(body.survivingHp) || 0));
         const petReceipt = typeof body.petReceipt === 'string' && /^[A-Za-z0-9]+$/.test(body.petReceipt)
             ? body.petReceipt
             : '';
@@ -138,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const [run, binding, session, existingReceipt] = await Promise.all([
                 kv.get<HollowGateRunToken>(runKey),
                 kv.get<HollowGateCombatBinding>(bindingKey),
-                readSession(runId),
+                readSoloPveSession(runId),
                 kv.get<CombatReceipt>(receiptKey),
             ]);
             if (!binding || binding.playerName !== playerName) return { status: 404, body: { error: 'Encounter not found.' } };
@@ -179,23 +175,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 won = verifiedPetResult.outcome === 'win';
                 petDefeat = !won;
                 petIds = Array.isArray(verifiedPetResult.playerPetIds) ? verifiedPetResult.playerPetIds : [];
-            } else if (binding.combatMode === 'pve') {
-                const validation = validateHollowGatePveClaim({ binding, activeEncounter: run.activeEncounter, playerName, token });
-                if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
-                if (!claimedOutcome) return { status: 400, body: { error: 'Missing normal PvE combat outcome.' } };
-                if (claimedOutcome === 'fled' && run.chosenAugmentId === 'berserkers-gamble') {
-                    return { status: 409, body: { error: "Berserker's Gamble seals retreat until the final Hollow Hound falls." } };
-                }
-                won = claimedOutcome === 'win';
-                escaped = claimedOutcome === 'fled';
-                survivingHp = claimedSurvivingHp;
             } else {
-                const validation = validateHollowGateCombatSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
+                const validation = validateHollowGateSoloPveSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
                 if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
-                won = session!.winner === 'squad';
-                const survivingActor = session!.actors.find((actor) => actor.side === 'squad' && actor.ownerSlug === playerName);
-                survivingHp = Math.max(0, Math.floor(Number(survivingActor?.hp) || 0));
-                await settleConsumedItemsForMember({ session: session!, slug: playerName });
+                won = session!.outcome === 'win';
+                escaped = session!.outcome === 'fled';
+                survivingHp = Math.max(0, Math.floor(Number(session!.player.hp) || 0));
             }
             const revived = !won && !escaped && !petDefeat && binding.secondWindArmed === true;
             const saveKey = `save:${playerName}`;
@@ -219,7 +204,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { receipt: raced ?? receipt, character: char, saveVersion: Number(record._saveVersion ?? 0) };
                 }
 
-                let next = { ...char } as Record<string, unknown>;
+                let next = binding!.combatMode === 'solo-pve' && session
+                    ? applySoloPveUsageCosts({ ...char } as Record<string, unknown>, session)
+                    : { ...char } as Record<string, unknown>;
                 if (binding!.combatMode === 'pet' && petIds.length) {
                     const pets = Array.isArray(next.pets) ? next.pets as Array<Record<string, unknown>> : [];
                     next.pets = pets.map((pet) => petIds.includes(String(pet?.id ?? '')) && pet.loadout && typeof pet.loadout === 'object'
@@ -315,6 +302,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             await persistRunCombatSettlement(runKey, run, binding, banked.receipt);
 
+            if (binding.combatMode === 'solo-pve' && session?.status === 'done' && session.settlementState !== 'settled') {
+                await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
+                    kind: 'hollow-gate',
+                    id: binding.runId,
+                    settledAt: banked.receipt.settledAt,
+                    rewards: { outcome: session.outcome ?? 'loss', won: banked.receipt.won },
+                }));
+            }
+
             return { status: 200, body: {
                 ok: true,
                 won,
@@ -329,6 +325,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true, ttlSec: 15 });
 
         if (result.status === 200) {
+            if (initialBinding.combatMode === 'solo-pve') {
+                const [terminal, receipt] = await Promise.all([
+                    readSoloPveSession(runId),
+                    kv.get<CombatReceipt>(receiptKey),
+                ]);
+                if (terminal?.status === 'done' && terminal.settlementState !== 'settled' && receipt) {
+                    await writeSoloPveSession(withSoloPveSettlementReceipt(terminal, {
+                        kind: 'hollow-gate',
+                        id: runId,
+                        settledAt: receipt.settledAt,
+                        rewards: { outcome: terminal.outcome ?? 'loss', won: receipt.won },
+                    }));
+                }
+            }
             const resultBody = result.body as Record<string, unknown>;
             const outcome = resultBody.won === true
                 ? 'win'
@@ -342,7 +352,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? 'hollow_gate.combat_settle_replayed'
                     : 'hollow_gate.combat_settled',
                 playerName,
-                source: `${initialBinding.combatMode ?? 'tactical'}:floor-${initialBinding.floor}:${initialBinding.kind}:${outcome}`,
+                source: `${initialBinding.combatMode}:floor-${initialBinding.floor}:${initialBinding.kind}:${outcome}`,
             });
         }
         return res.status(result.status).json(result.body);

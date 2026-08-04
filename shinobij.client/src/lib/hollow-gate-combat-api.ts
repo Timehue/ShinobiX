@@ -1,4 +1,5 @@
 import type { Character } from '../types/character';
+import type { SoloPveSession } from './solo-pve-api';
 
 export type HollowGateCombatKind = 'battle' | 'elite' | 'ambush' | 'beast' | 'boss';
 
@@ -9,12 +10,14 @@ export type HollowGateCombatRef = {
     kind: HollowGateCombatKind;
 };
 
+export type HollowGateServerFight = HollowGateCombatRef & { session: SoloPveSession };
+
 export type HollowGateCombatStartResult = {
     ok: boolean;
     resumed?: boolean;
     runId: string;
-    combatMode?: 'pve' | 'pet';
-    petAssisted?: boolean;
+    combatMode?: 'solo-pve' | 'pet';
+    session?: SoloPveSession;
     error?: string;
 };
 
@@ -54,8 +57,6 @@ export async function settleHollowGateCombat(params: {
     playerName: string;
     token: string;
     runId: string;
-    outcome: 'win' | 'loss' | 'fled';
-    survivingHp: number;
     petReceipt?: string;
 }): Promise<HollowGateCombatSettleResult> {
     const response = await fetch('/api/hollow-gate/combat-settle', {

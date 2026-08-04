@@ -48,6 +48,8 @@ import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
 import { tagMatchesName } from "../lib/tags";
 import { gameConfirm } from "../components/GameAlert";
+import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
+import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
 // ─── Solo Arena Fight (missions + story bosses) ───────────────────────────────
 // Renders any server-authoritative solo 1v1 session using
@@ -123,6 +125,8 @@ export function MissionArenaFight({
     onRecordBattle,
     recordMode,
     enemyAvatarOverride,
+    hollowGate,
+    retreatSealed,
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
@@ -177,6 +181,9 @@ export function MissionArenaFight({
      *  boss's authored chapter portrait, or the Anbu defender's masked art. Falls
      *  through to the sealed avatar / published art / initials when absent. */
     enemyAvatarOverride?: string;
+    /** Display-only shrine direction. Damage, hazards, and retreat are enforced by the returned Solo PvE session. */
+    hollowGate?: { floor: number; kind: HollowGateHoundKind };
+    retreatSealed?: boolean;
     /**
      * Report the fight's PHYSICAL cost — surviving HP, and the hospital stay on a
      * defeat or a forfeit (lib/pve-outcome-api). Separate from `settleFn`, which
@@ -245,6 +252,19 @@ export function MissionArenaFight({
     const myPos = myActor?.pos ?? -1;
     const enemyPos = enemy?.pos ?? -1;
     const biome = String(session.map.biome ?? "central");
+    const gateDirective = useMemo(() => hollowGate && enemy && myActor ? hollowGateCombatDirective({
+        floor: hollowGate.floor,
+        kind: hollowGate.kind,
+        turn: session.round,
+        enemyHp: enemy.hp,
+        enemyMaxHp: enemy.maxHp,
+        playerPos: myPos,
+        enemyPos,
+        gridWidth: w,
+        gridHeight: h,
+    }) : null, [hollowGate?.floor, hollowGate?.kind, session.round, enemy?.hp, enemy?.maxHp, myPos, enemyPos, w, h]);
+    const gateHazards = useMemo(() => new Set(gateDirective?.hazardTiles ?? []), [gateDirective?.hazardTiles]);
+    const gateSafe = useMemo(() => new Set(gateDirective?.safeTiles ?? []), [gateDirective?.safeTiles]);
 
     // Reconnect: always pull the latest revision once after mounting.
     useEffect(() => {
@@ -691,6 +711,16 @@ export function MissionArenaFight({
                                 {session.weather.negativeElement && <span className="twp-buff twp-negative">{session.weather.negativeElement} −2%</span>}
                             </>
                         )}
+                        {gateDirective && (
+                            <>
+                                <span className="twp-strip-sep">·</span>
+                                <span className={`hg-combat-directive hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}`} aria-live="polite">
+                                    <strong>{hollowGate?.kind === "boss" ? `PHASE ${gateDirective.phase} · ` : ""}{gateDirective.phaseName}</strong>
+                                    <span>{gateDirective.title}</span>
+                                    <small>{gateDirective.instruction}</small>
+                                </span>
+                            </>
+                        )}
                     </div>
 
                     <div className="dual-ap-panel">
@@ -719,7 +749,7 @@ export function MissionArenaFight({
                         </div>
                     </div>
 
-                    <div className={`hex-battlefield hex-${biome}`} ref={battlefieldCallbackRef}>
+                    <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
                             const scaledH = layer.height * effectiveScale;
@@ -756,8 +786,9 @@ export function MissionArenaFight({
                                 })()}
                                 {enemy && isImageAvatar(enemyAvatar) && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
-                                    return <div key="enemy-orb" className="avatar-orb enemy-orb" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    return <div key="enemy-orb" className={`avatar-orb enemy-orb${gateDirective ? ` hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         <img className="tiny-map-avatar" src={enemyAvatar} alt={enemyName} />
+                                        {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
                                     </div>;
                                 })()}
                                 {enemy && (() => {
@@ -783,6 +814,8 @@ export function MissionArenaFight({
                                         isGroundTile ? "ground-target-tile" : "",
                                         isEnemyTarget ? "jutsu-target-tile" : "",
                                         isSelfTarget ? "jutsu-target-tile jutsu-self-target-tile" : "",
+                                        gateHazards.has(i) ? "hg-hazard-tile" : "",
+                                        gateSafe.has(i) ? "hg-safe-tile" : "",
                                     ].filter(Boolean).join(" ");
                                     return (
                                         <button
@@ -840,7 +873,7 @@ export function MissionArenaFight({
                                 <small>{companion ? `${companion.name} · ${companionRoundsLeft}⟳` : session.pendingCompanion ? `Summon ${session.pendingCompanion.name}` : "No active pet"}</small>
                             </button>
                         )}
-                        <button onClick={() => { void leaveFight(); }}><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>Leave fight</small></button>
+                        <button disabled={retreatSealed} title={retreatSealed ? "Berserker's Gamble seals retreat." : undefined} onClick={() => { void leaveFight(); }}><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : "Leave fight"}</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                     </div>
 

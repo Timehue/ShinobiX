@@ -142,6 +142,7 @@ const IntroCinematic = lazyWithRetry(loadIntroCinematic);
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
+const HollowGateFight = lazyWithRetry(() => import("./screens/HollowGateFight").then(m => ({ default: m.HollowGateFight })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
@@ -501,17 +502,6 @@ export type PendingArenaStoryBattle =
         eventId: string;
     }
     | {
-        kind: "hollowGateShrine";
-        returnScreen: Screen;
-        runId: string;
-        nodeId: string;
-        floor: number;
-        combatKind: HollowGateCombatKind;
-        isBoss?: boolean;
-        isAmbush?: boolean;
-        canWithdraw: boolean;
-    }
-    | {
         // Weekly Boss arena fight. Boss has an effectively unlimited HP
         // pool (set at fight start) so the player can never win — they
         // fight until KO/flee, then the damage dealt this round is
@@ -572,14 +562,12 @@ import {
 import {
     generateHollowGateShrineRun,
 } from "./lib/hollow-gate-dungeon";
-import { hollowGateEncounterPresentation, hollowGateHoundCombatImage } from "./lib/hollow-gate-presentation";
+import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, resumeHollowGateServerRun, settleHollowGateRunOnly, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
-import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
+import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import {
-    buildHollowGatePveEncounter,
     formatHollowGateCombatReward,
-    hollowGatePveFightFromStoryContext,
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
@@ -1956,7 +1944,7 @@ export default function App() {
     // ── Hollow Gate Shrine crawler state ──────────────────────────────────────
     const [hollowGateRun, setHollowGateRun] = useState<HollowGateShrineRun | null>(null);
     const [hollowGateLog, setHollowGateLog] = useState<string[]>([]);
-    const [hollowGatePveFight, setHollowGatePveFight] = useState<HollowGatePveFightRef | null>(null);
+    const [hollowGatePveFight, setHollowGatePveFight] = useState<HollowGateServerFight | null>(null);
     const [hollowGateEvent, setHollowGateEvent] = useState<HollowGateEventModal>(null);
     const [hollowGateHiddenChamber, setHollowGateHiddenChamber] = useState<HiddenChamberState>(null);
     // Intro VN page index — null = not showing, 0..N = pages of the intro sequence.
@@ -2021,7 +2009,8 @@ export default function App() {
             if (cancelled) return;
             const fight = { ...active, runId: started.runId };
             if (started.combatMode === "pet" || active.mode === "pet") launchHollowGatePetFight(fight);
-            else launchHollowGatePveFight(fight, started.petAssisted === true);
+            else if (started.session) launchHollowGatePveFight(fight, started.session);
+            else throw new Error("The Hollow Gate returned no sealed combat session.");
         }).catch((error) => {
             if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
@@ -3280,6 +3269,13 @@ export default function App() {
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         setScreen("endlessTower");
                         return;
+                    } else if (bootLock.kind === "arenaStory" && (readArenaStoryContext(normalized.name)?.battle as { kind?: string } | undefined)?.kind === "hollowGateShrine") {
+                        // Retire the pre-cutover local Arena lock. The save's run-bound
+                        // pointer below resumes the server-owned Solo PvE session.
+                        void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
+                        if (normalized.hollowGateRun) setHollowGateRun(normalized.hollowGateRun);
+                        setScreen("hollowGateShrine");
+                        return;
                     } else if (battleResumeStateExists(bootLock, normalized.name, normalized)) {
                         // Resume state intact → drop back into the same fight; the
                         // screen's persister rehydrates it at the same HP/turn.
@@ -3296,13 +3292,6 @@ export default function App() {
                                 if (restoredStoryBattle.kind === "dungeonAi") {
                                     setActiveDungeonEvent(creatorEvents.find(event => event.id === restoredStoryBattle.eventId) ?? dungeonEventTemplate());
                                     setActiveDungeonRunToken(normalized.activeDungeonRun?.token ?? null);
-                                }
-                                const restoredGateFight = hollowGatePveFightFromStoryContext(restoredStoryBattle);
-                                if (restoredGateFight && normalized.hollowGateRun) {
-                                    setHollowGateRun(normalized.hollowGateRun);
-                                    setHollowGatePveFight(restoredGateFight);
-                                    setCurrentBiome("shadow");
-                                    setCurrentWeather(weatherForBiome("shadow"));
                                 }
                             }
                         } else if (bootLock.kind === "hollowGateTiles") {
@@ -5667,36 +5656,6 @@ export default function App() {
     async function completePendingArenaStoryBattle(survivingHp: number, aiFightToken?: string) {
         if (!pendingArenaStoryBattle || !character) return "Story battle complete.";
 
-        if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
-            const pending = pendingArenaStoryBattle;
-            const result = await settleActiveHollowGateCombat(
-                pending.runId,
-                character.name,
-                "win",
-                survivingHp,
-            );
-            if (!result.won) throw new Error("The Hollow Gate did not verify this victory.");
-            const rewardLine = formatHollowGateCombatReward(result);
-            if (rewardLine) pushHollowGateLog(`Server reward banked: ${rewardLine}.`);
-            const riftId = hollowGateRun?.variant?.id;
-            if (pending.isBoss && riftId?.startsWith("rift-")
-                && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
-                void completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog);
-            }
-            onHollowGateBattleWin({
-                isBoss: pending.isBoss,
-                isAmbush: pending.isAmbush,
-                nodeId: pending.nodeId,
-            });
-            setHollowGatePveFight(null);
-            setTemporaryStoryAi(null);
-            setPendingAiProfileId("");
-            const defeatedName = pending.isBoss
-                ? hollowGateBossDisplayName(hollowGateRun)
-                : hollowGateEncounterPresentation(pending.floor, pending.combatKind).name;
-            return `${defeatedName} defeated.${rewardLine ? ` ${rewardLine}.` : " Hollow Gate rewards verified."}`;
-        }
-
         if (pendingArenaStoryBattle.kind === "academySparring") {
             if (!aiFightToken) throw new Error("The story battle token is missing. Retry the battle from the story screen.");
             const response = await fetch('/api/story/settle', {
@@ -5797,68 +5756,6 @@ export default function App() {
     ) {
         const pending = pendingArenaStoryBattle;
         const returnScreen = pending?.returnScreen ?? "storyHall";
-        if (pending?.kind === "hollowGateShrine") {
-            if (!character || !battleResult) return;
-            let defeated = false;
-            if (battleResult === "win" && hollowGatePveFight) {
-                try {
-                    await completePendingArenaStoryBattle(survivingHp);
-                } catch (error) {
-                    reportHollowGateRunError(
-                        error,
-                        "The Hollow Gate victory could not settle. Retry Continue.",
-                        () => clearHollowGateRunState(true),
-                    );
-                    return;
-                }
-            } else if (battleResult === "loss" || battleResult === "fled") {
-                try {
-                    const result = await settleActiveHollowGateCombat(
-                        pending.runId,
-                        character.name,
-                        battleResult,
-                        survivingHp,
-                    );
-                    setHollowGatePveFight(null);
-                    if (result.escaped) {
-                        setHollowGateRun((prev) => {
-                            const run = prev ?? result.character?.hollowGateRun;
-                            return run ? { ...run, activeCombat: undefined, threat: 0 } : null;
-                        });
-                        pushHollowGateLog("You withdraw from the Hollow Hound. The path remains open and Threat resets.");
-                    } else if (result.revived) {
-                        setHollowGateRun((prev) => {
-                            const run = prev ?? result.character?.hollowGateRun;
-                            return run ? {
-                                ...run,
-                                activeCombat: undefined,
-                                secondWindArmed: false,
-                                threat: 0,
-                            } : null;
-                        });
-                        pushHollowGateLog("Second Wind pulls you back from defeat at half health.");
-                    } else {
-                        defeated = true;
-                        setHollowGateRun(null);
-                        setHollowGateEvent(null);
-                        setHollowGateHiddenChamber(null);
-                        setHollowGateLog([]);
-                    }
-                } catch (error) {
-                    reportHollowGateRunError(
-                        error,
-                        "The Hollow Gate encounter could not settle. Retry this result.",
-                        () => clearHollowGateRunState(true),
-                    );
-                    return;
-                }
-            }
-            setPendingArenaStoryBattle(null);
-            setTemporaryStoryAi(null);
-            setPendingAiProfileId("");
-            setScreen(defeated ? "hospital" : returnScreen);
-            return;
-        }
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
@@ -6113,7 +6010,8 @@ export default function App() {
             setHollowGateRun((prev) => prev ? { ...prev, activeCombat } : prev);
             setCharacter((prev) => prev?.hollowGateRun ? { ...prev, hollowGateRun: { ...prev.hollowGateRun, activeCombat } } : prev);
             if (mode === "pet") launchHollowGatePetFight(activeCombat);
-            else launchHollowGatePveFight(activeCombat, started.petAssisted === true);
+            else if (started.session) launchHollowGatePveFight(activeCombat, started.session);
+            else throw new Error("The Hollow Gate returned no sealed combat session.");
             return;
         } catch (error) {
             reportHollowGateRunError(error, "The Hollow Gate encounter could not start.", () => clearHollowGateRunState(true));
@@ -6121,51 +6019,55 @@ export default function App() {
         }
     }
 
-    function launchHollowGatePveFight(fight: HollowGatePveFightRef, petAssisted: boolean) {
-        if (!character) return;
-        const run = hollowGateRun ?? character.hollowGateRun ?? null;
-        const encounter = buildHollowGatePveEncounter({
-            fight,
-            character,
-            run,
-            petAssisted,
-            image: hollowGateHoundCombatImage(sharedImages),
-        });
-        setHollowGatePveFight(fight);
-        setTemporaryStoryAi(encounter.ai);
-        setPendingAiProfileId(encounter.ai.id);
-        setPendingPvpOpponent(null);
-        setRaidBattleKind("none");
-        setPendingArenaStoryBattle({
-            kind: "hollowGateShrine",
-            returnScreen: "hollowGateShrine",
-            runId: fight.runId,
-            nodeId: fight.nodeId,
-            floor: fight.floor,
-            combatKind: fight.kind,
-            isBoss: encounter.isBoss,
-            isAmbush: encounter.isAmbush,
-            canWithdraw: encounter.canWithdraw,
-        });
-        setCurrentBiome("shadow");
-        setCurrentWeather(weatherForBiome("shadow"));
-        setArenaKey((key) => key + 1);
-        pushHollowGateLog(`Encounter: ${encounter.encounterName}.`);
-        setScreen("arena");
+    function launchHollowGatePveFight(fight: HollowGatePveFightRef, session: HollowGateServerFight["session"]) {
+        setHollowGatePveFight({ ...fight, session });
+        pushHollowGateLog(`Encounter: ${session.enemy.name}.`);
     }
 
     async function settleActiveHollowGateCombat(
         runId: string,
         playerName: string,
-        outcome: "win" | "loss" | "fled",
-        survivingHp: number,
     ): Promise<HollowGateCombatSettleResult> {
         const token = hollowGateRun?.runToken ?? character?.hollowGateRun?.runToken;
         if (!token) throw new Error("The Hollow Gate run token is missing.");
-        const result = await settleHollowGateCombat({ playerName, token, runId, outcome, survivingHp });
+        const result = await settleHollowGateCombat({ playerName, token, runId });
         latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
         if (result.character) setCharacter(result.character);
         return result;
+    }
+
+    function finishHollowGatePveFight(result: HollowGateCombatSettleResult) {
+        const fight = hollowGatePveFight;
+        if (!fight) return;
+        if (result.won) {
+            const rewardLine = formatHollowGateCombatReward(result);
+            if (rewardLine) pushHollowGateLog(`Server reward banked: ${rewardLine}.`);
+            const riftId = hollowGateRun?.variant?.id;
+            if (fight.kind === "boss" && riftId?.startsWith("rift-")
+                && character && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
+                void completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog);
+            }
+            onHollowGateBattleWin({ isBoss: fight.kind === "boss", isAmbush: fight.kind === "ambush", nodeId: fight.nodeId });
+        } else if (result.escaped) {
+            setHollowGateRun((previous) => {
+                const run = result.character?.hollowGateRun ?? previous;
+                return run ? { ...run, activeCombat: undefined, threat: 0 } : null;
+            });
+            pushHollowGateLog("You withdraw from the Hollow Hound. The path remains open and Threat resets.");
+        } else if (result.revived) {
+            setHollowGateRun((previous) => {
+                const run = result.character?.hollowGateRun ?? previous;
+                return run ? { ...run, activeCombat: undefined, secondWindArmed: false, threat: 0 } : null;
+            });
+            pushHollowGateLog("Second Wind pulls you back from defeat at half health.");
+        } else {
+            setHollowGateRun(null);
+            setHollowGateEvent(null);
+            setHollowGateHiddenChamber(null);
+            setHollowGateLog([]);
+            setScreen("hospital");
+        }
+        setHollowGatePveFight(null);
     }
 
     // Shared run-summary builder — counts resolved tiles by kind and
@@ -7255,6 +7157,20 @@ export default function App() {
                         onEnter={startEndlessBattle}
                         onBank={bankEndlessRewards}
                         onBack={goBack}
+                    />
+                )}
+
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePveFight && (
+                    <HollowGateFight
+                        character={character}
+                        fight={hollowGatePveFight}
+                        sharedImages={sharedImages}
+                        savedBloodlines={savedBloodlines}
+                        creatorJutsus={creatorJutsus}
+                        creatorItems={creatorItems}
+                        settle={settleActiveHollowGateCombat}
+                        onResolved={finishHollowGatePveFight}
+                        onRecordBattle={recordBattle}
                     />
                 )}
                 {endlessFight && character && (

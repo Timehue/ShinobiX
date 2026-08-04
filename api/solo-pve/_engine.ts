@@ -33,6 +33,12 @@ import {
 import { characterOwnsElement } from '../pvp/_elements.js';
 import { trimPvpLog, type PvpFighter, type PvpGroundEffect } from '../pvp/session.js';
 import {
+    hollowGateCombatDirective,
+    hollowGateHazardDamage,
+    type HollowGateCombatDirective,
+} from '../../shared/hollow-gate-combat-director.js';
+import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
+import {
     SOLO_PVE_EVENT_HISTORY,
     type SoloPveAction,
     type SoloPveActionResult,
@@ -78,6 +84,30 @@ function setFighter(session: SoloPveSession, side: SoloPveSide, value: PvpFighte
 
 function otherSide(side: SoloPveSide): SoloPveSide {
     return side === 'player' ? 'enemy' : 'player';
+}
+
+function hollowGateDirective(session: SoloPveSession): HollowGateCombatDirective | null {
+    if (session.encounter.kind !== 'hollow-gate') return null;
+    const metadata = session.encounter.metadata ?? {};
+    const kind = String(metadata.combatKind ?? '');
+    if (kind !== 'battle' && kind !== 'elite' && kind !== 'ambush' && kind !== 'beast' && kind !== 'boss') return null;
+    return hollowGateCombatDirective({
+        floor: metadata.floor,
+        kind: kind as HollowGateHoundKind,
+        turn: session.round,
+        enemyHp: session.enemy.hp,
+        enemyMaxHp: session.enemy.maxHp,
+        playerPos: session.player.pos,
+        enemyPos: session.enemy.pos,
+        gridWidth: GRID_W,
+        gridHeight: GRID_H,
+    });
+}
+
+function hollowGateDamageMultiplier(session: SoloPveSession, side: SoloPveSide): number {
+    const directive = hollowGateDirective(session);
+    if (!directive) return 1;
+    return side === 'player' ? directive.outgoingDamageMultiplier : directive.incomingDamageMultiplier;
 }
 
 function fighterEventState(value: PvpFighter) {
@@ -374,7 +404,7 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
         * companionGearDamageMult(companion.pveGearId, enemyHpPct, ownerHpPct);
     if (raw <= 0) return 0;
     const cap = Math.max(1, Math.floor(session.enemy.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-    const dealt = Math.max(0, Math.min(Math.floor(raw), cap));
+    const dealt = Math.max(0, Math.min(Math.floor(raw * hollowGateDamageMultiplier(session, 'player')), cap));
     session.enemy.hp = Math.max(0, session.enemy.hp - dealt);
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
@@ -517,6 +547,16 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
 export function endSoloPveTurn(session: SoloPveSession): void {
     if (session.status !== 'active') return;
     const current = session.activeSide;
+    if (current === 'enemy') {
+        const directive = hollowGateDirective(session);
+        const hazard = directive ? hollowGateHazardDamage(directive, session.player.pos, session.player.maxHp) : 0;
+        if (hazard > 0) {
+            session.player = { ...session.player, hp: Math.max(0, session.player.hp - hazard) };
+            session.log.push(`${directive!.signature} tears through the marked seal for ${hazard} damage.`);
+            checkWinner(session);
+            if (session.status !== 'active') return;
+        }
+    }
     setFighter(session, current, tickStatuses(fighter(session, current), session.round));
     session.cooldowns[current] = tickCombatCooldowns(session.cooldowns[current]);
     if (current === 'enemy') {
@@ -559,7 +599,7 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
         self,
         opponent,
         jutsu as Parameters<typeof applyJutsu>[2],
-        weatherMult(session, jutsu),
+        weatherMult(session, jutsu) * hollowGateDamageMultiplier(session, side),
         session.environment.biome,
         session.round,
         guardedDamageCap(session, side),
@@ -916,6 +956,9 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         return { applied: true };
     }
     if (action.type === 'flee') {
+        if (session.encounter.kind === 'hollow-gate' && session.encounter.metadata?.noRetreat === true) {
+            return { applied: false, reason: 'retreat-sealed' };
+        }
         if (!canAct(session, side, 100)) return { applied: false, reason: 'cannot-act' };
         const hpCost = Math.max(1, Math.floor(self.maxHp * 0.1));
         setFighter(session, side, { ...self, hp: Math.max(0, self.hp - hpCost) });
