@@ -9,8 +9,8 @@ import {
     HOLLOW_GATE_RUN_EXPIRED_MESSAGES,
     type HollowGateRunToken,
 } from './_run-token.js';
-import { HOLLOW_GATE_COMBAT_TTL_SECONDS } from './_combat-session.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 
 /** Advance the sealed run exactly one floor. Client map state is presentation;
  * combat-start accepts only this server-owned currentFloor. */
@@ -36,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(runKey, async () => {
             const run = await kv.get<HollowGateRunToken>(runKey);
             if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.descend } };
+            if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before descending.' } };
             const currentFloor = run.currentFloor == null
                 ? Math.max(1, Math.min(run.floorDepth, fromFloor))
                 : Math.max(1, Math.floor(Number(run.currentFloor) || 1));
@@ -43,8 +44,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (fromFloor !== currentFloor) return { status: 409, body: { error: 'The staircase does not match the sealed floor.' } };
             if (run.activeEncounter) return { status: 409, body: { error: 'Finish the active Hollow Gate encounter before descending.' } };
             if (currentFloor >= run.floorDepth) return { status: 409, body: { error: 'This is the sealed final floor.' } };
+            const position = run.position;
+            const manifest = run.floorManifests?.[String(currentFloor)];
+            const nodeId = hollowGatePositionNodeId(manifest, position);
+            if (hollowGateManifestNode(manifest, nodeId) !== 'descend') {
+                return { status: 409, body: { error: 'You have not reached the sealed staircase.' } };
+            }
             const nextFloor = currentFloor + 1;
-            await kv.set(runKey, { ...run, currentFloor: nextFloor }, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
+            await kv.set(runKey, {
+                ...run,
+                currentFloor: nextFloor,
+                position: undefined,
+                threat: 0,
+                wardSteps: 0,
+                divinerUsed: false,
+                pendingAmbush: null,
+                torch: Math.min(10, Math.max(0, Math.floor(Number(run.torch) || 0)) + 4),
+            });
             return { status: 200, body: { ok: true, floor: nextFloor } };
         }, { failClosed: true, ttlSec: 10 });
         if (result.status === 200 && result.body.alreadyAdvanced !== true) {

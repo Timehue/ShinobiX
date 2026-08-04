@@ -10,23 +10,19 @@
  * behaviour is preserved. Please keep it that way — this applies rewards, hazards and
  * death, so a "tidy-up" here is a balance change wearing a refactor's clothes.
  *
- * Why context instead of imports for the last few: `gainXp` and
- * `HOLLOW_GATE_TRAP_DMG_PCT` live in App.tsx, so importing them here would create
- * an App -> lib -> App cycle. HOLLOW_GATE_TRAP_DMG_PCT is additionally a mutable
- * `export let` tuned at runtime, so it must be read per call, not captured once.
+ * Server event routes own all rewards, traps, and run-state consequences.
  */
 import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
 import { generateHollowGateShrineRun } from "./hollow-gate-dungeon";
-import { befriendHollowGatePetServer, rollHollowLockedDoorServer } from "./hollow-gate-locked-door-api";
-import { hollowShardDrop } from "./hollow-gate-run";
+import { befriendHollowGatePetServer } from "./hollow-gate-locked-door-api";
 import { hollowGateFloorProfile } from "./hollow-gate-presentation";
-import { consumeHollowGateServerSecondWind, hollowGateAugmentEffects } from "./hollow-gate-server";
-import { tryHollowGateSecondWind } from "./hollow-gate-shards";
+import { hollowGateAugmentEffects } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
 import { requireServerSettlement } from "./server-settlement-gate";
 import { descendHollowGateRun } from "./hollow-gate-combat-api";
 import { maxPets } from "./entitlements";
+import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./hollow-gate-event-api";
 import type {
     Character,
     HollowGateShrineRun,
@@ -49,6 +45,7 @@ export type HollowGateEventModal = {
 export type HiddenChamberState = {
     searched: boolean;
     relicTaken: boolean;
+    nodeId: string;
 } | null;
 
 type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -61,9 +58,6 @@ export interface HollowGateTileCtx {
     /** Nullable: the body's own first line guards `!character` before use. */
     character: Character | null;
     hollowGateRun: HollowGateShrineRun | null;
-    /** Mutable runtime tunable from App.tsx — read per call. */
-    HOLLOW_GATE_TRAP_DMG_PCT: number;
-
     setCharacter: SetState<Character | null>;
     setHollowGateRun: SetState<HollowGateShrineRun | null>;
     setHollowGateEvent: SetState<HollowGateEventModal>;
@@ -84,7 +78,7 @@ export function resolveHollowGateTile(
     ctx: HollowGateTileCtx,
 ): void {
     const {
-        character, hollowGateRun, HOLLOW_GATE_TRAP_DMG_PCT,
+        character, hollowGateRun,
         setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
         onServerVersion,
         gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
@@ -103,7 +97,7 @@ export function resolveHollowGateTile(
     // produced the "WASD teleports back" bug — the move took, then a stale
     // setTimeout fired markResolved with closure.hollowGateRun, snapping the
     // player back. Patches now only touch resolved/keys/torch.
-    function markResolved(patch?: { keysDelta?: number; setKeys?: number; torchDelta?: number; setTorch?: number }) {
+    function markResolved(patch?: { keysDelta?: number; setKeys?: number; torchDelta?: number; setTorch?: number; setThreat?: number; secondWindArmed?: boolean }) {
         setHollowGateRun(prev => {
             if (!prev) return prev;
             const tiles = prev.tiles.slice();
@@ -118,9 +112,25 @@ export function resolveHollowGateTile(
                 ...prev,
                 keys,
                 torch: Math.max(0, Math.min(10, torchRaw)),
+                ...(patch?.setThreat != null ? { threat: patch.setThreat } : {}),
+                ...(patch?.secondWindArmed != null ? { secondWindArmed: patch.secondWindArmed } : {}),
                 tiles,
             };
         });
+    }
+    function adoptServerEvent(result: Awaited<ReturnType<typeof resolveHollowGateServerEvent>>) {
+        if (result.character) setCharacter(result.character);
+        onServerVersion(result._saveVersion);
+        if (result.runState) {
+            markResolved({
+                setKeys: result.runState.keys,
+                setTorch: result.runState.torch,
+                setThreat: result.runState.threat,
+                secondWindArmed: result.runState.secondWindArmed,
+            });
+        } else {
+            markResolved();
+        }
     }
     switch (tile.kind) {
         case "empty": {
@@ -152,92 +162,59 @@ export function resolveHollowGateTile(
             return;
         }
         case "trap": {
-            // Hollow Gate traps deal a flat percent of the player's max HP
-            // (tunable: HOLLOW_GATE_TRAP_DMG_PCT). Healing is forbidden inside the
-            // shrine, so this damage is permanent until you leave or descend.
-            // A trap CAN kill you if HP is already low.
-            const dmgPct = HOLLOW_GATE_TRAP_DMG_PCT;
-            const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
-            const nextHp = Math.max(0, character.hp - dmg);
-            const willDie = nextHp <= 0;
-            const trapWind = willDie && hollowGateRun?.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
-            if (trapWind) {
-                consumeHollowGateServerSecondWind(character.name, hollowGateRun?.runToken);
-                setCharacter(trapWind.character);
-                setHollowGateRun(prev => prev ? trapWind.run : prev);
-                markResolved();
-                pushHollowGateLog(`${flavor} The trap's killing blow lands — then ${trapWind.log}`);
-                setHollowGateEvent({ title: "Second Wind", body: trapWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
-                return;
-            }
-            // On death, match the Arena-loss pipeline: hp:0 + hospitalized.
-            setCharacter({
-                ...character,
-                hp: willDie ? 0 : nextHp,
-                hospitalized: willDie ? true : character.hospitalized,
+            if (!hollowGateRun.runToken) return;
+            void resolveHollowGateServerEvent({
+                playerName: character.name,
+                token: hollowGateRun.runToken,
+                nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`,
+                action: "trap",
+            }).then((result) => {
+                if (!result.ok) return pushHollowGateLog(result.error || "The trap seal did not resolve.");
+                adoptServerEvent(result);
+                const damage = Math.max(0, Math.floor(result.damage ?? 0));
+                if (result.revived) {
+                    pushHollowGateLog(`${flavor} The trap's killing blow lands — then Second Wind restores half your HP.`);
+                    setHollowGateEvent({ title: "Second Wind", body: "The stored Hollow Shards burst into violet flame and restore half your HP.", kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
+                } else if (result.ended) {
+                    pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse and the server closes the run.`);
+                    setHollowGateEvent({
+                        title: "You Have Fallen",
+                        body: `${flavor}\n\nThe trap drains your final breath. Your verified run ledger is reconciled and you are admitted to the village hospital.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
+                        kind: "trap",
+                        choices: [{ label: "Leave Shrine", tone: "danger", onSelect: () => { setHollowGateEvent(null); leaveHollowGateShrine({ death: true }); } }],
+                    });
+                } else {
+                    pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you (33% of max).`);
+                    setHollowGateEvent({ title: "Ancient Seal Trap", body: `${flavor}\n\nYou take ${damage} HP damage (33% of max).`, kind: "trap", choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
+                }
             });
-            pushHollowGateLog(`${flavor} The seals tear ${dmg} HP from you (${Math.round(dmgPct * 100)}% of max).${willDie ? " You collapse — admitted to the village hospital." : ""}`);
-            if (willDie) {
-                setHollowGateEvent({
-                    title: "You Have Fallen",
-                    body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
-                    kind: "trap",
-                    choices: [{
-                        label: "Leave Shrine",
-                        tone: "danger",
-                        onSelect: () => {
-                            setHollowGateEvent(null);
-                            leaveHollowGateShrine({ death: true });
-                        },
-                    }],
-                });
-            } else {
-                setHollowGateEvent({
-                    title: "Ancient Seal Trap",
-                    body: `${flavor}\n\nYou take ${dmg} HP damage (${Math.round(dmgPct * 100)}% of max).`,
-                    kind: "trap",
-                    choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
-                });
-            }
-            markResolved();
             return;
         }
         case "chest": {
-            // XP retired (docs/leveling-without-xp-map.md): the old client-rolled
-            // 25-54 XP folds into the ryo roll instead — chests stay purely loot.
-            const ryoGain = 110 + Math.floor(Math.random() * 200);
-            const auraDustGain = Math.random() < 0.4 ? 5 + Math.floor(Math.random() * 8) : 0;
-            // Hollow Gate Shrine chests always yield aura stones and bone charms.
-            const auraStoneGain = 1 + Math.floor(Math.random() * 10);  // 1..10
-            const boneCharmGain = 5 + Math.floor(Math.random() * 11);  // 5..15
-            const keyGain = Math.random() < 0.3 ? 1 : 0;
-            const shardGain = hollowShardDrop(hollowGateRun.floor, "chest");
-            const leveled = gainXp(character, 0);
-            setCharacter({
-                ...leveled,
-                ryo: leveled.ryo + ryoGain,
-                auraDust: (leveled.auraDust ?? 0) + auraDustGain,
-                auraStones: (leveled.auraStones ?? 0) + auraStoneGain,
-                boneCharms: (leveled.boneCharms ?? 0) + boneCharmGain,
-                hollowShards: (leveled.hollowShards ?? 0) + shardGain,
-            });
-            // Chests also refill the Torch of Reiki by 2.
-            const torchRefill = 2;
-            pushHollowGateLog(`Chest opened. +${ryoGain} ryo${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms, +${shardGain} Hollow Shards${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
-            markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
-            setHollowGateEvent({
-                title: "Shrine Offering Chest",
-                body: `${flavor}\n\n+${ryoGain} ryo${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms\n+${shardGain} Hollow Shards${keyGain ? "\n+1 Shrine Key" : ""}`,
-                kind: "chest",
-                choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+            if (!hollowGateRun.runToken) return;
+            void resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "chest" }).then((result) => {
+                if (!result.ok) return pushHollowGateLog(result.error || "The chest seal did not resolve.");
+                adoptServerEvent(result);
+                const lines = hollowGateRewardLines(result.reward);
+                const gainedKey = (result.runState?.keys ?? hollowGateRun.keys) > hollowGateRun.keys;
+                pushHollowGateLog(`Chest opened. ${lines.join(", ")}${gainedKey ? ", +1 Shrine Key" : ""}, +2 Torch.`);
+                setHollowGateEvent({
+                    title: "Shrine Offering Chest",
+                    body: `${flavor}\n\n${lines.join("\n")}${gainedKey ? "\n+1 Shrine Key" : ""}`,
+                    kind: "chest",
+                    choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                });
             });
             return;
         }
         case "shard_vein": {
-            const gain = hollowShardDrop(hollowGateRun.floor, "shardVein");
-            setCharacter(prev => prev ? { ...prev, hollowShards: (prev.hollowShards ?? 0) + gain } : prev);
-            pushHollowGateLog(`${flavor} You pry ${gain} Hollow Shards loose.`);
-            markResolved();
+            if (!hollowGateRun.runToken) return;
+            void resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "shard-vein" }).then((result) => {
+                if (!result.ok) return pushHollowGateLog(result.error || "The shard vein did not resolve.");
+                adoptServerEvent(result);
+                const gain = Math.max(0, Math.floor(result.reward?.currencies?.hollowShards ?? 0));
+                pushHollowGateLog(`${flavor} You pry ${gain} Hollow Shards loose.`);
+            });
             return;
         }
         case "pet_event": {
@@ -258,10 +235,19 @@ export function resolveHollowGateTile(
             return;
         }
         case "shrine": {
-            // Shrine tile fully refills the Torch of Reiki.
-            pushHollowGateLog(`${floorProfile.shrineTitle}: ${floorProfile.shrineRite} The Torch of Reiki flares to full.`);
-            setHollowGateHiddenChamber({ searched: false, relicTaken: false });
-            markResolved({ setTorch: 10 });
+            const nodeId = `floor:${hollowGateRun.floor}:tile:${idx}`;
+            if (!hollowGateRun.runToken) return;
+            void resolveHollowGateServerEvent({
+                playerName: character.name,
+                token: hollowGateRun.runToken,
+                nodeId,
+                action: "shrine",
+            }).then((result) => {
+                if (!result.ok) return pushHollowGateLog(result.error || "The shrine seal did not answer.");
+                adoptServerEvent(result);
+                pushHollowGateLog(`${floorProfile.shrineTitle}: ${floorProfile.shrineRite} The Torch of Reiki flares to full.`);
+                setHollowGateHiddenChamber({ searched: false, relicTaken: false, nodeId });
+            });
             return;
         }
         case "story": {
@@ -325,6 +311,11 @@ export function resolveHollowGateTile(
                             // The run's variant rides along so an event gate keeps its
                             // shape (floors / board / boss) on every floor below.
                             const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
+                            const sealed = await sealHollowGateFloor(character.name, hollowGateRun.runToken, next);
+                            if (!sealed.ok) {
+                                pushHollowGateLog(sealed.error || "The next floor could not be sealed. Retry the staircase.");
+                                return;
+                            }
                             setHollowGateRun({
                                 ...next,
                                 keys: hollowGateRun.keys,
@@ -352,6 +343,14 @@ export function resolveHollowGateTile(
         case "npc": {
             // Shrine Keeper — one per floor. Offers a one-time blessing.
             pushHollowGateLog(flavor);
+            const resolveKeeper = async (action: "keeper-heal" | "keeper-torch" | "keeper-key", success: string) => {
+                if (!hollowGateRun.runToken) return;
+                const result = await resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action });
+                if (!result.ok) return pushHollowGateLog(result.error || "The Shrine Keeper's seal did not answer.");
+                adoptServerEvent(result);
+                pushHollowGateLog(success);
+                setHollowGateEvent(null);
+            };
             setHollowGateEvent({
                 title: "The Shrine Keeper",
                 body: `${flavor}\n\n"Choose your gift, traveler. The shrine offers what it can spare."`,
@@ -362,34 +361,19 @@ export function resolveHollowGateTile(
                         label: "Restore HP (33% of max)",
                         tone: "primary" as const,
                         onSelect: () => {
-                            if (!character) return;
-                            // NOTE: healing is normally forbidden in the shrine, but a
-                            // Shrine Keeper blessing is the canonical exception.
-                            const heal = Math.floor(character.maxHp * 0.33);
-                            setCharacter({ ...character, hp: Math.min(character.maxHp, character.hp + heal) });
-                            pushHollowGateLog(`The Shrine Keeper restores ${heal} HP.`);
-                            setHollowGateEvent(null);
+                            void resolveKeeper("keeper-heal", "The Shrine Keeper restores 33% of your maximum HP.");
                         },
                     }]),
                     {
                         label: "Refill Torch of Reiki",
                         onSelect: () => {
-                            // Functional form preserves markResolved()'s
-                            // resolved:true (closure-spread re-armed this tile).
-                            setHollowGateRun(prev => prev ? { ...prev, torch: 10 } : prev);
-                            pushHollowGateLog("The Shrine Keeper rekindles the Torch of Reiki to full.");
-                            setHollowGateEvent(null);
+                            void resolveKeeper("keeper-torch", "The Shrine Keeper rekindles the Torch of Reiki to full.");
                         },
                     },
                     {
                         label: "Gift a Shrine Key",
                         onSelect: () => {
-                            // Functional form — see the Refill Torch note above:
-                            // the closure-spread form reverted markResolved()'s
-                            // resolved:true and let this tile be farmed for keys.
-                            setHollowGateRun(prev => prev ? { ...prev, keys: prev.keys + 1 } : prev);
-                            pushHollowGateLog("The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
-                            setHollowGateEvent(null);
+                            void resolveKeeper("keeper-key", "The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
                         },
                     },
                 ],
@@ -437,42 +421,28 @@ export function resolveHollowGateTile(
                     return;
                 }
                 void (async () => {
-                    const result = await rollHollowLockedDoorServer(character.name, serverRunToken, `floor:${hollowGateRun.floor}:tile:${idx}`);
-                    if (!result) {
+                    const eventResult = await resolveHollowGateServerEvent({
+                        playerName: character.name,
+                        token: serverRunToken,
+                        nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`,
+                        action: "locked-door",
+                    });
+                    const result = eventResult.lockedResult;
+                    if (!eventResult.ok || !result) {
                         pushHollowGateLog("The sealed door did not answer. Your Shrine Key was not spent; try again.");
                         return;
                     }
-                    markResolved({ keysDelta: -1 });
-                    if (result.outcome === "chest" && result.loot) {
-                        const loot = result.loot;
-                        setCharacter((prev) => {
-                            if (!prev) return prev;
-                            const leveled = gainXp(prev, 0); // XP retired — the server rolls ryo instead
-                            return { ...leveled, ryo: leveled.ryo + (loot.ryo ?? 0), fateShards: (leveled.fateShards ?? 0) + (loot.fateShards ?? 0), boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0), auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0), auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0), hollowShards: (leveled.hollowShards ?? 0) + loot.hollowShards };
-                        });
-                        const lines: string[] = [];
-                        if (loot.ryo) lines.push(`+${loot.ryo} ryo`); if (loot.fateShards) lines.push(`+${loot.fateShards} Fate Shard`);
-                        if (loot.boneCharms) lines.push(`+${loot.boneCharms} Bone Charm`); if (loot.auraStones) lines.push(`+${loot.auraStones} Aura Stone`); if (loot.auraDust) lines.push(`+${loot.auraDust} Aura Dust`);
-                        lines.push(`+${loot.hollowShards} Hollow Shards`);
+                    adoptServerEvent(eventResult);
+                    if (result.outcome === "chest") {
+                        const lines = hollowGateRewardLines(eventResult.reward);
                         pushHollowGateLog(`Ancient Chest opened. ${lines.join(", ")}.`);
                         setHollowGateEvent({ title: "Ancient Chest", body: `Behind the chains, an ancient chest creaks open.\n\n${lines.join("\n")}`, kind: "chest", choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
                         return;
                     }
                     if (result.outcome === "trap") {
-                        const damage = Math.max(1, Math.floor(character.maxHp * HOLLOW_GATE_TRAP_DMG_PCT));
-                        const nextHp = Math.max(0, character.hp - damage);
-                        const willDie = nextHp <= 0;
-                        const secondWind = willDie && hollowGateRun.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
-                        if (secondWind) {
-                            consumeHollowGateServerSecondWind(character.name, hollowGateRun.runToken);
-                            setCharacter(secondWind.character); setHollowGateRun(secondWind.run);
-                            pushHollowGateLog(`The cursed seal drains your last breath - then ${secondWind.log}`);
-                            setHollowGateEvent({ title: "Second Wind", body: secondWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
-                            return;
-                        }
-                        setCharacter({ ...character, hp: nextHp, hospitalized: willDie || character.hospitalized });
+                        const damage = Math.max(0, Math.floor(eventResult.damage ?? 0));
                         pushHollowGateLog(`Trap behind the door! You take ${damage} HP damage.`);
-                        setHollowGateEvent({ title: willDie ? "Cursed Trap Door" : "Trap Door", body: willDie ? "The binding seal drains the last of your chakra. Your shrine run ends." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: willDie ? "Leave Shrine" : "Press On", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (willDie) leaveHollowGateShrine({ death: true }); } }] });
+                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The binding seal drains the last of your chakra. Your verified run ledger is reconciled and the run ends." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave Shrine" : "Press On", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
                         return;
                     }
                     const encounter = result.pet;
@@ -497,148 +467,7 @@ export function resolveHollowGateTile(
                         } }, { label: "Leave it", onSelect: () => setHollowGateEvent(null) }],
                     });
                 })();
-                return; /* Legacy client-side locked-door table retained only as history.
-                Server-authoritative roll/befriend above is the sole runtime path.
-                const roll = Math.random();
-                if (roll < 0.50) {
-                    // ANCIENT CHEST
-                    const loot = rollHollowGateAncientChest(hollowGateRun.floor);
-                    const leveled = gainXp(character, loot.xp);
-                    const lockedShards = hollowShardDrop(hollowGateRun.floor, "lockedChest");
-                    // Stack only flagged-stackable items; skip non-stackable dups.
-                    const shouldAddItem = loot.itemId && (
-                        stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId)
-                    );
-                    const next: Character = {
-                        ...leveled,
-                        ryo: leveled.ryo + (loot.ryo ?? 0),
-                        fateShards: (leveled.fateShards ?? 0) + (loot.fateShards ?? 0),
-                        boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0),
-                        auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0),
-                        auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0),
-                        hollowShards: (leveled.hollowShards ?? 0) + lockedShards,
-                        inventory: shouldAddItem && loot.itemId ? [...leveled.inventory, loot.itemId] : leveled.inventory,
-                    };
-                    setCharacter(next);
-                    const lootLines: string[] = [
-                        `+${effectiveCharacterXpGain(character, loot.xp)} XP`,
-                    ];
-                    if (loot.ryo) lootLines.push(`+${loot.ryo} ryo`);
-                    if (loot.itemId && shouldAddItem) {
-                        const item = starterItems.find(it => it.id === loot.itemId) ?? petTreatItems.find(t => t.id === loot.itemId);
-                        lootLines.push(`+1 ${item?.name ?? loot.itemId}`);
-                    }
-                    if (loot.fateShards) lootLines.push(`+${loot.fateShards} Fate Shard`);
-                    if (loot.boneCharms) lootLines.push(`+${loot.boneCharms} Bone Charm`);
-                    if (loot.auraStones) lootLines.push(`+${loot.auraStones} Aura Stone`);
-                    if (loot.auraDust) lootLines.push(`+${loot.auraDust} Aura Dust`);
-                    lootLines.push(`+${lockedShards} Hollow Shards`);
-                    pushHollowGateLog(`Ancient Chest opened. ${lootLines.join(", ")}.`);
-                    setHollowGateEvent({
-                        title: "Ancient Chest",
-                        body: `Behind the chains, an ancient chest creaks open.\n\n${lootLines.join("\n")}`,
-                        kind: "chest",
-                        choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
-                    });
-                } else if (roll < 0.75) {
-                    // TRAP — same formula as the trap tile (tunable HOLLOW_GATE_TRAP_DMG_PCT).
-                    const dmgPct = HOLLOW_GATE_TRAP_DMG_PCT;
-                    const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
-                    const nextHp = Math.max(0, character.hp - dmg);
-                    const willDie = nextHp <= 0;
-                    const doorWind = willDie && hollowGateRun?.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
-                    if (doorWind) {
-                        consumeHollowGateServerSecondWind(character.name, hollowGateRun?.runToken);
-                        setCharacter(doorWind.character);
-                        setHollowGateRun(prev => prev ? doorWind.run : prev);
-                        pushHollowGateLog(`The cursed seal drains your last breath — then ${doorWind.log}`);
-                        setHollowGateEvent({ title: "Second Wind", body: doorWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
-                        return;
-                    }
-                    setCharacter({
-                        ...character,
-                        hp: willDie ? 0 : nextHp,
-                        hospitalized: willDie ? true : character.hospitalized,
-                    });
-                    pushHollowGateLog(`Trap behind the door! You take ${dmg} HP damage (${Math.round(dmgPct * 100)}% of max).${willDie ? " You collapse — admitted to the hospital." : ""}`);
-                    if (willDie) {
-                        setHollowGateEvent({
-                            title: "Cursed Trap Door",
-                            body: `The chains were a binding seal. They drain the last of your chakra. You are admitted to the village hospital and your shrine run ends.`,
-                            kind: "trap",
-                            choices: [{
-                                label: "Leave Shrine",
-                                tone: "danger",
-                                onSelect: () => {
-                                    setHollowGateEvent(null);
-                                    leaveHollowGateShrine({ death: true });
-                                },
-                            }],
-                        });
-                    } else {
-                        setHollowGateEvent({
-                            title: "Trap Door",
-                            body: `Behind the chains, a cursed seal lashes out.\n\nYou take ${dmg} HP damage (${Math.round(dmgPct * 100)}% of max).`,
-                            kind: "trap",
-                            choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "danger" }],
-                        });
-                    }
-                } else {
-                    // PET ENCOUNTER — rare (24%), legendary (0.8%), mythic (0.2%).
-                    // Roll within the [0.75, 1.0] band for relative weights:
-                    //   0.75 .. 0.99 (24%)  rare
-                    //   0.99 .. 0.998 (0.8%) legendary
-                    //   0.998 .. 1.0 (0.2%) mythic
-                    let rarity: PetRarity;
-                    if (roll < 0.99) rarity = "rare";
-                    else if (roll < 0.998) rarity = "legendary";
-                    else rarity = "mythic";
-
-                    // Use the canonical petPool (full built-in pool) rather than editablePets
-                    // so each rarity band always has variety even if admins haven't seeded
-                    // the editable pool yet.
-                    const encounter = pickHollowGateEncounterPet(petPool, rarity);
-                    if (!encounter) {
-                        // Defensive — should never happen with the standard pet pool, but bail safely.
-                        pushHollowGateLog("A presence stirs behind the door, then fades away.");
-                        setHollowGateEvent({
-                            title: "Empty Chamber",
-                            body: "Behind the chains, an empty chamber. The presence retreats.",
-                            kind: "locked",
-                            choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
-                        });
-                    } else {
-                        pushHollowGateLog(`A ${rarity} pet emerges from behind the sealed door: ${encounter.name}.`);
-                        const rarityColor = rarity === "mythic" ? "#fbbf24" : rarity === "legendary" ? "#a855f7" : "#60a5fa";
-                        setHollowGateEvent({
-                            title: `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} Pet Encounter`,
-                            body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} — Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Overflow rests in the Sanctuary)`,
-                            kind: "pet_event",
-                            choices: [
-                                {
-                                    label: `Befriend ${encounter.name}`,
-                                    tone: "primary",
-                                    onSelect: () => {
-                                        if (!requireServerSettlement("hollowGatePetBefriend")) return;
-                                        const trait = rollPetTrait(encounter.rarity);
-                                        const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
-                                        const updated = { ...character, pets: [...character.pets, petWithTrait] };
-                                        setCharacter(updated);
-                                        // Flush now (mirrors starter-pet path) so a refresh/close inside the 3s
-                                        // autosave debounce can't lose a freshly befriended rare/mythic pet.
-                                        void pushSaveToServer(updated, currentAccountName || character.name).catch(() => {});
-                                        pushHollowGateLog(`${encounter.name} joined you! Trait: ${trait}.`);
-                                        setHollowGateEvent(null);
-                                    },
-                                },
-                                { label: "Leave it", onSelect: () => { pushHollowGateLog(`You leave the ${rarity} spirit be.`); setHollowGateEvent(null); } },
-                            ],
-                        });
-                        // Subtle color hint via log
-                        pushHollowGateLog(`%c${rarity.toUpperCase()} aura detected.`);
-                        void rarityColor; // referenced for clarity; actual coloring not in this simple log
-                    }
-                } */
+                return;
             } else {
                 pushHollowGateLog(`${flavor} Without a Shrine Key, the door will not open.`);
                 setHollowGateEvent({

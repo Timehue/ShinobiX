@@ -10,19 +10,6 @@ export type HollowLockedDoorClientResult = {
     error?: string;
 };
 
-export async function rollHollowLockedDoorServer(playerName: string, token: string, requestId: string): Promise<HollowLockedDoorClientResult | null> {
-    try {
-        const response = await fetch('/api/hollow-gate/locked-door', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, token, requestId }),
-        });
-        const data = await response.json().catch(() => null) as HollowLockedDoorClientResult | null;
-        return response.ok && data ? data : null;
-    } catch {
-        return null;
-    }
-}
-
 export async function befriendHollowGatePetServer(playerName: string, token: string): Promise<{ character?: Character; trait?: string | null; destination?: "roster" | "sanctuary" | null; saveVersion?: number; error?: string }> {
     try {
         const response = await fetch('/api/pet/befriend', {

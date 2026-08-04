@@ -19,6 +19,7 @@ import {
 } from './_combat-session.js';
 import { buildHollowGateSoloPveEncounter } from './_encounter.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 
 type StartOutcome =
     | { status: number; body: Record<string, unknown> }
@@ -52,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const run = await kv.get<HollowGateRunToken>(runKey);
             if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatStart } };
             if (run.playerName !== playerName) return { status: 403, body: { error: 'Not your run.' } };
+            if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before entering combat.' } };
             // One-time migration for runs minted before currentFloor was sealed:
             // adopt the client's already-saved floor, then persist it below.
             const currentFloor = run.currentFloor == null
@@ -112,15 +114,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'The saved shrine floor does not match the sealed run.' } };
             }
             if (nodeId.includes(':tile:')) {
-                const tileIndex = Math.floor(Number(nodeId.split(':tile:')[1]));
-                const tiles = Array.isArray(savedRun.tiles) ? savedRun.tiles as Array<Record<string, unknown>> : [];
-                const tile = tiles[tileIndex];
                 const expectedTileKind = kind === 'beast' ? 'pet_battle' : kind;
-                if (!tile || tile.kind !== expectedTileKind || tile.resolved === true) {
+                const manifest = run.floorManifests?.[String(currentFloor)];
+                if (hollowGatePositionNodeId(manifest, run.position) !== nodeId
+                    || hollowGateManifestNode(manifest, nodeId) !== expectedTileKind) {
                     return { status: 409, body: { error: 'The encounter node does not match the sealed shrine floor.' } };
                 }
-            } else if (kind !== 'ambush') {
-                return { status: 409, body: { error: 'Only a sealed ambush may use a non-tile encounter identity.' } };
+            } else if (!run.pendingAmbush || run.pendingAmbush.nodeId !== nodeId || run.pendingAmbush.kind !== kind) {
+                return { status: 409, body: { error: 'Only the server-sealed threat encounter may use a non-tile identity.' } };
             }
             const binding = createHollowGateCombatBinding({
                 playerName,
@@ -138,14 +139,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : null;
                 if (session) await writeSoloPveSession(session);
                 await kv.set(hollowGateCombatBindingKey(binding.runId), binding, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
-                await kv.set(runKey, { ...run, currentFloor, activeEncounter: {
+                await kv.set(runKey, { ...run, currentFloor, pendingAmbush: null, activeEncounter: {
                     runId: binding.runId,
                     nodeId: binding.nodeId,
                     floor: binding.floor,
                     kind: binding.kind,
                     enemyProfileId: binding.enemyProfileId,
                     createdAt: binding.createdAt,
-                } }, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
+                } });
             } catch (error) {
                 await kv.del(hollowGateCombatBindingKey(binding.runId), soloPveSessionKey(binding.runId)).catch(() => undefined);
                 throw error;

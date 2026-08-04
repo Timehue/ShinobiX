@@ -58,7 +58,7 @@ const FROZEN = {
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
-        'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
+        'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement', 'lastHollowGateStart',
         'endlessTowerRun', 'endlessTowerBestWave',
         'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
         'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',

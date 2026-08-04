@@ -84,6 +84,82 @@ test('hollowGateRun: a legit short token + 3 offers pass through unchanged', () 
     assert.equal(run.augmentOffers.length, 3, 'three offers untouched');
 });
 
+test('hollowGateRun: generic saves cannot clear or replace an active server token', () => {
+    const storedRun = {
+        floor: 2,
+        runToken: 'server-token',
+        serverSeed: 'server-seed',
+        keys: 2,
+        torch: 7,
+        threat: 12,
+        entryCurrencies: { ryo: 5000 },
+        chosenAugment: { id: 'keen-edge' },
+    };
+    const cleared = sanitize({ hollowGateRun: null }, { hollowGateRun: storedRun });
+    assert.deepEqual(cleared.hollowGateRun, storedRun);
+
+    const replaced = sanitize({
+        hollowGateRun: {
+            floor: 3,
+            runToken: 'attacker-token',
+            serverSeed: 'forged',
+            keys: 99,
+            torch: 10,
+            threat: 0,
+            entryCurrencies: { ryo: 999999 },
+        },
+    }, { hollowGateRun: storedRun });
+    assert.deepEqual(replaced.hollowGateRun, storedRun);
+});
+
+test('hollowGateRun: generic saves cannot forge or clear the idempotent start marker', () => {
+    const marker = { requestId: 'hg-start-legit', token: 'server-token', at: 1234 };
+    const forged = sanitize(
+        { lastHollowGateStart: { requestId: 'attacker', token: 'attacker-token', at: 9999 } },
+        { lastHollowGateStart: marker },
+    );
+    assert.deepEqual(forged.lastHollowGateStart, marker);
+
+    const cleared = sanitize({}, { lastHollowGateStart: marker });
+    assert.deepEqual(cleared.lastHollowGateStart, marker);
+
+    const originated = sanitize(
+        { lastHollowGateStart: { requestId: 'attacker', token: 'attacker-token', at: 9999 } },
+        {},
+    );
+    assert.equal(originated.lastHollowGateStart, undefined);
+});
+
+test('hollowGateRun: matching-token autosave may update presentation but not server resources', () => {
+    const out = sanitize({
+        hollowGateRun: {
+            floor: 3,
+            runToken: 'server-token',
+            serverSeed: 'forged',
+            keys: 99,
+            torch: 10,
+            threat: 0,
+            entryCurrencies: { ryo: 999999 },
+        },
+    }, {
+        hollowGateRun: {
+            floor: 2,
+            runToken: 'server-token',
+            serverSeed: 'server-seed',
+            keys: 1,
+            torch: 4,
+            threat: 40,
+            entryCurrencies: { ryo: 5000 },
+        },
+    });
+    assert.equal((out.hollowGateRun as any).floor, 3);
+    assert.equal((out.hollowGateRun as any).serverSeed, 'server-seed');
+    assert.equal((out.hollowGateRun as any).keys, 1);
+    assert.equal((out.hollowGateRun as any).torch, 4);
+    assert.equal((out.hollowGateRun as any).threat, 40);
+    assert.deepEqual((out.hollowGateRun as any).entryCurrencies, { ryo: 5000 });
+});
+
 test('hollowGateRun: active server combat resume pointer is shape-bounded', () => {
     const out = sanitize({
         hollowGateRun: {
