@@ -66,19 +66,34 @@ const MODEL_FIT_OVERRIDES: Readonly<Record<string, PetCombatModelConfig["fit"]>>
 
 export const PET_COMBAT_MODEL_IDS = Object.freeze(Object.keys(MODEL_PROFILES));
 
+type PetCombatModelIdentity = Pick<Pet, "id" | "evolutionStage" | "rarity">
+    & Partial<Pick<Pet, "templateId" | "name">>;
+
 /** Returns a live Coliseum model only for art that has passed the 3D asset gate.
  * Every other pet intentionally falls back to the existing full-body standee. */
-export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): PetCombatModelConfig | null {
+export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfig | null {
     // Player/PvP encounter records may append a timestamp to the canonical id.
     // Normalize it before both starter evolution lookup and roster approval so a
     // cloned pet does not silently lose its production model.
     const canonicalId = pet.id.replace(/-\d{10,}$/, "");
-    const canonicalPet = canonicalId === pet.id ? pet : { ...pet, id: canonicalId };
+    const instanceSeparator = canonicalId.indexOf(":");
+    const legacyInstanceTemplate = instanceSeparator > 0 ? canonicalId.slice(0, instanceSeparator) : "";
+    const explicitTemplate = typeof pet.templateId === "string" ? pet.templateId.trim() : "";
+    const canonicalPet: PetCombatModelIdentity = {
+        ...pet,
+        id: canonicalId,
+        ...((explicitTemplate || legacyInstanceTemplate)
+            ? { templateId: explicitTemplate || legacyInstanceTemplate }
+            : {}),
+    };
     // Resolve to the approved list's OWN string, not the derived one: `url` below
     // is fetched for the colour atlas, and pet ids come from saves and encounter
     // snapshots, so the path segment must be a literal this module owns.
-    const visualId = PET_COMBAT_MODEL_IDS.find((id) => id === petVisualId(canonicalPet));
-    if (visualId === undefined) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
+    const requestedVisualId = petVisualId(canonicalPet);
+    const visualId = PET_COMBAT_MODEL_IDS.find((id) => id === requestedVisualId);
+    if (visualId === undefined) {
+        return approvedRosterCombatModel({ id: requestedVisualId, name: canonicalPet.name ?? requestedVisualId });
+    }
     const profile = MODEL_PROFILES[visualId];
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
     const isRareWaterSelkie = visualId === "starter-water-r";
@@ -94,14 +109,14 @@ export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity"
     };
 }
 
-export function hasPetCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): boolean {
+export function hasPetCombatModel(pet: PetCombatModelIdentity): boolean {
     return petCombatModel(pet) !== null;
 }
 
 /** Returns a model only when it is approved for a large cinematic portrait.
  * Callers with pose artwork use null as the deliberate 2D fallback signal. */
 export function petCloseupPresentationModel(
-    pet: Pick<Pet, "id" | "evolutionStage" | "rarity">,
+    pet: PetCombatModelIdentity,
 ): PetCombatModelConfig | null {
     const config = petCombatModel(pet);
     return config && !CLOSEUP_MODEL_FALLBACKS.has(config.visualId) ? config : null;

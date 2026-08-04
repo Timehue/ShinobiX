@@ -47,6 +47,7 @@ import {
     PET_IDENTITY_FIELDS,
 } from './_state-ownership.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
+import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
@@ -880,11 +881,13 @@ export function sanitizeCharacterSave(
 
     // Wallet values may decrease through existing client-side sinks, but all
     // increases must already exist in the stored save from a domain command.
+    // This is intentionally unconditional. The old compatibility window
+    // allowed a client-originated positive ryo delta when
+    // STRICT_RAW_SAVE_LEDGER was absent; that made a deployment flag part of
+    // the security boundary. Generic saves are now never a currency faucet.
     const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
     const inRyo = Math.max(0, Number(char.ryo ?? 0));
-    const ryoGain = Math.max(0, inRyo - exRyo);
-    const hasOpenHollowGateRun = Boolean((char.hollowGateRun as Record<string, unknown> | undefined)?.runToken);
-    char.ryo = strictLedger || hasOpenHollowGateRun || ryoGain > 1_000 ? Math.min(inRyo, exRyo) : inRyo;
+    char.ryo = isFirstSave ? inRyo : Math.min(inRyo, exRyo);
 
     // Bank principal and its interest clock are server-owned. Deposits,
     // withdrawals, and interest claims all mutate the versioned save under its
@@ -1231,6 +1234,24 @@ export function sanitizeCharacterSave(
             }
             return next;
         });
+    // A generic save may normally release a pet by omitting it, but a parent is
+    // server-locked until readyAt. Reinsert any omitted locked parent from the
+    // authoritative roster; dedicated pet/progress release returns the clearer
+    // pet-is-breeding error before it reaches this backstop.
+    const breedingLockedIds = activeBreedingParentIds(exChar, Date.now());
+    if (breedingLockedIds.size > 0) {
+        const keptIds = new Set((char.pets as Array<Record<string, unknown>>).map((pet) => String(pet.id ?? '')));
+        for (const storedPet of existingPets) {
+            const id = String(storedPet.id ?? '');
+            if (breedingLockedIds.has(id) && !keptIds.has(id)) {
+                (char.pets as Array<Record<string, unknown>>).push(storedPet);
+                keptIds.add(id);
+            }
+        }
+        for (const field of ['activePetId', 'activePetId2v2'] as const) {
+            if (breedingLockedIds.has(String(char[field] ?? ''))) copyStoredField(char, exChar, field);
+        }
+    }
     const inPets = char.pets as Array<Record<string, unknown>>;
     if (inPets && inPets.length > PET_CAP) {
         const activeId = String(char.activePetId ?? '');
@@ -2458,6 +2479,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 (existing as Record<string, unknown> | null) ?? null,
                                 identityName,
                             );
+                        }
+                    }
+
+                    // Do not silently turn an unauthorized currency increase
+                    // into an apparently successful save. Returning the
+                    // authoritative balance lets the client repair its local
+                    // state and retry normal gameplay without an autosave loop.
+                    if (!isAdminSave && identityName && existing && !isClanSave) {
+                        const storedCharacter = (existing as Record<string, unknown>).character as Record<string, unknown> | undefined;
+                        const requestedCharacter = (incoming as Record<string, unknown>).character as Record<string, unknown> | undefined;
+                        const storedRyo = Math.max(0, Number(storedCharacter?.ryo ?? 0));
+                        const requestedRyo = Math.max(0, Number(requestedCharacter?.ryo ?? 0));
+                        if (requestedRyo > storedRyo) {
+                            console.warn('[save] blocked client-originated ryo increase', { player: identityName, storedRyo, requestedRyo });
+                            return res.status(409).json({
+                                error: 'Ryo is server-authoritative. Refresh your balance and retry.',
+                                code: 'RYO_SERVER_AUTHORITY',
+                                authoritativeRyo: storedRyo,
+                                _saveVersion: Number((existing as Record<string, unknown>)._saveVersion ?? 0),
+                            });
                         }
                     }
 

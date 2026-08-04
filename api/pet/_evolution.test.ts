@@ -141,6 +141,32 @@ describe('evolvePet stat math', () => {
         assert.equal(evolved.moveRange, 4);                // 3 + 1
     });
 
+    it('preserves authoritative breeding identity, counters, lineage, and palette metadata', () => {
+        const base = fireStarter({
+            templateId: 'starter-fire',
+            origin: 'starter',
+            generation: 2,
+            breedingUsesMax: 9,
+            breedingUsesRemaining: 4,
+            breedable: false,
+            parentInstanceIds: ['parent-a', 'parent-b'],
+            parentTemplateIds: ['standard-1', 'standard-2'],
+            hatchedAt: 1_700_000_000_000,
+            paletteVariantId: 'chromatic-v1',
+        });
+        const evolved = evolvePet(base, 1, evolutionLineFor('starter-fire')!);
+        assert.equal(evolved.templateId, 'starter-fire');
+        assert.equal(evolved.origin, 'starter');
+        assert.equal(evolved.generation, 2);
+        assert.equal(evolved.breedingUsesMax, 9);
+        assert.equal(evolved.breedingUsesRemaining, 4);
+        assert.equal(evolved.breedable, false);
+        assert.deepEqual(evolved.parentInstanceIds, ['parent-a', 'parent-b']);
+        assert.deepEqual(evolved.parentTemplateIds, ['standard-1', 'standard-2']);
+        assert.equal(evolved.hatchedAt, 1_700_000_000_000);
+        assert.equal(evolved.paletteVariantId, 'chromatic-v1');
+    });
+
     it('adds the evolution delta with no cap clamp (HP/ATK/DEF/SPD are uncapped)', () => {
         const maxed = fireStarter({ level: 60, hp: 1700, attack: 260, defense: 210, speed: 190 });
         const evolved = evolvePet(maxed, 1, evolutionLineFor('starter-fire')!);

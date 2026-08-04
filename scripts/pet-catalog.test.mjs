@@ -9,7 +9,11 @@ describe('pet catalog parity', () => {
     it('matches the balanced client wild-pet pool', () => assert.deepEqual(PET_CATALOG, buildPetCatalog()));
     it('contains the complete rarity distribution', () => {
         const pets = Object.values(PET_CATALOG);
-        assert.equal(pets.length, 140);
-        assert.deepEqual(Object.fromEntries(['standard','rare','legendary','mythic'].map((r) => [r, pets.filter((p) => p.rarity === r).length])), { standard: 50, rare: 50, legendary: 30, mythic: 10 });
+        assert.equal(pets.length, 160);
+        assert.deepEqual(Object.fromEntries(['standard','rare','legendary','mythic'].map((r) => [r, pets.filter((p) => p.rarity === r).length])), { standard: 55, rare: 55, legendary: 35, mythic: 15 });
+        const wild = pets.filter((pet) => pet.wildSpawnable !== false);
+        assert.equal(wild.length, 140);
+        assert.deepEqual(Object.fromEntries(['standard','rare','legendary','mythic'].map((r) => [r, wild.filter((p) => p.rarity === r).length])), { standard: 50, rare: 50, legendary: 30, mythic: 10 });
+        assert.equal(pets.filter((pet) => pet.wildSpawnable === false && pet.breedable === false).length, 15);
     });
 });

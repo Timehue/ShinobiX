@@ -1,11 +1,14 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
+import type { PvpFighter } from '../pvp/session.js';
+import { createSoloPveSession } from '../solo-pve/_session.js';
 import {
     AI_FIGHT_HOSPITAL_DURATION_MS,
     aiFightPlayerActor,
     aiFightPaysReward,
     applyAiFightOutcomeToCharacter,
+    aiFightPlayerItemsUsed,
     isPveFightMember,
     resolveAiFightOutcome,
     settlementOwnsHpOnWin,
@@ -26,6 +29,27 @@ function session(overrides: Partial<TowerSession>): TowerSession {
         ],
         ...overrides,
     } as unknown as TowerSession;
+}
+
+function soloFighter(name: string, hp: number): PvpFighter {
+    return {
+        name, hp, maxHp: 300, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+        shield: 0, statuses: [], pos: name === 'Rill' ? 62 : 33,
+        character: { name, level: 20, specialty: 'Taijutsu', stats: {} },
+    };
+}
+
+function soloSession(outcome: 'win' | 'loss' | 'draw' | 'active') {
+    const value = createSoloPveSession({
+        sessionId: 'solo-ai-1', ownerSlug: 'Rill', encounter: { kind: 'generic-ai', id: 'rival' },
+        player: soloFighter('Rill', 42), enemy: soloFighter('Rival', outcome === 'win' ? 0 : 100), now: 1,
+    });
+    if (outcome !== 'active') {
+        value.status = 'done';
+        value.winner = outcome === 'win' ? 'player' : outcome === 'loss' ? 'enemy' : 'draw';
+        value.outcome = outcome;
+    }
+    return value;
 }
 
 describe('resolveAiFightOutcome — the session is the authority', () => {
@@ -49,6 +73,26 @@ describe('resolveAiFightOutcome — the session is the authority', () => {
         // likely to be a slow network than a cheat, so it must not hospitalize.
         assert.equal(resolveAiFightOutcome(null), 'unknown');
         assert.equal(resolveAiFightOutcome(undefined), 'unknown');
+    });
+
+    it('reads the discriminated solo-PvE winner without Tower semantics', () => {
+        assert.equal(resolveAiFightOutcome(soloSession('win')), 'win');
+        assert.equal(resolveAiFightOutcome(soloSession('loss')), 'loss');
+        assert.equal(resolveAiFightOutcome(soloSession('draw')), 'draw');
+        assert.equal(resolveAiFightOutcome(soloSession('active')), 'forfeit');
+        assert.equal(aiFightPlayerActor(soloSession('win'))?.hp, 42);
+        assert.equal(isPveFightMember(soloSession('win'), 'rill'), true);
+        assert.equal(isPveFightMember(soloSession('win'), 'Mallory'), false);
+    });
+
+    it('reads item use only from the authoritative runtime session', () => {
+        const tower = session({});
+        tower.actors[0]!.itemsUsed = { kunai: 2 };
+        assert.deepEqual(aiFightPlayerItemsUsed(tower), { kunai: 2 });
+        const solo = soloSession('win');
+        solo.itemsUsed = { potion: 1 };
+        assert.deepEqual(aiFightPlayerItemsUsed(solo), { potion: 1 });
+        assert.deepEqual(aiFightPlayerItemsUsed(null), {});
     });
 });
 

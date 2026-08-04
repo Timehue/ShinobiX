@@ -23,8 +23,8 @@ test("petCombatFamily uses approved model profile as a stable fantasy fallback",
     assert.equal(petCombatFamily({ name: "Unknown Ninja", profile: "biped" }), "skirmisher");
 });
 
-test("all 140 approved roster pets have explicit animal combat language", () => {
-    assert.equal(rawPetPool.length, 140);
+test("all 145 approved roster pets have explicit animal combat language", () => {
+    assert.equal(rawPetPool.length, 145);
     for (const pet of rawPetPool) {
         const model = approvedRosterCombatModel(pet);
         assert.ok(model, `${pet.id} ${pet.name} is missing an approved combat model`);

@@ -1,5 +1,10 @@
 # Shared & Admin-Authored Content Audit — Phase 0 (2026-07-31)
 
+> **Follow-up status (2026-08-03): Finding 6 is RESOLVED.** Item deletion
+> tombstones now survive all dual-read sources and suppress stale admin,
+> built-in, and player-owned fallback copies in both shop and combat catalogs.
+> A later source can no longer resurrect a deleted item.
+
 > **P0-4 status (2026-08-01,** branch `refactor/shared-content-p0-4`**):**
 > **Finding 1 (High) is RESOLVED.** The legacy `?signal=1` publish path now
 > runs inside the save lock (429 on contention), sets its admin-edit signal
@@ -20,8 +25,7 @@
 >
 > **Still open, sequenced in `docs/runbooks/shared-content-cutover.md`:**
 > backfilling pre-P0-4 content into the store, moving the client off the
-> slots, dropping the mirror, freezing the slots, and unifying the two
-> tombstone semantics (finding 6). Finding 5 (unvalidated `editablePets` / VN
+> slots, dropping the mirror, and freezing the slots. Finding 5 (unvalidated `editablePets` / VN
 > / gate-config on the ordinary admin-slot path) is unchanged and
 > admin-auth-gated. The `STRICT_RAW_SAVE_LEDGER=1` flip is no longer blocked
 > by the publish path; it still needs the P0-3 forged-item backfill.

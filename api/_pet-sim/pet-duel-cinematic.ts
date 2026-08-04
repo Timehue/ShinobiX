@@ -651,6 +651,7 @@ function deriveStyle(pet: Pet, abilities: Ability[], oppElement: string | null |
     else if (adv < 1) { aggression = clamp(aggression - 0.1, 0, 1); dodgeBias += 0.04; orbitStrong = true; }
     // TRAIT flavor.
     if (trait === "Aggressive") aggression = clamp(aggression + 0.12, 0, 1);
+    if (trait === "Hollowborn") aggression = clamp(aggression + 0.12, 0, 1);
     if (trait === "Battleborn") aggression = clamp(aggression + 0.08, 0, 1);
     if (trait === "Guardian") { retreatHp = Math.max(0.1, retreatHp - 0.05); }
     if (trait === "Swift") { dodgeBias += 0.08; orbitStrong = true; }
@@ -673,6 +674,27 @@ function deriveStyle(pet: Pet, abilities: Ability[], oppElement: string | null |
         lungeInit: m.li, lungeMult: m.lm, lungeTrack: m.lt, lungeTicks: m.lk,
         turnMult: m.tm, windMult: m.wm, recovMult: m.rm, reposDur: m.rd, reposBack: m.rb,
     };
+}
+
+/**
+ * Shrine-exclusive combat rules shared by fighter construction and hit
+ * resolution. Keeping the package explicit prevents the cinematic Coliseum
+ * from drifting away from the tactical and legacy duel engines.
+ */
+export function petCinematicTraitCombat(trait: Pet["trait"]): {
+    critBonus: number;
+    dodgeChance: number;
+    damageMult: number;
+    drainPct: number;
+    immuneFreezeConfuse: boolean;
+} {
+    if (trait === "Fateweaver") {
+        return { critBonus: 0.16, dodgeChance: 0.18, damageMult: 1, drainPct: 0, immuneFreezeConfuse: true };
+    }
+    if (trait === "Hollowborn") {
+        return { critBonus: 0.16, dodgeChance: 0, damageMult: 1.12, drainPct: 0.12, immuneFreezeConfuse: false };
+    }
+    return { critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0, immuneFreezeConfuse: false };
 }
 
 function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number, oppElement: string | null | undefined, atkMult: number, hpMult: number, reviveOnce: boolean, applyItems: boolean): Fighter {
@@ -701,7 +723,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         windT: Math.max(2, Math.round(DUEL_TPS * clamp(0.42 - speed * 0.0012, 0.16, 0.42) * style.windMult)),     // snappy vs telegraphed
         recovT: Math.max(2, Math.round(DUEL_TPS * clamp(0.46 - speed * 0.0010, 0.20, 0.46) * style.recovMult)),   // relentless vs long punish window
         staggerT: Math.round(DUEL_TPS * 0.35), dashT: 7, dodgeT: 6,
-        critChance: CRIT_CHANCE + (gp.trait === "Lucky" ? 0.1 : 0),
+        critChance: CRIT_CHANCE + (gp.trait === "Lucky" ? 0.1 : 0) + petCinematicTraitCombat(gp.trait).critBonus,
         style, abilities, statuses,
         moveDx: 0, moveDy: 0, dodgeCd: 0, reposLeft: 0,
         orbitDir: (slot & 1) === 0 ? 1 : -1, reposManeuverUsed: false,
@@ -822,13 +844,19 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
         return;
     }
     if (!perfectRole && tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id }); return; }
+    const targetTrait = petCinematicTraitCombat(tgt.pet.trait);
+    if (!perfectRole && targetTrait.dodgeChance > 0 && rng() < targetTrait.dodgeChance) {
+        events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id, targetId: att.id });
+        return;
+    }
+    const attackerTrait = petCinematicTraitCombat(att.pet.trait);
     const powerScale = ab ? ab.power / 100 : 1;
     const buff = att.statuses.buffLeft > 0 ? 1 + att.statuses.buffMag : 1;
     const matchup = elementMult(att.element, tgt.element);
     // Cinematic fights make the type story legible: the advantaged pet presses
     // harder and its clean openings matter, while resisted hits feel resisted.
     const matchupRead = matchup > 1 ? 1.45 : matchup < 1 ? 0.55 : 1;
-    let mult = matchup * matchupRead * (crit ? 1.6 : 1) * Math.max(0.3, buff);
+    let mult = matchup * matchupRead * (crit ? 1.6 : 1) * Math.max(0.3, buff) * attackerTrait.damageMult;
     if (perfectRole === "punish") mult *= 1.12;
     if (att.perfectDamageBoost) mult *= 1.2;
     const elemental = elementalPayoff(att, tgt);
@@ -847,6 +875,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     }
     if (tgt.statuses.shieldHp > 0) { const soak = Math.min(tgt.statuses.shieldHp, dmg); tgt.statuses.shieldHp = quant(tgt.statuses.shieldHp - soak); dmg -= soak; }
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }
+    const damageDealt = Math.max(0, Math.min(tgt.hp, dmg));
     tgt.hp -= dmg;
     att.supportCastLocked = false;
     const verdict = perfectRole === "punish" ? "GUARD BROKEN" : perfectRole === "counter" ? "ACTION BROKEN" : undefined;
@@ -864,6 +893,12 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
         tgt.state = "stagger"; tgt.stateLeft = Math.max(tgt.stateLeft, Math.round(DUEL_TPS * 0.7));
     }
     if (ab && ab.kind === "lifesteal" && att.hp > 0) att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
+    if (damageDealt > 0 && attackerTrait.drainPct > 0 && att.hp > 0) {
+        const beforeHeal = att.hp;
+        att.hp = Math.min(att.maxHp, att.hp + Math.max(1, Math.round(damageDealt * attackerTrait.drainPct)));
+        const healed = att.hp - beforeHeal;
+        if (healed > 0) events.push({ t, type: "heal", side: att.team, actorId: att.id, targetId: att.id, dmg: healed });
+    }
     if (dmg > 0) {
         if (tgt.itemsOn && tgt.cThornsPct > 0 && att.hp > 0) {
             const reflect = Math.max(1, Math.round(dmg * tgt.cThornsPct / 100));
@@ -904,6 +939,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     }
 }
 function applyOnHit(att: Fighter, tgt: Fighter, ab: Ability) {
+    if (petCinematicTraitCombat(tgt.pet.trait).immuneFreezeConfuse && (ab.kind === "freeze" || ab.kind === "confuse")) return;
     const s = tgt.statuses; const dur = statusTicks(ab);
     switch (ab.kind) {
         case "burn": case "dot": s.burnLeft = Math.max(s.burnLeft, dur); s.burnDmg = Math.max(s.burnDmg, Math.max(1, Math.round(att.atk * 0.12 * (ab.power / 100)))); break;

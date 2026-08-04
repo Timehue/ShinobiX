@@ -180,7 +180,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={20} />Character</button>
                         <button className="mobile-menu-btn" onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={20} />Inventory</button>
                         <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={20} />Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")} onPointerDown={() => preloadScreen("pets")}><GiPawPrint size={20} />Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("home")} onPointerDown={() => preloadScreen("home")}><GiPawPrint size={20} />Home</button>
                         <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={20} />Bloodline</button>
                         <button className="mobile-menu-btn" onClick={() => go("professions")} onPointerDown={() => preloadScreen("professions")}>
                             <GiAnvil size={20} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}

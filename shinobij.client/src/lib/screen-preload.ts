@@ -54,6 +54,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     profile: () => import("../screens/Profile"),
     inventory: () => import("../screens/Inventory"),
     pets: () => import("../screens/PetYard"),
+    home: () => import("../screens/Home"),
     bloodlineMaker: () => import("../screens/BloodlineMaker"),
     professions: () => import("../screens/Professions"),
     logbook: () => import("../screens/Logbook"),

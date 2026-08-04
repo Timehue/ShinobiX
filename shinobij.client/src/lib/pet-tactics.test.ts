@@ -114,6 +114,7 @@ test("petArchetypeFor derives a sensible archetype", () => {
     assert.equal(petArchetypeFor(pet({ jutsus: [jutsu("heal"), jutsu("shield")] })), "support");
     assert.equal(petArchetypeFor(pet({ jutsus: [jutsu("movelock"), jutsu("freeze")] })), "control");
     assert.equal(petArchetypeFor(pet({ trait: "Aggressive", attack: 90, defense: 30 })), "assassin");
+    assert.equal(petArchetypeFor(pet({ trait: "Hollowborn", attack: 90, defense: 30 })), "assassin");
     assert.equal(petArchetypeFor(pet({ trait: "Swift", speed: 90, attack: 40, jutsus: [jutsu("dot")] })), "kite");
     assert.equal(petArchetypeFor(pet({ attack: 30, defense: 30, jutsus: [jutsu("damage")] })), "striker");
 });
@@ -163,6 +164,7 @@ test("petPairBond: a frontline anchor + a different role is cohesive (stick toge
 
 test("petPairBond: two pure aggressors split (divide and conquer)", () => {
     assert.equal(petPairBond(pet({}), pet({})), "split"); // striker + striker
+    assert.equal(petPairBond(pet({ trait: "Hollowborn" }), pet({ trait: "Hollowborn" })), "split");
 });
 
 test("petPairBond: a plain duo with no synergy is neutral", () => {

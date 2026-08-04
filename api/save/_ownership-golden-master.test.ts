@@ -443,14 +443,14 @@ describe('public projections (scenarios 8/9/10)', () => {
 });
 
 describe('strict-ledger flag parity (scenarios 6/7)', () => {
-    it('non-strict allows the bounded ryo gain; strict freezes it', () => {
+    it('generic saves freeze client-originated ryo gains regardless of the flag', () => {
         const gainSave = () => {
             const s = incomingAutosave();
             (s.character as Record<string, unknown>).ryo = 5_500; // +500 gain
             return s;
         };
         const soft = withStrictLedger(undefined, () => sanitizeCharacterSave(gainSave(), storedSave()));
-        assert.equal(charOf(soft).ryo, 5_500, 'non-strict: gains ≤1000/save pass (compat headroom)');
+        assert.equal(charOf(soft).ryo, 5_000, 'flag absent: generic saves cannot originate ryo');
         const strict = withStrictLedger('1', () => sanitizeCharacterSave(gainSave(), storedSave()));
         assert.equal(charOf(strict).ryo, 5_000, 'strict: ryo is fully server-owned');
     });

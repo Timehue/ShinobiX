@@ -49,18 +49,18 @@ export async function startWildPetEncounter(playerName: string): Promise<WildPet
 export async function befriendWildPet(
     playerName: string,
     token: string,
-): Promise<{ character?: Character; trait?: string | null; saveVersion?: number; error?: string }> {
+): Promise<{ character?: Character; trait?: string | null; destination?: "roster" | "sanctuary" | null; saveVersion?: number; error?: string }> {
     try {
         const response = await fetch('/api/pet/befriend', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ playerName, token }),
         });
         const data = await response.json().catch(() => null) as
-            { character?: Character; trait?: string | null; _saveVersion?: number; error?: string } | null;
+            { character?: Character; trait?: string | null; destination?: "roster" | "sanctuary" | null; _saveVersion?: number; error?: string } | null;
         if (!response.ok || !data?.character) {
             return { error: data?.error || 'The pet could not be befriended.' };
         }
-        return { character: data.character, trait: data.trait ?? null, saveVersion: data._saveVersion };
+        return { character: data.character, trait: data.trait ?? null, destination: data.destination ?? null, saveVersion: data._saveVersion };
     } catch {
         return { error: 'The pet server is unreachable.' };
     }

@@ -211,7 +211,7 @@ describe('raw save server-ledger boundary', () => {
         assert.equal(out.level, 20, 'client level writes are ignored; level derives from the ledger');
         assert.equal(out.xp, 40, 'xp is frozen from the stored save (retired currency)');
         assert.equal(out.levelLedgerMigrated, true, 'one-time ledger migration stamps the save');
-        assert.equal(out.ryo, 575, 'bounded PvE ryo must persist');
+        assert.equal(out.ryo, 500, 'generic saves cannot originate ryo, even within the old bounded gain window');
         assert.deepEqual(out.stats, { strength: 22, speed: 20 }, 'earned/allocated stats must persist');
         assert.equal(out.unspentStats, 3 + 3908, 'the spend persists and the migration top-up lands in the pool');
         assert.deepEqual(out.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 30 }], 'battle mastery must persist');

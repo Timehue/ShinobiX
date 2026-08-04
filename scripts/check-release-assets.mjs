@@ -5,6 +5,7 @@ import sharp from 'sharp';
 const root = process.cwd();
 const badgeDir = path.join(root, 'shinobij.client', 'public', 'badges');
 const achievementFile = path.join(root, 'shinobij.client', 'src', 'constants', 'achievements.ts');
+const clientAssets = path.join(root, 'shinobij.client', 'src', 'assets');
 
 const source = await readFile(achievementFile, 'utf8');
 const tableStart = source.indexOf('export const ACHIEVEMENTS');
@@ -39,4 +40,26 @@ for (const filename of actualPngs) {
 }
 if (invalid.length > 0) throw new Error(`Invalid badge assets:\n${invalid.join('\n')}`);
 
-console.log(`release-assets: ${expectedNames.length} achievement references present; ${actualPngs.length} badge PNGs decode and are square.`);
+const petHomeAssets = [
+    'pet-home/home-hero.webp', 'pet-home/breeding-barn.webp', 'pet-home/hatch-sanctum.webp', 'pet-home/companion-sanctuary.webp',
+    ...['fire', 'water', 'wind', 'lightning', 'earth'].flatMap((element) => [
+        `pet-home/egg-${element}.webp`, `pet-home/crest-${element}.webp`,
+    ]),
+    'pet-home/hatch-rare-overlay.webp', 'pet-home/hatch-chromatic-overlay.webp',
+    'facilities/home.webp',
+    ...['frostfang', 'stormveil', 'ashen-leaf', 'moonshadow'].map((village) => `facilities/thumbs/${village}/home.webp`),
+];
+const invalidPetHome = [];
+for (const relative of petHomeAssets) {
+    const full = path.join(clientAssets, relative);
+    try {
+        const metadata = await sharp(full).metadata();
+        if (metadata.format !== 'webp' || !metadata.width || !metadata.height) invalidPetHome.push(`${relative} (not a dimensioned WebP)`);
+        if ((relative.includes('/egg-') || relative.endsWith('/hatch-sanctum.webp')) && metadata.width !== metadata.height) invalidPetHome.push(`${relative} (must be square)`);
+    } catch (error) {
+        invalidPetHome.push(`${relative} (${error instanceof Error ? error.message : String(error)})`);
+    }
+}
+if (invalidPetHome.length) throw new Error(`Invalid Pet Home assets:\n${invalidPetHome.join('\n')}`);
+
+console.log(`release-assets: ${expectedNames.length} achievement references present; ${actualPngs.length} badge PNGs and ${petHomeAssets.length} Pet Home WebPs verified.`);

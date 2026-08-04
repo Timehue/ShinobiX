@@ -19,6 +19,8 @@ import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type 
 import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { PetDuelLiveHost } from "../components/PetDuelLiveHost";
 import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
+import { petCardImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
     type Mode, type LadderView, type OfferOpponent, type ChallengeResult, type PetLite,
@@ -300,10 +302,10 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                                         const order = picks.indexOf(pet.id);
                                         const { role } = pet.role ? { role: pet.role } : derivePetRole(pet);
                                         const rm = ROLE_META[role];
-                                        const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
+                                        const img = petCardImage(pet, sharedImages);
                                         const gear = gearLabel(pet);
                                         return (
-                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""}`} onClick={() => togglePick(pet.id)} title={gear ?? petDisplayName(pet)}>
+                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""} ${petVisualVariantClass(pet)}`} onClick={() => togglePick(pet.id)} title={gear ?? petDisplayName(pet)}>
                                                 {sel && teamSize > 1 && <span className="pl-pet-order">{order + 1}</span>}
                                                 {sel && teamSize === 1 && <span className="pl-pet-check">✓</span>}
                                                 {img ? <img className="pl-pet-img" src={img} alt="" /> : <div className="pl-pet-img" />}

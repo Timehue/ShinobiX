@@ -8745,5 +8745,1173 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4
+    },
+    "mythic-10": {
+        "id": "mythic-10",
+        "name": "Ash Crown Phoenix",
+        "rarity": "mythic",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 345,
+        "attack": 57,
+        "defense": 32,
+        "speed": 48,
+        "unlockedForPve": false,
+        "element": "Fire",
+        "wildSpawnable": false,
+        "description": "A cinder-crowned heir that only appears when two fire myths have exhausted every ordinary omen.",
+        "jutsus": [
+            {
+                "name": "Ash Crown Aura",
+                "power": 78,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "buff"
+            },
+            {
+                "name": "Crownfire Talon",
+                "power": 91,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Phoenix Ashfall",
+                "power": 96,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Ember Rebirth",
+                "power": 97,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "heal"
+            },
+            {
+                "name": "Cinder Wing",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            },
+            {
+                "name": "Solar Conflagration",
+                "power": 90,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "burn",
+                "rounds": 2
+            },
+            {
+                "name": "Ashen Coronation: Everflame Descent",
+                "power": 152,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "lifesteal",
+                "signature": true
+            },
+            {
+                "name": "Cinder Crown",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "mark",
+                "rounds": 2
+            }
+        ],
+        "role": "assassin",
+        "subRole": "assassin",
+        "moveRange": 4
+    },
+    "mythic-11": {
+        "id": "mythic-11",
+        "name": "Moonwell Leviathan",
+        "rarity": "mythic",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 444,
+        "attack": 45,
+        "defense": 40,
+        "speed": 43,
+        "unlockedForPve": false,
+        "element": "Water",
+        "wildSpawnable": false,
+        "description": "A moon-fed leviathan whose first tide is said to rise from a sealed breeding pool.",
+        "jutsus": [
+            {
+                "name": "Moonwell Aura",
+                "power": 79,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "buff"
+            },
+            {
+                "name": "Tidal Coil",
+                "power": 92,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Leviathan Deluge",
+                "power": 97,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Moonwell Barrier",
+                "power": 98,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Undertow Slide",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            },
+            {
+                "name": "Eternal Glacier",
+                "power": 85,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "freeze",
+                "rounds": 2
+            },
+            {
+                "name": "Moonwell Abyss: Tidal Sovereignty",
+                "power": 152,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Moonwell Undertow",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "slow",
+                "rounds": 2
+            }
+        ],
+        "role": "sage",
+        "subRole": "support",
+        "moveRange": 4
+    },
+    "mythic-12": {
+        "id": "mythic-12",
+        "name": "Skyglass Kirin",
+        "rarity": "mythic",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 520,
+        "attack": 57,
+        "defense": 39,
+        "speed": 43,
+        "unlockedForPve": false,
+        "element": "Wind",
+        "wildSpawnable": false,
+        "description": "A glass-hoofed kirin glimpsed between two gusts, never on a wild trail.",
+        "jutsus": [
+            {
+                "name": "Skyglass Focus",
+                "power": 80,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "buff"
+            },
+            {
+                "name": "Kirin Gale",
+                "power": 93,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Skyglass Tempest",
+                "power": 98,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Horizon Mirage",
+                "power": 95,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "debuff"
+            },
+            {
+                "name": "Cloudstep",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            },
+            {
+                "name": "Heaven's Vortex",
+                "power": 85,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "confuse",
+                "rounds": 2
+            },
+            {
+                "name": "Skyglass Horizon: Celestial Stampede",
+                "power": 152,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Skyglass Passage",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "haste",
+                "rounds": 2
+            }
+        ],
+        "role": "defender",
+        "subRole": "bruiser",
+        "moveRange": 4
+    },
+    "mythic-13": {
+        "id": "mythic-13",
+        "name": "Thunderbloom Kirin",
+        "rarity": "mythic",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 563,
+        "attack": 69,
+        "defense": 48,
+        "speed": 49,
+        "unlockedForPve": false,
+        "element": "Lightning",
+        "wildSpawnable": false,
+        "description": "A thunderbloom that flowers only in the charged space between two lightning myths.",
+        "jutsus": [
+            {
+                "name": "Thunderbloom Aura",
+                "power": 81,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "buff"
+            },
+            {
+                "name": "Blooming Bolt",
+                "power": 94,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Stormgarden Judgment",
+                "power": 99,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Static Thorn",
+                "power": 96,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "dot"
+            },
+            {
+                "name": "Flash Bloom",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            },
+            {
+                "name": "Worldfall Bolt",
+                "power": 88,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "stun",
+                "rounds": 1
+            },
+            {
+                "name": "Thunderbloom: Stormgarden Dominion",
+                "power": 152,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Stormgarden Brand",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "mark",
+                "rounds": 2
+            }
+        ],
+        "role": "tracker",
+        "subRole": "control",
+        "moveRange": 4
+    },
+    "mythic-14": {
+        "id": "mythic-14",
+        "name": "Gravepeak Behemoth",
+        "rarity": "mythic",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 427,
+        "attack": 56,
+        "defense": 37,
+        "speed": 53,
+        "unlockedForPve": false,
+        "element": "Earth",
+        "wildSpawnable": false,
+        "description": "A gravepeak behemoth bred from stone-deep echoes rather than found in the wild.",
+        "jutsus": [
+            {
+                "name": "Gravepeak Aura",
+                "power": 82,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "buff"
+            },
+            {
+                "name": "Basalt Fist",
+                "power": 95,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Mountainwake",
+                "power": 100,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Deepstone Regen",
+                "power": 101,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "heal"
+            },
+            {
+                "name": "Faultstep",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            },
+            {
+                "name": "World-Ender Slab",
+                "power": 100,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "crush"
+            },
+            {
+                "name": "Gravepeak: Worldwake Cataclysm",
+                "power": 152,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "lifesteal",
+                "signature": true
+            },
+            {
+                "name": "Gravepeak Challenge",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "taunt",
+                "rounds": 2
+            }
+        ],
+        "role": "assassin",
+        "subRole": "striker",
+        "moveRange": 4
+    },
+    "starter-fire": {
+        "id": "starter-fire",
+        "name": "Cinder Cub",
+        "rarity": "standard",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 280,
+        "attack": 56,
+        "defense": 22,
+        "speed": 38,
+        "moveRange": 3,
+        "element": "Fire",
+        "trait": "Aggressive",
+        "unlockedForPve": false,
+        "description": "A hot-tempered fox kit whose fur smolders when it's spoiling for a fight.",
+        "jutsus": [
+            {
+                "name": "Cinder Pounce",
+                "power": 48,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Searing Wound",
+                "power": 30,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "wound",
+                "rounds": 2
+            },
+            {
+                "name": "Flame Burst",
+                "power": 58,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Ember Dash",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-water": {
+        "id": "starter-water",
+        "name": "Ripple Seal",
+        "rarity": "standard",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 360,
+        "attack": 32,
+        "defense": 32,
+        "speed": 28,
+        "moveRange": 3,
+        "element": "Water",
+        "trait": "Loyal",
+        "unlockedForPve": false,
+        "description": "A calm river seal that mends its companion's wounds between exchanges.",
+        "jutsus": [
+            {
+                "name": "Tide Ward",
+                "power": 40,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Soothing Current",
+                "power": 46,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "heal"
+            },
+            {
+                "name": "Tidal Crash",
+                "power": 54,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Seal Glide",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-wind": {
+        "id": "starter-wind",
+        "name": "Gale Chick",
+        "rarity": "standard",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 300,
+        "attack": 42,
+        "defense": 24,
+        "speed": 44,
+        "moveRange": 4,
+        "element": "Wind",
+        "trait": "Swift",
+        "unlockedForPve": false,
+        "description": "A fledgling raptor that rides the wind, striking before the enemy can react.",
+        "jutsus": [
+            {
+                "name": "Talon Rake",
+                "power": 46,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Hobbling Gust",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "slow",
+                "rounds": 2
+            },
+            {
+                "name": "Gale Slash",
+                "power": 54,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Wind Step",
+                "power": 0,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-lightning": {
+        "id": "starter-lightning",
+        "name": "Spark Pup",
+        "rarity": "standard",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 265,
+        "attack": 58,
+        "defense": 20,
+        "speed": 36,
+        "moveRange": 3,
+        "element": "Lightning",
+        "trait": "Battleborn",
+        "unlockedForPve": false,
+        "description": "A crackling wolf pup that marks its prey, then strikes with a thunderclap.",
+        "jutsus": [
+            {
+                "name": "Jolt Bite",
+                "power": 50,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Static Mark",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "mark",
+                "rounds": 2
+            },
+            {
+                "name": "Thunder Fang",
+                "power": 58,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Bolt Dash",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-earth": {
+        "id": "starter-earth",
+        "name": "Pebble Tortoise",
+        "rarity": "standard",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 400,
+        "attack": 32,
+        "defense": 44,
+        "speed": 20,
+        "moveRange": 2,
+        "element": "Earth",
+        "trait": "Guardian",
+        "unlockedForPve": false,
+        "description": "A sturdy tortoise that raises stone walls and weathers blows for its partner.",
+        "jutsus": [
+            {
+                "name": "Shell Bash",
+                "power": 42,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Stone Guard",
+                "power": 30,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Boulder Crush",
+                "power": 48,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Pebble Roll",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-fire-r": {
+        "id": "starter-fire-r",
+        "name": "Ember Wolf",
+        "rarity": "rare",
+        "level": 50,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 330,
+        "attack": 64,
+        "defense": 28,
+        "speed": 44,
+        "moveRange": 3,
+        "element": "Fire",
+        "trait": "Aggressive",
+        "unlockedForPve": true,
+        "description": "The cub has grown into a lean wolf wreathed in living embers.",
+        "jutsus": [
+            {
+                "name": "Cinder Pounce",
+                "power": 48,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Searing Wound",
+                "power": 30,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "wound",
+                "rounds": 2
+            },
+            {
+                "name": "Flame Burst",
+                "power": 58,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Ember Dash",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 1,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-fire-l": {
+        "id": "starter-fire-l",
+        "name": "Inferno Fenrir",
+        "rarity": "legendary",
+        "level": 90,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 376,
+        "attack": 70,
+        "defense": 32,
+        "speed": 49,
+        "moveRange": 4,
+        "element": "Fire",
+        "trait": "Aggressive",
+        "unlockedForPve": true,
+        "description": "A towering fire-beast whose every breath warps the air into flame.",
+        "jutsus": [
+            {
+                "name": "Cinder Pounce",
+                "power": 48,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Searing Wound",
+                "power": 30,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "wound",
+                "rounds": 2
+            },
+            {
+                "name": "Flame Burst",
+                "power": 58,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Ember Dash",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 2,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-water-r": {
+        "id": "starter-water-r",
+        "name": "Tidal Selkie",
+        "rarity": "rare",
+        "level": 50,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 410,
+        "attack": 40,
+        "defense": 38,
+        "speed": 34,
+        "moveRange": 3,
+        "element": "Water",
+        "trait": "Loyal",
+        "unlockedForPve": true,
+        "description": "The seal pup has matured into a graceful selkie that rides the tide.",
+        "jutsus": [
+            {
+                "name": "Tide Ward",
+                "power": 40,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Soothing Current",
+                "power": 46,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "heal"
+            },
+            {
+                "name": "Tidal Crash",
+                "power": 54,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Seal Glide",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 1,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-water-l": {
+        "id": "starter-water-l",
+        "name": "Abyssal Leviathan",
+        "rarity": "legendary",
+        "level": 90,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 456,
+        "attack": 46,
+        "defense": 42,
+        "speed": 39,
+        "moveRange": 4,
+        "element": "Water",
+        "trait": "Loyal",
+        "unlockedForPve": true,
+        "description": "A deep-sea leviathan that drags the ocean's weight into every blow.",
+        "jutsus": [
+            {
+                "name": "Tide Ward",
+                "power": 40,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Soothing Current",
+                "power": 46,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "heal"
+            },
+            {
+                "name": "Tidal Crash",
+                "power": 54,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Seal Glide",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 2,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-wind-r": {
+        "id": "starter-wind-r",
+        "name": "Storm Hawk",
+        "rarity": "rare",
+        "level": 50,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 350,
+        "attack": 50,
+        "defense": 30,
+        "speed": 50,
+        "moveRange": 4,
+        "element": "Wind",
+        "trait": "Swift",
+        "unlockedForPve": true,
+        "description": "The fledgling is now a storm hawk that carves the sky at will.",
+        "jutsus": [
+            {
+                "name": "Talon Rake",
+                "power": 46,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Hobbling Gust",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "slow",
+                "rounds": 2
+            },
+            {
+                "name": "Gale Slash",
+                "power": 54,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Wind Step",
+                "power": 0,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 1,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-wind-l": {
+        "id": "starter-wind-l",
+        "name": "Tempest Roc",
+        "rarity": "legendary",
+        "level": 90,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 396,
+        "attack": 56,
+        "defense": 34,
+        "speed": 55,
+        "moveRange": 5,
+        "element": "Wind",
+        "trait": "Swift",
+        "unlockedForPve": true,
+        "description": "A colossal roc whose wingbeats summon screaming gales.",
+        "jutsus": [
+            {
+                "name": "Talon Rake",
+                "power": 46,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Hobbling Gust",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "slow",
+                "rounds": 2
+            },
+            {
+                "name": "Gale Slash",
+                "power": 54,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Wind Step",
+                "power": 0,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 2,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-lightning-r": {
+        "id": "starter-lightning-r",
+        "name": "Bolt Fang",
+        "rarity": "rare",
+        "level": 50,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 315,
+        "attack": 66,
+        "defense": 26,
+        "speed": 42,
+        "moveRange": 3,
+        "element": "Lightning",
+        "trait": "Battleborn",
+        "unlockedForPve": true,
+        "description": "The pup crackles with a current it has finally learned to wield.",
+        "jutsus": [
+            {
+                "name": "Jolt Bite",
+                "power": 50,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Static Mark",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "mark",
+                "rounds": 2
+            },
+            {
+                "name": "Thunder Fang",
+                "power": 58,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Bolt Dash",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 1,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-lightning-l": {
+        "id": "starter-lightning-l",
+        "name": "Raijin Hound",
+        "rarity": "legendary",
+        "level": 90,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 361,
+        "attack": 72,
+        "defense": 30,
+        "speed": 47,
+        "moveRange": 4,
+        "element": "Lightning",
+        "trait": "Battleborn",
+        "unlockedForPve": true,
+        "description": "A thunder-god's hound — each bite lands a clap of lightning.",
+        "jutsus": [
+            {
+                "name": "Jolt Bite",
+                "power": 50,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Static Mark",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "mark",
+                "rounds": 2
+            },
+            {
+                "name": "Thunder Fang",
+                "power": 58,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "damage",
+                "signature": true
+            },
+            {
+                "name": "Bolt Dash",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 2,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-earth-r": {
+        "id": "starter-earth-r",
+        "name": "Granite Tortoise",
+        "rarity": "rare",
+        "level": 50,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 450,
+        "attack": 40,
+        "defense": 50,
+        "speed": 26,
+        "moveRange": 2,
+        "element": "Earth",
+        "trait": "Guardian",
+        "unlockedForPve": true,
+        "description": "The little tortoise now carries a shell of solid granite.",
+        "jutsus": [
+            {
+                "name": "Shell Bash",
+                "power": 42,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Stone Guard",
+                "power": 30,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Boulder Crush",
+                "power": 48,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Pebble Roll",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 1,
+        "wildSpawnable": false,
+        "breedable": false
+    },
+    "starter-earth-l": {
+        "id": "starter-earth-l",
+        "name": "Mountain Genbu",
+        "rarity": "legendary",
+        "level": 90,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 496,
+        "attack": 46,
+        "defense": 54,
+        "speed": 31,
+        "moveRange": 3,
+        "element": "Earth",
+        "trait": "Guardian",
+        "unlockedForPve": true,
+        "description": "The black tortoise of legend — a walking mountain that cannot be moved.",
+        "jutsus": [
+            {
+                "name": "Shell Bash",
+                "power": 42,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Stone Guard",
+                "power": 30,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Boulder Crush",
+                "power": 48,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Pebble Roll",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            }
+        ],
+        "evolutionStage": 2,
+        "wildSpawnable": false,
+        "breedable": false
     }
 };

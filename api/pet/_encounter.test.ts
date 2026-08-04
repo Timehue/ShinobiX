@@ -10,10 +10,16 @@ describe('wild pet encounter authority', () => {
         assert.equal(pet?.rarity, 'mythic');
         assert.match(String(pet?.id), /^mythic-\d+-123$/);
     });
-    it('grants a server-rolled trait and enforces the five-pet cap', () => {
+    it('grants a server-rolled trait without imposing a total ownership cap', () => {
         const result = grantWildPet({ pets: [] }, { id: 'rare-1-123', rarity: 'rare', attack: 100, hp: 100, defense: 100, speed: 100 }, () => 0.2);
         assert.equal(result.ok, true);
         if (result.ok) assert.equal((result.character.pets as Array<Record<string, unknown>>)[0].trait, 'Aggressive');
-        assert.equal(grantWildPet({ pets: [{},{},{},{},{}] }, { id: 'x' }, () => 0).ok, false);
+        const overflow = grantWildPet(
+            { pets: [{},{},{},{},{}] },
+            { id: 'rare-1-456', rarity: 'rare', attack: 100, hp: 100, defense: 100, speed: 100 },
+            () => 0,
+        );
+        assert.equal(overflow.ok, true);
+        if (overflow.ok) assert.equal((overflow.character.pets as unknown[]).length, 6);
     });
 });

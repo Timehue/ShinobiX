@@ -24,6 +24,7 @@ import type {
     PetBattleAnimationEvent,
     PetBattleAnimationEventType,
 } from "../types/pet-battle";
+import { firstSharedImage, variantImageKeys } from "./pet-visual-variant";
 
 // Shared-image key prefixes. `pet:` is the existing circular portrait the
 // admin pipeline already publishes; `petbody:` is the new namespace for a
@@ -42,9 +43,45 @@ const PET_LAYER_PREFIX = "petlayers:";
 const PET_SHEET_PREFIX = "petsheet:";
 const PET_SHEET_DEFAULT_FRAMES = 8;
 
+// Breeding-exclusive Mythics have authored card/hatch portraits and dedicated
+// production 3D rigs. When a device uses the classic billboard renderer, the
+// closest transparent pose sheet remains a deliberate animation fallback;
+// identity, portrait, palette treatment, and every 3D combat surface stay on
+// the owned Mythic rather than inheriting another pet's model.
+const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
+    "mythic-10": "/pet-portraits/breeding-mythics/mythic-10.webp",
+    "mythic-11": "/pet-portraits/breeding-mythics/mythic-11.webp",
+    "mythic-12": "/pet-portraits/breeding-mythics/mythic-12.webp",
+    "mythic-13": "/pet-portraits/breeding-mythics/mythic-13.webp",
+    "mythic-14": "/pet-portraits/breeding-mythics/mythic-14.webp",
+};
+
+const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
+    "mythic-10": "mythic-5",
+    "mythic-11": "mythic-6",
+    "mythic-12": "mythic-3",
+    "mythic-13": "legendary-24",
+    "mythic-14": "mythic-9",
+};
+
 /** Strip the per-encounter `-<timestamp>` suffix to recover the template id. */
 export function petStripVariant(id: string): string {
     return id.replace(/-\d{10,}$/, "");
+}
+
+/** Stable art ids in priority order: evolved form, owned instance, template, legacy clone. */
+function petArtIds(pet: Pet): string[] {
+    const identityIds = [...new Set([
+        petVisualId(pet),
+        pet.id,
+        typeof pet.templateId === "string" ? pet.templateId : "",
+        petStripVariant(pet.id),
+    ].filter(Boolean))];
+    return [...new Set(identityIds.flatMap((id) => [id, BREEDING_MYTHIC_POSE_ALIASES[id] ?? ""]).filter(Boolean))];
+}
+
+function breedingMythicPortrait(artIds: readonly string[]): string {
+    return artIds.map((id) => BREEDING_MYTHIC_PORTRAITS[id]).find(Boolean) ?? "";
 }
 
 // Cache-busting tag for the static idle-pose files. The poses live at fixed
@@ -64,13 +101,9 @@ export function petBattleLayers(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { far: string; mid: string; near: string } | null {
-    const baseId = petStripVariant(pet.id);
-    const visualId = petVisualId(pet);
+    const artIds = petArtIds(pet);
     const pick = (band: "far" | "mid" | "near"): string =>
-        sharedImages[`${PET_LAYER_PREFIX}${visualId}:${band}`] ||
-        sharedImages[`${PET_LAYER_PREFIX}${pet.id}:${band}`] ||
-        sharedImages[`${PET_LAYER_PREFIX}${baseId}:${band}`] ||
-        "";
+        firstSharedImage(sharedImages, variantImageKeys(PET_LAYER_PREFIX, pet, artIds.map((id) => `${id}:${band}`)));
     const far = pick("far"), mid = pick("mid"), near = pick("near");
     return far && mid && near ? { far, mid, near } : null;
 }
@@ -85,19 +118,10 @@ export function petBattleSheet(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { src: string; frames: number } | null {
-    const baseId = petStripVariant(pet.id);
-    const visualId = petVisualId(pet);
-    const src =
-        sharedImages[`${PET_SHEET_PREFIX}${visualId}`] ||
-        sharedImages[`${PET_SHEET_PREFIX}${pet.id}`] ||
-        sharedImages[`${PET_SHEET_PREFIX}${baseId}`] ||
-        "";
+    const artIds = petArtIds(pet);
+    const src = firstSharedImage(sharedImages, variantImageKeys(PET_SHEET_PREFIX, pet, artIds));
     if (!src) return null;
-    const framesRaw =
-        sharedImages[`${PET_SHEET_PREFIX}${visualId}:frames`] ||
-        sharedImages[`${PET_SHEET_PREFIX}${pet.id}:frames`] ||
-        sharedImages[`${PET_SHEET_PREFIX}${baseId}:frames`] ||
-        "";
+    const framesRaw = artIds.map((id) => sharedImages[`${PET_SHEET_PREFIX}${id}:frames`]).find(Boolean) || "";
     const parsed = parseInt(framesRaw, 10);
     const frames = Math.max(1, Math.min(24, Number.isFinite(parsed) && parsed > 0 ? parsed : PET_SHEET_DEFAULT_FRAMES));
     return { src, frames };
@@ -116,25 +140,16 @@ export function petBattleSprite(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { mode: PetSpriteMode; src: string } {
-    const baseId = petStripVariant(pet.id);
+    const artIds = petArtIds(pet);
     // Evolved starters keep their base id but carry a stage `visualId`
     // (starter-fire-r / -l). Try the stage art FIRST, then fall back to the base
     // art — so an evolved pet shows its own form once that art is published, and
     // the unchanged base art until then (no regression). See data/pet-evolutions.
-    const visualId = petVisualId(pet);
-    const body =
-        sharedImages[PET_BODY_PREFIX + visualId] ||
-        sharedImages[PET_BODY_PREFIX + pet.id] ||
-        sharedImages[PET_BODY_PREFIX + baseId] ||
-        pet.bodyImage ||
-        "";
+    const body = firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds)) || pet.bodyImage || "";
     if (body) return { mode: "fullBodySprite", src: body };
-    const circle =
-        sharedImages[PET_IMG_PREFIX + visualId] ||
-        sharedImages[PET_IMG_PREFIX + pet.id] ||
-        sharedImages[PET_IMG_PREFIX + baseId] ||
-        pet.image ||
-        "";
+    const circle = firstSharedImage(sharedImages, variantImageKeys(PET_IMG_PREFIX, pet, artIds))
+        || pet.image
+        || breedingMythicPortrait(artIds);
     return { mode: "circleFallback", src: circle };
 }
 
@@ -158,21 +173,16 @@ export function petCardImage(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): string {
-    const baseId = petStripVariant(pet.id);
-    const visualId = petVisualId(pet);
-    const direct =
-        sharedImages[PET_BODY_PREFIX + visualId] ||
-        sharedImages[PET_BODY_PREFIX + pet.id] ||
-        sharedImages[PET_BODY_PREFIX + baseId] ||
-        pet.bodyImage ||
-        sharedImages[PET_IMG_PREFIX + visualId] ||
-        sharedImages[PET_IMG_PREFIX + pet.id] ||
-        sharedImages[PET_IMG_PREFIX + baseId] ||
-        pet.image ||
-        "";
+    const artIds = petArtIds(pet);
+    const direct = firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds))
+        || pet.bodyImage
+        || firstSharedImage(sharedImages, variantImageKeys(PET_IMG_PREFIX, pet, artIds))
+        || pet.image
+        || breedingMythicPortrait(artIds)
+        || "";
     if (direct) return direct;
-    if (POSED_PET_IDS.has(visualId)) return idlePoseUrl(visualId);
-    if (POSED_PET_IDS.has(baseId)) return idlePoseUrl(baseId);
+    const posedId = artIds.find((id) => POSED_PET_IDS.has(id));
+    if (posedId) return idlePoseUrl(posedId);
     return "";
 }
 
@@ -185,11 +195,8 @@ export function petCardImage(
  * petCardImage only when a pet has no generated pose. Pure.
  */
 export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
-    const visualId = petVisualId(pet);
-    if (POSED_PET_IDS.has(visualId)) return idlePoseUrl(visualId);
-    if (POSED_PET_IDS.has(pet.id)) return idlePoseUrl(pet.id);
-    const baseId = petStripVariant(pet.id);
-    if (POSED_PET_IDS.has(baseId)) return idlePoseUrl(baseId);
+    const posedId = petArtIds(pet).find((id) => POSED_PET_IDS.has(id));
+    if (posedId) return idlePoseUrl(posedId);
     return petCardImage(pet, sharedImages);
 }
 

@@ -6,8 +6,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { kv } from '../_storage.js';
-import { consumeSingleUseToken } from '../_single-use-token.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlement, getDurableSettlement, listDurableSettlements, settlementFingerprint, settlementTransactionId, updateDurableSettlement } from '../_durable-settlement.js';
 import {
     cleanMiraaBet,
     FATE_DICE_COST,
@@ -24,6 +24,43 @@ function num(v: unknown): number {
     return Number.isFinite(n) ? n : 0;
 }
 
+function requestKey(raw: unknown, fallback: string): string {
+    const value = typeof raw === 'string' ? raw.trim() : '';
+    return value && /^[A-Za-z0-9_-]{8,96}$/.test(value) ? value : fallback;
+}
+
+// randomUUID is backed by the platform CSPRNG. Persisting a unit interval at
+// wager creation means a payout retry can reproduce the same server result
+// even when the result-marker write failed after the roll was computed.
+function secureRandomUnit(): number {
+    return Number.parseInt(randomUUID().replace(/-/g, '').slice(0, 8), 16) / 0x1_0000_0000;
+}
+
+function receiptValue(character: Record<string, unknown>, txId: string, fingerprint: string): Record<string, unknown> | null {
+    const raw = character.serverSettlementReceipts;
+    if (!Array.isArray(raw)) return null;
+    const found = raw.find((entry) => entry && typeof entry === 'object'
+        && (entry as Record<string, unknown>).requestId === txId) as Record<string, unknown> | undefined;
+    if (!found || found.fingerprint !== fingerprint || !found.value || typeof found.value !== 'object') return null;
+    return found.value as Record<string, unknown>;
+}
+
+function appendPlayerSettlementReceipt(
+    character: Record<string, unknown>,
+    txId: string,
+    fingerprint: string,
+    value: Record<string, unknown>,
+): Record<string, unknown> {
+    const current = Array.isArray(character.serverSettlementReceipts) ? character.serverSettlementReceipts : [];
+    return {
+        ...character,
+        serverSettlementReceipts: [
+            { requestId: txId, fingerprint, value, settledAt: Date.now() },
+            ...current.filter((entry) => entry && typeof entry === 'object' && (entry as Record<string, unknown>).requestId !== txId),
+        ].slice(0, 50),
+    };
+}
+
 /*
  * /api/festival/sunscar - POST
  *
@@ -33,7 +70,7 @@ function num(v: unknown): number {
  *   - `miraa` — a wager on server-authoritative Shinobi Chronicle Showdown whose outcome the
  *     client owns and cannot be verified cheaply. Settled via the mint-token
  *     escrow pattern: `miraa-start` debits the stake and seals `bet` into a
- *     single-use token; `miraa-report` consumes the token and SERVER-ROLLS the
+ *     durable token; `miraa-report` settles it idempotently and SERVER-ROLLS the
  *     result (see resolveMiraaWager), ignoring any client-reported outcome. The
  *     legacy client-attested `kind:'miraa'` path (a ryo mint) is retired below.
  */
@@ -102,33 +139,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (kind === 'miraa-start') {
             const bet = cleanMiraaBet(body.bet);
             if (!bet) return res.status(400).json({ error: 'Invalid Miraa wager.' });
-
-            // Daily wager cap on top of the 40/min rate limit. incr is atomic so
-            // concurrent starts can't both slip under the cap. Admins are exempt
-            // (test/tooling path).
-            if (!identity.admin) {
-                const startedToday = await kv.incr(`miraa-wager-count:${playerName}:${utcDateKey()}`, { ex: 25 * 60 * 60 });
-                if (startedToday > MIRAA_DAILY_WAGER_CAP) {
-                    return res.status(429).json({ error: `Miraa waves you off — you've wagered enough for one day (${MIRAA_DAILY_WAGER_CAP}/${MIRAA_DAILY_WAGER_CAP}).` });
-                }
+            const fp = settlementFingerprint({ operation: 'miraa-start', playerName, bet });
+            const idempotencyKey = requestKey(body.requestId, `legacy-miraa-start-${playerName}-${Date.now()}-${randomUUID().replace(/-/g, '')}`);
+            const txId = settlementTransactionId('miraa-start', `${playerName}:${idempotencyKey}`);
+            const initial = await beginDurableSettlement({
+                transactionId: txId,
+                idempotencyKey,
+                operationType: 'miraa-start',
+                fingerprint: fp,
+                actorIds: [playerName],
+                resource: 'ryo',
+                amount: bet,
+                meta: { playerName, bet, rollSeed: secureRandomUnit() },
+            }, { kv });
+            if (initial.status === 'conflict') return res.status(409).json({ error: 'That Miraa request ID belongs to a different wager.' });
+            if (initial.record.state === 'completed' && initial.record.result) {
+                return res.status(200).json({ ok: true, ...initial.record.result });
             }
 
-            const out = await mutatePlayerSave(playerName, ({ character }) => {
+            const tokenId = String(initial.record.meta?.token ?? randomUUID().replace(/-/g, ''));
+            await updateDurableSettlement(txId, { meta: { ...initial.record.meta, playerName, bet, token: tokenId } }, { kv });
+            const out = await mutatePlayerSave(playerName, async ({ character }) => {
+                const existing = receiptValue(character, txId, fp);
+                if (existing) {
+                    return {
+                        ok: true,
+                        character,
+                        value: { token: String(existing.token ?? tokenId), bet, balanceRyo: num(character.ryo), character },
+                    };
+                }
                 if (num(character.ryo) < bet) return { ok: false, status: 400, error: 'Not enough ryo for that wager.' };
-                const nextCharacter = { ...character, ryo: num(character.ryo) - bet };
-                return { ok: true, character: nextCharacter, value: { balanceRyo: num(nextCharacter.ryo) } };
+                const today = utcDateKey();
+                const legacyCount = Number(await kv.get<number>(`miraa-wager-count:${playerName}:${today}`) ?? 0);
+                const used = String(character.miraaWagerDate ?? '') === today
+                    ? Math.max(0, Math.floor(Number(character.miraaWagerCount ?? 0)))
+                    : 0;
+                const startedToday = Math.max(used, Number.isFinite(legacyCount) ? Math.floor(legacyCount) : 0);
+                if (!identity.admin && startedToday >= MIRAA_DAILY_WAGER_CAP) {
+                    return { ok: false, status: 429, error: `Miraa waves you off — you've wagered enough for one day (${MIRAA_DAILY_WAGER_CAP}/${MIRAA_DAILY_WAGER_CAP}).` };
+                }
+                const nextCharacter = appendPlayerSettlementReceipt({
+                    ...character,
+                    ryo: num(character.ryo) - bet,
+                    miraaWagerDate: today,
+                    miraaWagerCount: startedToday + 1,
+                }, txId, fp, { kind: 'miraa-start', token: tokenId, bet });
+                const value = { token: tokenId, bet, balanceRyo: num(nextCharacter.ryo), character: nextCharacter };
+                return { ok: true, character: nextCharacter, value };
             });
-            if (!out.ok) return res.status(out.status).json({ error: out.error });
-
-            // Seal the escrowed bet into a single-use token. The report endpoint
-            // pays out from THIS bet, never the client body.
-            const tokenId = randomUUID().replace(/-/g, '');
-            await kv.set(`miraa-token:${playerName}:${tokenId}`, { playerName, bet, mintedAt: Date.now() }, { ex: MIRAA_TOKEN_TTL_SECONDS });
-
-            return res.status(200).json({ ok: true, token: tokenId, bet, balanceRyo: out.value.balanceRyo, character: out.character, _saveVersion: out._saveVersion });
+            if (!out.ok) {
+                await cancelDurableSettlement(txId, { status: out.status, error: out.error }, { kv }).catch(() => undefined);
+                return res.status(out.status).json({ error: out.error });
+            }
+            const result = { token: tokenId, bet, balanceRyo: Number(out.value.balanceRyo), character: out.character, _saveVersion: out._saveVersion };
+            await kv.set(`miraa-token:${playerName}:${tokenId}`, { playerName, bet, transactionId: txId, mintedAt: Date.now() }, { ex: MIRAA_TOKEN_TTL_SECONDS });
+            await completeDurableSettlement(txId, result, { kv });
+            return res.status(200).json({ ok: true, ...result });
         }
 
-        // Miraa wager — settle. Consume the single-use token, then SERVER-ROLL the
+        // Miraa wager — settle the durable token, then use the sealed server roll
         // outcome from the sealed bet. The client's card result / any body.outcome
         // is ignored; the stake was already escrowed at start, so we only credit
         // winnings on a server-rolled win.
@@ -138,30 +207,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!token) return res.status(400).json({ error: 'Missing or invalid Miraa wager token.' });
             const forfeit = body.forfeit === true;
 
-            // Atomic single-use consume — the delete rowcount is the real gate, so
-            // two racing reports can't both settle (and double-pay) one wager.
-            const sealed = await consumeSingleUseToken<{ playerName?: string; bet?: number }>(kv, `miraa-token:${playerName}:${token}`);
-            if (!sealed) return res.status(409).json({ error: 'That wager has already settled or expired.' });
-            if (String(sealed.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+            let tokenRecord = await kv.get<{ playerName?: string; bet?: number; transactionId?: string }>(`miraa-token:${playerName}:${token}`);
+            // A token may have expired after the player opened a valid wager.
+            // The durable start journal is retained longer than the client
+            // token, so recover the sealed bet and transaction identity instead
+            // of turning an in-flight wager into an unrecoverable loss.
+            if (!tokenRecord) {
+                const startSettlement = (await listDurableSettlements({ kv }))
+                    .find((record) => record.operationType === 'miraa-start'
+                        && record.actorIds.some((actor) => actor.toLowerCase() === playerName.toLowerCase())
+                        && String(record.meta?.token ?? '') === token);
+                if (startSettlement) {
+                    tokenRecord = {
+                        playerName,
+                        bet: Number(startSettlement.meta?.bet ?? startSettlement.amount),
+                        transactionId: startSettlement.transactionId,
+                    };
+                }
+            }
+            if (tokenRecord && String(tokenRecord.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(403).json({ error: 'That wager does not belong to you.' });
             }
-            const bet = cleanMiraaBet(sealed.bet);
+            const bet = cleanMiraaBet(tokenRecord?.bet);
             if (!bet) return res.status(400).json({ error: 'Corrupt Miraa wager.' });
-
-            const { outcome, credit } = resolveMiraaWager(bet, forfeit);
-            const out = await mutatePlayerSave(playerName, ({ character }) => {
-                const nextCharacter = { ...character, ryo: num(character.ryo) + credit };
-                return { ok: true, character: nextCharacter, value: { outcome, bet, credit, balanceRyo: num(nextCharacter.ryo) } };
-            });
-            if (!out.ok) {
-                // Token is already consumed (single-use). A credit-write failure
-                // here LOSES the winnings rather than minting — the safe direction
-                // ("debit before credit; never re-credit") — but log it so a rare
-                // stuck payout is auditable.
-                console.error('[festival/sunscar] miraa-report credit failed after token consume', { playerName, bet, outcome });
-                return res.status(out.status).json({ error: out.error });
+            const startSettlement = tokenRecord?.transactionId
+                ? await getDurableSettlement(tokenRecord.transactionId, { kv })
+                : null;
+            const txId = settlementTransactionId('miraa-report', `${playerName}:${token}`);
+            const fp = settlementFingerprint({ operation: 'miraa-report', playerName, token });
+            const existingTx = await getDurableSettlement(txId, { kv });
+            if (!existingTx) {
+                const created = await beginDurableSettlement({
+                    transactionId: txId,
+                    idempotencyKey: token,
+                    operationType: 'miraa-report',
+                    fingerprint: fp,
+                    actorIds: [playerName],
+                    resource: 'ryo',
+                    amount: bet,
+                    meta: {
+                        playerName,
+                        bet,
+                        token,
+                        ...(Number.isFinite(Number(startSettlement?.meta?.rollSeed)) ? { rollSeed: Number(startSettlement?.meta?.rollSeed) } : {}),
+                    },
+                }, { kv });
+                if (created.status === 'conflict') return res.status(409).json({ error: 'That Miraa report conflicts with an existing settlement.' });
             }
-            return res.status(200).json({ ok: true, ...out.value, character: out.character, _saveVersion: out._saveVersion });
+
+            const reportResult = await mutatePlayerSave(playerName, async ({ character }) => {
+                const currentTx = await getDurableSettlement(txId, { kv });
+                if (!currentTx) return { ok: false, status: 503, error: 'Miraa settlement is not durable yet. Retry.' };
+                const replay = receiptValue(character, txId, fp);
+                if (replay) {
+                    return {
+                        ok: true,
+                        character,
+                        value: {
+                            outcome: replay.outcome,
+                            bet: Number(replay.bet ?? bet),
+                            credit: Number(replay.credit ?? 0),
+                            balanceRyo: num(character.ryo),
+                        },
+                    };
+                }
+                let outcome = String(currentTx.meta?.outcome ?? '');
+                let credit = Number(currentTx.meta?.credit ?? NaN);
+                if (outcome !== 'win' && outcome !== 'loss' && outcome !== 'forfeit') {
+                    const rollSeed = Number(currentTx.meta?.rollSeed);
+                    const stableSeed = Number.isFinite(rollSeed) ? rollSeed : secureRandomUnit();
+                    // Seed legacy report records before applying the payout. If
+                    // this write fails, no player mutation occurs and retrying
+                    // uses the same seed rather than rerolling.
+                    const rolled = resolveMiraaWager(bet, forfeit, () => stableSeed);
+                    outcome = rolled.outcome;
+                    credit = rolled.credit;
+                    await updateDurableSettlement(txId, {
+                        state: 'reserved',
+                        meta: { ...(currentTx.meta ?? {}), playerName, bet, token, rollSeed: stableSeed, outcome, credit },
+                    }, { kv });
+                }
+                const nextCharacter = appendPlayerSettlementReceipt({
+                    ...character,
+                    ryo: num(character.ryo) + credit,
+                }, txId, fp, { kind: 'miraa-report', token, outcome, bet, credit });
+                const value = { outcome, bet, credit, balanceRyo: num(nextCharacter.ryo), character: nextCharacter };
+                return { ok: true, character: nextCharacter, value };
+            });
+            if (!reportResult.ok) return res.status(reportResult.status).json({ error: reportResult.error });
+            const result = { ...reportResult.value, character: reportResult.character, _saveVersion: reportResult._saveVersion };
+            await completeDurableSettlement(txId, result, { kv });
+            await kv.set(`miraa-token:${playerName}:${token}`, { ...(tokenRecord ?? {}), playerName, bet, transactionId: txId, completedAt: Date.now() }, { ex: MIRAA_TOKEN_TTL_SECONDS });
+            return res.status(200).json({ ok: true, ...result });
         }
 
         // Retired: the old client-attested Miraa settlement trusted body.outcome

@@ -153,8 +153,8 @@ const signatureKindByElement: Record<Exclude<JutsuElement, "None">, SignatureKin
 export type SignatureSpec = { name: string; power: number; cooldown: number };
 
 // Per (tier, element) signature. Generics share an element-themed name within a
-// tier (templated, as designed); the five mythics — one per element — get a
-// unique flagship name. Power sits at the top of each tier's kit so the move
+// tier (templated, as designed); every mythic gets a unique flagship name via
+// this elemental baseline or the per-species overrides below. Power sits at the top of each tier's kit so the move
 // feels iconic, but cooldown 4 keeps it a rotational signature, not a nuke.
 const signatureByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, SignatureSpec>> = {
     standard: {
@@ -203,6 +203,13 @@ const flagshipSignatureByName: Record<string, SignatureSpec> = {
     "Turtle Duck":        { name: "Heavenfall: Crow Tempest",            power: 152, cooldown: 4 },
     "Stormgod Raijin":    { name: "Raijin's Wrath: Thunder Apocalypse",  power: 152, cooldown: 4 },
     "Worldroot Colossus": { name: "World Devourer: Gaia's Embrace",      power: 152, cooldown: 4 },
+    // Breeding-only mythics — each keeps a bespoke flagship despite sharing
+    // an element with the two encounter mythics above.
+    "Ash Crown Phoenix":  { name: "Ashen Coronation: Everflame Descent",   power: 152, cooldown: 4 },
+    "Moonwell Leviathan": { name: "Moonwell Abyss: Tidal Sovereignty",     power: 152, cooldown: 4 },
+    "Skyglass Kirin":     { name: "Skyglass Horizon: Celestial Stampede",  power: 152, cooldown: 4 },
+    "Thunderbloom Kirin": { name: "Thunderbloom: Stormgarden Dominion",    power: 152, cooldown: 4 },
+    "Gravepeak Behemoth": { name: "Gravepeak: Worldwake Cataclysm",        power: 152, cooldown: 4 },
     // Apex legendaries (one iconic boss per element) — unique + stronger signature.
     "Inferno Chimera":    { name: "Triple Maw: Infernal Devour",         power: 142, cooldown: 4 },
     "Tidelord Leviathan": { name: "Abyssal Tide: Leviathan's Maw",       power: 142, cooldown: 4 },
@@ -345,6 +352,11 @@ const mythicMechByName: Record<string, MythicMechSpec> = {
     "Turtle Duck":         { kind: "mark",  name: "Tengu Mark",          cooldown: 4, power: 0,   rounds: 3 }, // trickster assassin
     "Stormgod Raijin":     { kind: "haste", name: "Raijin Tempo",        cooldown: 4, power: 0,   rounds: 2 }, // burst striker
     "Worldroot Colossus":  { kind: "taunt", name: "Worldroot Challenge", cooldown: 4, power: 0,   rounds: 2 }, // immovable tank
+    "Ash Crown Phoenix":   { kind: "mark",  name: "Cinder Crown",        cooldown: 4, power: 0,   rounds: 2 },
+    "Moonwell Leviathan":  { kind: "slow",  name: "Moonwell Undertow",   cooldown: 4, power: 0,   rounds: 2 },
+    "Skyglass Kirin":      { kind: "haste", name: "Skyglass Passage",    cooldown: 4, power: 0,   rounds: 2 },
+    "Thunderbloom Kirin":  { kind: "mark",  name: "Stormgarden Brand",   cooldown: 4, power: 0,   rounds: 2 },
+    "Gravepeak Behemoth":  { kind: "taunt", name: "Gravepeak Challenge", cooldown: 4, power: 0,   rounds: 2 },
 };
 
 /** The signature Phase-12 mechanic appended to a mythic, or null for a name
@@ -668,6 +680,9 @@ export function applyPetTraitBonuses(pet: Pet, trait: PetTrait): Pet {
         case "Battleborn": return { ...pet, attack: Math.round(pet.attack * 1.1), hp: Math.round(pet.hp * 1.1), defense: Math.round(pet.defense * 1.1), speed: Math.round(pet.speed * 1.1) };
         case "Guardian": return { ...pet, hp: Math.round(pet.hp * 1.2), defense: Math.round(pet.defense * 1.2) };
         case "Swift": return { ...pet, speed: Math.round(pet.speed * 1.2) };
+        case "Fateweaver": return { ...pet, attack: Math.round(pet.attack * 1.2), hp: Math.round(pet.hp * 1.2), defense: Math.round(pet.defense * 1.2), speed: Math.round(pet.speed * 1.2) };
+        case "Hollowborn": return { ...pet, attack: Math.round(pet.attack * 1.05), hp: Math.round(pet.hp * 1.05), defense: Math.round(pet.defense * 1.05), speed: Math.round(pet.speed * 1.05) };
+        // Boonbringer is applied authoritatively when a pet expedition settles.
         default: return pet;
     }
 }

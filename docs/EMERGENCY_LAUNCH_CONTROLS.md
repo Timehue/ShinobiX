@@ -10,7 +10,9 @@ time, reason, and commit in the incident log.
 | `MAINTENANCE_MODE=1` | Returns non-cacheable HTTP 503 for every player API route, including reads and login. | Health, restart, admin, manual snapshot, and KV-proxy paths remain available. |
 | `DISABLE_NEW_REGISTRATIONS=1` | Rejects only `player-auth` registration with HTTP 503. Existing login and gameplay continue. | Existing player authentication and all operator paths. |
 | `FREEZE_ECONOMY_REWARDS=1` | Rejects every unsafe gameplay mutation (`POST`, `PUT`, `PATCH`, `DELETE`) at the shared route boundary. This intentionally freezes more than known reward routes so a new endpoint cannot escape the incident stop. | Read-only gameplay, player auth, telemetry, admin, manual snapshot, and KV-proxy paths. |
-| `DISABLE_SCHEDULED_JOBS=1` | Prevents the snapshot, ranked-season, Clan Boss, Village War, era, and mercenary timers from starting. | The authenticated manual snapshot route remains available. |
+| `DISABLE_SCHEDULED_JOBS=1` | Prevents the snapshot, ranked-season, Clan Boss, Village War, era, mercenary, and durable-settlement reconciliation timers from starting. | Authenticated manual snapshot and settlement inspection routes remain available. |
+| `DISABLE_SNAPSHOT_CRON=1` | Stops only snapshot boot and catch-up scheduling. Ranked season, Clan Boss, Village War, era, mercenary, and settlement-reconciliation jobs continue. | Authenticated manual snapshot and every non-snapshot scheduled job remain available. |
+| `DISABLE_SETTLEMENT_RECONCILIATION=1` | Stops only the five-minute stale-settlement scanner. It does not alter or clear existing journals. | Same-request settlement recovery and the full-admin settlement inspection/scan route remain available. |
 
 Every blocked response includes `Cache-Control: no-store`, `Retry-After`, and a
 machine-readable code. The controls are implemented in `api/_launch-controls.ts`

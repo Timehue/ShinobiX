@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import {
     fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
-    isLegacyEnabled, TRIAL_STAT_LABELS, eraAgeName,
+    useLegacyAvailability, TRIAL_STAT_LABELS, eraAgeName,
     type LegacyStatusView, type LegacyDefView, type CharacterLegacy,
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
@@ -87,7 +87,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
      *  sync the client character (aura, title picker) without a relog. */
     onLegacyChanged?: (legacy?: Character["legacy"], grantedTitle?: string | null) => void;
 }) {
-    const enabled = isLegacyEnabled();
+    const enabled = useLegacyAvailability();
     const [status, setStatus] = useState<LegacyStatusView | null>(null);
     const [defs, setDefs] = useState<Map<string, LegacyDefView> | null>(null);
     const [busy, setBusy] = useState(false);
@@ -118,7 +118,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
         });
     }, [enabled, reload]);
 
-    if (!isLegacyEnabled()) return null;
+    if (!enabled) return null;
     if (!loaded) return <p style={{ color: "#9aa3b2", fontSize: ".8rem" }}>Reading the threads of your path…</p>;
     if (!status) {
         return <p style={{ color: "#9aa3b2", fontSize: ".8rem" }}>The world of Legacies has not awakened yet.</p>;

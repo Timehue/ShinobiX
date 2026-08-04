@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { softResetRating, leaderboard, rewardPodium, nextSeason, computeRewards, SEASON_LENGTH_MS, PODIUM_AURA_STONES, type LadderEntry } from './_ranked-season.js';
+import {
+    softResetRating,
+    leaderboard,
+    rewardPodium,
+    nextSeason,
+    computeRewards,
+    settleRankedSeasonCharacter,
+    SEASON_LENGTH_MS,
+    PODIUM_AURA_STONES,
+    SEASON_SETTLEMENT_RECEIPTS_FIELD,
+    type LadderEntry,
+} from './_ranked-season.js';
 
 test('softResetRating pulls halfway to 1000', () => {
     assert.equal(softResetRating(1000), 1000);
@@ -68,4 +79,39 @@ test('computeRewards: winning both ladders aggregates relics + aura', () => {
     assert.equal(r?.relics, 2);
     assert.equal(r?.auraStones, PODIUM_AURA_STONES[0] * 2);
     assert.deepEqual(r?.championOf, ['player', 'pet']);
+});
+
+test('ranked season settlement resets and rewards exactly once through an in-save receipt', () => {
+    const reward = { auraStones: 10, relics: 1, championOf: ['player'] as const };
+    const first = settleRankedSeasonCharacter({
+        rankedRating: 1_400,
+        petRankedRating: 800,
+        auraStones: 5,
+        inventory: ['old-item'],
+        rankedSeasonsWon: 2,
+    }, 7, { ...reward, championOf: [...reward.championOf] });
+
+    assert.equal(first.changed, true);
+    assert.equal(first.resetApplied, true);
+    assert.equal(first.rewardApplied, true);
+    assert.equal(first.character.rankedRating, 1_200);
+    assert.equal(first.character.petRankedRating, 900);
+    assert.equal(first.character.auraStones, 15);
+    assert.deepEqual(first.character.inventory, ['old-item', 'warforged-relic']);
+    assert.equal(first.character.rankedSeasonsWon, 3);
+    assert.deepEqual(first.character[SEASON_SETTLEMENT_RECEIPTS_FIELD], [7]);
+
+    const replay = settleRankedSeasonCharacter(first.character, 7, { ...reward, championOf: [...reward.championOf] });
+    assert.equal(replay.changed, false);
+    assert.strictEqual(replay.character, first.character);
+    assert.equal(replay.character.rankedRating, 1_200, 'the soft reset is not applied a second time');
+    assert.equal(replay.character.auraStones, 15, 'the additive payout is not applied a second time');
+});
+
+test('ranked settlement skips untouched non-podium players without growing a receipt ledger', () => {
+    const character: Record<string, unknown> = { rankedRating: 1_000, petRankedRating: 1_000 };
+    const result = settleRankedSeasonCharacter(character, 9);
+    assert.equal(result.changed, false);
+    assert.strictEqual(result.character, character);
+    assert.equal(result.character[SEASON_SETTLEMENT_RECEIPTS_FIELD], undefined);
 });

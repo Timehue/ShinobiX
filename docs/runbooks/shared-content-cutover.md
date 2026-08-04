@@ -59,10 +59,10 @@ every field in active use.
    `creator*` fields), and delete the shared-content exception from
    `buildPublicSaveDTO`. At that point the admin saves are ordinary player
    saves again.
-5. **Unify tombstones.** `api/_admin-item-catalog.ts` lets a later live copy
-   resurrect a deleted id; `api/shop/_catalog.ts` does not
-   (shared-content audit, finding 6). With one store there is one source, so
-   pick one rule deliberately and delete the divergence.
+5. **Completed 2026-08-03 — unify tombstones.** Item tombstones now persist
+   across every dual-read source and suppress stale admin, built-in, and
+   player-owned fallback copies in shop and combat resolution. This no longer
+   depends on completing the store cutover.
 
 ## Known gaps left open on purpose
 
@@ -70,4 +70,3 @@ every field in active use.
 - `editablePets` / VN / gate-config values are still unvalidated on the
   ordinary admin-slot save path (audit finding 5) — admin-auth-gated, so this
   is an integrity nicety, not an access-control hole.
-- The two tombstone semantics still differ (step 5).

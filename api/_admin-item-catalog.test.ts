@@ -32,6 +32,16 @@ describe('buildAdminItemCatalog', () => {
             { creatorItems: [{ id: 'gone', name: '__ADMIN_DELETED_ITEM__' }] },
         ]);
         assert.equal(catalog.has('gone'), false);
+        assert.equal(catalog.deletedIds.has('gone'), true);
+    });
+
+    it('does not let a stale later source resurrect a tombstoned id', () => {
+        const catalog = buildAdminItemCatalog([
+            { creatorItems: [{ id: 'gone', name: '__ADMIN_DELETED_ITEM__' }] },
+            { creatorItems: [{ id: 'gone', name: 'Stale Resurrection' }] },
+        ]);
+        assert.equal(catalog.has('gone'), false);
+        assert.equal(catalog.deletedIds.has('gone'), true);
     });
 
     it('skips malformed entries and missing/absent records', () => {

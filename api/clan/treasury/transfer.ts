@@ -3,9 +3,9 @@ import { kv } from '../../_storage.js';
 import { cors, safeName, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock } from '../../_lock.js';
 import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
+import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
+import { settlementFingerprint } from '../../_durable-settlement.js';
 
 /*
  * /api/clan/treasury/transfer — POST only
@@ -98,12 +98,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+    const isAdmin = identity.admin;
+    const actorName = isAdmin ? undefined : identity.name;
 
     const rlName = identity.admin ? undefined : identity.name;
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-treasury-transfer', 30, 60_000, rlName))) return;
 
-    let txId: string | null = null;
-    let txState: 'reserved' | 'credit-applied' | 'complete' | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const clanName = typeof body.clanName === 'string' ? body.clanName.trim() : '';
@@ -134,112 +134,93 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (clanKey === recipientKey) {
             return res.status(400).json({ error: 'Invalid recipient.' });
         }
-        txId = makeEconomyTxId('clan-treasury-transfer');
-
-        // Lock BOTH rows (clan record + recipient save) in deterministic key
-        // order so two transfers — or a transfer vs. the recipient's autosave —
-        // can't deadlock. failClosed: a contention abort writes nothing and the
-        // client retries, never a partial credit/deduct.
-        const [firstKey, secondKey] = [clanKey, recipientKey].sort();
-        const result = await withKvLock(firstKey, () => withKvLock(secondKey, async () => {
-            const rec = await kv.get<ClanRecord>(clanKey);
-            if (!rec) return { ok: false as const, status: 404, error: 'Clan not found.' };
-
-            // Authorization: caller must be clan leadership (admin bypasses).
-            if (!identity.admin) {
-                const role = roleOfBySlug(rec, identity.name);
-                if (!MANAGE_ROLES.has(role)) {
-                    return { ok: false as const, status: 403, error: 'Only clan leadership can send treasury resources.' };
+        // Reserve-first durable settlement. The request id is accepted from
+        // the client for retry convergence; old clients get a deterministic
+        // fingerprint so an identical retry still cannot move value twice.
+        const requestId = typeof body.requestId === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(body.requestId.trim())
+            ? body.requestId.trim()
+            : settlementFingerprint({ clanName: safeName(clanName), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
+        const fingerprint = settlementFingerprint({ operation: 'clan-treasury-transfer', clanName: safeName(clanName), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
+        const transfer = await settleCrossKeyTransfer<ClanRecord>({
+            operationType: 'clan-treasury-transfer',
+            idempotencyKey: requestId,
+            fingerprint,
+            actorIds: [actorName ?? 'admin', safeName(clanName), recipientName],
+            resource: isCurrency ? String(currency) : `item:${itemId}`,
+            amount: isCurrency ? amount : 1,
+            sourceKey: clanKey,
+            recipientKey,
+            loadSource: () => kv.get<ClanRecord>(clanKey),
+            validateSource: (source) => {
+                if (!isAdmin && !MANAGE_ROLES.has(roleOfBySlug(source, actorName!))) {
+                    throw new SettlementValidationError(403, 'Only clan leadership can send treasury resources.');
                 }
-            }
-
-            // Recipient must be a member of THIS clan (no siphoning to outsiders).
-            const members = Array.isArray(rec.members) ? rec.members : [];
-            const isMember = members.some(m => safeName(String(m.name ?? '')) === recipientName);
-            if (!isMember) {
-                return { ok: false as const, status: 403, error: 'Recipient is not a member of this clan.' };
-            }
-
-            const recipientSave = await kv.get<Record<string, unknown>>(recipientKey);
-            const recipientChar = (recipientSave?.character ?? null) as CharacterRow | null;
-            if (!recipientSave || !recipientChar) {
-                return { ok: false as const, status: 404, error: 'Recipient save not found.' };
-            }
-
-            const treasury = (rec.treasury ?? {}) as Record<string, unknown> & { items?: Array<{ itemId: string; count: number }> };
-
-            if (isCurrency) {
-                const c = currency as TransferCurrency;
-                const available = Math.max(0, Number(treasury[c] ?? 0));
-                if (available < amount) {
-                    return { ok: false as const, status: 400, error: `Insufficient treasury ${c} (have ${available}, need ${amount}).` };
+                const members = Array.isArray(source.members) ? source.members : [];
+                if (!members.some((member) => safeName(String(member.name ?? '')) === recipientName)) {
+                    throw new SettlementValidationError(403, 'Recipient is not a member of this clan.');
                 }
-                // Credit recipient first, then deduct — a credit failure can't
-                // leave the treasury short (both are under the same locks here).
-                const nextChar = { ...recipientChar, [c]: Math.max(0, Number(recipientChar[c] ?? 0)) + amount };
-                await reserveEconomyTx({
-                    id: txId!,
-                    kind: 'clan-treasury-transfer',
-                    debitKey: clanKey,
-                    creditKey: recipientKey,
-                    resource: c,
-                    amount,
-                    meta: { clanName, recipientName },
-                });
-                txState = 'reserved';
-                const written = await writeVersionedPlayerSave(recipientKey, recipientSave, nextChar);
-                await markEconomyTx(txId!, 'credit-applied');
-                txState = 'credit-applied';
-                await kv.set(clanKey, { ...rec, treasury: { ...treasury, [c]: available - amount } });
-                await completeEconomyTx(txId!);
-                txState = 'complete';
-                return { ok: true as const, currency: c, amount, _saveVersion: written._saveVersion };
-            }
-
-            // Item transfer.
-            const items = Array.isArray(treasury.items) ? treasury.items : [];
-            const stack = items.find(s => s.itemId === itemId);
-            if (!stack || stack.count < 1) {
-                return { ok: false as const, status: 400, error: 'Item not in clan treasury.' };
-            }
-            const nextInv = Array.isArray(recipientChar.inventory) ? [...recipientChar.inventory, itemId!] : [itemId!];
-            await reserveEconomyTx({
-                id: txId!,
-                kind: 'clan-treasury-transfer',
-                debitKey: clanKey,
-                creditKey: recipientKey,
-                resource: `item:${itemId}`,
-                amount: 1,
-                meta: { clanName, recipientName },
-            });
-            txState = 'reserved';
-            const written = await writeVersionedPlayerSave(recipientKey, recipientSave, { ...recipientChar, inventory: nextInv });
-            await markEconomyTx(txId!, 'credit-applied');
-            txState = 'credit-applied';
-            await kv.set(clanKey, { ...rec, treasury: { ...treasury, items: removeOneItem(items, itemId!) } });
-            await completeEconomyTx(txId!);
-            txState = 'complete';
-            return { ok: true as const, itemId, _saveVersion: written._saveVersion };
-        }, { failClosed: true }), { failClosed: true });
-
-        if (!result.ok) {
-            return res.status(result.status).json({ error: result.error });
-        }
-
-        // Audit log (30-day TTL) for abuse review.
+                const treasury = (source.treasury ?? {}) as Record<string, unknown> & { items?: Array<{ itemId: string; count: number }> };
+                if (isCurrency) {
+                    const available = Math.max(0, Number(treasury[currency as TransferCurrency] ?? 0));
+                    if (available < amount) throw new SettlementValidationError(400, `Insufficient treasury ${currency} (have ${available}, need ${amount}).`);
+                } else {
+                    const stack = (Array.isArray(treasury.items) ? treasury.items : []).find((entry) => entry.itemId === itemId);
+                    if (!stack || stack.count < 1) throw new SettlementValidationError(400, 'Item not in clan treasury.');
+                }
+            },
+            debitSource: (source, receipt) => {
+                const treasury = (source.treasury ?? {}) as Record<string, unknown> & { items?: Array<{ itemId: string; count: number }> };
+                if (isCurrency) {
+                    const key = currency as TransferCurrency;
+                    const available = Math.max(0, Number(treasury[key] ?? 0));
+                    return {
+                        ...source,
+                        treasury: { ...treasury, [key]: available - amount },
+                        settlementReceipts: [receipt, ...(Array.isArray(source.settlementReceipts) ? source.settlementReceipts : [])].slice(0, 100),
+                    };
+                }
+                const items = Array.isArray(treasury.items) ? treasury.items : [];
+                return {
+                    ...source,
+                    treasury: { ...treasury, items: removeOneItem(items, itemId!) },
+                    settlementReceipts: [receipt, ...(Array.isArray(source.settlementReceipts) ? source.settlementReceipts : [])].slice(0, 100),
+                };
+            },
+            saveSource: async (source) => { await kv.set(clanKey, source); },
+            loadRecipient: async () => {
+                const record = await kv.get<Record<string, unknown>>(recipientKey);
+                const character = (record?.character ?? null) as CharacterRow | null;
+                return record && character ? { record, character } : null;
+            },
+            validateRecipient: ({ character }) => {
+                if (!isAdmin && safeName(String(character.clan ?? '')) !== safeName(clanName)) {
+                    throw new SettlementValidationError(403, 'Recipient is no longer a member of this clan.');
+                }
+            },
+            creditRecipient: (character) => {
+                if (isCurrency) {
+                    const key = currency as TransferCurrency;
+                    const next = { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + amount };
+                    return { character: next, result: { currency: key, amount } };
+                }
+                const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
+                inventory.push(itemId!);
+                return { character: { ...character, inventory }, result: { itemId } };
+            },
+            saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
+        });
         await kv.set(`${AUDIT_LOG_PREFIX}${safeName(clanName)}:${Date.now()}`, {
             ts: Date.now(),
-            actor: identity.admin ? 'admin' : identity.name,
+            actor: actorName ?? 'admin',
             clanName,
             recipientName,
-            ...('currency' in result ? { currency: result.currency, amount: result.amount } : {}),
-            ...('itemId' in result ? { itemId: result.itemId } : {}),
+            ...('currency' in transfer.result ? { currency: transfer.result.currency, amount: transfer.result.amount } : {}),
+            ...('itemId' in transfer.result ? { itemId: transfer.result.itemId } : {}),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-
-        return res.status(200).json(result);
+        return res.status(200).json({ ok: true, ...transfer.result });
     } catch (err) {
-        if (txId && txState && txState !== 'complete') {
-            await failEconomyTx(txId, err).catch(() => undefined);
+        if (err instanceof SettlementValidationError) {
+            return res.status(err.status).json({ error: err.message });
         }
         console.error('[clan/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });

@@ -73,11 +73,11 @@ test("the approved roster models are allowlisted and present", () => {
     assert.ok(docker.has(wildcard), "roster GLB wildcard missing from .dockerignore");
     assert.ok(git.has(wildcard), "roster GLB wildcard missing from .gitignore");
 
-    // 140 = 50 standard + 50 rare + 30 legendary + 10 mythic. `approvedRosterCombatModel`
+    // 145 = 50 standard + 50 rare + 30 legendary + 15 mythic. `approvedRosterCombatModel`
     // returns a config for exactly these ids, so a missing file here is a 404
     // crash — unlike an UNapproved id, which correctly returns null and falls
     // back to the 2D standee.
-    assert.equal(APPROVED_ROSTER_MODEL_IDS.size, 140);
+    assert.equal(APPROVED_ROSTER_MODEL_IDS.size, 145);
     for (const id of APPROVED_ROSTER_MODEL_IDS) {
         assert.ok(
             existsSync(join(modelsDir, "roster", `${id}.glb`)),
@@ -91,7 +91,7 @@ test("the approved roster models are allowlisted and present", () => {
 });
 
 test("the Coliseum model aliases resolve to a model that exists", () => {
-    // The three legacy AI opponents predate the 140-pet roster and borrow another
+    // The three legacy AI opponents predate the production roster and borrow another
     // species' model; the Hollow Hound does the same. Driven through the real
     // resolver, so an alias that stops resolving shows up as a null config (silent
     // 2D drop) and one that resolves to a missing file shows up as a 404 crash.

@@ -26,3 +26,18 @@ export async function chooseStarterPetServer(playerName: string, pet: Pet): Prom
     const data = await response.json().catch(() => null) as { character?: Character; _saveVersion?: number; error?: string } | null;
     return response.ok ? (data ?? {}) : { error: data?.error || 'Starter choice was not committed.' };
 }
+
+/** Replace the cinematic's signed template copy with the authoritative owned
+ * starter without rolling back newer onboarding state that changed in-flight. */
+export function reconcileOwnedStarter(current: Character, server: Character, optimisticPetId: string): Character {
+    const canonicalPet = server.pets.find((entry) => entry.id === optimisticPetId) ?? server.pets[0];
+    if (!canonicalPet) return current;
+    const hasOptimisticPet = current.pets.some((entry) => entry.id === optimisticPetId);
+    return {
+        ...current,
+        pets: hasOptimisticPet
+            ? current.pets.map((entry) => entry.id === optimisticPetId ? canonicalPet : entry)
+            : [...current.pets, canonicalPet],
+        activePetId: current.activePetId === optimisticPetId ? canonicalPet.id : current.activePetId,
+    };
+}

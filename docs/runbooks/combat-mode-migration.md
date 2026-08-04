@@ -1,98 +1,132 @@
-# Migrating the Four Client-Built Combat Modes
+# Normal Solo-PvE Runtime Migration
 
-The last structural gap from the Phase 0 combat-authority audit. Eight combat
-modes already build their fighter on the server through one shared pipeline;
-four still build it on the client. This is the plan to move them, in order,
-without breaking live combat.
+This runbook implements the boundary contract in
+`docs/architecture/combat-runtime-boundaries.md`. The governing decision is
+that server authority and Tower are separate concepts: normal one-player combat
+uses a dedicated `solo-pve` runtime while keeping the Arena experience.
 
-## What's already done (do not rebuild it)
+## Implementation status (2026-08-03)
 
-The machinery exists and is proven by every server-sealed mode:
+- The isolated session, store, engine, versioned action service, state/action
+  handlers, and route registration exist under `api/solo-pve/`.
+- The foundation has focused tests for canonical fighter parity, runtime/key
+  isolation, sealed action lookup, server AI turns, PvE damage guards,
+  consumable accounting, fail-closed locking, concurrent writes, stale
+  versions, duplicate tokens, tampered payloads, expiry, and ownership.
+- A Tower-free generic-AI encounter builder and a runtime-discriminated token/
+  settlement bridge exist. Existing live AI starts still mint Tower sessions.
+- The client wire contract exists in `shinobij.client/src/lib/solo-pve-api.ts`.
+  No Arena entry point consumes it yet, so this work does not change live combat.
+- The next cutover is the Arena adapter plus generic catalog-AI start wiring;
+  local temporary-opponent fallback removal and browser parity are part of that
+  same cutover, not a later cleanup.
 
-| Piece | Where | What it gives you |
-|---|---|---|
-| `hydrateCharacterFromSave` | `api/pvp/session.ts:779` | the one authoritative fighter builder |
-| `sealTowerFighter` | `api/towers/_seal.ts` | thin wrapper + specialty clamp; **admin catalog is a required arg** |
-| `buildAuthoritativeSoloEncounter` | `api/_authoritative-pve.ts:229` | full solo encounter: sealed fighter + enemy + run record |
-| enemy templates | `api/_authoritative-pve.ts:56/84/143`, `api/story/_authoritative-story-combat.ts` | mission / hollow-gate / weekly / story enemies |
-| session store | `api/towers/_tower-store.ts` | run persistence, per-run receipts, consumable settle |
-| turn engine | `api/towers/_engine.ts` | `startRound`, `runAiUntilHuman` |
+## Do not rebuild
 
-A cross-mode parity test (`api/_fighter-authority.test.ts`) already asserts
-`sealTowerFighter` output deep-equals the PvP hydration. **Any migrated mode
-inherits that guarantee for free** — which is the whole point of moving them.
+- `hydrateCharacterFromSave` in `api/pvp/session.ts` is the canonical player
+  fighter builder.
+- `api/combat-core/` owns shared deterministic formulas, grid helpers,
+  resources, and statuses.
+- PvP's player jutsu resolver is already reused by Tower and should be adapted,
+  not copied.
+- Existing mode bindings, reward fingerprints, save mutation utilities, and
+  receipt patterns remain useful after their session type changes.
 
-So this is wiring, not invention.
+`buildAuthoritativeSoloEncounter`, `TowerSession`, `_tower-store`, and the Tower
+engine are compatibility sources for currently migrated modes, not the target
+normal-PvE architecture.
 
-## Order — smallest first, flagship last
+## Stage 1: isolated foundation
 
-Do them one at a time, each landing on `main` before the next starts. The
-pattern gets proven on cheap modes before it touches Hollow Gate.
+Add `api/solo-pve/` with:
 
-### 1. Generic AI fights (`missions/ai-fight-start` → `report-ai-fight`)
-Smallest surface: no run state, no floors, single fight. Today the server
-mints a sealed base-reward token and never builds a fighter; the client
-resolves the whole battle in `Arena.tsx`.
+- a discriminated, schema-versioned session model;
+- a separate `solo-pve:<sessionId>` store and TTL;
+- fail-closed per-session locking;
+- `state` and versioned `action` handlers;
+- a deterministic one-human-versus-server-AI orchestrator that delegates shared
+  player action resolution to combat-core/PvP adapters;
+- bounded move-token idempotency and reconnect semantics;
+- no reward logic in the generic action handler.
 
-- Server: `ai-fight-start` builds the encounter with
-  `buildAuthoritativeSoloEncounter` (enemy from the AI profile, same shape
-  `weeklyBossEnemyTemplate` uses) and persists it.
-- Client: `Arena.tsx` drives turns through the tower engine endpoints instead
-  of its local resolver.
-- Reward: `report-ai-fight` derives the payout from the settled session rather
-  than the sealed token. Keep the existing `redeemedAiFightRewards` receipt —
-  it already makes the payout idempotent.
+The foundation is not live until its handlers are explicitly registered in
+`server.ts` and one entry point mints its sessions.
 
-### 2. Endless Tower (`endless/run`)
-Wave loop over the same engine. Wins are currently gated on an `aiFightToken`
-proof; once (1) lands, the token becomes a real session and the wave counter
-comes from the run record instead of the client.
+## Stage 2: generic catalog AI vertical slice
 
-### 3. Legacy E/D combat missions
-Once mission combat is fully server-built, delete
-`clientTrustedCombatMissionRewardAllowed` and the
-`COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON` branch in
-`missions/queue-combat-claim.ts`. C/B/A/S ranks already require a bound Tower
-run — this makes E/D match, and removes the last client-trusted reward path.
+Migrate `missions/ai-fight-start` first because it has a small settlement
+surface.
 
-### 4. Hollow Gate PvE — last, and on its own
-Biggest: run state, augments, consumables, locked doors, the extraction haul.
-`hollow-gate/combat-start` forces `combatMode: 'pve'` and hands the fight to
-the client Arena. Two client-trusted values disappear when this lands:
-- the **haul** (`hollow-gate/settle` pays `min(client haul, depth ceiling)`),
-- the **PvE win claim** (`combat-settle` trusts `outcome: 'win'`).
+1. Resolve the opponent from the server catalog.
+2. Hydrate the player from the save and server catalogs.
+3. Mint a `solo-pve` session and bind its ID into the existing single-use fight
+   token.
+4. Drive Arena controls through the solo action API. The client sends intent
+   and renders returned state.
+5. Make `report-ai-fight` require the matching terminal solo session for a
+   migrated token and derive win, HP, item use, and defeat costs from it.
+6. Do not silently downgrade to a local authoritative fight. An unresolved
+   temporary opponent must either be server-authored before launch or remain on
+   an explicitly named, non-rewarding compatibility path.
 
-Both become derived from the sealed session.
+Ship with a default-on release flag and an emergency disable flag. A disabled
+server path must fail closed for rewards; it must not restore trust in a client
+win claim.
 
-## Rules for each migration
+## Stage 3: missions and story
 
-1. **Kill-switch, default ON.** Ship each mode server-built with
-   `DISABLE_SERVER_<MODE>_COMBAT=1` as the opt-out, matching the project's
-   convention (ship on, kill-switch off) — so a bad migration is one env var
-   away, not a redeploy.
-2. **Parity before cutover.** Add the mode to `api/_fighter-authority.test.ts`'s
-   caller list so it is proven to seal the same fighter as PvP.
-3. **The admin catalog is required.** `sealTowerFighter`'s `admin` parameter has
-   no default; pass `loadAdminCombatContent()` or authored gear silently
-   vanishes.
-4. **Reward from the session, receipt in the payout write.** Follow the
-   settlement contract (`docs/architecture/reward-settlement-contract.md`):
-   the receipt rides the same save write as the payout.
-5. **Certify.** `npm run certify:release` after each mode; add a journey check
-   for the migrated mode.
+- Migrate E/D combat missions, then remove
+  `clientTrustedCombatMissionRewardAllowed` and its queue-claim exception.
+- Migrate C/B/A/S mission bindings from `TowerSession` to `SoloPveSession`
+  without changing reward fingerprints or mission eligibility.
+- Migrate story boss entry/settlement. There is no `story/spar-start` route in
+  the current tree; verify real route names before adding new wiring.
 
-## Why this is worth doing
+## Stage 4: Endless
 
-These four are the only paths left where the client decides what it fought
-with and, in Hollow Gate's case, whether it won. Everything else — PvP, ranked,
-Towers, Spire, Clan Boss, missions, story, weekly boss, Anbu, mercenaries —
-is already server-sealed and byte-identical. Closing these four retires the
-last client-trusted combat surface and unblocks deleting the legacy
-client-trust release flags entirely.
+The current `/endless/run` endpoint is bookkeeping, not a wave combat runtime.
+Add a bound wave start only when it mints a solo session from server-owned wave
+state. The server increments the wave after a matching terminal victory; the
+client never supplies the wave result.
 
-## Prerequisite
+## Stage 5: Hollow Gate
 
-Nothing blocks starting. The `STRICT_RAW_SAVE_LEDGER` flip is *not* a
-prerequisite — but note it interacts with (4): strict mode freezes
-`creatorItems`, and Hollow Gate's client build reads the client's local mirror
-of it. Migrating Hollow Gate first would remove that coupling.
+Hollow Gate is last because it combines a long-lived run, augments,
+consumables, extraction, second wind, and encounter rewards.
+
+- Keep shinobi encounters `runtime: 'solo-pve'` and keep the normal Arena UI.
+- Keep Hollow Hound encounters in the pet runtime.
+- Seal augment/environment effects into the encounter or derive them from the
+  locked HG run; never accept multipliers from the client.
+- Derive win/loss/flee, surviving HP, item use, and encounter credits from the
+  terminal session.
+- Preserve HG-specific second wind, retreat restrictions, hospitalization,
+  death retention, and run settlement as mode-owned rules.
+- Replace the client haul claim with server-ledgered run credits before
+  considering the migration complete.
+
+Hollow Gate must not be moved to Tower as a shortcut.
+
+## Required checks for every cutover
+
+1. Fighter hydration deep-equals the canonical PvP hydration for the same save.
+2. Shared player actions match parity fixtures for damage, resources,
+   cooldowns, statuses, displacement, and item use.
+3. Forged HP/resources/enemies/multipliers/outcomes/rewards are rejected or
+   ignored by construction.
+4. Duplicate move tokens do not replay; stale versions do not mutate; concurrent
+   actions serialize; reconnect returns the authoritative state.
+5. Settlement rejects wrong runtime, owner, binding, encounter, active session,
+   loss-as-win, and replay.
+6. The payout receipt and all save effects commit atomically under a fail-closed
+   lock.
+7. Runtime import guards prevent a normal solo route from regressing to Tower.
+8. Run focused tests during development, then the full test/build/deployment,
+   release-asset, lint, and browser journey gates after overlapping feature work
+   is stable.
+
+## Removal gate
+
+Delete local Arena authority, Tower compatibility bindings, fallback claims,
+and release flags only when no executable route imports them and production has
+passed its rollback window. Documentation alone is not evidence of removal.

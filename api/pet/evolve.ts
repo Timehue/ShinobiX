@@ -6,6 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { checkEvolve, evolvePet, type PetLike } from './_evolution.js';
+import { activeBreedingParentIds } from './_pet-busy.js';
 
 // Server-authoritative starter-pet evolution.
 //
@@ -59,6 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const pets = Array.isArray(char.pets) ? (char.pets as PetLike[]) : [];
             const idx = pets.findIndex((p) => String(p?.id ?? '') === petId);
             if (idx < 0) return { error: 'no-pet' as const };
+            if (activeBreedingParentIds(char).has(petId)) {
+                return { reject: { code: 'pet-is-breeding' as const, message: 'This pet is in the breeding barn.' } };
+            }
 
             const inventory = Array.isArray(char.inventory) ? (char.inventory as unknown[]).map(String) : [];
 
@@ -104,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if ('reject' in result && result.reject) {
             const rej = result.reject;
             // 409 for state conflicts (already evolved / wrong tier), 400 otherwise.
-            const status = rej.code === 'max-evolved' || rej.code === 'wrong-tier' ? 409 : 400;
+            const status = rej.code === 'max-evolved' || rej.code === 'wrong-tier' || rej.code === 'pet-is-breeding' ? 409 : 400;
             return res.status(status).json({ error: rej.message, code: rej.code });
         }
         return res.status(200).json(result);

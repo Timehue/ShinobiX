@@ -56,6 +56,12 @@ const BASE_SCORE_RANGE = 1.8;                 // carrier scores within this of i
 const CARRIER_SLOW = 0.85;                    // −15% speed while carrying
 const SPEED_CRIT_DIVISOR = 600;               // ownSpeed/this → bonus crit; gives Speed a payoff past the move-speed cap
 
+export function petArenaTraitCombat(trait: Pet["trait"]): { critBonus: number; dodgeChance: number; damageMult: number; drainPct: number } {
+    if (trait === "Fateweaver") return { critBonus: 0.16, dodgeChance: 0.18, damageMult: 1, drainPct: 0 };
+    if (trait === "Hollowborn") return { critBonus: 0.16, dodgeChance: 0, damageMult: 1.12, drainPct: 0.12 };
+    return { critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0 };
+}
+
 // ── Roles ────────────────────────────────────────────────────────────────────
 export type ArenaRole = "defender" | "tracker" | "assassin" | "sage";
 type AbilityKind = "guard" | "mark" | "assassinate" | "mend";
@@ -313,6 +319,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
     const [x, y] = snapMain(sx, sy + (count <= 2 ? 0 : slot % 2 ? 0.9 : -0.9));
     const maxHp = Math.max(1, Math.round((gp.hp || 600) * cfg.hpMul * TTK_HP_MUL));
     const ch = applyItems ? petConsumableCharges(gp) : null;
+    const traitCombat = petArenaTraitCombat(gp.trait);
     return {
         id: `${team}-${slot}`, team, slot, role, pet: gp, element: gp.element,
         x, y, faceX: team === "blue" ? 1 : -1, faceY: 0, baseX: sx, baseY: sy, seals,
@@ -321,7 +328,9 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         // Movement saturates at the clamp above, but Speed keeps paying off as crit
         // chance (role base + ownSpeed/divisor, capped) — KEEP IN SYNC with the client
         // pet-arena-sim.ts. Uses gear-scaled speed (gp) so +SPD PvP gear also lifts crit.
-        atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (gp.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
+        atkRange: cfg.atkRange,
+        crit: Math.min(traitCombat.critBonus > 0 ? 0.66 : 0.5, cfg.crit + (gp.speed || 50) / SPEED_CRIT_DIVISOR + traitCombat.critBonus),
+        energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
         shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
         path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null, decisionCd: 0,
@@ -369,7 +378,11 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
     const crit = rng() < src.crit;
     // DODGE consumable fully negates the incoming hit (no damage, no procs).
     if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; return; }
+    const targetTrait = petArenaTraitCombat(tgt.pet.trait);
+    if (targetTrait.dodgeChance > 0 && rng() < targetTrait.dodgeChance) return;
+    const sourceTrait = petArenaTraitCombat(src.pet.trait);
     let mult = (crit ? 1.8 : 1) * (tgt.markLeft > 0 ? 1.25 : 1);
+    mult *= sourceTrait.damageMult;
     if (src.itemsOn) mult *= petGearExecuteMult(src.pet, tgt.hp, tgt.maxHp);   // gear execute vs low-HP foe
     let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * mult));
     if (tgt.itemsOn) {
@@ -381,6 +394,12 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
     tgt.hp -= dmg;
     events.push({ t, type: "hit", targetId: tgt.id, actorId: src.id, dmg, crit, element: src.element, ability });
     if (dmg > 0) {
+        if (sourceTrait.drainPct > 0 && src.hp > 0) {
+            const before = src.hp;
+            src.hp = Math.min(src.maxHp, src.hp + Math.max(1, Math.floor(dmg * sourceTrait.drainPct)));
+            const healed = src.hp - before;
+            if (healed > 0) events.push({ t, type: "heal", targetId: src.id, actorId: src.id, amount: healed });
+        }
         // THORNS consumable: reflect a % of the damage back at the attacker (once).
         if (tgt.itemsOn && tgt.cThornsPct > 0 && src.hp > 0) {
             const reflect = Math.max(1, Math.round(dmg * tgt.cThornsPct / 100));
@@ -866,6 +885,9 @@ const TRAIT_ADJ: Record<string, Partial<Record<CandKind, number>>> = {
     Swift: { objective: 12, interceptCarrier: 10, interceptAssassin: 8, hunt: 6 },
     Lucky: { hunt: 8, objective: 8 },
     Battleborn: { frontline: 14, hunt: 10, retreat: -12, regroup: -8 },
+    Fateweaver: { hunt: 14, objective: 12, interceptCarrier: 10, frontline: 8, retreat: -8 },
+    Hollowborn: { hunt: 18, frontline: 16, interceptCarrier: 12, retreat: -16, regroup: -12 },
+    Boonbringer: {},
 };
 
 const COMMIT_MARGIN = 12;   // keep last tick's target unless another beats it by this much

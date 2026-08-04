@@ -37,6 +37,7 @@ const ECHOES_VERSION = new Set([
     'bank/claim-interest.ts',
     'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
     'clan/war/declare.ts',
+    'clan/seal-pool/donate.ts',
     'festival/black-market.ts',
     'hollow-gate/combat-settle.ts',
     'hollow-gate/settle.ts',
@@ -72,7 +73,6 @@ const ECHOES_VERSION = new Set([
 const PENDING_ECHO = new Set([
     'clan/exchange/purchase.ts',
     'clan/mentor.ts',
-    'clan/seal-pool/donate.ts',
     'legacy/sage.ts',
     'legacy/trial.ts',
     'sector/questbook.ts',

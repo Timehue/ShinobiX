@@ -1,5 +1,14 @@
 # Database, Reward-Integrity & Background-Job Audit
 
+> **UPDATE 2026-08-03 — scheduled-job ownership and ranked rollover fixed.**
+> Every in-process job now claims a distributed per-job lease, with a
+> cadence-sized success window that deduplicates delayed replica timers.
+> `DISABLE_SNAPSHOT_CRON` affects only snapshot work. Ranked rollover now uses
+> a two-hour lock, a durable original-field plan, and an in-save settlement
+> receipt so partial retries cannot change podium membership or double-reset
+> or double-pay a player. The original findings below remain the historical
+> audit record.
+
 Date: 2026-07-16. Scope: reward authority + exactly-once settlement, save integrity,
 Supabase/Postgres efficiency, hidden N+1, connection lifecycle, scheduled/background
 work, disk-overlay & remote-KV-proxy efficiency, observability. Read-only investigation
@@ -70,7 +79,7 @@ server-granted reward.
 ### Load-bearing invariants verified
 - `_saveVersion` 409 conflict + `CLIENT_REFRESH_REQUIRED` 426 for versionless clients (`api/save/[name].ts:2298-2327`).
 - Save RMW and every currency writer share **one** lock key (`lock:save:<name>`) with identical TTL/retry — no cross-writer race.
-- Ranked reward pay is NX-once (`ranked:season:rewarded:<id>:<slug>`), but the ranked **soft-reset is not idempotent** (§4, §5).
+- Ranked reward and soft reset now share an in-save season receipt; the durable plan makes partial retry idempotent (§4, §5 follow-up).
 - No settlement path writes the payout **before** its idempotency key, so no HTTP-failure→retry double-pay window was found (the audited safe paths).
 
 ---
@@ -148,15 +157,12 @@ no cap), so this is defensive correctness for the REST/fallback path, not a live
 - **pvp `rewardSector` 2× multiplier is client-sealed.** `api/pvp/session.ts:1019,1255-1257` → `_xp-engine.ts:256`:
   a client can set `baseRewards:true, rewardSector:99` on a casual session and receive 200 XP/150 ryo instead of
   100/75 on a genuine win. `baseRewards` takes no queue-token proof (unlike `ranked`).
-- **Ranked rollover soft-reset is not idempotent across instances.** `api/cron/_ranked-season.ts:49-53,163-259`:
-  the rollover lock's 5s TTL is dwarfed by the multi-minute all-saves scan and the season clock only advances at
-  the end. Two schedulers firing >5s apart (clock skew, or a cPanel worker) can run the whole rollover
-  concurrently: podium pay stays NX-once, but every played rating is soft-reset twice (75% pull instead of 50%).
-- **Duplicate scheduler ownership is the default, guarded only by docs.** No leader election exists;
-  `server.ts` starts all timers on every process. If cPanel (and each Passenger worker) boots the same code,
-  every 03:00 job, boot catch-up, clan-boss kick, and the 10-min merc tick runs in parallel with Railway. Safety
-  currently depends on `DISABLE_SNAPSHOT_CRON=1` being set on secondaries — and that flag's early-return disables
-  **six** jobs (ranked, clan-boss, war-daily, era, merc), not just snapshots, which its name and comment understate.
+- **FIXED 2026-08-03 — ranked rollover soft-reset was not idempotent across instances.** The former 5s lock and
+  separate NX podium marker were replaced by a two-hour lock, durable original-field plan, and in-save receipt
+  written atomically with reset and reward. Partial retries skip completed players and do not advance the clock.
+- **FIXED 2026-08-03 — duplicate scheduler ownership was guarded only by deployment convention.** Every scheduled
+  invocation now claims a fail-closed distributed lease with a cadence-sized success dedupe window. The global
+  switch stops all timers, while `DISABLE_SNAPSHOT_CRON=1` now stops only snapshot boot/catch-up work.
 - **Realtime write-amplification** (§3 item 1): `REPLICA IDENTITY FULL` + full-table publication publishes every
   `kv_store` change though clients read three prefixes. Schema/approval-gated remediation below.
 - **PostgREST silent truncation** (§4): fixed this PR for the REST backend.
@@ -180,12 +186,14 @@ no cap), so this is defensive correctness for the REST/fallback path, not a live
 
 ## 6. Background-job & pg_cron inventory
 
-**Application (in-process, every booted instance — no leader election):** daily save-snapshot + boot
-catch-up (03:00 UTC + 24h interval), ranked rollover, clan-boss weekly (+boot kick), village-war daily,
-era pass, **merc auto-deploy (10-min interval, unawaited)**, 1s presence game-loop → sleeper-camp
+**Application (in-process, every booted instance; distributed per-job leases added 2026-08-03):** daily
+save-snapshot + boot catch-up (03:00 UTC + 24h interval), ranked rollover, clan-boss weekly (+boot kick),
+village-war daily, era pass, merc auto-deploy (10-min interval), durable-settlement scan (5-min interval),
+1s presence game-loop → sleeper-camp
 materialization, Socket.IO ping/throttle timers, presence-beat, rate-limit GC, plus lazy settle-on-read
 (weekly-boss, world-state decay) and fire-and-forget request writes. Kill switches: `DISABLE_SCHEDULED_JOBS`
-(all cron), `DISABLE_SNAPSHOT_CRON` (**disables six jobs, not one — misleading name**), `DISABLE_REALTIME`,
+(all scheduled jobs), `DISABLE_SNAPSHOT_CRON` (snapshot boot/catch-up only),
+`DISABLE_SETTLEMENT_RECONCILIATION` (settlement scanner only), `DISABLE_REALTIME`,
 `DISABLE_VILLAGE_WAR`, `DISABLE_CLAN_BOSS`. `MAINTENANCE_MODE`/`FREEZE_ECONOMY_REWARDS` gate only HTTP —
 **in-process cron bypasses launch controls entirely.**
 
@@ -265,7 +273,7 @@ pooler. Gaps: no statement timeout, no shutdown-time pool/socket close (§5 P2).
 - **#13 Hollow Gate combat → server sessions** — **OPEN.** Run state is tokenized/sealed, but combat nodes still settle from client Arena (see story/settle-class gap).
 - **#19 Remaining reward-integrity & receipt gaps** — **PARTIAL/OPEN.** Receipts exist and are searchable via
   `api/admin/battle-receipts.ts`; the durable safe paths are solid, but the client-attested minigame outcomes (§5 P0/P1) and the credit-first transfer window remain.
-- **#10 Deployment/release-health** — **PARTIAL.** Topology check + deep-health + backup-freshness gates pass; one-primary/leader-election proof is still missing (§5 duplicate-scheduler).
+- **#10 Deployment/release-health** — **PARTIAL.** Topology check + deep-health + backup-freshness gates pass, and distributed leases now prove single ownership for scheduled jobs; staging/operator certification remains separate.
 - **#11 Beta analytics** — **OPEN** (out of this audit's core; scaffolding only).
 - **#20 Backup/restore drill** / **#21 fresh-account certification** — process gates; unaffected by this PR (both still require an operator run against staging).
 
@@ -312,6 +320,6 @@ slightly-less-instant PvP until rollback); after some traffic, re-check the WAL-
 1. **Contain the Sunscar Miraa mint (P0):** server-resolve or server-seal the Miraa outcome (mint-token like
    dice), or immediately clamp `miraaRyoDelta` win to a stake-neutral value pending the redesign — owner sign-off
    (balance-sensitive).
-2. Then: card-clash ai-settle + pet gauntlet server-resolution (P1); ranked-rollover idempotency (lease renewal
-   or a per-season "reset applied" NX marker); a distributed scheduler lease; and the Realtime publication
-   scope-down (approval-gated migration) to kill the #1 DB cost.
+2. Historical follow-on list: card-clash ai-settle + pet gauntlet server-resolution (P1), ranked-rollover
+   idempotency, a distributed scheduler lease, and Realtime publication scope-down. The ranked-rollover and
+   scheduler items were completed on 2026-08-03; consult the newer remediation audit for current status.
