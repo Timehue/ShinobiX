@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
+    "test:e2e:live": "playwright test -c playwright.live.config.ts",
     "test:e2e:warfront": "playwright test -c playwright.warfront.config.ts",
     "test:e2e:install": "playwright install chromium firefox webkit",
     "qa:story-v10": "node scripts/story-v10-certification.mjs",

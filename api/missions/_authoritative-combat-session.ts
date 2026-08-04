@@ -9,6 +9,20 @@ export function missionCombatBindingKey(runId: string): string {
     return `mission-combat-binding:${runId}`;
 }
 
+export function missionCombatActiveKey(playerName: string, missionId: string): string {
+    return `mission-combat-active:${playerName}:${missionId}`;
+}
+
+export interface MissionCombatActivePointer {
+    version: 1;
+    sessionId: string;
+    runId: string;
+    playerName: string;
+    missionId: string;
+    createdAt: number;
+    expiresAt: number;
+}
+
 export interface MissionCombatBinding {
     version: 1;
     sessionId: string;
@@ -57,6 +71,62 @@ export function createMissionCombatBinding(params: {
         expiresAt: now + MISSION_COMBAT_SESSION_TTL_MS,
         status: 'active',
     };
+}
+
+export function createMissionCombatActivePointer(params: {
+    runId: string;
+    playerName: string;
+    mission: CombatMissionDef;
+    now?: number;
+    sessionId?: string;
+}): MissionCombatActivePointer {
+    const now = params.now ?? Date.now();
+    return {
+        version: 1,
+        sessionId: params.sessionId ?? params.runId,
+        runId: params.runId,
+        playerName: params.playerName,
+        missionId: params.mission.key,
+        createdAt: now,
+        expiresAt: now + MISSION_COMBAT_SESSION_TTL_MS,
+    };
+}
+
+/**
+ * Recover an in-flight mission only when all three durable records agree.
+ * This makes start idempotent without letting a stale pointer revive a settled,
+ * expired, cross-player, or differently-authored encounter.
+ */
+export function resumableMissionCombatSession(params: {
+    active: MissionCombatActivePointer | null | undefined;
+    binding: MissionCombatBinding | null | undefined;
+    session: SoloPveSession | null | undefined;
+    playerName: string;
+    mission: CombatMissionDef;
+    now?: number;
+}): SoloPveSession | null {
+    const { active, binding, session, playerName, mission } = params;
+    const now = params.now ?? Date.now();
+    if (!active || active.version !== 1 || !active.runId || !active.sessionId) return null;
+    if (active.playerName !== playerName || active.missionId !== mission.key || active.expiresAt <= now) return null;
+    if (!binding || binding.version !== 1 || binding.status !== 'active' || binding.settledAt || binding.expiresAt <= now) return null;
+    if (binding.playerName !== playerName
+        || binding.missionId !== mission.key
+        || binding.enemyProfileId !== mission.aiProfileId
+        || binding.rewardFingerprint !== missionCombatRewardFingerprint(mission)) return null;
+    if (active.runId !== binding.runId
+        || active.sessionId !== binding.sessionId
+        || active.runId !== active.sessionId) return null;
+    if (!session
+        || session.sessionId !== active.sessionId
+        || session.ownerSlug !== playerName
+        || session.settlementState !== 'pending'
+        || session.expiresAt <= now) return null;
+    if (session.encounter.kind !== 'mission'
+        || session.encounter.id !== mission.key
+        || session.encounter.sourceId !== mission.aiProfileId
+        || session.encounter.bindingId !== binding.runId) return null;
+    return session;
 }
 
 export function validateCompletedMissionCombatSession(params: {
