@@ -8,13 +8,11 @@
  *   - the reward roll is a server-supplied random, and BOTH skims are recomputed
  *     inside each pool's failClosed lock from the FRESH balance (the client sends
  *     no amounts, ever);
- *   - the whole drain is wrapped in an economy-tx (reserve → debit-applied →
- *     complete / needs-reconcile) with "lose, never duplicate" semantics — a
- *     crash after the pool debit can lose the skim but never mint it twice
- *     (mirrors api/clan/territory/collect-supply.ts);
- *   - an NX paid-receipt makes the settle idempotent per run;
- *   - caches + ryo are credited under the raider's save lock with
- *     mergePreservingImages + bumpSaveVersion (the autosave contract).
+ *   - the whole drain is wrapped in a deterministic economy journal; its sealed
+ *     debit phase lets a failed save credit resume without draining twice;
+ *   - combat costs, caches, ryo, and an idempotency receipt are committed in one
+ *     player-save write under the fail-closed save lock;
+ *   - mergePreservingImages + bumpSaveVersion preserve the autosave contract.
  *
  * Daily-loss ledgers live in their OWN keys (infil-loss:*) — deliberately NOT as
  * new fields on world:territory:* / the village-war record, because
@@ -38,12 +36,12 @@ import { bumpSaveVersion } from './save/_save-version.js';
 import { collectTerritorySupply } from './_territory-supply.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
 import {
-    makeEconomyTxId,
     reserveEconomyTx,
     markEconomyTx,
     completeEconomyTx,
     failEconomyTx,
 } from './_economy-tx.js';
+import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { awardClanPoints, MAX_CLAN_POINTS_AWARD, CLAN_POINTS_WEEKLY_CAP, clanPointWeekKey } from './_clan-points.js';
 import { meritNum } from './village/_village-merit.js';
@@ -68,7 +66,7 @@ import type { SoloPveSession } from './solo-pve/_session.js';
 import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
 
 // ─── injectable deps ─────────────────────────────────────────────────────────
-export type InfilKv = Pick<KvLike, 'get' | 'set' | 'del' | 'incr'>;
+export type InfilKv = Pick<KvLike, 'get' | 'set' | 'del'>;
 export type InfilLock = <T>(target: string, fn: () => Promise<T>, options?: LockOptions) => Promise<T>;
 export type StoreDeps = { kv?: InfilKv; lock?: InfilLock; now?: () => number };
 function resolve(deps: StoreDeps) {
@@ -82,7 +80,7 @@ function resolve(deps: StoreDeps) {
 // ─── key scheme ──────────────────────────────────────────────────────────────
 export const infilRunKey = (runId: string) => `infil:${runId}`;
 export const infilStartCountKey = (slug: string, dateKey: string) => `infil-start-count:${slug}:${dateKey}`;
-export const infilPaidKey = (runId: string) => `infil-paid:${runId}`;
+export const infilActiveRunKey = (slug: string, sector: number) => `infil-active:${slug}:${sector}`;
 export const supplyLedgerKey = (sector: number) => `infil-loss:supply:${sector}`;
 export const wrLedgerKey = (villageSlug: string) => `infil-loss:wr:${villageSlug}`;
 export const anbuSealKey = (villageSlug: string, anbuSlug: string, dateKey: string) => `infil-anbu-seal:${villageSlug}:${anbuSlug}:${dateKey}`;
@@ -91,7 +89,7 @@ const TERRITORY_KEY_PREFIX = 'world:territory:';
 const AUDIT_LOG_PREFIX = 'audit:anbu-infiltration:';
 
 export const INFIL_RUN_TTL = 60 * 60;              // context outlives the 45-minute combat TTL
-export const INFIL_PAID_TTL = 24 * 60 * 60;        // per-run settle replay guard
+export const INFIL_TERMINAL_TTL = 7 * 24 * 60 * 60;
 export const INFIL_LEDGER_TTL = 3 * 24 * 60 * 60;  // rollover re-anchors anyway
 export const ANBU_SEAL_TTL = 25 * 60 * 60;         // "re-sealed daily" (lazy)
 export const ANBU_LAST_DEF_TTL = 30 * 24 * 60 * 60;
@@ -126,6 +124,11 @@ export interface InfilRun {
     /** sector terrain at start (biome / home-terrain edge, sealed) */
     terrain: string;
     createdAt: number;
+    startState?: 'prepared' | 'ready';
+    settlement?: {
+        settledAt: number;
+        response: Record<string, unknown>;
+    };
 }
 
 export async function readInfilRun(runId: string, deps: StoreDeps = {}): Promise<InfilRun | null> {
@@ -135,7 +138,7 @@ export async function readInfilRun(runId: string, deps: StoreDeps = {}): Promise
 
 export async function writeInfilRun(run: InfilRun, deps: StoreDeps = {}): Promise<void> {
     const { kv } = resolve(deps);
-    await kv.set(infilRunKey(run.runId), run, { ex: INFIL_RUN_TTL });
+    await kv.set(infilRunKey(run.runId), run, { ex: run.settlement ? INFIL_TERMINAL_TTL : INFIL_RUN_TTL });
 }
 
 export async function deleteInfilRun(runId: string, deps: StoreDeps = {}): Promise<void> {
@@ -143,11 +146,40 @@ export async function deleteInfilRun(runId: string, deps: StoreDeps = {}): Promi
     await kv.del(infilRunKey(runId));
 }
 
-/** Atomic daily start-count bump (counts ATTEMPTS, like raid-start's mint cap —
- *  abandoning a run does not refund it). Returns the post-increment count. */
-export async function bumpInfilStartCount(slug: string, deps: StoreDeps = {}): Promise<number> {
-    const { kv, now } = resolve(deps);
-    return await kv.incr(infilStartCountKey(slug, utcDateKey(now())), { ex: START_COUNT_TTL });
+type InfilStartCounter = { count: number; receipts: Record<string, number> };
+
+/** Reserve one daily attempt for a prepared run. The run receipt and counter are
+ * one KV value under one lock, so retrying a lost start response cannot consume
+ * another attempt. Legacy numeric counters are upgraded in place. */
+export async function reserveInfilStartAttempt(
+    slug: string,
+    runId: string,
+    limit: number,
+    deps: StoreDeps = {},
+): Promise<{ allowed: boolean; replayed: boolean; count: number }> {
+    const { kv, lock, now } = resolve(deps);
+    const key = infilStartCountKey(slug, utcDateKey(now()));
+    return lock(key, async () => {
+        const raw = await kv.get<InfilStartCounter | number>(key);
+        const current: InfilStartCounter = typeof raw === 'number'
+            ? { count: Math.max(0, Math.floor(raw)), receipts: {} }
+            : {
+                count: Math.max(0, Math.floor(num(raw?.count))),
+                receipts: raw?.receipts && typeof raw.receipts === 'object' ? { ...raw.receipts } : {},
+            };
+        if (Object.prototype.hasOwnProperty.call(current.receipts, runId)) {
+            return { allowed: true, replayed: true, count: current.count };
+        }
+        if (current.count >= Math.max(0, Math.floor(limit))) {
+            return { allowed: false, replayed: false, count: current.count };
+        }
+        const next = {
+            count: current.count + 1,
+            receipts: { ...current.receipts, [runId]: now() },
+        };
+        await kv.set(key, next, { ex: START_COUNT_TTL });
+        return { allowed: true, replayed: false, count: next.count };
+    }, { failClosed: true });
 }
 
 // ─── Anbu roster / defender selection / daily seal ───────────────────────────
@@ -216,10 +248,9 @@ export async function getOrSealAnbuSnapshot(village: string, anbuSlug: string, d
 
 // ─── settlement (the currency heart) ─────────────────────────────────────────
 export type SettleOutcome =
-    | { ok: true; alreadySettled: true }
     | {
         ok: true;
-        alreadySettled: false;
+        alreadySettled: boolean;
         rolled: { supply: boolean; wr: boolean };
         supplySkim: number;
         wrSkim: number;
@@ -236,8 +267,10 @@ export type SettleOutcome =
 /**
  * Settle a WON run: roll pools, drain each selected pool under its own failClosed
  * lock (fresh-balance recompute + the 50%/day ledger), then mint caches + ryo into
- * the raider's save. Idempotent via the NX paid receipt. `roll` is the handler's
- * server-side random in [0,1).
+ * the raider's save. A deterministic economy journal remembers the debit phase,
+ * while an in-save receipt makes combat costs + reward credit atomic and
+ * replayable. A save-write failure can therefore retry without draining either
+ * shared pool twice. `roll` is server randomness and is sealed into the journal.
  */
 export async function settleInfiltrationWin(
     run: InfilRun,
@@ -248,31 +281,42 @@ export async function settleInfiltrationWin(
     const { kv, lock, now } = resolve(deps);
     const t = now();
 
-    // Idempotency: one settle per run, ever (the run token at the endpoint layer
-    // is the primary gate; this receipt is belt-and-braces against replays).
-    const placed = await kv.set(infilPaidKey(run.runId), { ts: t, raider: run.raiderSlug }, { nx: true, ex: INFIL_PAID_TTL });
-    if (!placed) return { ok: true, alreadySettled: true };
-
-    const rolled = rollRewardPools(roll);
+    const requestedRoll = rollRewardPools(roll);
     const vSlug = villageSlug(run.targetVillage);
-
-    const txId = makeEconomyTxId('anbu-infiltration-raid');
-    await reserveEconomyTx({
+    const txId = `anbu-infiltration:${run.runId}`;
+    const reserved = await reserveEconomyTx({
         id: txId,
         kind: 'anbu-infiltration-raid',
         debitKey: `${TERRITORY_KEY_PREFIX}${run.sector}|${villageWarKey(run.targetVillage)}`,
         creditKey: `save:${run.raiderSlug}`,
         resource: 'war-caches',
         amount: 0,
-        meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled },
+        meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled: requestedRoll },
     }, { kv: kv as never });
+    const sealedRolled = reserved.meta?.rolled as { supply?: unknown; wr?: unknown } | undefined;
+    const rolled = {
+        supply: sealedRolled?.supply === true,
+        wr: sealedRolled?.wr === true,
+    };
+    const fingerprint = `${run.raiderSlug}:${run.sector}:${run.targetVillage}:${run.anbuSlug}`;
+    const receiptId = `anbu-infiltration-${run.runId}`.slice(0, 80);
+
+    const meta = reserved.meta ?? {};
+    let supplySkim = Math.max(0, Math.floor(num(meta.supplySkim)));
+    let wrSkim = Math.max(0, Math.floor(num(meta.wrSkim)));
+    const debitApplied = reserved.state === 'debit-applied'
+        || reserved.state === 'credit-applied'
+        || reserved.state === 'complete'
+        || meta.debitApplied === true;
+    if (reserved.state === 'needs-reconcile' && meta.debitApplied !== true) {
+        return { ok: false, error: 'credit-failed' };
+    }
 
     try {
         // ── Phase 1a (debit): the sector's warSupply, under the territory lock.
         // Materialize the lazy accrual (collectTerritorySupply mirrors the collect
         // endpoint), skim 1% of the true collectible, write back the remainder.
-        let supplySkim = 0;
-        if (rolled.supply) {
+        if (!debitApplied && rolled.supply) {
             const key = `${TERRITORY_KEY_PREFIX}${run.sector}`;
             supplySkim = await lock(key, async () => {
                 const fresh = await kv.get<Record<string, unknown>>(key);
@@ -290,8 +334,7 @@ export async function settleInfiltrationWin(
         }
 
         // ── Phase 1b (debit): the village's WR pool, under the village-war lock.
-        let wrSkim = 0;
-        if (rolled.wr) {
+        if (!debitApplied && rolled.wr) {
             const warKey = villageWarKey(run.targetVillage);
             wrSkim = await lock(warKey, async () => {
                 const rec = normalizeVillageWarRecord(run.targetVillage, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
@@ -304,25 +347,41 @@ export async function settleInfiltrationWin(
             }, { failClosed: true });
         }
 
+        if (!debitApplied) {
+            await markEconomyTx(txId, 'debit-applied', {
+                amount: supplySkim + wrSkim,
+                meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled, supplySkim, wrSkim, debitApplied: true },
+            }, { kv: kv as never });
+        }
+
         const supplyCaches = cachesForSkim(supplySkim);
         const wrCaches = cachesForSkim(wrSkim);
-        await markEconomyTx(txId, 'debit-applied', {
-            amount: supplySkim + wrSkim,
-            meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled, supplySkim, wrSkim },
-        }, { kv: kv as never });
 
-        // ── Phase 2 (credit): mint caches + ryo into the raider's save. A failure
-        // here KEEPS "lose, never duplicate" (never re-credit the pools — a racing
-        // raid could double-mint); record the shortfall durably + loudly instead.
+        // ── Phase 2 (credit): mint caches + ryo together with usage/outcome and
+        // the replay receipt in one save write.
         let overflowLost = 0;
         let saveVersion = 0;
         let character: Record<string, unknown> = {};
+        let alreadySettled = false;
         try {
             const out = await lock(`save:${run.raiderSlug}`, async () => {
                 const saveKey = `save:${run.raiderSlug}`;
                 const rec = await kv.get<Record<string, unknown>>(saveKey);
                 const char = rec?.character as Record<string, unknown> | undefined;
                 if (!rec || !char) return { error: 'no-save' as const };
+                const inspected = inspectSettlementReceipt(char, receiptId, fingerprint);
+                if (inspected.status === 'conflict' || inspected.status === 'invalid') {
+                    return { error: 'receipt-conflict' as const };
+                }
+                if (inspected.status === 'replay') {
+                    const value = inspected.receipt.value;
+                    return {
+                        replayed: true as const,
+                        lost: Math.max(0, Math.floor(num(value.overflowLost))),
+                        saveVersion: num(rec._saveVersion),
+                        character: char,
+                    };
+                }
                 const settled = session
                     ? applyAiFightOutcomeToCharacter(
                         applySoloPveUsageCosts(char, session),
@@ -347,30 +406,53 @@ export async function settleInfiltrationWin(
                 };
                 mint('warSupply', supplyCaches);
                 mint('warResources', wrCaches);
-                const nextChar = {
+                const credited = {
                     ...settled,
                     itemStacks: stacks,
                     ryo: num(settled.ryo) + RAID_RYO_REWARD,
                 };
+                const nextChar = appendSettlementReceipt(credited, inspected.receipts, {
+                    requestId: receiptId,
+                    fingerprint,
+                    value: {
+                        kind: 'anbu-infiltration-win',
+                        supplySkim,
+                        wrSkim,
+                        supplyCaches,
+                        wrCaches,
+                        ryo: RAID_RYO_REWARD,
+                        overflowLost: lost,
+                    },
+                    settledAt: t,
+                });
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, rec));
-                return { lost, saveVersion: num((next as Record<string, unknown>)._saveVersion), character: nextChar };
+                return { replayed: false as const, lost, saveVersion: num((next as Record<string, unknown>)._saveVersion), character: nextChar };
             }, { failClosed: true });
             if ('error' in out) {
-                await failEconomyTx(txId, 'raider save missing at credit', { amount: supplySkim + wrSkim }, { kv: kv as never });
-                return { ok: false, error: 'no-save' };
+                await markEconomyTx(txId, 'debit-applied', {
+                    amount: supplySkim + wrSkim,
+                    error: out.error,
+                    meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled, supplySkim, wrSkim, debitApplied: true },
+                }, { kv: kv as never });
+                return { ok: false, error: out.error === 'no-save' ? 'no-save' : 'credit-failed' };
             }
+            alreadySettled = out.replayed;
             overflowLost = out.lost;
             saveVersion = out.saveVersion;
             character = out.character;
         } catch (creditErr) {
-            console.error(`[anbu-infiltration] CREDIT FAILED after debit — ${supplySkim + wrSkim} skimmed units unreconciled for ${run.raiderSlug}:`, creditErr);
+            console.error(`[anbu-infiltration] credit interrupted after debit; retry remains safe for ${run.raiderSlug}:`, creditErr);
             await kv.set(`${AUDIT_LOG_PREFIX}LOSS:${run.raiderSlug}:${t}`, {
                 ts: t, runId: run.runId, raider: run.raiderSlug, sector: run.sector,
                 targetVillage: run.targetVillage, supplySkim, wrSkim,
                 error: creditErr instanceof Error ? creditErr.message : String(creditErr),
             }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
-            await failEconomyTx(txId, creditErr, { amount: supplySkim + wrSkim }, { kv: kv as never }).catch(() => undefined);
+            await markEconomyTx(txId, 'debit-applied', {
+                amount: supplySkim + wrSkim,
+                error: creditErr instanceof Error ? creditErr.message : String(creditErr),
+                meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled, supplySkim, wrSkim, debitApplied: true },
+            }, { kv: kv as never }).catch(() => undefined);
             return { ok: false, error: 'credit-failed' };
         }
 
@@ -384,24 +466,22 @@ export async function settleInfiltrationWin(
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
         return {
-            ok: true, alreadySettled: false, rolled,
+            ok: true, alreadySettled, rolled,
             supplySkim, wrSkim, supplyCaches, wrCaches,
             ryo: RAID_RYO_REWARD, overflowLost, saveVersion, character,
         };
     } catch (err) {
-        // A debit-phase failure (lock contention under failClosed, KV hiccup): the
-        // paid receipt stays placed — deliberately. Re-running a settle whose debits
-        // may have partially landed risks a double-drain; needs-reconcile + the
-        // audit trail make it an admin fix, mirroring collect-supply's stance.
+        // A process that observes a debit-phase failure promotes the durable
+        // journal for operator reconciliation. It never guesses whether a failed
+        // shared-record write landed.
         await failEconomyTx(txId, err, {}, { kv: kv as never }).catch(() => undefined);
         throw err;
     }
 }
 
 export type SettleLossOutcome =
-    | { ok: true; alreadySettled: true }
-    | { ok: true; alreadySettled: false; saveVersion: number; character: Record<string, unknown> }
-    | { ok: false; error: 'no-save' };
+    | { ok: true; alreadySettled: boolean; saveVersion: number; character: Record<string, unknown> }
+    | { ok: false; error: 'no-save' | 'receipt-conflict' };
 
 /** Persist terminal HP/hospital state and proven item usage for a failed raid. */
 export async function settleInfiltrationLoss(
@@ -410,19 +490,37 @@ export async function settleInfiltrationLoss(
     deps: StoreDeps = {},
 ): Promise<SettleLossOutcome> {
     const { kv, lock, now } = resolve(deps);
-    const placed = await kv.set(infilPaidKey(run.runId), { ts: now(), raider: run.raiderSlug, outcome: session.outcome }, { nx: true, ex: INFIL_PAID_TTL });
-    if (!placed) return { ok: true, alreadySettled: true };
     return lock(`save:${run.raiderSlug}`, async () => {
         const saveKey = `save:${run.raiderSlug}`;
         const record = await kv.get<Record<string, unknown>>(saveKey);
         const character = record?.character as Record<string, unknown> | undefined;
         if (!record || !character) return { ok: false as const, error: 'no-save' as const };
-        const nextCharacter = applyAiFightOutcomeToCharacter(
+        const receiptId = `anbu-infiltration-${run.runId}`.slice(0, 80);
+        const fingerprint = `${run.raiderSlug}:${run.sector}:${run.targetVillage}:${run.anbuSlug}`;
+        const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
+        if (inspected.status === 'conflict' || inspected.status === 'invalid') {
+            return { ok: false as const, error: 'receipt-conflict' as const };
+        }
+        if (inspected.status === 'replay') {
+            return {
+                ok: true as const,
+                alreadySettled: true as const,
+                saveVersion: num(record._saveVersion),
+                character,
+            };
+        }
+        const settledCharacter = applyAiFightOutcomeToCharacter(
             applySoloPveUsageCosts(character, session),
             resolveAiFightOutcome(session),
             session.player,
             now(),
         );
+        const nextCharacter = appendSettlementReceipt(settledCharacter, inspected.receipts, {
+            requestId: receiptId,
+            fingerprint,
+            value: { kind: 'anbu-infiltration-loss', outcome: session.outcome ?? 'loss' },
+            settledAt: now(),
+        });
         const next = bumpSaveVersion({ ...record, character: nextCharacter });
         await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, record));
         return {

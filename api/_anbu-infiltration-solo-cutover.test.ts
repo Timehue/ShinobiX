@@ -25,6 +25,23 @@ test('ANBU combat has no Tower runtime dependency and retires its custom action 
     assert.doesNotMatch(screen, /infiltrationAct|towerSessionForArena|createTowerArenaTransport/);
 });
 
+test('ANBU start and report paths retain durable replay state', async () => {
+    const [handler, store] = await Promise.all([
+        read('api/village/anbu-infiltration.ts'),
+        read('api/_anbu-infiltration-store.ts'),
+    ]);
+    assert.match(handler, /infilActiveRunKey\(playerName, sector\)/);
+    assert.match(handler, /reserveInfilStartAttempt\(playerName, activeRun\.runId/);
+    assert.match(handler, /startState: 'prepared'/);
+    assert.match(handler, /withKvLock\(infilRunKey\(runId\), \(\) => doReportLocked/);
+    assert.match(handler, /if \(run\.settlement\) return res\.status\(200\)\.json\(run\.settlement\.response\)/);
+    assert.match(handler, /settlement: \{ settledAt, response/);
+    assert.doesNotMatch(handler, /deleteInfilRun/);
+    assert.match(store, /inspectSettlementReceipt\(char, receiptId, fingerprint\)/);
+    assert.match(store, /debitApplied: true/);
+    assert.doesNotMatch(store, /infilPaidKey|INFIL_PAID_TTL/);
+});
+
 test('combat runtime inventory records the participant-model decision', async () => {
     const inventory = await read('scripts/combat-runtime-inventory.mjs');
     assert.match(inventory, /mode: 'Anbu infiltration'[\s\S]*actionRoute: '\/solo-pve\/action'[\s\S]*current: 'solo-pve'[\s\S]*status: 'migrated'/);

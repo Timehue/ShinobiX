@@ -268,7 +268,8 @@ Implemented, tested (43 new tests), type-checked, route-registered:
   village, defender, terrain, and round budget are sealed into encounter
   metadata. Integration tests drive the shared Solo engine to termination.
 - **`api/_anbu-infiltration-store.ts`** — settlement + persistence (injectable
-  kv/lock/now): NX paid receipt (idempotent settle), roll →
+  kv/lock/now): deterministic economy journal + in-save receipt (idempotent,
+  retryable settle), roll →
   per-pool skim recomputed INSIDE each failClosed lock from the fresh balance,
   lazy-accrual materialization via `collectTerritorySupply` before the supply
   skim, economy-tx reserve→debit-applied→complete with "lose, never duplicate",
