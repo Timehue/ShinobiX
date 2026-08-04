@@ -11,6 +11,7 @@ import {
 import { pveDifficultyGuardEnabled, type PveBandMode } from '../_pve-band-seal.js';
 import { perRankStatCap } from '../combat-core/formulas.js';
 import { sealCompanionFromSave } from '../combat-core/companion.js';
+import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveSession } from './_session.js';
@@ -84,6 +85,10 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         ? profile.jutsu.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).id === 'string')
         : [];
     const jutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(profile.jutsuIds, admin);
+    const aiProgram = validateServerAiRules(profile.rules, jutsu.map((entry) => String(entry.id ?? '')).filter(Boolean));
+    if (!aiProgram.ok) {
+        throw new Error(`AI profile ${profile.id} has an invalid server rule program: ${aiProgram.issues[0]?.message ?? 'invalid rules'}`);
+    }
     const mastery = pveAiMasteryForLevel(level);
     const specialty = typeof profile.specialty === 'string' ? profile.specialty : specialtyForStats(stats);
     const character: Record<string, unknown> = {
@@ -97,6 +102,7 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         visual: typeof profile.visual === 'string' ? profile.visual : profile.id,
         ...(profile.isBossAi === true || profile.boss === true ? { boss: true } : {}),
         ...(profile.masterAi === true ? { masterAi: true } : {}),
+        ...(aiProgram.rules.length > 0 ? { aiRules: aiProgram.rules } : {}),
     };
     return {
         name: character.name as string,

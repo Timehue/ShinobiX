@@ -23,6 +23,7 @@ import { JUTSU_CATALOG } from "../api/pvp/_jutsu-catalog.ts";
 // hooks the .ts require), exactly like the jutsu catalog drift test.
 const require = createRequire(import.meta.url);
 const { AI_PROFILE_CATALOG, builtinAiProfile } = require("../api/_ai-profile-catalog.ts");
+const { validateServerAiRules } = require("../api/combat-core/ai-authoring.ts");
 
 describe("AI profile catalog parity (server ⇄ client)", () => {
     it("committed catalog matches the freshly-derived client data", () => {
@@ -33,11 +34,14 @@ describe("AI profile catalog parity (server ⇄ client)", () => {
         );
     });
 
-    it("the derivation is deterministic (no random ids leaked into the mirror)", () => {
+    it("the derivation is deterministic (no random rule ids leaked into the mirror)", () => {
         // `rules[].id` is a fresh UUID on every client import, which is exactly
         // why `rules` is not mirrored. Re-deriving twice must be byte-identical
         // or the drift test above would fail at random in CI.
         assert.deepEqual(buildAiProfileCatalog(), buildAiProfileCatalog());
+        for (const profile of Object.values(buildAiProfileCatalog())) {
+            assert.ok(profile.rules.every((rule) => !Object.prototype.hasOwnProperty.call(rule, 'id')));
+        }
     });
 
     it("covers the AI ids the generic AI fight actually uses", () => {
@@ -67,6 +71,7 @@ describe("AI profile catalog parity (server ⇄ client)", () => {
                 `${id}: every stat is zero — the mirror lost the stat sheet`,
             );
             assert.ok(Array.isArray(profile.jutsuIds), `${id}: jutsuIds must be an array`);
+            assert.ok(Array.isArray(profile.rules) && profile.rules.length > 0, `${id}: rules must be mirrored`);
         }
     });
 
@@ -82,6 +87,14 @@ describe("AI profile catalog parity (server ⇄ client)", () => {
                     `${id}: jutsu ${jutsuId} is not in api/pvp/_jutsu-catalog.ts`,
                 );
             }
+        }
+    });
+
+    it("every mirrored rule program passes the server authoring validator", () => {
+        for (const [id, profile] of Object.entries(AI_PROFILE_CATALOG)) {
+            const result = validateServerAiRules(profile.rules, profile.jutsuIds);
+            assert.equal(result.ok, true, `${id}: ${result.issues.map((issue) => issue.message).join('; ')}`);
+            assert.deepEqual(result.rules, profile.rules, `${id}: generated rules must already be normalized`);
         }
     });
 

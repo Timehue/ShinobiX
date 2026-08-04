@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 
 import type { AdminRole, Biome, JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank, Screen } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary } from "../types/character";
 import type { ArmorQuality, EquipmentSlot, GameItem, Jutsu, ReviewBloodline, SavedBloodline, Stats } from "../types/combat";
-import type { AiAction, AiCondition, AiLoadoutId, AiRule, CreatorAi } from "../types/creator-ai";
+import type { AiAction, AiCondition, AiLoadoutId, AiRecentAction, AiResource, AiRule, AiTarget, CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { Pet, PetJutsu, PetRarity } from "../types/pet";
 import type { MissionRank } from "../constants/hunter";
@@ -3212,13 +3212,40 @@ export function AdminPanel({
                                         <option value="distance_lower_than">distance_lower_than</option>
                                         <option value="distance_higher_than">distance_higher_than</option>
                                         <option value="hp_lower_than">hp_lower_than</option>
+                                        <option value="player_hp_lower_than">player_hp_lower_than</option>
+                                        <option value="player_has_shield">player_has_shield</option>
+                                        <option value="player_has_buff">player_has_buff</option>
+                                        <option value="player_low_ap">player_low_ap</option>
+                                        <option value="self_has_debuff">self_has_debuff</option>
+                                        <option value="self_resource_lower_than">self_resource_lower_than</option>
+                                        <option value="player_resource_lower_than">player_resource_lower_than</option>
+                                        <option value="self_status_present">self_status_present</option>
+                                        <option value="self_status_absent">self_status_absent</option>
+                                        <option value="player_status_present">player_status_present</option>
+                                        <option value="player_status_absent">player_status_absent</option>
+                                        <option value="cooldown_ready">cooldown_ready</option>
+                                        <option value="cooldown_active">cooldown_active</option>
+                                        <option value="player_recent_action">player_recent_action</option>
+                                        <option value="ally_count_lower_than">ally_count_lower_than (Tower)</option>
+                                        <option value="objective_state">objective_state (Tower)</option>
+                                        <option value="threat_higher_than">threat_higher_than (party)</option>
                                     </select>
                                     <input type="number" value={rule.value} onChange={(e) => updateAiRule(index, { value: Number(e.target.value) })} />
                                     <select value={rule.action} onChange={(e) => updateAiRule(index, { action: e.target.value as AiAction })}>
                                         <option value="use_specific_jutsu">use_specific_jutsu</option>
                                         <option value="use_highest_power_jutsu">use_highest_power_jutsu</option>
+                                        <option value="use_best_legal_jutsu">use_best_legal_jutsu</option>
                                         <option value="move_towards_opponent">move_towards_opponent</option>
+                                        <option value="use_movement_jutsu">use_movement_jutsu</option>
                                         <option value="use_basic_attack">use_basic_attack</option>
+                                        <option value="heal">heal</option>
+                                        <option value="buff">buff</option>
+                                        <option value="clear_player_buffs">clear_player_buffs</option>
+                                        <option value="cleanse_self">cleanse_self</option>
+                                        <option value="defend">defend</option>
+                                        <option value="summon_add">summon_add (Tower)</option>
+                                        <option value="hold_objective">hold_objective (Tower)</option>
+                                        <option value="end_turn">end_turn</option>
                                     </select>
                                     <select value={rule.jutsuId ?? ""} onChange={(e) => updateAiRule(index, { jutsuId: e.target.value || undefined })}>
                                         <option value="">No Specific Jutsu</option>
@@ -3227,7 +3254,39 @@ export function AdminPanel({
                                             return <option key={id} value={id}>{jutsu?.name ?? id}</option>;
                                         })}
                                     </select>
+                                    <select value={rule.target ?? ""} onChange={(e) => updateAiRule(index, { target: (e.target.value || undefined) as AiTarget | undefined })}>
+                                        <option value="">Automatic Target</option>
+                                        <option value="self">self</option>
+                                        <option value="opponent">opponent</option>
+                                        <option value="nearest">nearest</option>
+                                        <option value="farthest">farthest</option>
+                                        <option value="lowest_hp">lowest_hp</option>
+                                        <option value="highest_threat">highest_threat</option>
+                                        <option value="support_role">support_role</option>
+                                        <option value="most_buffed">most_buffed</option>
+                                        <option value="most_debuffed">most_debuffed</option>
+                                        <option value="isolated">isolated</option>
+                                        <option value="empty_ground_near_target">empty_ground_near_target</option>
+                                        <option value="safe_ground">safe_ground</option>
+                                        <option value="objective_tile">objective_tile</option>
+                                    </select>
                                 </div>
+                                {(rule.condition === "self_resource_lower_than" || rule.condition === "player_resource_lower_than") && (
+                                    <select value={rule.resource ?? ""} onChange={(e) => updateAiRule(index, { resource: e.target.value as AiResource })}>
+                                        <option value="">Select Resource</option><option value="chakra">chakra</option><option value="stamina">stamina</option><option value="ap">ap</option>
+                                    </select>
+                                )}
+                                {(rule.condition === "self_status_present" || rule.condition === "self_status_absent" || rule.condition === "player_status_present" || rule.condition === "player_status_absent") && (
+                                    <input value={rule.status ?? ""} maxLength={80} placeholder="Exact status name" onChange={(e) => updateAiRule(index, { status: e.target.value })} />
+                                )}
+                                {rule.condition === "player_recent_action" && (
+                                    <select value={rule.pattern ?? ""} onChange={(e) => updateAiRule(index, { pattern: e.target.value as AiRecentAction })}>
+                                        <option value="">Select Pattern</option><option value="any_jutsu">any_jutsu</option><option value="basic_attack">basic_attack</option><option value="move">move</option><option value="heal">heal</option><option value="item">item</option><option value="defend">defend</option><option value="summon">summon</option><option value="flee">flee</option><option value="wait">wait</option>
+                                    </select>
+                                )}
+                                {rule.condition === "objective_state" && (
+                                    <input value={rule.state ?? ""} maxLength={80} placeholder="Objective state" onChange={(e) => updateAiRule(index, { state: e.target.value })} />
+                                )}
                                 <div className="menu"><button onClick={() => setAiRules(aiRules.map((candidate, candidateIndex) => candidateIndex === index - 1 ? rule : candidateIndex === index ? aiRules[index - 1] : candidate).filter(Boolean))} disabled={index === 0}>Move Up</button><button onClick={() => setAiRules(aiRules.map((candidate, candidateIndex) => candidateIndex === index + 1 ? rule : candidateIndex === index ? aiRules[index + 1] : candidate).filter(Boolean))} disabled={index === aiRules.length - 1}>Move Down</button><button className="danger-button" onClick={() => setAiRules(aiRules.filter((candidate) => candidate.id !== rule.id))}>Delete Rule</button></div>
                             </div>
                         ))}

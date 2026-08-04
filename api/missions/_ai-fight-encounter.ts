@@ -34,6 +34,8 @@ import type { TowerSession } from '../towers/_tower-session.js';
 import { sealCompanionFromSave } from '../towers/_companion.js';
 import { kv } from '../_storage.js';
 import { safeLogValue } from '../_safe-log.js';
+import { loadAdminAiObjects } from '../_admin-ai-catalog.js';
+import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import {
     aiOpponentEnemyTemplate,
     buildAuthoritativeSoloEncounter,
@@ -61,23 +63,34 @@ export const AI_FIGHT_ROUND_BUDGET = 24;
 
 export type AiFightProfile = Record<string, unknown> & { id: string };
 
+function profileHasValidAiProgram(profile: AiFightProfile): boolean {
+    const loadout = Array.isArray(profile.jutsuIds)
+        ? profile.jutsuIds.filter((id): id is string => typeof id === 'string')
+        : [];
+    return validateServerAiRules(profile.rules, loadout).ok;
+}
+
 /**
  * Resolve an opponent id to a profile: the generated built-in mirror first
  * (api/_ai-profile-catalog.ts, parity-tested against the client's builtinAis),
- * then the admin-authored `shared:ai-profiles` list. Returns null for an
- * unknown id — the caller must NOT fabricate an opponent, or the sealed fight
- * would not be the one the player is looking at.
+ * then the dual-read admin AI catalog (admin slots plus canonical published
+ * content), with `shared:ai-profiles` retained only as a legacy fallback.
+ * Returns null for an unknown id — callers must never fabricate an opponent.
  */
 export async function loadAiFightProfile(opponentId: unknown): Promise<AiFightProfile | null> {
     const id = typeof opponentId === 'string' ? opponentId.trim().slice(0, 96) : '';
     if (!id || !/^[A-Za-z0-9:_-]+$/.test(id)) return null;
     const builtin = builtinAiProfile(id);
-    if (builtin) return builtin as unknown as AiFightProfile;
+    if (builtin) return profileHasValidAiProgram(builtin as unknown as AiFightProfile) ? builtin as unknown as AiFightProfile : null;
     try {
+        const current = (await loadAdminAiObjects()).get(id);
+        if (current) return profileHasValidAiProgram(current as AiFightProfile) ? current as AiFightProfile : null;
+        // Compatibility for deployments that populated the retired standalone
+        // key before creatorAis gained a canonical publisher.
         const authored = await kv.get<Array<Record<string, unknown>>>('shared:ai-profiles');
         if (!Array.isArray(authored)) return null;
         const match = authored.find((p) => p && typeof p === 'object' && p.id === id);
-        return match ? (match as AiFightProfile) : null;
+        return match && profileHasValidAiProgram(match as AiFightProfile) ? match as AiFightProfile : null;
     } catch (err) {
         // An unreachable admin list must not fail the fight start — the caller
         // falls back to the token-only path, exactly as if the id were unknown.

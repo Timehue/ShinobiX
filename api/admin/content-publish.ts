@@ -15,6 +15,9 @@ import {
     ContentVersionConflictError,
     __resetContentCache,
 } from '../_content-store.js';
+import { validateCreatorAiPrograms } from '../combat-core/ai-authoring.js';
+import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
 
 /*
  * /api/admin/content-publish — the guarded home for admin-authored content.
@@ -88,6 +91,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!rawFields) return res.status(400).json({ error: 'Missing fields.' });
         const requested = Object.keys(rawFields).filter(isContentField);
         if (requested.length === 0) return res.status(400).json({ error: 'No publishable content fields supplied.' });
+
+        // Validate every creator AI program before publishing ANY requested
+        // field. A malformed rule set must not partially commit alongside a
+        // jutsu/item edit and must never reach a reward-bearing combat seal.
+        if (requested.includes('creatorAis')) {
+            const admin = await loadAdminCombatContent();
+            const knownJutsuIds = new Set<string>([...Object.keys(JUTSU_CATALOG), ...admin.jutsu.keys()]);
+            if (Array.isArray(rawFields.creatorJutsus)) {
+                for (const raw of rawFields.creatorJutsus) {
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+                    const id = typeof (raw as Record<string, unknown>).id === 'string'
+                        ? String((raw as Record<string, unknown>).id).trim()
+                        : '';
+                    if (id) knownJutsuIds.add(id);
+                }
+            }
+            const validation = validateCreatorAiPrograms(rawFields.creatorAis, knownJutsuIds);
+            if (!validation.ok) {
+                return res.status(400).json({
+                    error: 'Invalid creator AI rule program.',
+                    code: 'INVALID_AI_PROGRAM',
+                    issues: validation.issues.slice(0, 100),
+                });
+            }
+        }
 
         const baseVersions = body.baseVersions && typeof body.baseVersions === 'object' && !Array.isArray(body.baseVersions)
             ? body.baseVersions as Record<string, unknown>

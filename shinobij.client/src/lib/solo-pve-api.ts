@@ -48,6 +48,51 @@ export type SoloPveEventSnapshot = {
     itemsUsed: Record<string, number>;
 };
 
+// Runtime-neutral server projection. This is optional on the wire while
+// schema-v1 sessions created before the rollout remain reconnectable.
+export type AuthoritativeCombatEvent = {
+    schemaVersion: 1;
+    runtime: string;
+    mode: string;
+    sessionId: string;
+    sequence: number | null;
+    round: { before: number; after: number };
+    actor: 'player' | 'enemy' | 'companion';
+    target: 'player' | 'enemy' | 'companion' | 'tile' | null;
+    action: { type: string; id?: string; tile?: number };
+    applied: boolean;
+    rejectionReason?: string;
+    actorSpend: { ap: number; hp: number; chakra: number; stamina: number };
+    actors: Array<{
+        role: 'player' | 'enemy' | 'companion';
+        presentBefore: boolean;
+        presentAfter: boolean;
+        before?: { hp: number; maxHp: number; chakra: number; stamina: number; shield: number; pos: number };
+        after?: { hp: number; maxHp: number; chakra: number; stamina: number; shield: number; pos: number };
+        hpDelta?: number;
+        damageToHp?: number;
+        healing?: number;
+        shieldDelta?: number;
+        damageToShield?: number;
+        shieldGained?: number;
+        chakraDelta?: number;
+        staminaDelta?: number;
+        movement?: { from: number; to: number };
+    }>;
+    statusChanges: Array<{ role: 'player' | 'enemy' | 'companion'; before: SoloPveStatus[]; after: SoloPveStatus[] }>;
+    groundEffects: {
+        added: SoloPveGroundEffect[];
+        removed: SoloPveGroundEffect[];
+        updated: Array<{ before: SoloPveGroundEffect; after: SoloPveGroundEffect }>;
+    };
+    items: Array<{ id: string; chargeDelta: number; usedDelta: number }>;
+    terminal: {
+        status: 'active' | 'done';
+        winner: 'player' | 'enemy' | 'draw' | null;
+        outcome: 'win' | 'loss' | 'fled' | 'draw' | null;
+    };
+};
+
 export type SoloPveCombatEvent = {
     kind: 'action';
     seq: number;
@@ -71,6 +116,7 @@ export type SoloPveCombatEvent = {
     status: 'active' | 'done';
     winner: 'player' | 'enemy' | 'draw' | null;
     outcome: 'win' | 'loss' | 'fled' | 'draw' | null;
+    combat?: AuthoritativeCombatEvent;
 };
 
 export type SoloPveRejectionEvent = {
@@ -81,6 +127,7 @@ export type SoloPveRejectionEvent = {
     actionId?: string;
     tile?: number;
     reason: string;
+    combat?: AuthoritativeCombatEvent;
 };
 
 export type SoloPveSession = {

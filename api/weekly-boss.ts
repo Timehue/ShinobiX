@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { weeklyBossGuardEnabled } from './_release-flags.js';
 import { weeklyBossEnemyTemplate } from './_authoritative-pve.js';
 import { loadAdminCombatContent } from './_admin-content.js';
+import { loadAdminAiObjects } from './_admin-ai-catalog.js';
 import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from './solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve/_settlement.js';
@@ -223,15 +224,15 @@ function seededWeeklyBossIndex(weekKey: string, len: number): number {
 }
 
 async function pickDefaultBossAi(weekKey: string): Promise<{ aiId: string; bossName?: string } | null> {
-    // Prefer admin-authored boss AIs in shared:ai-profiles when present.
+    // Prefer admin-authored boss AIs from the canonical dual-read catalog.
     try {
-        const list = await kv.get<Array<{ id: string; name?: string; isBossAi?: boolean }>>('shared:ai-profiles');
-        if (Array.isArray(list) && list.length > 0) {
+        const list = [...(await loadAdminAiObjects()).values()];
+        if (list.length > 0) {
             // Prefer boss AIs; otherwise any AI.
-            const bosses = list.filter(a => a.isBossAi);
+            const bosses = list.filter((profile) => profile.isBossAi === true);
             const pool = bosses.length > 0 ? bosses : list;
             const pick = pool[Math.floor(Math.random() * pool.length)];
-            return { aiId: pick.id, bossName: pick.name };
+            return { aiId: pick.id, ...(typeof pick.name === 'string' ? { bossName: pick.name } : {}) };
         }
     } catch {
         // ignore
@@ -616,8 +617,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             return { status: 400 as const, body: { error: 'You need at least 20 stamina to challenge the weekly boss.' } };
                         }
 
-                        const profiles = await kv.get<Array<Record<string, unknown>>>('shared:ai-profiles').catch(() => null);
-                        const profile = profiles?.find((entry) => entry.id === boss!.aiId) ?? null;
+                        const profile = (await loadAdminAiObjects()).get(boss!.aiId) ?? null;
                         runId = `weekly-${randomUUID().replace(/-/g, '')}`;
                         const now = Date.now();
                         const enemyTemplate = weeklyBossEnemyTemplate(profile, { id: boss!.aiId, name: boss!.bossName });

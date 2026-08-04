@@ -5,6 +5,7 @@ import type {
 } from '../combat-core/types.js';
 import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
 import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
+import type { AuthoritativeCombatEvent } from '../combat-core/events.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
@@ -138,6 +139,7 @@ export type SoloPveCombatEvent = {
     status: SoloPveSession['status'];
     winner: SoloPveWinner;
     outcome: SoloPveOutcome;
+    combat: AuthoritativeCombatEvent;
 };
 
 /** Response-only evidence for an intent the server refused. */
@@ -149,6 +151,7 @@ export type SoloPveRejectionEvent = {
     actionId?: string;
     tile?: number;
     reason: string;
+    combat: AuthoritativeCombatEvent;
 };
 
 export type SoloPveSession = {

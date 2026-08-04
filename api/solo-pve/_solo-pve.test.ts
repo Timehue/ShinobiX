@@ -129,6 +129,10 @@ describe('generic AI solo-PvE encounter seal', () => {
             armorRawDR: 0.1,
             stats: { ninjutsuOffense: 600, ninjutsuDefense: 500, willpower: 300, speed: 250 },
             jutsuIds: [enemyJutsu.id],
+            rules: [
+                { id: 'editor-id', condition: 'specific_round', value: 1, action: 'use_specific_jutsu', jutsuId: enemyJutsu.id },
+                { id: 'fallback-id', condition: 'always', value: 0, action: 'use_basic_attack' },
+            ],
         };
         const session = buildSoloPveAiEncounter({
             sessionId: 'ai-solo-1', playerName: 'alice', save, profile, now: NOW, admin,
@@ -140,6 +144,10 @@ describe('generic AI solo-PvE encounter seal', () => {
         assert.equal(session.itemCharges[item.id], 2);
         assert.equal((session.enemy.character.jutsu as Array<{ id: string; isUtility?: boolean }>)[0]?.id, enemyJutsu.id);
         assert.equal((session.enemy.character.jutsu as Array<{ id: string; isUtility?: boolean }>)[0]?.isUtility, false);
+        assert.deepEqual(session.enemy.character.aiRules, [
+            { condition: 'specific_round', value: 1, action: 'use_specific_jutsu', jutsuId: enemyJutsu.id },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ]);
         assert.equal(session.runtime, 'solo-pve');
         assert.equal('towerId' in session, false);
         assert.equal('floor' in session, false);
@@ -229,6 +237,11 @@ describe('solo-PvE engine', () => {
         assert.ok(resolved.session.enemy.hp < session.enemy.hp);
         assert.equal(resolved.session.player.chakra, session.player.chakra - 10);
         assert.equal(resolved.session.cooldowns.player['sealed-strike'], 2);
+        const damage = resolved.session.events[0]?.combat.damage[0];
+        assert.equal(damage?.source, 'player');
+        assert.equal(damage?.target, 'enemy');
+        assert.ok((damage?.raw ?? 0) >= (damage?.resolved ?? 0));
+        assert.equal(damage?.toHp, session.enemy.hp - resolved.session.enemy.hp);
 
         const forged = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'client-invented-nuke' });
         assert.equal(forged.applied, false);
@@ -343,11 +356,19 @@ describe('solo-PvE engine', () => {
         assert.equal(event.after.enemy.hp, accepted.session.enemy.hp);
         assert.deepEqual(event.log, accepted.session.log.slice(1));
         assert.equal(event.vfx[0]?.target, 'enemy');
+        assert.equal(event.combat.runtime, 'solo-pve');
+        assert.equal(event.combat.sessionId, session.sessionId);
+        assert.equal(event.combat.sequence, event.seq);
+        assert.equal(event.combat.actors.find((actor) => actor.role === 'enemy')?.damageToHp, session.enemy.hp - accepted.session.enemy.hp);
+        assert.doesNotMatch(JSON.stringify(event.combat), /ownerSlug|Alice|Rival|character/);
 
         const rejected = applySoloPveAction(session, { type: 'move', tile: 0 });
         assert.equal(rejected.applied, false);
         assert.equal(rejected.event?.kind, 'rejected');
         assert.equal(rejected.event?.kind === 'rejected' ? rejected.event.reason : '', 'invalid-move');
+        assert.equal(rejected.event?.combat.applied, false);
+        assert.equal(rejected.event?.combat.rejectionReason, 'invalid-move');
+        assert.equal(rejected.event?.combat.sequence, null);
         assert.deepEqual(rejected.session, session);
 
         const seeded = makeSession({ events: Array.from({ length: 80 }, () => structuredClone(event)), eventSeq: 80 });
@@ -396,6 +417,70 @@ describe('solo-PvE engine', () => {
         const first = applySoloPveAction(makeSession(), { type: 'wait' });
         const second = applySoloPveAction(makeSession(), { type: 'wait' });
         assert.deepEqual(second, first);
+    });
+
+    it('executes sealed authored rules before the generic jutsu scorer', () => {
+        const session = makeSession();
+        session.enemy.character.jutsu = [
+            { id: 'authored-low', name: 'Authored Low', type: 'Ninjutsu', effectPower: 5, ap: 40, range: 2, cooldown: 5, tags: [] },
+            { id: 'generic-high', name: 'Generic High', type: 'Ninjutsu', effectPower: 40, ap: 40, range: 2, cooldown: 5, tags: [] },
+        ];
+        session.enemy.character.aiRules = [
+            { condition: 'specific_round', value: 1, action: 'use_specific_jutsu', jutsuId: 'authored-low' },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ];
+        const resolved = applySoloPveAction(session, { type: 'wait' }).session;
+        const firstEnemyAction = resolved.events.find((event) => event.actor === 'enemy');
+        assert.equal(firstEnemyAction?.actionId, 'authored-low');
+    });
+
+    it('skips an impossible authored action and reaches a legal fallback', () => {
+        const session = makeSession();
+        session.enemy.character.jutsu = [
+            { id: 'too-expensive', name: 'Too Expensive', type: 'Ninjutsu', effectPower: 100, ap: 40, range: 2, chakraCost: 99_999, tags: [] },
+        ];
+        session.enemy.character.aiRules = [
+            { condition: 'always', value: 0, action: 'use_specific_jutsu', jutsuId: 'too-expensive' },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ];
+        const resolved = applySoloPveAction(session, { type: 'wait' }).session;
+        assert.equal(resolved.events.find((event) => event.actor === 'enemy')?.action, 'basicAttack');
+    });
+
+    it('keeps authored counterplay behind the sealed difficulty competence gate', () => {
+        const session = makeSession();
+        session.enemy.character.level = 10;
+        session.player.statuses.push({ name: 'Increase Damage Given', rounds: 3, percent: 20, kind: 'positive' });
+        session.enemy.character.aiRules = [
+            { condition: 'always', value: 0, action: 'clear_player_buffs' },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ];
+        const resolved = applySoloPveAction(session, { type: 'wait' }).session;
+        assert.equal(resolved.events.find((event) => event.actor === 'enemy')?.action, 'basicAttack');
+        assert.ok(resolved.player.statuses.some((status) => status.name === 'Increase Damage Given'));
+    });
+
+    it('evaluates sealed resource and recent-player-action rules deterministically', () => {
+        const resourceSession = makeSession();
+        resourceSession.enemy.chakra = 5;
+        resourceSession.enemy.character.aiRules = [
+            { condition: 'self_resource_lower_than', resource: 'chakra', value: 50, action: 'end_turn' },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ];
+        const resourceResolved = applySoloPveAction(resourceSession, { type: 'wait' }).session;
+        assert.equal(resourceResolved.events.find((event) => event.actor === 'enemy')?.action, 'wait');
+
+        const recentSession = makeSession();
+        recentSession.enemy.character.aiRules = [
+            { condition: 'player_recent_action', pattern: 'wait', value: 0, action: 'end_turn' },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ];
+        const first = applySoloPveAction(recentSession, { type: 'wait' });
+        const second = applySoloPveAction(makeSession({
+            enemy: { ...recentSession.enemy, character: structuredClone(recentSession.enemy.character) },
+        }), { type: 'wait' });
+        assert.equal(first.session.events.find((event) => event.actor === 'enemy')?.action, 'wait');
+        assert.deepEqual(first.session.events.map((event) => event.action), second.session.events.map((event) => event.action));
     });
 
     it('summons a sealed independent companion and runs its deterministic phase before the enemy', () => {
