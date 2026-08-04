@@ -1,5 +1,8 @@
 # Reward-Settlement Audit — Phase 0 (2026-07-31)
 
+> Historical snapshot. Solo PvE settlement rows were superseded by the
+> 2026-08-04 cutover; see `docs/architecture/combat-runtime-boundaries.md`.
+
 > **Follow-up status (2026-08-03):** ranked-season settlement now uses an
 > in-save receipt written atomically with rating reset and podium reward. A
 > durable original-field plan survives partial failure, retries only unsettled

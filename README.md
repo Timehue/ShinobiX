@@ -58,11 +58,13 @@ Ready for controlled beta:
 
 Gate or soft-launch:
 
-- Weekly Boss rewards until server-authoritative damage settlement is enabled.
-- High-value client-resolved combat mission rewards.
 - Broad village/sector-war seasons without staff coverage.
 - Player AI image generation, creator tools, and public Bloodline Maker usage.
 - Hollow Gate as a mobile-ready feature.
+
+All shipped Solo PvE combat modes now seal player loadouts, resolve actions,
+recover sessions, and settle rewards on the server. The server rejects the
+retired Weekly Boss client-damage and legacy mission-win report paths.
 
 See [Public Beta Launch Recommendation](PUBLIC_BETA_LAUNCH_RECOMMENDATION.md)
 and [Feature Flag Release Matrix](FEATURE_FLAG_RELEASE_MATRIX.md).

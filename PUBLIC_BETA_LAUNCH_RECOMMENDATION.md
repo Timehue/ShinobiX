@@ -29,8 +29,6 @@ Launch a controlled public beta only after the live fresh-account smoke and mobi
 
 ## Gate Until Fixed
 
-- Weekly Boss rewards/contribution until server-authoritative damage is enabled.
-- High-value client-resolved combat mission rewards until server settlement owns them.
 - Broad Village War and Sector War rollout until admin coverage and reward receipt review are ready.
 - Player AI image generation unless `ENABLE_PLAYER_AI_IMAGE_GENERATION=1` is intentionally set with moderation and budget monitoring.
 - Bloodline Maker promotion until moderation/review process is staffed.
@@ -52,8 +50,8 @@ Launch a controlled public beta only after the live fresh-account smoke and mobi
 5. Verify PvP battle receipt after one ranked and one unranked fight.
 6. Verify save snapshot and restore runbook.
 7. Decide public brand: ShinobiX versus Shinobi Journey.
-8. Keep `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE` unset.
-9. Keep `ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS` unset.
+8. Rehearse refresh/reconnect recovery for each Solo PvE mode against staging.
+9. Rehearse duplicate and lost-response settlement retries against staging.
 10. Keep `ENABLE_PLAYER_AI_IMAGE_GENERATION` unset unless staffed.
 
 ## Top 10 Fixes After First Beta Weekend

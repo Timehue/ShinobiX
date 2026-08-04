@@ -23,6 +23,11 @@ feature-gated.
   hunts, inventory, hospital, bank, cafeteria, Logbook, and world travel.
 - Tactical AP combat with jutsu, movement, cooldowns, effects, battle logs, and
   PvP-oriented rule parity work.
+- Server-owned Solo PvE combat across missions, story and Academy fights,
+  Endless Tower, Hollow Gate, Weekly Boss, generic AI fights, and ANBU raids,
+  including refresh recovery and once-only settlement.
+- Data-driven AI rule authoring and a bounded normalized combat-event contract
+  now provide the foundations for reusable behavior and telemetry consumers.
 - PvP, ranked PvP, Battle Towers, Pet Arena, professions, clans, Card Clash, and
   legacy systems available for monitored beta use.
 - Backend hardening for auth, saves, reward receipts, economy logs, rate limits,
@@ -32,9 +37,6 @@ feature-gated.
 
 ## Beta Warnings
 
-- Weekly Boss rewards remain gated until server-authoritative damage settlement
-  is ready.
-- High-value client-resolved combat mission rewards should remain gated.
 - Village War and Sector War should soft-launch only with staff coverage.
 - Player AI image generation and creator tools should stay disabled for public
   beta unless moderation and budget monitoring are staffed.

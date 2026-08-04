@@ -7,7 +7,7 @@
 - Admin-monitored: Clan Boss stays enabled. Watch assault settlement, item deductions, damage, standings, and weekly receipts while the staging matrix is captured.
 - Desktop-first: Hollow Gate. Do not market it as mobile-ready.
 - Staffed events: Village/Sector War stays available for scheduled beta events with operators present. Do not start an unattended permanent season until concurrency and dispute evidence exists.
-- Server-authoritative and enabled: Weekly Boss contribution and C/B/A/S combat mission rewards. Keep the obsolete client-trust flags unset.
+- Server-authoritative and enabled: all Solo PvE modes, including combat missions, story and Academy, normal Endless, Hollow Gate shinobi combat, Weekly Boss, generic AI fights, and ANBU infiltration. The former client-trust switches are retired; their legacy report routes fail closed.
 - AI/creator: accept the configured OpenAI-side generation limit for beta. There are no public creator reward payouts. Moderate public user-generated content, but do not invent a creator-reward shutdown for a system that does not exist.
 
 ## Daily operator rhythm
