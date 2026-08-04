@@ -1,5 +1,8 @@
 # ShinobiX Production Release Checklist
 
+> Historical completed checklist. References to client-trust flags record the
+> earlier deployment and are not current runtime configuration.
+
 Unchecked items are conditions for scaling beyond the explicitly approved limited-beta envelope unless a line says otherwise.
 
 ## Environment and services
