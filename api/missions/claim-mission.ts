@@ -17,11 +17,7 @@ import {
     missionProgressReceiptKey,
     validateMissionProgressReceipt,
 } from './_mission-progress-receipt.js';
-import {
-    clientTrustedCombatMissionRewardAllowed,
-    combatMissionClaimAuthorityAllowed,
-    COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
-} from '../_release-flags.js';
+import { COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
@@ -272,9 +268,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // inside the save lock, so this get→del is race-free per player.
                 const tokenKey = `missions:combat-claim:${playerName}:${def.key}`;
                 const tokenRecord = await kv.get<unknown>(tokenKey).catch(() => null);
-                const hasToken = !!tokenRecord;
-                const legacyClientAllowed = clientTrustedCombatMissionRewardAllowed(def);
-                if (!combatMissionClaimAuthorityAllowed(def, tokenRecord)) {
+                const hasToken = !!tokenRecord
+                    && typeof tokenRecord === 'object'
+                    && (tokenRecord as Record<string, unknown>).authority === 'server-combat';
+                if (!hasToken) {
                     // No valid authority token for a mission that requires one — it
                     // expired (6h TTL) or predates the token gate (e.g. a win queued
                     // before the cPanel→Postgres cutover). Self-heal the permanent
@@ -289,17 +286,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
                 }
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
-                const hasLegacyFlag = legacyClientAllowed && pending.includes(def.key);
-                if (!hasToken && !hasLegacyFlag) return { applied: false, reason: 'not-queued' };
+                if (!pending.includes(def.key)) return { applied: false, reason: 'not-queued' };
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 // Consume the token once eligibility passes (before payout), so a
                 // retry / racing duplicate can't double-claim. A cap-blocked claim
                 // returned above WITHOUT consuming it, so the player can still claim
                 // after the daily reset via the durable flag.
-                if (hasToken) {
-                    const consumed = await kv.del(tokenKey);
-                    if (consumed <= 0 && !hasLegacyFlag) return { applied: false, reason: 'not-queued' };
-                }
+                const consumed = await kv.del(tokenKey);
+                if (consumed <= 0) return { applied: false, reason: 'not-queued' };
                 // Repeatable combat-mission slots are the unlimited-repeat channel:
                 // ryo/scrolls only, no stat points (the once-per-day checklist and
                 // training are where growth lives).

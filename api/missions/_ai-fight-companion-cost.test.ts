@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyCompanionUsageCost } from './report-ai-fight.js';
+import { applyCompanionUsageCost } from '../solo-pve/_settlement.js';
 
 describe('AI-fight companion settlement cost', () => {
     it('charges only the sealed summoned pet gear and consumable', () => {

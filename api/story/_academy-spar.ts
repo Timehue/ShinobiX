@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { EnemyTemplate } from '../towers/_enemy-templates.js';
-import type { TowerSession } from '../towers/_tower-session.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import { ACADEMY_SPAR_OPPONENT_ID } from './_settle.js';
 import {
     STORY_COMBAT_SESSION_TTL_MS,
@@ -16,11 +15,8 @@ import {
  * (docs/runbooks/combat-mode-migration.md), first subsystem.
  *
  * The onboarding spar was one of the fights the CLIENT invented at launch: it
- * built a level-1 dummy, stashed it in `temporaryStoryAi` under a
- * `temp-academy-spar-<ts>` id, resolved the whole battle locally and then told
- * /api/story/settle it had won. No catalog can resolve a `temp-*` id, so the
- * sealed-fight path could never take it — the opponent had to become
- * server-generated first. That is this module.
+ * built a level-1 dummy and resolved the whole battle locally. The opponent is
+ * now server-generated here and only a terminal solo-PvE session can settle it.
  *
  * The dummy is CONSTANT, which is why it was the cheapest of the six to move:
  * there is no run state, no scaling and no authored content to read. The
@@ -36,8 +32,7 @@ import {
  */
 
 /** Stable, server-resolvable opponent id — the whole point of the migration.
- *  The legacy local path still mints `temp-academy-spar-<ts>`; both are accepted
- *  by applyAcademySparSettlement while the fallback exists. Declared in
+ *  Declared in
  *  ./_settle.ts (the graph leaf) and re-exported here, which is where callers
  *  expect it. */
 export { ACADEMY_SPAR_OPPONENT_ID };
@@ -104,8 +99,9 @@ export function academySparEligibility(character: Record<string, unknown>): Acad
 /** Build the sealed dummy. `admin` is passed through to the jutsu resolver for
  *  the same reason every other sealed fight passes it: admin-authored overrides
  *  of a starter jutsu must reach the AI too. */
-export function academySparEnemyTemplate(admin?: AdminCombatContent | null): EnemyTemplate {
+export function academySparEnemyTemplate(admin?: AdminCombatContent | null) {
     return {
+        id: ACADEMY_SPAR_OPPONENT_ID,
         name: ACADEMY_SPAR_NAME,
         // Mirrors the client's aiPrimaryJutsuType for this loadout.
         specialty: 'Ninjutsu',
@@ -165,7 +161,7 @@ export function createAcademySparBinding(params: {
  */
 export function validateCompletedAcademySparSession(params: {
     binding: StoryCombatBinding | null | undefined;
-    session: TowerSession | null | undefined;
+    session: SoloPveSession | null | undefined;
     playerName: string;
     character: Record<string, unknown>;
     now?: number;

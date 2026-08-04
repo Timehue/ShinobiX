@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { TowerSession } from '../towers/_tower-session.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import {
     ACADEMY_SPAR_OPPONENT_ID,
     academySparEligibility,
@@ -36,22 +36,23 @@ function makeBinding(overrides: Partial<StoryCombatBinding> = {}): StoryCombatBi
     return { ...createAcademySparBinding({ runId: 'spar-run-1', playerName: 'hero', now: NOW }), ...overrides };
 }
 
-function makeSession(overrides: Partial<TowerSession> = {}): TowerSession {
+function makeSession(overrides: Partial<SoloPveSession> = {}): SoloPveSession {
     return {
-        runId: 'spar-run-1',
+        runtime: 'solo-pve',
+        schemaVersion: 1,
+        sessionId: 'spar-run-1',
+        ownerSlug: 'hero',
+        encounter: { kind: 'academy-spar', id: ACADEMY_SPAR_OPPONENT_ID, sourceId: ACADEMY_SPAR_OPPONENT_ID, bindingId: 'spar-run-1' },
         status: 'done',
-        winner: 'squad',
-        actors: [
-            { side: 'squad', ownerSlug: 'hero', hp: 88 } as unknown as TowerSession['actors'][number],
-            { side: 'tower', ownerSlug: null, hp: 0 } as unknown as TowerSession['actors'][number],
-        ],
+        winner: 'player',
+        settlementState: 'pending',
         ...overrides,
-    } as TowerSession;
+    } as SoloPveSession;
 }
 
 function validate(params: {
     binding?: StoryCombatBinding | null;
-    session?: TowerSession | null;
+    session?: SoloPveSession | null;
     playerName?: string;
     character?: Record<string, unknown>;
 } = {}) {
@@ -95,7 +96,7 @@ test('a spar run is refused unless it was won, complete, unexpired and ours', ()
     assert.equal(validate({ binding: makeBinding({ expiresAt: NOW - 1 }) }).ok, false, 'an expired binding must not settle');
     assert.equal(validate({ binding: makeBinding({ settledAt: NOW }) }).ok, false, 'a spent binding must not settle');
     assert.equal(
-        validate({ session: makeSession({ actors: [{ side: 'squad', ownerSlug: 'someone-else', hp: 9 } as unknown as TowerSession['actors'][number]] }) }).ok,
+        validate({ session: makeSession({ ownerSlug: 'someone-else' }) }).ok,
         false,
         "a stranger's winning session must not settle onto our save",
     );

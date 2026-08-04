@@ -1,14 +1,11 @@
-import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { buildAuthoritativeSoloEncounter, dynamicBossFloor } from '../_authoritative-pve.js';
-import { sealPveDifficultyBand } from '../_pve-band-seal.js';
-import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
-import { writeSession } from '../towers/_tower-store.js';
+import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import {
     createStoryCombatBinding,
@@ -22,9 +19,8 @@ import {
 
 /**
  * Start a sealed, server-resolved story-boss fight for the player's CURRENT
- * milestone. Body: { playerName, hostLoadout?, bossName? } — bossName is
- * display-only flavor from the authored storyline; the milestone, opponent,
- * stats, and reward row are all derived server-side from the save.
+ * milestone. Body: { playerName }. The milestone, opponent, stats, environment,
+ * and reward row are all derived server-side from the save.
  * Mirrors api/missions/combat-start.ts.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -48,39 +44,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!eligibility.ok) return res.status(eligibility.status).json({ error: eligibility.error });
 
         const runId = storyBossRunId();
-        const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
         const now = Date.now();
         const bossTemplate = storyBossEnemyTemplate({
             village: eligibility.village,
             progressIndex: eligibility.progressIndex,
-            displayName: typeof body.bossName === 'string' ? body.bossName : undefined,
         });
-        const floor = dynamicBossFloor({
-            id: 9_200 + eligibility.progressIndex,
-            name: `story-${eligibility.village.toLowerCase().replace(/\W+/g, '-')}-${eligibility.progressIndex}`,
-            bossAiId: bossTemplate.visual ?? 'story-boss',
-            objective: 'defeat-boss',
-            roundBudget: 24,
-            biome: STORY_VILLAGE_BIOMES[eligibility.village] ?? 'central',
-        });
-        const session = buildAuthoritativeSoloEncounter({
-            playerName,
-            save,
-            floor,
-            bossTemplate,
-            runId,
-            seed,
-            now,
-            towerId: 'story-boss',
-            admin: await loadAdminCombatContent(),
-            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
-        });
-        // Arm the standard-PvE difficulty layer (band + hit guard) before the
-        // session is written, so the first enemy turn is already guarded.
-        sealPveDifficultyBand(session, { mode: 'STORY' });
-        // Give the AI its jutsu mastery — without this it casts at 30% (step C).
-        // Must follow the guard above, which bounds the uplift.
-        sealPveAiMastery(session, { mode: 'STORY' });
         const binding = createStoryCombatBinding({
             runId,
             playerName,
@@ -88,7 +56,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             progressIndex: eligibility.progressIndex,
             now,
         });
-        await writeSession(session);
+        const session = buildSoloPveAiEncounter({
+            sessionId: runId,
+            playerName,
+            save,
+            now,
+            profile: bossTemplate,
+            admin: await loadAdminCombatContent(),
+            difficultyMode: 'STORY',
+            encounter: {
+                kind: 'story-boss',
+                id: `${eligibility.village}:${eligibility.progressIndex}`,
+                sourceId: binding.opponentId,
+                bindingId: runId,
+            },
+            environment: { biome: STORY_VILLAGE_BIOMES[eligibility.village] ?? 'central' },
+        });
+        await writeSoloPveSession(session);
         await kv.set(storyCombatBindingKey(runId), binding, { ex: STORY_COMBAT_SESSION_TTL_SECONDS });
         return res.status(200).json({ ok: true, runId, session });
     } catch (err) {

@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { TowerSession } from '../towers/_tower-session.js';
-import type { TowerBiome } from '../towers/_floor-catalog.js';
-import type { EnemySpecialty, EnemyTemplate } from '../towers/_enemy-templates.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import { LIBERATOR_TITLES, STORY_LEVELS, STORY_REWARDS, storyOpponentId } from './_settle.js';
 
 /*
@@ -24,7 +22,7 @@ export function storyCombatBindingKey(runId: string): string {
 
 // Mirrors the client's data/village-biomes.ts map so the sealed fight keeps the
 // chapter's authored battlefield feel. Values must stay within TOWER_BIOMES.
-export const STORY_VILLAGE_BIOMES: Record<string, TowerBiome> = {
+export const STORY_VILLAGE_BIOMES: Record<string, string> = {
     'Stormveil Village': 'forest',
     'Ashen Leaf Village': 'volcano',
     'Frostfang Village': 'snow',
@@ -122,7 +120,7 @@ export function createStoryCombatBinding(params: {
  */
 export function validateSealedStoryRun(params: {
     binding: StoryCombatBinding | null | undefined;
-    session: TowerSession | null | undefined;
+    session: SoloPveSession | null | undefined;
     playerName: string;
     now?: number;
 }): StoryCombatValidation {
@@ -130,20 +128,22 @@ export function validateSealedStoryRun(params: {
     const now = params.now ?? Date.now();
     if (!binding || binding.version !== 1 || !binding.sessionId || !binding.runId) return { ok: false, reason: 'invalid-binding' };
     if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
-    if (!session || binding.runId !== session.runId) return { ok: false, reason: 'wrong-run' };
+    if (!session || binding.sessionId !== session.sessionId || binding.runId !== session.sessionId) return { ok: false, reason: 'wrong-run' };
     if (binding.expiresAt <= now) return { ok: false, reason: 'expired' };
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
     if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
-    if (session.winner !== 'squad') return { ok: false, reason: 'not-won' };
-    if (!session.actors.some((actor) => actor.side === 'squad' && actor.ownerSlug === playerName)) {
-        return { ok: false, reason: 'not-a-member' };
-    }
+    if (session.winner !== 'player') return { ok: false, reason: 'not-won' };
+    if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };
+    const expectedKind = binding.kind === 'spar' ? 'academy-spar' : 'story-boss';
+    if (session.encounter.kind !== expectedKind
+        || session.encounter.sourceId !== binding.opponentId
+        || session.encounter.bindingId !== binding.runId) return { ok: false, reason: 'wrong-run' };
     return { ok: true, binding };
 }
 
 export function validateCompletedStoryCombatSession(params: {
     binding: StoryCombatBinding | null | undefined;
-    session: TowerSession | null | undefined;
+    session: SoloPveSession | null | undefined;
     playerName: string;
     character: Record<string, unknown>;
     now?: number;
@@ -174,9 +174,8 @@ export function settleStoryCombatBinding(binding: StoryCombatBinding, now = Date
 }
 
 /** The player's surviving HP as the SERVER recorded it — replaces the old client-reported survivingHp. */
-export function storySessionSurvivingHp(session: TowerSession, playerName: string): number {
-    const actor = session.actors.find((candidate) => candidate.side === 'squad' && candidate.ownerSlug === playerName);
-    return Math.max(0, Math.floor(Number(actor?.hp) || 0));
+export function storySessionSurvivingHp(session: SoloPveSession, _playerName: string): number {
+    return Math.max(0, Math.floor(Number(session.player.hp) || 0));
 }
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -194,11 +193,11 @@ export function storyBossEnemyTemplate(params: {
     village: string;
     progressIndex: number;
     displayName?: string;
-}): EnemyTemplate {
+}) {
     const progressIndex = clampInt(params.progressIndex, 0, STORY_LEVELS.length - 1, 0);
     const level = STORY_LEVELS[progressIndex];
     const arc = STORY_LEVELS.length <= 1 ? 1 : progressIndex / (STORY_LEVELS.length - 1);
-    const specialty: EnemySpecialty = (['Genjutsu', 'Taijutsu', 'Ninjutsu', 'Bukijutsu'] as const)[progressIndex % 4];
+    const specialty = (['Genjutsu', 'Taijutsu', 'Ninjutsu', 'Bukijutsu'] as const)[progressIndex % 4];
     const power = 1 + arc * 0.25;
     const offense = clampInt((150 + level * 27) * power, 180, 3200, 500);
     const defense = clampInt((120 + level * 20) * power, 140, 2600, 400);
@@ -206,6 +205,7 @@ export function storyBossEnemyTemplate(params: {
         ? params.displayName.trim().slice(0, 80)
         : `${params.village.replace(/ Village$/, '')} Story Boss`;
     return {
+        id: storyOpponentId(params.village, level),
         name,
         specialty,
         level,

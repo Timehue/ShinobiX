@@ -1,5 +1,5 @@
-import { createHash, randomUUID } from 'node:crypto';
-import type { TowerSession } from '../towers/_tower-session.js';
+import { createHash } from 'node:crypto';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import type { CombatMissionDef } from './_mission-catalog.js';
 
 export const MISSION_COMBAT_SESSION_TTL_MS = 45 * 60 * 1000;
@@ -47,7 +47,7 @@ export function createMissionCombatBinding(params: {
     const now = params.now ?? Date.now();
     return {
         version: 1,
-        sessionId: params.sessionId ?? `mcombat-${randomUUID()}`,
+        sessionId: params.sessionId ?? params.runId,
         runId: params.runId,
         playerName: params.playerName,
         missionId: params.mission.key,
@@ -61,7 +61,7 @@ export function createMissionCombatBinding(params: {
 
 export function validateCompletedMissionCombatSession(params: {
     binding: MissionCombatBinding | null | undefined;
-    session: TowerSession | null | undefined;
+    session: SoloPveSession | null | undefined;
     playerName: string;
     mission: CombatMissionDef;
     now?: number;
@@ -71,13 +71,17 @@ export function validateCompletedMissionCombatSession(params: {
     if (!binding || binding.version !== 1 || !binding.sessionId || !binding.runId) return { ok: false, reason: 'invalid-binding' };
     if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
     if (binding.missionId !== mission.key || binding.enemyProfileId !== mission.aiProfileId) return { ok: false, reason: 'wrong-mission' };
-    if (!session || binding.runId !== session.runId) return { ok: false, reason: 'wrong-run' };
+    if (!session || binding.sessionId !== session.sessionId || binding.runId !== session.sessionId) return { ok: false, reason: 'wrong-run' };
     if (binding.expiresAt <= now) return { ok: false, reason: 'expired' };
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
     if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
-    if (session.winner !== 'squad') return { ok: false, reason: 'not-won' };
-    if (!session.actors.some((actor) => actor.side === 'squad' && actor.ownerSlug === playerName)) {
-        return { ok: false, reason: 'not-a-member' };
+    if (session.winner !== 'player') return { ok: false, reason: 'not-won' };
+    if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };
+    if (session.encounter.kind !== 'mission'
+        || session.encounter.id !== mission.key
+        || session.encounter.sourceId !== mission.aiProfileId
+        || session.encounter.bindingId !== binding.runId) {
+        return { ok: false, reason: 'wrong-mission' };
     }
     if (binding.rewardFingerprint !== missionCombatRewardFingerprint(mission)) return { ok: false, reason: 'reward-drift' };
     return { ok: true, binding };

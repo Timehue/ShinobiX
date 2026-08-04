@@ -34,7 +34,7 @@ test("leaving an unresolved fight reports a forfeit before unmounting", () => {
     // Walking out of a fight you are losing must not be cheaper than finishing
     // it. The server scores an unresolved session as a defeat, but only if the
     // client tells it the player left.
-    const leave = arena.slice(arena.indexOf("async function leaveFight"), arena.indexOf("async function leaveFight") + 900);
+    const leave = arena.slice(arena.indexOf("async function leaveFight"), arena.indexOf("async function leaveFight") + 1500);
     assert.match(leave, /outcomeFn/, "leaveFight must report the forfeit");
     assert.match(leave, /outcomeReportedRef\.current = true/, "and must not double-report a run already settled");
 });

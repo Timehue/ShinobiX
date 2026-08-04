@@ -1,5 +1,5 @@
 import type { Character } from '../types/character';
-import type { TowerHostLoadout, TowerSession } from './towers-api';
+import type { SoloPveSession } from './solo-pve-api';
 
 /*
  * Server-authoritative story-boss combat (mirrors lib/hollow-gate-combat-api).
@@ -11,7 +11,7 @@ import type { TowerHostLoadout, TowerSession } from './towers-api';
 export type StoryBossStartResult = {
     ok: boolean;
     runId: string;
-    session: TowerSession;
+    session: SoloPveSession;
     error?: string;
 };
 
@@ -32,8 +32,6 @@ export type StoryBossSettleResult = {
 
 export async function startStoryBossCombat(params: {
     playerName: string;
-    bossName?: string;
-    hostLoadout?: TowerHostLoadout;
 }): Promise<StoryBossStartResult> {
     const response = await fetch('/api/story/boss-start', {
         method: 'POST',
@@ -67,7 +65,6 @@ export async function settleStoryBossCombat(params: {
  */
 export async function startAcademySparCombat(params: {
     playerName: string;
-    hostLoadout?: TowerHostLoadout;
 }): Promise<StoryBossStartResult> {
     const response = await fetch('/api/story/spar-start', {
         method: 'POST',
