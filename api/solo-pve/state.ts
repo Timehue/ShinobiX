@@ -3,6 +3,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { readSoloPveSession } from './_store.js';
+import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -24,6 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && session.ownerSlug.toLowerCase() !== identity.name.toLowerCase()) {
             return res.status(403).json({ error: 'This solo-PvE session belongs to another player.' });
         }
+        const outcome = await reconcileTerminalSoloPveOutcome(session, playerName);
+        if (outcome && !outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
         if (session.expiresAt <= Date.now()) return res.status(410).json({ error: 'Solo-PvE session expired.', session });
         return res.status(200).json({ ok: true, session });
     } catch (error) {

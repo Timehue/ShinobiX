@@ -44,6 +44,7 @@ const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 export function Missions({
     character,
     updateCharacter,
+    onServerVersion,
     creatorAis,
     creatorMissions,
     acceptedMissionIds,
@@ -60,6 +61,7 @@ export function Missions({
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    onServerVersion?: (version?: number) => boolean | void;
     creatorAis: CreatorAi[];
     creatorMissions: CreatorMission[];
     acceptedMissionIds: string[];
@@ -149,12 +151,17 @@ export function Missions({
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data?.queued !== true) throw new Error(data?.reason ?? data?.error ?? "Mission settlement failed.");
-        updateCharacter((current) => current ? {
-            ...current,
-            pendingCombatMissionClaims: (current.pendingCombatMissionClaims ?? []).includes(authoritativeFight.mission.key)
-                ? current.pendingCombatMissionClaims
-                : [...(current.pendingCombatMissionClaims ?? []), authoritativeFight.mission.key],
-        } : current);
+        const responseAccepted = onServerVersion?.(data?._saveVersion) !== false;
+        if (data?.character && responseAccepted) {
+            updateCharacter(data.character);
+        } else if (!data?.character) {
+            updateCharacter((current) => current ? {
+                ...current,
+                pendingCombatMissionClaims: (current.pendingCombatMissionClaims ?? []).includes(authoritativeFight.mission.key)
+                    ? current.pendingCombatMissionClaims
+                    : [...(current.pendingCombatMissionClaims ?? []), authoritativeFight.mission.key],
+            } : current);
+        }
         return data;
     }
 
@@ -162,7 +169,8 @@ export function Missions({
      *  a defeat or a forfeit. Pays nothing; the reward stays on the claim step. */
     async function reportMissionFightOutcome(runId: string, playerName: string) {
         const applied = await reportPveFightOutcome(runId, playerName);
-        if (applied?.character) updateCharacter(applied.character);
+        const responseAccepted = onServerVersion?.(applied._saveVersion) !== false;
+        if (applied?.character && responseAccepted) updateCharacter(applied.character);
         return applied;
     }
 
