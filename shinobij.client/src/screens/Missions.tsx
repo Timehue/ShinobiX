@@ -35,6 +35,7 @@ import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { sectorPhrase } from "../lib/hollow-rifts";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { TowerSession, TowerHostLoadout } from "../lib/towers-api";
+import { towerArenaTransport, towerSessionForArena } from "../lib/tower-arena-adapter";
 import { getAllItems } from "../lib/items";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { getPvpItemLoadout, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus } from "../lib/equipment-stats";
@@ -206,7 +207,8 @@ export function Missions({
                 character={character}
                 sharedImages={sharedImages}
                 runId={authoritativeFight.runId}
-                initialSession={authoritativeFight.session}
+                initialSession={towerSessionForArena(authoritativeFight.session)}
+                transport={towerArenaTransport}
                 missionName={authoritativeFight.mission.name}
                 savedBloodlines={savedBloodlines}
                 creatorJutsus={creatorJutsus}
@@ -260,7 +262,7 @@ export function Missions({
         alert(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`);
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
-    function startCreatorMissionBattle(mission: CreatorMission) { if (!requireServerSettlement("fieldHuntMissions")) return; if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); requestAiFight({ opponentId: ai.id, opponentLevel: ai.level ?? character.level, battleKind: "mission", opponentName: ai.name, enemyAvatar: ai.image, playLocally: () => { setPendingAiProfileId(ai.id); setScreen("arena"); } }); }
+    function startCreatorMissionBattle(mission: CreatorMission) { if (!requireServerSettlement("fieldHuntMissions")) return; if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); requestAiFight({ opponentId: ai.id, opponentLevel: ai.level ?? character.level, battleKind: "mission", opponentName: ai.name, enemyAvatar: ai.image }); }
     function acceptFetchMission(mission: CreatorMission) { if (!requireServerSettlement("fieldHuntMissions")) return; if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds((prev) => [...prev, mission.id]); setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 })); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}, then return to the Mission Hall to claim the posted reward.`); }
     // Server-authoritative field claims. Unknown/creator-authored mission ids are
     // rejected by the server instead of paid locally.

@@ -2,6 +2,7 @@ import { MissionArenaFight } from "./MissionArenaFight";
 import type { Character } from "../types/character";
 import type { TowerSession } from "../lib/towers-api";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
+import { towerArenaTransport, towerSessionForArena } from "../lib/tower-arena-adapter";
 
 // Weekly Boss = a SOLO score-attack against an unkillable, server-shared boss,
 // rendered on the normal Arena shell (MissionArenaFight) — the same format as
@@ -44,7 +45,8 @@ export function WeeklyBossFight({
             character={character}
             sharedImages={sharedImages}
             runId={runId}
-            initialSession={initialSession}
+            initialSession={towerSessionForArena(initialSession)}
+            transport={towerArenaTransport}
             settleFn={settleFn}
             settleOnAnyDone
             outcomeFn={reportOutcome}

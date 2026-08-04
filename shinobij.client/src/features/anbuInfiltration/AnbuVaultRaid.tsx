@@ -36,6 +36,7 @@ import {
     type InfilReportResponse,
 } from "../../lib/anbu-infiltration-api";
 import { MissionArenaFight } from "../../screens/MissionArenaFight";
+import { createTowerArenaTransport, towerSessionForArena } from "../../lib/tower-arena-adapter";
 import { getAllItems } from "../../lib/items";
 import { getBloodlineMultiplier } from "../../lib/combat-math";
 import { getPvpItemLoadout, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus } from "../../lib/equipment-stats";
@@ -49,6 +50,10 @@ const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48
 // mid-fight reload can rejoin the server run (the BattleTowers TOWER_RUN_KEY
 // pattern). Cleared on clean exits and on resolution.
 const INFIL_RUN_KEY = "anbuInfiltration.activeRun";
+const infiltrationArenaTransport = createTowerArenaTransport({
+    submit: infiltrationAct,
+    state: async (runId, playerName) => (await fetchInfiltrationState(runId, playerName)).session,
+});
 
 type Phase = "traverse" | "fight" | "result";
 
@@ -312,7 +317,8 @@ export function AnbuVaultRaid({
                 character={character}
                 sharedImages={sharedImages}
                 runId={fight.runId}
-                initialSession={fight.session}
+                initialSession={towerSessionForArena(fight.session)}
+                transport={infiltrationArenaTransport}
                 onExit={() => {
                     // Leaving pre-report abandons the run (the attempt stays
                     // burned — the raid-start mint-cap rule); post-report just
@@ -323,7 +329,6 @@ export function AnbuVaultRaid({
                 onRecordBattle={onRecordBattle}
                 recordMode="Anbu Vault"
                 enemyAvatarOverride={anbuAvatar ?? undefined}
-                actionFn={infiltrationAct}
                 settleFn={settleInfiltration}
                 settleOnAnyDone
                 renderResult={({ settleState, retry }) => (

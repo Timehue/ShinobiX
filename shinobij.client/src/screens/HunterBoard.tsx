@@ -44,8 +44,6 @@ export function HunterBoard({
     // Was declared in the prop type but never destructured — a leftover from an
     // older "fight straight from the board" path. The Apex Contract is exactly
     // that, so it finally has a use.
-    setPendingAiProfileId,
-    setRaidBattleKind,
     setScreen,
 }: {
     character: Character;
@@ -200,11 +198,6 @@ export function HunterBoard({
             opponentLevel: character.level,
             battleKind: "raidAi",
             opponentName: apexBeastForWeek(apexWeek).name,
-            playLocally: () => {
-                setPendingAiProfileId(apexAiId);
-                setRaidBattleKind("raidAi");
-                setScreen("arena");
-            },
         });
     }
 

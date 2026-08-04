@@ -12,6 +12,7 @@ import {
 } from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
+import { towerArenaTransport, towerSessionForArena } from "../lib/tower-arena-adapter";
 
 // Story-boss fights render through MissionArenaFight — the SAME server-authoritative
 // arena shell combat missions use (a sealed tower:<runId> session, /api/towers/action
@@ -144,7 +145,8 @@ export function StoryBossFightHost({
             <MissionArenaFight
                 character={character}
                 runId={fight.runId}
-                initialSession={fight.session}
+                initialSession={towerSessionForArena(fight.session)}
+                transport={towerArenaTransport}
                 sharedImages={sharedImages}
                 savedBloodlines={savedBloodlines}
                 creatorJutsus={creatorJutsus}

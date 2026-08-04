@@ -1,16 +1,16 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { serverAiCombatEnabled } from '../_release-flags.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { writeSession } from '../towers/_tower-store.js';
-import type { TowerSession } from '../towers/_tower-session.js';
-import { buildAiFightEncounter, loadAiFightProfile } from './_ai-fight-encounter.js';
+import { loadAiFightProfile } from './_ai-fight-encounter.js';
+import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { writeSoloPveSession } from '../solo-pve/_store.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
@@ -27,42 +27,33 @@ import {
  * so a direct client report can no longer mint arbitrary rewards.
  *
  * It ALSO seals a real server-resolved encounter for the fight (step 2 of
- * docs/runbooks/combat-mode-migration.md) and returns its `runId` + `session`,
- * so the client plays the fight on the tower engine instead of the local Arena
- * engine. This ships ON; `DISABLE_SERVER_AI_COMBAT=1` is the rollback. The token
- * is minted either way: sealing the encounter is purely ADDITIVE, and a failure
- * to seal one degrades to the local path rather than failing the fight.
+ * docs/runbooks/combat-mode-migration.md) and returns its mandatory standalone
+ * solo-PvE session. The token is minted only after that authority is persisted.
  */
 
 /**
- * Build + persist the sealed encounter for this fight, returning its runId AND
- * the sealed session.
+ * Build and persist the mandatory standalone encounter for this fight.
  *
  * The session is returned because the client's server-combat screen
- * (`MissionArenaFight`) takes `initialSession` as a REQUIRED prop — step 3d
- * cannot mount the shell from a runId alone. This mirrors
- * `api/story/boss-start.ts`, which has always returned `{ ok, runId, session }`
- * for exactly that reason. The sealed session carries combat fields but no art,
+ * (`MissionArenaFight`) takes `initialSession` as a required prop. The sealed
+ * session carries combat fields but no art,
  * so this adds no image payload.
  *
- * Returns undefined on ANY failure (unknown opponent, missing save, storage
- * error). That is deliberate: a sealing problem must never block a player from
- * starting a fight they can already start today. A missing runId means "play it
- * locally", which is the same fallback the flag itself provides.
+ * Unknown opponents are rejected; persistence failures propagate to the route's
+ * fail-closed error response. No client-resolved combat path exists here.
  */
 async function sealAiFightEncounter(
     playerName: string,
     body: Record<string, unknown>,
     rawSave: Record<string, unknown>,
-): Promise<{ runId: string; session: TowerSession } | undefined> {
-    try {
+): Promise<{ sessionId: string; session: SoloPveSession } | null> {
         const profile = await loadAiFightProfile(body.opponentId);
-        if (!profile) return undefined;
+        if (!profile) return null;
         // Same augmentation combat-start applies, so a forged weapon resolves to
         // its real definition instead of being dropped from the sealed loadout.
         const save = await augmentSaveWithForgedDefs(rawSave);
-        if (!save?.character) return undefined;
-        const runId = `aifight-${randomUUID().replace(/-/g, '')}`;
+        if (!save?.character) throw new Error('Authoritative player save is unavailable.');
+        const sessionId = `aifight-${randomUUID().replace(/-/g, '')}`;
         // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
         // for the encounter — a client-chosen level is a client-chosen
         // difficulty. Combat missions are the only entry point that re-levels
@@ -73,25 +64,17 @@ async function sealAiFightEncounter(
             battleKind: body.battleKind,
             playerLevel: (save.character as Record<string, unknown> | undefined)?.level,
         });
-        const session = buildAiFightEncounter({
+        const session = buildSoloPveAiEncounter({
             playerName,
             save,
             profile,
-            runId,
-            seed: randomInt(1, 0x7fffffff),
+            sessionId,
             now: Date.now(),
             ...(scaling ? { scaling } : {}),
             admin: await loadAdminCombatContent(),
-            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object'
-                ? body.hostLoadout as Record<string, unknown>
-                : undefined,
         });
-        await writeSession(session);
-        return { runId, session };
-    } catch (err) {
-        console.error('[missions/ai-fight-start] seal failed', safeLogValue(err));
-        return undefined;
-    }
+        await writeSoloPveSession(session);
+        return { sessionId, session };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -116,14 +99,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!save || !character) return res.status(404).json({ error: 'Player save not found.' });
         const reward = computeAiFightBaseReward(character);
 
-        // Seal the server-side encounter BEFORE minting the token so the token
-        // can carry its runId (one token = one battle lifecycle). Best-effort:
-        // an unknown opponent or any sealing failure leaves runId undefined and
-        // the fight runs the existing client path, unchanged.
-        const sealed = serverAiCombatEnabled()
-            ? await sealAiFightEncounter(playerName, body, save)
-            : undefined;
-        const runId = sealed?.runId;
+        // Persist combat authority before minting its one-battle reward token.
+        const sealed = await sealAiFightEncounter(playerName, body, save);
+        if (!sealed) return res.status(404).json({ error: 'AI opponent is not published on the server.' });
 
         const token = randomUUID().replace(/-/g, '');
         const record = createAiFightTokenRecord(playerName, token, Date.now(), {
@@ -132,7 +110,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             baseXp: reward.xp,
             baseRyo: reward.ryo,
             battleKind: body.battleKind,
-            runId,
+            sessionRuntime: 'solo-pve',
+            sessionId: sealed.sessionId,
         });
         await kv.set(aiFightTokenKey(playerName, token), record, { ex: AI_FIGHT_TOKEN_TTL_SECONDS });
 
@@ -145,11 +124,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             baseXp: record.baseXp,
             baseRyo: record.baseRyo,
             trait: reward.trait,
-            // `session` rides along with `runId` so the client can mount the
-            // server-combat screen directly (step 3d). Both are absent together
-            // when no encounter was sealed, which is the "play it locally"
-            // signal — the client must keep working on runId-absent.
-            ...(record.runId && sealed ? { runId: record.runId, session: sealed.session } : {}),
+            // The client mounts only from this complete authority response.
+            sessionId: sealed.sessionId,
+            session: sealed.session,
         });
     } catch (err) {
         console.error('[missions/ai-fight-start]', safeLogValue(err));

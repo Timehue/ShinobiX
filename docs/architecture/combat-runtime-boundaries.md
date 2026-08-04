@@ -25,7 +25,7 @@ server-authoritative PvE engine.
 | Casual/ranked/war PvP | Server | `PvpSession`, `pvp:<battleId>` | Keep `pvp` |
 | Battle Towers / Endless Spire | Server | `TowerSession`, `tower:<runId>` | Keep `tower` |
 | Clan boss / party-special encounters | Server | Tower-shaped N-actor session | Keep special/Tower ownership |
-| Generic catalog AI fights | Server for catalog opponents; local fallback for unresolved temporary opponents | `TowerSession` from `missions/ai-fight-start` | Move to `solo-pve`; remove outcome-authoritative fallback |
+| Generic catalog AI fights | Server | `SoloPveSession` from `missions/ai-fight-start`; normal Arena presentation adapter | Keep `solo-pve`; unknown profiles and server failures fail closed |
 | C/B/A/S combat missions | Server | Tower-shaped session from `missions/combat-start` | Move to `solo-pve` |
 | E/D combat missions | Client outcome remains accepted | Local Arena plus queue claim | Move to `solo-pve`, then delete trust exception |
 | Story bosses | Server | Tower-shaped session from `story/boss-start` | Move to `solo-pve` |

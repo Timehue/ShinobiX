@@ -7,15 +7,8 @@ import type { AiFightBattleKind } from "./ai-fight-api";
  * wanderers, explore ambushes, sector raids, field/E-rank missions — emits one
  * request here instead of arranging the local Arena itself. The single host
  * (components/AiFightHost, mounted once in App) starts the sealed fight and
- * routes it: onto the server-combat screen when the server sealed an encounter,
- * otherwise back to the caller's own local Arena setup via `playLocally`.
- *
- * `playLocally` is the DESIGNED DEGRADE, not a feature gate. It runs whenever
- * the server sealed nothing — a client-authored `temp-*` opponent the catalog
- * cannot resolve, a storage error, a failed seal — so the fight always happens.
- * It is also what runs when no host is mounted at all, which keeps every caller
- * correct by construction: emitting a request can never drop a fight on the
- * floor.
+ * routes it onto the standalone server-combat screen. If the App host is absent,
+ * the request fails closed and no combat or reward is resolved on the client.
  *
  * ORDERING: the fight is started BEFORE the battle screen is chosen. The old
  * path minted its token from inside the battle (a `battleStarted` effect in
@@ -24,7 +17,7 @@ import type { AiFightBattleKind } from "./ai-fight-api";
  */
 
 export type AiFightRequest = {
-    /** Catalog/admin AI id. A `temp-*` id simply never seals and plays locally. */
+    /** Published catalog/admin AI id. */
     opponentId: string;
     /** The level the fight is fought at — sealed onto the reward token. */
     opponentLevel: number;
@@ -41,11 +34,6 @@ export type AiFightRequest = {
     sector?: number;
     /** Where the player returns to when the server fight closes. */
     returnScreen?: string;
-    /**
-     * Arrange and enter the caller's existing LOCAL Arena fight. Called when no
-     * server encounter was sealed, and when no host is mounted.
-     */
-    playLocally: () => void;
 };
 
 type Listener = (request: AiFightRequest) => void;
@@ -58,15 +46,11 @@ export function onAiFightRequest(fn: Listener): () => void {
 }
 
 /**
- * Launch one AI fight through the host. Returns false when no host was mounted,
- * in which case the caller's `playLocally` has ALREADY been run — callers do not
- * need to handle the return value, it exists for tests and diagnostics.
+ * Launch one AI fight through the host. Returns false when no host is mounted;
+ * callers use that only for diagnostics because App owns the singleton host.
  */
 export function requestAiFight(request: AiFightRequest): boolean {
-    if (!listener) {
-        request.playLocally();
-        return false;
-    }
+    if (!listener) return false;
     listener(request);
     return true;
 }

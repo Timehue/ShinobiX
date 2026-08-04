@@ -158,6 +158,6 @@ test("the bus accepts exactly the battle kinds the token record recognises", () 
     // 'practice' server-side, which pays nothing — so a typo here would quietly
     // zero out a reward instead of failing.
     for (const battleKind of ["practice", "mission", "raidAi", "defense", "explore", "endless"] as const) {
-        assert.equal(requestAiFight({ opponentId: "x", opponentLevel: 1, battleKind, playLocally: () => {} }), false);
+        assert.equal(requestAiFight({ opponentId: "x", opponentLevel: 1, battleKind }), false);
     }
 });

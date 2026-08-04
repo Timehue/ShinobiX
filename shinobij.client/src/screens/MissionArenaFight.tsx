@@ -10,10 +10,12 @@ import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted,
     // Command-deck glyphs (one per basic action), matching Arena + PvP.
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "react-icons/gi";
 import type { Character, BattleHistoryEntry } from "../types/character";
-import {
-    submitTowerAction, fetchTowerState, TOWER_TURN_AFK_MS,
-    type TowerSession, type TowerStatus,
-} from "../lib/towers-api";
+import type {
+    ServerArenaAction,
+    ServerArenaSession,
+    ServerArenaStatus,
+    ServerArenaTransport,
+} from "../lib/server-arena-runtime";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
@@ -48,18 +50,18 @@ import { tagMatchesName } from "../lib/tags";
 import { gameConfirm } from "../components/GameAlert";
 
 // ─── Solo Arena Fight (missions + story bosses) ───────────────────────────────
-// Renders a server-authoritative solo 1v1 sealed session (tower:<runId>) using
+// Renders any server-authoritative solo 1v1 session using
 // the SAME shell as the normal Arena PvE duel — CombatSideHud dossiers, the
 // arena-top-panel header, the dual-AP bar, the identical 12×10 hex board, and the
 // basic-action-bar + jutsu/item cards — instead of the tactical "Battle Tower"
 // rail layout. The fight is still resolved 100% server-side: every button submits
-// a move to /api/towers/action and reflects the returned session; nothing is
+// an intent through the selected runtime transport and reflects returned state; nothing is
 // computed on the client. This closes the "combat looks like an older PvP model"
 // gap while keeping the reward-integrity guarantee (the reward is settled on a
 // completed server session, not a client-attested outcome).
 //
 // TWO callers share this screen because their fights are structurally identical
-// (both are solo `defeat-boss` TowerSessions built by buildAuthoritativeSoloEncounter):
+// (all adapt their authority into the presentation-only ServerArenaSession):
 //   • Missions (Missions.tsx) — settles via /api/missions/queue-combat-claim.
 //   • Story bosses (StoryBossFightHost.tsx) — settles via /api/story/settle and
 //     passes `storyTheme` (backdrop/chapter label/boss barks) + a `renderResult`
@@ -90,8 +92,8 @@ function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
 }
 const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j) && j!.target === "SELF";
 
-// TowerStatus → CombatSideHud status shape (it requires an explicit kind).
-function hudStatuses(statuses: TowerStatus[] | undefined): { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
+// Runtime status → CombatSideHud status shape (it requires an explicit kind).
+function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
     return (statuses ?? []).map((s) => ({
         name: s.name,
         rounds: s.rounds,
@@ -115,7 +117,7 @@ export function MissionArenaFight({
     storyTheme,
     coach,
     renderResult,
-    actionFn,
+    transport,
     settleOnAnyDone,
     outcomeFn,
     onRecordBattle,
@@ -125,7 +127,7 @@ export function MissionArenaFight({
     character: Character;
     sharedImages?: Record<string, string>;
     runId: string;
-    initialSession: TowerSession;
+    initialSession: ServerArenaSession;
     /** Mission label (e.g. "C-Rank Patrol") shown on the result banner. */
     missionName?: string;
     /** The player's own jutsu catalog — the SEALED session's jutsu carry combat
@@ -160,10 +162,8 @@ export function MissionArenaFight({
         retry: () => void;
         onExit: () => void;
     }) => ReactNode;
-    /** Action-sender override — the Anbu Vault fight submits moves to its own route
-     *  (api/village/anbu-infiltration action:'act') instead of /api/towers/action.
-     *  Same request/response shape (both run the shared tower engine). */
-    actionFn?: typeof submitTowerAction;
+    /** Explicit runtime boundary. The Arena shell only renders returned state. */
+    transport: ServerArenaTransport;
     /** Settle on ANY resolution, not just a squad win — the Weekly Boss banks damage
      *  on a knockout, and the Anbu raid reports win OR loss. Default (unset) keeps the
      *  mission/story rule of settling only on a win. */
@@ -189,7 +189,7 @@ export function MissionArenaFight({
      */
     outcomeFn?: (runId: string, playerName: string) => Promise<unknown>;
 }) {
-    const [session, setSession] = useState<TowerSession>(initialSession);
+    const [session, setSession] = useState<ServerArenaSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [selWeaponId, setSelWeaponId] = useState<string>("");
@@ -246,11 +246,10 @@ export function MissionArenaFight({
     const enemyPos = enemy?.pos ?? -1;
     const biome = String(session.map.biome ?? "central");
 
-    // Reconnect: if mounted without a fresh session, pull the latest once.
+    // Reconnect: always pull the latest revision once after mounting.
     useEffect(() => {
-        if (initialSession.status === "active") return;
-        fetchTowerState(runId, me).then(setSession).catch(() => {});
-    }, [runId, me, initialSession.status]);
+        transport.fetchState(runId, me).then(setSession).catch(() => {});
+    }, [runId, me, transport]);
 
     // While it is NOT our turn, poll so we see the enemy's moves and learn the
     // instant it is our turn again. A poll also nudges the server's AFK auto-pass.
@@ -259,10 +258,10 @@ export function MissionArenaFight({
         let alive = true;
         const id = setInterval(() => {
             if (document.visibilityState === "hidden") return;
-            fetchTowerState(runId, me).then(s => { if (alive) setSession(s); }).catch(() => {});
+            transport.fetchState(runId, me).then(s => { if (alive) setSession(s); }).catch(() => {});
         }, 2500);
         return () => { alive = false; clearInterval(id); };
-    }, [session.status, myTurn, runId, me]);
+    }, [session.status, myTurn, runId, me, transport]);
 
     // Auto-settle the win (queue the claim). Losses/draws pay nothing — the run
     // just resolves and the player exits back to the Mission Hall.
@@ -462,7 +461,7 @@ export function MissionArenaFight({
         return new Set<number>();
     })();
 
-    async function send(action: Parameters<typeof submitTowerAction>[2]) {
+    async function send(action: ServerArenaAction) {
         if (busy) return;
         // Display-only tutorial progress (drives the SparCoach banner). Recorded
         // on SUBMIT rather than from the log so the hint advances the moment the
@@ -471,7 +470,7 @@ export function MissionArenaFight({
         if (action.type === "jutsu") setSparCasted(true);
         setBusy(true); setReject(null);
         try {
-            const res = await (actionFn ?? submitTowerAction)(runId, me, action);
+            const res = await transport.submitAction(runId, me, session, action);
             setSession(res.session);
             if (!res.applied) setReject(res.reason ?? "That move wasn't allowed.");
         } catch (e) {
@@ -593,6 +592,15 @@ export function MissionArenaFight({
     async function leaveFight() {
         if (done) { onExit(); return; }
         if (!(await gameConfirm("Leave this fight? You'll forfeit the run — no reward, and you take the loss."))) return;
+        if (transport.forfeit) {
+            try {
+                const result = await transport.forfeit(runId, me, session);
+                setSession(result.session);
+            } catch (error) {
+                setReject(String((error as Error)?.message ?? error));
+                return;
+            }
+        }
         // Report the forfeit BEFORE unmounting. Leaving an unresolved run used to
         // be free, which made walking out of a fight you were losing strictly
         // better than finishing it — the server scores an unresolved session as a
@@ -689,7 +697,7 @@ export function MissionArenaFight({
                             <CombatRoundTimer
                                 active={myTurn && !done}
                                 resetSignal={session.round * 100 + session.actionsThisTurn}
-                                seconds={Math.round(TOWER_TURN_AFK_MS / 1000)}
+                                seconds={Math.round(transport.turnTimeoutMs / 1000)}
                                 onExpire={() => { if (myTurn) void send({ type: "wait" }); }}
                             />
                         ) : (

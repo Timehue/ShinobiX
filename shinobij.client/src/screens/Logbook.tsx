@@ -38,8 +38,6 @@ export function Logbook({
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
-    setPendingAiProfileId,
-    setRaidBattleKind,
     setCurrentSector,
     setCurrentBiome,
     setCurrentWeather,
@@ -160,11 +158,6 @@ export function Logbook({
             battleKind: "raidAi",
             opponentName: raid.name,
             sector: raid.targetSector,
-            playLocally: () => {
-                setPendingAiProfileId(raid.aiProfileId || "");
-                setRaidBattleKind("raidAi");
-                setScreen("arena");
-            },
         });
     }
 
@@ -225,10 +218,6 @@ export function Logbook({
             battleKind: "practice",
             opponentName: ai.name,
             enemyAvatar: ai.image,
-            playLocally: () => {
-                setPendingAiProfileId(ai.id);
-                setScreen("arena");
-            },
         });
     }
 
