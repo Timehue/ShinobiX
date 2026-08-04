@@ -41,18 +41,10 @@ export type PveBandMode =
 /*
  * TWO SERVER PvE MODES ARE DELIBERATELY NOT ARMED HERE.
  *
- * • WEEKLY BOSS. Its intended boss→player clamp is the client's
- *   `weeklyBossGuardedHit` — 8% per hit / 15% per turn, with NO band and NO
- *   mercy floor, because the boss must stay a grind. That is roughly 5x TIGHTER
- *   than the standard hard band this module would install (45% / 70%), so
- *   arming the standard guard here would apply the wrong mechanic, not a safer
- *   one. `weeklyBossGuardedHit` was never ported to the server, so the server
- *   weekly boss currently has NO boss→player clamp at all while the client has
- *   one. That gap is real, but closing it means porting the weekly-boss cycle —
- *   its own change, not this one. (Note: the per-hit cap in
- *   api/_weekly-boss-fight-token.ts is the OPPOSITE direction — anti-cheat
- *   validation of client-reported PLAYER→boss damage — and does not clamp
- *   anything the boss deals.)
+ * • WEEKLY BOSS. Its dedicated Solo PvE score-attack guard lives in
+ *   `api/solo-pve/_engine.ts`: 8% per hit / 15% per turn with no peer band or
+ *   mercy floor, plus the player→boss open/guarded cycle. Applying this generic
+ *   band as well would double-scale a deliberately bespoke encounter.
  *
  * • ANBU VAULT. Its opponent is `getOrSealAnbuSnapshot(...)`, a sealed snapshot
  *   of a REAL player's ANBU defender. That is precisely the `opponentCharacter`

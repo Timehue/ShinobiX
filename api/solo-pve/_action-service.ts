@@ -117,7 +117,12 @@ export async function executeSoloPveAction(
             version: nextVersion,
             recentMoveTokens: [...session.recentMoveTokens, command.moveToken].slice(-SOLO_PVE_MOVE_TOKEN_HISTORY),
             lastActionAt: actionAt,
-            expiresAt: actionAt + (resolved.session.status === 'done' ? SOLO_PVE_TERMINAL_TTL_SECONDS : SOLO_PVE_SESSION_TTL_SECONDS) * 1000,
+            expiresAt: actionAt + (resolved.session.status === 'done'
+                ? SOLO_PVE_TERMINAL_TTL_SECONDS
+                : Math.max(
+                    SOLO_PVE_SESSION_TTL_SECONDS,
+                    Math.min(2 * 60 * 60, Math.floor(Number(resolved.session.activeTtlSeconds) || SOLO_PVE_SESSION_TTL_SECONDS)),
+                )) * 1000,
             ...(terminalEvidence ? { terminalEvidence } : {}),
         };
         await write(next);

@@ -128,7 +128,9 @@ export function buildSoloPveAiEncounter(params: {
     /** @deprecated Accepted only for wire compatibility; never combat-authoritative. */
     hostLoadout?: Record<string, unknown>;
     scaling?: SoloPveAiScaling;
-    difficultyMode?: PveBandMode;
+    difficultyMode?: PveBandMode | false;
+    weeklyBossRoundBudget?: number;
+    activeTtlSeconds?: number;
     encounter?: SoloPveEncounter;
     environment?: Partial<SoloPveEnvironment>;
     env?: NodeJS.ProcessEnv;
@@ -147,7 +149,9 @@ export function buildSoloPveAiEncounter(params: {
             resolveAiProfileJutsu(params.profile.jutsuIds, params.admin),
         ) as unknown as SoloPveAiProfile
         : params.profile;
-    const banded = pveDifficultyGuardEnabled(params.difficultyMode ?? 'AI_FIGHT', params.env ?? process.env);
+    const banded = params.difficultyMode === false
+        ? false
+        : pveDifficultyGuardEnabled(params.difficultyMode ?? 'AI_FIGHT', params.env ?? process.env);
     const hydrated = hydrateCharacterFromSave(
         saveCharacter,
         {},
@@ -174,5 +178,7 @@ export function buildSoloPveAiEncounter(params: {
         itemCharges: sealItemCharges(hydrated, saveCharacter),
         companion: sealCompanionFromSave(saveCharacter, params.now),
         ...(banded ? { difficultyEnemyLevel: Number(enemy.character.level) || 1 } : {}),
+        ...(Number(params.weeklyBossRoundBudget) > 0 ? { weeklyBossRoundBudget: params.weeklyBossRoundBudget } : {}),
+        ...(Number(params.activeTtlSeconds) > 0 ? { activeTtlSeconds: params.activeTtlSeconds } : {}),
     });
 }

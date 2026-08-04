@@ -4,7 +4,7 @@ import "../styles/battle-skin.css";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
     GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
-    GiColiseum, GiFirstAidKit, GiScrollUnfurled,
+    GiColiseum, GiFirstAidKit,
     GiVillage, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
     GiRollingDices, GiTwoCoins,
     // Command-deck glyphs (one per basic action).
@@ -12,7 +12,6 @@ import {
 } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
-type WeeklyBossDamageProofEvent = { turn: number; amount: number; source: string };
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord, BattleHistoryEntry } from "../types/character";
@@ -49,7 +48,7 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { cappedPostDamage, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence, weeklyBossGuardedHit, weeklyBossDamageMultiplier, isWeeklyBossOpenRound } from "../lib/pve-difficulty";
+import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -132,7 +131,6 @@ export function Arena({
     onPendingStoryBattleWin,
     onPendingStoryBattleContinue,
     onDungeonFail,
-    onWeeklyBossLogDamage,
     onMissionRaidComplete,
     onHuntBeastDefeated,
     missionBattleActive = false,
@@ -179,7 +177,6 @@ export function Arena({
         survivingHp?: number,
     ) => void | Promise<void>;
     onDungeonFail?: () => void | Promise<void>;
-    onWeeklyBossLogDamage?: (damageDealt: number, damageEvents?: WeeklyBossDamageProofEvent[]) => void;
     onMissionRaidComplete?: (sector: number, battleId?: string) => void;
     onHuntBeastDefeated?: (defeatedAiId: string) => void;
     missionBattleActive?: boolean;
@@ -667,13 +664,7 @@ export function Arena({
     // (a live opponentCharacter is gated out by isStandardPve). See
     // lib/pve-difficulty.ts.
     const isStandardPve = !opponentCharacter && !rankedBattleActive;
-    // The weekly boss uses a sentinel HP (99,999,999) as an unkillable damage-race
-    // meter and reports damage as (bossInitialHp - enemyHp), where bossInitialHp is
-    // the RAW sentinel. It must NOT get the PvE band HP multiplier: scaling enemyHp
-    // (but not bossInitialHp) would start enemyHp ~8M below bossInitialHp and inflate
-    // every damage reading by that fixed offset. Keep the boss at its full sentinel HP.
-    const isWeeklyBossFight = pendingStoryBattle?.kind === "weeklyBoss";
-    const enemyHpDifficultyFactor = (isStandardPve && !isWeeklyBossFight) ? pveDifficultyHpMultiplier(opponentLevel) : 1;
+    const enemyHpDifficultyFactor = isStandardPve ? pveDifficultyHpMultiplier(opponentLevel) : 1;
     const enemyMaxHp = Math.max(1, Math.floor((opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel)) * enemyHpDifficultyFactor));
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
@@ -697,16 +688,6 @@ export function Arena({
     // so the per-turn cap bounds a chained turn, not just one hit). Non-standard PvE
     // (live PvP, endless, ranked) bypasses the guard entirely. See pve-difficulty.ts.
     const guardEnemyHit = (rawDamage: number): number => {
-        // Weekly boss is a survivable GRIND, not a glass cannon: clamp its hit to a
-        // small fraction of the player's max HP (per-hit + per-turn ceiling), so a
-        // 10k-HP fighter endures many rounds instead of being ~one-shot by the raw
-        // stat sheet. Tracks enemyTurnDealtRef so the per-turn ceiling bounds a
-        // chained multi-action boss turn. See pve-difficulty.ts weeklyBossGuardedHit.
-        if (isWeeklyBossFight) {
-            const capped = weeklyBossGuardedHit(rawDamage, character.maxHp, enemyTurnDealtRef.current);
-            enemyTurnDealtRef.current += capped;
-            return capped;
-        }
         if (!isStandardPve) return Math.max(0, Math.floor(Number.isFinite(rawDamage) ? rawDamage : 0));
         const guarded = pveGuardedEnemyHit(rawDamage, {
             enemyLevel: opponentLevel,
@@ -809,23 +790,7 @@ export function Arena({
         else if (battleResult === "loss" || battleResult === "fled") playPetSfx("ko");
         if (battleResult) stampWandererFightResult(battleResult);
     }, [battleResult]);
-    // In-flight guard for the weekly-boss "Log Damage & Return" button. The handler
-    // (onWeeklyBossLogDamage) fires a logFight POST and navigates away, so a fast
-    // double-click would otherwise submit two attempts and double-count the damage.
-    // Set on click, disable the button while true; the handler leaves the screen so
-    // no reset is needed.
-    const [logging, setLogging] = useState(false);
     const [storySettlementPending, setStorySettlementPending] = useState(false);
-    const weeklyBossDamageEventsRef = useRef<WeeklyBossDamageProofEvent[]>([]);
-    function recordWeeklyBossDamage(amount: number, source: string) {
-        if (!isWeeklyBossFight) return;
-        const cleanAmount = Math.max(0, Math.floor(Number(amount) || 0));
-        if (cleanAmount <= 0) return;
-        weeklyBossDamageEventsRef.current = [
-            ...weeklyBossDamageEventsRef.current,
-            { turn: Math.max(1, Math.floor(turn || 1)), amount: cleanAmount, source },
-        ].slice(-120);
-    }
     // True only for an explore-ambush win. winBattle sets it (the exploreAmbushActive
     // prop is cleared by onExploreAmbushWon in the same call, so we capture it here)
     // and the victory overlay reads it to offer a single "Return to Sector" exit
@@ -1113,15 +1078,6 @@ export function Arena({
         const absorbed = absorbPct > 0 ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbPct))) : 0;
         const reflected = reflectPct > 0 ? Math.floor(cappedPostDamage(rawDamage, reflectPct)) : 0;
         let net = Math.max(0, rawDamage - absorbed);
-        // Weekly boss GUARD CYCLE: most rounds its guard is up and soaks the brunt
-        // of the blow (net ×0.30); every few rounds the guard drops for an OPEN
-        // round where the player lands double damage (net ×2.0). Pierce already
-        // returned above, so piercing jutsu ignore the guard entirely — a
-        // deliberate counter to the defensive stance. See pve-difficulty.ts
-        // weeklyBossDamageMultiplier. (Never touches other PvE / PvP damage.)
-        if (isWeeklyBossFight && net > 0) {
-            net = Math.max(1, Math.floor(net * weeklyBossDamageMultiplier(turn)));
-        }
         // `absorbed` is returned so callers can LOG it — it used to silently
         // shrink the damage number, which read as "the AI's Absorb did nothing".
         return { net, reflected, absorbed };
@@ -1565,27 +1521,6 @@ export function Arena({
         setBattleHistory((current) => [{ round: turn, actor, actorRole, actionId, description: entry, actionNumber: (current[0]?.actionNumber ?? 0) + 1, createdAt: Date.now() }, ...current].slice(0, 40));
     }
 
-    // Weekly boss guard-cycle telegraph: announce each round whether the boss's
-    // guard is UP (your blows are soaked) or DOWN (an open round — double damage).
-    // Fires on entry and on every state change so the player can time their burst
-    // for the window. The guard-up line carries the siphon/lifesteal flavor that
-    // gives the boss its defensive identity; the guard-down line is the call to act.
-    const weeklyBossGuardOpenRef = useRef<boolean | null>(null);
-    useEffect(() => {
-        if (!isWeeklyBossFight || !battleStarted || battleEnded) { weeklyBossGuardOpenRef.current = null; return; }
-        const open = isWeeklyBossOpenRound(turn);
-        if (weeklyBossGuardOpenRef.current === open) return;
-        weeklyBossGuardOpenRef.current = open;
-        addCombatLog(
-            open
-                ? `${opponentName}'s guard drops — strike now, this round deals double!`
-                : `${opponentName} raises its guard, siphoning vitality and soaking the brunt of your blows.`,
-            "system",
-            opponentName,
-            "enemy",
-        );
-    }, [turn, isWeeklyBossFight, battleStarted, battleEnded]);
-
     function xy(pos: number) {
         return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) };
     }
@@ -1841,7 +1776,6 @@ export function Arena({
         }
         const newEnemyHp = Math.max(0, enemyHp - dmg);
         setEnemyHp(newEnemyHp);
-        recordWeeklyBossDamage(dmg, "pet");
         if (dmg > 0) queueHitFx("e", dmg, "damage");
         const critNote = opts.crit ? " — CRITICAL HIT!" : "";
         const line = `${opts.sourceName} ${opts.verb ?? "attacks"} ${opponentName} for ${dmg} damage${critNote}${shieldNote}.`;
@@ -2480,7 +2414,6 @@ export function Arena({
         const basicSelfDamage = recoilDmg + enemyReflected;
         setEnemyShield((s) => Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - enemyNet)));
-        recordWeeklyBossDamage(enemyNet, "basic");
         queueHitFx("e", enemyNet, "damage");
         if (basicHeal > 0 || basicSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - basicSelfDamage)));
         queueHitFx("p", basicSelfDamage, "damage");
@@ -2731,7 +2664,6 @@ export function Arena({
         const wSelfDamage = wRecoilDmg + wEnemyReflected;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
-        recordWeeklyBossDamage(wEnemyNet, "item");
         queueHitFx("e", wEnemyNet, "damage");
         if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
         queueHitFx("p", wSelfDamage, "damage");
@@ -3686,7 +3618,6 @@ export function Arena({
         const { net: castEnemyNet, reflected: castEnemyReflected, absorbed: castEnemyAbsorbed } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - castEnemyNet)));
-        recordWeeklyBossDamage(castEnemyNet, "jutsu");
         queueHitFx("e", castEnemyNet, "damage");
         setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected - poisonSpendDmg)));
         queueHitFx("p", recoilDamage + castEnemyReflected + poisonSpendDmg, "damage");
@@ -4413,17 +4344,14 @@ export function Arena({
         queueHitFx("e", healing, "heal");
         if (pReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - pReflected));
-            recordWeeklyBossDamage(pReflected, "reflect");
         }
         queueHitFx("e", pReflected, "damage");
         if (enemyRecoilDmg > 0) {
             setEnemyHp((hp) => Math.max(0, hp - enemyRecoilDmg));
-            recordWeeklyBossDamage(enemyRecoilDmg, "recoil");
         }
         queueHitFx("e", enemyRecoilDmg, "damage");
         if (enemyPoisonSpendDmg > 0) {
             setEnemyHp((hp) => Math.max(0, hp - enemyPoisonSpendDmg));
-            recordWeeklyBossDamage(enemyPoisonSpendDmg, "poison");
             queueHitFx("e", enemyPoisonSpendDmg, "damage");
         }
         setEnemyShield((s) => s + shield);
@@ -4579,13 +4507,11 @@ export function Arena({
         queueHitFx("p", Math.max(0, finalDamage - absorbed), "damage");
         if (statusReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - statusReflected));
-            recordWeeklyBossDamage(statusReflected, "reflect");
             queueHitFx("e", statusReflected, "damage");
             addCombatLog(`Reflect: ${opponentName} takes ${statusReflected} reflected damage.`, "reflect", character.name);
         }
         if (itemReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - itemReflected));
-            recordWeeklyBossDamage(itemReflected, "reflect");
             queueHitFx("e", itemReflected, "damage");
             addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
         }
@@ -4599,7 +4525,6 @@ export function Arena({
         const basicEnemyRecoilDmg = (basicEnemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, basicEnemyRecoil.percent ?? 30)) : 0;
         if (basicEnemyRecoilDmg > 0) {
             setEnemyHp((hp) => Math.max(0, hp - basicEnemyRecoilDmg));
-            recordWeeklyBossDamage(basicEnemyRecoilDmg, "recoil");
             queueHitFx("e", basicEnemyRecoilDmg, "damage");
             addCombatLog(`Recoil: ${opponentName} takes ${basicEnemyRecoilDmg} recoil damage.`, "reflect", character.name);
         }
@@ -4971,18 +4896,8 @@ export function Arena({
             }
         });
 
-        // The weekly boss guard cycle applies to the player's DoTs on the boss too,
-        // so a poison/bleed build can't bypass the defensive mechanic: the tick is
-        // soaked on guarded rounds and doubled on the open round, exactly like a
-        // direct hit. Chakra drain is a utility effect (not leaderboard damage) and
-        // is left unscaled. Weekly-boss only — no other PvE DoT is touched.
-        if (isWeeklyBossFight && dotDamage > 0) {
-            dotDamage = Math.max(1, Math.floor(dotDamage * weeklyBossDamageMultiplier(turn)));
-        }
-
         if (dotDamage > 0) {
             setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - dotDamage)));
-            recordWeeklyBossDamage(dotDamage, "dot");
             queueHitFx("e", dotDamage, "damage");
             if (drainChakra > 0) setEnemyChakra((c) => Math.max(0, c - drainChakra));
             const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra.` : "";
@@ -5024,7 +4939,6 @@ export function Arena({
         setBattleResult(null);
         setSelectedActionId(undefined);
         setPotionUsesThisBattle(0);
-        weeklyBossDamageEventsRef.current = [];
         setSummonedPetId("");
         setPetPos(63);
         setPetHp(0);
@@ -5754,24 +5668,6 @@ export function Arena({
                         {weatherEffects[currentWeather].negativeElement && (
                             <span className="twp-buff twp-negative">{weatherEffects[currentWeather].negativeElement} -2%</span>
                         )}
-                        {/* Weekly-boss guard cue lives in the strip (not the title
-                            panel) because the shared duel-dossier layout hides
-                            .arena-top-panel on desktop and mobile alike. */}
-                        {isWeeklyBossFight && (
-                            <>
-                                <span className="twp-strip-sep">·</span>
-                                <span style={{
-                                    fontWeight: 800,
-                                    letterSpacing: "0.05em",
-                                    color: isWeeklyBossOpenRound(turn) ? "#ffd166" : "#7fd1ff",
-                                    textShadow: isWeeklyBossOpenRound(turn) ? "0 0 10px rgba(255,209,102,0.55)" : "none",
-                                }}>
-                                    {isWeeklyBossOpenRound(turn)
-                                        ? "GUARD DOWN — STRIKE NOW (2× damage)"
-                                        : "GUARD UP — chip away, wait for the opening"}
-                                </span>
-                            </>
-                        )}
                     </div>
 
                     <div className="dual-ap-panel">
@@ -6329,30 +6225,12 @@ export function Arena({
                                         ? "Victory"
                                         : battleResult === "fled"
                                             ? "Escaped"
-                                            : pendingStoryBattle?.kind === "dungeonAi"
-                                                ? "The Seal Rejects You"
-                                                : pendingStoryBattle?.kind === "weeklyBoss"
-                                                    ? "Knocked Out by the Weekly Boss"
-                                                    : "Knocked Out"}
+                                        : pendingStoryBattle?.kind === "dungeonAi"
+                                            ? "The Seal Rejects You"
+                                            : "Knocked Out"}
                                 </h2>
                                 <p>{log}</p>
-                                {pendingStoryBattle?.kind === "weeklyBoss" && (battleResult === "loss" || battleResult === "fled") ? (
-                                    <>
-                                        <p style={{ color: "#facc15", fontSize: "0.9rem", margin: "0.5rem 0" }}>
-                                            Total damage dealt this attempt: <strong>{(pendingStoryBattle.bossInitialHp - enemyHp).toLocaleString()}</strong>.
-                                            {battleResult === "fled"
-                                                ? " Fleeing still counts as an attempt and logs your damage."
-                                                : ""}
-                                        </p>
-                                        <button
-                                            style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#facc15" }}
-                                            disabled={logging}
-                                            onClick={() => { setLogging(true); onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp, weeklyBossDamageEventsRef.current); }}
-                                        >
-                                            <GiScrollUnfurled style={ARENA_ICON} />Log Damage & Return
-                                        </button>
-                                    </>
-                                ) : battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
+                                {battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
                                     <>
                                         <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             Your Dungeon Key was consumed by the failed run. You return to your village empty-handed.

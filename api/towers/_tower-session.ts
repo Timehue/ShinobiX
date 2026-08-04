@@ -175,16 +175,6 @@ export type TowerSession = {
      * enemyTurnDealtRef.
      */
     pveGuard?: {
-        /**
-         * Which clamp this session runs. `standard` is the band curve above.
-         *
-         * `weeklyBoss` is a DIFFERENT mechanic, not a stricter setting of the
-         * same one: a flat 8%-per-hit / 15%-per-turn ceiling with no band and no
-         * mercy floor (the boss must stay a grind, not become survivable), plus
-         * the player→boss guard cycle. Absent means `standard`, so every session
-         * sealed before this field existed is unchanged.
-         */
-        kind?: 'standard' | 'weeklyBoss';
         enemyLevel: number;
         /** squad actor id → HP at the start of the current enemy turn */
         turnStartHp: Record<string, number>;

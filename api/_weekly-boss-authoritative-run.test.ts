@@ -1,20 +1,25 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { validateAuthoritativeWeeklyBossRun, type WeeklyBossAuthoritativeRun } from './_weekly-boss-authoritative-run.js';
-import type { TowerSession } from './towers/_tower-session.js';
+import type { SoloPveSession } from './solo-pve/_session.js';
 
 const run: WeeklyBossAuthoritativeRun = {
     runId: 'weekly-1', playerName: 'player', weekKey: '2026-W29', aiId: 'oni',
     bossStartedAt: 100, initialBossHp: 99_999_999, createdAt: 101,
 };
 const session = {
+    runtime: 'solo-pve',
+    schemaVersion: 1,
+    sessionId: 'weekly-1',
+    ownerSlug: 'player',
     status: 'done',
-    phaseState: { bossId: 'boss', pendingPhases: [], triggeredPhases: [] },
-    actors: [
-        { id: 'sq-0', side: 'squad', ownerSlug: 'player' },
-        { id: 'boss', side: 'enemy', ownerSlug: null, hp: 99_998_765 },
-    ],
-} as unknown as TowerSession;
+    terminalEvidence: { outcome: 'loss' },
+    encounter: {
+        kind: 'weekly-boss', id: '2026-W29', sourceId: 'oni', bindingId: 'weekly-1',
+        metadata: { weekKey: '2026-W29', bossStartedAt: 100 },
+    },
+    enemy: { hp: 99_998_765 },
+} as unknown as SoloPveSession;
 const boss = { weekKey: '2026-W29', aiId: 'oni', startedAt: 100 };
 
 function reasonOf(result: ReturnType<typeof validateAuthoritativeWeeklyBossRun>): string {
@@ -34,8 +39,9 @@ describe('authoritative Weekly Boss run validation', () => {
         assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run: { ...run, settledAt: 200 }, session, playerName: 'player', boss })), 'already-settled');
     });
 
-    it('rejects membership and boss-actor mismatches', () => {
-        assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, actors: session.actors.filter((a) => a.side !== 'squad') }, playerName: 'player', boss })), 'not-a-member');
-        assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, actors: session.actors.filter((a) => a.id !== 'boss') }, playerName: 'player', boss })), 'missing-boss');
+    it('rejects membership, encounter binding, and boss mismatches', () => {
+        assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, ownerSlug: 'other' }, playerName: 'player', boss })), 'not-a-member');
+        assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, encounter: { ...session.encounter, bindingId: 'forged' } }, playerName: 'player', boss })), 'stale-boss');
+        assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, enemy: null } as unknown as SoloPveSession, playerName: 'player', boss })), 'missing-boss');
     });
 });

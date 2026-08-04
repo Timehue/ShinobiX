@@ -37,16 +37,14 @@ export type PveMasteryMode =
 /*
  * NOT ARMED HERE, deliberately:
  *
- * • WEEKLY BOSS. It has NO boss→player clamp on the server at all — its
- *   `weeklyBossGuardedHit` (8%/hit, 15%/turn) is client-only and was never
- *   ported (see the api/_pve-band-seal.ts header). Tripling its jutsu damage
- *   with nothing bounding it is precisely the "mastery before the guard"
- *   failure the owner ruling forbids. It should land together WITH that port.
+ * • WEEKLY BOSS. It now runs on the independent Solo PvE engine, which seals
+ *   its own 8%/hit, 15%/turn guard and mastery. Tower-mode mastery must not
+ *   mutate that separate runtime.
  * • ANBU VAULT. Its opponent is a sealed snapshot of a REAL player, and
  *   `sealTowerFighter` already carries that player's OWN jutsuMastery. There is
  *   nothing missing to seal, and overwriting it would rewrite their loadout.
  * • AI FIGHTS. `buildAiFightEncounter` already seals its own mastery (step 3b).
- * • HOLLOW GATE. Still entirely client-built — not migrated, nothing to seal.
+ * • HOLLOW GATE. It now runs on the independent Solo PvE engine.
  *
  * ⚠ SPIRE gets its own switch because the Endless Spire's bosses are level 100,
  * which is the PEER band — where the hit guard is an intentional no-op ("endgame
