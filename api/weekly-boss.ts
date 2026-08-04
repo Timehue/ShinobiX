@@ -8,22 +8,16 @@ import { bumpSaveVersion } from './save/_save-version.js';
 import { bumpLegacyStats } from './_legacy-track.js';
 import { bumpEraContribution } from './_era.js';
 import { announce } from './_announce.js';
-import { randomInt, randomUUID } from 'node:crypto';
-import { consumeSingleUseToken } from './_single-use-token.js';
-import {
-    cleanWeeklyBossDamageEvents,
-    cleanWeeklyBossFightToken,
-    validateWeeklyBossFightClaim,
-    weeklyBossFightTokenKey,
-    type WeeklyBossFightToken,
-} from './_weekly-boss-fight-token.js';
-import {
-    WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
-    weeklyBossGuardEnabled,
-} from './_release-flags.js';
-import { buildAuthoritativeSoloEncounter, dynamicBossFloor, weeklyBossEnemyTemplate } from './_authoritative-pve.js';
+import { randomUUID } from 'node:crypto';
+import { weeklyBossGuardEnabled } from './_release-flags.js';
+import { weeklyBossEnemyTemplate } from './_authoritative-pve.js';
 import { loadAdminCombatContent } from './_admin-content.js';
-import { readSession, sessionKey, settleConsumedItemsForMember, writeSession } from './towers/_tower-store.js';
+import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
+import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from './solo-pve/_store.js';
+import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve/_settlement.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
+import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import {
     validateAuthoritativeWeeklyBossRun,
@@ -43,32 +37,6 @@ import {
 
 const WEEKLY_BOSS_STATE_KEY = 'game:weekly-boss-state';
 const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
-const WEEKLY_BOSS_COOLDOWN_KEY_PREFIX = 'rl:weekly-boss:';
-const WEEKLY_BOSS_COOLDOWN_SECONDS = 3;
-// Per-request damage hard ceiling for the legacy single-tap `damage` kind.
-// Kept for back-compat with old clients that haven't picked up the arena
-// flow yet. Server still uses per-actor stats for a tighter cap; this is
-// the absolute lid.
-const WEEKLY_BOSS_DMG_ABSOLUTE_CAP = 20000;
-// Per-fight damage ceiling for the new `logFight` kind. A full arena
-// duel against an unkillable boss can rack up significantly more damage
-// than a single tap, so this cap is much higher than the per-tap one
-// but still bounded to stop a tampered client from claiming nonsense.
-// There is NO flat per-fight ceiling — a legit fight's FULL damage always records
-// (a big, jutsu-heavy fight is never clipped). The client-reported total is only
-// bounded by a GENEROUS stat-scaled anti-tamper guard (below): so a tampered or
-// weak-stat account can't fabricate a huge score to steal MVP share, but no real
-// fight is ever capped. Admins are uncapped (testing).
-// Generous max attacks per fight (real fights ~30) — headroom, not a balance limit.
-const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 100;
-// Per-hit factor: raw offense stat × this approximates a strong jutsu hit (base
-// power + crit + weapon), which the raw stat alone badly understates. Deliberately
-// generous so a legit hit is never under-counted.
-const WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR = 4;
-// Stats unavailable (transient read failure) → a generous fallback bound rather
-// than a tight one, so a legit fight isn't clipped by a fluke.
-const WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP = 5_000_000;
-const WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 const WEEKLY_BOSS_RUN_TTL_SECONDS = 2 * 60 * 60;
 // Fight window after an admin spawns the boss. Widened 24h → 72h (gameplay-loop
 // audit M-3): the boss is spawned manually (the owner controls cadence — see
@@ -127,7 +95,41 @@ type WeeklyBossState = {
     // GET/POST resumes — instead of marking distributed up-front and silently
     // skipping survivors forever.
     creditedPlayers?: string[];
+    /** Per-spawn authoritative contribution receipts. Kept with the aggregate
+     * so banking damage and its idempotency marker are one atomic KV write. */
+    bankedRunDamage?: Record<string, number>;
 };
+
+export function applyWeeklyBossRunDamageReceipt(
+    boss: WeeklyBossState,
+    runId: string,
+    playerName: string,
+    damage: number,
+): { boss: WeeklyBossState; damage: number; replayed: boolean } {
+    const prior = boss.bankedRunDamage?.[runId];
+    if (Number.isFinite(prior)) {
+        return { boss, damage: Math.max(0, Math.floor(Number(prior))), replayed: true };
+    }
+    const logged = Math.max(0, Math.floor(Number(damage) || 0));
+    return {
+        boss: {
+            ...boss,
+            damageByPlayer: {
+                ...boss.damageByPlayer,
+                [playerName]: (boss.damageByPlayer[playerName] ?? 0) + logged,
+            },
+            bankedRunDamage: { ...(boss.bankedRunDamage ?? {}), [runId]: logged },
+        },
+        damage: logged,
+        replayed: false,
+    };
+}
+
+function publicWeeklyBossState(boss: WeeklyBossState | null): Omit<WeeklyBossState, 'bankedRunDamage'> | null {
+    if (!boss) return null;
+    const { bankedRunDamage: _privateReceipts, ...publicState } = boss;
+    return publicState;
+}
 
 
 // ISO week key, e.g. "2026-W21"
@@ -237,35 +239,6 @@ async function loadOrInitBoss(): Promise<WeeklyBossState | null> {
         existing.expiresAt = (existing.startedAt ?? Date.now()) + WEEKLY_BOSS_LIFETIME_MS;
     }
     return existing;
-}
-
-async function weeklyBossLogFightCaps(actorName: string, isAdminActor: boolean): Promise<{ maxDamage: number; perHitCap: number; maxHits: number }> {
-    if (isAdminActor) return { maxDamage: Number.MAX_SAFE_INTEGER, perHitCap: Number.MAX_SAFE_INTEGER, maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS };
-    try {
-        const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
-        const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
-        const stats = (actorChar?.stats ?? {}) as Record<string, number>;
-        const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
-        const rawBest = Math.max(
-            Number(stats.bukijutsuOffense ?? 0),
-            Number(stats.taijutsuOffense ?? 0),
-            Number(stats.ninjutsuOffense ?? 0),
-            Number(stats.genjutsuOffense ?? 0),
-        );
-        const best = Math.min(2500, rawBest);
-        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
-        return {
-            maxDamage: fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
-            perHitCap: fairPerHit,
-            maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
-        };
-    } catch {
-        return {
-            maxDamage: WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP,
-            perHitCap: Math.max(50, Math.floor(WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP / WEEKLY_BOSS_LOG_FIGHT_MAX_HITS)),
-            maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
-        };
-    }
 }
 
 // Distribute rewards once the 72-hour boss window has elapsed. Idempotent + crash-resumable
@@ -492,11 +465,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 72-hour mark passed. Distribution is a no-op if already done.
         if (boss) boss = await distributeRewardsIfExpired(boss);
         res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
-        const fightEnabled = true;
         return res.status(200).json({
-            boss,
-            fightEnabled,
-            fightDisabledReason: fightEnabled ? null : WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+            boss: publicWeeklyBossState(boss),
+            fightEnabled: true,
+            fightDisabledReason: null,
         });
     }
 
@@ -505,7 +477,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { kind, weekKey, amount } = body as { kind?: string; weekKey?: string; amount?: number };
+            const { kind, weekKey } = body as { kind?: string; weekKey?: string };
 
             // reset CREATES or replaces the boss, so it must run BEFORE the
             // "no boss spawned" guard below — otherwise the very first spawn on a
@@ -542,11 +514,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const actorName = identity.admin ? 'admin' : identity.name;
-            if (kind === 'damage' && !identity.admin) {
-                return res.status(503).json({
-                    error: 'Legacy client-reported Weekly Boss damage is disabled. Start a server-authoritative fight instead.',
-                    code: WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
-                    fightEnabled: true,
+            if (kind === 'damage' || kind === 'logFightLegacy') {
+                return res.status(410).json({
+                    error: 'Client-reported Weekly Boss damage has been retired. Start a server-authoritative fight instead.',
+                    code: 'weekly-boss-client-damage-retired',
                 });
             }
 
@@ -568,47 +539,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const profile = profiles?.find((entry) => entry.id === boss!.aiId) ?? null;
                 const runId = `weekly-${randomUUID().replace(/-/g, '')}`;
                 const now = Date.now();
-                const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
-                const floor = dynamicBossFloor({
-                    id: 9_200,
-                    name: boss.bossName ?? 'Weekly Boss',
-                    bossAiId: boss.aiId,
-                    objective: 'survive',
-                    roundBudget: 20,
-                });
-                const session = buildAuthoritativeSoloEncounter({
+                const enemyTemplate = weeklyBossEnemyTemplate(profile, { id: boss.aiId, name: boss.bossName });
+                const session = buildSoloPveAiEncounter({
+                    sessionId: runId,
                     playerName: actorName,
                     save: actorSave,
-                    floor,
-                    bossTemplate: weeklyBossEnemyTemplate(profile, { id: boss.aiId, name: boss.bossName }),
-                    runId,
-                    seed,
                     now,
-                    towerId: 'weekly-boss',
+                    profile: { id: boss.aiId, ...enemyTemplate },
                     admin: await loadAdminCombatContent(),
                     hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
-                    // The weekly boss's own clamp: 8% per hit / 15% per turn
-                    // boss→player, plus the guard cycle player→boss. Both were
-                    // client-only, so this fight previously ran with NO
-                    // boss→player ceiling at all — the raw stat sheet on a
-                    // level-100 boss is a near-one-shot — and with none of its
-                    // guard-up/guard-down texture. Sealed inside the builder so
-                    // it covers the opening enemy turn it runs inline.
-                    ...(weeklyBossGuardEnabled() ? { pveGuardKind: 'weeklyBoss' as const } : {}),
+                    difficultyMode: false,
+                    encounter: {
+                        kind: 'weekly-boss',
+                        id: boss.weekKey,
+                        sourceId: boss.aiId,
+                        bindingId: runId,
+                        metadata: { weekKey: boss.weekKey, bossStartedAt: boss.startedAt },
+                    },
+                    environment: { biome: 'central' },
+                    weeklyBossRoundBudget: 20,
+                    activeTtlSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
                 });
-                const bossActor = session.actors.find((entry) => entry.id === session.phaseState.bossId);
-                if (!bossActor) return res.status(500).json({ error: 'Weekly Boss encounter could not be built.' });
+                // The generic builder intentionally caps ordinary AI HP. Weekly
+                // Boss is a score attack with no kill cap, so restore its sealed
+                // sentinel after the ordinary fighter has been hydrated.
+                session.enemy.hp = Math.max(1, Math.floor(enemyTemplate.hp));
+                session.enemy.maxHp = session.enemy.hp;
+                if (!weeklyBossGuardEnabled() && session.weeklyBossGuard) session.weeklyBossGuard.mechanicsEnabled = false;
                 const run: WeeklyBossAuthoritativeRun = {
                     runId,
                     playerName: actorName,
                     weekKey: boss.weekKey,
                     aiId: boss.aiId,
                     bossStartedAt: boss.startedAt,
-                    initialBossHp: bossActor.hp,
+                    initialBossHp: session.enemy.hp,
                     createdAt: now,
                 };
 
-                await writeSession(session);
+                await writeSoloPveSession(session);
                 await kv.set(weeklyBossRunKey(runId), run, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
                 const reserved = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
                     const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
@@ -622,7 +590,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return true;
                 }, { failClosed: true });
                 if (!reserved) {
-                    await kv.del(sessionKey(runId), weeklyBossRunKey(runId)).catch(() => 0);
+                    await kv.del(soloPveSessionKey(runId), weeklyBossRunKey(runId)).catch(() => 0);
                     return res.status(409).json({ error: 'The boss reset or your attempts were already used.' });
                 }
                 let updatedCharacter = actorChar;
@@ -637,7 +605,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return nextChar;
                     }, { failClosed: true });
                     if (!staminaCharge) {
-                        await kv.del(sessionKey(runId), weeklyBossRunKey(runId)).catch(() => 0);
+                        await kv.del(soloPveSessionKey(runId), weeklyBossRunKey(runId)).catch(() => 0);
                         await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
                             const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
                             if (!fresh) return;
@@ -650,9 +618,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return res.status(409).json({ error: 'Stamina changed before the fight could start. Try again.' });
                     }
                     updatedCharacter = staminaCharge;
-                    const squadActor = session.actors.find((entry) => entry.side === 'squad' && entry.ownerSlug === actorName);
-                    if (squadActor) squadActor.stamina = Math.max(0, squadActor.stamina - 20);
-                    await writeSession(session);
+                    session.player.stamina = Math.max(0, session.player.stamina - 20);
+                    await writeSoloPveSession(session);
                 }
                 return res.status(200).json({
                     ok: true,
@@ -662,78 +629,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     character: updatedCharacter,
                     expiresInSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
                 });
-            }
-
-            if (kind === 'damage') {
-                // Per-player cooldown — prevents loop spamming damage POSTs.
-                if (!identity.admin) {
-                    const cdKey = `${WEEKLY_BOSS_COOLDOWN_KEY_PREFIX}${actorName}`;
-                    const placed = await kv.set(cdKey, '1', { nx: true, ex: WEEKLY_BOSS_COOLDOWN_SECONDS });
-                    if (!placed) {
-                        return res.status(429).json({ error: `Cooldown — wait ${WEEKLY_BOSS_COOLDOWN_SECONDS}s between attacks.` });
-                    }
-                }
-
-                // Look up actor stats to compute a server-trusted damage cap
-                // for this single request. Matches the legitimate client roll
-                // (best offensive stat × (1 + level/100) × max 1.4 multiplier).
-                //
-                // `best` is clamped before the formula so a stat-padded save
-                // can't drive the fairMax up to the absolute cap. Even maxed
-                // legitimate stats top out around 1500–2000 per offense slot;
-                // 2500 is a generous ceiling that lets late-game vanguards
-                // dump the cap but stops a tampered save from blowing past
-                // it to maximize the per-actor MVP bonus.
-                const MAX_OFFENSE_STAT_FOR_CAP = 2500;
-                let perActorCap = WEEKLY_BOSS_DMG_ABSOLUTE_CAP;
-                if (!identity.admin) {
-                    try {
-                        const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
-                        const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
-                        const stats = (actorChar?.stats ?? {}) as Record<string, number>;
-                        const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
-                        const rawBest = Math.max(
-                            Number(stats.bukijutsuOffense ?? 0),
-                            Number(stats.taijutsuOffense ?? 0),
-                            Number(stats.ninjutsuOffense ?? 0),
-                            Number(stats.genjutsuOffense ?? 0),
-                        );
-                        const best = Math.min(MAX_OFFENSE_STAT_FOR_CAP, rawBest);
-                        const fairMax = Math.max(50, Math.floor(best * (1 + level / 100) * 1.4));
-                        perActorCap = Math.min(WEEKLY_BOSS_DMG_ABSOLUTE_CAP, fairMax);
-                    } catch {
-                        // If we can't load stats, fall back to the absolute cap.
-                    }
-                }
-
-                const requested = Math.floor(Number(amount ?? 0));
-                if (!Number.isFinite(requested) || requested <= 0) return res.status(400).json({ error: 'Invalid damage amount.' });
-                const dmg = Math.max(1, Math.min(perActorCap, requested));
-
-                // Serialize concurrent damage writes via a KV lock so two
-                // attackers can't both read the same damageByPlayer and both
-                // write back, silently dropping one player's damage.
-                const result = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-                    const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
-                    if (fresh.weekKey !== boss!.weekKey) return { error: 'stale-week' as const };
-                    if (fresh.rewardsDistributed) return { error: 'expired' as const };
-                    if (Date.now() >= fresh.expiresAt) return { error: 'expired' as const };
-                    const updated: WeeklyBossState = {
-                        ...fresh,
-                        damageByPlayer: {
-                            ...fresh.damageByPlayer,
-                            [actorName]: (fresh.damageByPlayer[actorName] ?? 0) + dmg,
-                        },
-                    };
-                    await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
-                    return { boss: updated, dealt: dmg };
-                });
-
-                if ('error' in result) {
-                    if (result.error === 'stale-week') return res.status(409).json({ error: 'Stale week — boss has reset.' });
-                    return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.' });
-                }
-                return res.status(200).json(result);
             }
 
             if (kind === 'logFight') {
@@ -748,7 +643,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const current = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
                         return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: current, dealt: 0, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0 } };
                     }
-                    const session = await readSession(runId);
+                    const session = await readSoloPveSession(runId);
                     const validation = validateAuthoritativeWeeklyBossRun({
                         run,
                         session,
@@ -769,118 +664,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
                         if (fresh.weekKey !== run.weekKey || fresh.startedAt !== run.bossStartedAt) return null;
                         if (fresh.rewardsDistributed || Date.now() >= fresh.expiresAt) return null;
-                        const updated: WeeklyBossState = {
-                            ...fresh,
-                            damageByPlayer: {
-                                ...fresh.damageByPlayer,
-                                [run.playerName]: (fresh.damageByPlayer[run.playerName] ?? 0) + logged,
-                            },
-                        };
-                        await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
-                        return updated;
+                        const applied = applyWeeklyBossRunDamageReceipt(fresh, runId, run.playerName, logged);
+                        if (!applied.replayed) await kv.set(WEEKLY_BOSS_STATE_KEY, applied.boss);
+                        return applied;
                     }, { failClosed: true });
                     if (!banked) return { status: 409 as const, body: { error: 'Boss despawned or reset before settlement.' } };
+                    const settlementId = `weeklyboss-${runId}`.slice(0, 80);
+                    const fingerprint = `${run.weekKey}:${run.aiId}:${run.bossStartedAt}`;
+                    const usage = await mutatePlayerSave(run.playerName, ({ character }) => {
+                        const inspected = inspectSettlementReceipt(character, settlementId, fingerprint);
+                        if (inspected.status === 'conflict' || inspected.status === 'invalid') {
+                            return { ok: false as const, status: 409, error: 'weekly-boss-receipt-conflict' };
+                        }
+                        if (inspected.status === 'replay') return { ok: true as const, character, value: { replayed: true } };
+                        const charged = applySoloPveUsageCosts(character, session!);
+                        const withOutcome = applyAiFightOutcomeToCharacter(
+                            charged,
+                            resolveAiFightOutcome(session!),
+                            session!.player,
+                            Date.now(),
+                        );
+                        return {
+                            ok: true as const,
+                            character: appendSettlementReceipt(withOutcome, inspected.receipts, {
+                                requestId: settlementId,
+                                fingerprint,
+                                value: { damage: banked.damage },
+                                settledAt: Date.now(),
+                            }),
+                            value: { replayed: false },
+                        };
+                    });
+                    if (!usage.ok) return { status: usage.status, body: { error: 'Weekly Boss usage settlement could not be committed.' } };
+                    await writeSoloPveSession(withSoloPveSettlementReceipt(session!, {
+                        kind: 'weekly-boss',
+                        id: runId,
+                        settledAt: Date.now(),
+                        rewards: { damage: banked.damage },
+                    }));
                     await kv.set(weeklyBossRunKey(runId), { ...run, settledAt: Date.now() }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
-                    await settleConsumedItemsForMember({ session: session!, slug: run.playerName }).catch(() => undefined);
-                    return { status: 200 as const, body: { ok: true, boss: banked, dealt: logged, attemptsUsed: banked.attemptsByPlayer?.[run.playerName] ?? 0 } };
+                    return { status: 200 as const, body: {
+                        ok: true,
+                        boss: banked.boss,
+                        dealt: banked.damage,
+                        alreadySettled: banked.replayed && usage.value.replayed,
+                        attemptsUsed: banked.boss.attemptsByPlayer?.[run.playerName] ?? 0,
+                        character: usage.character,
+                        _saveVersion: usage._saveVersion,
+                    } };
                 }, { failClosed: true });
                 return res.status(result.status).json(result.body);
-            }
-
-            // Admin-only compatibility path for old manual test clients. Public
-            // contribution can only enter through the authoritative branch above.
-            if (kind === 'logFightLegacy' && identity.admin) {
-                // End-of-arena-fight damage report. Client launches the
-                // standard arena vs the boss AI (HP set to a sentinel so
-                // the boss is effectively unkillable), tracks how much
-                // damage the player dealt, then POSTs the total here when
-                // the player is KO'd or flees. Counted as one attempt.
-                if (!identity.admin) {
-                    const used = boss.attemptsByPlayer?.[actorName] ?? 0;
-                    if (used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
-                        return res.status(429).json({ error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
-                    }
-                }
-                // Stat-derived per-fight cap (mirrors the per-tap `damage` cap,
-                // scaled by a generous max-hits-per-fight so a legitimate full
-                // arena fight is never clipped). Bounds a tampered/weak-account
-                // report well below the flat cap; a maxed attacker is unaffected.
-                // Admins uncapped (testing). Everyone else: the GENEROUS stat-scaled
-                // guard only — no flat ceiling, so a legit fight's full damage records.
-                let perFightCap = Number.MAX_SAFE_INTEGER;
-                if (!identity.admin) {
-                    perFightCap = WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP;
-                    try {
-                        const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
-                        const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
-                        const stats = (actorChar?.stats ?? {}) as Record<string, number>;
-                        const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
-                        const rawBest = Math.max(
-                            Number(stats.bukijutsuOffense ?? 0),
-                            Number(stats.taijutsuOffense ?? 0),
-                            Number(stats.ninjutsuOffense ?? 0),
-                            Number(stats.genjutsuOffense ?? 0),
-                        );
-                        const best = Math.min(2500, rawBest); // matches the per-tap cap's MAX_OFFENSE_STAT_FOR_CAP
-                        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
-                        perFightCap = fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS;
-                    } catch {
-                        // Stats unavailable — keep the generous fallback bound.
-                    }
-                }
-                const requested = Math.floor(Number(amount ?? 0));
-                if (!Number.isFinite(requested) || requested < 0) {
-                    return res.status(400).json({ error: 'Invalid damage amount.' });
-                }
-                let logged = identity.admin ? Math.min(perFightCap, Math.max(0, requested)) : 0;
-                if (!identity.admin) {
-                    const token = cleanWeeklyBossFightToken(body.weeklyBossToken ?? body.token);
-                    if (!token) {
-                        return res.status(200).json({ boss, dealt: 0, attemptsUsed: boss.attemptsByPlayer?.[actorName] ?? 0, reason: 'missing-weekly-boss-token' });
-                    }
-                    const tokenData = await consumeSingleUseToken<WeeklyBossFightToken>(kv, weeklyBossFightTokenKey(actorName, boss.weekKey, token));
-                    const claim = validateWeeklyBossFightClaim(tokenData, {
-                        playerName: actorName,
-                        weekKey: boss.weekKey,
-                        aiId: boss.aiId,
-                        bossStartedAt: boss.startedAt,
-                    }, requested, cleanWeeklyBossDamageEvents(body.damageEvents ?? body.events));
-                    if (!claim.ok) {
-                        return res.status(200).json({ boss, dealt: 0, attemptsUsed: boss.attemptsByPlayer?.[actorName] ?? 0, reason: claim.reason });
-                    }
-                    logged = claim.damage;
-                }
-
-                const result = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-                    const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
-                    if (fresh.weekKey !== boss!.weekKey) return { error: 'stale-week' as const };
-                    if (fresh.rewardsDistributed) return { error: 'expired' as const };
-                    if (Date.now() >= fresh.expiresAt) return { error: 'expired' as const };
-                    const used = fresh.attemptsByPlayer?.[actorName] ?? 0;
-                    if (!identity.admin && used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
-                        return { error: 'locked' as const };
-                    }
-                    const updated: WeeklyBossState = {
-                        ...fresh,
-                        damageByPlayer: {
-                            ...fresh.damageByPlayer,
-                            [actorName]: (fresh.damageByPlayer[actorName] ?? 0) + logged,
-                        },
-                        attemptsByPlayer: {
-                            ...(fresh.attemptsByPlayer ?? {}),
-                            [actorName]: used + 1,
-                        },
-                    };
-                    await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
-                    return { boss: updated, dealt: logged, attemptsUsed: used + 1 };
-                });
-
-                if ('error' in result) {
-                    if (result.error === 'stale-week') return res.status(409).json({ error: 'Stale week — boss has reset.' });
-                    if (result.error === 'locked') return res.status(429).json({ error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
-                    return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.' });
-                }
-                return res.status(200).json(result);
             }
 
             if (kind === 'claim') {

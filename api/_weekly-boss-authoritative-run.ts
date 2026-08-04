@@ -1,4 +1,4 @@
-import type { TowerSession } from './towers/_tower-session.js';
+import type { SoloPveSession } from './solo-pve/_session.js';
 
 export type WeeklyBossAuthoritativeRun = {
     runId: string;
@@ -19,7 +19,7 @@ export type WeeklyBossRunValidation =
 
 export function validateAuthoritativeWeeklyBossRun(params: {
     run: WeeklyBossAuthoritativeRun | null | undefined;
-    session: TowerSession | null | undefined;
+    session: SoloPveSession | null | undefined;
     playerName: string;
     admin?: boolean;
     boss: { weekKey: string; aiId: string; startedAt: number };
@@ -29,14 +29,20 @@ export function validateAuthoritativeWeeklyBossRun(params: {
     if (!params.admin && run.playerName !== params.playerName) return { ok: false, reason: 'wrong-player' };
     if (run.settledAt) return { ok: false, reason: 'already-settled' };
     if (!session) return { ok: false, reason: 'missing-session' };
-    if (session.status !== 'done') return { ok: false, reason: 'not-finished' };
-    if (!session.actors.some((entry) => entry.side === 'squad' && entry.ownerSlug === run.playerName)) {
+    if (session.runtime !== 'solo-pve' || session.status !== 'done' || !session.terminalEvidence) return { ok: false, reason: 'not-finished' };
+    if (session.ownerSlug !== run.playerName) {
         return { ok: false, reason: 'not-a-member' };
+    }
+    if (session.encounter.kind !== 'weekly-boss'
+        || session.encounter.bindingId !== run.runId
+        || session.encounter.sourceId !== run.aiId
+        || session.encounter.metadata?.weekKey !== run.weekKey
+        || Number(session.encounter.metadata?.bossStartedAt) !== run.bossStartedAt) {
+        return { ok: false, reason: 'stale-boss' };
     }
     if (run.weekKey !== params.boss.weekKey || run.aiId !== params.boss.aiId || run.bossStartedAt !== params.boss.startedAt) {
         return { ok: false, reason: 'stale-boss' };
     }
-    const bossActor = session.actors.find((entry) => entry.id === session.phaseState.bossId);
-    if (!bossActor) return { ok: false, reason: 'missing-boss' };
-    return { ok: true, damage: Math.max(0, Math.floor(run.initialBossHp - Math.max(0, bossActor.hp))) };
+    if (!session.enemy) return { ok: false, reason: 'missing-boss' };
+    return { ok: true, damage: Math.max(0, Math.floor(run.initialBossHp - Math.max(0, session.enemy.hp))) };
 }

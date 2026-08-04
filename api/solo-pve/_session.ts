@@ -13,6 +13,7 @@ export const SOLO_PVE_SESSION_TTL_SECONDS = 30 * 60;
 export const SOLO_PVE_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const SOLO_PVE_MOVE_TOKEN_HISTORY = 32;
 export const SOLO_PVE_EVENT_HISTORY = 80;
+const MAX_SAFE_ROUND_BUDGET = 25;
 
 export type SoloPveSide = 'player' | 'enemy';
 export type SoloPveActor = SoloPveSide | 'companion';
@@ -65,6 +66,13 @@ export type SoloPveDifficultyGuard = {
     enemyLevel: number;
     playerHpTurnStart: number;
     dealtThisTurn: number;
+};
+
+export type SoloPveWeeklyBossGuard = {
+    roundBudget: number;
+    playerHpTurnStart: number;
+    dealtThisTurn: number;
+    mechanicsEnabled?: boolean;
 };
 
 export type SoloPveFighterEventState = {
@@ -164,6 +172,7 @@ export type SoloPveSession = {
     itemsUsed: Record<string, number>;
     environment: SoloPveEnvironment;
     difficultyGuard?: SoloPveDifficultyGuard;
+    weeklyBossGuard?: SoloPveWeeklyBossGuard;
     status: 'active' | 'done';
     winner: SoloPveWinner;
     outcome: SoloPveOutcome;
@@ -179,6 +188,8 @@ export type SoloPveSession = {
     createdAt: number;
     lastActionAt: number;
     expiresAt: number;
+    /** Optional server-sealed active TTL for long score attacks. */
+    activeTtlSeconds?: number;
 };
 
 export type CreateSoloPveSessionParams = {
@@ -191,6 +202,8 @@ export type CreateSoloPveSessionParams = {
     environment?: Partial<SoloPveEnvironment>;
     itemCharges?: Record<string, number>;
     difficultyEnemyLevel?: number;
+    weeklyBossRoundBudget?: number;
+    activeTtlSeconds?: number;
     companion?: CompanionSeal | null;
 };
 
@@ -209,6 +222,8 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
     assertSoloPveLoadoutCompatible(player.character);
     assertSoloPveLoadoutCompatible(enemy.character);
     const difficultyLevel = Number(params.difficultyEnemyLevel);
+    const weeklyBossRoundBudget = Math.max(1, Math.min(MAX_SAFE_ROUND_BUDGET, Math.floor(Number(params.weeklyBossRoundBudget) || 0)));
+    const activeTtlSeconds = Math.max(SOLO_PVE_SESSION_TTL_SECONDS, Math.min(2 * 60 * 60, Math.floor(Number(params.activeTtlSeconds) || SOLO_PVE_SESSION_TTL_SECONDS)));
     return {
         runtime: SOLO_PVE_RUNTIME,
         schemaVersion: SOLO_PVE_SCHEMA_VERSION,
@@ -239,6 +254,13 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
                 dealtThisTurn: 0,
             },
         } : {}),
+        ...(Number(params.weeklyBossRoundBudget) > 0 ? {
+            weeklyBossGuard: {
+                roundBudget: weeklyBossRoundBudget,
+                playerHpTurnStart: player.hp,
+                dealtThisTurn: 0,
+            },
+        } : {}),
         status: 'active',
         winner: null,
         outcome: null,
@@ -250,7 +272,8 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         recentMoveTokens: [],
         createdAt: now,
         lastActionAt: now,
-        expiresAt: now + SOLO_PVE_SESSION_TTL_SECONDS * 1000,
+        expiresAt: now + activeTtlSeconds * 1000,
+        ...(activeTtlSeconds !== SOLO_PVE_SESSION_TTL_SECONDS ? { activeTtlSeconds } : {}),
     };
 }
 

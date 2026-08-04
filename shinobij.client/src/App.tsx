@@ -149,7 +149,6 @@ const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardB
 const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
-const WeeklyBossFight = lazyWithRetry(() => import("./screens/WeeklyBossFight").then(m => ({ default: m.WeeklyBossFight })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
@@ -501,16 +500,6 @@ export type PendingArenaStoryBattle =
         kind: "dungeonAi";
         returnScreen: Screen;
         eventId: string;
-    }
-    | {
-        // Weekly Boss arena fight. Boss has an effectively unlimited HP
-        // pool (set at fight start) so the player can never win — they
-        // fight until KO/flee, then the damage dealt this round is
-        // posted to /api/weekly-boss as a logFight entry.
-        kind: "weeklyBoss";
-        returnScreen: Screen;
-        bossInitialHp: number;
-        weeklyBossToken?: string;
     }
     | {
         // Academy Sparring Match — the onboarding "guaranteed first win".
@@ -1917,7 +1906,6 @@ export default function App() {
     // in winBattle and the flag is cleared on any battle end — so losing/fleeing a
     // mission no longer burns the daily slot or inflates clan contribution.
     const [missionBattleActive, setMissionBattleActive] = useState(false);
-    const [authoritativeWeeklyBossFight, setAuthoritativeWeeklyBossFight] = useState<{ runId: string; session: import("./lib/towers-api").TowerSession } | null>(null);
     // Sector of a deferred explore-mission credit while the player fights a tile
     // ambush. recordMissionExplore is called only if the ambush is WON (winBattle)
     // and cleared on any battle end — so losing the ambush no longer counts the tile.
@@ -5481,84 +5469,6 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
-    // ── Weekly Boss arena launch ─────────────────────────────────────────────
-    // Spawns the admin-picked weekly boss AI as a temporary opponent with a
-    // sentinel HP value (effectively unkillable). The player fights until
-    // KO/flee — at that point logWeeklyBossFightDamage() POSTs the damage
-    // dealt to /api/weekly-boss so it lands on the shared leaderboard.
-    async function launchWeeklyBossFight(bossAiId: string, _bossDisplayName?: string, _returnScreen: Screen = "weeklyBoss") {
-        if (!character) return;
-        const bossAi = playableAis.find(ai => ai.id === bossAiId);
-        if (!bossAi) {
-            alert("Couldn't find the weekly boss AI. An admin needs to set or re-set the override.");
-            return;
-        }
-        if ((character.stamina ?? 0) < 20) {
-            alert("You need at least 20 stamina to challenge the weekly boss.");
-            return;
-        }
-        try {
-            const r = await fetch("/api/weekly-boss", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ kind: "startFight" }),
-            });
-            const data = await r.json().catch(() => ({}));
-            if (!r.ok || typeof data?.runId !== "string" || !data?.session) {
-                alert(data?.error ?? "The weekly boss fight could not be reserved. Try again.");
-                return;
-            }
-            if (data?.character) setCharacter(data.character);
-            setAuthoritativeWeeklyBossFight({ runId: data.runId, session: data.session });
-            setScreen("weeklyBoss");
-            return;
-        } catch (err) {
-            console.warn("[weekly-boss] startFight error:", err);
-            alert("The weekly boss fight could not be reserved. Try again.");
-            return;
-        }
-        // Copy the picked AI but force HP to the sentinel value so the
-        // arena can never reduce it to 0. The boss is meant to outlast
-        // the player every time — damage dealt is what matters.
-        // Weekly boss fight uses central neutral terrain — matches the
-        // ranked-fight convention of no biome bias for shared content.
-    }
-
-    async function logWeeklyBossFightDamage(damageDealt: number, damageEvents?: Array<{ turn: number; amount: number; source?: string }>) {
-        if (!character || damageDealt < 0) return;
-        try {
-            const r = await fetch("/api/weekly-boss", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    kind: "logFight",
-                    amount: Math.floor(damageDealt),
-                    damageEvents: Array.isArray(damageEvents) ? damageEvents : [],
-                    weeklyBossToken: pendingArenaStoryBattle?.kind === "weeklyBoss" ? pendingArenaStoryBattle.weeklyBossToken : undefined,
-                }),
-            });
-            const data = await r.json();
-            if (!r.ok) {
-                // Surface server-side rejection (locked out / despawned) but
-                // still proceed with the post-fight transition so the player
-                // isn't trapped in the arena.
-                console.warn("[weekly-boss] logFight rejected:", data?.error);
-                alert(data?.error ?? "Failed to log weekly boss damage.");
-            } else {
-                const dealt = data?.dealt ?? Math.floor(damageDealt);
-                const used = data?.attemptsUsed ?? 0;
-                alert(`Damage logged: ${dealt.toLocaleString()} added to the leaderboard. Attempts used: ${used}/3.`);
-            }
-        } catch (err) {
-            console.warn("[weekly-boss] logFight error:", err);
-        } finally {
-            setPendingArenaStoryBattle(null);
-            setTemporaryStoryAi(null);
-            setPendingAiProfileId("");
-            setScreen(pendingArenaStoryBattle?.returnScreen ?? "weeklyBoss");
-        }
-    }
-
     // Server-authoritative story boss settle effects (fight runs inside StoryHall
     // as a sealed Tower session): adopt the server character + App-scope finale wiring.
     function handleServerStoryBossSettled(result: StoryBossSettleResult) {
@@ -5684,18 +5594,6 @@ export default function App() {
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
             return "Dungeon Warden defeated. The second seal opens: win the shinobi tile game to continue.";
-        }
-
-        if (pendingArenaStoryBattle.kind === "weeklyBoss") {
-            // Weekly Boss fights are designed to be unwinnable — the boss
-            // is spawned with a sentinel HP (~100M) so the player can only
-            // KO or flee, never deal a finishing blow. If somehow the win
-            // path fires (e.g. boss damage cap regression, save edit) we
-            // just bail without granting story rewards — the logFight call
-            // on the loss/flee path is what credits the leaderboard.
-            setTemporaryStoryAi(null);
-            setPendingAiProfileId("");
-            return "Weekly Boss collapsed unexpectedly. Damage logged on your next attempt.";
         }
 
         const { event, battle } = pendingArenaStoryBattle;
@@ -6934,7 +6832,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
                         key={worldMapKey}
-                        onLaunchWeeklyBoss={launchWeeklyBossFight}
+                        onLaunchWeeklyBoss={() => navigate("weeklyBoss")}
                         setCurrentBiome={setCurrentBiome}
                         setScreen={navigate}
                         character={character}
@@ -7252,26 +7150,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
                     <BattleTowers character={character} updateCharacter={setCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
-                {!activeTriggeredEvent && screen === "weeklyBoss" && character && authoritativeWeeklyBossFight && (
-                    <WeeklyBossFight
-                        character={character}
-                        sharedImages={sharedImages}
-                        runId={authoritativeWeeklyBossFight.runId}
-                        initialSession={authoritativeWeeklyBossFight.session}
-                        settleFn={async (runId) => {
-                            const response = await fetch("/api/weekly-boss", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ kind: "logFight", runId }),
-                            });
-                            const data = await response.json().catch(() => ({}));
-                            if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
-                            return data;
-                        }}
-                        onExit={() => setAuthoritativeWeeklyBossFight(null)}
-                    />
-                )}
-                {!activeTriggeredEvent && screen === "weeklyBoss" && character && !authoritativeWeeklyBossFight && (
+                {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WeeklyBossArena
                         character={character}
                         updateCharacter={setCharacter}
@@ -7279,7 +7158,6 @@ export default function App() {
                         setScreen={setScreen}
                         playerRoster={playerRoster}
                         sharedImages={sharedImages}
-                        onLaunchFight={launchWeeklyBossFight}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} updateCharacter={setCharacter} playerRoster={playerRoster} onBack={goBack} />}
@@ -7367,7 +7245,6 @@ export default function App() {
                         onPendingStoryBattleWin={completePendingArenaStoryBattle}
                         onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
                         onDungeonFail={failDungeon}
-                        onWeeklyBossLogDamage={logWeeklyBossFightDamage}
                         onMissionRaidComplete={recordMissionRaid}
                         onHuntBeastDefeated={completeHuntForAi}
                         missionBattleActive={missionBattleActive}
