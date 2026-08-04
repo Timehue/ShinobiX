@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { TowerSession } from '../towers/_tower-session.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 
 export const HOLLOW_GATE_COMBAT_TTL_SECONDS = 24 * 60 * 60;
 export const HOLLOW_GATE_MAX_COMBATS_PER_FLOOR = 16;
@@ -17,7 +17,7 @@ export interface HollowGateActiveEncounter {
 
 export interface HollowGateCombatBinding extends HollowGateActiveEncounter {
     version: 1;
-    combatMode?: 'tactical' | 'pve' | 'pet';
+    combatMode: 'solo-pve' | 'pet';
     playerName: string;
     tokenDigest: string;
     status: 'active' | 'won' | 'lost';
@@ -69,12 +69,12 @@ export function createHollowGateCombatBinding(params: {
     runId?: string;
     secondWindArmed?: boolean;
     petAssisted?: boolean;
-    combatMode?: 'tactical' | 'pve' | 'pet';
+    combatMode?: 'solo-pve' | 'pet';
 }): HollowGateCombatBinding {
     const now = params.now ?? Date.now();
     return {
         version: 1,
-        combatMode: params.combatMode ?? 'tactical',
+        combatMode: params.combatMode ?? 'solo-pve',
         runId: params.runId ?? `hgcombat-${randomUUID().replace(/-/g, '')}`,
         playerName: params.playerName,
         tokenDigest: createHash('sha256').update(params.token).digest('hex'),
@@ -93,20 +93,15 @@ export type HollowGateCombatValidation =
     | { ok: true; binding: HollowGateCombatBinding }
     | { ok: false; reason: 'invalid-binding' | 'wrong-player' | 'wrong-run' | 'wrong-token' | 'binding-drift' | 'not-complete' | 'not-a-member' | 'already-settled' };
 
-/**
- * Validate a normal Arena PvE result against the exact sealed Hollow Gate
- * encounter. The Arena combat engine is client-run (like explore/mission PvE),
- * so this validates identity, one-use state, and run binding rather than a
- * tactical Tower board.
- */
-export function validateHollowGatePveClaim(params: {
+export function validateHollowGateSoloPveSession(params: {
     binding: HollowGateCombatBinding | null | undefined;
+    session: SoloPveSession | null | undefined;
     activeEncounter: HollowGateActiveEncounter | null | undefined;
     playerName: string;
     token: string;
 }): HollowGateCombatValidation {
-    const { binding, activeEncounter, playerName, token } = params;
-    if (!binding || binding.version !== 1 || binding.combatMode !== 'pve' || !binding.runId || !binding.nodeId) {
+    const { binding, session, activeEncounter, playerName, token } = params;
+    if (!binding || binding.version !== 1 || binding.combatMode !== 'solo-pve' || !binding.runId || !binding.nodeId) {
         return { ok: false, reason: 'invalid-binding' };
     }
     if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
@@ -119,6 +114,18 @@ export function validateHollowGatePveClaim(params: {
         return { ok: false, reason: 'binding-drift' };
     }
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
+    if (!session || session.sessionId !== binding.runId) return { ok: false, reason: 'wrong-run' };
+    if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };
+    if (session.encounter.kind !== 'hollow-gate'
+        || session.encounter.bindingId !== binding.runId
+        || session.encounter.sourceId !== binding.enemyProfileId
+        || session.encounter.metadata?.floor !== binding.floor
+        || session.encounter.metadata?.nodeId !== binding.nodeId
+        || session.encounter.metadata?.combatKind !== binding.kind) {
+        return { ok: false, reason: 'binding-drift' };
+    }
+    if (session.status !== 'done' || !session.terminalEvidence || !session.outcome) return { ok: false, reason: 'not-complete' };
+    if (session.settlementState !== 'pending' || session.terminalEvidence.settlementState !== 'pending') return { ok: false, reason: 'already-settled' };
     return { ok: true, binding };
 }
 
@@ -145,33 +152,6 @@ export function validateHollowGatePetClaim(params: {
         return { ok: false, reason: 'binding-drift' };
     }
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
-    return { ok: true, binding };
-}
-
-export function validateHollowGateCombatSession(params: {
-    binding: HollowGateCombatBinding | null | undefined;
-    session: TowerSession | null | undefined;
-    activeEncounter: HollowGateActiveEncounter | null | undefined;
-    playerName: string;
-    token: string;
-}): HollowGateCombatValidation {
-    const { binding, session, activeEncounter, playerName, token } = params;
-    if (!binding || binding.version !== 1 || !binding.runId || !binding.nodeId) return { ok: false, reason: 'invalid-binding' };
-    if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
-    if (binding.tokenDigest !== createHash('sha256').update(token).digest('hex')) return { ok: false, reason: 'wrong-token' };
-    if (!session || session.runId !== binding.runId) return { ok: false, reason: 'wrong-run' };
-    if (!activeEncounter || activeEncounter.runId !== binding.runId) return { ok: false, reason: 'wrong-run' };
-    if (activeEncounter.nodeId !== binding.nodeId
-        || activeEncounter.floor !== binding.floor
-        || activeEncounter.kind !== binding.kind
-        || activeEncounter.enemyProfileId !== binding.enemyProfileId) {
-        return { ok: false, reason: 'binding-drift' };
-    }
-    if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
-    if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
-    if (!session.actors.some((actor) => actor.side === 'squad' && actor.ownerSlug === playerName)) {
-        return { ok: false, reason: 'not-a-member' };
-    }
     return { ok: true, binding };
 }
 
