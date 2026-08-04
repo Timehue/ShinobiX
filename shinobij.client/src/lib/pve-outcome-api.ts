@@ -30,22 +30,28 @@ export type PveFightOutcomeResult = {
 /**
  * Report one finished (or abandoned) server PvE run.
  *
- * Never throws: this must not be able to break a results screen or swallow a
- * reward the player already earned. A failure resolves to null and the fight
- * simply costs nothing, which is the pre-existing behaviour.
+ * Retries and throws when the server cannot confirm the durable receipt. The
+ * action/state routes already reconcile terminal mission/story sessions before
+ * returning them, so this call normally replays that receipt and refreshes the
+ * local character. Throwing keeps the explicit forfeit path fail-closed too.
  */
-export async function reportPveFightOutcome(runId: string, playerName: string): Promise<PveFightOutcomeResult | null> {
-    if (!runId || !playerName) return null;
-    try {
-        const response = await fetch("/api/pve/fight-outcome", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ runId, playerName }),
-        });
-        if (!response.ok) return null;
-        const data = await response.json().catch(() => null) as PveFightOutcomeResult | null;
-        return data?.ok ? data : null;
-    } catch {
-        return null;
+export async function reportPveFightOutcome(runId: string, playerName: string): Promise<PveFightOutcomeResult> {
+    if (!runId || !playerName) throw new Error("Missing fight outcome identity.");
+    let lastError: Error = new Error("The fight outcome could not be confirmed.");
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+            const response = await fetch("/api/pve/fight-outcome", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ runId, playerName }),
+            });
+            const data = await response.json().catch(() => null) as (PveFightOutcomeResult & { error?: string }) | null;
+            if (!response.ok || !data?.ok) throw new Error(data?.error || `Fight outcome confirmation failed (${response.status}).`);
+            return data;
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** attempt));
+        }
     }
+    throw lastError;
 }

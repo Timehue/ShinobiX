@@ -11,7 +11,7 @@ export type PlayerSaveMutationContext = {
 };
 
 export type PlayerSaveMutation<T> =
-    | { ok: true; character: PlayerCharacter; value: T; recordPatch?: PlayerSaveRecord }
+    | { ok: true; character: PlayerCharacter; value: T; recordPatch?: PlayerSaveRecord; write?: boolean }
     | { ok: false; status: number; error: string };
 
 export type PlayerSaveMutationResult<T> =
@@ -80,6 +80,18 @@ export async function mutatePlayerSave<T>(
 
         const decision = await mutate({ playerName, saveKey, record, character });
         if (!decision.ok) return decision;
+
+        // Read/replay paths can return the authoritative snapshot without
+        // manufacturing a save-version bump or rewriting an identical blob.
+        if (decision.write === false) {
+            return {
+                ok: true as const,
+                value: decision.value,
+                record,
+                character: decision.character,
+                _saveVersion: Number(record._saveVersion ?? 0),
+            };
+        }
 
         // Bump _saveVersion on server-side player mutations so stale client
         // autosaves refetch instead of overwriting the credited/debited save.

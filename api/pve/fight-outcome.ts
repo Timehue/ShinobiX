@@ -1,20 +1,11 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSession } from '../towers/_tower-store.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
-import {
-    aiFightPlayerActor,
-    applyAiFightOutcomeToCharacter,
-    isPveFightMember,
-    resolveAiFightOutcome,
-    settlementOwnsHpOnWin,
-} from '../missions/_ai-fight-outcome.js';
+import { settlePveFightOutcome } from './_fight-outcome-settlement.js';
 
 /*
  * /api/pve/fight-outcome — POST only
@@ -49,10 +40,6 @@ import {
  * would re-apply the hospital stay and PUSH `hospitalizedUntil` further out each
  * time — a defeat that gets worse the more you look at it.
  */
-
-const OUTCOME_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
-
-const outcomeReceiptKey = (runId: string) => `pve-outcome:${runId}`;
 
 function cleanRunId(raw: unknown): string {
     const runId = typeof raw === 'string' ? raw.trim().slice(0, 96) : '';
@@ -90,40 +77,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The runId is CLIENT-supplied here. Membership is the only thing stopping
         // one player from applying another's session outcome to their own save —
         // which, on a winning session, would be a free heal.
-        if (!isPveFightMember(session, playerName) && !identity.admin) {
-            return res.status(403).json({ error: 'That fight belongs to another player.' });
-        }
-
-        const outcome = resolveAiFightOutcome(session);
-        if (outcome === 'unknown') return res.status(200).json({ ok: true, outcome, applied: false });
-        // One mode's own settlement writes the winning HP itself (the Academy
-        // spar's scripted post-spar HP). Writing here too would race it for the
-        // same field. Only the WIN is skipped — losing still costs.
-        if (outcome === 'win' && settlementOwnsHpOnWin(session)) {
-            return res.status(200).json({ ok: true, outcome, applied: false, deferredToSettlement: true });
-        }
-
-        const applied = await withKvLock(outcomeReceiptKey(runId), async () => {
-            const seen = await kv.get<{ runId: string }>(outcomeReceiptKey(runId));
-            if (seen) return { ok: true as const, replayed: true, result: null };
-            const result = await mutatePlayerSave(playerName, async ({ character }) => ({
-                ok: true as const,
-                character: applyAiFightOutcomeToCharacter(character, outcome, aiFightPlayerActor(session), Date.now()),
-                value: null,
-            }));
-            if (!result.ok) return { ok: false as const, replayed: false, result: null };
-            await kv.set(outcomeReceiptKey(runId), { runId, playerName, outcome, at: Date.now() }, { ex: OUTCOME_RECEIPT_TTL_SECONDS });
-            return { ok: true as const, replayed: false, result };
-        }, { failClosed: true });
-
-        if (!applied.ok) return res.status(409).json({ error: 'The fight outcome could not be applied.' });
-        return res.status(200).json({
-            ok: true,
-            outcome,
-            applied: !applied.replayed,
-            replayed: applied.replayed,
-            ...(applied.result ? { character: applied.result.character, _saveVersion: applied.result._saveVersion } : {}),
-        });
+        const settled = await settlePveFightOutcome(session, playerName);
+        if (!settled.ok) return res.status(settled.status).json({ error: settled.error });
+        return res.status(200).json(settled);
     } catch (err) {
         console.error('[pve/fight-outcome]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

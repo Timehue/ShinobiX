@@ -4,6 +4,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { executeSoloPveAction } from './_action-service.js';
 import type { SoloPveAction } from './_session.js';
+import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 
 function parseAction(body: Record<string, unknown>): SoloPveAction | null {
     const type = String(body.type ?? '');
@@ -42,6 +43,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             moveToken: String(body.moveToken ?? ''),
             action,
         });
+        const terminal = result.body.session;
+        if (terminal) {
+            const outcome = await reconcileTerminalSoloPveOutcome(terminal, playerName);
+            if (outcome && !outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+        }
         return res.status(result.status).json(result.body);
     } catch (error) {
         console.error('[solo-pve/action]', error);
