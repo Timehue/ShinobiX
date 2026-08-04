@@ -1,5 +1,8 @@
 # Stabilization Baseline — Phase 0 (captured 2026-07-31/08-01)
 
+> Historical snapshot. Combat ownership and legacy route status were superseded
+> by the 2026-08-04 Solo PvE cutover; see the runtime inventory.
+
 Branch: `audit/shinobix-stabilization-phase-0`, cut from `origin/main` @
 `de50b3385` ("Fold gear stats into server combat, retune cafeteria meals to
 percent"). Working tree clean at capture. Host: Windows 11, node + npm from the

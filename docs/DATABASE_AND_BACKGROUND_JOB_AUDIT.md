@@ -265,12 +265,11 @@ strand a connection or open transaction (strongest part of the design). `pool.on
 Live evidence: idle PostgREST/Supavisor connections against `max_connections=60` — comfortable through the
 pooler. Gaps: no statement timeout, no shutdown-time pool/socket close (§5 P2).
 
-## 12. GitHub issue reconciliation (vs current main)
+## 12. GitHub issue reconciliation (live state fetched 2026-08-04)
 
-- **#8 Weekly Boss server-derived contribution** — **OPEN.** Still client-damage-gated; contribution requires
-  `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE=1` (unset → closed). Migration to tower-style sessions not done. RELEASE_REWARD_INTEGRITY_AUDIT.md is accurate.
-- **#12 Higher-rank missions via server combat** — **OPEN.** C/B/A/S still originate in client Arena, payouts release-gated (`ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS` unset); no `ENABLE_AUTHORITATIVE_COMBAT_MISSIONS` path yet.
-- **#13 Hollow Gate combat → server sessions** — **OPEN.** Run state is tokenized/sealed, but combat nodes still settle from client Arena (see story/settle-class gap).
+- **#8 Weekly Boss server-derived contribution** — **OPEN; implemented on `codex/solo-pve-cutover`, pending review/merge.** Contribution is derived from a server-owned Solo session; the legacy client-damage action returns HTTP 410 on this branch.
+- **#12 Higher-rank missions via server combat** — **OPEN; implemented on `codex/solo-pve-cutover`, pending review/merge.** C/B/A/S and legacy E/D combat missions require a winning server-owned Solo session before claim on this branch.
+- **#13 Hollow Gate combat → server sessions** — **OPEN; implemented on `codex/solo-pve-cutover`, pending review/merge.** Node combat is server-resolved, run-bound, reconnectable, and settles once from authoritative state on this branch.
 - **#19 Remaining reward-integrity & receipt gaps** — **PARTIAL/OPEN.** Receipts exist and are searchable via
   `api/admin/battle-receipts.ts`; the durable safe paths are solid, but the client-attested minigame outcomes (§5 P0/P1) and the credit-first transfer window remain.
 - **#10 Deployment/release-health** — **PARTIAL.** Topology check + deep-health + backup-freshness gates pass, and distributed leases now prove single ownership for scheduled jobs; staging/operator certification remains separate.

@@ -1,5 +1,10 @@
 # Combat-Authority Audit — Fighter/Loadout Construction — Phase 0 (2026-07-31)
 
+> **Historical baseline, superseded 2026-08-04.** The Solo PvE cutover closed
+> the Pipeline C modes listed below. Use
+> `docs/architecture/combat-runtime-inventory.md` and
+> `docs/architecture/combat-runtime-boundaries.md` for current ownership.
+
 > **P0-3 status (2026-08-01,** branch `refactor/fighter-authority-p0-3`**):**
 > landed — (1) `sealTowerFighter`'s admin-content parameter is now REQUIRED
 > (no null default; the finding-4 latent regression is compile-blocked), with
