@@ -2,11 +2,10 @@
  * Server mirror of the PvE combat-AI perception layer —
  * `shinobij.client/src/lib/combat-ai-tactics.ts`.
  *
- * PARTIAL BY DESIGN. The client module's `buildPlayerRead()` condenses the
- * player's state PLUS a rolling memory of their recent actions. The server
- * engine keeps no per-actor action history, so only the piece the server AI
- * actually consumes is mirrored here: the "is this buff worth a 60-AP Clear"
- * list that feeds `pveAiCompetence().clearBuffThreshold`.
+ * PARTIAL BY DESIGN. Solo PvE now has a deterministic smart scorer and executes
+ * validated authored rule programs server-side. The only client perception
+ * constant mirrored here is the "is this buff worth a 60-AP Clear" list that
+ * feeds `pveAiCompetence().clearBuffThreshold`.
  *
  * Why the rest is NOT needed to match the client's behaviour:
  *   • `PlayerRead.justPoweredUp` (the only field the competence gate reads) is
@@ -15,11 +14,9 @@
  *     already carry `clearBuffThreshold: 1` — so that ternary can never change
  *     the threshold. The action memory is inert for this decision on the client
  *     too, and porting it would add state that changes nothing.
- *   • `usesSmartScorer` gates the client's multi-factor jutsu scorer. The tower
- *     engine has a single deterministic policy (highest effectPower, id
- *     tie-break) and no second scorer to switch to, so there is nothing to gate.
- *     That is also why the server never needs the profile's `masterAi` flag —
- *     it is the only input `usesSmartScorer` depends on.
+ *   • `usesSmartScorer` is consumed directly by the Solo PvE engine, including
+ *     the profile's server-sealed `masterAi` flag. This module does not duplicate
+ *     that scorer; it owns only the shared meaningful-buff vocabulary.
  *
  * Source of truth is the client file. `scripts/pve-ai-tactics-parity.test.ts`
  * fails if the two lists drift.

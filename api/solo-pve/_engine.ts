@@ -27,6 +27,13 @@ import { weatherMultiplier } from '../combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { activeCombatStatuses, addCombatStatus } from '../combat-core/statuses.js';
+import { validateServerAiRules, type ServerAiRule } from '../combat-core/ai-authoring.js';
+import {
+    projectAuthoritativeCombatEvent,
+    type AuthoritativeCombatEvent,
+    type CombatResolutionFacts,
+} from '../combat-core/events.js';
+import type { ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import type { CombatFxEvent } from '../combat-core/types.js';
 import { filledDiskTiles } from '../pvp/_aoe.js';
 import { canonicalTagName, GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
@@ -152,6 +159,44 @@ function eventSnapshot(session: SoloPveSession): SoloPveEventSnapshot {
         itemCharges: { ...session.itemCharges },
         itemsUsed: { ...session.itemsUsed },
     };
+}
+
+function projectSoloCombatEvent(params: {
+    session: SoloPveSession;
+    before: SoloPveEventSnapshot;
+    after: SoloPveEventSnapshot;
+    sequence: number | null;
+    roundBefore: number;
+    actor: 'player' | 'enemy' | 'companion';
+    target: 'player' | 'enemy' | 'companion' | 'tile' | null;
+    actionType: string;
+    actionId?: string;
+    tile?: number;
+    applied: boolean;
+    rejectionReason?: string;
+    resolution?: CombatResolutionFacts;
+}): AuthoritativeCombatEvent {
+    return projectAuthoritativeCombatEvent({
+        runtime: params.session.runtime,
+        mode: params.session.encounter.kind,
+        sessionId: params.session.sessionId,
+        sequence: params.sequence,
+        roundBefore: params.roundBefore,
+        roundAfter: params.session.round,
+        actor: params.actor,
+        target: params.target,
+        actionType: params.actionType,
+        ...(params.actionId ? { actionId: params.actionId } : {}),
+        ...(params.tile === undefined ? {} : { tile: params.tile }),
+        applied: params.applied,
+        ...(params.rejectionReason ? { rejectionReason: params.rejectionReason } : {}),
+        ...(params.resolution ? { resolution: params.resolution } : {}),
+        before: params.before,
+        after: params.after,
+        status: params.session.status,
+        winner: params.session.winner,
+        outcome: params.session.outcome,
+    });
 }
 
 function actionIdentity(session: SoloPveSession, side: SoloPveSide, action: SoloPveAction): { actionId?: string; actionName?: string } {
@@ -384,10 +429,13 @@ function appendCompanionEvent(
     actionName: string,
     target: 'companion' | 'enemy' | 'tile' | null,
     tile?: number,
+    resolution?: CombatResolutionFacts,
 ): void {
+    const after = eventSnapshot(session);
+    const sequence = session.eventSeq + 1;
     const event: SoloPveCombatEvent = {
         kind: 'action',
-        seq: session.eventSeq + 1,
+        seq: sequence,
         round: session.round,
         actor: 'companion',
         target,
@@ -396,7 +444,7 @@ function appendCompanionEvent(
         actionName,
         ...(tile === undefined ? {} : { tile }),
         before,
-        after: eventSnapshot(session),
+        after,
         log: session.log.slice(logStart),
         vfx: [{
             key: target === 'companion' ? 'buff' : target === 'tile' ? 'move' : 'impact',
@@ -407,12 +455,18 @@ function appendCompanionEvent(
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        combat: projectSoloCombatEvent({
+            session, before, after, sequence, roundBefore: session.round,
+            actor: 'companion', target, actionType: action, actionId: actionName,
+            ...(tile === undefined ? {} : { tile }), applied: true,
+            ...(resolution ? { resolution } : {}),
+        }),
     };
     session.eventSeq = event.seq;
     session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
 }
 
-function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): number {
+function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts & { dealt: number } {
     const inc = activeStatuses(companion, session.round)
         .filter((status) => status.name === 'Increase Damage Given')
         .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
@@ -421,9 +475,10 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
     const raw = companionMoveDamage(companion.baseDamage, move)
         * (1 + Math.min(60, inc) / 100)
         * companionGearDamageMult(companion.pveGearId, enemyHpPct, ownerHpPct);
-    if (raw <= 0) return 0;
+    if (raw <= 0) return { dealt: 0, rawDamage: 0, resolvedDamage: 0 };
     const cap = Math.max(1, Math.floor(session.enemy.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-    const dealt = Math.max(0, Math.min(Math.floor(raw * soloPveDamageMultiplier(session, 'player')), cap));
+    const uncapped = Math.max(0, Math.floor(raw * soloPveDamageMultiplier(session, 'player')));
+    const dealt = Math.min(uncapped, cap);
     session.enemy.hp = Math.max(0, session.enemy.hp - dealt);
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
@@ -431,10 +486,10 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
         session.player.hp = Math.min(session.player.maxHp, session.player.hp + heal);
         session.log.push(`${session.player.name} draws ${heal} HP from ${companion.name}'s strike.`);
     }
-    return dealt;
+    return { dealt, rawDamage: uncapped, resolvedDamage: dealt };
 }
 
-function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): void {
+function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts | undefined {
     if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
@@ -443,21 +498,22 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
         const heal = Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
         companion.hp = Math.min(companion.maxHp, companion.hp + heal);
         session.log.push(`${companion.name}${label} and recovers ${heal} HP.`);
-        return;
+        return { healing: heal };
     }
     if (kind === 'shield' || kind === 'barrier') {
         const amount = Math.max(1, Math.floor(companion.maxHp * 0.2));
         companion.shield += amount;
         session.log.push(`${companion.name}${label} and raises a ${amount} HP shield.`);
-        return;
+        return { shielding: amount };
     }
     if (kind === 'buff' || kind === 'haste' || kind === 'absorb' || kind === 'taunt') {
         const status = kind === 'absorb' ? 'Absorb' : kind === 'taunt' ? 'Decrease Damage Taken' : 'Increase Damage Given';
         addCompanionStatus(companion, { name: status, rounds, percent: kind === 'absorb' ? 30 : 25, kind: 'positive' });
         session.log.push(`${companion.name}${label} and steels itself.`);
-        return;
+        return undefined;
     }
-    const dealt = companionDealDamage(session, companion, move);
+    const resolution = companionDealDamage(session, companion, move);
+    const dealt = resolution.dealt;
     session.log.push(`${companion.name}${label} -> ${session.enemy.name} for ${dealt}.`);
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
@@ -492,6 +548,7 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
         default: break;
     }
     checkWinner(session);
+    return resolution;
 }
 
 function runSoloPveCompanionPhase(session: SoloPveSession): void {
@@ -545,10 +602,19 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
             if (ap < BASIC_ATTACK_AP) break;
             const before = eventSnapshot(session);
             const logStart = session.log.length;
-            companionCast(session, companion, move);
+            const resolution = companionCast(session, companion, move);
             ap -= BASIC_ATTACK_AP;
             actions += 1;
-            appendCompanionEvent(session, before, logStart, 'companionMove', move?.name ?? 'Basic Strike', move && companionMoveDamage(1, move) === 0 ? 'companion' : 'enemy');
+            appendCompanionEvent(
+                session,
+                before,
+                logStart,
+                'companionMove',
+                move?.name ?? 'Basic Strike',
+                move && companionMoveDamage(1, move) === 0 ? 'companion' : 'enemy',
+                undefined,
+                resolution,
+            );
         }
     }
     const phaseEndBefore = eventSnapshot(session);
@@ -626,7 +692,7 @@ function guardedDamageCap(session: SoloPveSession, side: SoloPveSide): number | 
     });
 }
 
-function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu): void {
+function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu): ResolveJutsuMetadata {
     const self = fighter(session, side);
     const opponent = fighter(session, otherSide(side));
     const result = applyJutsu(
@@ -649,6 +715,7 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
         session.weeklyBossGuard.dealtThisTurn += Math.max(0, Math.floor(result.metadata.damage ?? 0));
     }
     checkWinner(session);
+    return result.metadata;
 }
 
 function spendPoison(session: SoloPveSession, side: SoloPveSide, chakra: number, stamina: number): void {
@@ -727,7 +794,18 @@ function payJutsuResources(session: SoloPveSession, side: SoloPveSide, chakra: n
     spendPoison(session, side, chakra, stamina);
 }
 
-function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Extract<SoloPveAction, { type: 'jutsu' }>): { applied: boolean; reason?: string } {
+type DirectActionResult = { applied: boolean; reason?: string; resolution?: CombatResolutionFacts };
+
+function resolutionFacts(metadata: ResolveJutsuMetadata): CombatResolutionFacts {
+    return {
+        rawDamage: metadata.rawDamage,
+        resolvedDamage: metadata.damage,
+        healing: metadata.healing,
+        shielding: metadata.shieldGain,
+    };
+}
+
+function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Extract<SoloPveAction, { type: 'jutsu' }>): DirectActionResult {
     const self = fighter(session, side);
     const opponent = fighter(session, otherSide(side));
     const jutsu = jutsuList(self).find((entry) => entry.id === action.jutsuId);
@@ -771,6 +849,7 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
         .replace(/%user/g, self.name)
         .replace(/%target/g, opponent.name);
     session.log.push(`${self.name} uses ${jutsu.name}:${flavor ? ` ${flavor}` : ''}`);
+    let resolution: CombatResolutionFacts | undefined;
 
     if (moveTag) {
         setFighter(session, side, { ...self, pos: tile! });
@@ -781,7 +860,7 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
             const ring = hexNeighbors(tile!);
             if (ring.includes(opponent.pos)) {
                 session.log.push(`Ring impact catches ${opponent.name}!`);
-                applyCast(session, side, { ...jutsu, tags: (jutsu.tags ?? []).filter((tag) => canonicalTagName(tag.name) !== 'Move') });
+                resolution = resolutionFacts(applyCast(session, side, { ...jutsu, tags: (jutsu.tags ?? []).filter((tag) => canonicalTagName(tag.name) !== 'Move') }));
             } else {
                 session.log.push(`${opponent.name} is outside the impact area.`);
             }
@@ -796,23 +875,23 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
             const ring = hexNeighbors(tile!);
             if (method === 'AOE_CIRCLE' && ring.includes(opponent.pos)) {
                 session.log.push(`Area burst catches ${opponent.name}!`);
-                applyCast(session, side, jutsu);
+                resolution = resolutionFacts(applyCast(session, side, jutsu));
             } else {
                 session.log.push(`${opponent.name} is outside the impact area.`);
             }
         }
     } else {
-        applyCast(session, side, jutsu);
+        resolution = resolutionFacts(applyCast(session, side, jutsu));
     }
 
     payJutsuResources(session, side, chakra, stamina);
     if ((jutsu.cooldown ?? 0) > 0) session.cooldowns[side][jutsu.id] = Math.floor(jutsu.cooldown!);
     spendAction(session, side, cost);
     checkWinner(session);
-    return { applied: true };
+    return { applied: true, ...(resolution ? { resolution } : {}) };
 }
 
-function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action: SoloPveAction, opts: SoloPveEngineOptions): { applied: boolean; reason?: string } {
+function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action: SoloPveAction, opts: SoloPveEngineOptions): DirectActionResult {
     const self = fighter(session, side);
     const opponent = fighter(session, otherSide(side));
     if (session.status !== 'active') return { applied: false, reason: 'session-done' };
@@ -884,11 +963,11 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const specialty = typeof self.character.specialty === 'string' ? self.character.specialty : 'Ninjutsu';
         const basic: SoloPveJutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: BASIC_ATTACK_AP, range: 1, tags: [] };
         session.log.push(`${self.name} uses Basic Attack:`);
-        applyCast(session, side, basic);
+        const resolution = resolutionFacts(applyCast(session, side, basic));
         const updated = fighter(session, side);
         setFighter(session, side, { ...updated, stamina: Math.max(0, updated.stamina - BASIC_ATTACK_STAMINA) });
         spendAction(session, side, BASIC_ATTACK_AP);
-        return { applied: true };
+        return { applied: true, resolution };
     }
     if (action.type === 'basicHeal') {
         if (!canAct(session, side, BASIC_HEAL_AP) || (session.cooldowns[side].basicHeal ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
@@ -947,10 +1026,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             suppressBloodline: !characterOwnsElement(self.character, item.weaponElement),
         };
         session.log.push(`${self.name} uses ${weapon.name}:`);
-        applyCast(session, side, weapon);
+        const resolution = resolutionFacts(applyCast(session, side, weapon));
         if (cooldown > 0) session.cooldowns[side][cooldownKey] = cooldown;
         spendAction(session, side, cost);
-        return { applied: true };
+        return { applied: true, resolution };
     }
     if (action.type === 'item') {
         const item = equippedItem(self, action.itemId);
@@ -964,6 +1043,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (!spendItemCharge(session, item.id ?? '')) return { applied: false, reason: 'out-of-item' };
         const restoreChakra = Math.max(0, Number(item.restoreChakra ?? 0));
         const restoreStamina = Math.max(0, Number(item.restoreStamina ?? 0));
+        let resolution: CombatResolutionFacts | undefined;
         if ((restoreChakra > 0 || restoreStamina > 0) && !item.weaponEffect && !item.weaponTags?.length) {
             setFighter(session, side, {
                 ...self,
@@ -975,7 +1055,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             const itemJutsu: SoloPveJutsu = { id: `item-${item.id ?? 'equipped'}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF', effectPower: Number(item.weaponEp ?? 10), ap: cost, range: 0, tags };
             session.log.push(`${self.name} uses ${itemJutsu.name}:`);
-            applyCast(session, side, itemJutsu);
+            resolution = resolutionFacts(applyCast(session, side, itemJutsu));
             if (item.weaponEffectTarget === 'both' && item.weaponEffect === 'Decrease Damage Given') {
                 const updated = fighter(session, side);
                 const percent = Math.max(0, Number(item.weaponEffectValue ?? 0));
@@ -990,7 +1070,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         }
         if (cooldown > 0) session.cooldowns[side][cooldownKey] = cooldown;
         spendAction(session, side, cost);
-        return { applied: true };
+        return { applied: true, ...(resolution ? { resolution } : {}) };
     }
     if (action.type === 'flee') {
         if (session.encounter.kind === 'hollow-gate' && session.encounter.metadata?.noRetreat === true) {
@@ -1029,6 +1109,7 @@ function directAction(
     const vfx = jutsuVfx(session, side, action);
     const result = resolveDirectAction(session, side, action, opts);
     if (!result.applied) {
+        const after = eventSnapshot(session);
         return {
             ...result,
             event: {
@@ -1039,13 +1120,21 @@ function directAction(
                 ...identity,
                 ...('tile' in action && action.tile !== undefined ? { tile: action.tile } : {}),
                 reason: result.reason ?? 'rejected',
+                combat: projectSoloCombatEvent({
+                    session, before, after, sequence: null, roundBefore: eventRound,
+                    actor: side, target, actionType: action.type, actionId: identity.actionId,
+                    ...('tile' in action && action.tile !== undefined ? { tile: action.tile } : {}),
+                    applied: false, rejectionReason: result.reason ?? 'rejected',
+                }),
             },
         };
     }
 
+    const after = eventSnapshot(session);
+    const sequence = session.eventSeq + 1;
     const event: SoloPveCombatEvent = {
         kind: 'action',
-        seq: session.eventSeq + 1,
+        seq: sequence,
         round: eventRound,
         actor: side,
         target,
@@ -1053,12 +1142,19 @@ function directAction(
         ...identity,
         ...('tile' in action && action.tile !== undefined ? { tile: action.tile } : {}),
         before,
-        after: eventSnapshot(session),
+        after,
         log: session.log.slice(logStart),
         vfx,
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        combat: projectSoloCombatEvent({
+            session, before, after, sequence, roundBefore: eventRound,
+            actor: side, target, actionType: action.type, actionId: identity.actionId,
+            ...('tile' in action && action.tile !== undefined ? { tile: action.tile } : {}),
+            applied: true,
+            ...(result.resolution ? { resolution: result.resolution } : {}),
+        }),
     };
     session.eventSeq = event.seq;
     session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
@@ -1152,12 +1248,12 @@ function aiJutsuScore(session: SoloPveSession, jutsu: SoloPveJutsu, tile: number
     return score;
 }
 
-function aiJutsu(session: SoloPveSession): AiJutsuCandidate | null {
+function aiJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
     const enemy = session.enemy;
     const distance = hexDistance(enemy.pos, session.player.pos);
     const level = Math.max(1, Number(enemy.character.level) || 1);
     const competence = pveAiCompetence(level, enemy.character.masterAi === true);
-    const candidates = jutsuList(enemy)
+    return jutsuList(enemy)
         .filter((jutsu) => (session.cooldowns.enemy[jutsu.id] ?? 0) <= 0)
         .filter((jutsu) => enemy.chakra >= Math.max(0, Number(jutsu.chakraCost ?? 0)) && enemy.stamina >= Math.max(0, Number(jutsu.staminaCost ?? 0)))
         .filter((jutsu) => {
@@ -1175,7 +1271,10 @@ function aiJutsu(session: SoloPveSession): AiJutsuCandidate | null {
         })
         .filter((candidate) => candidate.score > -1_000)
         .sort((a, b) => b.score - a.score || a.jutsu.id.localeCompare(b.jutsu.id));
-    return candidates[0] ?? null;
+}
+
+function aiJutsu(session: SoloPveSession): AiJutsuCandidate | null {
+    return aiJutsuCandidates(session)[0] ?? null;
 }
 
 function aiTacticalAction(session: SoloPveSession): SoloPveAction | null {
@@ -1203,14 +1302,155 @@ function aiTacticalAction(session: SoloPveSession): SoloPveAction | null {
     return null;
 }
 
-function moveEnemyTowardPlayer(session: SoloPveSession): boolean {
-    if (!canAct(session, 'enemy', MOVE_AP)) return false;
+function enemyMoveTowardPlayerAction(session: SoloPveSession): SoloPveAction | null {
+    if (!canAct(session, 'enemy', MOVE_AP)) return null;
     const candidates = hexNeighbors(session.enemy.pos)
         .filter((tile) => tile !== session.player.pos && !session.environment.blockedTiles.includes(tile))
         .sort((a, b) => hexDistance(a, session.player.pos) - hexDistance(b, session.player.pos));
     const tile = candidates[0];
-    if (tile === undefined || hexDistance(tile, session.player.pos) >= hexDistance(session.enemy.pos, session.player.pos)) return false;
-    return directAction(session, 'enemy', { type: 'move', tile }, {}).applied;
+    if (tile === undefined || hexDistance(tile, session.player.pos) >= hexDistance(session.enemy.pos, session.player.pos)) return null;
+    return { type: 'move', tile };
+}
+
+function moveEnemyTowardPlayer(session: SoloPveSession): boolean {
+    const action = enemyMoveTowardPlayerAction(session);
+    return action ? directAction(session, 'enemy', action, {}).applied : false;
+}
+
+function authoredAiRuleMatches(session: SoloPveSession, rule: ServerAiRule): boolean {
+    const distance = hexDistance(session.enemy.pos, session.player.pos);
+    const resourcePct = (side: SoloPveSide): number => {
+        const value = fighter(session, side);
+        if (rule.resource === 'ap') return session.ap[side];
+        if (rule.resource === 'stamina') return value.stamina * 100 / Math.max(1, value.maxStamina);
+        return value.chakra * 100 / Math.max(1, value.maxChakra);
+    };
+    const hasStatus = (side: SoloPveSide): boolean => activeStatuses(fighter(session, side), session.round)
+        .some((status) => status.name.toLocaleLowerCase() === String(rule.status ?? '').toLocaleLowerCase());
+    const recentPlayerActionMatches = (): boolean => {
+        const recent = [...session.events].reverse().find((event) => event.actor === 'player');
+        if (!recent || !rule.pattern) return false;
+        if (rule.pattern === 'any_jutsu') return recent.action === 'jutsu';
+        if (rule.pattern === 'basic_attack') return recent.action === 'basicAttack';
+        if (rule.pattern === 'heal') {
+            if (recent.action === 'basicHeal') return true;
+            if (recent.action !== 'jutsu') return false;
+            const used = jutsuList(session.player).find((jutsu) => jutsu.id === recent.actionId);
+            return !!used && tagNames(used).includes('Heal');
+        }
+        if (rule.pattern === 'defend') {
+            if (recent.action === 'clear' || recent.action === 'cleanse') return true;
+            if (recent.action !== 'jutsu') return false;
+            return jutsuList(session.player).some((jutsu) => jutsu.id === recent.actionId && jutsu.target === 'SELF');
+        }
+        return recent.action === rule.pattern;
+    };
+    switch (rule.condition) {
+        case 'always': return true;
+        case 'specific_round': return session.round === rule.value;
+        case 'distance_lower_than': return distance < rule.value;
+        case 'distance_higher_than': return distance > rule.value;
+        case 'hp_lower_than': return session.enemy.hp * 100 / Math.max(1, session.enemy.maxHp) < rule.value;
+        case 'player_hp_lower_than': return session.player.hp * 100 / Math.max(1, session.player.maxHp) < rule.value;
+        case 'player_has_shield': return session.player.shield > 0;
+        case 'player_has_buff': return activeStatuses(session.player, session.round).filter((status) => status.kind === 'positive').length >= rule.value;
+        case 'player_low_ap': return session.ap.player < rule.value;
+        case 'self_has_debuff': return activeStatuses(session.enemy, session.round).filter((status) => status.kind === 'negative').length >= rule.value;
+        case 'self_resource_lower_than': return resourcePct('enemy') < rule.value;
+        case 'player_resource_lower_than': return resourcePct('player') < rule.value;
+        case 'self_status_present': return hasStatus('enemy');
+        case 'self_status_absent': return !hasStatus('enemy');
+        case 'player_status_present': return hasStatus('player');
+        case 'player_status_absent': return !hasStatus('player');
+        case 'cooldown_ready': return (session.cooldowns.enemy[rule.jutsuId ?? ''] ?? 0) <= 0;
+        case 'cooldown_active': return (session.cooldowns.enemy[rule.jutsuId ?? ''] ?? 0) > 0;
+        case 'player_recent_action': return recentPlayerActionMatches();
+        // The shared authoring contract understands these conditions, while
+        // Solo PvE has no ally roster, objective, or threat table. A Tower or
+        // party adapter evaluates them against its sealed encounter state.
+        case 'ally_count_lower_than': case 'objective_state': case 'threat_higher_than': return false;
+    }
+}
+
+function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule): SoloPveAction | null {
+    const candidates = aiJutsuCandidates(session);
+    if (rule.action === 'use_specific_jutsu') {
+        const chosen = candidates.find((candidate) => candidate.jutsu.id === rule.jutsuId);
+        return chosen ? { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) } : null;
+    }
+    if (rule.action === 'use_highest_power_jutsu' || rule.action === 'use_best_legal_jutsu') {
+        const chosen = candidates[0];
+        return chosen ? { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) } : null;
+    }
+    if (rule.action === 'move_towards_opponent') return enemyMoveTowardPlayerAction(session);
+    if (rule.action === 'use_movement_jutsu') {
+        const chosen = candidates.find((candidate) => hasMoveTag(candidate.jutsu));
+        return chosen ? { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) } : null;
+    }
+    if (rule.action === 'use_basic_attack') {
+        return hexDistance(session.enemy.pos, session.player.pos) <= 1
+            && canAct(session, 'enemy', BASIC_ATTACK_AP)
+            && session.enemy.stamina >= BASIC_ATTACK_STAMINA
+            ? { type: 'basicAttack' }
+            : null;
+    }
+    if (rule.action === 'heal') {
+        const chosen = candidates.find((candidate) => tagNames(candidate.jutsu).includes('Heal'));
+        if (chosen) return { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) };
+        return canAct(session, 'enemy', BASIC_HEAL_AP)
+            && (session.cooldowns.enemy.basicHeal ?? 0) <= 0
+            && session.enemy.chakra >= BASIC_HEAL_CHAKRA
+            ? { type: 'basicHeal' }
+            : null;
+    }
+    if (rule.action === 'end_turn') return { type: 'wait' };
+    if (rule.action === 'summon_add' || rule.action === 'hold_objective') return null;
+
+    // Reactive counterplay remains competence-gated. Authored rules can decide
+    // WHEN a capable AI counters, but cannot make easy-band opponents omniscient.
+    const level = Math.max(1, Number(session.enemy.character.level) || 1);
+    const competence = pveAiCompetence(level, session.enemy.character.masterAi === true);
+    if (competence.band === 'easy') return null;
+    if (rule.action === 'clear_player_buffs') {
+        return canAct(session, 'enemy', CLEAR_AP)
+            && (session.cooldowns.enemy.clear ?? 0) <= 0
+            && pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) > 0
+            ? { type: 'clear' }
+            : null;
+    }
+    if (rule.action === 'cleanse_self') {
+        return canAct(session, 'enemy', CLEANSE_AP)
+            && (session.cooldowns.enemy.cleanse ?? 0) <= 0
+            && activeStatuses(session.enemy, session.round).some((status) => status.kind === 'negative')
+            ? { type: 'cleanse' }
+            : null;
+    }
+    if (rule.action === 'defend') {
+        const chosen = candidates.find((candidate) => candidate.jutsu.target === 'SELF');
+        return chosen ? { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) } : null;
+    }
+    if (rule.action === 'buff') {
+        const chosen = candidates.find((candidate) => candidate.jutsu.target === 'SELF'
+            && !tagNames(candidate.jutsu).includes('Heal')
+            && !hasMoveTag(candidate.jutsu));
+        return chosen ? { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) } : null;
+    }
+    return null;
+}
+
+function authoredAiAction(session: SoloPveSession): SoloPveAction | null {
+    const loadoutIds = jutsuList(session.enemy).map((jutsu) => jutsu.id);
+    const program = validateServerAiRules(session.enemy.character.aiRules, loadoutIds);
+    if (!program.ok || program.rules.length === 0) return null;
+    for (const rule of program.rules) {
+        if (!authoredAiRuleMatches(session, rule)) continue;
+        const action = authoredAiRuleAction(session, rule);
+        // Matching is not enough: cooldown, range, resources, competence, and
+        // board legality may make the action impossible. Continue deterministically
+        // to the next authored rule, then the generic policy.
+        if (action) return action;
+    }
+    return null;
 }
 
 function enemyTargetsCompanion(session: SoloPveSession): boolean {
@@ -1249,6 +1489,7 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
         .filter((status) => status.name === 'Absorb')
         .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
     damage = Math.max(0, damage - Math.floor(damage * Math.min(60, absorb) / 100));
+    const resolvedDamage = damage;
     const blocked = Math.min(companion.shield, damage);
     companion.shield -= blocked;
     damage -= blocked;
@@ -1259,9 +1500,11 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
         session.log.push(`${companion.name} is knocked out. The fight continues.`);
         session.companion = undefined;
     }
+    const after = eventSnapshot(session);
+    const sequence = session.eventSeq + 1;
     const event: SoloPveCombatEvent = {
         kind: 'action',
-        seq: session.eventSeq + 1,
+        seq: sequence,
         round: session.round,
         actor: 'enemy',
         target: 'companion',
@@ -1269,12 +1512,17 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
         actionId: 'basic-attack',
         actionName: 'Basic Attack',
         before,
-        after: eventSnapshot(session),
+        after,
         log: session.log.slice(logStart),
         vfx: [{ key: 'impact', target: 'companion', anchor: 'target' }],
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        combat: projectSoloCombatEvent({
+            session, before, after, sequence, roundBefore: session.round,
+            actor: 'enemy', target: 'companion', actionType: 'basicAttack', actionId: 'basic-attack', applied: true,
+            resolution: { rawDamage: resolvedDamage, resolvedDamage },
+        }),
     };
     session.eventSeq = event.seq;
     session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
@@ -1289,9 +1537,12 @@ export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
             continue;
         }
         const tactic = aiTacticalAction(session);
-        const jutsu = tactic ? null : aiJutsu(session);
+        const authored = tactic ? null : authoredAiAction(session);
+        const jutsu = tactic || authored ? null : aiJutsu(session);
         if (tactic) {
             directAction(session, 'enemy', tactic, {});
+        } else if (authored) {
+            directAction(session, 'enemy', authored, {});
         } else if (jutsu) {
             directAction(session, 'enemy', { type: 'jutsu', jutsuId: jutsu.jutsu.id, ...(jutsu.tile === undefined ? {} : { tile: jutsu.tile }) }, {});
         } else if (hexDistance(session.enemy.pos, session.player.pos) <= 1 && canAct(session, 'enemy', BASIC_ATTACK_AP) && session.enemy.stamina >= BASIC_ATTACK_STAMINA) {
