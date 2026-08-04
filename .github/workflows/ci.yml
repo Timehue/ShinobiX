@@ -66,8 +66,9 @@ jobs:
         run: npm run build
 
       # Boots the real Express server against the isolated in-memory backend
-      # and walks a brand-new account through register → first save → tampered
-      # autosave → reward → refresh → relog → retry → stale autosave. Runs
+      # and walks a brand-new account through register → first save → rejected
+      # currency forgery → sanitized progression forgery → reward → refresh →
+      # relog → retry → stale autosave. Runs
       # after the build so it certifies the built dist/server.js. Needs no
       # database and no secrets.
       - name: Fresh-account release certification
