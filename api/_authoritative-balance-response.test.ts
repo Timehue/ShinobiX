@@ -67,9 +67,12 @@ describe('authoritative balance response migration', () => {
 
     it('AI fight XP and ryo come from the committed server character', async () => {
         const api = read('api/missions/report-ai-fight.ts');
-        const arena = read('shinobij.client/src/screens/Arena.tsx');
-        assert.match(api, /const combatCharacter = Object\.keys\(playerItemsUsed\)\.length > 0[\s\S]*deductUsedItems\(character, playerItemsUsed\)/);
-        assert.match(api, /const leveled = gainXp\(combatCharacter, reward\.xp\)/);
+        const host = read('shinobij.client/src/components/AiFightHost.tsx');
+        const settle = read('shinobij.client/src/lib/ai-fight-settle.ts');
+        const app = read('shinobij.client/src/App.tsx');
+        assert.match(api, /readSoloPveSession\(sealedSessionId\)/);
+        assert.match(api, /applySoloPveUsageCosts\(character, sealedSession\)/);
+        assert.match(api, /const leveled = gainXp\(companionCharacter, reward\.xp\)/);
         assert.match(api, /character: result\.character, _saveVersion: result\._saveVersion/);
         // The save endpoint's protection of the AI-fight redemption ledger now
         // derives from the ownership manifest (P0-1) — assert it there, where
@@ -79,34 +82,37 @@ describe('authoritative balance response migration', () => {
             ownership.SERVER_ARRAY_LEDGER_CHARACTER_FIELDS.includes('redeemedAiFightRewards'),
             'redeemedAiFightRewards must stay a server-owned redemption ledger on the save path',
         );
-        assert.match(arena, /aiFightTokenPromiseRef\.current = fetch\("\/api\/missions\/ai-fight-start"/);
-        assert.match(arena, /const tokenRequest = aiFightTokenPromiseRef\.current \?\? Promise\.resolve\(""\)/);
-        assert.match(arena, /updateCharacter\(buildWin\(data\?\.character\)\)/);
+        assert.match(host, /startAiFight\(\{/);
+        assert.match(host, /const settled = await settleAiFight\(\{/);
+        assert.match(host, /onSettled\(settled\)/);
+        assert.match(settle, /const settledCharacter = \(reported\.character \?\? null\)/);
         assert.match(api, /applyAiFightSecondaryRewards/);
-        // A failed/refused report still resolves the win from the LOCAL base —
-        // never from client-computed rewards. (The catch also restates the
-        // reward banner as "nothing granted", so match inside the block.)
-        assert.match(arena, /\.catch\(\(\) => \{[\s\S]{0,200}?updateCharacter\(\{ \.\.\.base, hp: playerHp \}\)/);
-        assert.match(arena, /if \(!serverCharacter\) return \{ \.\.\.base, hp: Math\.min\(base\.hp, playerHp\) \}/);
-        assert.doesNotMatch(arena, /ryo:\s*rewarded\.ryo \+ \(serverCharacter \? 0 : effRyo\)/);
+        // The mounted host adopts only the committed character returned through
+        // the settlement helper; no client reward arithmetic survives.
+        assert.match(app, /onSettled=\{\(result\) => \{ if \(!result\.character\) return;[\s\S]{0,180}?setCharacter\(result\.character\)/);
+        assert.doesNotMatch(settle, /ryo:\s*\([^\n]*\+|xp:\s*\([^\n]*\+/, 'the client must not synthesize AI fight balances');
     });
 
     it('story milestones consume the sealed next-boss token and adopt the committed character', () => {
         const api = read('api/story/settle.ts');
         const core = read('api/story/_settle.ts');
         const saveApi = read('api/save/[name].ts');
-        const arena = read('shinobij.client/src/screens/Arena.tsx');
+        const client = read('shinobij.client/src/lib/story-combat-api.ts');
+        const host = read('shinobij.client/src/components/StoryBossFightHost.tsx');
         const app = read('shinobij.client/src/App.tsx');
-        assert.match(api, /aiFightTokenKey\(playerName, token\)/);
-        assert.match(api, /redeemed\.find\(\(entry\) => entry\.token === token\)/);
+        assert.match(api, /const session = await readSoloPveSession\(runId\)/);
+        assert.match(api, /const redemptionKey = `run:\$\{runId\}`/);
+        assert.match(api, /redeemed\.find\(\(entry\) => entry\.token === redemptionKey\)/);
         assert.match(api, /replayed:\s*true/);
-        assert.match(api, /applyStoryBossSettlement\(character, tokenData/);
-        assert.match(core, /token\.opponentId !== storyOpponentId\(village, levelReq\)/);
+        assert.match(api, /applySoloPveUsageCosts\(character, session!\)/);
+        assert.match(api, /applyStoryBossSettlement\([\s\S]*validation\.binding\.opponentId/);
+        assert.match(core, /proof\.opponentId !== storyOpponentId\(village, levelReq\)/);
         assert.match(saveApi, /char\.storyProgress = .*exChar\.storyProgress/);
-        assert.match(arena, /onPendingStoryBattleWin\?\.\(playerHp, token\)/);
-        assert.match(app, /fetch\('\/api\/story\/settle'/);
-        assert.match(app, /setCharacter\(data\.character\)/);
-        assert.match(app, /latestSaveVersionRef\.current\s*=\s*adoptSaveVersion\(latestSaveVersionRef\.current, data\._saveVersion\)/);
+        assert.match(client, /fetch\('\/api\/story\/settle'/);
+        assert.match(client, /body: JSON\.stringify\(\{ \.\.\.params, kind: 'storyBoss' \}\)/);
+        assert.match(host, /onSettled\(settled\)/);
+        assert.match(app, /function handleServerStoryBossSettled\(result: StoryBossSettleResult\)[\s\S]{0,260}?setCharacter\(result\.character\)/);
+        assert.match(app, /adoptSaveVersion\(latestSaveVersionRef\.current, result\._saveVersion\)/);
     });
 
     it('war crates are consumed and rewarded by one server save mutation', () => {
@@ -155,8 +161,9 @@ describe('authoritative balance response migration', () => {
         const api = read('api/hollow-gate/settle.ts');
         const client = read('shinobij.client/src/lib/hollow-gate-server.ts');
         assert.match(api, /character: result\.character/);
-        assert.match(api, /reason: 'invalid-or-spent',[\s\S]*character: current\?\.character/);
-        assert.match(client, /return reconcileHollowGateSettle\(prev, entry, res\)/);
+        assert.match(api, /alreadyReported: true, character: result\.character, _saveVersion: result\._saveVersion/);
+        assert.match(client, /if \(!res\?\.ok \|\| !res\.character\)/);
+        assert.match(client, /return reconcileHollowGateSettle\(prev, res\)/);
     });
 
     it('Battle Tower settlement exposes only and adopts the caller committed character', () => {

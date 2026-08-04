@@ -32,7 +32,6 @@ import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
 import { playPetSfx } from "../lib/pet-sfx";
-import { setBattleMusicIntensity, startBattleMusic, stopBattleMusic } from "../lib/pet-music";
 import { isMercAiId } from "../lib/merc-ai";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
@@ -1077,7 +1076,7 @@ export function Arena({
         const reflectPct = sumActiveStatusPct(enemyStatuses, "Reflect");
         const absorbed = absorbPct > 0 ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbPct))) : 0;
         const reflected = reflectPct > 0 ? Math.floor(cappedPostDamage(rawDamage, reflectPct)) : 0;
-        let net = Math.max(0, rawDamage - absorbed);
+        const net = Math.max(0, rawDamage - absorbed);
         // `absorbed` is returned so callers can LOG it — it used to silently
         // shrink the damage number, which read as "the AI's Absorb did nothing".
         return { net, reflected, absorbed };

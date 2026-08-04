@@ -252,19 +252,24 @@ export function MissionArenaFight({
     const myPos = myActor?.pos ?? -1;
     const enemyPos = enemy?.pos ?? -1;
     const biome = String(session.map.biome ?? "central");
-    const gateDirective = useMemo(() => hollowGate && enemy && myActor ? hollowGateCombatDirective({
-        floor: hollowGate.floor,
-        kind: hollowGate.kind,
+    const gateFloor = hollowGate?.floor;
+    const gateKind = hollowGate?.kind;
+    const gateEnemyHp = enemy?.hp;
+    const gateEnemyMaxHp = enemy?.maxHp;
+    const hasGateCombatants = !!hollowGate && !!enemy && !!myActor;
+    const gateDirective = hasGateCombatants && gateFloor != null && gateKind && gateEnemyHp != null && gateEnemyMaxHp != null ? hollowGateCombatDirective({
+        floor: gateFloor,
+        kind: gateKind,
         turn: session.round,
-        enemyHp: enemy.hp,
-        enemyMaxHp: enemy.maxHp,
+        enemyHp: gateEnemyHp,
+        enemyMaxHp: gateEnemyMaxHp,
         playerPos: myPos,
         enemyPos,
         gridWidth: w,
         gridHeight: h,
-    }) : null, [hollowGate?.floor, hollowGate?.kind, session.round, enemy?.hp, enemy?.maxHp, myPos, enemyPos, w, h]);
-    const gateHazards = useMemo(() => new Set(gateDirective?.hazardTiles ?? []), [gateDirective?.hazardTiles]);
-    const gateSafe = useMemo(() => new Set(gateDirective?.safeTiles ?? []), [gateDirective?.safeTiles]);
+    }) : null;
+    const gateHazards = new Set(gateDirective?.hazardTiles ?? []);
+    const gateSafe = new Set(gateDirective?.safeTiles ?? []);
 
     // Reconnect: always pull the latest revision once after mounting.
     useEffect(() => {
