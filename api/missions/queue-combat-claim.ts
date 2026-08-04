@@ -10,6 +10,7 @@ import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligi
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import {
     missionCombatBindingKey,
     MISSION_COMBAT_SESSION_TTL_SECONDS,
@@ -72,6 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ): Promise<QueueOutcome> => {
             const validation = validateSettledMissionCombatSession({ binding, session, playerName, mission });
             if (!validation.ok) return { queued: false, reason: validation.reason };
+            const physicalOutcome = await settlePveFightOutcome(session!, playerName);
+            if (!physicalOutcome.ok) return { queued: false, reason: 'physical-outcome-failed' };
             const [record, claimToken] = await Promise.all([
                 kv.get<Record<string, unknown>>(`save:${playerName}`),
                 kv.get<{ authority?: string; runId?: string; missionId?: string }>(`missions:combat-claim:${playerName}:${mission.key}`),
@@ -114,6 +117,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             return res.status(200).json({ ok: true, queued: false, reason: initialValidation.reason });
+        }
+
+        const physicalOutcome = await settlePveFightOutcome(initialSession!, playerName);
+        if (!physicalOutcome.ok) {
+            return res.status(200).json({ ok: true, queued: false, reason: 'physical-outcome-failed' });
         }
 
         const saveKey = `save:${playerName}`;
