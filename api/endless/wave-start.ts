@@ -1,16 +1,17 @@
-import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
-import { writeSession } from '../towers/_tower-store.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import type { EndlessRun } from './_run.js';
 import {
     buildEndlessWaveEncounter,
     createEndlessWaveBinding,
+    endlessActiveWaveKey,
     endlessWaveBindingKey,
     endlessWaveRunId,
     ENDLESS_WAVE_TTL_SECONDS,
@@ -18,7 +19,7 @@ import {
 
 /**
  * Seal the CURRENT wave of the caller's in-flight Endless Tower run.
- * Body: { playerName, runToken, hostLoadout? }.
+ * Body: { playerName, runToken }.
  *
  * The wave number is read from the save's own run record, never from the
  * request — a client-chosen wave is a client-chosen reward, since the per-wave
@@ -51,33 +52,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const wave = Math.max(1, Math.floor(Number(run.wave) || 1));
 
-        const runId = endlessWaveRunId();
-        const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
-        const now = Date.now();
-        const built = buildEndlessWaveEncounter({
-            playerName,
-            save,
-            runToken,
-            wave,
-            playerLevel: Math.max(1, Math.floor(Number(char.level) || 1)),
-            runId,
-            seed,
-            now,
-            admin: await loadAdminCombatContent(),
-            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
-        });
-        // No opponent means the catalog is empty — a build problem, not a
-        // runtime one. Refuse rather than fabricate a stand-in; the client
-        // falls back to its local wave, exactly as an unsealed fight does.
-        if (!built) return res.status(409).json({ error: 'No Endless Tower opponent could be sealed.' });
+        const activeKey = endlessActiveWaveKey(playerName, runToken);
+        const started = await withKvLock(activeKey, async () => {
+            const active = await kv.get<{ runId: string; wave: number }>(activeKey);
+            if (active?.runId && active.wave === wave) {
+                const priorBinding = await kv.get<ReturnType<typeof createEndlessWaveBinding>>(endlessWaveBindingKey(active.runId));
+                const priorSession = await readSoloPveSession(active.runId);
+                if (priorBinding?.status === 'active' && priorSession) {
+                    return { ok: true as const, runId: active.runId, wave, session: priorSession, resumed: true };
+                }
+            }
 
-        await writeSession(built.session);
-        await kv.set(
-            endlessWaveBindingKey(runId),
-            createEndlessWaveBinding({ runId, playerName, runToken, wave, opponentId: built.opponentId, now }),
-            { ex: ENDLESS_WAVE_TTL_SECONDS },
-        );
-        return res.status(200).json({ ok: true, runId, wave, session: built.session });
+            const runId = endlessWaveRunId();
+            const now = Date.now();
+            const built = buildEndlessWaveEncounter({
+                playerName,
+                save,
+                runToken,
+                wave,
+                playerLevel: Math.max(1, Math.floor(Number(char.level) || 1)),
+                runId,
+                now,
+                admin: await loadAdminCombatContent(),
+            });
+            if (!built) return { ok: false as const, error: 'No Endless Tower opponent could be sealed.' };
+
+            await writeSoloPveSession(built.session);
+            await kv.set(
+                endlessWaveBindingKey(runId),
+                createEndlessWaveBinding({ runId, playerName, runToken, wave, opponentId: built.opponentId, now }),
+                { ex: ENDLESS_WAVE_TTL_SECONDS },
+            );
+            await kv.set(activeKey, { runId, wave }, { ex: ENDLESS_WAVE_TTL_SECONDS });
+            return { ok: true as const, runId, wave, session: built.session, resumed: false };
+        }, { failClosed: true });
+        if (!started.ok) return res.status(409).json({ error: started.error });
+        return res.status(200).json(started);
     } catch (err) {
         console.error('[endless/wave-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });

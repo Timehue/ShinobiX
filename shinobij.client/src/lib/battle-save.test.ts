@@ -6,7 +6,6 @@ import {
     STORY_BOSS_SAVE_TTL_MS,
     arenaStoryCtxKey,
     battleResumeStateExists,
-    endlessCtxKey,
     storyBossSaveKey,
     type ClientBattleLock,
 } from "./battle-save";
@@ -111,18 +110,11 @@ describe("battle resume state checks", () => {
         assert.equal(battleResumeStateExists(lock("storyBoss"), "ResumeRisk", character()), false);
     });
 
-    it("requires both app context and combat snapshot for endless and arena-story locks", () => {
+    it("never resumes retired local Endless locks and requires context for arena-story locks", () => {
         const fakeAi = { id: "scaled-ai", name: "Scaled AI" };
-
-        localStorage.setItem(endlessCtxKey("ResumeRisk"), JSON.stringify({
-            wave: 4,
-            aiId: "scaled-ai",
-            ai: fakeAi,
-            savedAt: Date.now(),
-        }));
         assert.equal(battleResumeStateExists(lock("endless"), "ResumeRisk", character()), false);
         writeArenaSnapshot();
-        assert.equal(battleResumeStateExists(lock("endless"), "ResumeRisk", character()), true);
+        assert.equal(battleResumeStateExists(lock("endless"), "ResumeRisk", character()), false);
 
         localStorage.clear();
         writeArenaSnapshot();

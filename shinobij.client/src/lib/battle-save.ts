@@ -22,25 +22,6 @@ export const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
 // work — a winner whose resolve failed keeps the marker and is not penalized.
 export const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
 
-// Endless-tower context persistence. The COMBAT state (HP/turn) is saved by
-// ArenaBattlePersister like any arena fight; what's lost on refresh is the
-// endless WAVE + flag + the scaled enemy (App state). We persist just those so
-// the boot path can rebuild the endless fight (the enemy itself resolves from
-// the already-saved pendingAiProfileId once the scaled clone is back in the AI
-// pool). 1h TTL to match the combat persister.
-const ENDLESS_CTX_TTL_MS = 60 * 60 * 1000;
-type EndlessContext = { wave: number; aiId: string; ai: CreatorAi; savedAt: number };
-export function endlessCtxKey(name: string): string { return `endless.context.v1.${name}`; }
-export function readEndlessContext(name: string): EndlessContext | null {
-    try {
-        const raw = localStorage.getItem(endlessCtxKey(name));
-        if (!raw) return null;
-        const ctx = JSON.parse(raw) as EndlessContext;
-        if (Date.now() - (ctx.savedAt ?? 0) > ENDLESS_CTX_TTL_MS) return null;
-        return ctx?.ai ? ctx : null;
-    } catch { return null; }
-}
-
 // Arena "story" context persistence. Covers EVERY pendingArenaStoryBattle fight
 // (weekly boss, dungeon-AI warden, arena story boss, triggered-event battle,
 // hollow-gate arena fight) — they all fight on screen "arena" with the combat
@@ -114,15 +95,9 @@ export function battleResumeStateExists(lock: ClientBattleLock, playerName: stri
             if (character && saved.storyProgress !== character.storyProgress) return false;
             return (saved.bossHp ?? 0) > 0 && (saved.playerHp ?? 0) > 0;
         }
-        if (lock.kind === "endless") {
-            // Needs BOTH the endless app-context (wave + scaled enemy) AND the
-            // arena combat snapshot — the fight runs on screen "arena".
-            if (!readEndlessContext(playerName)) return false;
-            const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
-            if (!raw) return false;
-            const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
-            return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
-        }
+        // Endless now resumes from its server-owned SoloPveSession, never from
+        // an Arena snapshot or locally persisted opponent/wave context.
+        if (lock.kind === "endless") return false;
         if (lock.kind === "arenaStory") {
             // Same as endless: needs the pendingArenaStoryBattle context AND the
             // arena combat snapshot.
