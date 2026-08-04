@@ -1,6 +1,7 @@
 import { applyDerivedLevel } from '../_xp-engine.js';
-import type { AiFightToken } from '../missions/_ai-fight-token.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
+
+type StoryOpponentProof = { opponentId?: string };
 
 export const STORY_LEVELS = [4, 15, 25, 35, 50, 65, 75, 85, 100] as const;
 // One-time SPINE grants (docs/leveling-without-xp-map.md §4): character XP is
@@ -49,7 +50,7 @@ export type StorySettlement =
     | { ok: true; character: PlayerCharacter; progress: number; xp: number; statPoints: number; ryo: number; auraDust: number; finale: boolean; title?: string }
     | { ok: false; status: number; error: string };
 
-export function applyAcademySparSettlement(character: PlayerCharacter, token: AiFightToken): StorySettlement {
+export function applyAcademySparSettlement(character: PlayerCharacter, proof: StoryOpponentProof): StorySettlement {
     if (character.academySparClaimed === true) {
         return { ok: false, status: 409, error: 'Academy spar reward was already claimed.' };
     }
@@ -57,14 +58,8 @@ export function applyAcademySparSettlement(character: PlayerCharacter, token: Ai
     if (onboardingStep !== 'academySpar' && onboardingStep !== 'spar') {
         return { ok: false, status: 409, error: 'Academy spar is not the current onboarding step.' };
     }
-    // Two opponent ids are the Academy spar: the SEALED server dummy
-    // (api/story/_academy-spar.ts, reached through /api/story/spar-start), and
-    // the `temp-academy-spar-<ts>` id the local fallback still mints when the
-    // sealed start is unavailable. Both are checked here rather than at the
-    // call site so neither channel can settle some other fight as the spar.
-    const opponentId = String(token.opponentId ?? '');
-    if (opponentId !== ACADEMY_SPAR_OPPONENT_ID && !/^temp-academy-spar-\d{10,16}$/.test(opponentId)) {
-        return { ok: false, status: 409, error: 'AI fight token does not match the Academy spar.' };
+    if (proof.opponentId !== ACADEMY_SPAR_OPPONENT_ID) {
+        return { ok: false, status: 409, error: 'Server combat proof does not match the Academy spar.' };
     }
     // The teaching reward: +20 pool points (replacing the old one-time 60 XP)
     // teaches the USER STATS panel the way the XP bar move used to.
@@ -84,7 +79,7 @@ export function applyAcademySparSettlement(character: PlayerCharacter, token: Ai
 
 export function applyStoryBossSettlement(
     character: PlayerCharacter,
-    token: AiFightToken,
+    proof: StoryOpponentProof,
     survivingHpRaw: unknown,
 ): StorySettlement {
     const progress = Math.max(0, Math.floor(Number(character.storyProgress) || 0));
@@ -94,8 +89,8 @@ export function applyStoryBossSettlement(
     if (playerLevel < levelReq) return { ok: false, status: 403, error: `Story milestone requires level ${levelReq}.` };
     const village = typeof character.village === 'string' ? character.village : '';
     if (!LIBERATOR_TITLES[village]) return { ok: false, status: 409, error: 'Player village has no story catalog.' };
-    if (token.opponentId !== storyOpponentId(village, levelReq)) {
-        return { ok: false, status: 409, error: 'AI fight token does not match the current story boss.' };
+    if (proof.opponentId !== storyOpponentId(village, levelReq)) {
+        return { ok: false, status: 409, error: 'Server combat proof does not match the current story boss.' };
     }
     const reward = STORY_REWARDS[progress];
     const leveled = grantPoolPoints(character, reward.statPoints);

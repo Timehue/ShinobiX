@@ -18,7 +18,8 @@ import {
 } from './_ai-fight-token.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
-import { isSoloPveSession, type SoloPveCompanionUsage } from '../solo-pve/_session.js';
+import { isSoloPveSession } from '../solo-pve/_session.js';
+import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import {
     aiFightPaysReward,
@@ -45,31 +46,6 @@ import {
 } from './_apex-contract.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
-
-export function applyCompanionUsageCost(
-    character: Record<string, unknown>,
-    usage: SoloPveCompanionUsage | undefined,
-): Record<string, unknown> {
-    if (!usage || !Array.isArray(character.pets)) return character;
-    let matched = false;
-    const pets = (character.pets as Array<Record<string, unknown>>).map((pet) => {
-        if (String(pet?.id ?? '') !== usage.petId) return pet;
-        matched = true;
-        const loadout = { ...(pet.loadout && typeof pet.loadout === 'object' ? pet.loadout as Record<string, unknown> : {}) };
-        if (usage.pveGearId && loadout.pve === usage.pveGearId) {
-            const durability = Math.max(0, Math.floor(Number(loadout.pveDurability) || 0));
-            if (durability <= 0) {
-                delete loadout.pve;
-                delete loadout.pveDurability;
-            } else {
-                loadout.pveDurability = durability - 1;
-            }
-        }
-        if (usage.consumableId && loadout.consumable === usage.consumableId) delete loadout.consumable;
-        return { ...pet, loadout };
-    });
-    return matched ? { ...character, pets } : character;
-}
 
 // Settles ONE AI fight against its single-use token from /api/missions/ai-fight-start.
 // The token seals opponentId, battleKind, the reward ceilings and (when the fight
@@ -151,7 +127,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const outcome: AiFightOutcome = resolveAiFightOutcome(sealedSession);
         const playerActor = aiFightPlayerActor(sealedSession);
         const playerItemsUsed = aiFightPlayerItemsUsed(sealedSession);
-        const companionUsage = isSoloPveSession(sealedSession) ? sealedSession.companionUsage : undefined;
         // A vanished session neither pays nor punishes — see _ai-fight-outcome.
         // 409 so the client's settle retry can pick it up if it was a slow read.
         if (outcome === 'unknown') {
@@ -176,10 +151,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The per-token redemption below is the exactly-once receipt. Item
             // deduction rides in this SAME save mutation as HP and payout, so a
             // retry cannot keep a spent consumable or deduct it twice.
-            const combatCharacter = Object.keys(playerItemsUsed).length > 0
-                ? deductUsedItems(character, playerItemsUsed)
-                : character;
-            const companionCharacter = applyCompanionUsageCost(combatCharacter, companionUsage);
+            const companionCharacter = isSoloPveSession(sealedSession)
+                ? applySoloPveUsageCosts(character, sealedSession)
+                : Object.keys(playerItemsUsed).length > 0
+                    ? deductUsedItems(character, playerItemsUsed)
+                    : character;
 
             // A loss, draw or forfeit consumes the token and writes the physical
             // consequence, but pays nothing and never touches the daily counter —
@@ -221,20 +197,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const dailyCount = reward.dailyCount;
         if (isSoloPveSession(sealedSession) && sealedSession.terminalEvidence) {
             const settledAt = Date.now();
-            await writeSoloPveSession({
-                ...sealedSession,
-                settlementState: 'settled',
-                terminalEvidence: {
-                    ...sealedSession.terminalEvidence,
-                    settlementState: 'settled',
-                    receipt: {
-                        kind: 'ai-fight',
-                        id: aiFightToken,
-                        settledAt,
-                        rewards: { outcome, xp: reward.xp, ryo: reward.ryo, replayed: reward.replayed },
-                    },
-                },
-            });
+            await writeSoloPveSession(withSoloPveSettlementReceipt(sealedSession, {
+                kind: 'ai-fight',
+                id: aiFightToken,
+                settledAt,
+                rewards: { outcome, xp: reward.xp, ryo: reward.ryo, replayed: reward.replayed },
+            }));
         }
         await kv.del(tokenKey).catch(() => undefined);
 

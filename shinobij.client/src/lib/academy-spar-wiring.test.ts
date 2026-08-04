@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
  * silent — nothing throws, the fight still plays, and the tutorial is just
  * quietly worse:
  *
- *   1. no local fallback  → a network hiccup blocks the first minute of the game
+ *   1. local fallback     → the client becomes combat authority again
  *   2. no coaching        → a brand-new player is dropped into a fight with no hints
  *   3. chapter theming    → the chapter-seal sting fires for a training dummy
  *
@@ -23,32 +23,32 @@ const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const arena = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const coach = readFileSync(new URL("../components/SparCoach.tsx", import.meta.url), "utf8");
 
-test("the spar launch always has a local fallback", () => {
+test("the spar launch is fail-closed on the sealed server path", () => {
     const launch = app.slice(app.indexOf("function startAcademySparringMatch"), app.indexOf("function startAcademySparringMatch") + 1400);
     assert.match(launch, /requestStoryBossFight\(/, "the spar must launch through the sealed-fight bus");
     assert.match(launch, /kind: "academySpar"/, "…as a spar, not a chapter boss");
-    assert.match(launch, /playLocally:/, "a failed seal must still start the local spar — this is the tutorial");
-    // The fallback has to be the REAL local fight, not a stub: it arranges the
-    // dummy and enters the Arena screen.
-    assert.match(launch, /buildAcademySparDummy\(/, "the fallback must build the same dummy");
-    assert.match(launch, /setScreen\("arena"\)/, "the fallback must actually enter the local Arena");
+    assert.doesNotMatch(launch, /playLocally:|buildAcademySparDummy|temp-academy-spar|setScreen\("arena"\)/);
 });
 
-test("the bus runs playLocally when no host is mounted", () => {
+test("the bus never invokes client combat when no host is mounted", () => {
     const bus = readFileSync(new URL("./story-fight-theme.ts", import.meta.url), "utf8");
     const fn = bus.slice(bus.indexOf("export function requestStoryBossFight"), bus.indexOf("export function requestStoryBossFight") + 260);
-    assert.match(fn, /playLocally\?\.\(\)/, "an unmounted host must not drop the fight on the floor");
+    assert.match(fn, /if \(!listener\) return false/);
+    assert.doesNotMatch(fn, /playLocally/);
 });
 
-test("the host falls back instead of erroring when the sealed start fails", () => {
+test("the host reports a sealed-start failure without local combat", () => {
     const subscribe = host.indexOf("return onStoryBossFightRequest((theme)");
     assert.notEqual(subscribe, -1, "the host must still subscribe to the fight bus");
     const start = host.slice(subscribe, subscribe + 1200);
     assert.match(start, /startAcademySparCombat\(/, "the spar must start its own sealed endpoint");
-    assert.match(start, /theme\.playLocally/, "a failed start must take the fallback, not just alert");
+    assert.match(start, /\.catch\(\(error\) => alert/);
+    assert.doesNotMatch(start, /playLocally|TowerSession|towerArenaTransport/);
+    assert.match(start, /startAcademySparCombat\(\{ playerName \}\)/);
 });
 
 test("a sealed spar keeps its coaching and skips the chapter presentation", () => {
+    assert.match(host, /soloPveArenaTransport/);
     assert.match(host, /coach=\{isSpar \? "academySpar" : undefined\}/, "the spar must get the in-battle coaching banner");
     assert.match(host, /storyTheme=\{isSpar \? undefined : theme\}/, "a training dummy must not fire chapter stings or wear the chapter backdrop");
 });

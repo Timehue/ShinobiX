@@ -1,14 +1,11 @@
-import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { buildAuthoritativeSoloEncounter, dynamicBossFloor } from '../_authoritative-pve.js';
-import { sealPveDifficultyBand } from '../_pve-band-seal.js';
-import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
-import { writeSession } from '../towers/_tower-store.js';
+import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { storyCombatBindingKey, STORY_COMBAT_SESSION_TTL_SECONDS } from './_authoritative-story-combat.js';
 import {
@@ -20,7 +17,7 @@ import {
 } from './_academy-spar.js';
 
 /**
- * Start the sealed onboarding sparring match. Body: { playerName, hostLoadout? }.
+ * Start the sealed onboarding sparring match. Body: { playerName }.
  * Everything about the opponent is server-owned (api/story/_academy-spar.ts) —
  * the request carries no level, no stats and no opponent id, because the client
  * choosing any of those is the authority this migration removes.
@@ -49,41 +46,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!eligibility.ok) return res.status(eligibility.status).json({ error: eligibility.error });
 
         const runId = academySparRunId();
-        const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
         const now = Date.now();
         const admin = await loadAdminCombatContent();
-        const floor = dynamicBossFloor({
-            id: 9_250,
-            name: 'academy-spar',
-            bossAiId: ACADEMY_SPAR_OPPONENT_ID,
-            objective: 'defeat-boss',
-            roundBudget: 24,
-            // Neutral ground: a village biome would hand the player the +10%
-            // school buff, and the tutorial should teach the plain fight.
-            biome: 'central',
-        });
-        const session = buildAuthoritativeSoloEncounter({
+        const binding = createAcademySparBinding({ runId, playerName, now });
+        const session = buildSoloPveAiEncounter({
+            sessionId: runId,
             playerName,
             save,
-            floor,
-            bossTemplate: academySparEnemyTemplate(admin),
-            runId,
-            seed,
             now,
-            towerId: 'academy-spar',
+            profile: academySparEnemyTemplate(admin),
             admin,
-            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
+            difficultyMode: 'STORY',
+            encounter: {
+                kind: 'academy-spar',
+                id: ACADEMY_SPAR_OPPONENT_ID,
+                sourceId: binding.opponentId,
+                bindingId: runId,
+            },
+            environment: { biome: 'central' },
         });
-        // Same two difficulty seals every other server PvE mode carries, in the
-        // same order: the guard bounds the hit, then mastery lifts the cast off
-        // the 30% floor. On a level-1 peer band both are near no-ops — they are
-        // here so the spar cannot drift away from the shared PvE contract.
-        sealPveDifficultyBand(session, { mode: 'STORY' });
-        sealPveAiMastery(session, { mode: 'STORY' });
-        await writeSession(session);
+        await writeSoloPveSession(session);
         await kv.set(
             storyCombatBindingKey(runId),
-            createAcademySparBinding({ runId, playerName, now }),
+            binding,
             { ex: STORY_COMBAT_SESSION_TTL_SECONDS },
         );
         return res.status(200).json({ ok: true, runId, session });

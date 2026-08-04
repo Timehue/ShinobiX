@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
-import type { TowerSession } from "../lib/towers-api";
+import type { SoloPveSession } from "../lib/solo-pve-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import {
@@ -12,12 +12,12 @@ import {
 } from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
-import { towerArenaTransport, towerSessionForArena } from "../lib/tower-arena-adapter";
+import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 
 // Story-boss fights render through MissionArenaFight — the SAME server-authoritative
-// arena shell combat missions use (a sealed tower:<runId> session, /api/towers/action
-// moves, CombatSideHud dossiers + the 12×10 hex board). A story fight is a plain solo
-// defeat-boss TowerSession, structurally identical to a combat mission, so they share
+// arena shell combat missions use (a sealed solo-PvE session and intent-only actions,
+// CombatSideHud dossiers + the 12×10 hex board). A story fight is a plain solo
+// encounter, structurally identical to a combat mission, so they share
 // the screen; the only story-specific bits are the display-only `storyTheme`
 // (backdrop / chapter label / boss barks) and the settle endpoint (/api/story/settle),
 // both passed in below. This screen used to be BattleTowerFight (the tower/spire tactical
@@ -71,7 +71,7 @@ export function StoryBossFightHost({
      *  carries the chapter REWARD and only fires on a win. */
     onOutcome?: (character: Character, saveVersion?: number) => void;
 }) {
-    const [fight, setFight] = useState<{ theme: StoryFightTheme; runId: string; session: TowerSession } | null>(null);
+    const [fight, setFight] = useState<{ theme: StoryFightTheme; runId: string; session: SoloPveSession } | null>(null);
     const startingRef = useRef(false);
     const playerName = character?.name ?? "";
 
@@ -85,17 +85,10 @@ export function StoryBossFightHost({
             void import("../screens/MissionArenaFight");
             const start = theme.kind === "academySpar"
                 ? startAcademySparCombat({ playerName })
-                : startStoryBossCombat({ playerName, bossName: theme.bossName });
+                : startStoryBossCombat({ playerName });
             start
                 .then((started) => setFight({ theme, runId: started.runId, session: started.session }))
-                .catch((error) => {
-                    // A theme with a local fallback takes it rather than showing
-                    // an error — see StoryFightTheme.playLocally. The Academy
-                    // spar is the first minute of the game; it must not be the
-                    // thing a failed round-trip blocks.
-                    if (theme.playLocally) theme.playLocally();
-                    else alert(error instanceof Error ? error.message : "The story battle could not start.");
-                })
+                .catch((error) => alert(error instanceof Error ? error.message : "The story battle could not start."))
                 .finally(() => { startingRef.current = false; });
         });
     }, [playerName]);
@@ -145,8 +138,8 @@ export function StoryBossFightHost({
             <MissionArenaFight
                 character={character}
                 runId={fight.runId}
-                initialSession={towerSessionForArena(fight.session)}
-                transport={towerArenaTransport}
+                initialSession={soloPveSessionForArena(fight.session)}
+                transport={soloPveArenaTransport}
                 sharedImages={sharedImages}
                 savedBloodlines={savedBloodlines}
                 creatorJutsus={creatorJutsus}
