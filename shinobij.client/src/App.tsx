@@ -236,6 +236,7 @@ import {
     type HollowGateTile,
     type HollowGateShrineRun,
     type HollowGateEventConfig,
+    type HollowGateVariant,
     type EndlessTowerRun,
     type Character,
     type PlayerRecord,
@@ -531,18 +532,8 @@ export type PendingArenaStoryBattle =
 // imported at the top of this file.
 
 // HOLLOW_GATE_SHRINE_W / H moved to ./constants/game.
-// Runtime-tunable from the admin panel.
-// THREAT_PER_STEP was 7 on the old 15×11 board (~20 steps to cross). The 25×17
-// board takes ~34 steps to cross, so 4/step keeps threat-per-floor-crossing
-// equivalent (34×4≈136 vs 20×7=140) — same ambush cadence, bigger dungeon.
-export let HOLLOW_GATE_THREAT_PER_STEP = 4;
-export let HOLLOW_GATE_THREAT_AMBUSH = 100;
 // HOLLOW_GATE_MAX_FLOOR moved to ./constants/game so ./lib/hollow-gate-dungeon
 // can read it without importing App (keeps the generator unit-testable).
-// Admin-tuned at runtime from screens/AdminPanel (an imported binding cannot be
-// reassigned cross-module, so the setters live beside the lets).
-export function setHollowGateThreatPerStep(v: number) { HOLLOW_GATE_THREAT_PER_STEP = v; }
-export function setHollowGateThreatAmbush(v: number) { HOLLOW_GATE_THREAT_AMBUSH = v; }
 
 // Hollow Gate intro pages + flavor + tile-icon helpers from
 // ./data/hollow-gate-flavor (imported for internal use). External callers
@@ -563,9 +554,11 @@ import {
     generateHollowGateShrineRun,
 } from "./lib/hollow-gate-dungeon";
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot } from "./lib/hollow-gate-run";
-import { beginHollowGateServerRun, resumeHollowGateServerRun, settleHollowGateRunOnly, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
+import { snapshotHollowGateCurrencies } from "./lib/hollow-gate-run";
+import { resumeHollowGateServerRun, settleHollowGateRunOnly, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
+import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
+import { sealHollowGateStep } from "./lib/hollow-gate-step-api";
 import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
@@ -581,7 +574,7 @@ import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
 import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
 import type { HollowRift } from "./data/hollow-rifts";
-import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
+import { applyAttunementToRun, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
     event: CreatorEvent;
@@ -734,13 +727,6 @@ export let HOLLOW_GATE_KEY_DUNGEON_KEY_COST = 5;
 export let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
 export function setHollowGateKeyDungeonKeyCost(v: number) { HOLLOW_GATE_KEY_DUNGEON_KEY_COST = v; }
 export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_SHARD_COST = v; }
-// Damage taken per trap tile (and "Cursed Bind" sealed-door outcome), as a
-// percent of the player's max HP. Lethal-capable.
-export let HOLLOW_GATE_TRAP_DMG_PCT = 0.33;
-export function setHollowGateTrapDmgPct(v: number) { HOLLOW_GATE_TRAP_DMG_PCT = v; }
-// Per-floor reward multiplier for boss kills: total mult = 1 + (floor - 1) * this.
-export let HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = 0.2;
-export function setHollowGateBossFloorRewardMult(v: number) { HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = v; }
 
 /**
  * Check both clan war history and the village war cache for unclaimed war crates.
@@ -1120,7 +1106,12 @@ export function normalizeCharacter(parsed: Character): Character {
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
         dailyHollowGateRuns: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHollowGateRuns ?? 0) : 0,
         dailyTowerXp: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTowerXp ?? 0) : 0,
-        hollowGateRun: parsed.hollowGateRun ?? null,
+        // A server start persists a minimal private projection before the
+        // browser generates floor 1. Never render that incomplete projection;
+        // entry recovery rebuilds it from lastHollowGateStart instead.
+        hollowGateRun: parsed.hollowGateRun && Array.isArray(parsed.hollowGateRun.tiles)
+            ? parsed.hollowGateRun
+            : null,
         hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
         hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
         claimedVillageAgendaDate: parsed.claimedVillageAgendaDate,
@@ -1965,9 +1956,12 @@ export default function App() {
         blockMessage?: string;
         committedTheme?: string;
         torchSputtered: boolean;
-        justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
+        justResolved: { tile: HollowGateTile; nx: number; ny: number } | null;
         ambushImmediate: boolean;
+        step?: { requestId: string; fromX: number; fromY: number; toX: number; toY: number };
     }>>([]);
+    const hollowGatePendingAmbushRef = useRef<{ nodeId: string; kind: "ambush" | "boss" } | null>(null);
+    const hollowGateStepDrainRef = useRef<Promise<void>>(Promise.resolve());
 
     // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
     // the WASD/arrow key handler, both owned by the walk hook. Every walked
@@ -3330,8 +3324,7 @@ export default function App() {
                             setTemporaryStoryAi(null);
                             const hgRun = normalized.hollowGateRun && !normalized.hollowGateRun.completed ? normalized.hollowGateRun : null;
                             if (hgRun) { setHollowGateRun(null); setHollowGateEvent(null); setHollowGateHiddenChamber(null); setHollowGateLog([]); }
-                            const downed = hgRun ? { ...clawBackHollowGateLoot(normalized, hgRun, 1 - attunementLootRetention(normalized)), hollowGateRun: null } : normalized;
-                            setCharacter({ ...downed, hp: 0, hospitalized: true });
+                            if (!hgRun) setCharacter({ ...normalized, hp: 0, hospitalized: true });
                             const dungeonToken = normalized.activeDungeonRun?.token;
                             if (dungeonToken) {
                                 void mutateDungeonRunServer(normalized.name, "abandon", dungeonToken).then((result) => {
@@ -5775,6 +5768,39 @@ export default function App() {
         if (isPetOnExpedition(pet)) return false;
         return Boolean(pet.unlockedForPve);
     }
+    function buildHollowGateRunFromStart(
+        start: NonNullable<Awaited<ReturnType<typeof startHollowGateServerRun>>>,
+        requestedVariant: HollowGateVariant | undefined,
+        baseCharacter: Character,
+    ): HollowGateShrineRun {
+        const sealedVariant: HollowGateVariant | undefined = start.variantId ? {
+            ...(requestedVariant ?? { id: start.variantId }),
+            id: start.variantId,
+            maxFloor: start.floorDepth,
+            width: start.floorWidth,
+            height: start.floorHeight,
+            bossAiId: start.bossProfileId,
+            bossName: start.bossName,
+        } : undefined;
+        const generated = applyAttunementToRun({
+            ...generateHollowGateShrineRun(1, sealedVariant, start.seed),
+            entryCurrencies: snapshotHollowGateCurrencies(baseCharacter),
+        }, baseCharacter, true);
+        const projection = start.character?.hollowGateRun;
+        const chosenAugment = start.augmentOffers?.find((offer) => offer.id === start.chosenAugmentId);
+        return {
+            ...generated,
+            runToken: start.token ?? undefined,
+            serverSeed: start.seed,
+            augmentOffers: start.augmentOffers ?? [],
+            ...(chosenAugment ? { chosenAugment } : {}),
+            entryCurrencies: projection?.entryCurrencies ?? generated.entryCurrencies,
+            keys: projection?.keys ?? generated.keys,
+            torch: projection?.torch ?? generated.torch,
+            threat: projection?.threat ?? generated.threat,
+            wardSteps: projection?.wardSteps ?? generated.wardSteps,
+        };
+    }
     async function enterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
         if (!requireServerSettlement("hollowGateRun")) return;
         if (!character) return;
@@ -5782,6 +5808,38 @@ export default function App() {
         // boss) and may relax the entry gates; the standard shrine when absent.
         const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
         const gateName = eventCfg?.label || (eventCfg ? "Event Gate" : "Hollow Gate Shrine");
+        // If the start response or first browser save was interrupted, replay
+        // the exact request marker. This neither spends a second key nor bumps
+        // the daily count; the start endpoint returns the durable original run.
+        if (!character.hollowGateRun && character.lastHollowGateStart?.requestId) {
+            const pending = character.lastHollowGateStart;
+            const recovered = await startHollowGateServerRun(
+                character.name,
+                hollowGateRunMaxFloor({ variant }),
+                variant?.id,
+                pending.requestId,
+            );
+            if (!recovered?.token || recovered.token !== pending.token) {
+                alert("Your paid Hollow Gate start could not be recovered safely. No new key was spent; retry after reconnecting.");
+                return;
+            }
+            const recoveredBase = recovered.character ?? character;
+            const run = buildHollowGateRunFromStart(recovered, variant, recoveredBase);
+            const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
+            setHollowGateRun(run);
+            setHollowGateLog([
+                "You recover the descent interrupted at the broken torii. The Hollow Gate remembers your key.",
+                ...(!floorSeal.ok ? [`Floor seal pending: ${floorSeal.error || "retry after reconnect"}. Movement remains server-blocked until the seal succeeds.`] : []),
+            ]);
+            setHollowGateEvent(null);
+            setHollowGateHiddenChamber(null);
+            setCharacter({ ...recoveredBase, hollowGateRun: run });
+            setCurrentBiome("shadow");
+            setCurrentWeather(weatherForBiome("shadow"));
+            setScreen("hollowGateShrine");
+            attachStartedRun(recovered, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+            return;
+        }
         // Restore an in-progress run, if any. Resuming a run is always free —
         // the key was already consumed when the run was started. The Character
         // normalizer resets daily counters at midnight UTC.
@@ -5832,31 +5890,30 @@ export default function App() {
         // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
         // server BEFORE spending the Key — a 'daily-cap' reply (e.g. a backdated reset
         // that beat the client gate) blocks the dive. Unreachable / SESSION unset → null
-        // → token-less fallback (the dive opens client-authoritative, as today).
-        let serverStart: Awaited<ReturnType<typeof startHollowGateServerRun>> = null;
-        if (hollowGateServerEnabled()) {
-            // The settle ceiling scales with floorDepth — a short event gate
-            // declares its OWN depth so its ceiling matches the shorter run.
-            serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
-            if (serverStart?.reason === "daily-cap") {
-                alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
-                return;
-            }
-            if (!serverStart?.token) {
-                alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
-                return;
-            }
+        // → hard stop. A reward-bearing local fallback is never mounted.
+        // The settle ledger scales with floorDepth — a short event gate
+        // declares its own depth so settlement matches the shorter run.
+        const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
+        if (serverStart?.reason === "daily-cap") {
+            alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
+            return;
+        }
+        if (!serverStart?.token || !serverStart.character) {
+            alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
+            return;
         }
 
-        // Consume exactly one Hollow Gate Key (free-entry events skip this).
-        const afterKey = serverStart?.character ?? (keyCost > 0 ? removeItem(character, HOLLOW_GATE_KEY_ID, 1) : character);
+        // The returned committed save contains the exact server-side key debit.
+        const afterKey = serverStart.character;
 
-        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant, serverStart?.seed), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
+        const run = buildHollowGateRunFromStart(serverStart, variant, character);
+        const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
         setHollowGateRun(run);
         setHollowGateLog([
             keyCost > 0
                 ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
                 : `The ${gateName} stands open — the seal parts on its own. You descend.`,
+            ...(!floorSeal.ok ? [`Floor seal pending: ${floorSeal.error || "retry after reconnect"}. Movement remains server-blocked until the seal succeeds.`] : []),
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
@@ -5906,7 +5963,7 @@ export default function App() {
     // to playtest the shrine without burning a real key or waiting for a Kage.
     // Still uses the same generator / state setup as the normal entry, and
     // still records the run on the character so resume / persistence works.
-    function adminTestEnterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
+    async function adminTestEnterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
         if (!character) return;
         // Resume an existing run if the admin has one — same behavior as
         // the live entry. Otherwise start a fresh run with no gates (with the
@@ -5923,39 +5980,55 @@ export default function App() {
             return;
         }
         const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
-        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
+        const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
+        if (!serverStart?.token) {
+            alert("The Hollow Gate could not establish a secure admin playtest run.");
+            return;
+        }
+        const run = buildHollowGateRunFromStart(serverStart, variant, character);
+        const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
+        if (!floorSeal.ok) {
+            alert(floorSeal.error || "The Hollow Gate floor seal is pending; reconnect to retry it.");
+        }
         setHollowGateRun(run);
         setHollowGateLog([
-            `(Admin test) You step through the broken torii — no seal, no key.${eventCfg ? ` Event gate: ${eventCfg.label || eventCfg.id}.` : ""} The Hollow Gate echoes greet you anyway.`,
+            `(Admin test) You step through the broken torii without spending a key.${serverStart.variantId ? ` Event gate: ${eventCfg?.label || serverStart.variantId}.` : ""} The verified Hollow Gate echoes greet you.`,
+            ...(!floorSeal.ok ? [`Floor seal pending: ${floorSeal.error || "retry after reconnect"}. Movement remains server-blocked until the seal succeeds.`] : []),
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         setCharacter({
-            ...character,
+            ...(serverStart.character ?? character),
             hollowGateRun: run,
             lastDailyReset: currentDateKey(),
         });
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
-        // Same server run layer as the live entry (flag-gated; no-op when off).
-        void beginHollowGateServerRun({ playerName: character.name, floorDepth: hollowGateRunMaxFloor({ variant }), variantId: variant?.id, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        attachStartedRun(serverStart, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // Threat ambushes always present the same readable Hollow Hound choice as
     // authored battle tiles. The run never silently flips a coin on combat mode.
-    function triggerHollowGateAmbush() {
+    function triggerHollowGateAmbush(sealed?: { nodeId: string; kind: "ambush" | "boss" }) {
         if (!character) return;
         // Final-floor ambush → boss fight. Avoids the climax getting cheated by
         // a random ambush firing before the boss tile. The player still sees
         // the boss fight + the shrine-cleared modal on win.
-        if ((hollowGateRun?.floor ?? 1) >= hollowGateRunMaxFloor(hollowGateRun)) {
+        if (sealed?.kind === "boss" || (!sealed && (hollowGateRun?.floor ?? 1) >= hollowGateRunMaxFloor(hollowGateRun))) {
             pushHollowGateLog(`The corridor itself tears open — ${hollowGateBossDisplayName(hollowGateRun)} steps through the seal!`);
-            void startHollowGateBattle({ isBoss: true, nodeId: `floor:${hollowGateRun?.floor ?? 1}:ambush:boss-threat` });
+            void startHollowGateBattle({ isBoss: true, nodeId: sealed?.nodeId ?? `floor:${hollowGateRun?.floor ?? 1}:ambush:boss-threat` });
             return;
         }
         pushHollowGateLog("The Hollow Gate echoes converge — a Hollow Hound lunges from the mist!");
-        void startHollowGateBattle({ isAmbush: true });
+        void startHollowGateBattle({ isAmbush: true, nodeId: sealed?.nodeId });
     }
+    useEffect(() => {
+        if (screen !== "hollowGateShrine" || hollowGateEvent || hollowGateHiddenChamber || hollowGatePveFight) return;
+        const pending = hollowGatePendingAmbushRef.current;
+        if (!pending) return;
+        hollowGatePendingAmbushRef.current = null;
+        triggerHollowGateAmbush(pending);
+    }, [screen, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight]);
     async function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string; forceMode?: "pve" | "pet" }) {
         if (!character) return;
         if (hollowGatePveFight) return;
@@ -6105,7 +6178,7 @@ export default function App() {
     // to its line budget). Everything it used to close over is handed over here.
     function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
         resolveHollowGateTileImpl(tile, x, y, {
-            character, hollowGateRun, HOLLOW_GATE_TRAP_DMG_PCT,
+            character, hollowGateRun,
             setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
             onServerVersion: (version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); },
             gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
@@ -6115,7 +6188,7 @@ export default function App() {
     // Drain the queued move side-effects. Runs on a macrotask AFTER React has
     // flushed the state updater(s) that enqueued them, so the tile fire can
     // never be dropped by the eager-updater timing race (see hollowGateMoveFxRef).
-    function drainHollowGateMoveFx() {
+    async function drainHollowGateMoveFx() {
         const queue = hollowGateMoveFxRef.current;
         if (queue.length === 0) return;
         hollowGateMoveFxRef.current = [];
@@ -6127,23 +6200,35 @@ export default function App() {
             if (fx.committedTheme) {
                 pushHollowGateLog(`You commit to the ${fx.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
             }
-            if (fx.torchSputtered) {
-                pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
+            if (!fx.step || !character || !hollowGateRun?.runToken) continue;
+            const step = await sealHollowGateStep({
+                playerName: character.name,
+                token: hollowGateRun.runToken,
+                ...fx.step,
+            });
+            if (!step.ok) {
+                pushHollowGateLog(step.error || "The shrine rejected that step.");
+                setHollowGateRun((previous) => previous ? {
+                    ...previous,
+                    playerX: step.position?.x ?? fx.step!.fromX,
+                    playerY: step.position?.y ?? fx.step!.fromY,
+                } : previous);
+                continue;
             }
+            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, step._saveVersion);
+            setHollowGateRun((previous) => previous ? {
+                ...previous,
+                playerX: step.position?.x ?? fx.step!.toX,
+                playerY: step.position?.y ?? fx.step!.toY,
+                torch: step.torch ?? previous.torch,
+                threat: step.threat ?? previous.threat,
+                wardSteps: step.wardSteps ?? previous.wardSteps,
+            } : previous);
+            if (step.torchSputtered) pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
+            if (step.ambush) hollowGatePendingAmbushRef.current = step.ambush;
             if (fx.justResolved) {
-                const { tile, nx, ny, nextThreat } = fx.justResolved;
-                const modalFiringKinds: HollowGateTileKind[] = [
-                    "battle", "elite", "boss",
-                    "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
-                    "locked", "exit", "npc", "descend",
-                ];
-                const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
+                const { tile, nx, ny } = fx.justResolved;
                 resolveHollowGateTile(tile, nx, ny);
-                if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    triggerHollowGateAmbush();   // ambush at max threat (see triggerHollowGateAmbush)
-                }
-            } else if (fx.ambushImmediate) {
-                triggerHollowGateAmbush();
             }
         }
     }
@@ -6178,15 +6263,6 @@ export default function App() {
             }
             const tiles = prev.tiles.slice();
             tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
-            // Torch of Reiki: drains 1 every ~5 moves (was ~3 on the old 15×11
-            // board — scaled with the 25×17 floor so one torch still covers
-            // roughly one thorough floor). At 0 torch, threat fills 2x faster.
-            const torchDrain = Math.random() < 0.2 ? 1 : 0;
-            const nextTorch = Math.max(0, prev.torch - torchDrain);
-            const threatMultiplier = nextTorch === 0 ? 2 : 1;
-            // Hollow Ward holds Threat still while its steps last (then it ticks down).
-            const warded = (prev.wardSteps ?? 0) > 0;
-            const nextThreat = warded ? prev.threat : Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
             // Fire the tile's event on every step onto an UNRESOLVED tile (gate on
             // `resolved` only, never on revealed — so Leave/descend/locked/boss
             // re-fire when re-entered; markResolved() still prevents double-grants).
@@ -6194,9 +6270,18 @@ export default function App() {
             hollowGateMoveFxRef.current.push({
                 wallBump: false,
                 committedTheme: wingEff.committedTheme,
-                torchSputtered: nextTorch === 0 && prev.torch > 0,
-                justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny, nextThreat } : null,
-                ambushImmediate: !justResolved && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH,
+                torchSputtered: false,
+                justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny } : null,
+                ambushImmediate: false,
+                step: {
+                    requestId: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                        ? crypto.randomUUID()
+                        : `hg-step-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    fromX: prev.playerX,
+                    fromY: prev.playerY,
+                    toX: nx,
+                    toY: ny,
+                },
             });
             // markHollowGateSeen stamps the new visibility flood as map memory
             // (dim "explored" tiles after you leave a room; click-to-walk surface).
@@ -6206,16 +6291,17 @@ export default function App() {
                 playerX: nx,
                 playerY: ny,
                 tiles,
-                threat: nextThreat,
-                torch: nextTorch,
-                wardSteps: Math.max(0, (prev.wardSteps ?? 0) - 1),
             });
         });
 
         // Drain after the flush. A single scheduled drain empties the whole
         // queue, so back-to-back steps that batch into one flush are all
         // processed in order (extra drains just find an empty queue).
-        setTimeout(drainHollowGateMoveFx, 0);
+        setTimeout(() => {
+            hollowGateStepDrainRef.current = hollowGateStepDrainRef.current
+                .then(drainHollowGateMoveFx)
+                .catch(() => undefined);
+        }, 0);
     }
     function completeEventEncounter() {
         const event = pendingEventEncounter?.event;
@@ -6234,35 +6320,34 @@ export default function App() {
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
-    function searchHollowGateHiddenChamber() {
-        if (!hollowGateHiddenChamber || !character) return;
-        // XP retired: the tablet's old 60-109 XP folds into Aura Dust instead.
-        const dust = 18 + Math.floor(Math.random() * 20);
-        const leveled = gainXp(character, 0);
-        setCharacter({ ...leveled, auraDust: (leveled.auraDust ?? 0) + dust });
-        pushHollowGateLog(`You decipher the Ancient Tablet. +${dust} Aura Dust.`);
+    async function searchHollowGateHiddenChamber() {
+        if (!hollowGateHiddenChamber || !character || !hollowGateRun?.runToken) return;
+        const result = await resolveHollowGateServerEvent({
+            playerName: character.name,
+            token: hollowGateRun.runToken,
+            nodeId: hollowGateHiddenChamber.nodeId,
+            action: "hidden-tablet",
+        });
+        if (!result.ok || !result.character) return pushHollowGateLog(result.error || "The Ancient Tablet did not answer.");
+        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+        setCharacter(result.character);
+        pushHollowGateLog(`You decipher the Ancient Tablet. ${hollowGateRewardLines(result.reward).join(", ")}.`);
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
     }
 
-    function takeHollowGateHiddenChamberRelic() {
-        if (!hollowGateHiddenChamber || !hollowGateRun || !character) return;
-        const rawHonor = 15 + Math.floor(Math.random() * 20);
-        const honor = vanguardOnlyHonorSeals(character, rawHonor);
-        const charms = nonVanguardCharmSubstitute(character, rawHonor);
-        const shardSub = nonVanguardShardSubstitute(character, rawHonor);
-        const fate = (Math.random() < 0.5 ? 1 : 0) + shardSub;
-        // Grant the Veil of the Hollow as a real inventory item
-        // (stacking duplicates is allowed - chamber relics are
-        // a meta progression resource, like dungeon relics).
-        const next = addInventoryItems({
-            ...character,
-            honorSeals: (character.honorSeals ?? 0) + honor,
-            boneCharms: (character.boneCharms ?? 0) + charms,
-            fateShards: (character.fateShards ?? 0) + fate,
-        }, [VEIL_OF_THE_HOLLOW_ID]);
-        setCharacter(next);
-        setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
-        pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : charms > 0 ? ` +${charms} Bone Charms` : ""}${fate ? `, +${fate} Fate Shard${fate === 1 ? "" : "s"}` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
+    async function takeHollowGateHiddenChamberRelic() {
+        if (!hollowGateHiddenChamber || !hollowGateRun?.runToken || !character) return;
+        const result = await resolveHollowGateServerEvent({
+            playerName: character.name,
+            token: hollowGateRun.runToken,
+            nodeId: hollowGateHiddenChamber.nodeId,
+            action: "hidden-relic",
+        });
+        if (!result.ok || !result.character) return pushHollowGateLog(result.error || "The chamber relic did not answer.");
+        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+        setCharacter(result.character);
+        setHollowGateRun((previous) => previous && result.runState ? { ...previous, ...result.runState } : previous);
+        pushHollowGateLog(`You claim the chamber relic. ${hollowGateRewardLines(result.reward).join(", ")}, +1 Shrine Key.`);
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
     }
 
@@ -7103,36 +7188,12 @@ export default function App() {
                         dungeonSceneImage={sharedImages["shrine:tile-tile-game"]}
                         tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
                         onDungeonWin={() => {
-                            // Win → small reward + back to shrine. Rewards
-                            // are intentionally modest since chests cover the
-                            // big loot. Floor-scaled ryo + aura dust.
-                            // Threat + torch reset per the post-encounter rule.
-                            if (character) {
-                                const floor = hollowGateRun.floor;
-                                const ryoGain = 120 + floor * 40;
-                                const auraDustGain = 4 + floor * 2;
-                                setCharacter({
-                                    ...character,
-                                    ryo: character.ryo + ryoGain,
-                                    auraDust: (character.auraDust ?? 0) + auraDustGain,
-                                });
-                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust. Threat dissipates; the Torch keeps burning down.`);
-                            }
-                            setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
+                            pushHollowGateLog("The retired Tile Seal closes without granting persistent rewards.");
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
                         }}
                         onDungeonLose={() => {
-                            // Loss → 20% maxHp penalty + back to shrine.
-                            // Run continues; not hospitalized. Threat/torch
-                            // still reset — engaging counts as a battle.
-                            if (character) {
-                                const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
-                                const nextHp = Math.max(1, character.hp - dmg);
-                                setCharacter({ ...character, hp: nextHp });
-                                pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max). Threat dissipates.`);
-                            }
-                            setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
+                            pushHollowGateLog("The retired Tile Seal closes without changing server-owned HP or Threat.");
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
                         }}

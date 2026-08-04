@@ -4,18 +4,19 @@ import {
     HOLLOW_GATE_DEPTH,
     canonicalHollowGateDepth as canonicalSharedHollowGateDepth,
 } from '../../shared/hollow-gate-contract.js';
+import type { HollowGateRewardLedger, HollowGateLedgerItemId } from './_ledger.js';
+import type { HollowGateFloorManifest } from './_floor-manifest.js';
 
-// The run token seals entry, depth, augment choice, payout ceilings, and
-// single-use settlement. Combat is resolved through a run-bound server session;
-// durable gain is reconciled through the locked settlement endpoint.
+// The run token seals entry, depth, augment choice, exact reward credits, and
+// single-use settlement. Combat is resolved through a run-bound server session.
 export const HOLLOW_GATE_RUNS_ENABLED = true;
 
 export function hollowGateRunsEnabled(): boolean {
     return HOLLOW_GATE_RUNS_ENABLED;
 }
 
-/** The KV key holding a live run token. The run is gone — settled, died, or the
- *  24h TTL lapsed — exactly when this key is absent, which is what the endpoints
+/** The KV key holding a live run token. The run is gone — settled or died —
+ *  exactly when this key is absent, which is what the endpoints
  *  below report as an expired run. The save-read self-heal (api/_elapsed-state.ts)
  *  probes the same key, so every producer/consumer shares this helper rather than
  *  re-spelling the literal. `playerName` is always a safeName slug. */
@@ -38,22 +39,12 @@ export const HOLLOW_GATE_RUN_EXPIRED_MESSAGES = {
 } as const;
 
 /*
- * Hollow Gate — server-authoritative run token + augment layer (Tier 1).
+ * Hollow Gate — server-authoritative run token + augment layer.
  *
- * The trust model (docs/hollow-gate-augments.md): at dive START the server seals
- * the entry currency snapshot + dive depth + the chosen augment's REWARD
- * multiplier into a token; at SETTLE it credits min(client-claimed, server
- * ceiling) anchored to the sealed snapshot. The augment's COMBAT effect is
- * applied client-side for feel and never trusted — only the single sealed
- * rewardMultiplier is enforced. This module is the pure core (catalog + bound
- * math + offer roll); the endpoints (start/choose-augment/settle) wrap it.
- *
- * Tier 1 = "sealed bounds": maxHaulForDepth caps a run to a legitimate ceiling
- * WITHOUT re-simulating the dungeon. The hollowShards ceiling mirrors the client
- * hollowShardDrop curve verbatim (a drift test pins them equal); the other
- * clawback currencies get deliberately GENEROUS per-depth ceilings (loose now,
- * tighten once telemetry exists) — they're additionally backstopped by the
- * per-save gain caps in api/save/[name].ts. Tier 2 (deterministic regen) deferred.
+ * START seals the entry snapshot and run identity. Every reward-bearing event
+ * records an idempotent server-derived credit in rewardLedger; SETTLE reconciles
+ * the stored character against that exact ledger. Combat modifiers are enforced
+ * by the server-owned solo-PvE session.
  */
 
 // Mirror of shinobij.client/src/lib/hollow-gate-run.ts HOLLOW_GATE_CLAWBACK_KEYS.
@@ -84,73 +75,8 @@ export function hollowShardDrop(floor: number, source: 'chest' | 'lockedChest' |
     }
 }
 
-// Generous per-floor loot-tile budget for the Tier-1 ceiling. Real floors carry
-// fewer of each, so this over-counts on purpose: a too-LOW ceiling would
-// wrongly confiscate a legit haul, while a loose-but-finite ceiling still closes
-// the unbounded-farming exploit (#6). Tunable down once telemetry lands.
-const TILE_BUDGET = { chest: 6, shardVein: 5, lockedChest: 3 } as const;
-
-/** Max hollowShards a depth-`depth` run could legitimately yield (generous). */
-export function maxShardsForDepth(depth: number): number {
-    const d = Math.max(1, Math.min(20, Math.floor(depth)));
-    let total = 0;
-    for (let f = 1; f <= d; f++) {
-        total += TILE_BUDGET.chest * hollowShardDrop(f, 'chest')
-            + TILE_BUDGET.shardVein * hollowShardDrop(f, 'shardVein')
-            + TILE_BUDGET.lockedChest * hollowShardDrop(f, 'lockedChest');
-    }
-    total += hollowShardDrop(d, 'boss'); // boss at the final floor
-    return total;
-}
-
-// Loose per-depth ceilings for the non-shard clawback currencies (per floor of
-// depth). Backstopped by the per-save gain caps; tighten with telemetry.
-const PER_DEPTH_CEIL: Record<Exclude<HgCurrencyKey, 'hollowShards'>, number> = {
-    ryo: 8000, auraDust: 300, auraStones: 15, boneCharms: 15, fateShards: 6, honorSeals: 6,
-};
-
-/** Per-currency reward ceiling for a run, after the sealed augment multiplier. */
-export function maxHaulForDepth(depth: number, rewardMultiplier = 1): Record<HgCurrencyKey, number> {
-    const d = Math.max(1, Math.min(20, Math.floor(depth)));
-    const mult = Math.max(1, Number(rewardMultiplier) || 1);
-    const out = {} as Record<HgCurrencyKey, number>;
-    out.hollowShards = Math.ceil(maxShardsForDepth(d) * mult);
-    for (const k of Object.keys(PER_DEPTH_CEIL) as (keyof typeof PER_DEPTH_CEIL)[]) {
-        out[k] = Math.ceil(d * PER_DEPTH_CEIL[k] * mult);
-    }
-    return out;
-}
-
-// ─── High-value ITEM drops (P0.2c) ─────────────────────────────────────────────
-// The clawback ceilings above bound the run's CURRENCY haul. The boss also drops a
-// discrete high-value ITEM (the Dungeon Legendary Fragment, an epic forge material)
-// that the per-save sanitizer does NOT per-item cap (only the blanket INVENTORY_CAP).
-// To make that drop server-authoritative WITHOUT deferring the grant (which would
-// risk losing a legit fragment on an un-settled run), we take the same shape as the
-// currency ceiling: START seals the entry fragment count, and SETTLE clamps the run's
-// GAIN (current − entry) to maxFragmentsForDepth. Legit hauls sit under the ceiling
-// so the clamp is a no-op (byte-identical); only a crafted client's excess is clawed
-// back. Fragments live as counted `itemStacks` (data/pet-config.ts). Mirror of
-// DUNGEON_LEGENDARY_FRAGMENT_ID in shinobij.client/src/constants/game.ts (drift-guarded).
+// Counted item identity retained for the exact entry/ledger reconciliation.
 export const HG_HIGH_VALUE_ITEM_ID = 'dungeon-legendary-fragment';
-
-/** Max Dungeon Legendary Fragments a depth-`depth` run may GAIN. Deliberately
- *  generous (≈2 per floor of depth) — a too-low ceiling would wrongly confiscate a
- *  legit multi-boss haul, while any finite ceiling still closes the unbounded-mint
- *  exploit. Backstopped by the per-save itemStacks caps. */
-export function maxFragmentsForDepth(depth: number): number {
-    return Math.max(2, Math.min(40, Math.floor(Number(depth) || 1) * 2));
-}
-
-/** Loose but finite ceilings for non-currency run rewards claimed at settle. */
-export function maxXpForDepth(depth: number, rewardMultiplier = 1): number {
-    const d = Math.max(1, Math.min(20, Math.floor(Number(depth) || 1)));
-    return Math.ceil(d * 10_000 * Math.max(1, Number(rewardMultiplier) || 1));
-}
-
-export function maxVeilsForDepth(depth: number): number {
-    return Math.max(1, Math.min(21, Math.floor(Number(depth) || 1) + 1));
-}
 
 /** Count of a given item id held as counted `itemStacks` ([{itemId,count}]). Used
  *  to seal the entry baseline at START and to read the run total at SETTLE. */
@@ -165,20 +91,8 @@ export function itemStackCount(itemStacks: unknown, itemId: string): number {
     return total;
 }
 
-/** Pure: the allowed post-run fragment total. Clamps the GAIN (current − entry) to
- *  the ceiling; never restores an in-run spend (min with current), never drops below
- *  the sealed entry (don't confiscate pre-run fragments). Death does NOT claw items
- *  back — the inline grant already keeps them (behavior-preserving, unlike currency). */
-export function clampFragmentTotal(current: unknown, entry: unknown, ceiling: number): number {
-    const cur = Math.max(0, Math.floor(Number(current) || 0));
-    const ent = Math.max(0, Math.floor(Number(entry) || 0));
-    const cap = Math.max(0, Math.floor(Number(ceiling) || 0));
-    return Math.max(0, Math.min(cur, ent + cap));
-}
-
 // ─── Augments ─────────────────────────────────────────────────────────────────
-// combat = client-side feel (UNTRUSTED, changes how the run plays, never payout).
-// rewardMultiplier = the ONLY server-enforced effect (sealed in the token).
+// Both combat and reward effects are derived from the chosen server token.
 export interface Augment {
     id: string;
     label: string;
@@ -222,23 +136,44 @@ export interface HollowGateRunToken {
     currentFloor?: number;
     seed: string;
     entryCurrencies: Partial<Record<HgCurrencyKey, number>>;
-    // P0.2c: entry count of the high-value forge item (Dungeon Legendary Fragment)
-    // so settle can clamp the run's GAIN to the ceiling. Optional: tokens minted
-    // before this field existed skip the item clamp (settle guards on typeof).
+    // Compatibility baseline for tokens minted before entryItems covered every
+    // counted reward item.
     entryFragments?: number;
+    /** Entry baselines for every counted item the run can award. */
+    entryItems?: Partial<Record<HollowGateLedgerItemId, number>>;
     offeredAugmentIds: string[];
     chosenAugmentId: string | null;
     dailyRunOrdinal: number;
     variantId?: string;
+    /** Server-sealed generated board shape. Event variants may be compact, but
+     * the browser cannot choose a cheaper geometry than the published variant. */
+    floorWidth?: number;
+    floorHeight?: number;
     bossProfileId?: string;
     bossName?: string;
     /** One server combat may be active at a time. Settlement moves its encounter
      * key into resolvedEncounterIds before another fight can start. */
     activeEncounter?: HollowGateActiveEncounter | null;
     resolvedEncounterIds?: string[];
+    /** Server-owned dungeon resources and one-time non-combat event identities. */
+    keys?: number;
+    torch?: number;
+    threat?: number;
+    resolvedEventIds?: string[];
+    position?: { x: number; y: number };
+    stepVersion?: number;
+    recentStepIds?: string[];
+    recentConsumableIds?: string[];
+    wardSteps?: number;
+    divinerUsed?: boolean;
+    pendingAmbush?: { nodeId: string; kind: 'ambush' | 'boss' } | null;
+    floorManifests?: Record<string, HollowGateFloorManifest>;
     /** Currency already committed by authoritative combat. Final extraction
      * treats this as a stored baseline, so a stale browser cannot erase it. */
     serverCreditedCurrencies?: Partial<Record<HgCurrencyKey, number>>;
+    /** Canonical exact run economy. serverCreditedCurrencies remains only for
+     * tokens minted before the ledger cutover. */
+    rewardLedger?: HollowGateRewardLedger;
     secondWindArmed?: boolean;
 }
 

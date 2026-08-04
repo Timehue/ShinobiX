@@ -9,7 +9,7 @@ heal-and-resume exploit were fixed in commit `1e3d656d` (no balance changes).
 That fix is the reason the no-heal rule and the Torch/Threat meters are now
 actually enforceable — which is what makes this redesign worth doing.
 
-## 2026-07-29 authoritative contract
+## Current authoritative contract (2026-08-04 cutover)
 
 - The standard run is exactly **five floors**, shared by client and server.
 - Every current `battle`, `elite`, ambush, and boss node is a **Hollow Hound**.
@@ -20,14 +20,22 @@ actually enforceable — which is what makes this redesign worth doing.
   `tile_game`/`pet_battle` nodes migrate into this same Hound encounter flow.
 - Player healing, lifesteal, pet summoning, consumables, and post-fight healing
   are sealed during Gate combat. The Shrine Keeper is the intentional exception.
-- Run token, encounter identity, floor progression, pet results, rewards, HP,
-  and consumable use settle through the server. Pet duel outcomes are replayed
-  from the sealed seed and input log.
+- Run token, immutable floor manifest, position, encounter identity, floor
+  progression, pet results, rewards, HP, and every shard consumable settle
+  through the server. Pet duel outcomes use their separate pet receipt.
 - The Leave tile extracts transactionally. **Emergency Forfeit** is always
   available as the recovery path for a broken encounter; it applies the normal
   death/loot-retention rules and sends the player to the hospital.
-- Server-seeded floors regenerate deterministically. A descent is sealed before
+- Server-seeded floors regenerate deterministically. Each generated gameplay
+  manifest is structurally validated and sealed once; all later node checks use
+  that run-owned manifest, never mutable saved tiles. A descent is sealed before
   the client loads the next floor.
+- Every shinobi fight is a normal-Arena `solo-pve` session. Hollow Gate
+  settlement reads its terminal server outcome/vitals/items and never accepts a
+  client outcome, HP value, boss claim, reward, or haul.
+- Non-combat rewards and combat rewards append unique source IDs to one exact
+  server ledger. Extraction/death reconcile from that ledger while preserving
+  legitimate spending.
 
 ## Build status
 - ✅ **Phase 1 COMPLETE** — economy + feel foundation:
@@ -92,8 +100,8 @@ actually enforceable — which is what makes this redesign worth doing.
   everyone in the village.
 - **Entry:** consumes 1 **Hollow Gate Key** item (`hollow-gate-key`). Key
   sources today: in-run chests (~30%/chest) and the Kage-liberation story finale.
-- **Daily cap:** `DAILY_HOLLOW_GATE_CAP` = 2 runs/day (client-side only;
-  `dailyHollowGateRuns`, reset at UTC midnight).
+- **Daily cap:** two runs per UTC day, plus the server-clamped Extra Dive
+  attunement. The server counter is authoritative; the save fields are display.
 - **Exits:** clear the F5 Hollow Hound Alpha (auto-extract + bonus) · step on
   the Leave tile (extract, forfeit remaining floor) · use Emergency Forfeit or
   die (hospitalized, run + Key forfeit).
@@ -104,9 +112,9 @@ actually enforceable — which is what makes this redesign worth doing.
   a sealed treasury, sanctum, and Keeper alcove.
 - **Resources:** HP (no healing in the shrine), Torch of Reiki (0–10), Threat
   (0–100), in-run Keys (open `locked` tiles).
-- **Per step:** reveal tile · Torch drains 1 at ~33%/step (~30 steps of light) ·
-  Threat `+HOLLOW_GATE_THREAT_PER_STEP` (=7), ×2 when Torch=0 · fire the tile
-  event if unresolved. Ambush at Threat `HOLLOW_GATE_THREAT_AMBUSH` (=100).
+- **Per step:** the server validates one adjacent walkable move, drains Torch 1
+  on a 20% server roll, adds 4 Threat (8 in darkness, suppressed by Ward), and
+  seals an ambush at Threat 100. The client only animates the receipt.
 - **Tiles:** `battle` / `elite` / ambush / `boss` (Hollow Hound combat choice) ·
   `trap` (percent max-HP damage, no heal, lethal) · `chest` · `shrine` (Torch
   refill + hidden chamber) · `locked` (server-rolled chest/trap/pet reward) ·
@@ -120,8 +128,9 @@ actually enforceable — which is what makes this redesign worth doing.
   `HOLLOW_GATE_MAX_FLOOR` is the shared five-floor server contract.
 - **F5 clear bonus:** Honor/charm/shard package + 1 Dungeon Legendary Fragment +
   1 Veil of the Hollow, then auto-extract.
-- **Rewards apply to the character live;** the only ceiling is the global
-  per-save gain cap in `api/save/[name].ts` (ryo +1M, soft currencies +50/cycle).
+- **Rewards apply to the character live and to the exact run ledger.** Unique
+  source IDs make event/combat replay idempotent; final settlement clamps away
+  unrecorded gain without restoring currency legitimately spent during the run.
 
 ---
 
@@ -328,8 +337,8 @@ floor) — that's the per-floor agency.
 ## 9. Phased build plan
 
 Guiding constraints: PvE-only (no ranked/PvP determinism touched); rewards stay
-client-applied + save-cap-bounded; new logic lands in `lib/` (App.tsx is at its
-line budget); preserve saved-run resume; run `npm test` + client `lint`/`tsc`
+server-applied + exact-ledger-bounded; browser logic lands in `lib/` (App.tsx is
+at its line budget); preserve saved-run resume; run `npm test` + client `lint`/`tsc`
 each phase; rebuild/commit nothing to `dist/` from the worktree (Railway
 self-builds; cPanel isn't live).
 

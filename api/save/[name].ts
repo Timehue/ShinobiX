@@ -1611,27 +1611,44 @@ export function sanitizeCharacterSave(
     }
 
     // ─── hollowGateRun shape bounds ───────────────────────────────────────────
-    // Defense-in-depth on the persisted run: bound an absurd floor/keys count so a
-    // forged save can't park nonsense run state (default max floor is 5; keys are
-    // small). We deliberately do NOT clamp entryCurrencies: it is the at-entry
-    // snapshot the death claw-back subtracts from, the claw-back is applied
-    // client-side by design (docs/hollow-gate-loop.md §9), and for SPENDABLE
-    // currencies (Hollow Shards, via in-run consumables / Sanctify) a legit entry
-    // can legitimately exceed the current balance — clamping it down to current
-    // would over-penalise an honest mid-run spend on a later reload-path death.
+    // Defense-in-depth on the persisted projection: bound absurd presentation
+    // values even though the authoritative KV run owns the exact entry snapshot,
+    // resources, event state, and settlement ledger.
+    // A generic save cannot clear or replace an active server token. Otherwise a
+    // browser could keep immediately committed run rewards while evading the
+    // eventual extract/death reconciliation. Domain endpoints clear the stored
+    // run directly after consuming the authoritative KV token.
+    const storedHollowGateRun = exChar.hollowGateRun && typeof exChar.hollowGateRun === 'object'
+        ? exChar.hollowGateRun as Record<string, unknown>
+        : null;
+    const storedHollowGateToken = typeof storedHollowGateRun?.runToken === 'string'
+        ? storedHollowGateRun.runToken
+        : '';
+    const incomingHollowGateRun = char.hollowGateRun && typeof char.hollowGateRun === 'object'
+        ? char.hollowGateRun as Record<string, unknown>
+        : null;
+    if (storedHollowGateToken && incomingHollowGateRun?.runToken !== storedHollowGateToken) {
+        char.hollowGateRun = { ...storedHollowGateRun };
+    } else if (storedHollowGateToken && incomingHollowGateRun) {
+        for (const field of [
+            'runToken', 'serverSeed', 'augmentOffers', 'chosenAugment',
+            'entryCurrencies', 'keys', 'torch', 'threat', 'wardSteps',
+            'secondWindArmed',
+        ]) {
+            if (storedHollowGateRun && field in storedHollowGateRun) incomingHollowGateRun[field] = storedHollowGateRun[field];
+            else delete incomingHollowGateRun[field];
+        }
+    }
+    if (exChar.lastHollowGateStart !== undefined) char.lastHollowGateStart = exChar.lastHollowGateStart;
+    else delete char.lastHollowGateStart;
+
     if (char.hollowGateRun && typeof char.hollowGateRun === 'object') {
         const run = char.hollowGateRun as Record<string, unknown>;
         if (run.floor != null) run.floor = Math.max(0, Math.min(50, Math.floor(Number(run.floor) || 0)));
         if (run.keys != null) run.keys = Math.max(0, Math.min(99, Math.floor(Number(run.keys) || 0)));
-        // Server-authoritative run layer (lib/hollow-gate-server + api/hollow-gate/*).
-        // These persist only so a refresh mid-run can resume the open token; bound
-        // their shape so a forged save can't bloat KV via them. We deliberately do
-        // NOT freeze the clawback CURRENCIES while a run token is open: settle is the
-        // authoritative credit (it SETS each balance to min(current, sealed entry +
-        // sealed-ceiling credit), so it relies on the live haul being present), and a
-        // freeze would zero that payout. The unbounded-farming surface stays bounded
-        // by the per-save CURRENCY_CAPS above (the no-token path) plus the settle
-        // ceiling (the token path) — see docs/hollow-gate-augments.md.
+        // This object is a bounded client projection of the live run. Token
+        // identity, resources, movement, encounters, and its exact reward ledger
+        // remain server-owned; generic saves cannot replace those fields.
         if (run.runToken != null) run.runToken = String(run.runToken).slice(0, 64);
         if (run.serverSeed != null) run.serverSeed = String(run.serverSeed).slice(0, 64);
         if (run.earnedXp != null) run.earnedXp = Math.max(0, Math.min(200_000, Math.floor(Number(run.earnedXp) || 0)));

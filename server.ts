@@ -211,6 +211,9 @@ import hollowGateSettleHandler       from './api/hollow-gate/settle.js';
 import hollowGateCombatStartHandler  from './api/hollow-gate/combat-start.js';
 import hollowGateCombatSettleHandler from './api/hollow-gate/combat-settle.js';
 import hollowGateUseConsumableHandler from './api/hollow-gate/use-consumable.js';
+import hollowGateEventHandler         from './api/hollow-gate/event.js';
+import hollowGateStepHandler          from './api/hollow-gate/step.js';
+import hollowGateFloorSealHandler     from './api/hollow-gate/floor-seal.js';
 // Clan — membership: kick (server-authoritative cross-save removal)
 import clanKickHandler               from './api/clan/kick.js';
 import clanMentorHandler             from './api/clan/mentor.js';
@@ -1258,6 +1261,9 @@ route('/hollow-gate/settle', hollowGateSettleHandler);
 route('/hollow-gate/combat-start', hollowGateCombatStartHandler);
 route('/hollow-gate/combat-settle', hollowGateCombatSettleHandler);
 route('/hollow-gate/use-consumable', hollowGateUseConsumableHandler);
+route('/hollow-gate/event', hollowGateEventHandler);
+route('/hollow-gate/step', hollowGateStepHandler);
+route('/hollow-gate/floor-seal', hollowGateFloorSealHandler);
 route('/hollow-gate/attune', hollowGateAttuneHandler);
 
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────

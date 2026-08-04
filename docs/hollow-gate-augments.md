@@ -1,254 +1,119 @@
-# Hollow Gate — Run Token + Augments Endpoint
+# Hollow Gate server run and augment contract
 
-Status: **SHIPPED (flag-gated).** This spec captures the server endpoint design
-for (a) making Hollow Gate's reward economy server-authoritative and (b) adding a
-roguelike "augment" run-modifier layer.
+Status: shipped and mandatory for browser gameplay.
 
-- **Tier 1 (foundation)** — commit `799bd5f7`, on `main`. The endpoint trio
-  (`start` / `choose-augment` / `settle`) + `_run-token.ts` (catalog + bound math
-  + offer roll), route-registered in `server.ts`, tested. Inert (nothing called
-  them).
-- **Tier 2 (client run-loop wiring)** — commit `d07df7cf`. Behind
-  `hollowGateServer.v1` (localStorage, **default OFF**). `lib/hollow-gate-server.ts`
-  owns the client orchestration; the dive entry background-mints the token + rolls
-  augment offers (shown via the existing run-event modal), and every run-end funnel
-  reports the haul to `settle` and reconciles local currencies to the server credit.
-  No-token / flag-off / unreachable → the existing client-authoritative run, verbatim.
+Hollow Gate uses three independent authorities:
 
-> ⚠️ **The "save-sanitizer freeze" in the section below was NOT adopted — and must
-> not be.** See "Client + save-sanitizer changes" for why a freeze would zero every
-> payout. The shipped model is reconcile-DOWN, not freeze.
+- Shinobi combat: the normal `solo-pve` runtime.
+- Hollow Hound pet duels: the pet runtime and its server result receipt.
+- Dungeon/run state: the run token under `hg-run:<player>:<token>`.
 
-Origin: the 2026-06-21 full-systems audit (see
-`memory/project_full_systems_audit_2026_06_21.md`). This one endpoint trio closes
-**three** items at once:
+There is no rewarding local fallback. A run without a live server token cannot
+start combat, resolve an economy event, or settle.
 
-- **Finding #6 (medium):** Hollow Gate's entire reward economy is
-  client-authoritative — there is no `api/hollow-gate/*` endpoint, no mint token,
-  no server recompute. Currency/XP grants are computed in `App.tsx` and persisted
-  through the generic `save:` endpoint, which only enforces per-save gain caps.
-- **Finding #7 (low):** the 2/day (+attunement) run cap is enforced client-side;
-  the server floor only engages when `exChar.lastDailyReset === today`, so a
-  backdated `lastDailyReset` resets the counter and unlocks extra dives.
-- **New feature:** server-minted, server-sealed run augments (a TFT/roguelike
-  "choose 1 of 3 modifiers per run" layer) for repeatable-PvE replay variance.
+## Start and resume
 
-It reuses the existing `raid-start → report-raid` single-use-token plumbing
-(`api/missions/raid-start.ts`, `api/missions/report-raid.ts`) and the
-`report-pet-event` reconcile pattern verbatim.
+`POST /api/hollow-gate/start` authenticates the owner, consumes the entry key,
+enforces the server daily cap, derives the canonical depth/event variant, and
+mints the run token. The token seals:
 
-## Core idea — anchor on the entry snapshot
+- owner, seed, depth, current floor, published board dimensions, and variant boss;
+- entry currency and counted-item baselines;
+- offered/chosen augment;
+- keys, torch, Threat, ward steps, and Second Wind;
+- position/step version and a pending server Threat encounter;
+- active/resolved combat and non-combat event identities;
+- immutable, structurally validated per-floor gameplay manifests;
+- the exact reward ledger.
 
-Hollow Gate **already** snapshots the clawback-eligible currencies at dive entry
-(`entryCurrencies`) and computes the run's haul as `current − entry`
-(`shinobij.client/src/lib/hollow-gate-run.ts` — `snapshotHollowGateCurrencies`,
-`clawBackHollowGateLoot`). That snapshot is the trust anchor.
+`POST /api/hollow-gate/floor-seal` validates the deterministic browser-generated
+floor once, enforces the published dimensions and exact content budgets, proves
+full connectivity and target distance, and stores only its walkability/nodes in
+the run token. The browser persists richer map presentation for reconnect, but
+movement, events, combat, descent, and extraction read only the immutable run
+manifest and server position. Mutable saved tiles never authorize gameplay.
 
-If the **server** seals the entry snapshot + dive depth + the chosen augment's
-reward multiplier into a run token at dive start, then at extraction it can
-**validate the claimed haul against a server-computed ceiling** — without
-re-simulating the dungeon. The augment's reward effect is trusted because the
-multiplier lives in the sealed token, never in the client body.
+## Augments
 
-## Flow
+The server rolls the offer set and accepts only a member of that set under the
+run lock. No movement, event, combat, relic, descent, or extraction can race
+ahead of the choice.
 
-```
- POST /api/hollow-gate/start
-   auth · owns a Hollow Gate Key · under SERVER-stamped daily cap
-   → server ROLLS 3 augment offers (client can't pick the pool)
-   → mints  hg-run:<player>:<uuid>  sealing {
-        floorDepth, seed, entryCurrencies snapshot,
-        offeredAugmentIds, chosenAugmentId:null, dailyRunOrdinal }
-   → kv.incr  hg-runs:<player>:<utcDate>   (server daily cap — fixes #7)
-   ← { token, seed, augmentOffers:[display-only] }
+- Combat effects are derived from `chosenAugmentId` when the Solo PvE encounter
+  is built and are enforced by the Solo PvE engine.
+- Reward multipliers are derived from the same token and applied when a server
+  reward source is recorded.
+- Berserker's Gamble seals flee in the engine and extraction at run settlement.
+- Treasure Sense removes the Keeper heal choice in presentation and the event
+  route independently rejects a forged heal request.
 
- POST /api/hollow-gate/choose-augment
-   token owned · pick ∈ offeredAugmentIds · not already chosen
-   → re-seal token with chosenAugmentId = pick
+The client receives display fields but never submits a multiplier.
 
- (client plays the dive — the augment's COMBAT effect is applied locally for feel)
+## Movement and non-combat events
 
- POST /api/hollow-gate/settle   (outcome: extract | death)
-   token owned · NX idempotency keyed on the RUN (co-op-ready)
-   → multiplier = CATALOG[chosenAugmentId].rewardMultiplier   (sealed)
-   → bound      = maxHaulForDepth(floorDepth) × multiplier
-   → credited   = min(client-claimed earned, bound)
-       death → ×0.5 server-computed claw-back from the sealed snapshot
-   → withKvLock(save, failClosed): delta-credit anchored to sealed entry, merge
-   ← server-credited amounts for the client to reconcile
-```
+`POST /api/hollow-gate/step` accepts adjacent movement intent with a unique
+request ID. It owns torch RNG, ward consumption, Threat gain, darkness pressure,
+step version, current position, unresolved-combat blocking, and the exact
+ambush/boss identity at the Threat threshold.
 
-## Data model
+`POST /api/hollow-gate/event` resolves run-bound, one-time events:
 
-```ts
-// api/hollow-gate/_run-token.ts  — server source of truth
-type HollowGateRunToken = {
-  playerName: string;
-  mintedAt: number;
-  floorDepth: number;             // sealed dive depth → bounds the ceiling
-  seed: string;                   // for the Tier-2 deterministic regen (later)
-  entryCurrencies: Record<HollowGateCurrencyKey, number>;  // sealed snapshot
-  offeredAugmentIds: string[];    // the 3 the server rolled
-  chosenAugmentId: string | null; // set by choose-augment
-  dailyRunOrdinal: number;        // which run today (server-counted)
-};
+- chests and shard veins;
+- shrine Torch refill;
+- traps and Second Wind;
+- hidden tablets and relics;
+- Shrine Keeper choices;
+- locked-door chest/trap/pet rolls.
 
-type Augment = {
-  id: string; label: string; description: string; rarity: 'common' | 'rare';
-  // COMBAT effect — applied CLIENT-SIDE for feel; NOT trusted (it changes how the
-  // run plays, never the payout), so it needs no sealing.
-  combat?: { kind: 'elementBonus' | 'roleShield' | 'chainHit' | string; value: number };
-  // REWARD effect — the ONLY thing the server enforces, via chosenAugmentId.
-  rewardMultiplier: number;       // e.g. 2.0 = "double loot, enemies +30%"
-  riskLabel?: string;             // cosmetic ("Enemies hit harder")
-};
-```
+The handler rolls rewards, applies HP changes, updates run resources, writes the
+save, and records the ledger source under fail-closed run/save locks. Lost
+responses and duplicate requests reuse the event receipt and never apply twice.
 
-The key separation: **combat effect = client-side feel (untrusted)**, **reward
-effect = sealed multiplier (server-enforced)**. That keeps the trust surface to a
-single number per run.
+`POST /api/hollow-gate/use-consumable` owns every shipped shard relic: Reignite,
+Skeleton Key, Hollow Ward, Diviner's Eye cost/use, Sanctify, and Second Wind.
+Each request has a bounded idempotency key; duplicate delivery cannot spend
+shards or apply an effect twice.
 
-## Handlers (idiomatic to the existing helpers)
+The old `/api/hollow-gate/locked-door` route is an explicit `410` tombstone so a
+direct caller cannot roll loot or pets outside the run ledger.
 
-```ts
-// start.ts — mirrors raid-start.ts
-const id = await authedPlayerOrAdmin(req, playerName);     // owner/admin gate
-if (!hasHollowGateKey(char)) return res.json({ ok:true, reason:'no-key' });
-// server-stamped daily cap — independent of client lastDailyReset (fixes #7)
-const ord = await kv.incr(`hg-runs:${playerName}:${utcDateKey()}`, { ex: 25*3600 });
-if (ord > dailyRunCap(char)) return res.json({ ok:true, reason:'daily-cap', token:null });
+## Combat
 
-const offers = rollAugmentOffers(3);                       // server RNG → client can't choose the pool
-const token  = randomUUID().replace(/-/g, '');
-await kv.set(`hg-run:${playerName}:${token}`, {
-  playerName, mintedAt: Date.now(), floorDepth,
-  seed: randomUUID(), entryCurrencies: snapshotHollowGateCurrencies(char),
-  offeredAugmentIds: offers.map(o => o.id), chosenAugmentId: null, dailyRunOrdinal: ord,
-}, { ex: 60*60 });                                         // 60-min dive TTL
-return res.json({ ok:true, token, augmentOffers: offers.map(displayOnly) });
-```
+`POST /api/hollow-gate/combat-start` validates the run/floor/node/kind, derives
+the Hollow Hound and all modifiers, creates a `SoloPveSession`, and writes a
+separate Hollow Gate binding. Pet mode writes only its pet binding.
 
-```ts
-// settle.ts — mirrors report-raid.ts consume + report-pet-event payout
-const t = await kv.get<HollowGateRunToken>(`hg-run:${playerName}:${token}`);
-if (!t) return res.json({ ok:true, reason:'invalid-or-spent' });          // graceful (stale client)
-if (t.playerName.toLowerCase() !== playerName.toLowerCase()) return res.status(403)...
+`POST /api/hollow-gate/combat-settle` accepts encounter identity only. Shinobi
+settlement reads the terminal Solo PvE outcome, surviving HP, item use, and exact
+binding. Pet settlement requires the pet-runtime receipt. Rewards are derived
+server-side, written once, and appended to the same exact ledger.
 
-// entity-keyed idempotency = the co-op-ready part: keyed on the RUN, not the request
-const once = await kv.set(`hg-settled:${playerName}:${token}`, true, { nx:true, ex: 24*3600 });
-if (!once) return res.json({ ok:true, alreadyReported:true });
-await kv.del(`hg-run:${playerName}:${token}`).catch(() => {});            // single-use
+## Exact reward ledger and run end
 
-const mult  = AUGMENT_CATALOG[t.chosenAugmentId ?? '']?.rewardMultiplier ?? 1;
-const bound = maxHaulForDepth(t.floorDepth, mult);    // Tier 1: theoretical max × sealed mult
-const frac  = outcome === 'death' ? 0.5 : 1;          // server-computed claw-back
+The ledger records every server credit by unique source ID:
 
-await withKvLock(`save:${playerName}`, async () => {
-  const fresh = await kv.get(...); const c = fresh.character;
-  for (const k of HOLLOW_GATE_CLAWBACK_KEYS) {
-    const claimed = Math.max(0, Number(body.haul?.[k] ?? 0));
-    const credit  = Math.floor(Math.min(claimed, bound[k]) * frac);      // ≤ sealed ceiling
-    c[k] = Number(t.entryCurrencies[k] ?? 0) + credit;                   // anchor to SEALED entry
-  }
-  await kv.set(`save:${playerName}`, mergePreservingImages({ ...fresh, character: c }, fresh));
-}, { failClosed: true });
-```
+- Ryo, Aura Dust, Aura Stones, Honor Seals, Bone Charms, Fate Shards, and Hollow
+  Shards;
+- Dungeon Legendary Fragments, Veils of the Hollow, and Elemental Shards.
 
-## Two enforcement tiers
+`POST /api/hollow-gate/settle` accepts only `{ playerName, token, action }`, where
+`action` is `extract` or `abandon`. It never reads client outcome, vitals, item
+use, boss completion, reward, or haul.
 
-- **Tier 1 — sealed-bounds (ship first).** `maxHaulForDepth` = the sum of the
-  *max* loot each tile type can drop at that depth (curves already exist in
-  `hollow-gate-run.ts` — `hollowShardDrop`) × the sealed augment multiplier. Caps
-  a run to its legitimate ceiling. Does **not** require regenerating the dungeon
-  server-side. Closes the unbounded-farming exploit (#6) and makes the augment
-  multiplier trustworthy.
-- **Tier 2 — deterministic regen (later).** Make Hollow Gate generation
-  deterministic from `seed` (swap `Math.random` for a seeded PRNG; run the
-  generator in a shared lib), so `settle` re-derives the exact layout and
-  validates the exact cleared-tile haul, not just an upper bound. This is the
-  audit research's "deterministic sim as server-side verification" idea. Bigger
-  lift (generator refactor) — deferred.
+Extraction reconciles each stored balance to at most `entry + exact ledger` while
+preserving legitimate in-run spending. Abandon/death applies the server-derived
+Greedy Hands retention fraction to currency ledger gains; counted items retain
+their shipped behavior. The run token is consumed without importing or mutating
+Tower state; combat evidence keeps its independent recovery TTL.
 
-## Anti-cheat properties
+## Invariants
 
-| Guard | Closes |
-|---|---|
-| Augment offer rolled server-side | Can't self-select the strongest augment |
-| `rewardMultiplier` sealed in token | Can't inflate the payout multiplier |
-| Haul ≤ `maxHaulForDepth × mult` | **#6** — bounds the client-played dungeon to its ceiling |
-| `kv.incr` server daily-run counter | **#7** — independent of client `lastDailyReset` |
-| Single-use token + NX `hg-settled:` entity key | reconnect / retry / double-report pays once (co-op-idempotency-ready) |
-| `failClosed` save lock + anchor to sealed `entryCurrencies` | lost-update on a concurrent autosave |
-| 200-with-reason when token absent | stale clients & `SESSION_SECRET` unset keep working — **no save breakage** |
-
-## Client + save-sanitizer changes — AS SHIPPED (read this before touching settle)
-
-The **as-built** model differs from the original draft below it, and the
-difference is load-bearing. Read the WHY before "fixing" it.
-
-- **Live accrual + reconcile-DOWN (the shipped model).** The dive keeps applying
-  loot to the character live (unchanged feel), and autosaves persist it. At
-  extract/death the client reports the **gross** haul to `settle`, which SETS each
-  balance to `min(current, sealedEntry + min(claimed, ceiling) × frac)` — i.e. it
-  reconciles an over-claim *down* to the sealed ceiling. For a legit run this is a
-  no-op; a crafted client is clamped. (`lib/hollow-gate-server.ts`
-  `applyServerSettle`; server `settleCurrency`.)
-- **There is deliberately NO "freeze HG increases while a token is open."** The
-  original draft (next bullet) called for it; it was **rejected** because
-  `settleCurrency` returns `min(current, entry+credit)` — it *needs* the live haul
-  present in the save to pay out. Freezing increases pins `current` at `entry`, so
-  `min(entry, entry+credit) = entry` and **the payout becomes zero**. The
-  `_run-token.test.ts:88` "never restores in-run spends" test locks that
-  `min(current,…)`. A regression guard in `_sanitize-hollowgate.test.ts` ("no
-  currency freeze while a run token is open") fails if anyone re-adds the freeze.
-- **What bounds the farming surface instead:** the no-token / generic-save path is
-  bounded by the per-save `CURRENCY_CAPS` in `api/save/[name].ts` (e.g. hollowShards
-  +200/cycle); the token path is bounded by the `settle` ceiling. The sanitizer
-  only **shape-bounds** the new run fields (runToken/serverSeed ≤ 64 chars,
-  augmentOffers ≤ 8) so a forged save can't bloat KV.
-- Gated behind `hollowGateServer.v1` (default OFF); the no-token path still works
-  (token-first invariant).
-
-> ~~ORIGINAL DRAFT (superseded — do not implement):~~ *"The dive stops writing HG
-> currencies to the save per-tile; it accrues a local provisional haul and posts
-> it once at extract/death. Save sanitizer: reject HG-currency increases via the
-> generic save while a run token is open."* — This would require a Model-B settle
-> that credits additively (ignoring `current`); the shipped settle is Model-A
-> (reconcile-down), so the freeze is incompatible. Switching to Model B means
-> rewriting `settleCurrency` **and** its tests first.
-
-## Wiring
-
-- New files: `api/hollow-gate/start.ts`, `choose-augment.ts`, `settle.ts`,
-  `_run-token.ts` (catalog + `maxHaulForDepth` + `rollAugmentOffers`).
-- **Register all three handlers in `server.ts`** on both the bare and `/api`
-  paths — there is no auto-routing; an unregistered handler is unreachable on
-  Railway and cPanel. `server-routes.test.ts` enforces this both ways.
-- Tests: `_run-token.test.ts` — bound math, augment seal/lookup, and a **drift
-  test** asserting the server loot ceilings match the client `hollowShardDrop`
-  tables (the `api/missions/_mission-catalog.test.ts` pattern); plus a `settle`
-  idempotency + over-claim-clamp test.
-- After the `api/` change: `npm run build` + commit the regenerated `dist/` (the
-  cPanel auto-deploy serves committed `dist/` verbatim; Railway self-builds).
-
-## Open tuning questions
-
-- Number of augment offers per run (3?), rarity weights, and the
-  `rewardMultiplier` ceiling.
-- **Milestone augments:** offer one at F1/F3/F5 → `choose-augment` appends to a
-  `chosenAugmentIds[]` and `settle` stacks the multipliers, with a hard cap so the
-  stacked multiplier can't run away.
-- Whether to keep per-tile optimistic client display (provisional) or batch the
-  reveal at settle.
-
-## Relationship to existing systems
-
-- Mirrors `raid-start`/`report-raid` (token mint + single-use consume + daily cap)
-  and `report-pet-event` (sealed-values payout + reconcile).
-- Reuses `lib/hollow-gate-run.ts` (`HOLLOW_GATE_CLAWBACK_KEYS`,
-  `snapshotHollowGateCurrencies`, `clawBackHollowGateLoot`, `hollowShardDrop`).
-- The `hg-settled:<player>:<token>` entity key is the template for the broader
-  **co-op idempotency** recommendation (Hollow Gate phase clears, clan-war flips):
-  key the payout on the run/event, not the request, so two participants reporting
-  the same outcome collapse to one credit.
-- Complements the larger Hollow Gate design loop in `docs/hollow-gate-loop.md`.
+- A source ID credits at most once.
+- A combat receipt settles at most once.
+- A movement or consumable request ID applies at most once.
+- A reward/event node must match the server's current manifest position.
+- A terminal Solo PvE session cannot be consumed by pet or Tower settlement.
+- A pet receipt cannot settle shinobi combat.
+- Generic saves cannot originate Hollow Gate economy gains.
+- Client haul, outcome, surviving pools, and reward fields are ignored because
+  they are not part of the request contracts.

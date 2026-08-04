@@ -2,11 +2,11 @@
  * Hollow Gate — in-run Hollow Shard relic bar. Lets the player spend their
  * banked Hollow Shards on the run consumables (Reignite Torch, Skeleton Key,
  * Hollow Ward, Diviner's Eye, Sanctify Loot, Second Wind). The spend/effect
- * logic lives in lib/hollow-gate-shards; this is just the UI + wiring, kept out
- * of App.tsx (which is at its line budget).
+ * catalog/availability projection lives in lib/hollow-gate-shards; all spend and
+ * gameplay effects are committed by the server-owned run endpoint.
  */
 import type { Character, HollowGateShrineRun } from "../types/character";
-import { HOLLOW_SHARD_CONSUMABLES, applyShardConsumable, shardConsumableAvailable } from "../lib/hollow-gate-shards";
+import { HOLLOW_SHARD_CONSUMABLES, shardConsumableAvailable } from "../lib/hollow-gate-shards";
 import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
 
 type Props = {
@@ -21,28 +21,40 @@ export function HollowGateShardBar({ run, character, setRun, setCharacter, pushL
     const shards = character.hollowShards ?? 0;
 
     async function use(id: string) {
-        if (run.runToken && (id === "sanctify" || id === "second-wind")) {
-            const action = id === "sanctify" ? "sanctify" : "arm-second-wind";
-            const result = await requestHollowGateServerConsumable(character.name, run.runToken, action);
-            if (!result?.ok || !result.character) {
-                pushLog(result?.error ?? "The shrine could not seal that relic. Retry in a moment.");
-                return;
-            }
-            const nextRun = id === "sanctify"
-                ? { ...run, entryCurrencies: result.entryCurrencies ?? run.entryCurrencies }
-                : { ...run, secondWindArmed: result.secondWindArmed === true };
-            setCharacter({ ...result.character, hollowGateRun: nextRun });
-            setRun(nextRun);
-            pushLog(id === "sanctify"
-                ? "You sanctify your haul â€” what you've earned is safe from the dark."
-                : "You bind a Second Wind â€” the next death will not be the end.");
+        if (!run.runToken) {
+            pushLog("This legacy run has no server seal. Leave and begin a verified run before using shrine relics.");
             return;
         }
-        const res = applyShardConsumable(id, run, character);
-        if (res.ok === false) { pushLog(res.reason); return; }
-        setRun(res.run);
-        setCharacter(res.character);
-        pushLog(res.log);
+        const actions = {
+            reignite: "reignite",
+            "skeleton-key": "skeleton-key",
+            "hollow-ward": "hollow-ward",
+            "diviner-eye": "diviner-eye",
+            sanctify: "sanctify",
+            "second-wind": "arm-second-wind",
+        } as const;
+        const action = actions[id as keyof typeof actions];
+        if (!action) return pushLog("Unknown shrine relic.");
+        const result = await requestHollowGateServerConsumable(character.name, run.runToken, action);
+        if (!result?.ok || !result.character || !result.runState) {
+            pushLog(result?.error ?? "The shrine could not seal that relic. Retry in a moment.");
+            return;
+        }
+        const nextRun: HollowGateShrineRun = {
+            ...run,
+            keys: result.runState.keys,
+            torch: result.runState.torch,
+            threat: result.runState.threat,
+            wardSteps: result.runState.wardSteps,
+            diviner: result.runState.divinerUsed || run.diviner,
+            secondWindArmed: result.runState.secondWindArmed,
+            entryCurrencies: result.entryCurrencies ?? run.entryCurrencies,
+            ...(result.runState.divinerUsed ? { tiles: run.tiles.map((tile) => ({ ...tile, revealed: true })) } : {}),
+        };
+        setCharacter({ ...result.character, hollowGateRun: nextRun });
+        setRun(nextRun);
+        const consumable = HOLLOW_SHARD_CONSUMABLES.find((entry) => entry.id === id);
+        pushLog(`${consumable?.label ?? "Shrine relic"} answers the server-sealed run.`);
     }
 
     return (
