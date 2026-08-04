@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSession } from '../towers/_tower-store.js';
+import { readSoloPveSession } from '../solo-pve/_store.js';
 import {
     aiFightPlayerActor,
     applyAiFightOutcomeToCharacter,
@@ -78,7 +79,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runId = cleanRunId(body.runId);
         if (!runId) return res.status(400).json({ error: 'Missing run.' });
 
-        const session = await readSession(runId).catch(() => null);
+        const session = await readSoloPveSession(runId).catch(() => null)
+            ?? await readSession(runId).catch(() => null);
         // A vanished session neither costs nor refunds. The store has a TTL, and a
         // late report is far likelier to be a slow client than a cheat — so this
         // fails toward leaving the player alone, the only side that cannot punish

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { TowerSession } from '../towers/_tower-session.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import { combatMissionByKey } from './_mission-catalog.js';
 import {
     createMissionCombatBinding,
@@ -16,44 +16,48 @@ function rejectionReason(result: ReturnType<typeof validateCompletedMissionComba
 
 const mission = combatMissionByKey('combat-c-patrol')!;
 const now = Date.UTC(2026, 6, 14, 12);
+const runId = 'mission-run-1';
 const session = {
-    runId: 'tower-mission-run-1',
+    runtime: 'solo-pve',
+    schemaVersion: 1,
+    sessionId: runId,
+    ownerSlug: 'beta-cert-player',
+    encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
     status: 'done',
-    winner: 'squad',
-    actors: [{ side: 'squad', ownerSlug: 'beta-cert-player' }],
-} as TowerSession;
+    winner: 'player',
+    settlementState: 'pending',
+} as SoloPveSession;
 
-test('sealed mission binding accepts only its completed winning server session', () => {
-    const binding = createMissionCombatBinding({
-        runId: session.runId,
-        playerName: 'beta-cert-player',
-        mission,
-        now,
-        sessionId: 'mcombat-fixed',
-    });
+test('sealed mission binding accepts only its completed winning solo-PvE session', () => {
+    const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
     const result = validateCompletedMissionCombatSession({ binding, session, playerName: 'beta-cert-player', mission, now: now + 1000 });
     assert.equal(result.ok, true);
     assert.equal(binding.rewardFingerprint, missionCombatRewardFingerprint(mission));
 });
 
 test('mission binding rejects wrong player, mission, run, expiry, unfinished and losing sessions', () => {
-    const binding = createMissionCombatBinding({ runId: session.runId, playerName: 'beta-cert-player', mission, now });
+    const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
     const otherMission = combatMissionByKey('combat-b-escort')!;
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session, playerName: 'attacker', mission, now })), 'wrong-player');
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session, playerName: 'beta-cert-player', mission: otherMission, now })), 'wrong-mission');
-    assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session: { ...session, runId: 'other' }, playerName: 'beta-cert-player', mission, now })), 'wrong-run');
+    assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session: { ...session, sessionId: 'other' }, playerName: 'beta-cert-player', mission, now })), 'wrong-run');
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session, playerName: 'beta-cert-player', mission, now: binding.expiresAt })), 'expired');
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session: { ...session, status: 'active' }, playerName: 'beta-cert-player', mission, now })), 'not-complete');
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({ binding, session: { ...session, winner: 'enemy' }, playerName: 'beta-cert-player', mission, now })), 'not-won');
 });
 
-test('mission binding rejects non-member settlement, reward drift, and replay', () => {
-    const binding = createMissionCombatBinding({ runId: session.runId, playerName: 'beta-cert-player', mission, now });
+test('mission binding rejects non-member settlement, encounter drift, reward drift, and replay', () => {
+    const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({
         binding,
-        session: { ...session, actors: [{ side: 'squad', ownerSlug: 'someone-else' }] } as TowerSession,
+        session: { ...session, ownerSlug: 'someone-else' },
         playerName: 'beta-cert-player', mission, now,
     })), 'not-a-member');
+    assert.equal(rejectionReason(validateCompletedMissionCombatSession({
+        binding,
+        session: { ...session, encounter: { ...session.encounter, bindingId: 'forged' } },
+        playerName: 'beta-cert-player', mission, now,
+    })), 'wrong-mission');
     assert.equal(rejectionReason(validateCompletedMissionCombatSession({
         binding: { ...binding, rewardFingerprint: 'forged' }, session, playerName: 'beta-cert-player', mission, now,
     })), 'reward-drift');

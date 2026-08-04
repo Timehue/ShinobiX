@@ -34,11 +34,8 @@ import { requestAiFight } from "../lib/ai-fight-request";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { sectorPhrase } from "../lib/hollow-rifts";
 import { MissionArenaFight } from "./MissionArenaFight";
-import type { TowerSession, TowerHostLoadout } from "../lib/towers-api";
-import { towerArenaTransport, towerSessionForArena } from "../lib/tower-arena-adapter";
-import { getAllItems } from "../lib/items";
-import { getBloodlineMultiplier } from "../lib/combat-math";
-import { getPvpItemLoadout, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus } from "../lib/equipment-stats";
+import type { SoloPveSession } from "../lib/solo-pve-api";
+import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 import type { GameItem, SavedBloodline, Jutsu } from "../types/combat";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
@@ -53,7 +50,6 @@ export function Missions({
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
-    setPendingAiProfileId,
     setScreen,
     onBack,
     onMissionBattleStart,
@@ -75,13 +71,12 @@ export function Missions({
     onBack: () => void;
     onMissionBattleStart?: () => void;
     sharedImages?: Record<string, string>;
-    /** Needed to build the sealed fight's hostLoadout + resolve jutsu card art. */
     creatorItems?: GameItem[];
     savedBloodlines?: SavedBloodline[];
     creatorJutsus?: Jutsu[];
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: TowerSession } | null>(null);
+    const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: SoloPveSession } | null>(null);
     const [startingCombat, setStartingCombat] = useState(false);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
@@ -125,54 +120,24 @@ export function Missions({
     async function startMissionBattle(mission: CombatMission) {
         if (character.level < mission.min) return alert(`Requires level ${mission.min}.`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
-        const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId);
-        if (!ai) return alert("Mission AI is not available.");
-
-        // C/B/A/S rewards require a server-resolved win. E/D keep the original
-        // Arena tutorial path; their deliberately tiny rewards remain rollout-safe.
-        if (mission.min > 5) {
-            if (startingCombat) return;
-            setStartingCombat(true);
-            try {
-                // The equipment-derived passives (armor, bloodline mult, item
-                // damage/absorb/reflect/lifesteal/shield) are NOT persisted on the
-                // save — they're computed here and sealed by the server, exactly as
-                // Battle Towers / Anbu do. Without this the sealed fighter clamps to
-                // no-bonus defaults and the player fights without their armor or
-                // bloodline multiplier. (Weapons/consumables the server re-resolves
-                // from the save's own equipment map, so they're already correct.)
-                const items = getAllItems(creatorItems ?? []);
-                const hostLoadout: TowerHostLoadout = {
-                    pvpItems: getPvpItemLoadout(character, items),
-                    bloodlineMult: getBloodlineMultiplier(character, savedBloodlines ?? []),
-                    armorFactor: getCharacterArmorFactor(character, items),
-                    armorRawDR: getCharacterArmorRawDR(character, items),
-                    itemDamagePct: getEquippedItemBonus(character, items, "damagePercent"),
-                    itemAbsorbPct: getEquippedItemBonus(character, items, "absorbPercent"),
-                    itemReflectPct: getEquippedItemBonus(character, items, "reflectPercent"),
-                    itemLifeStealPct: getEquippedItemBonus(character, items, "lifeStealPercent"),
-                    itemShield: getEquippedItemBonus(character, items, "shield"),
-                };
-                const response = await fetch("/api/missions/combat-start", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playerName: character.name, missionId: mission.key, hostLoadout }),
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok || !data?.runId || !data?.session) {
-                    alert(data?.error ?? "The mission fight could not be started.");
-                    return;
-                }
-                setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
-            } finally {
-                setStartingCombat(false);
-            }
-            return;
-        }
-
+        if (startingCombat) return;
         onMissionBattleStart?.();
-        setPendingAiProfileId(ai.id);
-        setScreen("arena");
+        setStartingCombat(true);
+        try {
+            const response = await fetch("/api/missions/combat-start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, missionId: mission.key }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data?.runId || !data?.session) {
+                alert(data?.error ?? "The mission fight could not be started.");
+                return;
+            }
+            setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
+        } finally {
+            setStartingCombat(false);
+        }
     }
 
     async function settleAuthoritativeMission(runId: string, playerName: string): Promise<unknown> {
@@ -207,8 +172,8 @@ export function Missions({
                 character={character}
                 sharedImages={sharedImages}
                 runId={authoritativeFight.runId}
-                initialSession={towerSessionForArena(authoritativeFight.session)}
-                transport={towerArenaTransport}
+                initialSession={soloPveSessionForArena(authoritativeFight.session)}
+                transport={soloPveArenaTransport}
                 missionName={authoritativeFight.mission.name}
                 savedBloodlines={savedBloodlines}
                 creatorJutsus={creatorJutsus}

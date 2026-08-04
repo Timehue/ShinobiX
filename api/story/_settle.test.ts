@@ -77,9 +77,9 @@ test('generic saves cannot skip story progress or forge the redemption ledger', 
     assert.deepEqual(out.redeemedStoryBattles, [{ token: 'server', progress: 2 }]);
 });
 
-test('Academy spar is a one-step canonical grant bound to its temporary opponent token', () => {
+test('Academy spar is a one-step canonical grant bound to its server-owned opponent', () => {
     const c = character({ level: 1, onboardingStep: 'academySpar', maxHp: 100, hp: 100 });
-    const settled = applyAcademySparSettlement(c, token(`temp-academy-spar-${Date.now()}`));
+    const settled = applyAcademySparSettlement(c, token(ACADEMY_SPAR_OPPONENT_ID));
     assert.equal(settled.ok, true);
     if (!settled.ok) return;
     // The teaching reward is now +20 pool points (was a one-time 60 XP) — it
@@ -91,19 +91,15 @@ test('Academy spar is a one-step canonical grant bound to its temporary opponent
     assert.equal(settled.character.onboardingStep, 'cafeteria');
     assert.equal(settled.character.academySparClaimed, true);
     assert.equal(settled.character.hp, Number(settled.character.maxHp) - 25);
-    assert.equal(applyAcademySparSettlement({ ...c, onboardingStep: 'cafeteria' }, token(`temp-academy-spar-${Date.now()}`)).ok, false);
-    assert.equal(applyAcademySparSettlement({ ...c, academySparClaimed: true }, token(`temp-academy-spar-${Date.now()}`)).ok, false);
+    assert.equal(applyAcademySparSettlement({ ...c, onboardingStep: 'cafeteria' }, token(ACADEMY_SPAR_OPPONENT_ID)).ok, false);
+    assert.equal(applyAcademySparSettlement({ ...c, academySparClaimed: true }, token(ACADEMY_SPAR_OPPONENT_ID)).ok, false);
 });
 
-test('the spar settles for the SEALED dummy too, and for nothing else', () => {
-    // Step 5 of the AI-fight migration gave the spar a server-built opponent
-    // (api/story/spar-start), so the settlement has to accept its stable id
-    // alongside the local fallback's temp-* one — while still refusing any
-    // other fight that tries to cash itself in as the tutorial.
+test('the spar settles for the sealed dummy and for nothing else', () => {
     const c = character({ level: 1, onboardingStep: 'academySpar', maxHp: 100, hp: 100 });
     assert.equal(applyAcademySparSettlement(c, token(ACADEMY_SPAR_OPPONENT_ID)).ok, true);
     assert.equal(applyAcademySparSettlement(c, token('builtin-ai-academy-sparring')).ok, false, 'the E-rank drill AI is not the tutorial dummy');
     assert.equal(applyAcademySparSettlement(c, token('story-ai-stormveil-village-10')).ok, false);
     assert.equal(applyAcademySparSettlement(c, token('academy-spar-dummy-2')).ok, false, 'a prefix match is not the sealed id');
-    assert.equal(applyAcademySparSettlement(c, token('temp-academy-spar-abc')).ok, false, 'the temp id still has to carry a timestamp');
+    assert.equal(applyAcademySparSettlement(c, token(`temp-academy-spar-${Date.now()}`)).ok, false, 'the retired local dummy cannot settle');
 });
