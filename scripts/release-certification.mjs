@@ -79,6 +79,39 @@ async function api(path, { method = 'GET', body, token, name, password, asName }
 const SAVE_BURST_MS = 3_200;
 const settleSaveBurst = () => new Promise((r) => setTimeout(r, SAVE_BURST_MS));
 
+// Solo PvE uses the shared 12x10 odd-q hex board. Keep the live journey's
+// pathing local to this dependency-free script so certification can run
+// against either the source server or a built release artifact.
+const SOLO_GRID_W = 12;
+const SOLO_GRID_H = 10;
+
+function soloHexNeighbors(pos) {
+    const x = pos % SOLO_GRID_W;
+    const y = Math.floor(pos / SOLO_GRID_W);
+    const deltas = x % 2 === 0
+        ? [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [0, 1]]
+        : [[1, 1], [1, 0], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    return deltas
+        .map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
+        .filter((tile) => tile.x >= 0 && tile.x < SOLO_GRID_W && tile.y >= 0 && tile.y < SOLO_GRID_H)
+        .map((tile) => tile.y * SOLO_GRID_W + tile.x);
+}
+
+function soloHexDistance(a, b) {
+    const axial = (pos) => {
+        const x = pos % SOLO_GRID_W;
+        const y = Math.floor(pos / SOLO_GRID_W);
+        return { q: x, r: y - ((x - (x & 1)) / 2) };
+    };
+    const first = axial(a);
+    const second = axial(b);
+    return (
+        Math.abs(first.q - second.q)
+        + Math.abs(first.q + first.r - second.q - second.r)
+        + Math.abs(first.r - second.r)
+    ) / 2;
+}
+
 async function waitForHealth(timeoutMs = 60_000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -328,13 +361,15 @@ async function certify() {
             body: { playerName: player, opponentId: 'apex-ai-ancient-chakra-beast', opponentLevel: 100, hp: 1 },
         });
         if (check(started.status === 200 && !!started.body.runId, `spar sealed → ${started.status}`)) {
-            const boss = (started.body.session?.actors ?? []).find((actor) => actor.id === 'boss');
-            check(!!boss, 'the sealed session carries a boss actor');
-            check(Number(boss?.character?.level ?? boss?.level) === 1, `the dummy is level 1 (got ${boss?.character?.level ?? boss?.level})`);
+            const sealedSession = started.body.session;
+            const enemy = sealedSession?.enemy;
+            check(sealedSession?.runtime === 'solo-pve', `the sealed session uses Solo PvE (got ${sealedSession?.runtime})`);
+            check(!!enemy, 'the sealed session carries the server-owned opponent');
+            check(Number(enemy?.character?.level) === 1, `the dummy is level 1 (got ${enemy?.character?.level})`);
             // <= rather than ===: the shared PvE band may soften it further, but
             // it must never be TOUGHER than the authored 50-HP dummy.
-            check(Number(boss?.maxHp ?? 0) > 0 && Number(boss?.maxHp ?? 0) <= 50, `the dummy keeps its tutorial HP (got ${boss?.maxHp})`);
-            check(!/Ancient/i.test(String(boss?.name ?? '')), 'the request could not swap in a level-100 opponent');
+            check(Number(enemy?.maxHp ?? 0) > 0 && Number(enemy?.maxHp ?? 0) <= 50, `the dummy keeps its tutorial HP (got ${enemy?.maxHp})`);
+            check(!/Ancient/i.test(String(enemy?.name ?? '')), 'the request could not swap in a level-100 opponent');
 
             // The reward must not be payable from a run that was never won.
             const early = await api('/api/story/settle', {
@@ -355,26 +390,43 @@ async function certify() {
             // resolves — a level-1 basic attack against the tutorial dummy.
             const runId = started.body.runId;
             let session = started.body.session;
-            const width = Number(session?.map?.width ?? 12);
             for (let turn = 0; turn < 160 && session?.status !== 'done'; turn++) {
-                const mine = (session.actors ?? []).find((a) => a.side === 'squad' && a.ownerSlug === player);
-                const foe = (session.actors ?? []).find((a) => a.id === 'boss');
+                const mine = session.player;
+                const foe = session.enemy;
                 if (!mine || !foe) break;
-                const dx = (foe.pos % width) - (mine.pos % width);
-                const dy = Math.floor(foe.pos / width) - Math.floor(mine.pos / width);
-                const adjacent = Math.max(Math.abs(dx), Math.abs(dy)) <= 1;
-                const step = mine.pos + Math.sign(dx) + Math.sign(dy) * width;
-                const move = adjacent
-                    ? { type: 'attack', targetId: foe.id }
-                    : { type: 'move', tile: step };
-                const acted = await api('/api/towers/action', { method: 'POST', token, body: { playerName: player, runId, ...move } });
+                const adjacent = soloHexDistance(mine.pos, foe.pos) <= 1;
+                const blocked = new Set(session.environment?.blockedTiles ?? []);
+                const nextTile = soloHexNeighbors(mine.pos)
+                    .filter((tile) => tile !== foe.pos && !blocked.has(tile))
+                    .sort((a, b) => soloHexDistance(a, foe.pos) - soloHexDistance(b, foe.pos) || a - b)[0];
+                const move = adjacent ? { type: 'basicAttack' } : { type: 'move', tile: nextTile };
+                const acted = await api('/api/solo-pve/action', {
+                    method: 'POST', token,
+                    body: {
+                        playerName: player,
+                        sessionId: runId,
+                        expectedVersion: session.version,
+                        moveToken: `cert-spar-${turn}-${session.version}`,
+                        ...move,
+                    },
+                });
                 // A refused move still comes back WITH a session (out of AP, a
                 // blocked tile, not our turn), so `applied` is the thing to read —
                 // keying off the session alone spins forever without ever ending
                 // the turn. `wait` hands over and refills AP.
                 let next = acted.body?.session;
                 if (acted.status !== 200 || acted.body?.applied === false) {
-                    const passed = await api('/api/towers/action', { method: 'POST', token, body: { playerName: player, runId, type: 'wait' } });
+                    const current = next ?? session;
+                    const passed = await api('/api/solo-pve/action', {
+                        method: 'POST', token,
+                        body: {
+                            playerName: player,
+                            sessionId: runId,
+                            expectedVersion: current.version,
+                            moveToken: `cert-spar-wait-${turn}-${current.version}`,
+                            type: 'wait',
+                        },
+                    });
                     next = passed.body?.session ?? next;
                     if (passed.status !== 200 && acted.status !== 200) break;
                 }
@@ -382,7 +434,7 @@ async function certify() {
                 session = next;
             }
             if (check(session?.status === 'done', `the spar was fought to a resolution (status ${session?.status})`)) {
-                check(session.winner === 'squad', `the tutorial dummy falls to a level-1 player (winner ${session.winner})`);
+                check(session.winner === 'player', `the tutorial dummy falls to a level-1 player (winner ${session.winner})`);
                 const paid = await api('/api/story/settle', {
                     method: 'POST', token,
                     body: { playerName: player, kind: 'academySparring', runId },
