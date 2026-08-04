@@ -3,10 +3,8 @@ import { strict as assert } from 'node:assert';
 import {
     endlessScaleFactor,
     endlessWaveReward,
-    applyTowerCashOut,
     endlessTowerMilestoneReward,
 } from './endless-tower';
-import type { Character, EndlessTowerRun } from '../types/character';
 
 // Character XP is retired (docs/leveling-without-xp-map.md): waves bank ryo
 // only (the old xp line folds in at ~0.75:1, mirroring api/endless/_run.ts),
@@ -33,26 +31,6 @@ describe('endlessWaveReward — ryo-only banking (XP retired)', () => {
         assert.ok(endlessWaveReward(10, 50).ryo > endlessWaveReward(1, 50).ryo);
         assert.equal(endlessWaveReward(10, 50).isMilestone, true);
         assert.equal(endlessWaveReward(3, 50).isMilestone, false);
-    });
-});
-
-describe('applyTowerCashOut — banks ryo, converts legacy bankedXp, clears the run', () => {
-    // The injected gainXp is the derived-level shim — amount must be ignored.
-    const stubGainXp = (c: Character, _amt: number): Character => c;
-    const run = (bankedXp: number): EndlessTowerRun => ({ wave: 10, bankedRyo: 500, bankedXp, startedAt: 0, highestMilestoneClaimed: 0 });
-
-    it('banks ryo plus the legacy bankedXp fold, and nulls the run', () => {
-        const char = { level: 50, xp: 0, ryo: 100 } as unknown as Character;
-        const out = applyTowerCashOut(char, run(1000), 'D', stubGainXp);
-        assert.equal(out.ryo, 100 + 500 + Math.floor(1000 * 0.75));
-        assert.equal(out.xp, 0, 'frozen xp untouched');
-        assert.equal(out.endlessTowerRun, null);
-        assert.equal(out.endlessTowerBestWave, 10);
-    });
-    it('a new-model run (bankedXp 0) is a pure ryo cashout', () => {
-        const char = { level: 50, xp: 0, ryo: 0 } as unknown as Character;
-        const out = applyTowerCashOut(char, run(0), 'D', stubGainXp);
-        assert.equal(out.ryo, 500);
     });
 });
 

@@ -55,6 +55,11 @@ describe("screen navigation guards", () => {
         })), false);
     });
 
+    it("blocks navigation only while a server-owned Endless wave is open", () => {
+        assert.equal(isUnresolvedBattle(signals({ screen: "endlessTower" })), false);
+        assert.equal(isUnresolvedBattle(signals({ screen: "endlessTower", endlessBattleActive: true })), true);
+    });
+
     it("routes active Hollow Gate saves away from stale combat screens", () => {
         assert.equal(restoreScreenForSave("battleTowers", true), "hollowGateShrine");
         assert.equal(restoreScreenForSave("hollowGateTiles", true), "hollowGateShrine");

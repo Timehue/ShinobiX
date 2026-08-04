@@ -4,8 +4,8 @@ import "../styles/battle-skin.css";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
     GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
-    GiColiseum, GiLaurelsTrophy, GiSkullCrossedBones, GiFirstAidKit, GiScrollUnfurled,
-    GiVillage, GiNextButton, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
+    GiColiseum, GiFirstAidKit, GiScrollUnfurled,
+    GiVillage, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
     GiRollingDices, GiTwoCoins,
     // Command-deck glyphs (one per basic action).
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
@@ -133,10 +133,6 @@ export function Arena({
     creatorItems,
     setScreen,
     sharedImages = {},
-    endlessBattleActive = false,
-    endlessBattleWave = 0,
-    onEndlessWin,
-    onEndlessBattleEnd,
     pendingStoryBattle,
     onPendingStoryBattleWin,
     onPendingStoryBattleContinue,
@@ -181,10 +177,6 @@ export function Arena({
     creatorItems: GameItem[];
     setScreen: (screen: Screen) => void;
     sharedImages?: Record<string, string>;
-    endlessBattleActive?: boolean;
-    endlessBattleWave?: number;
-    onEndlessWin?: (wave: number, aiFightToken: string, vitals: { hp: number; chakra: number; stamina: number }) => void | Promise<void>;
-    onEndlessBattleEnd?: () => void | Promise<void>;
     pendingStoryBattle?: PendingArenaStoryBattle | null;
     onPendingStoryBattleWin?: (survivingHp: number, aiFightToken?: string) => string | Promise<string>;
     onPendingStoryBattleContinue?: (
@@ -679,7 +671,7 @@ export function Arena({
     // is untouched. The HP factor only applies to the AI fallback / authored HP
     // (a live opponentCharacter is gated out by isStandardPve). See
     // lib/pve-difficulty.ts.
-    const isStandardPve = !opponentCharacter && !endlessBattleActive && !rankedBattleActive;
+    const isStandardPve = !opponentCharacter && !rankedBattleActive;
     // The weekly boss uses a sentinel HP (99,999,999) as an unkillable damage-race
     // meter and reports damage as (bossInitialHp - enemyHp), where bossInitialHp is
     // the RAW sentinel. It must NOT get the PvE band HP multiplier: scaling enemyHp
@@ -846,9 +838,7 @@ export function Arena({
             playerName: character.name,
             opponentId: pendingAiProfile?.id ?? "",
             opponentLevel: aiLevel,
-            battleKind: endlessBattleActive
-                ? "endless"
-                : raidBattleKind === "defense"
+            battleKind: raidBattleKind === "defense"
                 ? "defense"
                 : raidBattleKind === "raidAi"
                     ? "raidAi"
@@ -889,7 +879,6 @@ export function Arena({
     // no reset is needed.
     const [logging, setLogging] = useState(false);
     const [storySettlementPending, setStorySettlementPending] = useState(false);
-    const [endlessSettlementPending, setEndlessSettlementPending] = useState(false);
     const weeklyBossDamageEventsRef = useRef<WeeklyBossDamageProofEvent[]>([]);
     function recordWeeklyBossDamage(amount: number, source: string) {
         if (!isWeeklyBossFight) return;
@@ -953,7 +942,6 @@ export function Arena({
         const mode = pendingStoryBattle ? "Story"
             : missionBattleActive ? "Mission"
             : exploreAmbushActive ? "Ambush"
-            : endlessBattleActive ? "Endless"
             : (raidBattleKind && raidBattleKind !== "none") ? "Raid"
             : "Arena";
         const outcome: BattleHistoryEntry["outcome"] = battleResult === "win" ? "win" : battleResult === "fled" ? "flee" : "loss";
@@ -1428,7 +1416,7 @@ export function Arena({
         // Mirror enemyMaxHp's scaling for this path: a standard-PvE generic AI
         // gets the band HP multiplier, so the starting current HP must be scaled
         // too or the bar reads current > max (see the pendingAiProfile path).
-        const hpFactor = endlessBattleActive ? 1 : pveDifficultyHpMultiplier(aiLevel);
+        const hpFactor = pveDifficultyHpMultiplier(aiLevel);
         const hp = Math.max(1, Math.floor(maxHpForLevel(aiLevel) * hpFactor));
         setPendingAiProfileId("");
         setPendingPvpOpponent(null);
@@ -5692,7 +5680,7 @@ export function Arena({
                 live arena fight can ACTUALLY resume from disk, so a refresh can't
                 flee it. Limited to plain AI-profile fights: those rebuild from the
                 persisted pendingAiProfileId + ArenaBattlePersister. Story / weekly
-                boss / dungeon-AI / endless / human-opponent (spar) fights carry
+                boss / dungeon-AI / human-opponent (spar) fights carry
                 their enemy + context in React-only state that a refresh loses, so
                 the persister can't restore them — locking those would force re-
                 entry into an empty lobby and (after the persister TTL) a false
@@ -5701,21 +5689,8 @@ export function Arena({
             <BattleLockKeeper
                 active={battleStarted && !battleEnded
                     && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
-                    && !opponentCharacter && !pendingStoryBattle && !endlessBattleActive}
+                    && !opponentCharacter && !pendingStoryBattle}
                 kind="arena"
-                screen="arena"
-                playerName={character.name}
-            />
-            {/* Endless-tower fights (kind="endless") — resumable now that the
-                endless wave/flag + scaled enemy are persisted (see the App-level
-                endless-context effect). Mutually exclusive with the plain-AI keeper
-                above (they split on endlessBattleActive), so the shared lock id is
-                never contended. */}
-            <BattleLockKeeper
-                active={battleStarted && !battleEnded
-                    && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
-                    && !opponentCharacter && endlessBattleActive}
-                kind="endless"
                 screen="arena"
                 playerName={character.name}
             />
@@ -5727,7 +5702,7 @@ export function Arena({
             <BattleLockKeeper
                 active={battleStarted && !battleEnded
                     && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
-                    && !opponentCharacter && !endlessBattleActive && Boolean(pendingStoryBattle)}
+                    && !opponentCharacter && Boolean(pendingStoryBattle)}
                 kind="arenaStory"
                 screen="arena"
                 playerName={character.name}
@@ -6466,72 +6441,7 @@ export function Arena({
             {battleEnded && (
                 <div className="battle-ended-overlay">
                     <div className="card battle-ended-card">
-                        {endlessBattleActive && battleResult === "win" ? (
-                            <>
-                                <h2 className="battle-result-win"><GiLaurelsTrophy style={ARENA_ICON} />Wave {endlessBattleWave} Clear!</h2>
-                                <p>{log}</p>
-                                <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.4rem 0" }}>
-                                    HP carried into next wave. Stay alive as long as you can.
-                                </p>
-                                <button
-                                    className="admin-button"
-                                    style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
-                                    disabled={endlessSettlementPending}
-                                    onClick={() => {
-                                        if (endlessSettlementPending) return;
-                                        setEndlessSettlementPending(true);
-                                        const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
-                                        void tokenRequest.then(async (token) => {
-                                            await onEndlessWin?.(endlessBattleWave, token, { hp: playerHp, chakra: character.chakra, stamina: character.stamina });
-                                            aiFightTokenPromiseRef.current = null;
-                                        }).catch(() => undefined).finally(() => setEndlessSettlementPending(false));
-                                    }}
-                                >
-                                    <GiNextButton style={ARENA_ICON} />{endlessSettlementPending ? "Verifying..." : "Next Wave"}
-                                </button>
-                            </>
-                        ) : endlessBattleActive && battleResult === "loss" ? (
-                            <>
-                                <h2 className="battle-result-loss"><GiSkullCrossedBones style={ARENA_ICON} />Tower Collapsed</h2>
-                                <p style={{ color: "#fde047", fontSize: "1.1rem", fontWeight: 800 }}>
-                                    You reached Wave {endlessBattleWave}
-                                </p>
-                                <p>{log}</p>
-                                <p style={{ color: "#f87171", fontSize: "0.88rem", margin: "0.4rem 0" }}>
-                                    You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated.
-                                </p>
-                                <div className="menu">
-                                    <button
-                                        style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
-                                        disabled={endlessSettlementPending}
-                                        onClick={() => {
-                                            if (endlessSettlementPending) return;
-                                            setEndlessSettlementPending(true);
-                                            void Promise.resolve(onEndlessBattleEnd?.())
-                                                .then(() => setScreen("hospital"))
-                                                .catch(() => undefined)
-                                                .finally(() => setEndlessSettlementPending(false));
-                                        }}
-                                    >
-                                        <GiFirstAidKit style={ARENA_ICON} />{endlessSettlementPending ? "Settling..." : "Go to Hospital"}
-                                    </button>
-                                    <button
-                                        disabled={endlessSettlementPending}
-                                        onClick={() => {
-                                            if (endlessSettlementPending) return;
-                                            setEndlessSettlementPending(true);
-                                            void Promise.resolve(onEndlessBattleEnd?.())
-                                                .then(() => setScreen("centralHub"))
-                                                .catch(() => undefined)
-                                                .finally(() => setEndlessSettlementPending(false));
-                                        }}
-                                    >
-                                        Return to Central
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
+                        <>
                                 <h2 className={battleResult === "win" ? "battle-result-win" : battleResult === "fled" ? "battle-result-fled" : "battle-result-loss"}>
                                     {battleResult === "win"
                                         ? "Victory"
@@ -6632,8 +6542,7 @@ export function Arena({
                                         <button onClick={() => setScreen("village")}>Return to Village</button>
                                     </div>
                                 )}
-                            </>
-                        )}
+                        </>
                     </div>
                 </div>
             )}

@@ -100,7 +100,7 @@ export interface BattleGuardSignals {
     raidBattleKind: string;            // "none" | "raidAi" | "raidPlayer" | "defense"
     pvpBattleId: string | null;        // tactical PvP server session
     pvpBattleResolved?: boolean;       // result screen is showing; safe to leave
-    endlessBattleActive: boolean;      // endless tower fight (in arena)
+    endlessBattleActive: boolean;      // server-owned Endless fight over its lobby
     pendingArenaStoryBattle: boolean;  // story / weekly / boss / event fight (in arena)
     pendingEventEncounter: boolean;    // event card / pet battle
     activeDungeonEvent: boolean;       // dungeon run in progress
@@ -129,6 +129,8 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return !!s.pvpBattleId && !s.pvpBattleResolved;
         case "petArena":
             return s.petBattleActive || s.pendingPetBattle;
+        case "endlessTower":
+            return s.endlessBattleActive;
         case "storyBoss":          // battle-only screen, no lobby
         case "tilecardsDuel":      // clan-war card duel, battle-only
         case "sectorCard":         // sector-war card battle, battle-only

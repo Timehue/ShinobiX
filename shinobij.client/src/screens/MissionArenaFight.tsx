@@ -607,7 +607,13 @@ export function MissionArenaFight({
         // defeat, but only if someone tells it the player left.
         if (outcomeFn && !outcomeReportedRef.current) {
             outcomeReportedRef.current = true;
-            void outcomeFn(runId, me).catch(() => { /* the run simply costs nothing */ });
+            try {
+                await outcomeFn(runId, me);
+            } catch (error) {
+                outcomeReportedRef.current = false;
+                setReject(String((error as Error)?.message ?? error));
+                return;
+            }
         }
         onExit();
     }
