@@ -14,7 +14,7 @@ Acceptance: C/B/A/S fight start is player/mission/enemy bound; abandoned/lost/ex
 
 ## Stage 2: Weekly Boss â€” implemented
 
-`startFight` reserves an attempt, charges stamina server-side, and seals the boss week/profile/starting HP and player into a 20-round Solo PvE score attack. `logFight` accepts only the run identifier, validates exact terminal Solo state, and banks the server enemy-HP delta under run and boss locks. Usage costs and outcome persist once through server receipts. The old Tower guard, client Arena damage tracker, token proof, `damage`, and `logFightLegacy` contribution paths are retired; legacy reports fail closed with HTTP 410.
+`startFight` reserves an attempt, charges stamina server-side, and seals the boss week/profile/starting HP and player into a 20-round Solo PvE score attack. A per-player active-run pointer plus attempt and save debit receipts make a lost response or process restart resume the same prepared run without a second charge. `logFight` accepts only the run identifier, validates exact terminal Solo state, and banks the server enemy-HP delta under run and boss locks. Usage costs and outcome persist once through server receipts. The old Tower guard, client Arena damage tracker, token proof, `damage`, and `logFightLegacy` contribution paths are retired; legacy reports fail closed with HTTP 410.
 
 ## Stage 3: Hollow Gate
 

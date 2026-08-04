@@ -35,6 +35,7 @@ describe('authoritative Weekly Boss run validation', () => {
     it('rejects wrong accounts, unfinished sessions, stale bosses, and replay', () => {
         assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session, playerName: 'other', boss })), 'wrong-player');
         assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, status: 'active' }, playerName: 'player', boss })), 'not-finished');
+        assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run: { ...run, startState: 'prepared' }, session, playerName: 'player', boss })), 'not-finished');
         assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session, playerName: 'player', boss: { ...boss, startedAt: 999 } })), 'stale-boss');
         assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run: { ...run, settledAt: 200 }, session, playerName: 'player', boss })), 'already-settled');
     });

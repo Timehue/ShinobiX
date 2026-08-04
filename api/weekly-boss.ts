@@ -69,7 +69,7 @@ type WeeklyBossRewardEntry = {
     isMvp: boolean;
 };
 
-type WeeklyBossState = {
+export type WeeklyBossState = {
     weekKey: string;
     aiId: string;
     bossName?: string;
@@ -98,7 +98,47 @@ type WeeklyBossState = {
     /** Per-spawn authoritative contribution receipts. Kept with the aggregate
      * so banking damage and its idempotency marker are one atomic KV write. */
     bankedRunDamage?: Record<string, number>;
+    /** Run IDs whose attempt debit is already reflected in attemptsByPlayer.
+     * This makes a prepared start resumable without spending a second attempt. */
+    attemptRunReceipts?: Record<string, string>;
 };
+
+export function reserveWeeklyBossAttemptReceipt(
+    boss: WeeklyBossState,
+    runId: string,
+    playerName: string,
+    enforceLimit = true,
+): { boss: WeeklyBossState; replayed: boolean } | null {
+    const prior = boss.attemptRunReceipts?.[runId];
+    if (prior === playerName) return { boss, replayed: true };
+    if (prior) return null;
+    const used = boss.attemptsByPlayer?.[playerName] ?? 0;
+    if (enforceLimit && used >= WEEKLY_BOSS_MAX_ATTEMPTS) return null;
+    return {
+        boss: {
+            ...boss,
+            attemptsByPlayer: { ...(boss.attemptsByPlayer ?? {}), [playerName]: used + 1 },
+            attemptRunReceipts: { ...(boss.attemptRunReceipts ?? {}), [runId]: playerName },
+        },
+        replayed: false,
+    };
+}
+
+export function rollbackWeeklyBossAttemptReceipt(
+    boss: WeeklyBossState,
+    runId: string,
+    playerName: string,
+): WeeklyBossState {
+    if (boss.attemptRunReceipts?.[runId] !== playerName) return boss;
+    const attemptRunReceipts = { ...(boss.attemptRunReceipts ?? {}) };
+    delete attemptRunReceipts[runId];
+    const used = boss.attemptsByPlayer?.[playerName] ?? 0;
+    return {
+        ...boss,
+        attemptsByPlayer: { ...(boss.attemptsByPlayer ?? {}), [playerName]: Math.max(0, used - 1) },
+        attemptRunReceipts,
+    };
+}
 
 export function applyWeeklyBossRunDamageReceipt(
     boss: WeeklyBossState,
@@ -125,11 +165,18 @@ export function applyWeeklyBossRunDamageReceipt(
     };
 }
 
-function publicWeeklyBossState(boss: WeeklyBossState | null): Omit<WeeklyBossState, 'bankedRunDamage'> | null {
+function publicWeeklyBossState(boss: WeeklyBossState | null): Omit<WeeklyBossState, 'bankedRunDamage' | 'attemptRunReceipts'> | null {
     if (!boss) return null;
-    const { bankedRunDamage: _privateReceipts, ...publicState } = boss;
+    const {
+        bankedRunDamage: _privateSettlementReceipts,
+        attemptRunReceipts: _privateStartReceipts,
+        ...publicState
+    } = boss;
     return publicState;
 }
+
+const weeklyBossActiveRunKey = (playerName: string, bossStartedAt: number) =>
+    `weekly-boss-active:${bossStartedAt}:${encodeURIComponent(playerName)}`;
 
 
 // ISO week key, e.g. "2026-W21"
@@ -522,117 +569,175 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (kind === 'startFight') {
-                if (!identity.admin) {
-                    const used = boss.attemptsByPlayer?.[actorName] ?? 0;
-                    if (used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
-                        return res.status(429).json({ error: `Locked out â€” you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
+                const activeKey = weeklyBossActiveRunKey(actorName, boss.startedAt);
+                const started = await withKvLock(activeKey, async () => {
+                    let runId = await kv.get<string>(activeKey);
+                    let run = runId ? await kv.get<WeeklyBossAuthoritativeRun>(weeklyBossRunKey(runId)) : null;
+                    let session = runId ? await readSoloPveSession(runId) : null;
+
+                    const sameSpawn = Boolean(run && session
+                        && run.playerName === actorName
+                        && run.weekKey === boss!.weekKey
+                        && run.aiId === boss!.aiId
+                        && run.bossStartedAt === boss!.startedAt
+                        && session.ownerSlug === actorName
+                        && session.encounter.bindingId === run.runId);
+                    if (runId && (!sameSpawn || run?.settledAt)) {
+                        await kv.del(activeKey);
+                        runId = null;
+                        run = null;
+                        session = null;
                     }
-                }
-                const actorSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${actorName}`));
-                const actorChar = actorSave?.character as Record<string, unknown> | undefined;
-                if (!actorSave || !actorChar) return res.status(404).json({ error: 'Player save not found.' });
-                if (!identity.admin && Number(actorChar.stamina ?? 0) < 20) {
-                    return res.status(400).json({ error: 'You need at least 20 stamina to challenge the weekly boss.' });
-                }
 
-                const profiles = await kv.get<Array<Record<string, unknown>>>('shared:ai-profiles').catch(() => null);
-                const profile = profiles?.find((entry) => entry.id === boss!.aiId) ?? null;
-                const runId = `weekly-${randomUUID().replace(/-/g, '')}`;
-                const now = Date.now();
-                const enemyTemplate = weeklyBossEnemyTemplate(profile, { id: boss.aiId, name: boss.bossName });
-                const session = buildSoloPveAiEncounter({
-                    sessionId: runId,
-                    playerName: actorName,
-                    save: actorSave,
-                    now,
-                    profile: { id: boss.aiId, ...enemyTemplate },
-                    admin: await loadAdminCombatContent(),
-                    hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
-                    difficultyMode: false,
-                    encounter: {
-                        kind: 'weekly-boss',
-                        id: boss.weekKey,
-                        sourceId: boss.aiId,
-                        bindingId: runId,
-                        metadata: { weekKey: boss.weekKey, bossStartedAt: boss.startedAt },
-                    },
-                    environment: { biome: 'central' },
-                    weeklyBossRoundBudget: 20,
-                    activeTtlSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
-                });
-                // The generic builder intentionally caps ordinary AI HP. Weekly
-                // Boss is a score attack with no kill cap, so restore its sealed
-                // sentinel after the ordinary fighter has been hydrated.
-                session.enemy.hp = Math.max(1, Math.floor(enemyTemplate.hp));
-                session.enemy.maxHp = session.enemy.hp;
-                if (!weeklyBossGuardEnabled() && session.weeklyBossGuard) session.weeklyBossGuard.mechanicsEnabled = false;
-                const run: WeeklyBossAuthoritativeRun = {
-                    runId,
-                    playerName: actorName,
-                    weekKey: boss.weekKey,
-                    aiId: boss.aiId,
-                    bossStartedAt: boss.startedAt,
-                    initialBossHp: session.enemy.hp,
-                    createdAt: now,
-                };
+                    const actorSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${actorName}`));
+                    const actorChar = actorSave?.character as Record<string, unknown> | undefined;
+                    if (!actorSave || !actorChar) return { status: 404 as const, body: { error: 'Player save not found.' } };
 
-                await writeSoloPveSession(session);
-                await kv.set(weeklyBossRunKey(runId), run, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
-                const reserved = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-                    const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
-                    if (!fresh || fresh.weekKey !== boss!.weekKey || fresh.startedAt !== boss!.startedAt) return false;
-                    const used = fresh.attemptsByPlayer?.[actorName] ?? 0;
-                    if (!identity.admin && used >= WEEKLY_BOSS_MAX_ATTEMPTS) return false;
-                    await kv.set(WEEKLY_BOSS_STATE_KEY, {
-                        ...fresh,
-                        attemptsByPlayer: { ...(fresh.attemptsByPlayer ?? {}), [actorName]: used + 1 },
-                    });
-                    return true;
-                }, { failClosed: true });
-                if (!reserved) {
-                    await kv.del(soloPveSessionKey(runId), weeklyBossRunKey(runId)).catch(() => 0);
-                    return res.status(409).json({ error: 'The boss reset or your attempts were already used.' });
-                }
-                let updatedCharacter = actorChar;
-                if (!identity.admin) {
-                    const staminaCharge = await withKvLock(`save:${actorName}`, async () => {
-                        const freshSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
-                        const freshChar = freshSave?.character as Record<string, unknown> | undefined;
-                        if (!freshSave || !freshChar || Number(freshChar.stamina ?? 0) < 20) return null;
-                        const nextChar = { ...freshChar, stamina: Number(freshChar.stamina ?? 0) - 20 };
-                        const updated = bumpSaveVersion({ ...freshSave, character: nextChar });
-                        await kv.set(`save:${actorName}`, mergePreservingImages(updated, freshSave));
-                        return nextChar;
+                    // A lost HTTP response or browser reload reconnects to the
+                    // same ready run. No second attempt or stamina debit occurs.
+                    if (run && session && run.startState !== 'prepared') {
+                        return { status: 200 as const, body: {
+                            ok: true,
+                            replayed: true,
+                            runId: run.runId,
+                            session,
+                            character: actorChar,
+                            _saveVersion: Number(actorSave._saveVersion ?? 0),
+                            expiresInSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
+                        } };
+                    }
+
+                    if (!run || !session) {
+                        const used = boss!.attemptsByPlayer?.[actorName] ?? 0;
+                        if (!identity.admin && used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
+                            return { status: 429 as const, body: { error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` } };
+                        }
+                        if (!identity.admin && Number(actorChar.stamina ?? 0) < 20) {
+                            return { status: 400 as const, body: { error: 'You need at least 20 stamina to challenge the weekly boss.' } };
+                        }
+
+                        const profiles = await kv.get<Array<Record<string, unknown>>>('shared:ai-profiles').catch(() => null);
+                        const profile = profiles?.find((entry) => entry.id === boss!.aiId) ?? null;
+                        runId = `weekly-${randomUUID().replace(/-/g, '')}`;
+                        const now = Date.now();
+                        const enemyTemplate = weeklyBossEnemyTemplate(profile, { id: boss!.aiId, name: boss!.bossName });
+                        session = buildSoloPveAiEncounter({
+                            sessionId: runId,
+                            playerName: actorName,
+                            save: actorSave,
+                            now,
+                            profile: { id: boss!.aiId, ...enemyTemplate },
+                            admin: await loadAdminCombatContent(),
+                            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
+                            difficultyMode: false,
+                            encounter: {
+                                kind: 'weekly-boss',
+                                id: boss!.weekKey,
+                                sourceId: boss!.aiId,
+                                bindingId: runId,
+                                metadata: { weekKey: boss!.weekKey, bossStartedAt: boss!.startedAt },
+                            },
+                            environment: { biome: 'central' },
+                            weeklyBossRoundBudget: 20,
+                            activeTtlSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
+                        });
+                        // The generic builder intentionally caps ordinary AI HP.
+                        // Weekly Boss is a score attack, so restore its sentinel.
+                        session.enemy.hp = Math.max(1, Math.floor(enemyTemplate.hp));
+                        session.enemy.maxHp = session.enemy.hp;
+                        if (!weeklyBossGuardEnabled() && session.weeklyBossGuard) session.weeklyBossGuard.mechanicsEnabled = false;
+                        run = {
+                            runId,
+                            playerName: actorName,
+                            weekKey: boss!.weekKey,
+                            aiId: boss!.aiId,
+                            bossStartedAt: boss!.startedAt,
+                            initialBossHp: session.enemy.hp,
+                            createdAt: now,
+                            startState: 'prepared',
+                        };
+                        // Persist the prepared session and active pointer before
+                        // any debit. A crash from this point is resumable.
+                        await writeSoloPveSession(session);
+                        await kv.set(weeklyBossRunKey(runId), run, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                        await kv.set(activeKey, runId, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    }
+
+                    const reserved = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
+                        const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+                        if (!fresh || fresh.weekKey !== run!.weekKey || fresh.startedAt !== run!.bossStartedAt) return null;
+                        const applied = reserveWeeklyBossAttemptReceipt(fresh, run!.runId, actorName, !identity.admin);
+                        if (applied && !applied.replayed) await kv.set(WEEKLY_BOSS_STATE_KEY, applied.boss);
+                        return applied;
                     }, { failClosed: true });
-                    if (!staminaCharge) {
-                        await kv.del(soloPveSessionKey(runId), weeklyBossRunKey(runId)).catch(() => 0);
-                        await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-                            const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
-                            if (!fresh) return;
-                            const used = fresh.attemptsByPlayer?.[actorName] ?? 0;
-                            await kv.set(WEEKLY_BOSS_STATE_KEY, {
-                                ...fresh,
-                                attemptsByPlayer: { ...(fresh.attemptsByPlayer ?? {}), [actorName]: Math.max(0, used - 1) },
-                            });
-                        }, { failClosed: true }).catch(() => undefined);
-                        return res.status(409).json({ error: 'Stamina changed before the fight could start. Try again.' });
+                    if (!reserved) {
+                        await kv.del(activeKey, soloPveSessionKey(run.runId), weeklyBossRunKey(run.runId)).catch(() => 0);
+                        return { status: 409 as const, body: { error: 'The boss reset or your attempts were already used.' } };
                     }
-                    updatedCharacter = staminaCharge;
-                    session.player.stamina = Math.max(0, session.player.stamina - 20);
+
+                    let updatedCharacter = actorChar;
+                    let saveVersion = Number(actorSave._saveVersion ?? 0);
+                    if (!identity.admin) {
+                        const staminaCharge = await withKvLock(`save:${actorName}`, async () => {
+                            const freshSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
+                            const freshChar = freshSave?.character as Record<string, unknown> | undefined;
+                            if (!freshSave || !freshChar) return null;
+                            const startReceiptId = `weekly-start-${run!.runId}`;
+                            const startFingerprint = `${run!.weekKey}:${run!.aiId}:${run!.bossStartedAt}`;
+                            const inspected = inspectSettlementReceipt(freshChar, startReceiptId, startFingerprint);
+                            if (inspected.status === 'replay') {
+                                return { character: freshChar, saveVersion: Number(freshSave._saveVersion ?? 0) };
+                            }
+                            if (inspected.status !== 'fresh') return null;
+                            if (Number(freshChar.stamina ?? 0) < 20) return null;
+                            const nextChar = appendSettlementReceipt(
+                                { ...freshChar, stamina: Number(freshChar.stamina ?? 0) - 20 },
+                                inspected.receipts,
+                                {
+                                    requestId: startReceiptId,
+                                    fingerprint: startFingerprint,
+                                    value: { kind: 'weekly-boss-start', stamina: 20 },
+                                    settledAt: Date.now(),
+                                },
+                            );
+                            const updated = bumpSaveVersion({
+                                ...freshSave,
+                                character: nextChar,
+                            });
+                            await kv.set(`save:${actorName}`, mergePreservingImages(updated, freshSave));
+                            return { character: nextChar, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
+                        }, { failClosed: true });
+                        if (!staminaCharge) {
+                            await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
+                                const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+                                if (fresh) await kv.set(WEEKLY_BOSS_STATE_KEY, rollbackWeeklyBossAttemptReceipt(fresh, run!.runId, actorName));
+                            }, { failClosed: true });
+                            await kv.del(activeKey, soloPveSessionKey(run.runId), weeklyBossRunKey(run.runId)).catch(() => 0);
+                            return { status: 409 as const, body: { error: 'Stamina changed before the fight could start. Try again.' } };
+                        }
+                        updatedCharacter = staminaCharge.character;
+                        saveVersion = staminaCharge.saveVersion;
+                        session.player.stamina = Math.max(0, Number(updatedCharacter.stamina ?? 0));
+                    }
+
                     await writeSoloPveSession(session);
-                }
-                return res.status(200).json({
-                    ok: true,
-                    runId,
-                    token: runId,
-                    session,
-                    character: updatedCharacter,
-                    expiresInSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
-                });
+                    run = { ...run, startState: 'ready' };
+                    await kv.set(weeklyBossRunKey(run.runId), run, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    await kv.set(activeKey, run.runId, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    return { status: 200 as const, body: {
+                        ok: true,
+                        runId: run.runId,
+                        session,
+                        character: updatedCharacter,
+                        _saveVersion: saveVersion,
+                        expiresInSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
+                    } };
+                }, { failClosed: true, ttlSec: 30 });
+                return res.status(started.status).json(started.body);
             }
 
             if (kind === 'logFight') {
-                const runId = String(body.runId ?? body.weeklyBossToken ?? body.token ?? '').slice(0, 96);
+                const runId = String(body.runId ?? '').slice(0, 96);
                 if (!runId) return res.status(400).json({ error: 'Missing Weekly Boss run.' });
 
                 const result = await withKvLock(weeklyBossRunKey(runId), async () => {
@@ -641,7 +746,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!identity.admin && run.playerName !== actorName) return { status: 403 as const, body: { error: 'That Weekly Boss run belongs to another player.' } };
                     if (run.settledAt) {
                         const current = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
-                        return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: current, dealt: 0, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0 } };
+                        return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: publicWeeklyBossState(current), dealt: 0, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0 } };
                     }
                     const session = await readSoloPveSession(runId);
                     const validation = validateAuthoritativeWeeklyBossRun({
@@ -703,9 +808,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         rewards: { damage: banked.damage },
                     }));
                     await kv.set(weeklyBossRunKey(runId), { ...run, settledAt: Date.now() }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    const activeKey = weeklyBossActiveRunKey(run.playerName, run.bossStartedAt);
+                    await withKvLock(activeKey, async () => {
+                        if (await kv.get<string>(activeKey) === runId) await kv.del(activeKey);
+                    }, { failClosed: true }).catch(() => undefined);
                     return { status: 200 as const, body: {
                         ok: true,
-                        boss: banked.boss,
+                        boss: publicWeeklyBossState(banked.boss),
                         dealt: banked.damage,
                         alreadySettled: banked.replayed && usage.value.replayed,
                         attemptsUsed: banked.boss.attemptsByPlayer?.[run.playerName] ?? 0,
