@@ -313,6 +313,9 @@ test('real built client completes and recovers a server-owned combat mission', a
     expect(persisted.status).toBe(200);
     const persistedCharacter = persisted.body.character as Record<string, unknown>;
     expect(Number(persistedCharacter.ryo)).toBeGreaterThan(100);
+    expect(Number(persistedCharacter.hp)).toBe(Math.max(1, Number(terminal.player.hp)));
+    expect((persistedCharacter.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
+        .some((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === initial.sessionId)).toBe(true);
     expect((persistedCharacter.pendingCombatMissionClaims as unknown[] ?? []).map(String)).not.toContain('combat-e-drill');
     expect(Number(persistedCharacter.dailyMissionsCompleted)).toBe(1);
 
@@ -380,6 +383,20 @@ test('real built client records a flee without queueing a mission reward', async
     expect(terminal.status).toBe('done');
     expect(['fled', 'loss']).toContain(terminal.outcome);
 
+    // The terminal action route reconciles the physical outcome before it
+    // acknowledges completion. Assert the exact combat remainder here, before
+    // the ordinary one-HP-per-second village regeneration resumes.
+    const immediatelySettled = await browserGet(page, `/api/save/${name}`);
+    const immediatelySettledCharacter = immediatelySettled.body.character as Record<string, unknown>;
+    if (terminal.player.hp <= 0) {
+        expect(immediatelySettledCharacter.hospitalized).toBe(true);
+        expect(Number(immediatelySettledCharacter.hp)).toBe(0);
+    } else {
+        expect(Number(immediatelySettledCharacter.hp)).toBe(Math.max(1, Number(terminal.player.hp)));
+    }
+    expect((immediatelySettledCharacter.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
+        .some((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId)).toBe(true);
+
     navigationInProgress = true;
     try {
         await page.reload({ waitUntil: 'networkidle' });
@@ -387,12 +404,34 @@ test('real built client records a flee without queueing a mission reward', async
         navigationInProgress = false;
     }
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
-    const outcomeResponse = page.waitForResponse((response) => response.url().includes('/api/pve/fight-outcome') && response.request().method() === 'POST');
+    let outcomeRequestCount = 0;
+    let resolveLostOutcome!: (body: Record<string, unknown>) => void;
+    let resolveRecoveredOutcome!: (body: Record<string, unknown>) => void;
+    const lostOutcome = new Promise<Record<string, unknown>>((resolve) => { resolveLostOutcome = resolve; });
+    const recoveredOutcome = new Promise<Record<string, unknown>>((resolve) => { resolveRecoveredOutcome = resolve; });
+    await page.route('**/api/pve/fight-outcome', async (route) => {
+        outcomeRequestCount += 1;
+        const response = await route.fetch();
+        const body = await response.json() as Record<string, unknown>;
+        if (outcomeRequestCount === 1) {
+            resolveLostOutcome(body);
+            await route.abort('failed');
+            return;
+        }
+        if (outcomeRequestCount === 2) resolveRecoveredOutcome(body);
+        await route.fulfill({
+            status: response.status(),
+            headers: response.headers(),
+            body: JSON.stringify(body),
+        });
+    });
     const resumedResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
     await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
     expect((await (await resumedResponse).json()).runId).toBe(started.runId);
     await expect(page.getByRole('heading', { name: 'Defeat' })).toBeVisible();
-    expect((await outcomeResponse).status()).toBe(200);
+    expect((await lostOutcome).replayed).toBe(true);
+    expect((await recoveredOutcome).replayed).toBe(true);
+    expect(outcomeRequestCount).toBe(2);
 
     const refusedClaim = await browserApi(page, '/api/missions/queue-combat-claim', {
         playerName: name,
@@ -404,6 +443,18 @@ test('real built client records a flee without queueing a mission reward', async
     const persisted = await browserGet(page, `/api/save/${name}`);
     const character = persisted.body.character as Record<string, unknown>;
     expect(Number(character.ryo)).toBe(100);
+    if (terminal.player.hp <= 0) {
+        expect(character.hospitalized).toBe(true);
+        expect(Number(character.hp)).toBe(0);
+    } else {
+        // A reload plus the injected retry takes long enough for normal village
+        // regeneration to tick. It may raise HP, but must never resurrect the
+        // player to the newly-derived maximum as the old load normalizer did.
+        expect(Number(character.hp)).toBeGreaterThanOrEqual(Math.max(1, Number(terminal.player.hp)));
+        expect(Number(character.hp)).toBeLessThan(Number(character.maxHp));
+    }
+    expect((character.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
+        .some((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId)).toBe(true);
     expect(Array.isArray(character.pendingCombatMissionClaims) ? character.pendingCombatMissionClaims : []).not.toContain('combat-e-drill');
     await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();

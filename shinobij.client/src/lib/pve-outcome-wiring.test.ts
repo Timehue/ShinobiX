@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { reportPveFightOutcome } from "./pve-outcome-api";
 
 /*
  * Every server-resolved PvE mode must report what its fight COST.
@@ -55,4 +56,45 @@ test("the outcome reporter never carries a client-asserted result", () => {
     const body = api.slice(api.indexOf("JSON.stringify"), api.indexOf("JSON.stringify") + 120);
     assert.match(body, /runId, playerName/, "the body must carry only the run and the caller");
     assert.doesNotMatch(body, /outcome|won|hp|hospitaliz/i, "the SESSION decides the outcome, never the client");
+});
+
+test("terminal action/state responses reconcile physical outcomes server-side", () => {
+    const action = readFileSync(new URL("../../../api/solo-pve/action.ts", import.meta.url), "utf8");
+    const state = readFileSync(new URL("../../../api/solo-pve/state.ts", import.meta.url), "utf8");
+    const missionQueue = readFileSync(new URL("../../../api/missions/queue-combat-claim.ts", import.meta.url), "utf8");
+    assert.match(action, /reconcileTerminalSoloPveOutcome\(terminal, playerName\)/, "the terminal action response must wait for physical settlement");
+    assert.match(state, /reconcileTerminalSoloPveOutcome\(session, playerName\)/, "a reconnect must repair an interrupted physical settlement");
+    assert.ok(
+        state.indexOf("reconcileTerminalSoloPveOutcome(session, playerName)") < state.indexOf("session.expiresAt <= Date.now()"),
+        "a still-readable expired terminal session must repair its outcome before returning 410",
+    );
+    assert.match(missionQueue, /settlePveFightOutcome\(initialSession!, playerName\)/, "a mission reward must not queue before its physical cost");
+});
+
+test("the mission screen adopts authoritative character and save versions", () => {
+    assert.match(missions, /responseAccepted = onServerVersion\?\.\(data\?\._saveVersion\) !== false/, "mission queue settlement must advance and guard the save version");
+    assert.match(missions, /updateCharacter\(data\.character\)/, "mission queue settlement must install the authoritative save character");
+    assert.match(missions, /responseAccepted = onServerVersion\?\.\(applied\._saveVersion\) !== false/, "physical outcome confirmation must advance and guard the save version");
+    const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    assert.match(app, /<Missions[^>]+onServerVersion=/s, "App must connect Missions to its optimistic-concurrency version ref");
+});
+
+test("client confirmation retries a lost response instead of silently returning null", async () => {
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("simulated lost response");
+        return new Response(JSON.stringify({ ok: true, outcome: "win", applied: false, replayed: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    };
+    try {
+        const result = await reportPveFightOutcome("mission-run", "Alice");
+        assert.equal(calls, 2);
+        assert.equal(result.replayed, true);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });

@@ -3,7 +3,7 @@ import type { SoloPveSession } from './solo-pve-api';
 
 /*
  * Server-authoritative story-boss combat (mirrors lib/hollow-gate-combat-api).
- * /api/story/boss-start seals the CURRENT milestone into a solo Tower session;
+ * /api/story/boss-start seals the CURRENT milestone into a Solo-PvE session;
  * /api/story/settle (runId channel) pays the story reward only from the
  * completed, winning server session — the client never attests the outcome.
  */

@@ -113,6 +113,8 @@ import {
     rankTitleForLevel,
     applyStoryChoice, deriveStoryTraits,
 } from "./lib/character-progress";
+import { normalizeLoadedVital } from "./lib/loaded-vitals";
+import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 import {
     aiStatsForLevel,
@@ -990,9 +992,9 @@ export function normalizeCharacter(parsed: Character): Character {
     const expectedMaxHp = maxHpForLevel(level);
     const expectedMaxChakra = maxChakraForLevel(level);
     const expectedMaxStamina = maxStaminaForLevel(level);
-    const maxHp = Math.max(parsed.maxHp ?? expectedMaxHp, expectedMaxHp);
-    const maxChakra = Math.max(parsed.maxChakra ?? expectedMaxChakra, expectedMaxChakra);
-    const maxStamina = Math.max(parsed.maxStamina ?? expectedMaxStamina, expectedMaxStamina);
+    const hp = normalizeLoadedVital(parsed.hp, parsed.maxHp, expectedMaxHp);
+    const chakra = normalizeLoadedVital(parsed.chakra, parsed.maxChakra, expectedMaxChakra);
+    const stamina = normalizeLoadedVital(parsed.stamina, parsed.maxStamina, expectedMaxStamina);
     const stats = normalizeStats(parsed.stats);
 
     const normalized: Character = {
@@ -1011,12 +1013,12 @@ export function normalizeCharacter(parsed: Character): Character {
         tileCards: parsed.tileCards ?? [],
         savedTileDeck: parsed.savedTileDeck ?? undefined,
         elements: getCharacterElements(parsed),
-        hp: Math.min(maxHp, parsed.maxHp && parsed.maxHp < expectedMaxHp ? expectedMaxHp : parsed.hp ?? expectedMaxHp),
-        maxHp,
-        chakra: Math.min(maxChakra, parsed.maxChakra && parsed.maxChakra < expectedMaxChakra ? expectedMaxChakra : parsed.chakra ?? expectedMaxChakra),
-        maxChakra,
-        stamina: Math.min(maxStamina, parsed.maxStamina && parsed.maxStamina < expectedMaxStamina ? expectedMaxStamina : parsed.stamina ?? expectedMaxStamina),
-        maxStamina,
+        hp: hp.current,
+        maxHp: hp.maximum,
+        chakra: chakra.current,
+        maxChakra: chakra.maximum,
+        stamina: stamina.current,
+        maxStamina: stamina.maximum,
         rankTitle: parsed.rankTitle ?? rankFromLevel(level),
         storyTitle: parsed.storyTitle ?? "",
         storyTraits: deriveStoryTraits(Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : []),
@@ -7063,7 +7065,7 @@ export default function App() {
                     return <DungeonPetBattle character={character} updateCharacter={setCharacter} editablePets={editablePets} enemyOverride={enemyPet} enemyOwner={pendingEventEncounter.event.name} onWin={completeEventEncounter} onLeave={leaveEventEncounter} sharedImages={sharedImages} />;
                 })()}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
+                {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} onServerVersion={(version) => { const decision = acceptVersionedSnapshot(latestSaveVersionRef.current, version); latestSaveVersionRef.current = decision.latestVersion; return decision.accepted; }} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} onBack={goBack} />}

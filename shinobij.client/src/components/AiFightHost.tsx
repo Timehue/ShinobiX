@@ -205,8 +205,9 @@ export function AiFightHost({
 /**
  * The result card. Its own component (not inline JSX) so the outcome stamp runs in
  * an effect on mount rather than during MissionArenaFight's render — the pending
- * wanderer/ambush record must be stamped on a LOSS too, and settleFn only runs on
- * a win.
+ * wanderer/ambush record must be stamped on a loss too; keeping this in the
+ * result component also makes the presentation-side stamp independent of the
+ * server settlement response shape.
  */
 function AiFightResultCard({
     won,
