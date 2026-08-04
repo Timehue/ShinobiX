@@ -4,20 +4,26 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 import { combatMissionByKey } from './_mission-catalog.js';
 import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
 import {
+    createMissionCombatActivePointer,
     createMissionCombatBinding,
+    missionCombatActiveKey,
     missionCombatBindingKey,
     MISSION_COMBAT_SESSION_TTL_SECONDS,
+    resumableMissionCombatSession,
+    type MissionCombatActivePointer,
+    type MissionCombatBinding,
 } from './_authoritative-combat-session.js';
 import { missionEnemyTemplate, missionEnvironment } from '../_authoritative-pve.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
-import { writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 
-/** Start a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
+/** Start or recover a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -41,40 +47,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const eligibility = canPlayerReceiveMission(char, mission);
         if (!eligibility.ok) return res.status(403).json(missionEligibilityFailureBody(eligibility));
 
-        const runId = `mission-${randomUUID().replace(/-/g, '')}`;
-        const now = Date.now();
-        // Themed battlefield: biome drives the board art + the +10% school terrain
-        // buff; the optional weather adds the ±element damage term. Both sealed here.
-        const env = missionEnvironment(mission.key);
-        const enemy = missionEnemyTemplate(mission);
-        const session = buildSoloPveAiEncounter({
-            sessionId: runId,
-            playerName,
-            save,
-            profile: { ...enemy, id: mission.aiProfileId },
-            now,
-            admin: await loadAdminCombatContent(),
-            difficultyMode: 'MISSION',
-            encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
-            environment: {
-                biome: env.biome,
-                weatherPositiveElement: env.weather?.positiveElement,
-                weatherNegativeElement: env.weather?.negativeElement,
-            },
-        });
-        // Seal the weather (if any) so the engine's wMult junction reads it; absent
-        // for clear-weather missions, so those fights stay at the neutral ×1 term.
-        // Seal the player's ACTIVE pet so it can be summoned onto the field once
-        // (the 'summon' action). Server-sealed from the save — the client never
-        // supplies the pet's HP/damage, and the seal is consumed on use.
-        // Arm the standard-PvE difficulty layer (band + hit guard). Sealed BEFORE
-        // the session is written, so the very first enemy turn is already guarded.
-        // Give the AI its jutsu mastery — without this it casts at 30% (step C).
-        // Must follow the guard above, which bounds the uplift.
-        const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
-        await writeSoloPveSession(session);
-        await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
-        return res.status(200).json({ ok: true, runId, session });
+        const admin = await loadAdminCombatContent();
+        const activeKey = missionCombatActiveKey(playerName, mission.key);
+        const started = await withKvLock(activeKey, async () => {
+            const active = await kv.get<MissionCombatActivePointer>(activeKey);
+            if (active?.runId) {
+                const [binding, session] = await Promise.all([
+                    kv.get<MissionCombatBinding>(missionCombatBindingKey(active.runId)),
+                    readSoloPveSession(active.sessionId),
+                ]);
+                const resumed = resumableMissionCombatSession({ active, binding, session, playerName, mission });
+                if (resumed) return { ok: true as const, runId: active.runId, session: resumed, resumed: true };
+            }
+
+            const runId = `mission-${randomUUID().replace(/-/g, '')}`;
+            const now = Date.now();
+            const env = missionEnvironment(mission.key);
+            const enemy = missionEnemyTemplate(mission);
+            const session = buildSoloPveAiEncounter({
+                sessionId: runId,
+                playerName,
+                save,
+                profile: { ...enemy, id: mission.aiProfileId },
+                now,
+                admin,
+                difficultyMode: 'MISSION',
+                encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
+                environment: {
+                    biome: env.biome,
+                    weatherPositiveElement: env.weather?.positiveElement,
+                    weatherNegativeElement: env.weather?.negativeElement,
+                },
+            });
+            const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
+            const pointer = createMissionCombatActivePointer({ runId, playerName, mission, now, sessionId: runId });
+            try {
+                // The pointer is written last: only a complete durable triplet can
+                // be recovered after a refresh, concurrent start, or lost response.
+                await writeSoloPveSession(session);
+                await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
+                await kv.set(activeKey, pointer, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
+            } catch (error) {
+                await kv.del(activeKey, missionCombatBindingKey(runId), soloPveSessionKey(runId)).catch(() => undefined);
+                throw error;
+            }
+            return { ok: true as const, runId, session, resumed: false };
+        }, { failClosed: true, ttlSec: 10 });
+        return res.status(200).json(started);
     } catch (err) {
         console.error('[missions/combat-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });
