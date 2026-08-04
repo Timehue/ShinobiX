@@ -1,5 +1,9 @@
 # Final Verdict
 
+> Historical release evidence captured before the 2026-08-04 Solo PvE
+> authority cutover. References to client-trust flags are not current runtime
+> configuration.
+
 **APPROVED — LIMITED BETA GO**
 
 ## Critical Findings

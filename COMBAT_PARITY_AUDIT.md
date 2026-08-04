@@ -1,5 +1,9 @@
 # Combat Parity Audit
 
+> **Historical baseline, superseded 2026-08-04.** Its client-Arena PvE rows
+> describe the pre-cutover implementation. See
+> `docs/architecture/combat-runtime-inventory.md` for current ownership.
+
 Date: 2026-07-05
 
 Scope: player-facing combat engines in Shinobi Journey. PvP combat is the truth source. Pet battle/autobattler and card battle engines were intentionally excluded.

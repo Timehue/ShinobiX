@@ -1,5 +1,8 @@
 # ShinobiX Stabilization — Implementation Roadmap (Phase 0 output, 2026-07-31)
 
+> Historical roadmap. The Solo PvE migration milestones were completed on
+> 2026-08-04; current boundaries live under `docs/architecture/`.
+
 Derived from the Phase 0 audits (`stabilization-baseline.md`,
 `state-ownership-audit.md`, `reward-settlement-audit.md`,
 `combat-authority-audit.md`, `shared-content-audit.md`,

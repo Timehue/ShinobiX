@@ -39,7 +39,7 @@ The shortest path to controlled beta is: deploy and remeasure the roster/bloodli
 ### P1
 
 - **Local mitigation complete; deployment proof pending:** the sampled 15-minute p95 was 4,513.4 ms against the 1,500 ms target, despite zero server errors. Coarse player-domain GETs averaged 4,188.4 ms and bloodlines-domain GETs averaged 9,910.3 ms. The hot full-roster and bloodline-list paths now use the existing process-local TTL cache with single-flight, so concurrent polls share one remote all-save `mget` and reuse the immutable result for 60 seconds. The edge TTL was reduced to one second to preserve the prior freshness budget. Deploy the candidate, remeasure the 15-minute SLO, and add exact subroute timing if it remains unhealthy.
-- Railway variables confirm Clan Boss and Village War are enabled: neither `DISABLE_CLAN_BOSS` nor `DISABLE_VILLAGE_WAR` is set. The two retired client-trust flags are also unset.
+- Railway variables confirm Clan Boss and Village War are enabled: neither `DISABLE_CLAN_BOSS` nor `DISABLE_VILLAGE_WAR` is set. The former Weekly Boss and mission client-trust switches are retired; their legacy report routes now fail closed unconditionally.
 - [#15](https://github.com/Timehue/ShinobiX/issues/15): certify Clan Boss end to end while it remains enabled and monitored.
 - [#18](https://github.com/Timehue/ShinobiX/issues/18): live route-level matrix completed successfully with redacted evidence.
 - [#10](https://github.com/Timehue/ShinobiX/issues/10): execute disposable rollback/current deployed release-health certification.
@@ -66,11 +66,10 @@ The shortest path to controlled beta is: deploy and remeasure the roster/bloodli
 | PvP/ranked | Server session/actions/rewards | Medium live/reconnect | Enabled with monitoring | Existing tests passed | Two-browser live settlement/reconnect |
 | Battle/Endless Towers | Server Tower session, sealed loadout, once receipts | Medium live | Enabled with warning | Existing suite passed | Live refresh/concurrency certification |
 | Clan Boss | Tower session; server-derived damage; retry-safe settlement; weekly receipts | High live evidence | Code defaults on unless disabled | Fail-closed roster authorization, run-ID damage idempotency, retryable point awards, atomic clan-record weekly payout receipt | Full staging matrix/weekly payout |
-| E/D combat missions | Capped client win signal; server catalog payout | Low-medium | Enabled, capped | Duplicate/failure analytics | Keep capped until later migration |
-| C/B/A/S combat missions | Server-sealed Tower session; server win required before catalog claim | Medium live evidence | Enabled; legacy client-trust flag remains unset | Start/session/UI/settle/claim authority and hostile tests | Live refresh/concurrency certification |
-| Weekly Boss | Server-sealed Tower score attack; server-derived boss HP delta | Medium live evidence | Enabled; legacy client-damage flag remains unset | Attempt/stamina/session/damage/once settlement authority | Live multi-attempt and despawn certification |
-| Hollow Gate | Server run token/state; client Arena combat | High for valuable combat reward | Desktop-first, valuable rewards gated/capped | Exact migration plan/issue | Bind node/run to Tower session and once settle |
-| Story/events Arena | Client Arena | Medium-high by reward | No high-value local outcome rewards | Migration order documented | Move high-value fights first |
+| All combat missions | Server-owned Solo session; server win required before catalog claim | Medium live evidence | Enabled; legacy client-win reports retired | Start/session/UI/recovery/settle/claim authority and hostile tests | Live refresh/concurrency certification |
+| Weekly Boss | Server-owned Solo score attack; server-derived boss HP delta | Medium live evidence | Enabled; legacy client-damage reports return HTTP 410 | Attempt/stamina/session/damage/once settlement authority | Live multi-attempt and despawn certification |
+| Hollow Gate | Server run plus run-bound Solo combat session | Medium live evidence | Desktop-first | Server actions, recovery, and once node settlement | Live refresh/concurrency certification |
+| Story/events and Academy | Server-owned Solo session | Medium live evidence | Enabled | Server actions, recovery, and once settlement | Live refresh/concurrency certification |
 | Field/hunt missions | Server progress receipts/catalog rewards | Medium live retry | Enabled | Existing tests passed | Staging retry/expiry evidence |
 | Sector War | Authoritative PvP result; sealed participants/villages; durable once receipts; locked terrain/territory logic | High operations | Enabled; staff the scheduled certification event | Retry-safe combat/Card/Pet settlement, fighter-only pristine registration, retained capture audit record, controlled event runbook | Simultaneous live event certification |
 | Creator rewards | No public reward payout exists | None for launch | Not applicable | Incorrect launch concern removed | Reassess only if public payouts are introduced |
@@ -160,10 +159,10 @@ The worktree already contained many unrelated source, UI, VFX, story, realtime, 
 - **Enabled:** auth/saves, Academy, training, inventory/shop/bank/hospital, early missions/hunts, Logbook, village/world travel.
 - **Enabled with warning:** PvP/ranked, Towers, pets, professions, clans, Card Clash, Legacy only with verified admin controls.
 - **Admin monitored:** Clan Boss enabled; watch assault settlement, item deductions, damage, standings, and weekly receipts while #15 captures live evidence.
-- **Desktop-first:** Hollow Gate, with valuable local-combat rewards gated/capped.
+- **Desktop-first:** Hollow Gate while mobile layout verification remains pending; combat and rewards are server-authoritative.
 - **Staffed:** Village/Sector War runs as scheduled beta events with operators present; do not begin an unattended permanent season yet.
-- **Enabled through server authority:** C/B/A/S combat mission rewards and Weekly Boss contributions.
-- **Legacy trust flags stay disabled:** `ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS` and `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE` remain unset because the new server paths replace them.
+- **Enabled through server authority:** all combat mission rewards, story/Academy outcomes, Hollow Gate nodes, Endless runs, ANBU raids, generic AI fights, and Weekly Boss contributions.
+- **Legacy trust flags retired:** the former mission client-win and Weekly Boss client-damage switches no longer restore those paths; legacy reports fail closed.
 - **AI/creator:** OpenAI-side generation limits are accepted for beta. No public creator rewards exist. Apply moderation controls to public user-generated content without inventing a reward shutdown.
 - **Emergency controls unset normally but ready:** maintenance, registration disable, economy/reward freeze, scheduled-job disable.
 

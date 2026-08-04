@@ -1,5 +1,9 @@
 # Battle Towers — 4-Player Squad Tower (in the Celestial Tower)
 
+> Historical design snapshot. Its description of the ordinary Endless loop as
+> client-resolved predates the 2026-08-04 Solo PvE cutover. Battle Towers and
+> Endless Spire remain Tower-owned; normal Endless is now Solo-owned.
+
 **Status:** Plan only — no code written. Researched + verified against source 2026-06-18 via a
 13-agent read-only sweep (combat session/move, hex grid, realtime, rewards, battle-lock, routing,
 storage, character model, roster/AI, fullscreen UI) plus an adversarial audit that cross-checked

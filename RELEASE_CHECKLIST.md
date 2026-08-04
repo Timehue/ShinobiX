@@ -29,8 +29,7 @@ have current evidence.
 - [ ] `/health?deep=1` confirms expected `saveStore`
 - [ ] For staging gate: `EXPECTED_SAVE_STORE=remote-proxy node scripts/release-health-check.mjs https://your-staging-url.com`
 - [ ] cPanel-only DNS bypass, if needed, has both `SUPABASE_DNS_HOST` and `SUPABASE_HARDCODED_IP`; no fallback host/IP is in source
-- [ ] Public beta leaves `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE` unset until Weekly Boss settlement is server-authoritative
-- [ ] Public beta leaves `ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS` unset unless higher-rank local-combat mission rewards are explicitly accepted
+- [ ] Retired Weekly Boss client-damage and mission client-win routes return their fail-closed responses
 
 ## Gameplay Smoke
 
@@ -66,8 +65,8 @@ have current evidence.
 - [ ] wrong-player settle rejected
 - [ ] client cannot mint premium/power currencies through save
 - [ ] client cannot self-grant server-owned titles/legacy
-- [ ] Weekly Boss player contribution is disabled or server-authoritative
-- [ ] High-value combat mission rewards are disabled or server-authoritative
+- [ ] Weekly Boss contribution is derived from the server-owned combat session
+- [ ] Combat mission rewards require a winning server-owned combat session
 
 ## Ops
 
