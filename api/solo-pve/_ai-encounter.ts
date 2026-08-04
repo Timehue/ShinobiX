@@ -121,6 +121,7 @@ export function buildSoloPveAiEncounter(params: {
     profile: SoloPveAiProfile;
     now: number;
     admin: AdminCombatContent | null;
+    /** @deprecated Accepted only for wire compatibility; never combat-authoritative. */
     hostLoadout?: Record<string, unknown>;
     scaling?: SoloPveAiScaling;
     env?: NodeJS.ProcessEnv;
@@ -142,7 +143,7 @@ export function buildSoloPveAiEncounter(params: {
     const banded = pveDifficultyGuardEnabled('AI_FIGHT', params.env ?? process.env);
     const hydrated = hydrateCharacterFromSave(
         saveCharacter,
-        params.hostLoadout ?? {},
+        {},
         params.save,
         params.admin,
     );

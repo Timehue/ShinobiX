@@ -4,16 +4,38 @@ import type {
     CombatItem,
 } from '../combat-core/types.js';
 import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
+import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
 export const SOLO_PVE_SCHEMA_VERSION = 1 as const;
 export const SOLO_PVE_SESSION_TTL_SECONDS = 30 * 60;
+export const SOLO_PVE_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const SOLO_PVE_MOVE_TOKEN_HISTORY = 32;
+export const SOLO_PVE_EVENT_HISTORY = 80;
 
 export type SoloPveSide = 'player' | 'enemy';
 export type SoloPveWinner = SoloPveSide | 'draw' | null;
 export type SoloPveOutcome = 'win' | 'loss' | 'fled' | 'draw' | null;
 export type SoloPveSettlementState = 'pending' | 'settled';
+
+export type SoloPveSettlementReceipt = {
+    kind: string;
+    id: string;
+    settledAt: number;
+    rewards?: Record<string, number | string | boolean | null>;
+};
+
+export type SoloPveTerminalEvidence = {
+    finishedAt: number;
+    finalMoveToken: string;
+    finalVersion: number;
+    finalEventSeq: number;
+    winner: Exclude<SoloPveWinner, null>;
+    outcome: Exclude<SoloPveOutcome, null>;
+    itemsUsed: Record<string, number>;
+    settlementState: SoloPveSettlementState;
+    receipt?: SoloPveSettlementReceipt;
+};
 
 export type SoloPveEncounter = {
     kind: string;
@@ -34,6 +56,70 @@ export type SoloPveDifficultyGuard = {
     enemyLevel: number;
     playerHpTurnStart: number;
     dealtThisTurn: number;
+};
+
+export type SoloPveFighterEventState = {
+    hp: number;
+    maxHp: number;
+    chakra: number;
+    stamina: number;
+    shield: number;
+    pos: number;
+    statuses: PvpFighter['statuses'];
+};
+
+export type SoloPveEventSnapshot = {
+    player: SoloPveFighterEventState;
+    enemy: SoloPveFighterEventState;
+    ap: Record<SoloPveSide, number>;
+    cooldowns: Record<SoloPveSide, Record<string, number>>;
+    groundEffects: PvpGroundEffect[];
+    itemCharges: Record<string, number>;
+    itemsUsed: Record<string, number>;
+};
+
+export type SoloPveVfxEvent = {
+    key: string;
+    target: SoloPveSide | 'tile' | 'area';
+    anchor: 'caster' | 'target' | 'tile' | 'area';
+    tiles?: number[];
+    persistent?: boolean;
+};
+
+/**
+ * Durable, ordered combat evidence. The client renders this stream, but combat
+ * and settlement never read it back as authority. Full before/after snapshots
+ * make overkill, shields, resources, displacement, statuses, zones, and items
+ * unambiguous without asking the client to reconstruct server outcomes.
+ */
+export type SoloPveCombatEvent = {
+    kind: 'action';
+    seq: number;
+    round: number;
+    actor: SoloPveSide;
+    target: SoloPveSide | 'tile' | null;
+    action: SoloPveAction['type'];
+    actionId?: string;
+    actionName?: string;
+    tile?: number;
+    before: SoloPveEventSnapshot;
+    after: SoloPveEventSnapshot;
+    log: string[];
+    vfx: SoloPveVfxEvent[];
+    status: SoloPveSession['status'];
+    winner: SoloPveWinner;
+    outcome: SoloPveOutcome;
+};
+
+/** Response-only evidence for an intent the server refused. */
+export type SoloPveRejectionEvent = {
+    kind: 'rejected';
+    round: number;
+    actor: SoloPveSide;
+    action: SoloPveAction['type'];
+    actionId?: string;
+    tile?: number;
+    reason: string;
 };
 
 export type SoloPveSession = {
@@ -58,7 +144,10 @@ export type SoloPveSession = {
     winner: SoloPveWinner;
     outcome: SoloPveOutcome;
     settlementState: SoloPveSettlementState;
+    terminalEvidence?: SoloPveTerminalEvidence;
     log: string[];
+    events: SoloPveCombatEvent[];
+    eventSeq: number;
     fx?: CombatFxTarget[];
     fxSeq?: number;
     version: number;
@@ -92,6 +181,8 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
     const now = Math.max(0, Math.floor(params.now));
     const player = cloneFighter(params.player);
     const enemy = cloneFighter(params.enemy);
+    assertSoloPveLoadoutCompatible(player.character);
+    assertSoloPveLoadoutCompatible(enemy.character);
     const difficultyLevel = Number(params.difficultyEnemyLevel);
     return {
         runtime: SOLO_PVE_RUNTIME,
@@ -127,6 +218,8 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         outcome: null,
         settlementState: 'pending',
         log: [`Battle started: ${player.name} versus ${enemy.name}.`],
+        events: [],
+        eventSeq: 0,
         version: 1,
         recentMoveTokens: [],
         createdAt: now,
@@ -168,5 +261,6 @@ export type SoloPveAction =
 export type SoloPveActionResult = {
     applied: boolean;
     reason?: string;
+    event?: SoloPveCombatEvent | SoloPveRejectionEvent;
     session: SoloPveSession;
 };

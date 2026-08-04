@@ -81,6 +81,8 @@ describe('solo-PvE session and store boundaries', () => {
         assert.equal(session.activeSide, 'player');
         assert.equal(session.settlementState, 'pending');
         assert.deepEqual(session.recentMoveTokens, []);
+        assert.deepEqual(session.events, []);
+        assert.equal(session.eventSeq, 0);
     });
 
     it('uses a solo-only keyspace and rejects non-solo records', async () => {
@@ -142,6 +144,33 @@ describe('generic AI solo-PvE encounter seal', () => {
         assert.equal('towerId' in session, false);
         assert.equal('floor' in session, false);
         assert.equal('actors' in session, false);
+    });
+
+    it('ignores a forged host loadout byte-for-byte', () => {
+        const saveCharacter = {
+            name: 'Alice', level: 12, specialty: 'Ninjutsu', hp: 300, maxHp: 500,
+            chakra: 200, maxChakra: 250, stamina: 180, maxStamina: 250,
+            stats: { ninjutsuOffense: 160, ninjutsuDefense: 140 },
+            equippedJutsuIds: [], equipment: {}, inventory: [],
+        };
+        const save = { character: saveCharacter, creatorJutsus: [], creatorItems: [], savedBloodlines: [] };
+        const profile = { id: 'sealed-rival', name: 'Rival', level: 5, hp: 500, chakra: 300, stamina: 300, stats: {}, jutsuIds: [] };
+        const common = { playerName: 'alice', save, profile, now: NOW, admin: null, env: { ...process.env, DISABLE_PVE_DIFFICULTY_GUARD_AI_FIGHT: '1' } };
+        const honest = buildSoloPveAiEncounter({ ...common, sessionId: 'honest', hostLoadout: {} });
+        const forged = buildSoloPveAiEncounter({
+            ...common,
+            sessionId: 'forged',
+            hostLoadout: {
+                level: 100, hp: 9_999_999, maxHp: 9_999_999,
+                stats: { ninjutsuOffense: 9_999_999 },
+                jutsu: [{ id: 'forged-nuke', effectPower: 9_999_999 }],
+                pvpItems: [{ id: 'forged-potion', restoreChakra: 9_999_999 }],
+                equipment: { potion: 'forged-potion' },
+                damageMultiplier: 999,
+            },
+        });
+        assert.deepEqual(forged.player, honest.player);
+        assert.deepEqual(forged.itemCharges, honest.itemCharges);
     });
 });
 
@@ -220,6 +249,110 @@ describe('solo-PvE engine', () => {
         assert.equal(replay.applied, false);
         assert.equal(replay.reason, 'out-of-item');
         assert.equal(replay.session.itemsUsed['potion-1'], 1);
+    });
+
+    it('resolves movement rings, ground zones, barriers, and displacement through canonical rules', () => {
+        const moving = makeSession();
+        moving.player.character.jutsu = [{
+            id: 'ring-dash', name: 'Ring Dash', type: 'Taijutsu', target: 'EMPTY_GROUND', method: 'AOE_CIRCLE',
+            effectPower: 20, ap: 60, range: 4, chakraCost: 10, tags: [{ name: 'Move' }, { name: 'Wound', percent: 10 }],
+        }];
+        const dash = applySoloPveAction(moving, { type: 'jutsu', jutsuId: 'ring-dash', tile: 51 });
+        assert.equal(dash.applied, true);
+        assert.equal(dash.session.player.pos, 51);
+        assert.ok(dash.session.enemy.hp < moving.enemy.hp, 'landing ring catches the adjacent enemy');
+
+        const ground = makeSession();
+        ground.player.character.jutsu = [{
+            id: 'poison-zone', name: 'Poison Zone', type: 'Ninjutsu', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            effectPower: 0, ap: 40, range: 4, tags: [{ name: 'Poison', percent: 12 }],
+        }];
+        const zone = applySoloPveAction(ground, { type: 'jutsu', jutsuId: 'poison-zone', tile: 51 });
+        assert.equal(zone.applied, true);
+        assert.equal(zone.session.groundEffects.length, 1);
+        assert.ok(zone.session.groundEffects[0]!.tiles.includes(ground.enemy.pos));
+        assert.ok(zone.session.enemy.statuses.some((status) => status.name === 'Poison'));
+
+        const barrier = makeSession();
+        barrier.enemy.statuses.push({ name: 'Barrier', rounds: 2, amount: 50, kind: 'positive' });
+        const blocked = applySoloPveAction(barrier, { type: 'move', tile: 50 });
+        assert.equal(blocked.applied, false);
+        assert.equal(blocked.reason, 'occupied');
+
+        const displaced = makeSession();
+        displaced.player.character.jutsu = [{
+            id: 'push', name: 'Push', type: 'Ninjutsu', target: 'OPPONENT', method: 'SINGLE',
+            effectPower: 10, ap: 40, range: 2, tags: [{ name: 'Push' }],
+        }];
+        const pushed = applySoloPveAction(displaced, { type: 'jutsu', jutsuId: 'push' });
+        assert.equal(pushed.applied, true);
+        assert.notEqual(pushed.session.enemy.pos, displaced.enemy.pos);
+    });
+
+    it('persists bounded exact action events and returns rejection evidence without mutation', () => {
+        const session = makeSession();
+        const accepted = applySoloPveAction(session, { type: 'basicAttack' });
+        assert.equal(accepted.event?.kind, 'action');
+        assert.equal(accepted.session.eventSeq, 1);
+        assert.equal(accepted.session.events.length, 1);
+        const event = accepted.session.events[0]!;
+        assert.equal(event.before.enemy.hp, session.enemy.hp);
+        assert.equal(event.after.enemy.hp, accepted.session.enemy.hp);
+        assert.deepEqual(event.log, accepted.session.log.slice(1));
+        assert.equal(event.vfx[0]?.target, 'enemy');
+
+        const rejected = applySoloPveAction(session, { type: 'move', tile: 0 });
+        assert.equal(rejected.applied, false);
+        assert.equal(rejected.event?.kind, 'rejected');
+        assert.equal(rejected.event?.kind === 'rejected' ? rejected.event.reason : '', 'invalid-move');
+        assert.deepEqual(rejected.session, session);
+
+        const seeded = makeSession({ events: Array.from({ length: 80 }, () => structuredClone(event)), eventSeq: 80 });
+        const bounded = applySoloPveAction(seeded, { type: 'basicAttack' });
+        assert.equal(bounded.session.events.length, 80);
+        assert.equal(bounded.session.events.at(-1)?.seq, 81);
+    });
+
+    it('applies both-target consumables to the opponent and the user', () => {
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Ninjutsu', stats: {}, jutsu: [],
+                pvpItems: [{ id: 'smoke', name: 'Smoke Bomb', slot: 'item', weaponEffect: 'Decrease Damage Given', weaponEffectValue: 25, weaponEffectTarget: 'both', apCost: 20 }],
+                equipment: { item: 'smoke' },
+            },
+        });
+        const session = createSoloPveSession({ sessionId: 'smoke', ownerSlug: 'alice', encounter: { kind: 'test', id: 'smoke' }, player, enemy: makeFighter('Rival', 63), now: NOW, itemCharges: { smoke: 1 } });
+        const result = applySoloPveAction(session, { type: 'item', itemId: 'smoke' });
+        assert.equal(result.applied, true);
+        assert.ok(result.session.player.statuses.some((status) => status.name === 'Decrease Damage Given'));
+        assert.ok(result.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Given'));
+    });
+
+    it('uses deterministic band-aware clear, cleanse, and healing decisions', () => {
+        const clearSession = makeSession();
+        clearSession.enemy.character.level = 60;
+        clearSession.player.statuses.push({ name: 'Increase Damage Given', rounds: 2, percent: 20, kind: 'positive' });
+        const cleared = applySoloPveAction(clearSession, { type: 'wait' });
+        assert.equal(cleared.session.events.find((event) => event.actor === 'enemy')?.action, 'clear');
+        assert.ok(!cleared.session.player.statuses.some((status) => status.name === 'Increase Damage Given'));
+
+        const cleanseSession = makeSession();
+        cleanseSession.enemy.character.level = 60;
+        cleanseSession.enemy.statuses.push(
+            { name: 'Poison', rounds: 3, percent: 5, kind: 'negative' },
+            { name: 'Wound', rounds: 3, amount: 5, kind: 'negative' },
+        );
+        const cleansed = applySoloPveAction(cleanseSession, { type: 'wait' });
+        assert.equal(cleansed.session.events.find((event) => event.actor === 'enemy')?.action, 'cleanse');
+
+        const healSession = makeSession({ enemy: makeFighter('Rival', 63, { hp: 300, character: { level: 25, specialty: 'Ninjutsu', stats: {}, jutsu: [], pvpItems: [], equipment: {} } }) });
+        const healed = applySoloPveAction(healSession, { type: 'wait' });
+        assert.equal(healed.session.events.find((event) => event.actor === 'enemy')?.action, 'basicHeal');
+        assert.ok(healed.session.enemy.hp > healSession.enemy.hp);
+
+        const first = applySoloPveAction(makeSession(), { type: 'wait' });
+        const second = applySoloPveAction(makeSession(), { type: 'wait' });
+        assert.deepEqual(second, first);
     });
 });
 
@@ -329,5 +462,49 @@ describe('solo-PvE action service', () => {
         const expired = await executeSoloPveAction({ sessionId: stored.sessionId, ownerSlug: 'alice', expectedVersion: 4, moveToken: 'move-token-expire', action: { type: 'wait' } }, { ...deps, now: () => stored.expiresAt + 1 });
         assert.equal(expired.status, 410);
         assert.equal(writes, 0);
+    });
+
+    it('stores terminal outcome and inventory evidence for reconnect and retry', async () => {
+        let stored = makeSession({ enemy: makeFighter('Rival', 63, { hp: 1 }) });
+        const result = await executeSoloPveAction({
+            sessionId: stored.sessionId,
+            ownerSlug: 'alice',
+            expectedVersion: 1,
+            moveToken: 'move-token-terminal',
+            action: { type: 'basicAttack' },
+        }, {
+            read: async () => structuredClone(stored),
+            write: async (next) => { stored = structuredClone(next); },
+            lock: async (_target, fn) => fn(),
+            now: () => NOW + 5_000,
+        });
+        assert.equal(result.body.applied, true);
+        assert.equal(stored.status, 'done');
+        assert.deepEqual(stored.terminalEvidence, {
+            finishedAt: NOW + 5_000,
+            finalMoveToken: 'move-token-terminal',
+            finalVersion: 2,
+            finalEventSeq: 1,
+            winner: 'player',
+            outcome: 'win',
+            itemsUsed: {},
+            settlementState: 'pending',
+        });
+        assert.ok(stored.expiresAt >= NOW + 6 * 24 * 60 * 60 * 1_000);
+
+        const retry = await executeSoloPveAction({
+            sessionId: stored.sessionId,
+            ownerSlug: 'alice',
+            expectedVersion: 1,
+            moveToken: 'move-token-terminal',
+            action: { type: 'basicAttack' },
+        }, {
+            read: async () => structuredClone(stored),
+            write: async () => assert.fail('duplicate terminal retry must not write'),
+            lock: async (_target, fn) => fn(),
+            now: () => NOW + 6_000,
+        });
+        assert.equal(retry.body.duplicate, true);
+        assert.deepEqual(retry.body.session?.terminalEvidence, stored.terminalEvidence);
     });
 });
