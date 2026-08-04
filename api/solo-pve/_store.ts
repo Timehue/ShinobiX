@@ -29,7 +29,11 @@ export async function writeSoloPveSession(
     deps: SoloPveStoreDeps = {},
 ): Promise<void> {
     if (!isSoloPveSession(session)) throw new Error('Refusing to persist a non-solo-pve session.');
+    const activeTtl = Math.max(
+        SOLO_PVE_SESSION_TTL_SECONDS,
+        Math.min(2 * 60 * 60, Math.floor(Number(session.activeTtlSeconds) || SOLO_PVE_SESSION_TTL_SECONDS)),
+    );
     await (deps.kv ?? realKv).set(soloPveSessionKey(session.sessionId), session, {
-        ex: session.status === 'done' ? SOLO_PVE_TERMINAL_TTL_SECONDS : SOLO_PVE_SESSION_TTL_SECONDS,
+        ex: session.status === 'done' ? SOLO_PVE_TERMINAL_TTL_SECONDS : activeTtl,
     });
 }
