@@ -1,6 +1,7 @@
 import { kv as realKv } from '../_storage.js';
 import {
     SOLO_PVE_SESSION_TTL_SECONDS,
+    SOLO_PVE_TERMINAL_TTL_SECONDS,
     isSoloPveSession,
     type SoloPveSession,
 } from './_session.js';
@@ -29,6 +30,6 @@ export async function writeSoloPveSession(
 ): Promise<void> {
     if (!isSoloPveSession(session)) throw new Error('Refusing to persist a non-solo-pve session.');
     await (deps.kv ?? realKv).set(soloPveSessionKey(session.sessionId), session, {
-        ex: SOLO_PVE_SESSION_TTL_SECONDS,
+        ex: session.status === 'done' ? SOLO_PVE_TERMINAL_TTL_SECONDS : SOLO_PVE_SESSION_TTL_SECONDS,
     });
 }

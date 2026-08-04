@@ -5,7 +5,10 @@ import { applySoloPveAction, type SoloPveEngineOptions } from './_engine.js';
 import {
     SOLO_PVE_MOVE_TOKEN_HISTORY,
     SOLO_PVE_SESSION_TTL_SECONDS,
+    SOLO_PVE_TERMINAL_TTL_SECONDS,
     type SoloPveAction,
+    type SoloPveCombatEvent,
+    type SoloPveRejectionEvent,
     type SoloPveSession,
 } from './_session.js';
 import {
@@ -35,6 +38,7 @@ export type SoloPveActionServiceResult = {
         duplicate?: boolean;
         reason?: string;
         error?: string;
+        event?: SoloPveCombatEvent | SoloPveRejectionEvent;
         session?: SoloPveSession;
     };
 };
@@ -90,18 +94,32 @@ export async function executeSoloPveAction(
 
         const resolved = applySoloPveAction(session, command.action, engineOptions);
         if (!resolved.applied) {
-            return { status: 200, body: { applied: false, reason: resolved.reason, session } };
+            return { status: 200, body: { applied: false, reason: resolved.reason, event: resolved.event, session } };
         }
 
         const actionAt = now();
+        const nextVersion = session.version + 1;
+        const terminalEvidence = resolved.session.status === 'done' && resolved.session.winner && resolved.session.outcome
+            ? {
+                finishedAt: actionAt,
+                finalMoveToken: command.moveToken,
+                finalVersion: nextVersion,
+                finalEventSeq: resolved.session.eventSeq,
+                winner: resolved.session.winner,
+                outcome: resolved.session.outcome,
+                itemsUsed: { ...resolved.session.itemsUsed },
+                settlementState: resolved.session.settlementState,
+            }
+            : resolved.session.terminalEvidence;
         const next: SoloPveSession = {
             ...resolved.session,
-            version: session.version + 1,
+            version: nextVersion,
             recentMoveTokens: [...session.recentMoveTokens, command.moveToken].slice(-SOLO_PVE_MOVE_TOKEN_HISTORY),
             lastActionAt: actionAt,
-            expiresAt: actionAt + SOLO_PVE_SESSION_TTL_SECONDS * 1000,
+            expiresAt: actionAt + (resolved.session.status === 'done' ? SOLO_PVE_TERMINAL_TTL_SECONDS : SOLO_PVE_SESSION_TTL_SECONDS) * 1000,
+            ...(terminalEvidence ? { terminalEvidence } : {}),
         };
         await write(next);
-        return { status: 200, body: { applied: true, session: next } };
+        return { status: 200, body: { applied: true, event: resolved.event, session: next } };
     }, { failClosed: true, ttlSec: 10 });
 }
