@@ -26,6 +26,7 @@ import {
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { petVisualQuality } from "../lib/pet-visual-quality";
+import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { projectileVisual, type ProjectileVisual } from "../lib/pet-projectile-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { elementVfxKey } from "../lib/pet-battle-anim";
@@ -280,7 +281,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
                         </mesh>
                     )}>
                         <group scale={s}>
-                            <PetModel3D config={config} frame={modelFrame} element={pet.element} />
+                            <PetModel3D config={config} frame={modelFrame} element={pet.element} surfaceTreatment={petModelVariantSurface(pet)} />
                         </group>
                     </Suspense>
                 </group>

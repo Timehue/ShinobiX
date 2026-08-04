@@ -396,8 +396,15 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
 }
 
 async function embeddedImage(glb, id) {
-    invariant(glb.json.images?.length === 1, `${id}: expected one authored color atlas`);
-    const image = glb.json.images[0];
+    const primitive = glb.json.meshes?.[0]?.primitives?.[0];
+    const material = glb.json.materials?.[primitive?.material];
+    const textureIndex = material?.pbrMetallicRoughness?.baseColorTexture?.index;
+    const texture = glb.json.textures?.[textureIndex];
+    const imageIndex = texture?.extensions?.EXT_texture_webp?.source
+        ?? texture?.extensions?.KHR_texture_basisu?.source
+        ?? texture?.source;
+    const image = glb.json.images?.[imageIndex];
+    invariant(image, `${id}: authored base-color atlas is missing`);
     invariant(Number.isInteger(image.bufferView), `${id}: atlas is not embedded`);
     const view = glb.json.bufferViews?.[image.bufferView];
     invariant(view && (view.buffer ?? 0) === 0, `${id}: invalid atlas buffer view`);
@@ -467,7 +474,7 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
 
 async function main() {
     const rosterFiles = (await readdir(rosterRoot)).filter((file) => file.endsWith(".glb")).sort();
-    invariant(rosterFiles.length === 140, `expected 140 roster GLBs, found ${rosterFiles.length}`);
+    invariant(rosterFiles.length === 145, `expected 145 roster GLBs, found ${rosterFiles.length}`);
     const starterForms = [
         { visualId: "starter-earth", asset: "starter-earth.glb" },
         { visualId: "starter-earth-l", asset: "starter-earth-l.glb" },
@@ -498,7 +505,7 @@ async function main() {
     // colorMetrics (opaque-pixel, lumaDeviation, coloredPixelRatio), which is
     // format-independent and far stronger than any byte count.
     for (const file of rosterFiles) roster.push(await auditGlb(resolve(rosterRoot, file), { requireRig: true, minimumAtlasBytes: 40_000 }));
-    // Starter forms are deliberately leaner than the 140-pet roster for mobile
+    // Starter forms are deliberately leaner than the 145-pet roster for mobile
     // combat, but every base and evolved starter must carry the same reviewed
     // 21-bone/eight-clip authored combat contract.
     for (const file of starterGlbAssets) starters.push(await auditGlb(resolve(modelRoot, file), {
@@ -510,8 +517,8 @@ async function main() {
     }));
     const report = {
         generatedAt: new Date().toISOString(),
-        productionVisualForms: 155,
-        distinctProductionAssets: 140 + starterGlbAssets.length,
+        productionVisualForms: 160,
+        distinctProductionAssets: 145 + starterGlbAssets.length,
         roster,
         starters,
         starterForms,

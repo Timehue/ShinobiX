@@ -10,6 +10,7 @@ import {
     petCardImage,
     petBattleLayers,
     petBattleSheet,
+    petPoseImage,
     petStripVariant,
     elementVfxKey,
     type PetFrameLike,
@@ -67,6 +68,59 @@ test("petCardImage: a published shared image wins over everything", () => {
     assert.equal(petCardImage(mkPet({ id: "starter-fire" }), { "pet:starter-fire": "shared.png" }), "shared.png");
 });
 
+test("petBattleSprite: a UUID-owned pet resolves shared art by stable template id", () => {
+    const owned = mkPet({ id: "rare-26:550e8400-e29b-41d4-a716-446655440000", templateId: "rare-26" });
+    const { mode, src } = petBattleSprite(owned, { "petbody:rare-26": "owned-body.png" });
+    assert.equal(mode, "fullBodySprite");
+    assert.equal(src, "owned-body.png");
+});
+
+test("petCardImage: an owned palette variant prefers variant-specific shared art", () => {
+    const pet = mkPet({ id: "standard-1", paletteVariantId: "chromatic-v1" });
+    assert.equal(petCardImage(pet, {
+        "pet:standard-1": "base.png",
+        "pet:standard-1:variant:chromatic-v1": "chromatic.png",
+    }), "chromatic.png");
+});
+
+test("petCardImage: a UUID-owned pet falls back to its template idle pose", () => {
+    const owned = mkPet({ id: "rare-26:550e8400-e29b-41d4-a716-446655440000", templateId: "rare-26" });
+    assert.equal(petCardImage(owned), "/pet-poses/rare-26-idle.webp?v=4");
+});
+
+test("petCardImage: a UUID-owned chromatic prefers template variant art", () => {
+    const owned = mkPet({
+        id: "rare-26:550e8400-e29b-41d4-a716-446655440000",
+        templateId: "rare-26",
+        paletteVariantId: "chromatic-v1",
+    });
+    assert.equal(petCardImage(owned, {
+        "pet:rare-26": "base.png",
+        "pet:rare-26:variant:chromatic-v1": "chromatic-owned.png",
+    }), "chromatic-owned.png");
+});
+
+test("breeding-exclusive Mythics resolve authored portraits and reviewed pose aliases", () => {
+    const owned = mkPet({
+        id: "mythic-13:550e8400-e29b-41d4-a716-446655440000",
+        templateId: "mythic-13",
+        rarity: "mythic",
+    });
+    assert.equal(petCardImage(owned), "/pet-portraits/breeding-mythics/mythic-13.webp");
+    assert.equal(petBattleSprite(owned).src, "/pet-portraits/breeding-mythics/mythic-13.webp");
+    assert.equal(petPoseImage(owned), "/pet-poses/legendary-24-idle.webp?v=4");
+});
+
+test("petCardImage: a UUID-owned evolved starter resolves its stage pose", () => {
+    const evolved = mkPet({
+        id: "starter-fire:550e8400-e29b-41d4-a716-446655440000",
+        templateId: "starter-fire",
+        rarity: "rare",
+        evolutionStage: 1,
+    });
+    assert.equal(petCardImage(evolved), "/pet-poses/starter-fire-r-idle.webp?v=4");
+});
+
 test("petCardImage: an evolved starter prefers its stage pose", () => {
     // visualId starter-fire-r has an idle pose in the manifest.
     assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 })), "/pet-poses/starter-fire-r-idle.webp?v=4");
@@ -87,6 +141,16 @@ test("petBattleLayers: all three bands present → returns the layer set", () =>
         "petlayers:standard-1:near": "n.png",
     });
     assert.deepEqual(layers, { far: "f.png", mid: "m.png", near: "n.png" });
+});
+
+test("petBattleLayers: owned palette variant resolves all variant-specific bands", () => {
+    const pet = mkPet({ paletteVariantId: "chromatic-v1" });
+    const layers = petBattleLayers(pet, {
+        "petlayers:standard-1:far:variant:chromatic-v1": "vf.png",
+        "petlayers:standard-1:mid:variant:chromatic-v1": "vm.png",
+        "petlayers:standard-1:near:variant:chromatic-v1": "vn.png",
+    });
+    assert.deepEqual(layers, { far: "vf.png", mid: "vm.png", near: "vn.png" });
 });
 
 test("petBattleLayers: a missing band → null (renderer falls back)", () => {

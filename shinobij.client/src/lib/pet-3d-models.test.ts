@@ -47,14 +47,45 @@ test("all built-in Coliseum AI opponents resolve to approved roster models", () 
     assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, `/pet-models/roster/rare-26.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
 });
 
-test("all 140 approved roster models have a certified motion family", () => {
-    assert.equal(APPROVED_ROSTER_MODEL_IDS.size, 140);
-    assert.equal(Object.keys(ROSTER_MODEL_PROFILES).length, 140);
+test("all 145 approved roster models have a certified motion family", () => {
+    assert.equal(APPROVED_ROSTER_MODEL_IDS.size, 145);
+    assert.equal(Object.keys(ROSTER_MODEL_PROFILES).length, 145);
     for (const id of APPROVED_ROSTER_MODEL_IDS) {
         const profile = ROSTER_MODEL_PROFILES[id];
         assert.ok(profile, `${id} is missing a combat motion profile`);
         assert.equal(petCombatModel({ id, name: id })?.profile, profile);
     }
+});
+
+test("breeding-exclusive Mythics keep their own combat identity and model", () => {
+    for (const id of ["mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14"]) {
+        const model = petCombatModel({ id, name: id });
+        assert.equal(model?.visualId, id);
+        assert.equal(model?.url, `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    }
+});
+
+test("hatched owned-instance ids resolve their breeding Mythic template model", () => {
+    for (const id of ["mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14"]) {
+        const owned = petCombatModel({
+            id: `${id}:550e8400-e29b-41d4-a716-446655440000`,
+            templateId: id,
+            name: `Owned ${id}`,
+            rarity: "mythic",
+        });
+        assert.equal(owned?.visualId, id);
+        assert.equal(owned?.url, `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    }
+});
+
+test("legacy owned-instance ids recover the roster template from their safe prefix", () => {
+    const model = petCombatModel({
+        id: "mythic-13:550e8400-e29b-41d4-a716-446655440000",
+        name: "Legacy Thunderbloom Kirin",
+        rarity: "mythic",
+    });
+    assert.equal(model?.visualId, "mythic-13");
+    assert.equal(model?.url, `/pet-models/roster/mythic-13.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
 });
 
 test("timestamped encounter clones retain their canonical combat model", () => {
@@ -92,9 +123,9 @@ test("every anatomy family gets a grounded, size-capped victory beat", () => {
     assert.equal(petVictoryArcHeight(20, "quadruped", false), 0.12);
 });
 
-test("all 155 production combat models inherit the grounded victory envelope", () => {
+test("all 160 production combat models inherit the grounded victory envelope", () => {
     const ids = [...PET_COMBAT_MODEL_IDS, ...APPROVED_ROSTER_MODEL_IDS];
-    assert.equal(ids.length, 155);
+    assert.equal(ids.length, 160);
     for (const id of ids) {
         const config = petCombatModel({ id, name: id });
         assert.ok(config, `${id} is missing its production model config`);

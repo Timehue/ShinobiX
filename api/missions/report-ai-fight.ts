@@ -18,12 +18,16 @@ import {
 } from './_ai-fight-token.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
 import { readSession } from '../towers/_tower-store.js';
+import { readSoloPveSession } from '../solo-pve/_store.js';
+import { deductUsedItems } from '../pvp/claim-rewards.js';
 import {
     aiFightPaysReward,
     aiFightPlayerActor,
+    aiFightPlayerItemsUsed,
     applyAiFightOutcomeToCharacter,
     resolveAiFightOutcome,
     type AiFightOutcome,
+    type AiFightSession,
 } from './_ai-fight-outcome.js';
 import { huntMissionByAiProfileId } from './_mission-catalog.js';
 import {
@@ -103,6 +107,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const peeked = await kv.get<AiFightToken>(tokenKey).catch(() => null);
         const sealedOpponentId = typeof peeked?.opponentId === 'string' ? peeked.opponentId : '';
         const sealedRunId = typeof peeked?.runId === 'string' ? peeked.runId : '';
+        const sealedSessionId = peeked?.sessionRuntime === 'solo-pve' && typeof peeked.sessionId === 'string'
+            ? peeked.sessionId
+            : '';
         const sealedBattleKind = peeked?.battleKind ?? 'practice';
 
         // ── Step 4: the SESSION decides, not the caller ──────────────────────
@@ -113,9 +120,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // client-authored `temp-*` opponent, or the kill switch), which has no
         // session to read — that track keeps the old behaviour until step 5
         // retires it.
-        const sealedSession = sealedRunId ? await readSession(sealedRunId).catch(() => null) : null;
-        const outcome: AiFightOutcome = sealedRunId ? resolveAiFightOutcome(sealedSession) : 'win';
+        const hasSealedSession = Boolean(sealedSessionId || sealedRunId);
+        const sealedSession: AiFightSession | null = sealedSessionId
+            ? await readSoloPveSession(sealedSessionId).catch(() => null)
+            : sealedRunId
+                ? await readSession(sealedRunId).catch(() => null)
+                : null;
+        const outcome: AiFightOutcome = hasSealedSession ? resolveAiFightOutcome(sealedSession) : 'win';
         const playerActor = aiFightPlayerActor(sealedSession);
+        const playerItemsUsed = aiFightPlayerItemsUsed(sealedSession);
         // A vanished session neither pays nor punishes — see _ai-fight-outcome.
         // 409 so the client's settle retry can pick it up if it was a slow read.
         if (outcome === 'unknown') {
@@ -137,12 +150,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const claim = validateAiFightRewardClaim(tokenData, body.xp, body.ryo);
             if (!claim.ok) return { ok: false as const, status: 409, error: claim.reason };
+            // The per-token redemption below is the exactly-once receipt. Item
+            // deduction rides in this SAME save mutation as HP and payout, so a
+            // retry cannot keep a spent consumable or deduct it twice.
+            const combatCharacter = Object.keys(playerItemsUsed).length > 0
+                ? deductUsedItems(character, playerItemsUsed)
+                : character;
 
             // A loss, draw or forfeit consumes the token and writes the physical
             // consequence, but pays nothing and never touches the daily counter —
             // the counter is a REWARD counter, and a defeat earned no reward.
             if (!paysReward) {
-                const settled = applyAiFightOutcomeToCharacter(character, outcome, playerActor, Date.now());
+                const settled = applyAiFightOutcomeToCharacter(combatCharacter, outcome, playerActor, Date.now());
                 const redemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
                 return {
                     ok: true as const,
@@ -153,7 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
             const reward = aiFightReward(claim.xp, claim.ryo, dailyCount);
-            const leveled = gainXp(character, reward.xp) as Record<string, unknown>;
+            const leveled = gainXp(combatCharacter, reward.xp) as Record<string, unknown>;
             const paid = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
             const rewarded = applyAiFightSecondaryRewards(
                 paid,

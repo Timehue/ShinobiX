@@ -186,6 +186,8 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         frame?.traitFlash?.trait === "guardBlock" ? "🛡️ BLOCK!"           :
         frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
         frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     :
+        frame?.traitFlash?.trait === "Fateweaver" ? "✦ FATEWEAVER TWIST!" :
+        frame?.traitFlash?.trait === "Hollowborn" ? "🩸 HOLLOWBORN DRAIN!" :
         frame?.traitFlash?.trait === "petEvade"       ? "⚡ EVADED!"        :
         frame?.traitFlash?.trait === "consumDodge"    ? "💨 DODGED!"        :
         frame?.traitFlash?.trait === "consumBlock"    ? "🛡️ SMOKE SCREEN!"  :

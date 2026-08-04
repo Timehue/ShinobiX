@@ -329,7 +329,7 @@ export function petArchetypeFor(pet: Pick<Pet, "jutsus" | "trait" | "attack" | "
     if (supportCount >= 2 || (hasHeal && supportCount >= 1)) return "support";
     if (controlCount >= 2) return "control";
     if (trait === "Guardian" || def >= atk * 1.35) return "tank";
-    if (trait === "Aggressive") return atk >= def * 1.8 ? "assassin" : "bruiser";
+    if (trait === "Aggressive" || trait === "Hollowborn") return atk >= def * 1.8 ? "assassin" : "bruiser";
     if (trait === "Swift" || spd > atk * 1.15) return hasRanged ? "kite" : "assassin";
     if (hasRanged) return "kite";
     if (def > atk) return "tank";
@@ -359,7 +359,7 @@ export function petPairBond(
     // attackers and twin flankers each spread out.
     const has = (t: string) => a.trait === t || b.trait === t;
     const both = (t: string) => a.trait === t && b.trait === t;
-    if (both("Aggressive")) score -= 1.5;
+    if (both("Aggressive") || both("Hollowborn")) score -= 1.5;
     else if (has("Guardian")) score += 1;
     if (both("Swift")) score -= 1;
     if (has("Battleborn")) score += 0.5;

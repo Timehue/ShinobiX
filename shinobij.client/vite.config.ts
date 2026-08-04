@@ -1075,6 +1075,13 @@ export default defineConfig({
                     if (normalizedId.includes('node_modules/@sentry/')) {
                         return 'sentry-vendor';
                     }
+                    // Pet sprite/card resolution is shared by the app shell and
+                    // many lazy combat screens. Keep that stable presentation
+                    // layer in its own cacheable chunk so adding a species or
+                    // visual variant does not keep inflating the entry bundle.
+                    if (normalizedId.endsWith('/src/lib/pet-battle-anim.ts')) {
+                        return 'pet-presentation';
+                    }
                     // Group the heavy 3D stack (three.js + three-stdlib + the
                     // @react-three/* renderer + postprocessing) into ONE cacheable
                     // vendor chunk. It's imported only by lazy 3D screens, so it

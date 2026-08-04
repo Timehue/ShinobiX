@@ -101,6 +101,14 @@ export const SHRINE_TIERS: readonly { name: string; at: number }[] = [
 export const SHRINE_MIN_OFFERING = 10;
 export const SHRINE_MAX_OFFERING = 250_000;
 
+/** Apex pet traits authored for the Shrine blessing system. They stay outside
+ * the ordinary wild/starter trait pool; breeding gets its own explicit rare
+ * roll before choosing uniformly from this list. */
+export const ULTRA_PET_TRAITS = ['Fateweaver', 'Hollowborn', 'Boonbringer'] as const;
+export type UltraPetTrait = (typeof ULTRA_PET_TRAITS)[number];
+export const BRED_ULTRA_TRAIT_DENOMINATOR = 200;
+export const BRED_APEX_TRAIT_CHANCE_PERCENT = 100 / BRED_ULTRA_TRAIT_DENOMINATOR;
+
 const BY_SECTOR = new Map(SHRINE_DEFS.map((d) => [d.sector, d]));
 const BY_ID = new Map(SHRINE_DEFS.map((d) => [d.id, d]));
 

@@ -13,6 +13,7 @@ import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 
 // The sealed co-op match now plays as the Hollow Warfront (the lane-war mode
@@ -180,7 +181,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                                         const sel = picks.includes(pet.id);
                                         const img = petCardImage(pet, sharedImages);
                                         return (
-                                            <button key={pet.id} onClick={() => togglePick(pet.id)}
+                                            <button key={pet.id} className={petVisualVariantClass(pet)} onClick={() => togglePick(pet.id)}
                                                 style={{ padding: "0.25rem", background: sel ? "#0e7490" : "var(--slate-800)", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 2 }}>
                                                 {img
                                                     ? <img src={img} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />

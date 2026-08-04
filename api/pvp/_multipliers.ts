@@ -42,6 +42,9 @@ function armorReductionForQuality(quality: unknown): number {
 const ARMOR_SLOTS = ['head', 'body', 'armor', 'waist', 'legs', 'feet'] as const;
 
 type ItemLike = CatalogItem | Record<string, unknown>;
+export type AdminItemLookup = ReadonlyMap<string, Record<string, unknown>> & {
+    readonly deletedIds?: ReadonlySet<string>;
+};
 
 /**
  * id → item lookup honoring the same priority as the client's getAllItems:
@@ -60,7 +63,7 @@ type ItemLike = CatalogItem | Record<string, unknown>;
  */
 export function buildItemLookup(
     creatorItems: unknown,
-    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+    adminItems?: AdminItemLookup | null,
 ): (id: string) => ItemLike | undefined {
     const custom = new Map<string, Record<string, unknown>>();
     if (Array.isArray(creatorItems)) {
@@ -96,7 +99,9 @@ export function buildItemLookup(
     // LEGITIMATE authored content, which is the opposite of the bloodline
     // rank/point budgets (those clamp FORGED power and are correctly permanent).
     const fromAdmin = (id: string): Record<string, unknown> | undefined => adminItems?.get(id);
-    return (id: string) => ITEM_CATALOG[id] ?? fromAdmin(id) ?? custom.get(id);
+    return (id: string) => adminItems?.deletedIds?.has(id)
+        ? undefined
+        : ITEM_CATALOG[id] ?? fromAdmin(id) ?? custom.get(id);
 }
 
 function equipmentIds(equipment: unknown): string[] {
@@ -181,7 +186,7 @@ export const EQUIPMENT_STAT_BONUS_FIELDS = [
 export function deriveEquipmentStatBonuses(
     saveCharacter: Record<string, unknown>,
     save: Record<string, unknown> | null,
-    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+    adminItems?: AdminItemLookup | null,
 ): Record<string, number> {
     const getItem = buildItemLookup(save?.creatorItems, adminItems);
     const out: Record<string, number> = {};
@@ -213,7 +218,7 @@ export type DerivedMultipliers = {
 export function deriveCombatMultipliers(
     saveCharacter: Record<string, unknown>,
     save: Record<string, unknown> | null,
-    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+    adminItems?: AdminItemLookup | null,
 ): DerivedMultipliers {
     const equipment = saveCharacter.equipment;
     const getItem = buildItemLookup(save?.creatorItems, adminItems);

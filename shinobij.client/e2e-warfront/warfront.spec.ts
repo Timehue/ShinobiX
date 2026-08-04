@@ -5,7 +5,9 @@ const acceleratedWarfrontUrl = `${warfrontUrl}&wfspeed=30&petQuality=low`;
 
 test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }) => {
     const pageErrors: string[] = [];
+    const reactKeyWarnings: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => { if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text()); });
 
     await page.goto(warfrontUrl);
     await expect(page.getByRole("status")).toBeHidden({ timeout: 12_000 });
@@ -24,21 +26,27 @@ test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }
     await expect(page.locator("canvas").first()).toBeVisible();
 
     expect(pageErrors).toEqual([]);
+    expect(reactKeyWarnings).toEqual([]);
 });
 
 test("an accelerated QA match reaches a complete post-match result", async ({ page }) => {
     const pageErrors: string[] = [];
+    const reactKeyWarnings: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => { if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text()); });
     await page.goto(acceleratedWarfrontUrl);
     await expect(page.getByRole("status")).toBeHidden({ timeout: 12_000 });
     await expect(page.getByText(/Shatters the Ward Seal|Wins the Judgment|Stalemate/).first()).toBeVisible({ timeout: 55_000 });
     await expect(page.getByText(/MVP/).first()).toBeVisible();
     expect(pageErrors).toEqual([]);
+    expect(reactKeyWarnings).toEqual([]);
 });
 
 test("a missing hound rig falls back without crashing the match", async ({ page }) => {
     const pageErrors: string[] = [];
+    const reactKeyWarnings: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => { if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text()); });
     await page.route("**/pet-models/roster/mythic-4.glb*", (route) =>
         route.fulfill({ status: 404, contentType: "application/octet-stream", body: "" }));
 
@@ -47,6 +55,7 @@ test("a missing hound rig falls back without crashing the match", async ({ page 
     await expect(page.locator("canvas").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Restart/ }).first()).toBeEnabled();
     expect(pageErrors).toEqual([]);
+    expect(reactKeyWarnings).toEqual([]);
 });
 
 test("the WebGL canvas survives a recoverable context-loss cycle", async ({ page }) => {

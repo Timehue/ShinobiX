@@ -13,6 +13,12 @@ export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.
     return env.ENABLE_PLAYER_AI_IMAGE_GENERATION === '1';
 }
 
+/** Emergency rollback switch for NEW pairings only. Existing timers, eggs, and
+ * hatches intentionally ignore it so the switch can never trap owned pets. */
+export function petBreedingStartsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_PET_BREEDING_STARTS !== '1';
+}
+
 /**
  * Generic AI fights on the server engine (docs/runbooks/combat-mode-migration.md).
  *

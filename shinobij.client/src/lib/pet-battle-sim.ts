@@ -207,7 +207,7 @@ function estimatePetActionDamage(
     target: PetBattleFighter,
     action: PetJutsu | "basic",
 ): number {
-    const dmgBonus     = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
+    const dmgBonus     = actor.pet.trait === "Battleborn" ? 1.10 : actor.pet.trait === "Hollowborn" ? 1.12 : 1.0;
     const guardianBlock = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
     const elementMult  = petMatchupMult(actor.pet, target.pet);
     const absorbMult   = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
@@ -287,7 +287,10 @@ function choosePetActionSmart(
 ): PetJutsu | "basic" | "guard" | "evade" | "focus" | "brace" | null {
     const hpPct     = (actor.hp / Math.max(1, actor.pet.hp)) * 100;
     const targetPct = (target.hp / Math.max(1, target.pet.hp)) * 100;
-    const trait     = actor.pet.trait ?? "";
+    const rawTrait  = actor.pet.trait ?? "";
+    const trait     = rawTrait === "Hollowborn" ? "Aggressive"
+                    : rawTrait === "Boonbringer" ? ""
+                    : rawTrait;
 
     // ── Status counter-play awareness ──────────────────────────────────
     // Skip statuses whose target trait fully resists them. Otherwise
@@ -298,6 +301,7 @@ function choosePetActionSmart(
         const targetTrait = target.pet.trait;
         if (jutsu.kind === "freeze"  && targetTrait === "Swift") return false;
         if (jutsu.kind === "confuse" && targetTrait === "Lucky") return false;
+        if ((jutsu.kind === "freeze" || jutsu.kind === "confuse") && targetTrait === "Fateweaver") return false;
         if (jutsu.kind === "stun"    && targetTrait === "Aggressive" && (jutsu.rounds ?? 1) <= 1) return false;
         // burn vs Guardian: still half-damage, still useful — don't skip
         // crush vs Battleborn: half-strip, still useful (damage portion lands) — don't skip
@@ -385,7 +389,7 @@ function choosePetActionSmart(
     const tauntMv  = avail.find(j => j.kind === "taunt");
     const pushPull = avail.find(j => j.kind === "push" || j.kind === "pull");
     if (hasteMv && !alreadyBuffed && actor.hasteRounds <= 0)            return hasteMv;
-    if (tauntMv && hpPct <= 65 && actor.pet.trait !== "Aggressive")     return tauntMv;
+    if (tauntMv && hpPct <= 65 && trait !== "Aggressive" && trait !== "Fateweaver") return tauntMv;
     if (woundMv && target.woundRounds <= 0 && !finishing)              return woundMv;
     if (slowMv && target.slowRounds <= 0)                              return slowMv;
     if (markMv && target.markedRounds <= 0 && !finishing)             return markMv;
@@ -547,6 +551,25 @@ function choosePetActionSmart(
     }
 
     // -- BATTLEBORN: front-load buff → absorb → status → finishers -------------
+    // Fateweaver combines the pressure of Aggressive with Lucky's sustain.
+    if (trait === "Fateweaver") {
+        if (superEffective && heavy)                 return heavy;
+        if (hurting && heal)                         return heal;
+        if (hurting && barrier)                      return barrier;
+        if (resisted && bestStatus)                  return bestStatus;
+        if (earlyGame && bestStatus)                 return bestStatus;
+        if (earlyGame && crush && dist <= 2)         return crush;
+        if (earlyGame && debuff)                     return debuff;
+        if (lifesteal && dist <= 2)                  return lifesteal;
+        if (burn && !targetPoisoned)                 return burn;
+        if (dot && !targetPoisoned)                  return dot;
+        if (finishing && heavy)                      return heavy;
+        if (fast)                                    return fast;
+        if (heavy)                                   return heavy;
+        if (dist <= 1)                               return "basic";
+        return null;
+    }
+
     if (trait === "Battleborn") {
         if (earlyGame && buff && !alreadyBuffed)     return buff;
         if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // tanky opener
@@ -611,7 +634,7 @@ const PET_SPEED_CRIT_DIVISOR = 600;
 // build crits often) AND by how much faster it is than the defender (quick pets
 // find openings), plus the Aggressive trait. Capped at 60%.
 function petCritChance(attacker: PetBattleFighter, defender: PetBattleFighter): number {
-    const base = attacker.pet.trait === "Aggressive" ? 0.32 : 0.16;
+    const base = attacker.pet.trait === "Aggressive" || attacker.pet.trait === "Fateweaver" || attacker.pet.trait === "Hollowborn" ? 0.32 : 0.16;
     const speedCrit = attacker.pet.speed / PET_SPEED_CRIT_DIVISOR;
     const speedEdge = Math.max(0, attacker.pet.speed - defender.pet.speed) / 1100;
     return Math.min(0.6, base + speedCrit + speedEdge);
@@ -869,8 +892,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     function applyStatus(target: PetBattleFighter, status: "burn" | "freeze" | "confuse" | "stun", rounds: number, burnDmgIfBurn = 0): PetBattleFighter {
         const trait = target.pet.trait;
         if (status === "stun"    && trait === "Aggressive") rounds = Math.max(0, rounds - 1);
-        if (status === "freeze"  && trait === "Swift") return target;        // immune
-        if (status === "confuse" && trait === "Lucky") return target;        // immune
+        if (status === "freeze"  && (trait === "Swift" || trait === "Fateweaver")) return target; // immune
+        if (status === "confuse" && (trait === "Lucky" || trait === "Fateweaver")) return target; // immune
         if (rounds <= 0) return target;
         switch (status) {
             case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: target.attackBuff - 2 };
@@ -982,9 +1005,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         }
 
         // Trait modifiers
-        const dmgBonus       = actor.pet.trait === "Battleborn"  ? 1.10 : 1.0;
+        const dmgBonus       = actor.pet.trait === "Battleborn" ? 1.10 : actor.pet.trait === "Hollowborn" ? 1.12 : 1.0;
         const guardianBlock  = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
-        const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
+        const traitDodgeChance = target.pet.trait === "Fateweaver" ? 0.18 : target.pet.trait === "Lucky" ? 0.10 : 0;
+        const luckyDodgeRoll = traitDodgeChance > 0 && rng() < traitDodgeChance;
 
         function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
             // Movement step count: slow tiles (Phase 5-6) and the Slow status
@@ -1011,9 +1035,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         function applyDamage(base: number, jutsuName: string, kind: "damage" | "basic", actor2: PetBattleFighter, target2: PetBattleFighter): [PetBattleFighter, PetBattleFighter] {
             if (luckyDodgeRoll) {
                 if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
-                const msg = `Round ${round}: ${target2.pet.name}'s Lucky instinct lets it dodge ${actor2.pet.name}'s attack!`;
+                const msg = target2.pet.trait === "Fateweaver"
+                    ? `Round ${round}: ${target2.pet.name}'s Fateweaver fortune bends the blow aside - it dodges ${actor2.pet.name}'s attack!`
+                    : `Round ${round}: ${target2.pet.name}'s Lucky instinct lets it dodge ${actor2.pet.name}'s attack!`;
                 logs.push(msg);
-                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
+                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: target2.pet.trait === "Fateweaver" ? "Fateweaver" : "Lucky" });
                 return [actor2, target2];
             }
             // Consumable: Phantom Charm / Evasion Draught — a charged dodge that
@@ -1087,6 +1113,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 const lsHeal = petGearLifestealHeal(actor2.pet, damage);
                 if (lsHeal > 0) { procActor = { ...procActor, hp: Math.min(procActor.pet.hp, procActor.hp + lsHeal) }; procNote += ` 🩸 +${lsHeal} HP`; }
             }
+            if (actor2.pet.trait === "Hollowborn" && remainDamage > 0) {
+                const drain = Math.floor(damage * 0.12);
+                if (drain > 0) procActor = { ...procActor, hp: Math.min(procActor.pet.hp, procActor.hp + drain) };
+            }
             // Reactive battle-consumable triggers on the defender (target2).
             // Smoke Pellet — the mitigation applied above is now spent.
             if (mitigateMult < 1) {
@@ -1127,8 +1157,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 consFlash                                   ? { actor: targetSide as "player" | "enemy", trait: consFlash } :
                 (guardMult < 1)                             ? { actor: targetSide as "player" | "enemy", trait: "guardBlock" } :
                 (crit && actor2.pet.trait === "Aggressive") ? { actor: actorSide as "player" | "enemy", trait: "Aggressive" } :
+                (crit && actor2.pet.trait === "Fateweaver") ? { actor: actorSide as "player" | "enemy", trait: "Fateweaver" } :
                 (guardianBlock < 1)                         ? { actor: targetSide as "player" | "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
+                (dmgBonus > 1 && actor2.pet.trait === "Hollowborn") ? { actor: actorSide as "player" | "enemy", trait: "Hollowborn" } :
                 undefined;
             const elementNote = petElementLabel(elementMult);
             const coverNote = defenderBehindCover ? " 🧱 Behind cover!" : "";
@@ -1329,8 +1361,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             }
 
             if (jutsu.kind === "freeze") {
-                if (target.pet.trait === "Swift") {
-                    const msg = `Round ${round}: ${actor.pet.name} tries to freeze ${target.pet.name}, but Swift speed shakes off the ice!`;
+                if (target.pet.trait === "Swift" || target.pet.trait === "Fateweaver") {
+                    const msg = target.pet.trait === "Fateweaver"
+                        ? `Round ${round}: ${actor.pet.name} tries to freeze ${target.pet.name}, but Fateweaver fate refuses the ice!`
+                        : `Round ${round}: ${actor.pet.name} tries to freeze ${target.pet.name}, but Swift speed shakes off the ice!`;
                     logs.push(msg);
                     if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
                     pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Swift" });
@@ -1346,8 +1380,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             }
 
             if (jutsu.kind === "confuse") {
-                if (target.pet.trait === "Lucky") {
-                    const msg = `Round ${round}: ${actor.pet.name} tries to confuse ${target.pet.name}, but Lucky instinct sees through it!`;
+                if (target.pet.trait === "Lucky" || target.pet.trait === "Fateweaver") {
+                    const msg = target.pet.trait === "Fateweaver"
+                        ? `Round ${round}: ${actor.pet.name} tries to confuse ${target.pet.name}, but Fateweaver fate sees every thread!`
+                        : `Round ${round}: ${actor.pet.name} tries to confuse ${target.pet.name}, but Lucky instinct sees through it!`;
                     logs.push(msg);
                     if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
                     pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
@@ -1814,10 +1850,12 @@ export function scorePetMatchup(me: Pet, them: Pet): number {
     if (me.element === "Water" && them.trait === "Swift") traitPenalty *= 0.85;
     if (me.element === "Wind" && them.trait === "Lucky") traitPenalty *= 0.85;
     if (me.element === "Lightning" && them.trait === "Aggressive") traitPenalty *= 0.85;
+    if ((me.element === "Water" || me.element === "Wind") && them.trait === "Fateweaver") traitPenalty *= 0.85;
     // Inverse: their special is wasted against MY trait → I get a bonus
     if (them.element === "Water" && me.trait === "Swift") traitPenalty *= 1.15;
     if (them.element === "Wind" && me.trait === "Lucky") traitPenalty *= 1.15;
     if (them.element === "Lightning" && me.trait === "Aggressive") traitPenalty *= 1.15;
+    if ((them.element === "Water" || them.element === "Wind") && me.trait === "Fateweaver") traitPenalty *= 1.15;
 
     return statRatio * elementEdge * traitPenalty;
 }
@@ -2153,8 +2191,8 @@ export function runPetArenaParty(
     function applyStatusToFighter(target: PetBattleFighter, status: "burn" | "freeze" | "confuse" | "stun", rounds: number, burnDmgIfBurn = 0): PetBattleFighter {
         const trait = target.pet.trait;
         if (status === "stun"    && trait === "Aggressive") rounds = Math.max(0, rounds - 1);
-        if (status === "freeze"  && trait === "Swift") return target;
-        if (status === "confuse" && trait === "Lucky") return target;
+        if (status === "freeze"  && (trait === "Swift" || trait === "Fateweaver")) return target;
+        if (status === "confuse" && (trait === "Lucky" || trait === "Fateweaver")) return target;
         if (rounds <= 0) return target;
         switch (status) {
             case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: target.attackBuff - 2 };
@@ -2289,7 +2327,8 @@ export function runPetArenaParty(
             const lastStandMult = petGearLastStandMult(damageTarget.pet, damageTarget.hp, damageTarget.pet.hp);
             const crit = rng() < petCritChance(actor, damageTarget);
             const variance = petDamageVariance(rng);
-            const baseDmg = Math.max(1, Math.floor(dmgRaw * (crit ? PET_CRIT_MULT : 1) * variance * tamerMult * elementMult * executeMult * lastStandMult));
+            const traitDamageMult = actor.pet.trait === "Battleborn" ? 1.10 : actor.pet.trait === "Hollowborn" ? 1.12 : 1;
+            const baseDmg = Math.max(1, Math.floor(dmgRaw * (crit ? PET_CRIT_MULT : 1) * variance * traitDamageMult * tamerMult * elementMult * executeMult * lastStandMult));
             // Reactive consumable pre-hit (dodge / mitigate).
             const pre = petReactivePreHit(damageTarget, baseDmg);
             if (pre.dodged) {
@@ -2309,6 +2348,10 @@ export function runPetArenaParty(
             let hitActor = actor;
             const lsHeal = petGearLifestealHeal(actor.pet, dmg);
             if (lsHeal > 0) { hitActor = { ...hitActor, hp: Math.min(hitActor.pet.hp, hitActor.hp + lsHeal) }; procNote += ` 🩸 +${lsHeal} HP`; }
+            if (actor.pet.trait === "Hollowborn" && dmg > 0) {
+                const drain = Math.floor(dmg * 0.12);
+                if (drain > 0) hitActor = { ...hitActor, hp: Math.min(hitActor.pet.hp, hitActor.hp + drain) };
+            }
             // Reactive consumable post-hit (thorns / endure / lifeline).
             const post = petReactivePostHit(hitActor, hitTarget, preHitHp, dmg);
             fighters[damageTargetSlot] = post.defender;
@@ -2340,11 +2383,14 @@ export function runPetArenaParty(
 
         // Helper for damage application — mirrors the 1v1 engine path.
         function applyDmg(rawDmg: number, jutsuName: string, kind: "damage" | "basic") {
-            const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
+            const traitDodgeChance = target.pet.trait === "Fateweaver" ? 0.18 : target.pet.trait === "Lucky" ? 0.10 : 0;
+            const luckyDodgeRoll = traitDodgeChance > 0 && rng() < traitDodgeChance;
             if (luckyDodgeRoll) {
-                const msg = `Round ${round}: ${target.pet.name}'s Lucky instinct dodges ${actor.pet.name}'s ${jutsuName}!`;
+                const msg = target.pet.trait === "Fateweaver"
+                    ? `Round ${round}: ${target.pet.name}'s Fateweaver fortune bends ${actor.pet.name}'s ${jutsuName} aside!`
+                    : `Round ${round}: ${target.pet.name}'s Lucky instinct dodges ${actor.pet.name}'s ${jutsuName}!`;
                 logs.push(msg);
-                pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Lucky" }, undefined, undefined, targetSlot!);
+                pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: target.pet.trait === "Fateweaver" ? "Fateweaver" : "Lucky" }, undefined, undefined, targetSlot!);
                 return;
             }
             // Consumable: charged dodge fully negates the attack, then ticks down.
@@ -2367,7 +2413,7 @@ export function runPetArenaParty(
             }
             const crit = rng() < petCritChance(actor, target);
             const variance = petDamageVariance(rng);
-            const dmgBonus = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
+            const dmgBonus = actor.pet.trait === "Battleborn" ? 1.10 : actor.pet.trait === "Hollowborn" ? 1.12 : 1.0;
             const guardianBlock = target.pet.trait === "Guardian" ? 0.85 : 1.0;
             const absorbMult = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
@@ -2390,6 +2436,11 @@ export function runPetArenaParty(
             const post = petReactivePostHit(fighters[actorSlot]!, hitTarget, preHitHp, remainDamage > 0 ? damage : 0);
             fighters[targetSlot!] = post.defender;
             fighters[actorSlot] = post.attacker;
+            if (actor.pet.trait === "Hollowborn" && remainDamage > 0) {
+                const drain = Math.floor(damage * 0.12);
+                const healedActor = fighters[actorSlot]!;
+                if (drain > 0 && healedActor.hp > 0) fighters[actorSlot] = { ...healedActor, hp: Math.min(healedActor.pet.hp, healedActor.hp + drain) };
+            }
             const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
             const consNote = `${mitigateMult < 1 ? ` 💨 ${target.pet.name} blunts the blow!` : ""}${post.note}`;
             const msg = `Round ${round}: ${actor.pet.name} uses ${jutsuName} on ${target.pet.name} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}${consNote}`;
@@ -2398,8 +2449,10 @@ export function runPetArenaParty(
             const traitFlash: PetArenaFrame["traitFlash"] =
                 consFlashKey                               ? { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: consFlashKey } :
                 (crit && actor.pet.trait === "Aggressive") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Aggressive" } :
+                (crit && actor.pet.trait === "Fateweaver") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Fateweaver" } :
                 (guardianBlock < 1)                        ? { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor.pet.trait === "Battleborn") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Battleborn" } :
+                (dmgBonus > 1 && actor.pet.trait === "Hollowborn") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Hollowborn" } :
                 undefined;
             const sigMove: PetArenaFrame["signatureMove"] = (jutsuName === petSignatureJutsu(actor.pet))
                 ? { name: jutsuName, petName: actor.pet.name, side: actorIsPlayer ? "player" : "enemy", flagship: actor.pet.rarity === "mythic" }

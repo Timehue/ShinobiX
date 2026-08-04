@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { withKvLock } from '../_lock.js';
+import { LockContendedError, withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 
 const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
@@ -58,6 +58,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 403 as const, body: { error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.` } };
             }
 
+            if (char.profession === profession) {
+                return {
+                    status: 200 as const,
+                    body: {
+                        ok: true,
+                        profession,
+                        idempotent: true,
+                        ...(Number.isFinite(Number(existing._saveVersion)) ? { _saveVersion: Number(existing._saveVersion) } : {}),
+                    },
+                };
+            }
             if (char.profession) {
                 return { status: 409 as const, body: { error: 'Profession already chosen and cannot be changed.', current: char.profession } };
             }
@@ -88,10 +99,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(Number.isFinite(nextVersion) ? { _saveVersion: nextVersion } : {}),
                 },
             };
-        });
+        }, { failClosed: true });
 
         return res.status(outcome.status).json(outcome.body);
     } catch (err) {
+        if (err instanceof LockContendedError) {
+            return res.status(409).json({ error: 'Profession choice is busy; no change was written. Please retry.' });
+        }
         console.error('[profession/choose]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

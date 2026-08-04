@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { kickPlayer } from '../_realtime/notify.js';
+import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 import {
     type Mode, type LadderEntry, type DefenseDoc, type OfferOpponent,
     petsForMode, DAILY_CHALLENGES, AI_SEED_COUNT, CLIMB_BAND,
@@ -126,6 +127,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const owned = Array.isArray(save?.character?.pets) ? save!.character!.pets! : [];
             const pets = chooseOwnedLadderPets(owned, (body as { petIds?: unknown }).petIds, count);
             if (!pets) return res.status(400).json({ error: count === 1 ? 'Pick a pet you own.' : `Pick ${count} pets you own.` });
+            const breedingParents = activeBreedingParentIds((save?.character ?? {}) as Record<string, unknown>);
+            if (pets.some((pet) => breedingParents.has(String(pet.id ?? '')))) {
+                return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+            }
             const displayName = String(save?.character?.name ?? me).slice(0, 40);
             const village = typeof save?.character?.village === 'string' ? save!.character!.village : undefined;
             // Tactical carries the full pre-match setup: team + opening formation +

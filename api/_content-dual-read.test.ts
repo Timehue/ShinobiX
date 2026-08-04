@@ -62,6 +62,15 @@ describe('published content participates with each catalog’s existing rule', (
         assert.ok(!merged.has('i1'));
     });
 
+    it('items: a tombstone remains authoritative over a stale later source', () => {
+        const merged = buildAdminItemCatalog([
+            { creatorItems: [{ id: 'i1', name: '__ADMIN_DELETED_ITEM__' }] },
+            { creatorItems: [{ id: 'i1', name: 'Stale Resurrection' }] },
+        ]);
+        assert.ok(!merged.has('i1'));
+        assert.ok(merged.deletedIds.has('i1'));
+    });
+
     it('forged gear published by mistake still never enters the shared catalog', () => {
         const forged = 'named-weapon-00000000-0000-4000-8000-00000000cccc';
         const merged = buildAdminItemCatalog([slot1, { creatorItems: [{ id: forged, name: 'Leak' }] }]);

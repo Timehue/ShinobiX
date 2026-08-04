@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DUEL_COVER_NODES, runPetDuelCinematic, runPetPartyDuelCinematic } from "./pet-duel-cinematic";
+import { DUEL_COVER_NODES, petCinematicTraitCombat, runPetDuelCinematic, runPetPartyDuelCinematic } from "./pet-duel-cinematic";
 import { DUEL_TPS } from "./pet-duel-sim";
 import { balanceBuiltInPetTemplate } from "./pet-balance";
 import { rawPetPool } from "../data/pet-pool";
@@ -15,6 +15,21 @@ const mk = (o: Partial<Pet>): Pet => ({
 } as Pet);
 
 const SEEDS = [1, 7, 42, 2024, 99999];
+
+test("cinematic Coliseum exposes the exact Shrine apex combat packages", () => {
+    assert.deepEqual(petCinematicTraitCombat("Fateweaver"), {
+        critBonus: 0.16, dodgeChance: 0.18, damageMult: 1, drainPct: 0, immuneFreezeConfuse: true,
+    });
+    assert.deepEqual(petCinematicTraitCombat("Hollowborn"), {
+        critBonus: 0.16, dodgeChance: 0, damageMult: 1.12, drainPct: 0.12, immuneFreezeConfuse: false,
+    });
+    assert.deepEqual(petCinematicTraitCombat("Boonbringer"), {
+        critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0, immuneFreezeConfuse: false,
+    });
+    assert.deepEqual(petCinematicTraitCombat("Lucky"), {
+        critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0, immuneFreezeConfuse: false,
+    });
+});
 
 test("cinematic 1v1 is deterministic — same pets + seed → byte-identical result", () => {
     for (const seed of SEEDS) {

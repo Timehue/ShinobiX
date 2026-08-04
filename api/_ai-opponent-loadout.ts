@@ -24,7 +24,12 @@
 import { JUTSU_CATALOG } from './pvp/_jutsu-catalog.js';
 import { sanitizeJutsuList } from './pvp/session.js';
 import type { AdminCombatContent } from './_admin-content.js';
-import type { EnemyJutsu } from './_authoritative-pve.js';
+import type { CombatJutsu } from './combat-core/types.js';
+
+/** Runtime-neutral AI jutsu seal. Tower's EnemyJutsu is a structural subset;
+ * solo PvE keeps the additional resolver fields instead of dropping them at a
+ * Tower-specific type boundary. */
+export type AiOpponentJutsu = CombatJutsu & { visualEffect?: string };
 
 /** An AI never fights with more than this many jutsu (the fattest built-in
  *  loadout is 6; the cap only bounds a hand-authored `shared:ai-profiles` entry). */
@@ -33,7 +38,7 @@ export const MAX_AI_LOADOUT_JUTSU = 8;
 /** The fields an EnemyTemplate jutsu carries. `target` / `tags` are included on
  *  purpose: the tower engine reads both (EMPTY_GROUND placement, ground zones,
  *  Push/Pull, every status tag), so omitting them would disarm the AI's kit. */
-function toEnemyJutsu(raw: Record<string, unknown>): EnemyJutsu | null {
+function toEnemyJutsu(raw: Record<string, unknown>): AiOpponentJutsu | null {
     const id = typeof raw.id === 'string' ? raw.id : '';
     if (!id) return null;
     const num = (value: unknown): number | undefined => {
@@ -41,7 +46,7 @@ function toEnemyJutsu(raw: Record<string, unknown>): EnemyJutsu | null {
         return Number.isFinite(n) ? n : undefined;
     };
     const str = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
-    const out: EnemyJutsu = { id };
+    const out: AiOpponentJutsu = { id, name: id, type: 'Ninjutsu' };
     const name = str(raw.name); if (name) out.name = name;
     const type = str(raw.type); if (type) out.type = type;
     const element = str(raw.element); if (element) out.element = element;
@@ -53,6 +58,11 @@ function toEnemyJutsu(raw: Record<string, unknown>): EnemyJutsu | null {
     const chakraCost = num(raw.chakraCost); if (chakraCost !== undefined) out.chakraCost = chakraCost;
     const staminaCost = num(raw.staminaCost); if (staminaCost !== undefined) out.staminaCost = staminaCost;
     const cooldown = num(raw.cooldown); if (cooldown !== undefined) out.cooldown = cooldown;
+    if (typeof raw.isUtility === 'boolean') out.isUtility = raw.isUtility;
+    const bloodlineRank = str(raw.bloodlineRank); if (bloodlineRank) out.bloodlineRank = bloodlineRank;
+    const weatherElement = str(raw.weatherElement); if (weatherElement) out.weatherElement = weatherElement;
+    const battleDescription = str(raw.battleDescription); if (battleDescription) out.battleDescription = battleDescription;
+    const visualEffect = str(raw.visualEffect); if (visualEffect) out.visualEffect = visualEffect;
     if (Array.isArray(raw.tags) && raw.tags.length) out.tags = raw.tags;
     return out;
 }
@@ -65,7 +75,7 @@ function toEnemyJutsu(raw: Record<string, unknown>): EnemyJutsu | null {
 export function resolveAiProfileJutsu(
     jutsuIds: unknown,
     admin: AdminCombatContent | null = null,
-): EnemyJutsu[] {
+): AiOpponentJutsu[] {
     if (!Array.isArray(jutsuIds)) return [];
     const seen = new Set<string>();
     const picked: Record<string, unknown>[] = [];
@@ -84,5 +94,5 @@ export function resolveAiProfileJutsu(
     if (!picked.length) return [];
     return (sanitizeJutsuList(picked) as Record<string, unknown>[])
         .map(toEnemyJutsu)
-        .filter((j): j is EnemyJutsu => j !== null);
+        .filter((j): j is AiOpponentJutsu => j !== null);
 }

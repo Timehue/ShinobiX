@@ -8,7 +8,7 @@
     },
     "scripts": {
         "build:server": "tsc -p tsconfig.cpanel.json",
-        "build:client": "cd shinobij.client && npm ci && npm run build",
+        "build:client": "node scripts/build-client.mjs",
         "build": "npm run build:server && npm run build:client && npm run verify:dist && npm run sizecheck",
         "verify:dist": "node scripts/verify-dist.mjs",
         "start": "node app.js",
@@ -18,6 +18,7 @@
         "test:hollow-gate-soak": "node --import tsx --test api/hollow-gate/_reconnect-soak.test.ts",
         "test:mission-eligibility": "node scripts/check-mission-eligibility.mjs",
         "test:release-assets": "node scripts/check-release-assets.mjs",
+        "test:pet-breeding-odds": "node --import tsx scripts/pet-breeding-odds-audit.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
         "release:health": "node scripts/release-health-check.mjs",
         "beta:report": "node scripts/beta-daily-report.mjs",

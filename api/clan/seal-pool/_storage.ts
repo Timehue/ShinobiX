@@ -14,6 +14,14 @@ export type ClanSealPool = {
     clanName: string;
     balance: number;
     log: ClanSealPoolEntry[];
+    settlementReceipts?: Array<{
+        transactionId: string;
+        fingerprint: string;
+        resource: string;
+        amount: number;
+        appliedAt: number;
+        value?: Record<string, unknown>;
+    }>;
 };
 
 const MAX_LOG_ENTRIES = 50;

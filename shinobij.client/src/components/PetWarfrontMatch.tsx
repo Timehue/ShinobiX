@@ -54,6 +54,7 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { elementVfxKey } from "../lib/pet-battle-anim";
 import { lerp } from "../lib/pet-coliseum-scene";
 import { HOLLOW_HOUND_SURFACE, WARFRONT_MINION_SURFACES } from "../lib/pet-model-surface";
+import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { isPetSfxMuted, playPetSfx, primePetSfx, setPetSfxMuted } from "../lib/pet-sfx";
 import {
     advanceWarfrontMotionFilter,
@@ -206,6 +207,17 @@ const intentLabel = (intent: string) => {
 };
 
 let wfSeq = 0;   // cosmetic FX keys — module-scoped so spawn closures stay ref-free
+
+// Presentation events predate explicit IDs in the deterministic sim. Give
+// them a stable normalization key once they reach the renderer: event time and
+// type describe the domain event, while the occurrence ordinal only disambiguates
+// multiple same-tick events. This is never generated during render and remains
+// stable through replay, restart, and reseed of the same result.
+function warfrontEventKey(event: WarfrontResult["events"][number], occurrence: number): string {
+    const explicit = (event as { id?: unknown }).id;
+    if (typeof explicit === "string" && explicit) return explicit;
+    return `wf-event-${event.t}-${event.type}-${occurrence}`;
+}
 
 const WARDEN_URLS = {
     idle: new URL("../assets/coliseum/warden-idle.webp", import.meta.url).href,
@@ -913,7 +925,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
                         <WfAssetErrorBoundary fallback={<WfPetModelFallback height={h} tint={tint} />} label={`${pet.name} rig`}>
                             <Suspense fallback={<WfPetModelFallback height={h} tint={tint} />}>
                                 <group scale={s}>
-                                    <PetModel3D config={config} frame={modelFrame} element={pet.element} />
+                                    <PetModel3D config={config} frame={modelFrame} element={pet.element} surfaceTreatment={petModelVariantSurface(pet)} />
                                 </group>
                             </Suspense>
                         </WfAssetErrorBoundary>
@@ -3851,7 +3863,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                             return (
                                 <div style={{ margin: "10px auto 0", maxWidth: 620, display: "flex", alignItems: "stretch", justifyContent: "center", gap: 3 }}>
                                     {beats.map(({ event, label }, index) => (
-                                        <div key={`${event.t}-${index}`} style={{ flex: "1 1 0", minWidth: 0, padding: "5px 6px", background: "rgba(8,12,24,0.82)", borderTop: `2px solid ${objectiveEventColor(event)}`, color: "#cbd5e1", textAlign: "left" }}>
+                                        <div key={warfrontEventKey(event, index)} style={{ flex: "1 1 0", minWidth: 0, padding: "5px 6px", background: "rgba(8,12,24,0.82)", borderTop: `2px solid ${objectiveEventColor(event)}`, color: "#cbd5e1", textAlign: "left" }}>
                                             <div style={{ color: objectiveEventColor(event), font: "900 9px Inter, system-ui, sans-serif" }}>{mmss(event.t / WARFRONT_TPS)}</div>
                                             <div style={{ font: "700 9px/1.25 Inter, system-ui, sans-serif" }}>{label}</div>
                                         </div>
@@ -3874,7 +3886,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                                         <span>PET</span><span>LV</span><span>K</span><span>A</span><span>DMG</span><span>🪙</span>
                                     </div>
                                     {rows.map((r) => (
-                                        <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.6fr 0.55fr 0.5fr 0.5fr 0.85fr 0.85fr", gap: 4, font: "700 12px Inter, system-ui, sans-serif", color: r.team === "blue" ? "#93c5fd" : "#fca5a5", padding: "2px" }}>
+                                        <div key={`${r.team}:${r.id}`} style={{ display: "grid", gridTemplateColumns: "1.6fr 0.55fr 0.5fr 0.5fr 0.85fr 0.85fr", gap: 4, font: "700 12px Inter, system-ui, sans-serif", color: r.team === "blue" ? "#93c5fd" : "#fca5a5", padding: "2px" }}>
                                             <span>{r.id === mvp ? "👑 " : ""}{r.name}</span>
                                             <span>★{r.level}</span>
                                             <span>{r.kills}</span>

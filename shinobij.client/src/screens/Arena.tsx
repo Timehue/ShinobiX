@@ -89,6 +89,7 @@ import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { postPlayerChallengeNotice } from "../lib/player-api";
 import { boostAmount } from "../lib/village-upgrades";
@@ -6035,7 +6036,7 @@ export function Arena({
                                     const orbGlowClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
                                     const petImg = petCardImage(pet, sharedImages);
                                     return (
-                                        <div key="pet-actor-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
+                                        <div key="pet-actor-orb" className={`avatar-orb pet-summon-orb${orbGlowClass} ${petVisualVariantClass(pet)}`} style={style as React.CSSProperties}>
                                             <span className="avatar-orb-fallback" style={{ fontSize: ORB * 0.5 }} aria-hidden="true"><GiPawPrint /></span>
                                             {petImg && <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} fetchPriority="high" />}
                                             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}

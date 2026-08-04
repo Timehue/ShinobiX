@@ -1,5 +1,10 @@
 # Concurrency, Locks, and Stale-Write Audit — Phase 0 (2026-07-31)
 
+> **Follow-up status (2026-08-03): F4 is RESOLVED.** Battle start and resolve
+> now serialize on the battle key with fail-closed locks; defeat persistence
+> also takes a fail-closed player-save lock. Concurrent starts retain one
+> authoritative battle, and stale resolution cannot clear a newer battle.
+
 > **P0-5 status (2026-08-01,** branch `refactor/currency-ledger-p0-5`**):**
 > first step taken against **F8** (multi-replica stale-read risk) and **F9**
 > (KV sagas instead of transactions). Player currencies are now projected into
@@ -124,9 +129,9 @@ settle (lease→save).
 - **Travel leases:** atomic (failClosed lease lock), idempotent settle
   (re-checks lease + maturity + `sameLease`), self-heal in `lib/sector-reconcile`.
   Two-tab safe (`world:travel-lease:` on the storage no-cache list, `_storage.ts:43`). VERIFIED.
-- **Battle lock (screen guard):** `start` is get-then-set **without a lock**
-  (`battle/lock.ts:116-128`) — concurrent starts race, last write wins; defeat
-  write is fail-open (`:160`). State-only, not currency. **F4 (low, VERIFIED).**
+- **Battle lock (screen guard):** start and resolve serialize on the battle
+  key with fail-closed locks; defeat persistence also locks `save:<player>`.
+  Lock contention returns a retryable 503. **F4 (low, FIXED 2026-08-03).**
 - **PvP settlement:** per-battle NX receipt + sorted lock chain, failClosed;
   receipts placed inside the lock — retry-safe, idempotent. VERIFIED.
 - **Shops/crafting:** `mutatePlayerSave` + replay receipts
@@ -179,7 +184,7 @@ strict mode (see combat-authority audit).
 | F1 | Low | INFERRED | AB/BA lock-order inconsistency (sorted vs clan-first sites) — transient 503s, never hard deadlock |
 | F2 | Info | VERIFIED | `seal-pool/donate` nests save→pool against convention; safe today, fragile |
 | F3 | Info | VERIFIED | Travel-lease self-contention known and tuned |
-| F4 | Low | VERIFIED | `battle/lock.ts` start unlocked get-then-set; defeat write fail-open (state-only) |
+| F4 | Low | **FIXED 2026-08-03** | Battle start/resolve and defeat persistence now use fail-closed locks; concurrency and stale-resolve regressions are covered by tests |
 | F5 | Low | VERIFIED | `world-state.ts:1011` fail-open deduct in a dead branch |
 | F6 | Minor | INFERRED | Version guard is `<` not `!==` — inflated echo passes (content still sanitized) |
 | F7 | Accepted | VERIFIED | Two documented fail-open credits after consumed debit/marker |
