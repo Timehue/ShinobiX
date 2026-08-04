@@ -13,18 +13,18 @@ import {
     villageStateKey,
     villageSlug,
     type InfilRun,
+    type InfilKv,
+    type InfilLock,
 } from './_anbu-infiltration-store.js';
 import { villageWarKey } from './_war-state.js';
 import { clanPointWeekKey } from './_clan-points.js';
 import { CACHE_ITEM_IDS, RAID_RYO_REWARD, type DailyLossLedger } from './_anbu-infiltration.js';
-import type { TowerKv, TowerLock } from './towers/_tower-store.js';
-import type { TowerSession } from './towers/_tower-session.js';
 
 const NOW = Date.UTC(2026, 6, 10, 12, 0, 0);
 const TODAY = '2026-07-10';
 const now = () => NOW;
 
-function fakeKv(): TowerKv & { store: Map<string, unknown> } {
+function fakeKv(): InfilKv & { store: Map<string, unknown> } {
     const store = new Map<string, unknown>();
     return {
         store,
@@ -38,13 +38,13 @@ function fakeKv(): TowerKv & { store: Map<string, unknown> } {
         async incr(key: string) { const v = (Number(store.get(key)) || 0) + 1; store.set(key, v); return v; },
     };
 }
-const passLock: TowerLock = async (_t, fn) => fn();
+const passLock: InfilLock = async (_t, fn) => fn();
 
 const SECTOR = 12;
 const VILLAGE = 'Frostfang Village';
 const TERRITORY_KEY = `world:territory:${SECTOR}`;
 
-function deps(kv: TowerKv) { return { kv, lock: passLock, now }; }
+function deps(kv: InfilKv) { return { kv, lock: passLock, now }; }
 
 function seedTerritory(kv: ReturnType<typeof fakeKv>, over: Record<string, unknown> = {}) {
     kv.store.set(TERRITORY_KEY, {
@@ -69,7 +69,6 @@ function makeRun(over: Partial<InfilRun> = {}): InfilRun {
     return {
         runId: 'r1', raiderSlug: 'raider', sector: SECTOR, targetVillage: VILLAGE,
         anbuSlug: 'anbu-one', anbuName: 'Anbu One', terrain: 'snow',
-        session: { status: 'done', winner: 'squad' } as TowerSession,
         createdAt: NOW,
     ...over };
 }

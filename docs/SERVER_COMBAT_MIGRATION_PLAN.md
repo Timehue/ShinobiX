@@ -2,7 +2,7 @@
 
 ## Current authority boundary
 
-PvP (`api/pvp/*`) remains the human-vs-human rules source. Battle Towers (`api/towers/*`) own true party/tower encounters. One-human/one-AI fights—including missions, story, Academy, Hollow Gate, Endless, and Weekly Boss—run on the independent server-owned Solo PvE runtime. The client Arena remains only for non-authoritative tutorial/cosmetic fallbacks while those last surfaces are retired.
+PvP (`api/pvp/*`) remains the human-vs-human rules source. Battle Towers (`api/towers/*`) own true party/tower encounters. One-human/one-AI fights—including missions, story, Academy, Hollow Gate, Endless, Weekly Boss, and Anbu infiltration—run on the independent server-owned Solo PvE runtime. Anbu uses one live raider against an AI-controlled daily snapshot; its shared-vault economy stays on the mode route while combat actions use the generic Solo PvE route.
 
 The shared binding is `api/missions/_authoritative-combat-session.ts`. It seals player, mission, enemy profile, reward fingerprint, run ID, expiry, and settlement state, then validates a completed winning Tower session. Its hostile tests cover wrong player, mission, run, membership, expiry, incomplete/lost sessions, reward drift, and replay.
 
