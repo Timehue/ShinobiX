@@ -167,7 +167,7 @@ describe('summoned companion (mission pet)', () => {
     it('uses the pet NICKNAME on the field, and seals its PVE gear', () => {
         const pets = [{
             id: 'b', name: 'Wolf Pup', nickname: '  Fang  ', hp: 50, attack: 8,
-            loadout: { pve: 'pve-pack-alpha-crest' },
+            loadout: { pve: 'pve-pack-alpha-crest', pveDurability: 10 },
         }];
         const sealed = sealCompanionFromSave({ pets, activePetId: 'b' });
         assert.equal(sealed?.name, 'Fang', 'a renamed pet shows its nickname, not the species name');

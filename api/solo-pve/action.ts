@@ -14,7 +14,7 @@ function parseAction(body: Record<string, unknown>): SoloPveAction | null {
     if ((type === 'weapon' || type === 'item') && typeof body.itemId === 'string' && body.itemId) {
         return { type, itemId: body.itemId.slice(0, 128) };
     }
-    if (type === 'basicAttack' || type === 'basicHeal' || type === 'clear' || type === 'cleanse' || type === 'wait' || type === 'flee') {
+    if (type === 'basicAttack' || type === 'basicHeal' || type === 'clear' || type === 'cleanse' || type === 'summon' || type === 'wait' || type === 'flee') {
         return { type };
     }
     return null;

@@ -40,6 +40,7 @@ export type SoloPveGroundEffect = {
 export type SoloPveEventSnapshot = {
     player: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
     enemy: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    companion?: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'> & { roundsLeft: number; cooldowns: Record<string, number> };
     ap: { player: number; enemy: number };
     cooldowns: { player: Record<string, number>; enemy: Record<string, number> };
     groundEffects: SoloPveGroundEffect[];
@@ -51,9 +52,9 @@ export type SoloPveCombatEvent = {
     kind: 'action';
     seq: number;
     round: number;
-    actor: 'player' | 'enemy';
-    target: 'player' | 'enemy' | 'tile' | null;
-    action: SoloPveActionInput['type'];
+    actor: 'player' | 'enemy' | 'companion';
+    target: 'player' | 'enemy' | 'companion' | 'tile' | null;
+    action: SoloPveActionInput['type'] | 'companionMove' | 'companionWait';
     actionId?: string;
     actionName?: string;
     tile?: number;
@@ -62,7 +63,7 @@ export type SoloPveCombatEvent = {
     log: string[];
     vfx: Array<{
         key: string;
-        target: 'player' | 'enemy' | 'tile' | 'area';
+        target: 'player' | 'enemy' | 'companion' | 'tile' | 'area';
         anchor: 'caster' | 'target' | 'tile' | 'area';
         tiles?: number[];
         persistent?: boolean;
@@ -103,6 +104,28 @@ export type SoloPveSession = {
     actionsThisTurn: number;
     cooldowns: { player: Record<string, number>; enemy: Record<string, number> };
     groundEffects: SoloPveGroundEffect[];
+    pendingCompanion?: {
+        petId: string;
+        name: string;
+        hp: number;
+        damage: number;
+        happiness: number;
+        loyal: boolean;
+        moves: Array<{ name: string; kind: string; power: number; cooldown: number; rounds: number; signature: boolean }>;
+        pveGearId: string;
+        consumableId?: string;
+    };
+    companion?: SoloPveFighter & {
+        petId: string;
+        baseDamage: number;
+        happiness: number;
+        loyal: boolean;
+        moves: Array<{ name: string; kind: string; power: number; cooldown: number; rounds: number; signature: boolean }>;
+        cooldowns: Record<string, number>;
+        roundsLeft: number;
+        pveGearId: string;
+    };
+    companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
     itemCharges: Record<string, number>;
     itemsUsed: Record<string, number>;
     environment: {
@@ -123,6 +146,7 @@ export type SoloPveSession = {
         winner: 'player' | 'enemy' | 'draw';
         outcome: 'win' | 'loss' | 'fled' | 'draw';
         itemsUsed: Record<string, number>;
+        companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
         settlementState: 'pending' | 'settled';
         receipt?: { kind: string; id: string; settledAt: number; rewards?: Record<string, number | string | boolean | null> };
     };
@@ -147,6 +171,7 @@ export type SoloPveActionInput =
     | { type: 'jutsu'; jutsuId: string; tile?: number }
     | { type: 'weapon'; itemId: string }
     | { type: 'item'; itemId: string }
+    | { type: 'summon' }
     | { type: 'wait' }
     | { type: 'flee' };
 
