@@ -96,6 +96,13 @@ const PUBLIC_AUTHORING_PREFIXES = [
     'pet-models/roster-concepts',
     'pet-models/roster-references',
 ] as const;
+const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
+    'pet-models/mythic-10.glb',
+    'pet-models/mythic-11.glb',
+    'pet-models/mythic-12.glb',
+    'pet-models/mythic-13.glb',
+    'pet-models/mythic-14.glb',
+]);
 
 /**
  * Vite's default public copy is all-or-nothing. The pet pipeline intentionally
@@ -107,7 +114,20 @@ const PUBLIC_AUTHORING_PREFIXES = [
 function runtimePublicAssetsPlugin() {
     const isRuntimePath = (sourcePath: string) => {
         const relative = path.relative(PUBLIC_ROOT, sourcePath).replace(/\\/g, '/');
-        return !PUBLIC_AUTHORING_PREFIXES.some((prefix) => relative === prefix || relative.startsWith(`${prefix}/`));
+        return !PUBLIC_LOCAL_ONLY_ASSETS.has(relative)
+            && !PUBLIC_AUTHORING_PREFIXES.some((prefix) => relative === prefix || relative.startsWith(`${prefix}/`));
+    };
+    const mergeRuntimePath = (sourcePath: string, destinationPath: string) => {
+        if (!isRuntimePath(sourcePath)) return;
+        const stat = fs.statSync(sourcePath);
+        if (stat.isDirectory()) {
+            fs.mkdirSync(destinationPath, { recursive: true });
+            for (const entry of fs.readdirSync(sourcePath)) {
+                mergeRuntimePath(path.join(sourcePath, entry), path.join(destinationPath, entry));
+            }
+            return;
+        }
+        fs.copyFileSync(sourcePath, destinationPath);
     };
     return {
         name: 'runtime-public-assets',
@@ -119,11 +139,7 @@ function runtimePublicAssetsPlugin() {
                 const sourcePath = path.join(PUBLIC_ROOT, entry.name);
                 const destinationPath = path.join(outputRoot, entry.name);
                 if (!isRuntimePath(sourcePath)) continue;
-                fs.cpSync(sourcePath, destinationPath, {
-                    recursive: entry.isDirectory(),
-                    force: true,
-                    filter: isRuntimePath,
-                });
+                mergeRuntimePath(sourcePath, destinationPath);
             }
         },
     };
