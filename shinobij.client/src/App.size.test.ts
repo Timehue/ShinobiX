@@ -180,7 +180,7 @@ import { readFileSync } from "node:fs";
 // → 7,734 (net −20: the AI-fight host mount (+2 WIRING — the import and the one
 // <AiFightHost> line; the host, the launch bus, the start/report wrappers and the
 // settle live in components/AiFightHost.tsx + lib/ai-fight-{request,api,loadout,
-// settle}.ts) paid for by draining scaleEndlessAiClone + the pure half of
+// settle}.ts) paid for by draining the retired local Endless authority + the pure half of
 // pickRandomEndlessAi → lib/endless-tower (−22). App keeps only the App-local
 // setTemporaryStoryAi registration.)
 const MAX_LINES = 7_727;
