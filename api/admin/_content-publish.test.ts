@@ -49,6 +49,16 @@ describe('content-publish endpoint contract', () => {
         assert.ok(matches.length >= 2, 'forged gear must be stripped on both the canonical write and the slot mirror');
     });
 
+    it('validates creator AI programs before the first field can publish', () => {
+        const validationIdx = src.indexOf("requested.includes('creatorAis')");
+        const publishIdx = src.indexOf('for (const field of requested)');
+        assert.ok(validationIdx > 0 && validationIdx < publishIdx, 'AI validation must be atomic across a multi-field publish');
+        assert.match(src, /INVALID_AI_PROGRAM/);
+        assert.match(src, /validateCreatorAiPrograms\(rawFields\.creatorAis, knownJutsuIds\)/);
+        assert.match(src, /Object\.keys\(JUTSU_CATALOG\)/, 'built-in jutsu references are recognized');
+        assert.match(src, /loadAdminCombatContent\(\)/, 'published admin jutsu references are recognized');
+    });
+
     it('mirrors to the admin slot under the save lock, versioned', () => {
         assert.match(src, /withKvLock\(saveKey,/);
         assert.match(src, /bumpSaveVersion\(\{ \.\.\.existing, \.\.\.patch \}\)/);

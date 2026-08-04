@@ -19,12 +19,11 @@
  *   • Run to regenerate:  node --import tsx scripts/ai-profile-catalog-gen.mjs
  *   • Drift-guarded by:   scripts/ai-profile-catalog.test.mjs (part of `npm test`)
  *
- * `rules` is deliberately DROPPED. It is the client rule-engine program, its
- * `id`s are freshly-minted UUIDs on every import (so mirroring it would make the
- * drift test fail at random), and server-authoritative fights run the tower
- * engine's own AI (api/towers/_engine.ts runAiUntilHuman) rather than the client
- * rule engine. `icon` / `image` / `village` / `armorFactor` are dropped too —
- * cosmetics and a client-only derived field the combat math never reads.
+ * Rule programs are mirrored for server-authoritative Solo PvE, but their
+ * editor-only `id`s are dropped because they are freshly minted on import.
+ * The stable behavioral fields are validated again when an encounter seals.
+ * `icon` / `image` / `village` / `armorFactor` remain omitted because they are
+ * cosmetic or client-derived fields the combat math never reads.
  *
  * Lives in scripts/ (excluded from BOTH build roots) so importing the client
  * data here never pulls client files into the server dist.
@@ -62,6 +61,17 @@ function pickCombatFields(ai) {
         stats,
         armorRawDR: Number(ai.armorRawDR ?? 0),
         jutsuIds: [...(ai.jutsuIds ?? [])],
+        rules: (ai.rules ?? []).map((rule) => ({
+            condition: rule.condition,
+            value: Number(rule.value),
+            action: rule.action,
+            ...(rule.jutsuId ? { jutsuId: rule.jutsuId } : {}),
+            ...(rule.target ? { target: rule.target } : {}),
+            ...(rule.resource ? { resource: rule.resource } : {}),
+            ...(rule.status ? { status: rule.status } : {}),
+            ...(rule.pattern ? { pattern: rule.pattern } : {}),
+            ...(rule.state ? { state: rule.state } : {}),
+        })),
     };
     if (ai.loadoutId) out.loadoutId = ai.loadoutId;
     if (ai.isBossAi) out.isBossAi = true;
@@ -98,9 +108,9 @@ function render(catalog) {
  * Kept in lock-step with the client by scripts/ai-profile-catalog.test.mjs
  * (runs in \`npm test\`).
  *
- * NOT mirrored: \`rules\` (client rule-engine program with random ids; the tower
- * engine runs its own AI), \`icon\`/\`image\`/\`village\` (cosmetic) and
- * \`armorFactor\` (client-derived from armorRawDR).
+ * Rule behavior is mirrored without editor-only random \`rules[].id\` values.
+ * NOT mirrored: \`icon\`/\`image\`/\`village\` (cosmetic) and \`armorFactor\`
+ * (client-derived from armorRawDR).
  */
 
 export type CatalogAiProfile = {
@@ -113,6 +123,17 @@ export type CatalogAiProfile = {
     stats: Record<string, number>;
     armorRawDR: number;
     jutsuIds: string[];
+    rules: Array<{
+        condition: string;
+        value: number;
+        action: string;
+        jutsuId?: string;
+        target?: string;
+        resource?: string;
+        status?: string;
+        pattern?: string;
+        state?: string;
+    }>;
     loadoutId?: string;
     isBossAi?: boolean;
     masterAi?: boolean;

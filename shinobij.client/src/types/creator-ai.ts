@@ -24,18 +24,43 @@ export type AiCondition =
     | "player_has_shield"
     | "player_has_buff"
     | "player_low_ap"
-    | "self_has_debuff";
+    | "self_has_debuff"
+    | "self_resource_lower_than"
+    | "player_resource_lower_than"
+    | "self_status_present"
+    | "self_status_absent"
+    | "player_status_present"
+    | "player_status_absent"
+    | "cooldown_ready"
+    | "cooldown_active"
+    | "player_recent_action"
+    | "ally_count_lower_than"
+    | "objective_state"
+    | "threat_higher_than";
 // Actions a matched rule can take. The reactive set (clear_player_buffs /
 // cleanse_self / defend) is gated by band competence (pveAiCompetence) so only
 // medium+ enemies actually counter-play; lower bands ignore them.
 export type AiAction =
     | "use_specific_jutsu"
     | "use_highest_power_jutsu"
+    | "use_best_legal_jutsu"
     | "move_towards_opponent"
+    | "use_movement_jutsu"
     | "use_basic_attack"
+    | "heal"
+    | "buff"
     | "clear_player_buffs"
     | "cleanse_self"
-    | "defend";
+    | "defend"
+    | "summon_add"
+    | "hold_objective"
+    | "end_turn";
+export type AiTarget =
+    | "self" | "opponent" | "nearest" | "farthest" | "lowest_hp"
+    | "highest_threat" | "support_role" | "most_buffed" | "most_debuffed"
+    | "isolated" | "empty_ground_near_target" | "safe_ground" | "objective_tile";
+export type AiResource = "chakra" | "stamina" | "ap";
+export type AiRecentAction = "any_jutsu" | "basic_attack" | "move" | "heal" | "item" | "defend" | "summon" | "flee" | "wait";
 export type AiLoadoutId = "balanced" | "control" | "burst" | "bruiser" | "defender" | "hunter" | "boss";
 
 export type AiRule = {
@@ -44,6 +69,11 @@ export type AiRule = {
     value: number;
     action: AiAction;
     jutsuId?: string;
+    target?: AiTarget;
+    resource?: AiResource;
+    status?: string;
+    pattern?: AiRecentAction;
+    state?: string;
 };
 
 export type CreatorAi = {
