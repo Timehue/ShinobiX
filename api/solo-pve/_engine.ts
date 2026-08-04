@@ -2,6 +2,19 @@ import { COMBAT_RESOURCES_V2, v2PoisonOnSpend, v2ResourceRegen } from '../_comba
 import { pveAiCompetence, pveEasyBandAllowsLethal, pveEasyBandHoldsBurst, pveGuardedEnemyHit } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { MAX_ACTIONS, MAX_ROUNDS, GRID_H, GRID_W, SPIRAL_RADIUS } from '../combat-core/constants.js';
+import {
+    COMPANION_FIELD_ROUNDS,
+    COMPANION_MAX_DAMAGE_FRAC,
+    COMPANION_RANGE,
+    companionGearDamageMult,
+    companionHealOnSummonPct,
+    companionConsumableHealPct,
+    companionMoveDamage,
+    companionObeys,
+    companionOwnerLifestealPct,
+    pickCompanionMove,
+    type CompanionMove,
+} from '../combat-core/companion.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
@@ -24,6 +37,7 @@ import {
     type SoloPveAction,
     type SoloPveActionResult,
     type SoloPveCombatEvent,
+    type SoloPveCompanion,
     type SoloPveEventSnapshot,
     type SoloPveItem,
     type SoloPveJutsu,
@@ -82,6 +96,11 @@ function eventSnapshot(session: SoloPveSession): SoloPveEventSnapshot {
     return {
         player: fighterEventState(session.player),
         enemy: fighterEventState(session.enemy),
+        ...(session.companion ? { companion: {
+            ...fighterEventState(session.companion),
+            roundsLeft: session.companion.roundsLeft,
+            cooldowns: { ...session.companion.cooldowns },
+        } } : {}),
         ap: { ...session.ap },
         cooldowns: structuredClone(session.cooldowns),
         groundEffects: structuredClone(session.groundEffects),
@@ -99,6 +118,7 @@ function actionIdentity(session: SoloPveSession, side: SoloPveSide, action: Solo
         const item = equippedItem(fighter(session, side), action.itemId);
         return { actionId: action.itemId, actionName: item?.name };
     }
+    if (action.type === 'summon') return { actionId: session.pendingCompanion?.petId, actionName: session.pendingCompanion?.name };
     return { actionId: action.type, actionName: action.type };
 }
 
@@ -110,7 +130,7 @@ function eventTarget(session: SoloPveSession, side: SoloPveSide, action: SoloPve
         if (jutsu?.target === 'SELF') return side;
         return otherSide(side);
     }
-    if (action.type === 'basicHeal' || action.type === 'cleanse' || action.type === 'item' || action.type === 'flee') return side;
+    if (action.type === 'basicHeal' || action.type === 'cleanse' || action.type === 'item' || action.type === 'summon' || action.type === 'flee') return side;
     if (action.type === 'wait') return null;
     return otherSide(side);
 }
@@ -134,6 +154,7 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
     if (action.type === 'clear' || action.type === 'cleanse') return [{ key: 'cleanse', target: action.type === 'cleanse' ? side : otherSide(side), anchor: 'target' }];
     if (action.type === 'weapon') return [{ key: 'weapon', target: otherSide(side), anchor: 'target' }];
     if (action.type === 'item') return [{ key: 'item', target: side, anchor: 'caster' }];
+    if (action.type === 'summon') return [{ key: 'summon', target: side, anchor: 'caster' }];
     if (action.type !== 'jutsu') return [];
     const jutsu = jutsuList(fighter(session, side)).find((entry) => entry.id === action.jutsuId);
     if (!jutsu) return [];
@@ -174,7 +195,9 @@ function barrierTiles(session: SoloPveSession): number[] {
 }
 
 function tileBlocked(session: SoloPveSession, tile: number): boolean {
-    return session.environment.blockedTiles.includes(tile) || barrierTiles(session).includes(tile);
+    return session.environment.blockedTiles.includes(tile)
+        || barrierTiles(session).includes(tile)
+        || session.companion?.pos === tile;
 }
 
 function validOpenTile(session: SoloPveSession, side: SoloPveSide, tile: number, range: number, allowCurrent = false): boolean {
@@ -288,6 +311,207 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
         session.difficultyGuard.dealtThisTurn = 0;
     }
     checkWinner(session);
+}
+
+function companionRoll(session: SoloPveSession): number {
+    let hash = 2166136261;
+    const input = `${session.sessionId}:${session.round}:${session.eventSeq}:${session.companion?.petId ?? ''}`;
+    for (let index = 0; index < input.length; index++) {
+        hash ^= input.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 0x1_0000_0000;
+}
+
+function addCompanionStatus(value: PvpFighter, status: PvpFighter['statuses'][number]): void {
+    value.statuses = addCombatStatus(value.statuses, status, { isStackable: (name) => STACKABLE_STATUS.has(name) });
+}
+
+function appendCompanionEvent(
+    session: SoloPveSession,
+    before: SoloPveEventSnapshot,
+    logStart: number,
+    action: 'companionMove' | 'companionWait',
+    actionName: string,
+    target: 'companion' | 'enemy' | 'tile' | null,
+    tile?: number,
+): void {
+    const event: SoloPveCombatEvent = {
+        kind: 'action',
+        seq: session.eventSeq + 1,
+        round: session.round,
+        actor: 'companion',
+        target,
+        action,
+        actionId: actionName,
+        actionName,
+        ...(tile === undefined ? {} : { tile }),
+        before,
+        after: eventSnapshot(session),
+        log: session.log.slice(logStart),
+        vfx: [{
+            key: target === 'companion' ? 'buff' : target === 'tile' ? 'move' : 'impact',
+            target: target ?? 'companion',
+            anchor: target === 'tile' ? 'tile' : target === 'companion' ? 'caster' : 'target',
+            ...(tile === undefined ? {} : { tiles: [tile] }),
+        }],
+        status: session.status,
+        winner: session.winner,
+        outcome: session.outcome,
+    };
+    session.eventSeq = event.seq;
+    session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
+}
+
+function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): number {
+    const inc = activeStatuses(companion, session.round)
+        .filter((status) => status.name === 'Increase Damage Given')
+        .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
+    const enemyHpPct = session.enemy.hp / Math.max(1, session.enemy.maxHp) * 100;
+    const ownerHpPct = session.player.hp / Math.max(1, session.player.maxHp) * 100;
+    const raw = companionMoveDamage(companion.baseDamage, move)
+        * (1 + Math.min(60, inc) / 100)
+        * companionGearDamageMult(companion.pveGearId, enemyHpPct, ownerHpPct);
+    if (raw <= 0) return 0;
+    const cap = Math.max(1, Math.floor(session.enemy.maxHp * COMPANION_MAX_DAMAGE_FRAC));
+    const dealt = Math.max(0, Math.min(Math.floor(raw), cap));
+    session.enemy.hp = Math.max(0, session.enemy.hp - dealt);
+    const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
+    if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
+        const heal = Math.max(1, Math.floor(dealt * lifestealPct / 100));
+        session.player.hp = Math.min(session.player.maxHp, session.player.hp + heal);
+        session.log.push(`${session.player.name} draws ${heal} HP from ${companion.name}'s strike.`);
+    }
+    return dealt;
+}
+
+function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): void {
+    if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
+    const rounds = move?.rounds ?? 2;
+    const kind = move?.kind ?? 'damage';
+    const label = move ? ` uses ${move.name}` : ' strikes';
+    if (kind === 'heal') {
+        const heal = Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
+        companion.hp = Math.min(companion.maxHp, companion.hp + heal);
+        session.log.push(`${companion.name}${label} and recovers ${heal} HP.`);
+        return;
+    }
+    if (kind === 'shield' || kind === 'barrier') {
+        const amount = Math.max(1, Math.floor(companion.maxHp * 0.2));
+        companion.shield += amount;
+        session.log.push(`${companion.name}${label} and raises a ${amount} HP shield.`);
+        return;
+    }
+    if (kind === 'buff' || kind === 'haste' || kind === 'absorb' || kind === 'taunt') {
+        const status = kind === 'absorb' ? 'Absorb' : kind === 'taunt' ? 'Decrease Damage Taken' : 'Increase Damage Given';
+        addCompanionStatus(companion, { name: status, rounds, percent: kind === 'absorb' ? 30 : 25, kind: 'positive' });
+        session.log.push(`${companion.name}${label} and steels itself.`);
+        return;
+    }
+    const dealt = companionDealDamage(session, companion, move);
+    session.log.push(`${companion.name}${label} -> ${session.enemy.name} for ${dealt}.`);
+    switch (kind) {
+        case 'stun': case 'freeze': case 'movelock':
+            addCompanionStatus(session.enemy, { name: 'Stun', rounds: 1, kind: 'negative' }); break;
+        case 'wound':
+            addCompanionStatus(session.enemy, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' }); break;
+        case 'dot': case 'burn':
+            addCompanionStatus(session.enemy, { name: 'Poison', rounds, percent: 8, kind: 'negative' });
+            if (kind === 'burn') addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' });
+            break;
+        case 'crush': case 'confuse': case 'debuff': case 'slow':
+            addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: kind === 'confuse' ? 40 : 25, kind: 'negative' }); break;
+        case 'mark':
+            addCompanionStatus(session.enemy, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' }); break;
+        case 'lifesteal':
+            if (dealt > 0) companion.hp = Math.min(companion.maxHp, companion.hp + Math.max(1, Math.floor(dealt * 0.5)));
+            break;
+        case 'push': {
+            const choices = hexNeighbors(session.enemy.pos)
+                .filter((tile) => tile !== companion.pos && tile !== session.player.pos && !tileBlocked(session, tile))
+                .sort((a, b) => hexDistance(b, companion.pos) - hexDistance(a, companion.pos) || a - b);
+            if (choices[0] !== undefined) session.enemy.pos = choices[0];
+            break;
+        }
+        case 'pull': {
+            const choices = hexNeighbors(session.enemy.pos)
+                .filter((tile) => tile !== companion.pos && tile !== session.player.pos && !tileBlocked(session, tile))
+                .sort((a, b) => hexDistance(a, companion.pos) - hexDistance(b, companion.pos) || a - b);
+            if (choices[0] !== undefined && hexDistance(choices[0], companion.pos) < hexDistance(session.enemy.pos, companion.pos)) session.enemy.pos = choices[0];
+            break;
+        }
+        default: break;
+    }
+    checkWinner(session);
+}
+
+function runSoloPveCompanionPhase(session: SoloPveSession): void {
+    const companion = session.companion;
+    if (!companion || companion.hp <= 0 || session.status !== 'active') return;
+    const effectsBefore = eventSnapshot(session);
+    const effectsLogStart = session.log.length;
+    for (const effect of session.groundEffects) {
+        if (effect.owner !== 'p2' || !effect.tiles.includes(companion.pos)) continue;
+        const applied = applyGroundEffectToFighter(companion, effect, session.round);
+        session.companion = Object.assign(companion, applied.fighter);
+        session.log.push(...applied.lines);
+    }
+    const dots = applyDoTs(companion, session.round);
+    session.companion = Object.assign(companion, dots.fighter);
+    session.log.push(...dots.lines);
+    if (session.log.length > effectsLogStart || companion.hp <= 0) {
+        if (companion.hp <= 0) session.log.push(`${companion.name} is knocked out. The fight continues.`);
+        appendCompanionEvent(session, effectsBefore, effectsLogStart, 'companionWait', 'Ongoing Effects', 'companion');
+        if (companion.hp <= 0) {
+            session.companion = undefined;
+            return;
+        }
+    }
+    if (!companionObeys(companion.happiness, companion.loyal, companionRoll(session))) {
+        const before = eventSnapshot(session);
+        const logStart = session.log.length;
+        session.log.push(`${companion.name} ignores your command and holds its position.`);
+        appendCompanionEvent(session, before, logStart, 'companionWait', 'Disobey', null);
+    } else {
+        let ap = 100;
+        let actions = 0;
+        while (ap >= MOVE_AP && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
+            const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp));
+            const selfCast = !!move && companionMoveDamage(1, move) === 0;
+            if (!selfCast && hexDistance(companion.pos, session.enemy.pos) > COMPANION_RANGE) {
+                const candidates = hexNeighbors(companion.pos)
+                    .filter((tile) => tile !== session.player.pos && tile !== session.enemy.pos && !tileBlocked(session, tile))
+                    .sort((a, b) => hexDistance(a, session.enemy.pos) - hexDistance(b, session.enemy.pos) || a - b);
+                const tile = candidates.find((candidate) => hexDistance(candidate, session.enemy.pos) < hexDistance(companion.pos, session.enemy.pos));
+                if (tile === undefined) break;
+                const before = eventSnapshot(session);
+                const logStart = session.log.length;
+                companion.pos = tile;
+                session.log.push(`${companion.name} closes in on ${session.enemy.name}.`);
+                ap -= MOVE_AP;
+                actions += 1;
+                appendCompanionEvent(session, before, logStart, 'companionMove', 'Move', 'tile', tile);
+                continue;
+            }
+            if (ap < BASIC_ATTACK_AP) break;
+            const before = eventSnapshot(session);
+            const logStart = session.log.length;
+            companionCast(session, companion, move);
+            ap -= BASIC_ATTACK_AP;
+            actions += 1;
+            appendCompanionEvent(session, before, logStart, 'companionMove', move?.name ?? 'Basic Strike', move && companionMoveDamage(1, move) === 0 ? 'companion' : 'enemy');
+        }
+    }
+    const phaseEndBefore = eventSnapshot(session);
+    const phaseEndLogStart = session.log.length;
+    companion.statuses = tickStatuses(companion, session.round).statuses;
+    companion.cooldowns = tickCombatCooldowns(companion.cooldowns);
+    companion.roundsLeft -= 1;
+    if (companion.roundsLeft <= 0 || companion.hp <= 0) {
+        session.log.push(`${companion.name} returns to its scroll.`);
+        session.companion = undefined;
+    }
+    appendCompanionEvent(session, phaseEndBefore, phaseEndLogStart, 'companionWait', 'Phase End', 'companion');
 }
 
 export function endSoloPveTurn(session: SoloPveSession): void {
@@ -517,6 +741,50 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
     if (session.status !== 'active') return { applied: false, reason: 'session-done' };
     if (session.activeSide !== side) return { applied: false, reason: 'not-your-turn' };
 
+    if (action.type === 'summon') {
+        if (side !== 'player') return { applied: false, reason: 'enemy-cannot-summon' };
+        const seal = session.pendingCompanion;
+        if (!seal) return { applied: false, reason: session.companion ? 'already-summoned' : 'no-companion' };
+        const spot = hexNeighbors(self.pos)
+            .sort((a, b) => a - b)
+            .find((tile) => tile !== opponent.pos && !tileBlocked(session, tile));
+        if (spot === undefined) return { applied: false, reason: 'no-space' };
+        session.companion = {
+            name: seal.name,
+            hp: seal.hp,
+            maxHp: seal.hp,
+            chakra: 999,
+            maxChakra: 999,
+            stamina: 999,
+            maxStamina: 999,
+            shield: 0,
+            statuses: [],
+            character: { companion: true, visual: seal.petId, specialty: 'Taijutsu', level: 1, stats: {} },
+            pos: spot,
+            petId: seal.petId,
+            baseDamage: seal.damage,
+            happiness: seal.happiness,
+            loyal: seal.loyal,
+            moves: structuredClone(seal.moves),
+            cooldowns: {},
+            roundsLeft: COMPANION_FIELD_ROUNDS,
+            pveGearId: seal.pveGearId,
+        };
+        session.pendingCompanion = undefined;
+        session.companionUsage = {
+            petId: seal.petId,
+            ...(seal.pveGearId ? { pveGearId: seal.pveGearId } : {}),
+            ...(seal.consumableId ? { consumableId: seal.consumableId } : {}),
+        };
+        session.log.push(`${self.name} summons ${seal.name}!`);
+        const healPct = companionHealOnSummonPct(seal.pveGearId) + companionConsumableHealPct(seal.consumableId);
+        if (healPct > 0) {
+            const heal = Math.max(1, Math.floor(self.maxHp * healPct / 100));
+            setFighter(session, side, { ...self, hp: Math.min(self.maxHp, self.hp + heal) });
+            session.log.push(`${seal.name}'s bond restores ${heal} HP to ${self.name}.`);
+        }
+        return { applied: true };
+    }
     if (action.type === 'wait') {
         session.log.push(`${self.name} ends the turn.`);
         endSoloPveTurn(session);
@@ -865,9 +1133,81 @@ function moveEnemyTowardPlayer(session: SoloPveSession): boolean {
     return directAction(session, 'enemy', { type: 'move', tile }, {}).applied;
 }
 
+function enemyTargetsCompanion(session: SoloPveSession): boolean {
+    const companion = session.companion;
+    if (!companion || companion.hp <= 0) return false;
+    let weight = 0.32;
+    if (hexDistance(session.enemy.pos, companion.pos) < hexDistance(session.enemy.pos, session.player.pos)) weight += 0.15;
+    const lowCompanion = companion.hp / Math.max(1, companion.maxHp) < 0.4;
+    if (lowCompanion) weight += 0.2;
+    if (Number(session.enemy.character.level ?? 1) <= 20) weight -= 0.1;
+    if (lowCompanion && session.eventSeq % 2 === 1) return true;
+    return companionRoll(session) < Math.max(0, Math.min(0.7, weight));
+}
+
+function enemyActsOnCompanion(session: SoloPveSession): boolean {
+    const companion = session.companion;
+    if (!companion || !canAct(session, 'enemy', hexDistance(session.enemy.pos, companion.pos) > 1 ? MOVE_AP : BASIC_ATTACK_AP)) return false;
+    if (hexDistance(session.enemy.pos, companion.pos) > 1) {
+        const candidates = hexNeighbors(session.enemy.pos)
+            .filter((tile) => tile !== session.player.pos && tile !== companion.pos && !tileBlocked(session, tile))
+            .sort((a, b) => hexDistance(a, companion.pos) - hexDistance(b, companion.pos) || a - b);
+        const tile = candidates.find((candidate) => hexDistance(candidate, companion.pos) < hexDistance(session.enemy.pos, companion.pos));
+        return tile === undefined ? false : directAction(session, 'enemy', { type: 'move', tile }, {}).applied;
+    }
+
+    const before = eventSnapshot(session);
+    const logStart = session.log.length;
+    const level = Number(session.enemy.character.level ?? 1);
+    const fraction = level >= 80 ? 0.3 : level >= 40 ? 0.26 : 0.22;
+    let damage = Math.max(1, Math.floor(companion.maxHp * fraction));
+    const ddt = activeStatuses(companion, session.round)
+        .filter((status) => status.name === 'Decrease Damage Taken')
+        .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
+    damage = Math.floor(damage * (1 - Math.min(60, ddt) / 100));
+    const absorb = activeStatuses(companion, session.round)
+        .filter((status) => status.name === 'Absorb')
+        .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
+    damage = Math.max(0, damage - Math.floor(damage * Math.min(60, absorb) / 100));
+    const blocked = Math.min(companion.shield, damage);
+    companion.shield -= blocked;
+    damage -= blocked;
+    companion.hp = Math.max(0, companion.hp - damage);
+    spendAction(session, 'enemy', BASIC_ATTACK_AP);
+    session.log.push(`${session.enemy.name} attacks ${companion.name} for ${damage} damage${blocked ? ` (${blocked} blocked)` : ''}.`);
+    if (companion.hp <= 0) {
+        session.log.push(`${companion.name} is knocked out. The fight continues.`);
+        session.companion = undefined;
+    }
+    const event: SoloPveCombatEvent = {
+        kind: 'action',
+        seq: session.eventSeq + 1,
+        round: session.round,
+        actor: 'enemy',
+        target: 'companion',
+        action: 'basicAttack',
+        actionId: 'basic-attack',
+        actionName: 'Basic Attack',
+        before,
+        after: eventSnapshot(session),
+        log: session.log.slice(logStart),
+        vfx: [{ key: 'impact', target: 'companion', anchor: 'target' }],
+        status: session.status,
+        winner: session.winner,
+        outcome: session.outcome,
+    };
+    session.eventSeq = event.seq;
+    session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
+    return true;
+}
+
 export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
     let guard = 0;
     while (session.status === 'active' && session.activeSide === 'enemy' && guard++ < MAX_ACTIONS + 2) {
+        if (enemyTargetsCompanion(session) && enemyActsOnCompanion(session)) {
+            if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS || session.ap.enemy < 30)) endSoloPveTurn(session);
+            continue;
+        }
         const tactic = aiTacticalAction(session);
         const jutsu = tactic ? null : aiJutsu(session);
         if (tactic) {
@@ -893,6 +1233,9 @@ export function applySoloPveAction(
 ): SoloPveActionResult {
     const session = cloneSession(source);
     const result = directAction(session, 'player', action, opts);
+    if (result.applied && session.status === 'active' && session.activeSide === 'enemy') {
+        runSoloPveCompanionPhase(session);
+    }
     if (result.applied && session.status === 'active' && session.activeSide === 'enemy') {
         runSoloPveAiUntilPlayer(session);
     }

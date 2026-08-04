@@ -354,6 +354,49 @@ describe('solo-PvE engine', () => {
         const second = applySoloPveAction(makeSession(), { type: 'wait' });
         assert.deepEqual(second, first);
     });
+
+    it('summons a sealed independent companion and runs its deterministic phase before the enemy', () => {
+        const session = createSoloPveSession({
+            sessionId: 'companion',
+            ownerSlug: 'alice',
+            encounter: { kind: 'test', id: 'companion' },
+            player: makeFighter('Alice', 62),
+            enemy: makeFighter('Rival', 63),
+            now: NOW,
+            companion: {
+                petId: 'pet-1', name: 'Fang', hp: 300, damage: 120, happiness: 100, loyal: false,
+                moves: [{ name: 'Bite', kind: 'damage', power: 45, cooldown: 1, rounds: 2, signature: true }],
+                pveGearId: '',
+            },
+        });
+        const summoned = applySoloPveAction(session, { type: 'summon' });
+        assert.equal(summoned.applied, true);
+        assert.equal(summoned.session.ap.player, 100, 'summoning is free like the normal Arena');
+        assert.equal(summoned.session.actionsThisTurn, 0);
+        assert.equal(summoned.session.pendingCompanion, undefined);
+        assert.equal(summoned.session.companion?.petId, 'pet-1');
+        assert.deepEqual(summoned.session.companionUsage, { petId: 'pet-1' });
+
+        const enemyBefore = summoned.session.enemy.hp;
+        const advanced = applySoloPveAction(summoned.session, { type: 'wait' });
+        assert.ok(advanced.session.enemy.hp < enemyBefore, 'the pet damages the enemy on its own phase');
+        const tail = advanced.session.events.slice(1).map((event) => event.actor);
+        assert.equal(tail[0], 'player');
+        assert.ok(tail.indexOf('companion') > tail.indexOf('player'));
+        assert.ok(tail.indexOf('enemy') > tail.indexOf('companion'));
+        assert.equal(advanced.session.companion?.roundsLeft, 3);
+
+        const replay = applySoloPveAction(summoned.session, { type: 'summon' });
+        assert.equal(replay.applied, false);
+        assert.equal(replay.reason, 'already-summoned');
+
+        const exposed = structuredClone(summoned.session);
+        exposed.sessionId = 'companion-target';
+        exposed.companion!.hp = Math.floor(exposed.companion!.maxHp * 0.3);
+        exposed.companion!.pos = 51;
+        const countered = applySoloPveAction(exposed, { type: 'wait' });
+        assert.ok(countered.session.events.some((event) => event.actor === 'enemy' && event.target === 'companion'), 'the enemy can target the independent pet actor');
+    });
 });
 
 describe('solo-PvE action service', () => {

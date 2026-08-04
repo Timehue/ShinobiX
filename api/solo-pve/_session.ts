@@ -4,6 +4,7 @@ import type {
     CombatItem,
 } from '../combat-core/types.js';
 import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
+import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
@@ -14,6 +15,7 @@ export const SOLO_PVE_MOVE_TOKEN_HISTORY = 32;
 export const SOLO_PVE_EVENT_HISTORY = 80;
 
 export type SoloPveSide = 'player' | 'enemy';
+export type SoloPveActor = SoloPveSide | 'companion';
 export type SoloPveWinner = SoloPveSide | 'draw' | null;
 export type SoloPveOutcome = 'win' | 'loss' | 'fled' | 'draw' | null;
 export type SoloPveSettlementState = 'pending' | 'settled';
@@ -33,8 +35,15 @@ export type SoloPveTerminalEvidence = {
     winner: Exclude<SoloPveWinner, null>;
     outcome: Exclude<SoloPveOutcome, null>;
     itemsUsed: Record<string, number>;
+    companionUsage?: SoloPveCompanionUsage;
     settlementState: SoloPveSettlementState;
     receipt?: SoloPveSettlementReceipt;
+};
+
+export type SoloPveCompanionUsage = {
+    petId: string;
+    pveGearId?: string;
+    consumableId?: string;
 };
 
 export type SoloPveEncounter = {
@@ -68,9 +77,21 @@ export type SoloPveFighterEventState = {
     statuses: PvpFighter['statuses'];
 };
 
+export type SoloPveCompanion = PvpFighter & {
+    petId: string;
+    baseDamage: number;
+    happiness: number;
+    loyal: boolean;
+    moves: CompanionMove[];
+    cooldowns: Record<string, number>;
+    roundsLeft: number;
+    pveGearId: string;
+};
+
 export type SoloPveEventSnapshot = {
     player: SoloPveFighterEventState;
     enemy: SoloPveFighterEventState;
+    companion?: SoloPveFighterEventState & { roundsLeft: number; cooldowns: Record<string, number> };
     ap: Record<SoloPveSide, number>;
     cooldowns: Record<SoloPveSide, Record<string, number>>;
     groundEffects: PvpGroundEffect[];
@@ -80,7 +101,7 @@ export type SoloPveEventSnapshot = {
 
 export type SoloPveVfxEvent = {
     key: string;
-    target: SoloPveSide | 'tile' | 'area';
+    target: SoloPveActor | 'tile' | 'area';
     anchor: 'caster' | 'target' | 'tile' | 'area';
     tiles?: number[];
     persistent?: boolean;
@@ -96,9 +117,9 @@ export type SoloPveCombatEvent = {
     kind: 'action';
     seq: number;
     round: number;
-    actor: SoloPveSide;
-    target: SoloPveSide | 'tile' | null;
-    action: SoloPveAction['type'];
+    actor: SoloPveActor;
+    target: SoloPveActor | 'tile' | null;
+    action: SoloPveAction['type'] | 'companionMove' | 'companionWait';
     actionId?: string;
     actionName?: string;
     tile?: number;
@@ -136,6 +157,9 @@ export type SoloPveSession = {
     actionsThisTurn: number;
     cooldowns: Record<SoloPveSide, Record<string, number>>;
     groundEffects: PvpGroundEffect[];
+    pendingCompanion?: CompanionSeal;
+    companion?: SoloPveCompanion;
+    companionUsage?: SoloPveCompanionUsage;
     itemCharges: Record<string, number>;
     itemsUsed: Record<string, number>;
     environment: SoloPveEnvironment;
@@ -167,6 +191,7 @@ export type CreateSoloPveSessionParams = {
     environment?: Partial<SoloPveEnvironment>;
     itemCharges?: Record<string, number>;
     difficultyEnemyLevel?: number;
+    companion?: CompanionSeal | null;
 };
 
 function cloneFighter(fighter: PvpFighter): PvpFighter {
@@ -198,6 +223,7 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         actionsThisTurn: 0,
         cooldowns: { player: {}, enemy: {} },
         groundEffects: [],
+        ...(params.companion ? { pendingCompanion: structuredClone(params.companion) } : {}),
         itemCharges: { ...(params.itemCharges ?? {}) },
         itemsUsed: {},
         environment: {
@@ -255,6 +281,7 @@ export type SoloPveAction =
     | { type: 'jutsu'; jutsuId: string; tile?: number }
     | { type: 'weapon'; itemId: string }
     | { type: 'item'; itemId: string }
+    | { type: 'summon' }
     | { type: 'wait' }
     | { type: 'flee' };
 

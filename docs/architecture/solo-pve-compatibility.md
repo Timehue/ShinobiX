@@ -28,6 +28,8 @@ Jutsu formulas, tag/status resolution, DoTs, ground-effect application, status t
 
 Items support sealed equipped weapons, thrown-weapon charges, consumable charges, restore-only potions, cooldowns, canonical weapon effects/tags, and `weaponEffectTarget: "both"` behavior such as Smoke Bomb. Client-supplied item definitions or inventory counts are never consulted after session creation.
 
+The active eligible pet is sealed from the save as an optional companion. Summoning is free and once per fight, and creates a temporary independent board actor for four phases. Its movement, moves, cooldowns, support effects, damage cap, happiness/loyalty obedience, PvE-gear modifiers, consumable heal, owner lifesteal, expiry, and enemy counter-targeting are server-resolved and emitted as ordered combat events. The terminal record retains the sealed pet/gear/consumable usage needed for settlement.
+
 ## CI guard
 
 The guard fails when:
