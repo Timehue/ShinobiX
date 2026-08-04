@@ -9,6 +9,7 @@ import {
     resumableMissionCombatSession,
     settleMissionCombatBinding,
     validateCompletedMissionCombatSession,
+    validateSettledMissionCombatSession,
 } from './_authoritative-combat-session.js';
 
 function rejectionReason(result: ReturnType<typeof validateCompletedMissionCombatSession>): string {
@@ -103,4 +104,14 @@ test('mission start recovery also returns terminal evidence pending settlement',
     const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
     const active = createMissionCombatActivePointer({ runId, playerName: 'beta-cert-player', mission, now });
     assert.equal(resumableMissionCombatSession({ active, binding, session: terminal, playerName: 'beta-cert-player', mission, now }), terminal);
+});
+
+test('a settled mission validates as durable proof for lost-response replay only', () => {
+    const active = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
+    const binding = settleMissionCombatBinding(active, now + 1);
+    const settledSession = { ...session, settlementState: 'settled' as const };
+    assert.equal(validateSettledMissionCombatSession({ binding, session: settledSession, playerName: 'beta-cert-player', mission, now: now + 2 }).ok, true);
+    assert.deepEqual(validateSettledMissionCombatSession({ binding: active, session, playerName: 'beta-cert-player', mission, now }), { ok: false, reason: 'not-settled' });
+    assert.deepEqual(validateSettledMissionCombatSession({ binding, session, playerName: 'other', mission, now }), { ok: false, reason: 'wrong-player' });
+    assert.deepEqual(validateSettledMissionCombatSession({ binding, session: { ...settledSession, sessionId: 'other' }, playerName: 'beta-cert-player', mission, now }), { ok: false, reason: 'wrong-run' });
 });

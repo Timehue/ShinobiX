@@ -5,6 +5,7 @@ type Session = {
     version: number;
     status: 'active' | 'done';
     winner: 'player' | 'enemy' | 'draw' | null;
+    outcome?: 'win' | 'loss' | 'fled' | 'draw' | null;
     activeSide: 'player' | 'enemy';
     player: { pos: number; hp: number };
     enemy: { pos: number; hp: number };
@@ -45,7 +46,8 @@ function distance(a: number, b: number): number {
 
 async function seedAccount(request: APIRequestContext, testInfo: TestInfo) {
     const suffix = testInfo.project.name.includes('mobile') ? 'mobile' : 'desktop';
-    const name = `live${suffix}${Date.now().toString(36)}`.toLowerCase();
+    const journey = testInfo.title.includes('flee') ? 'flee' : 'win';
+    const name = `live${suffix}${journey}`;
     const password = 'LiveExpress!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
     expect(registered.status()).toBe(200);
@@ -84,7 +86,7 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo) {
         data: { character, currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
     });
     expect(seeded.status()).toBe(200);
-    return { name, token };
+    return { name, token, password };
 }
 
 async function installSession(page: Page, name: string, token: string) {
@@ -105,6 +107,13 @@ async function browserApi(page: Page, path: string, body: Record<string, unknown
         });
         return { status: response.status, body: await response.json().catch(() => ({})) };
     }, { endpoint: path, payload: body });
+}
+
+async function browserGet(page: Page, path: string): Promise<JsonResponse> {
+    return page.evaluate(async (endpoint) => {
+        const response = await fetch(endpoint);
+        return { status: response.status, body: await response.json().catch(() => ({})) };
+    }, path);
 }
 
 async function playToTerminal(page: Page, playerName: string, initial: Session): Promise<Session> {
@@ -173,7 +182,7 @@ test('real built client completes and recovers a server-owned combat mission', a
         }
     };
 
-    const { name, token } = await seedAccount(request, testInfo);
+    const { name, token, password } = await seedAccount(request, testInfo);
     await installSession(page, name, token);
     await page.goto('/#/missions', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
@@ -243,14 +252,42 @@ test('real built client completes and recovers a server-owned combat mission', a
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
     await dismissNotices();
     const terminalResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    const settlementResponse = page.waitForResponse((response) => response.url().includes('/api/missions/queue-combat-claim') && response.request().method() === 'POST');
+    let settlementRequestCount = 0;
+    let resolveLostCommit!: (body: Record<string, unknown>) => void;
+    let resolveRecoveredRetry!: (body: Record<string, unknown>) => void;
+    const lostCommit = new Promise<Record<string, unknown>>((resolve) => { resolveLostCommit = resolve; });
+    const recoveredRetry = new Promise<Record<string, unknown>>((resolve) => { resolveRecoveredRetry = resolve; });
+    await page.route('**/api/missions/queue-combat-claim', async (route) => {
+        settlementRequestCount += 1;
+        if (settlementRequestCount === 1) {
+            const committed = await route.fetch();
+            resolveLostCommit(await committed.json() as Record<string, unknown>);
+            await route.abort('failed');
+            return;
+        }
+        if (settlementRequestCount === 2) {
+            const recovered = await route.fetch();
+            const recoveredBody = await recovered.json() as Record<string, unknown>;
+            resolveRecoveredRetry(recoveredBody);
+            await route.fulfill({
+                status: recovered.status(),
+                headers: recovered.headers(),
+                body: JSON.stringify(recoveredBody),
+            });
+            return;
+        }
+        await route.continue();
+    });
     await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
     const terminalResume = await (await terminalResponse).json();
     expect(terminalResume.runId).toBe(initial.sessionId);
     await expect(page.getByRole('heading', { name: 'Victory!' })).toBeVisible();
     await expect(page.getByText(/Return to the Mission Hall to claim your reward/)).toBeVisible();
-    const settled = await (await settlementResponse).json();
-    expect(settled.queued).toBe(true);
+    const firstSettle = await lostCommit;
+    expect(firstSettle.queued).toBe(true);
+    const retrySettle = await recoveredRetry;
+    expect(retrySettle.queued).toBe(true);
+    expect(retrySettle.replayed).toBe(true);
     const resultName = testInfo.project.name.includes('mobile') ? 'mission-result-mobile.png' : 'mission-result-desktop.png';
     await page.locator('.mission-arena-fight').screenshot({ path: `../docs/screenshots/solo-pve-cutover/${resultName}` });
 
@@ -260,8 +297,116 @@ test('real built client completes and recovers a server-owned combat mission', a
         runId: initial.sessionId,
     });
     expect(replaySettle.status).toBe(200);
-    expect(replaySettle.body.queued).toBe(false);
-    expect(replaySettle.body.reason).toBe('already-settled');
+    expect(replaySettle.body.queued).toBe(true);
+    expect(replaySettle.body.replayed).toBe(true);
+
+    await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
+    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
+    const claimableMission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
+    await expect(claimableMission.getByRole('button', { name: /Claim Reward/ })).toBeVisible();
+    const claimResponse = page.waitForResponse((response) => response.url().includes('/api/missions/claim-mission') && response.request().method() === 'POST');
+    await claimableMission.getByRole('button', { name: /Claim Reward/ }).click();
+    const claimed = await (await claimResponse).json() as Record<string, unknown>;
+    expect(claimed.applied).toBe(true);
+
+    const persisted = await browserGet(page, `/api/save/${name}`);
+    expect(persisted.status).toBe(200);
+    const persistedCharacter = persisted.body.character as Record<string, unknown>;
+    expect(Number(persistedCharacter.ryo)).toBeGreaterThan(100);
+    expect((persistedCharacter.pendingCombatMissionClaims as unknown[] ?? []).map(String)).not.toContain('combat-e-drill');
+    expect(Number(persistedCharacter.dailyMissionsCompleted)).toBe(1);
+
+    await hardReload();
+    const refreshed = await browserGet(page, `/api/save/${name}`);
+    expect(Number((refreshed.body.character as Record<string, unknown>).ryo)).toBe(Number(persistedCharacter.ryo));
+
+    const relogin = await request.post('/api/player-auth', { data: { action: 'verify', name, password } });
+    expect(relogin.status()).toBe(200);
+    const reloginToken = String((await relogin.json()).token ?? '');
+    const reloggedPage = await page.context().newPage();
+    await installSession(reloggedPage, name, reloginToken);
+    await reloggedPage.goto('/#/missions', { waitUntil: 'networkidle' });
+    const relogged = await browserGet(reloggedPage, `/api/save/${name}`);
+    expect(relogged.status).toBe(200);
+    expect(Number((relogged.body.character as Record<string, unknown>).ryo)).toBe(Number(persistedCharacter.ryo));
+    await reloggedPage.close();
+
+    expect(runtimeErrors).toEqual([]);
+    expect(serverFailures).toEqual([]);
+});
+
+test('real built client records a flee without queueing a mission reward', async ({ page, request }, testInfo) => {
+    const runtimeErrors: string[] = [];
+    const serverFailures: string[] = [];
+    let navigationInProgress = false;
+    page.on('pageerror', (error) => {
+        if (navigationInProgress && error.message === 'Failed to fetch') return;
+        runtimeErrors.push(error.message);
+    });
+    page.on('response', (response) => {
+        if (response.url().includes('/api/') && response.status() >= 500) serverFailures.push(`${response.status()} ${response.url()}`);
+    });
+
+    const { name, token } = await seedAccount(request, testInfo);
+    await installSession(page, name, token);
+    await page.goto('/#/missions', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
+    for (let guard = 0; guard < 3; guard++) {
+        const notice = page.getByRole('button', { name: /Got it/ }).last();
+        if (!(await notice.isVisible().catch(() => false))) break;
+        await notice.click();
+    }
+
+    const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
+    const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
+    await mission.getByRole('button', { name: /Begin Mission/ }).click();
+    const started = await (await startResponse).json() as { runId: string; session: Session };
+    let terminal = started.session;
+    let fleeAttempts = 0;
+    while (terminal.status === 'active' && fleeAttempts < 20) {
+        const fled = await browserApi(page, '/api/solo-pve/action', {
+            playerName: name,
+            sessionId: started.runId,
+            expectedVersion: terminal.version,
+            moveToken: `live-flee-${fleeAttempts}`,
+            type: 'flee',
+        });
+        expect(fled.status).toBe(200);
+        expect(fled.body.applied).toBe(true);
+        terminal = fled.body.session as Session;
+        fleeAttempts += 1;
+    }
+    expect(fleeAttempts).toBeGreaterThan(0);
+    expect(terminal.status).toBe('done');
+    expect(['fled', 'loss']).toContain(terminal.outcome);
+
+    navigationInProgress = true;
+    try {
+        await page.reload({ waitUntil: 'networkidle' });
+    } finally {
+        navigationInProgress = false;
+    }
+    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
+    const outcomeResponse = page.waitForResponse((response) => response.url().includes('/api/pve/fight-outcome') && response.request().method() === 'POST');
+    const resumedResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
+    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
+    expect((await (await resumedResponse).json()).runId).toBe(started.runId);
+    await expect(page.getByRole('heading', { name: 'Defeat' })).toBeVisible();
+    expect((await outcomeResponse).status()).toBe(200);
+
+    const refusedClaim = await browserApi(page, '/api/missions/queue-combat-claim', {
+        playerName: name,
+        missionId: 'combat-e-drill',
+        runId: started.runId,
+    });
+    expect(refusedClaim.body.queued).toBe(false);
+    expect(refusedClaim.body.reason).toBe('not-won');
+    const persisted = await browserGet(page, `/api/save/${name}`);
+    const character = persisted.body.character as Record<string, unknown>;
+    expect(Number(character.ryo)).toBe(100);
+    expect(Array.isArray(character.pendingCombatMissionClaims) ? character.pendingCombatMissionClaims : []).not.toContain('combat-e-drill');
+    await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
+    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
 
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);
