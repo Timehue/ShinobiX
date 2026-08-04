@@ -82,6 +82,10 @@ function walkFiles(dir) {
 const clientFiles = walkFiles(clientDist);
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+const clientIndex = readFileSync(join(clientDist, 'index.html'), 'utf8');
+const referencedClientAssets = [...clientIndex.matchAll(/(?:src|href)=["']\/([^"']+)["']/g)].map((match) => match[1]);
+const missingReferencedClientAsset = referencedClientAssets.find((file) => !clientRelativeFileSet.has(file));
+if (missingReferencedClientAsset) fail(`client index references a missing built asset: ${missingReferencedClientAsset}`);
 const missingRequiredClientFile = requiredClientFiles.find((file) => !clientRelativeFileSet.has(file));
 if (missingRequiredClientFile) fail(`client dist is missing required runtime asset: ${missingRequiredClientFile}`);
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
