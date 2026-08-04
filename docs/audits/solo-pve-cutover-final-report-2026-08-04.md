@@ -15,8 +15,10 @@ were exercised together.
 
 ## 2. Final branch SHA
 
-The implementation comparison SHA is
-`4b53964abf13fe5a1a792d1d3b5871d0d1e5fb27`. The final documentation commit
+The original cutover comparison SHA is
+`4b53964abf13fe5a1a792d1d3b5871d0d1e5fb27`. The verified gap-closing
+continuation implementation SHA is
+`846a6bc5c24d77b2ffac646a2c94a39a9856bba8`. The final documentation commit
 containing this report is supplied by `git rev-parse HEAD` in the Codex handoff.
 A Git commit cannot embed its own content-derived object ID in a tracked file,
 so the handoff SHA, not the comparison SHA above, is the final branch tip.
@@ -55,6 +57,7 @@ Implementation commits after the starting SHA, oldest first:
 17. `acd45b671` — `test: type live browser responses safely`
 18. `f1e6956a7` — `fix: recover lost mission settlement responses`
 19. `4b53964ab` — `chore: retire obsolete weekly boss trust flag`
+20. `846a6bc5c` — `fix(solo-pve): make physical outcomes durable`
 
 The final documentation truth-pass commit is the handoff SHA from item 2.
 
@@ -237,7 +240,10 @@ then restored:
    test (5 pass, 1 intentional fail), then restored to 6/6 passing.
 
 The restored combined focused set passed 33/33 before the final added mutation;
-the authoritative full suite subsequently passed 4,885/4,885.
+the authoritative full suite subsequently passed 4,885/4,885. The gap-closing
+continuation added atomic receipt, compatibility-marker fault, lost-response,
+vital-normalization, expired-repair, and concurrent-response-order coverage;
+the final authoritative full suite passed 4,898/4,898.
 
 ## 22. Full command log and results
 
@@ -248,17 +254,17 @@ the authoritative full suite subsequently passed 4,885/4,885.
 | Focused mission binding/recovery test | 6/6 pass after restoration |
 | Full `npm test` first final attempt | 4,880 pass; one file-level `_route-request-shape` transient |
 | Isolated `node --import tsx --test api/_route-request-shape.test.ts` | 5/5 pass; transient did not reproduce |
-| Required full `npm test` rerun | **4,885/4,885 pass**, 735 suites, 0 fail/skip/todo/cancel, 292.2 s |
+| Required full `npm test` rerun | **4,898/4,898 pass**, 737 suites, 0 fail/skip/todo/cancel, 283.5 s |
 | `npm --prefix shinobij.client run lint` | Pass, 90.7 s; known Babel size note only |
-| Exact Sentry-enabled `npm run build` | Pass at implementation SHA, 65.8 s |
+| Exact Sentry-enabled `npm run build` | Pass at `846a6bc5c24d77b2ffac646a2c94a39a9856bba8`, 64.9 s |
 | `npm run certify:release` | 61/61 pass against built Express server |
 | `npm run check:rollback-readiness` | `ok: true`; no destructive statements |
 | `npm run check:deployment` | One replica, `node dist/server.js`, `/health` topology accepted |
 | `npm run test:mission-eligibility` | Pass |
 | `npm run test:release-assets` | 65 references, 165 badge PNGs, 21 Pet Home WebPs verified |
 | Root and client `npm audit` | 0 vulnerabilities in both |
-| Standard Playwright matrix | 32 pass, 24 intentional project-scoped skips, 0 fail, 59.1 s |
-| `npm run test:e2e:live` | **4/4 pass**, desktop/mobile win and flee, 154.1 s |
+| Standard Playwright matrix | 31 pass, 25 intentional project-scoped skips, 0 fail, 54.6 s |
+| `npm run test:e2e:live` | **4/4 pass**, desktop/mobile win and flee, 162 s on the final implementation |
 
 One mistyped command, `npm run test:release-certification`, returned “Missing
 script”; `package.json` was inspected and the correct `npm run certify:release`
@@ -274,7 +280,9 @@ Completed against the real built client and local Express server:
   duplicate retry, return, reward claim, refresh persistence, and new-login
   persistence;
 - mobile mission win: the same journey at the mobile viewport;
-- desktop mission flee/defeat: terminal non-win, refresh recovery, refused
+- desktop mission flee/defeat: terminal non-win, exact immediate HP/hospital
+  persistence with an in-save receipt, deliberately lost outcome response,
+  idempotent retry, refresh recovery without full-HP resurrection, refused
   reward, unchanged ryo, and return to Mission Hall; and
 - mobile mission flee/defeat: the same nonreward journey at mobile viewport.
 
@@ -288,7 +296,7 @@ modes are not called browser-certified; see item 30.
 The exact release build used non-empty `VITE_SENTRY_DSN`,
 `VITE_SENTRY_RELEASE`, and `VITE_BUILD_COMMIT`. It passed with server output
 95.2 KB; client artifact 284.7 MB with no authoring sources; initial JS/CSS
-1.37 MB raw / 363.9 KB gzip across 10 files; budgeted product JS/CSS 6.87 MB;
+1.38 MB raw / 364.1 KB gzip across 10 files; budgeted product JS/CSS 6.87 MB;
 all emitted JS/CSS 6.95 MB; and lazy Sentry 81.9 KB. The build retains a
 nonblocking warning for chunks over 700 KB and reports one already-larger image
 optimization candidate as skipped rather than replacing it with a larger file.
@@ -299,7 +307,9 @@ The four real mission journeys captured page errors and API responses. The
 final run had no unexpected browser runtime errors and no API responses at or
 above HTTP 500. The first settlement response was deliberately aborted after
 the server committed; the UI retry returned the durable replay and completed
-normally. Intentional stale/duplicate/refused actions returned controlled
+normally. The flee journey also aborts the first physical-outcome response
+after its server commit and proves the retry replays the same in-save receipt.
+Intentional stale/duplicate/refused actions returned controlled
 application responses rather than server errors. No production network trace
 was available.
 
@@ -384,3 +394,73 @@ incomplete:
 
 Accordingly, the safe handoff is: **code/CI ready for review and staging;
 production go-live remains no-go until the missing deployed evidence passes.**
+
+## 31. Gap-closing continuation: durable physical fight consequences
+
+The post-report audit found one release-significant boundary that the original
+cutover did not close: mission/story physical consequences were confirmed by a
+best-effort client call. A lost response, tab close, or process interruption
+could leave a terminal fight without its HP or hospital consequence even though
+the combat session itself was authoritative.
+
+The continuation closes that boundary as follows:
+
+- HP/hospital mutation and a fingerprinted `pve-outcome` settlement receipt are
+  written atomically in the player save. Exact replay returns the authoritative
+  snapshot without rewriting it or manufacturing a save-version bump.
+- The former per-run KV marker remains as a seven-day rolling-deploy
+  compatibility receipt. Existing markers migrate into the in-save ledger
+  without reapplying a consequence; a marker-write interruption is safely
+  retryable because the in-save receipt already prevents double application.
+- Terminal mission actions reconcile before acknowledging completion. Terminal
+  state reads repair an interrupted settlement, including a terminal record
+  that is still readable but has reached its expiry time.
+- Mission reward queueing refuses to proceed until the physical consequence is
+  confirmed, including the durable lost-response replay path.
+- The client confirmation retries four times and throws if it cannot obtain a
+  durable acknowledgement; it no longer swallows failure as `null`.
+- Mission UI state adopts both authoritative characters and save versions.
+  Version ordering prevents an older physical-outcome response from overwriting
+  a newer queued-claim response when the two requests finish out of order.
+- Save-load normalization now preserves the authoritative current HP/chakra/
+  stamina while raising obsolete derived maxima. Loading `30/100` into a
+  current `500` maximum becomes `30/500`, never a free `500/500` heal. Explicit
+  level-up logic remains the owner of intentional full refills.
+- The live flee journey asserts the exact consequence immediately, then allows
+  only normal timed village regeneration during its reload/retry window.
+
+Executable continuation evidence:
+
+| Gate | Final result |
+| --- | --- |
+| Focused outcome, binding, wiring, normalization, and ordering tests | 49/49 pass |
+| Fault injection | save/receipt atomicity, compatibility-marker failure/retry, wrong owner, legacy migration, lost HTTP response |
+| Full repository suite | **4,898/4,898 pass**, 737 suites |
+| Whole-client lint and direct TypeScript build | Pass |
+| Real built Express mission matrix | **4/4 pass** across desktop/mobile win and flee |
+| Standard cross-browser/responsive Playwright matrix | 31 pass, 25 intentional skips, 0 fail |
+| Real-server release certification | 61/61 pass |
+| Deployment, rollback, dist, size, asset, mission-catalog gates | Pass |
+| Root and client dependency audits | 0 vulnerabilities |
+
+During diagnosis, the first new live assertion exposed the load normalizer's
+full-heal defect (saved HP was 500 instead of terminal HP). After that fix, an
+overly strict assertion observed legitimate one-HP-per-second regeneration;
+the test was corrected to assert the exact immediate commit and separately
+bound the post-reload state below full HP. A later audit found and fixed the
+two-response ordering race described above. These were product and test gaps
+found by full-story verification, not hidden as transient noise.
+
+Several command-invocation mistakes were also retained in the record: one
+`npm exec tsc -b` invocation printed TypeScript help before the direct compiler
+passed; two client-only/root-only scripts were initially launched from the
+wrong workspace; and one manually expanded SHA guard stopped before building.
+All were corrected, none changed source, and the exact commands subsequently
+passed.
+
+This continuation makes the locally exercised combat-mission physical outcome
+chain release-grade. It does not erase item 30: deployed shared-backend,
+operations, and every-mode browser certification still require staging access
+and additional fixtures. The honest verdict remains **local code/CI and the
+mission full story are green; global production AAA certification is not yet
+proven**.
