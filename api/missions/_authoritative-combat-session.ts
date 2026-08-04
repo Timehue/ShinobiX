@@ -39,7 +39,7 @@ export interface MissionCombatBinding {
 
 export type MissionCombatValidation =
     | { ok: true; binding: MissionCombatBinding }
-    | { ok: false; reason: 'invalid-binding' | 'wrong-player' | 'wrong-mission' | 'wrong-run' | 'expired' | 'already-settled' | 'not-complete' | 'not-won' | 'not-a-member' | 'reward-drift' };
+    | { ok: false; reason: 'invalid-binding' | 'wrong-player' | 'wrong-mission' | 'wrong-run' | 'expired' | 'already-settled' | 'not-settled' | 'not-complete' | 'not-won' | 'not-a-member' | 'reward-drift' };
 
 export function missionCombatRewardFingerprint(def: CombatMissionDef): string {
     return createHash('sha256').update(JSON.stringify({
@@ -144,6 +144,35 @@ export function validateCompletedMissionCombatSession(params: {
     if (!session || binding.sessionId !== session.sessionId || binding.runId !== session.sessionId) return { ok: false, reason: 'wrong-run' };
     if (binding.expiresAt <= now) return { ok: false, reason: 'expired' };
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
+    if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
+    if (session.winner !== 'player') return { ok: false, reason: 'not-won' };
+    if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };
+    if (session.encounter.kind !== 'mission'
+        || session.encounter.id !== mission.key
+        || session.encounter.sourceId !== mission.aiProfileId
+        || session.encounter.bindingId !== binding.runId) {
+        return { ok: false, reason: 'wrong-mission' };
+    }
+    if (binding.rewardFingerprint !== missionCombatRewardFingerprint(mission)) return { ok: false, reason: 'reward-drift' };
+    return { ok: true, binding };
+}
+
+/** Validate the durable terminal state used to answer a lost settle response. */
+export function validateSettledMissionCombatSession(params: {
+    binding: MissionCombatBinding | null | undefined;
+    session: SoloPveSession | null | undefined;
+    playerName: string;
+    mission: CombatMissionDef;
+    now?: number;
+}): MissionCombatValidation {
+    const { binding, session, playerName, mission } = params;
+    const now = params.now ?? Date.now();
+    if (!binding || binding.version !== 1 || !binding.sessionId || !binding.runId) return { ok: false, reason: 'invalid-binding' };
+    if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
+    if (binding.missionId !== mission.key || binding.enemyProfileId !== mission.aiProfileId) return { ok: false, reason: 'wrong-mission' };
+    if (!session || binding.sessionId !== session.sessionId || binding.runId !== session.sessionId) return { ok: false, reason: 'wrong-run' };
+    if (binding.expiresAt <= now) return { ok: false, reason: 'expired' };
+    if (!binding.settledAt || binding.status !== 'won' || session.settlementState !== 'settled') return { ok: false, reason: 'not-settled' };
     if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
     if (session.winner !== 'player') return { ok: false, reason: 'not-won' };
     if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };

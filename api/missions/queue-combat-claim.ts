@@ -15,6 +15,7 @@ import {
     MISSION_COMBAT_SESSION_TTL_SECONDS,
     settleMissionCombatBinding,
     validateCompletedMissionCombatSession,
+    validateSettledMissionCombatSession,
     type MissionCombatBinding,
 } from './_authoritative-combat-session.js';
 
@@ -31,7 +32,7 @@ const COMBAT_USAGE_RECEIPT_TTL_SECONDS = 7 * 24 * 60 * 60;
 type SaveChar = Record<string, unknown>;
 type QueueOutcome =
     | { queued: false; reason: string }
-    | { queued: true; saveVersion: number; character: SaveChar };
+    | { queued: true; saveVersion: number; character: SaveChar; replayed?: boolean };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -65,6 +66,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const initialBinding = await kv.get<MissionCombatBinding>(missionCombatBindingKey(runId));
         const initialSession = await readSoloPveSession(runId);
+        const readQueuedReplay = async (
+            binding: MissionCombatBinding | null | undefined,
+            session: SoloPveSession | null | undefined,
+        ): Promise<QueueOutcome> => {
+            const validation = validateSettledMissionCombatSession({ binding, session, playerName, mission });
+            if (!validation.ok) return { queued: false, reason: validation.reason };
+            const [record, claimToken] = await Promise.all([
+                kv.get<Record<string, unknown>>(`save:${playerName}`),
+                kv.get<{ authority?: string; runId?: string; missionId?: string }>(`missions:combat-claim:${playerName}:${mission.key}`),
+            ]);
+            const char = record?.character as SaveChar | undefined;
+            const pending = Array.isArray(char?.pendingCombatMissionClaims)
+                ? char.pendingCombatMissionClaims.map(String)
+                : [];
+            if (!record || !char
+                || !pending.includes(mission.key)
+                || claimToken?.authority !== 'server-combat'
+                || claimToken.runId !== runId
+                || claimToken.missionId !== mission.key) {
+                return { queued: false, reason: 'settlement-incomplete' };
+            }
+            return {
+                queued: true,
+                replayed: true,
+                saveVersion: Number(record._saveVersion ?? 0),
+                character: char,
+            };
+        };
         const initialValidation = validateCompletedMissionCombatSession({
             binding: initialBinding,
             session: initialSession,
@@ -72,6 +101,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             mission,
         });
         if (!initialValidation.ok) {
+            if (initialValidation.reason === 'already-settled') {
+                const replay = await readQueuedReplay(initialBinding, initialSession);
+                if (replay.queued) {
+                    return res.status(200).json({
+                        ok: true,
+                        queued: true,
+                        replayed: true,
+                        character: replay.character,
+                        _saveVersion: replay.saveVersion,
+                    });
+                }
+            }
             return res.status(200).json({ ok: true, queued: false, reason: initialValidation.reason });
         }
 
@@ -128,7 +169,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const binding = await kv.get<MissionCombatBinding>(missionCombatBindingKey(runId));
             const session = await readSoloPveSession(runId);
             const validation = validateCompletedMissionCombatSession({ binding, session, playerName, mission });
-            if (!validation.ok) return { queued: false, reason: validation.reason };
+            if (!validation.ok) {
+                if (validation.reason === 'already-settled') return readQueuedReplay(binding, session);
+                return { queued: false, reason: validation.reason };
+            }
 
             const queued = await queueUnderSaveLock(session!);
             if (!queued.queued) return queued;
@@ -155,6 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             queued: true,
             character: outcome.character,
             _saveVersion: outcome.saveVersion,
+            replayed: outcome.replayed === true,
         });
     } catch (err) {
         console.error('[missions/queue-combat-claim]', err);
