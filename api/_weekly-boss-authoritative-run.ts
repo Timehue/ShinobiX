@@ -8,6 +8,7 @@ export type WeeklyBossAuthoritativeRun = {
     bossStartedAt: number;
     initialBossHp: number;
     createdAt: number;
+    startState?: 'prepared' | 'ready';
     settledAt?: number;
 };
 
@@ -28,6 +29,7 @@ export function validateAuthoritativeWeeklyBossRun(params: {
     if (!run) return { ok: false, reason: 'missing-run' };
     if (!params.admin && run.playerName !== params.playerName) return { ok: false, reason: 'wrong-player' };
     if (run.settledAt) return { ok: false, reason: 'already-settled' };
+    if (run.startState === 'prepared') return { ok: false, reason: 'not-finished' };
     if (!session) return { ok: false, reason: 'missing-session' };
     if (session.runtime !== 'solo-pve' || session.status !== 'done' || !session.terminalEvidence) return { ok: false, reason: 'not-finished' };
     if (session.ownerSlug !== run.playerName) {
