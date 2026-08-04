@@ -10,6 +10,7 @@ import {
 } from '../_pve-difficulty.js';
 import { pveDifficultyGuardEnabled } from '../_pve-band-seal.js';
 import { perRankStatCap } from '../combat-core/formulas.js';
+import { sealCompanionFromSave } from '../combat-core/companion.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveSession } from './_session.js';
@@ -162,6 +163,7 @@ export function buildSoloPveAiEncounter(params: {
         now: params.now,
         environment: { biome: 'central' },
         itemCharges: sealItemCharges(hydrated, saveCharacter),
+        companion: sealCompanionFromSave(saveCharacter, params.now),
         ...(banded ? { difficultyEnemyLevel: Number(enemy.character.level) || 1 } : {}),
     });
 }

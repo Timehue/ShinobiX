@@ -108,6 +108,7 @@ export async function executeSoloPveAction(
                 winner: resolved.session.winner,
                 outcome: resolved.session.outcome,
                 itemsUsed: { ...resolved.session.itemsUsed },
+                ...(resolved.session.companionUsage ? { companionUsage: { ...resolved.session.companionUsage } } : {}),
                 settlementState: resolved.session.settlementState,
             }
             : resolved.session.terminalEvidence;
