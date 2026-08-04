@@ -37,6 +37,51 @@ export type SoloPveGroundEffect = {
     tags: Array<{ name: string; percent?: number; amount?: number }>;
 };
 
+export type SoloPveEventSnapshot = {
+    player: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    enemy: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    ap: { player: number; enemy: number };
+    cooldowns: { player: Record<string, number>; enemy: Record<string, number> };
+    groundEffects: SoloPveGroundEffect[];
+    itemCharges: Record<string, number>;
+    itemsUsed: Record<string, number>;
+};
+
+export type SoloPveCombatEvent = {
+    kind: 'action';
+    seq: number;
+    round: number;
+    actor: 'player' | 'enemy';
+    target: 'player' | 'enemy' | 'tile' | null;
+    action: SoloPveActionInput['type'];
+    actionId?: string;
+    actionName?: string;
+    tile?: number;
+    before: SoloPveEventSnapshot;
+    after: SoloPveEventSnapshot;
+    log: string[];
+    vfx: Array<{
+        key: string;
+        target: 'player' | 'enemy' | 'tile' | 'area';
+        anchor: 'caster' | 'target' | 'tile' | 'area';
+        tiles?: number[];
+        persistent?: boolean;
+    }>;
+    status: 'active' | 'done';
+    winner: 'player' | 'enemy' | 'draw' | null;
+    outcome: 'win' | 'loss' | 'fled' | 'draw' | null;
+};
+
+export type SoloPveRejectionEvent = {
+    kind: 'rejected';
+    round: number;
+    actor: 'player' | 'enemy';
+    action: SoloPveActionInput['type'];
+    actionId?: string;
+    tile?: number;
+    reason: string;
+};
+
 export type SoloPveSession = {
     runtime: 'solo-pve';
     schemaVersion: 1;
@@ -70,13 +115,27 @@ export type SoloPveSession = {
     winner: 'player' | 'enemy' | 'draw' | null;
     outcome: 'win' | 'loss' | 'fled' | 'draw' | null;
     settlementState: 'pending' | 'settled';
+    terminalEvidence?: {
+        finishedAt: number;
+        finalMoveToken: string;
+        finalVersion: number;
+        finalEventSeq: number;
+        winner: 'player' | 'enemy' | 'draw';
+        outcome: 'win' | 'loss' | 'fled' | 'draw';
+        itemsUsed: Record<string, number>;
+        settlementState: 'pending' | 'settled';
+        receipt?: { kind: string; id: string; settledAt: number; rewards?: Record<string, number | string | boolean | null> };
+    };
     log: string[];
+    events: SoloPveCombatEvent[];
+    eventSeq: number;
     fx?: Array<{ target: string; amount: number; kind: 'damage' | 'heal' }>;
     fxSeq?: number;
     version: number;
     createdAt: number;
     lastActionAt: number;
     expiresAt: number;
+    recentMoveTokens: string[];
 };
 
 export type SoloPveActionInput =
@@ -96,6 +155,7 @@ export type SoloPveActionResponse = {
     duplicate?: boolean;
     reason?: string;
     error?: string;
+    event?: SoloPveCombatEvent | SoloPveRejectionEvent;
     session?: SoloPveSession;
 };
 
