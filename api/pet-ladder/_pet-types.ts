@@ -8,7 +8,9 @@
 
 export type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 export type JutsuElement = "Fire" | "Water" | "Wind" | "Lightning" | "Earth" | "None";
-export type PetTrait = "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn";
+export type PetTrait =
+    | "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn"
+    | "Fateweaver" | "Hollowborn" | "Boonbringer";
 export type PetRole = "defender" | "tracker" | "assassin" | "sage";
 export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";
 

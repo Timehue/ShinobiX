@@ -53,10 +53,11 @@ loss is more than trivially recoverable by replaying gameplay.
   outbox and re-posts them until the server acks (the queue endpoint is
   idempotent), closing the offline-loss window where a 409-refetch discarded a
   never-persisted win.
-- **Ranked-season podium** (`api/cron/_ranked-season.ts`): the per-player NX
-  reward marker is rolled back if the save write fails, and failures are
-  logged instead of swallowed (previously: marker stranded, podium reward lost
-  silently, no trail).
+- **Ranked-season podium** (`api/cron/_ranked-season.ts`): each player's
+  rating reset, podium reward, and season receipt are one save write. A durable
+  season plan preserves the original field and podium across partial failure;
+  retry skips completed receipts and advances the season clock only after all
+  planned players settle.
 - **Card Clash AI settlement** (`api/card-clash/ai-move.ts`): the payout now
   writes a `redeemedCardClashAiSessions` receipt inside the same save write,
   so a crash between payout and session-mark can no longer double-pay on

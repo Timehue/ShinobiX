@@ -72,6 +72,15 @@ describe('equipped-item resolution against the admin catalog', () => {
         assert.equal((getItem('bulwark-chest') as Record<string, unknown>).name, "Eternal Bulwark's Mantle");
     });
 
+    it('honors a shared tombstone ahead of built-in, admin, and player copies', () => {
+        const deleted = buildAdminItemCatalog([
+            { creatorItems: [{ id: 'bulwark-chest', name: '__ADMIN_DELETED_ITEM__' }] },
+            { creatorItems: [{ id: 'bulwark-chest', name: 'Stale Resurrection' }] },
+        ]);
+        const getItem = buildItemLookup([{ id: 'bulwark-chest', name: 'Player Copy' }], deleted);
+        assert.equal(getItem('bulwark-chest'), undefined);
+    });
+
     it("prefers the admin definition over the player's mirrored copy", () => {
         const getItem = buildItemLookup([{ id: 'custom-storm-tanto', name: 'Stale Copy', slot: 'hand' }], adminItems);
         assert.equal((getItem('custom-storm-tanto') as Record<string, unknown>).name, 'Storm Tanto');

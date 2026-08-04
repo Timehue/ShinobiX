@@ -60,6 +60,7 @@ function safeKeyLabel(key) {
 function categoryForKey(key) {
     if (/^save:clan-/i.test(key) || /^clan:/i.test(key)) return 'clan';
     if (/^save:(?!admin\d*$|health-probe-)/i.test(key)) return 'player-save';
+    if (/^pet-sanctuary:/i.test(key)) return 'pet-sanctuary';
     if (/^pvp:/i.test(key)) return 'pvp';
     if (/^receipt:/i.test(key)) return 'receipt';
     if (/^(world:|sector:)/i.test(key)) return 'world';

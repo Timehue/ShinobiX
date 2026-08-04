@@ -3,7 +3,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
+import { LockContendedError, withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 
 /*
@@ -110,72 +110,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } catch { /* unserializable meta — drop it */ }
             }
 
-            // Idempotent / non-clobbering: if a different unresolved battle is
-            // already locked, hand it back so the client re-enters THAT fight
-            // rather than letting a fresh start overwrite (and thereby escape) it.
-            const existing = await kv.get<BattleLock>(key);
-            if (existing && existing.battleId !== battleId) {
-                return res.status(200).json({ ok: true, lock: existing, alreadyLocked: true });
-            }
+            const result = await withKvLock(key, async () => {
+                // The read and write share one fail-closed lock, so concurrent
+                // starts cannot both observe an empty record and overwrite it.
+                const existing = await kv.get<BattleLock>(key);
+                if (existing && existing.battleId !== battleId) {
+                    return { lock: existing, alreadyLocked: true };
+                }
 
-            const lock: BattleLock = {
-                battleId,
-                kind,
-                screen,
-                startedAt: Date.now(),
-                ...(meta ? { meta } : {}),
-            };
-            await kv.set(key, lock, { ex: LOCK_TTL_SECONDS });
-            return res.status(200).json({ ok: true, lock });
+                const lock: BattleLock = {
+                    battleId,
+                    kind,
+                    screen,
+                    startedAt: Date.now(),
+                    ...(meta ? { meta } : {}),
+                };
+                await kv.set(key, lock, { ex: LOCK_TTL_SECONDS });
+                return { lock, alreadyLocked: false };
+            }, { failClosed: true });
+            return res.status(200).json({ ok: true, ...result });
         }
 
         if (action === 'resolve') {
             const battleId = String(body.battleId ?? '');
             const outcome = String(body.outcome ?? '');
-            const existing = await kv.get<BattleLock>(key);
-            // Only the matching battleId clears the lock. A mismatch is a stale
-            // / replayed report → no-op success (don't clear someone else's
-            // freshly-started fight).
-            // Echoed back to the client when the defeat below rewrites the save.
-            // Bumping the stored version WITHOUT telling the client leaves its
-            // `_baseSaveVersion` stale, so its very next autosave takes a 409 and the
-            // conflict path replaces local state with the server snapshot — i.e. a few
-            // seconds of play silently reverts. This is the highest-frequency instance
-            // of that bug because it fires on PvE defeats. The client adopts any
-            // `_saveVersion` in a response body monotonically (authFetch's
-            // observeSaveVersion → SAVE_VERSION_EVENT), so returning it is sufficient.
-            const resolved: { version: number | null } = { version: null };
-            if (existing && existing.battleId === battleId) {
-                if (outcome === 'loss') {
-                    // Cleared-state defeat: the client returned to a locked fight
-                    // with NO recoverable resume state (localStorage was wiped),
-                    // so per design it counts as a loss. Apply the defeat
-                    // server-side under the save lock and delete the lock in the
-                    // SAME critical section, so the loss is atomic with the unlock
-                    // and can't be dodged by a fast double-refresh. (Normal in-
-                    // session wins/losses are still applied client-side and just
-                    // pass no outcome here — this branch is only the boot-time
-                    // cleared-state fallback.) A PvE defeat is simply hp:0 +
-                    // hospitalized; the hospital timer is client-side.
-                    await withKvLock(`save:${playerName}`, async () => {
-                        const fresh = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                        const freshChar = fresh?.character as Record<string, unknown> | undefined;
-                        if (freshChar) {
-                            const updated = {
-                                ...fresh,
-                                character: { ...freshChar, hp: 0, hospitalized: true },
-                            };
-                            const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
-                            const nextVersion = Number(versioned._saveVersion);
-                            if (Number.isFinite(nextVersion)) resolved.version = nextVersion;
-                            await kv.set(`save:${playerName}`, mergePreservingImages(versioned, fresh));
-                        }
-                        await kv.del(key).catch(() => undefined);
-                    });
-                } else {
-                    await kv.del(key).catch(() => undefined);
+            const resolved = await withKvLock(key, async () => {
+                const existing = await kv.get<BattleLock>(key);
+                // Only the matching battleId clears the lock. A mismatch is a
+                // stale/replayed report and must not clear a newer fight.
+                const result: { version: number | null } = { version: null };
+                if (existing && existing.battleId === battleId) {
+                    if (outcome === 'loss') {
+                        // A cleared-state defeat updates the save and removes the
+                        // battle marker under deterministic battle→save locking.
+                        await withKvLock(`save:${playerName}`, async () => {
+                            const fresh = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                            const freshChar = fresh?.character as Record<string, unknown> | undefined;
+                            if (freshChar) {
+                                const updated = {
+                                    ...fresh,
+                                    character: { ...freshChar, hp: 0, hospitalized: true },
+                                };
+                                const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
+                                const nextVersion = Number(versioned._saveVersion);
+                                if (Number.isFinite(nextVersion)) result.version = nextVersion;
+                                await kv.set(`save:${playerName}`, mergePreservingImages(versioned, fresh));
+                            }
+                            await kv.del(key);
+                        }, { failClosed: true });
+                    } else {
+                        await kv.del(key);
+                    }
                 }
-            }
+                return result;
+            }, { failClosed: true, ttlSec: 15 });
             return res.status(200).json({
                 ok: true,
                 ...(resolved.version !== null ? { _saveVersion: resolved.version } : {}),
@@ -184,6 +172,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
+        if (err instanceof LockContendedError) {
+            res.setHeader('Retry-After', '1');
+            return res.status(503).json({ error: 'Battle state is being updated. Please retry.' });
+        }
         console.error('[battle/lock]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

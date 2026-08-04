@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createOwnedPet, type SecureInt } from './_owned-pet.js';
 
 const STARTER_DIGESTS: Record<string, string> = {
     'starter-fire': 'ebe6d88ae39f1d603161d9c4d41769dd5530e7f0a6f9ed6d5a3fc42b6d99e9af',
@@ -27,7 +28,7 @@ export function validateStarterPet(raw: unknown): Record<string, unknown> | null
     return digest === expected ? withTraitBonus(structuredClone(pet)) : null;
 }
 
-export function chooseStarterPet(character: Record<string, unknown>, rawPet: unknown) {
+export function chooseStarterPet(character: Record<string, unknown>, rawPet: unknown, secureInt?: SecureInt) {
     const pets = Array.isArray(character.pets) ? character.pets : [];
     if (pets.length > 0 || character.starterPetClaimed === true) return { ok: false as const, reason: 'starter-already-chosen' as const };
     const onboardingStep = character.onboardingStep;
@@ -37,8 +38,20 @@ export function chooseStarterPet(character: Record<string, unknown>, rawPet: unk
     if (onboardingStep !== 'starter' && onboardingStep !== 'academyIntro' && onboardingStep !== 'companionIntro') {
         return { ok: false as const, reason: 'starter-not-available' as const };
     }
-    const pet = validateStarterPet(rawPet);
-    if (!pet) return { ok: false as const, reason: 'invalid-starter' as const };
+    const validated = validateStarterPet(rawPet);
+    if (!validated) return { ok: false as const, reason: 'invalid-starter' as const };
+    // Digest validation happens before any owned-instance decoration. The
+    // validated object already carries its canonical trait bonus, so the shared
+    // factory preserves that result and adds only server-owned metadata.
+    const pet = createOwnedPet(String(validated.id), {
+        origin: 'starter',
+        instanceId: String(validated.id),
+        existingIds: pets.map((entry) => String((entry as Record<string, unknown>)?.id ?? '')),
+        basePet: validated,
+        trait: String(validated.trait ?? ''),
+        traitAlreadyApplied: true,
+        secureInt,
+    });
     return {
         ok: true as const,
         character: {

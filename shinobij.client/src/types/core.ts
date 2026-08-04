@@ -47,6 +47,7 @@ export type Screen =
     | "centralHub"
     | "petArena"
     | "petLadder"
+    | "home"
     | "pets"
     | "shinobiTiles"
     | "eventPetBattle"

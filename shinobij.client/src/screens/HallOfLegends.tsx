@@ -21,7 +21,7 @@ import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from ".
 import { WORLD_STATE_API } from "../constants/game";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
-import { fetchHallOfLegends, fetchAnnouncements, fetchEras, isLegacyEnabled, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
+import { fetchHallOfLegends, fetchAnnouncements, fetchEras, useLegacyAvailability, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -36,6 +36,7 @@ type WeeklyBossLb = {
 
 export 
 function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
+    const legacyAvailable = useLegacyAvailability();
     // Deep-link support: the Daily Briefing's "World news" teaser (and any
     // other surface) can land the player on a specific tab via a one-shot
     // sessionStorage hint — previously a mythic headline opened the Ranked
@@ -256,7 +257,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GiOgre /> },
         { id: "tournament",  label: "Tournament",    icon: <GiTrophy /> },
         { id: "professions", label: "Professions",   icon: <GiAnvil /> },
-        ...(isLegacyEnabled() ? [
+        ...(legacyAvailable ? [
             { id: "legends" as const, label: "Legends",    icon: <GiCrown /> },
             { id: "news" as const,    label: "World News", icon: <GiCastle /> },
             { id: "eras" as const,    label: "World Eras", icon: <GiShield /> },

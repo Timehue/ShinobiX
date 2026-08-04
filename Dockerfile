@@ -1,15 +1,17 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# ShinobiX / Shinobi Journey — container image for Railway, Render, Fly.io,
-# or any Docker host.
+# ShinobiX / Shinobi Journey — active Railway container image.
+# The image remains portable to other Docker hosts for recovery or migration,
+# but Railway is the active deployment direction.
 #
-# Runs the SAME Express server used on cPanel (server.ts → dist/server.js),
+# Runs the active Express server (server.ts → dist/server.js),
 # serving both the API and the React SPA on a single port.
 #
 # NOTE: the cPanel entry point (app.js) is intentionally NOT used here. Its
 # DNS/IPv4 bypass config exists only for CloudLinux/CageFS (which can't resolve
 # DNS or route IPv6); on a normal host it's unnecessary and would be fragile. We run
-# `node dist/server.js` directly instead. cPanel is unaffected — it still uses
-# app.js as before.
+# `node dist/server.js` directly instead. cPanel/Passenger compatibility uses
+# its separate `app.js` entry point only for rollback or data recovery; it is
+# not current production.
 #
 # TWO-STAGE build: the `builder` stage installs ALL deps (incl. the build-only
 # vite/three/sharp/typescript ≈ 0.5 GB) and builds server + client; the `runtime`

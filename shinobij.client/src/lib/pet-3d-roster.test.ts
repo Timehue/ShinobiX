@@ -39,6 +39,7 @@ test("only explicitly reviewed roster models leave quarantine", () => {
         "legendary-25", "legendary-26", "legendary-27", "legendary-28", "legendary-29",
         "mythic-0", "mythic-1", "mythic-2", "mythic-3", "mythic-4",
         "mythic-5", "mythic-6", "mythic-7", "mythic-8", "mythic-9",
+        "mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14",
     ]);
     assert.equal(approvedRosterCombatModel({ id: "standard-0", name: "Red Fox" })?.url, `/pet-models/roster/standard-0.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(approvedRosterCombatModel({ id: "standard-1", name: "Snow Rabbit" })?.profile, "biped");
@@ -183,6 +184,19 @@ test("only explicitly reviewed roster models leave quarantine", () => {
     assert.equal(approvedRosterCombatModel({ id: "mythic-7", name: "Turtle Duck" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "mythic-8", name: "Stormgod Raijin" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "mythic-9", name: "Worldroot Colossus" })?.profile, "heavy");
+    const breedingMythics = [
+        ["mythic-10", "Ash Crown Phoenix", "avian"],
+        ["mythic-11", "Moonwell Leviathan", "serpentine"],
+        ["mythic-12", "Skyglass Kirin", "quadruped"],
+        ["mythic-13", "Thunderbloom Kirin", "quadruped"],
+        ["mythic-14", "Gravepeak Behemoth", "heavy"],
+    ] as const;
+    for (const [id, name, profile] of breedingMythics) {
+        const model = approvedRosterCombatModel({ id, name });
+        assert.equal(model?.visualId, id);
+        assert.equal(model?.profile, profile);
+        assert.match(model?.url ?? "", new RegExp(`/roster/${id}\\.glb\\?`));
+    }
     const qa = qaRosterCombatModel({ id: "standard-0", name: "Red Fox" });
     assert.equal(qa.url, `/pet-models/roster/standard-0.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(qa.profile, "quadruped");

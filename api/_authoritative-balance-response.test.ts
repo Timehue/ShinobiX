@@ -68,7 +68,8 @@ describe('authoritative balance response migration', () => {
     it('AI fight XP and ryo come from the committed server character', async () => {
         const api = read('api/missions/report-ai-fight.ts');
         const arena = read('shinobij.client/src/screens/Arena.tsx');
-        assert.match(api, /const leveled = gainXp\(character, reward\.xp\)/);
+        assert.match(api, /const combatCharacter = Object\.keys\(playerItemsUsed\)\.length > 0[\s\S]*deductUsedItems\(character, playerItemsUsed\)/);
+        assert.match(api, /const leveled = gainXp\(combatCharacter, reward\.xp\)/);
         assert.match(api, /character: result\.character, _saveVersion: result\._saveVersion/);
         // The save endpoint's protection of the AI-fight redemption ledger now
         // derives from the ownership manifest (P0-1) — assert it there, where

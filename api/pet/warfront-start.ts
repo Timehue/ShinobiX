@@ -9,6 +9,7 @@ import { runWarfrontMatch } from '../_pet-sim/pet-warfront-sim.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import { buildWarfrontAiTeam } from './_warfront-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { activeBreedingParentIds } from './_pet-busy.js';
 
 /*
  * /api/pet/warfront-start — POST only.
@@ -78,6 +79,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .map((id) => myPets.find((p) => String((p as { id?: unknown }).id ?? '') === id))
             .filter(Boolean) as Pet[];
         if (!bluePets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
+        const breedingParents = activeBreedingParentIds(myChar ?? {});
+        if (bluePets.some((pet) => breedingParents.has(String(pet.id)))) {
+            return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+        }
 
         // RED = the canonical Warfront vs-AI pool cycled to the player's count.
         const redPets = buildWarfrontAiTeam(bluePets.length);

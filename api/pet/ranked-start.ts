@@ -5,6 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
+import { activeBreedingParentIds } from './_pet-busy.js';
 
 /*
  * /api/pet/ranked-start — POST only
@@ -77,6 +78,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const myPet = myPets.find((pet) => String(pet?.id ?? '') === petId) ?? myPets.find((pet) => String(pet?.id ?? '') === String(meChar.activePetId ?? '')) ?? myPets[0];
         const oppPet = oppPets.find((pet) => String(pet?.id ?? '') === String(oppChar.activePetId ?? '')) ?? oppPets[0];
         if (!myPet || !oppPet) return res.status(409).json({ error: 'Both players need an available pet.' });
+        if (activeBreedingParentIds(meChar).has(String(myPet.id ?? ''))) {
+            return res.status(409).json({ error: 'Your selected pet is in the breeding barn.' });
+        }
 
         const token = randomUUID();
         await kv.set(`pet:ranked-token:${token}`, {

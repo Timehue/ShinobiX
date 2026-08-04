@@ -62,8 +62,21 @@ export async function mutatePlayerSave<T>(
     const saveKey = `save:${playerName}`;
     return await withKvLock(saveKey, async () => {
         const record = await kv.get<PlayerSaveRecord>(saveKey);
-        const character = (record?.character ?? null) as PlayerCharacter | null;
-        if (!record || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
+        const storedCharacter = (record?.character ?? null) as PlayerCharacter | null;
+        if (!record || !storedCharacter) return { ok: false as const, status: 404, error: 'Player save not found.' };
+
+        // Every authoritative mutation sees the same idempotent owned-pet
+        // migration and time-based barn settlement before it validates an
+        // action. That makes parents available at readyAt even when Home was
+        // never opened, and prevents one endpoint from operating on a legacy
+        // pet shape while another sees the migrated schema.
+        const [{ migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
+            import('../pet/_owned-pet.js'),
+            import('../pet/_breeding-requirements.js'),
+        ]);
+        const migrated = migrateCharacterOwnedPets(playerName, storedCharacter);
+        const settled = settlePetBreedingSession(migrated.character);
+        const character = settled.character;
 
         const decision = await mutate({ playerName, saveKey, record, character });
         if (!decision.ok) return decision;

@@ -122,7 +122,7 @@ export const RightMenu = memo(function RightMenu({
                         <button aria-current={screen === "profile" ? "page" : undefined} onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={16} />Character</button>
                         <button aria-current={screen === "inventory" ? "page" : undefined} onClick={() => guardedNavigate("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={16} />Inventory</button>
                         <button aria-current={screen === "jutsuTraining" ? "page" : undefined} onClick={() => guardedNavigate("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
-                        <button aria-current={screen === "pets" ? "page" : undefined} onClick={() => guardedNavigate("pets")} onPointerDown={() => preloadScreen("pets")}><GiPawPrint size={16} />Pets</button>
+                        <button aria-current={screen === "home" ? "page" : undefined} onClick={() => guardedNavigate("home")} onPointerDown={() => preloadScreen("home")}><GiPawPrint size={16} />Home</button>
                         <button aria-current={screen === "bloodlineMaker" ? "page" : undefined} onClick={() => guardedNavigate("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
                         <button
                             aria-current={screen === "professions" ? "page" : undefined}
