@@ -2432,7 +2432,6 @@ export function WorldMap({
         }
         // preload helpers are stable component-scope declarations; re-running on
         // their identities would just repeat cached no-op preloads.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSector]);
 
     // rollAncientChest lived here. The Ancient Chest table is now rolled by

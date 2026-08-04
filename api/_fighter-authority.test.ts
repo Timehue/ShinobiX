@@ -19,15 +19,18 @@ import type { AdminCombatContent } from './_admin-content.js';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf8');
 
-// Every production caller of the shared fighter builder. Extend this list when
-// a new combat mode is added — the point is that adding one forces you here.
+// Every production caller of the Tower wrapper. Direct Solo-PvE hydrator
+// callers are classified separately below.
 const SEAL_CALLERS = [
     'towers/start.ts',
     'clan-boss/assault-start.ts',
-    'village/anbu-infiltration.ts',
-    '_anbu-infiltration-store.ts',
     '_merc-auto.ts',
     '_authoritative-pve.ts',
+] as const;
+
+const DIRECT_HYDRATOR_CALLERS = [
+    'village/anbu-infiltration.ts',
+    '_anbu-infiltration-store.ts',
 ] as const;
 
 describe('single fighter pipeline — admin content is always supplied', () => {
@@ -42,6 +45,17 @@ describe('single fighter pipeline — admin content is always supplied', () => {
                 src,
                 /sealTowerFighter\([^;]*(admin|loadAdminCombatContent)/is,
                 `${rel} must pass the admin catalog to sealTowerFighter (the parameter is now required)`,
+            );
+        }
+    });
+
+    it('every direct Solo-PvE hydrator caller loads the admin combat catalog', () => {
+        for (const rel of DIRECT_HYDRATOR_CALLERS) {
+            const src = read(rel);
+            assert.match(
+                src,
+                /hydrateCharacterFromSave\([^;]*loadAdminCombatContent\(\)/is,
+                `${rel} must pass the admin catalog to the canonical hydrator`,
             );
         }
     });
@@ -99,7 +113,7 @@ describe('cross-mode fighter parity (the unification contract)', () => {
         const pvp = hydrateCharacterFromSave(structuredClone(saveChar), {}, structuredClone(save), admin);
         // The wrapper's ONLY divergence is the specialty whitelist clamp; with a
         // valid specialty the two modes must produce an identical fighter.
-        assert.deepEqual(towers, pvp, 'Towers/Spire/ClanBoss/missions/story/weekly/anbu/merc fighters must equal the PvP fighter');
+        assert.deepEqual(towers, pvp, 'Tower-style and direct Solo-PvE fighters must equal the PvP hydration output');
     });
 
     it('the shared builder resolves authored content and drops the ghost id for every mode', () => {

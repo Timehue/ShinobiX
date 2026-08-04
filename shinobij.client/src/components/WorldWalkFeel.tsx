@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- pure route and region helpers are co-located for focused tests */
 /*
  * WorldWalkFeel — the threshold-moment layer for walking the world:
  *

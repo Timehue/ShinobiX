@@ -41,10 +41,13 @@ test("leaving an unresolved fight reports a forfeit before unmounting", () => {
 
 test("every mode on the shared arena shell passes the outcome reporter", () => {
     const weeklyBoss = readFileSync(new URL("../screens/WeeklyBossFight.tsx", import.meta.url), "utf8");
-    for (const [name, source] of [["StoryBossFightHost", storyHost], ["Missions", missions], ["WeeklyBossFight", weeklyBoss]] as const) {
+    for (const [name, source] of [["StoryBossFightHost", storyHost], ["Missions", missions]] as const) {
         assert.match(source, /outcomeFn=\{/, `${name} must wire outcomeFn, or its defeats cost nothing`);
         assert.match(source, /reportPveFightOutcome\(/, `${name} must call the shared outcome endpoint`);
     }
+    assert.match(weeklyBoss, /outcomeFn=\{settleFn\}/, "Weekly Boss must use its durable settlement as the outcome reporter");
+    assert.match(weeklyBoss, /settleOnAnyDone/, "Weekly Boss must bank damage on every completed result");
+    assert.doesNotMatch(weeklyBoss, /reportPveFightOutcome\(/, "Weekly Boss must not double-report through the shared endpoint");
 });
 
 test("the outcome reporter never carries a client-asserted result", () => {

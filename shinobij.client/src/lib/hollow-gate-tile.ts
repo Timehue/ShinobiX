@@ -64,7 +64,6 @@ export interface HollowGateTileCtx {
     setHollowGateHiddenChamber: SetState<HiddenChamberState>;
     onServerVersion: (version: number | undefined) => void;
 
-    gainXp: (character: Character, amount: number) => Character;
     pushHollowGateLog: (line: string) => void;
     buildHollowGateRunSummary: () => string;
     startHollowGateBattle: (opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string }) => void | Promise<void>;
@@ -81,7 +80,7 @@ export function resolveHollowGateTile(
         character, hollowGateRun,
         setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
         onServerVersion,
-        gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
+        pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
         leaveHollowGateShrine,
     } = ctx;
     if (!hollowGateRun || !character) return;

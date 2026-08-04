@@ -227,8 +227,6 @@ describe('step C wiring', () => {
     const read = (f: string) => readFileSync(join(root, f), 'utf8');
 
     const EXPECT: Array<[string, string]> = [
-        ['api/missions/combat-start.ts', "mode: 'MISSION'"],
-        ['api/story/boss-start.ts', "mode: 'STORY'"],
         ['api/clan-boss/assault-start.ts', "mode: 'CLAN_BOSS'"],
     ];
     for (const [file, marker] of EXPECT) {
@@ -236,6 +234,18 @@ describe('step C wiring', () => {
             const src = read(file);
             assert.ok(src.includes('sealPveAiMastery'), `${file} no longer seals AI mastery`);
             assert.ok(src.includes(marker), `${file} no longer passes ${marker}`);
+        });
+    }
+
+    for (const [file, marker] of [
+        ['api/missions/combat-start.ts', "difficultyMode: 'MISSION'"],
+        ['api/story/boss-start.ts', "difficultyMode: 'STORY'"],
+    ] as const) {
+        it(`${file} delegates AI mastery to the Solo-PvE builder`, () => {
+            const src = read(file);
+            assert.ok(src.includes('buildSoloPveAiEncounter'), `${file} no longer uses the Solo-PvE encounter builder`);
+            assert.ok(src.includes(marker), `${file} no longer passes ${marker}`);
+            assert.ok(!src.includes('sealPveAiMastery'), `${file} must not re-seal mastery through the retired Tower hook`);
         });
     }
 

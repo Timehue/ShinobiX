@@ -68,7 +68,7 @@ import {
     getItemById,
     addInventoryItems,
 } from "./lib/items";
-import { removeItem, countItem, ownsItem, normalizeInventory } from "./lib/inventory";
+import { countItem, ownsItem, normalizeInventory } from "./lib/inventory";
 import type { TileCard } from "./data/tile-cards";
 import {
     scaleJutsuTagsForDisplay,
@@ -231,7 +231,6 @@ import {
 } from "./types/combat";
 import type { CreatorEvent, StoryStep } from "./types/vn";
 import {
-    type HollowGateTileKind,
     type HollowGateTile,
     type HollowGateShrineRun,
     type HollowGateEventConfig,
@@ -283,7 +282,6 @@ import {
     DUNGEON_VN_ID,
     DUNGEON_KEY_ID,
     DUNGEON_LEGENDARY_RELIC_ID,
-    VEIL_OF_THE_HOLLOW_ID,
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
@@ -544,7 +542,7 @@ import {
 } from "./lib/hollow-gate-dungeon";
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { snapshotHollowGateCurrencies } from "./lib/hollow-gate-run";
-import { resumeHollowGateServerRun, settleHollowGateRunOnly, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
+import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
 import { sealHollowGateStep } from "./lib/hollow-gate-step-api";
@@ -5643,7 +5641,7 @@ export default function App() {
 
     async function continuePendingArenaStoryBattle(
         battleResult?: "win" | "loss" | "fled",
-        survivingHp = 0,
+        _survivingHp = 0,
     ) {
         const pending = pendingArenaStoryBattle;
         const returnScreen = pending?.returnScreen ?? "storyHall";
@@ -6079,7 +6077,7 @@ export default function App() {
             character, hollowGateRun,
             setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
             onServerVersion: (version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); },
-            gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
+            pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
             leaveHollowGateShrine,
         });
     }

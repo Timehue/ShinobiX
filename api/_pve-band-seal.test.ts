@@ -210,8 +210,6 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
         return process.cwd();
     })();
     const EXPECT: Array<[string, string]> = [
-        ['api/missions/combat-start.ts', "mode: 'MISSION'"],
-        ['api/story/boss-start.ts', "mode: 'STORY'"],
         ['api/towers/start.ts', "mode: 'TOWER'"],
         ['api/clan-boss/assault-start.ts', "mode: 'CLAN_BOSS'"],
     ];
@@ -221,6 +219,18 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
             const src = readFileSync(join(root, file), 'utf8');
             assert.ok(src.includes('sealPveDifficultyBand'), `${file} no longer calls sealPveDifficultyBand`);
             assert.ok(src.includes(marker), `${file} no longer passes ${marker}`);
+        });
+    }
+
+    for (const [file, marker] of [
+        ['api/missions/combat-start.ts', "difficultyMode: 'MISSION'"],
+        ['api/story/boss-start.ts', "difficultyMode: 'STORY'"],
+    ] as const) {
+        it(`${file} delegates the difficulty band to the Solo-PvE builder`, () => {
+            const src = readFileSync(join(root, file), 'utf8');
+            assert.ok(src.includes('buildSoloPveAiEncounter'), `${file} no longer uses the Solo-PvE encounter builder`);
+            assert.ok(src.includes(marker), `${file} no longer passes ${marker}`);
+            assert.ok(!src.includes('sealPveDifficultyBand'), `${file} must not re-arm the retired Tower layer`);
         });
     }
 
