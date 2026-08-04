@@ -36,10 +36,11 @@ server-authoritative PvE engine.
 | Pet Arena | Server/client pet-specific flow | Pet session and pet formulas | Keep separate |
 | Card Clash | Card-specific flow | Card engine | Keep separate |
 
-The named `story/spar-start` and `endless/wave-start` routes in earlier handoff
-material do not exist in the repository. The live story entry is
-`story/boss-start`; the live Endless entry is `endless/run`. New route names
-must be registered explicitly in `server.ts` before they are considered live.
+`story/spar-start` and `endless/wave-start` both exist and are registered in
+`server.ts`. The Academy host actively calls `story/spar-start`; the normal
+Endless client still does not call `endless/wave-start` and therefore continues
+to run rewarding waves locally. A registered handler is only a live player
+journey when the machine inventory also proves a client caller.
 
 ## Shared versus runtime-owned code
 
