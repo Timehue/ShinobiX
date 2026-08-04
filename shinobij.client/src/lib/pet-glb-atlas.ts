@@ -6,7 +6,15 @@ const GLB_BIN_CHUNK = 0x004e4942;
 
 type GlbJson = {
     images?: Array<{ bufferView?: number; mimeType?: string }>;
+    materials?: Array<{ pbrMetallicRoughness?: { baseColorTexture?: { index?: number } } }>;
     bufferViews?: Array<{ buffer?: number; byteOffset?: number; byteLength?: number }>;
+    textures?: Array<{
+        source?: number;
+        extensions?: {
+            EXT_texture_webp?: { source?: number };
+            KHR_texture_basisu?: { source?: number };
+        };
+    }>;
 };
 
 export type EmbeddedPetAtlas = {
@@ -14,9 +22,24 @@ export type EmbeddedPetAtlas = {
     mimeType: string;
 };
 
-/** Extract the first embedded image without depending on GLTFLoader's decoded
- * Texture/ImageBitmap lifetime. Approved roster GLBs contain one baked colour
- * atlas in a BIN buffer view. */
+function baseColorImageIndex(json: GlbJson): number | undefined {
+    for (const material of json.materials ?? []) {
+        const textureIndex = material.pbrMetallicRoughness?.baseColorTexture?.index;
+        if (!Number.isInteger(textureIndex)) continue;
+        const texture = json.textures?.[textureIndex!];
+        const source = texture?.extensions?.EXT_texture_webp?.source
+            ?? texture?.extensions?.KHR_texture_basisu?.source
+            ?? texture?.source;
+        if (Number.isInteger(source)) return source;
+    }
+    return undefined;
+}
+
+/** Extract the embedded base-colour image without depending on GLTFLoader's
+ * decoded Texture/ImageBitmap lifetime. Newer PBR pets can carry normal and
+ * metallic/roughness maps before their colour texture in the GLB image array,
+ * so the material binding is authoritative. Legacy single-atlas roster assets
+ * retain the safe first-embedded-image fallback. */
 export function extractEmbeddedPetAtlas(buffer: ArrayBuffer): EmbeddedPetAtlas | null {
     if (buffer.byteLength < 28) return null;
     const view = new DataView(buffer);
@@ -33,7 +56,11 @@ export function extractEmbeddedPetAtlas(buffer: ArrayBuffer): EmbeddedPetAtlas |
     const json = JSON.parse(
         new TextDecoder().decode(new Uint8Array(buffer, 20, jsonLength)).replace(/\0+$/u, "").trimEnd(),
     ) as GlbJson;
-    const image = json.images?.find((candidate) => Number.isInteger(candidate.bufferView));
+    const boundImageIndex = baseColorImageIndex(json);
+    const boundImage = boundImageIndex === undefined ? undefined : json.images?.[boundImageIndex];
+    const image = Number.isInteger(boundImage?.bufferView)
+        ? boundImage
+        : json.images?.find((candidate) => Number.isInteger(candidate.bufferView));
     if (image?.bufferView === undefined) return null;
     const bufferView = json.bufferViews?.[image.bufferView];
     if (!bufferView || (bufferView.buffer ?? 0) !== 0 || !bufferView.byteLength) return null;

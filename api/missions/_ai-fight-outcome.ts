@@ -1,4 +1,6 @@
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
+import type { PvpFighter } from '../pvp/session.js';
+import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
 
 /*
  * Step 4 — the outcome of a sealed AI fight, read from the SESSION.
@@ -24,6 +26,8 @@ import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 export const AI_FIGHT_HOSPITAL_DURATION_MS = 60_000;
 
 export type AiFightOutcome = 'win' | 'loss' | 'draw' | 'forfeit' | 'unknown';
+export type AiFightSession = TowerSession | SoloPveSession;
+export type AiFightPlayerCombatant = TowerActor | PvpFighter;
 
 function num(value: unknown): number {
     return Math.max(0, Math.floor(Number(value) || 0));
@@ -34,8 +38,21 @@ function num(value: unknown): number {
  * non-AI squad actor (a summoned companion is `ai: true`), so side + ai is an
  * unambiguous match and does not depend on the owner-slug spelling.
  */
-export function aiFightPlayerActor(session: TowerSession | null | undefined): TowerActor | undefined {
+export function aiFightPlayerActor(session: SoloPveSession): PvpFighter;
+export function aiFightPlayerActor(session: TowerSession): TowerActor | undefined;
+export function aiFightPlayerActor(session: null | undefined): undefined;
+export function aiFightPlayerActor(session: AiFightSession | null | undefined): AiFightPlayerCombatant | undefined;
+export function aiFightPlayerActor(session: AiFightSession | null | undefined): AiFightPlayerCombatant | undefined {
+    if (isSoloPveSession(session)) return session.player;
     return session?.actors?.find((actor) => actor.side === 'squad' && actor.ai === false);
+}
+
+/** Consumables spent by the authoritative human fighter. Settlement applies
+ * this inside the same save mutation as the outcome and reward receipt. */
+export function aiFightPlayerItemsUsed(session: AiFightSession | null | undefined): Record<string, number> {
+    if (!session) return {};
+    if (isSoloPveSession(session)) return { ...session.itemsUsed };
+    return { ...(aiFightPlayerActor(session)?.itemsUsed ?? {}) };
 }
 
 /**
@@ -47,8 +64,9 @@ export function aiFightPlayerActor(session: TowerSession | null | undefined): To
  * runId and apply that session's outcome to their own save — and on a WINNING
  * session, "apply the surviving HP" is a free heal.
  */
-export function isPveFightMember(session: TowerSession | null | undefined, playerName: string): boolean {
+export function isPveFightMember(session: AiFightSession | null | undefined, playerName: string): boolean {
     if (!session || !playerName) return false;
+    if (isSoloPveSession(session)) return session.ownerSlug.toLowerCase() === playerName.toLowerCase();
     return session.actors.some(a => a.side === 'squad' && a.ownerSlug === playerName);
 }
 
@@ -69,9 +87,14 @@ export function isPveFightMember(session: TowerSession | null | undefined, playe
  * which is stored under the caller's own name, so it can never address another
  * player's session. Nothing in the request body reaches this.
  */
-export function resolveAiFightOutcome(session: TowerSession | null | undefined): AiFightOutcome {
+export function resolveAiFightOutcome(session: AiFightSession | null | undefined): AiFightOutcome {
     if (!session) return 'unknown';
     if (session.status !== 'done') return 'forfeit';
+    if (isSoloPveSession(session)) {
+        if (session.winner === 'player') return 'win';
+        if (session.winner === 'draw') return 'draw';
+        return 'loss';
+    }
     if (session.winner === 'squad') return 'win';
     if (session.winner === 'draw') return 'draw';
     return 'loss';
@@ -124,7 +147,7 @@ export function settlementOwnsHpOnWin(session: TowerSession | null | undefined):
 export function applyAiFightOutcomeToCharacter(
     character: Record<string, unknown>,
     outcome: AiFightOutcome,
-    playerActor: TowerActor | undefined,
+    playerActor: AiFightPlayerCombatant | undefined,
     now: number,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;

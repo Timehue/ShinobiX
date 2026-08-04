@@ -11,6 +11,7 @@ import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { SERVER_ARENA_PETS } from './_arena-ai.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
+import { activeBreedingParentIds } from './_pet-busy.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 import {
     hollowGateCombatBindingKey,
@@ -93,6 +94,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const myPets = Array.isArray(myChar?.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
         const playerPets = playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
         if (!playerPets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
+        const breedingParents = activeBreedingParentIds(myChar ?? {});
+        if (playerPets.some((pet) => breedingParents.has(String(pet.id)))) {
+            return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+        }
         let opponentPets: Pet[] = [];
         let isAiOpponent = false;
         let hollowGate: { runId: string } | null = null;

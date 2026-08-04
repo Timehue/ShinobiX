@@ -4,6 +4,8 @@ import { mergePreservingImages, safeName } from './_utils.js';
 import { hollowGateRunKey } from './hollow-gate/_run-token.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
+import { migrateCharacterOwnedPets } from './pet/_owned-pet.js';
+import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 const VITAL_REGEN_MS = 1000;
@@ -289,7 +291,18 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         battleLockFlagsForPlayers([slug]),
         hollowGateRunExpiredFor(slug, record),
     ]);
-    const projected = settleSaveRecord(record, { now, battleLocked: lockFlags.get(slug) === true, hollowGateRunExpired });
+    let projected = settleSaveRecord(record, { now, battleLocked: lockFlags.get(slug) === true, hollowGateRunExpired });
+    if (opts.persist && projected.record.character && typeof projected.record.character === 'object') {
+        const migrated = migrateCharacterOwnedPets(slug, projected.record.character as Record<string, unknown>);
+        const breeding = settlePetBreedingSession(migrated.character, now);
+        if (migrated.changed || breeding.changed) {
+            projected = {
+                ...projected,
+                record: { ...projected.record, character: breeding.character },
+                changed: true,
+            };
+        }
+    }
     if (!opts.persist || !projected.changed) return projected;
 
     const saveKey = `save:${slug}`;
@@ -304,7 +317,14 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             battleLockFlagsForPlayers([slug]),
             hollowGateRunExpiredFor(slug, fresh),
         ]);
-        const next = settleSaveRecord(fresh, { now, battleLocked: freshFlags.get(slug) === true, hollowGateRunExpired: freshExpired });
+        let next = settleSaveRecord(fresh, { now, battleLocked: freshFlags.get(slug) === true, hollowGateRunExpired: freshExpired });
+        if (next.record.character && typeof next.record.character === 'object') {
+            const migrated = migrateCharacterOwnedPets(slug, next.record.character as Record<string, unknown>);
+            const breeding = settlePetBreedingSession(migrated.character, now);
+            if (migrated.changed || breeding.changed) {
+                next = { ...next, record: { ...next.record, character: breeding.character }, changed: true };
+            }
+        }
         if (!next.changed) return next;
         const versioned = bumpSaveVersion(next.record);
         await kv.set(saveKey, mergePreservingImages(versioned, fresh));

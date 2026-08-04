@@ -1,5 +1,9 @@
 /**
- * Express server for cPanel / Phusion Passenger.
+ * Active Railway Express server for the ShinobiX runtime.
+ *
+ * cPanel / Phusion Passenger is retained only as a compatibility and rollback
+ * target while its retirement runbook remains available; it is not the active
+ * deployment path.
  *
  * Wraps the existing Vercel-style handler functions so they run under
  * Express without any changes to the individual handler files.
@@ -31,7 +35,7 @@ import { safeLogValue } from './api/_safe-log.js';
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
 // only — those types are erased at compile time, so there is zero runtime
-// dependency on @vercel/node in the cPanel build.
+// dependency on @vercel/node in the Railway bundle.
 
 import saveHandler       from './api/save/[name].js';
 import heartbeatHandler  from './api/player/heartbeat.js';
@@ -140,6 +144,11 @@ import petBefriendHandler from './api/pet/befriend.js';
 import petChooseStarterHandler from './api/pet/choose-starter.js';
 import petEncounterStartHandler from './api/pet/encounter-start.js';
 import petProgressHandler from './api/pet/progress.js';
+import petBreedingStatusHandler from './api/pet/breeding-status.js';
+import petBreedingStartHandler from './api/pet/breeding-start.js';
+import petBreedingHatchHandler from './api/pet/breeding-hatch.js';
+import petSanctuaryListHandler from './api/pet/sanctuary-list.js';
+import petSanctuaryTransferHandler from './api/pet/sanctuary-transfer.js';
 import playerProfileTitleHandler from './api/player/profile-title.js';
 import playerStatRespecHandler from './api/player/stat-respec.js';
 import professionMasteryHandler from './api/profession/mastery.js';
@@ -222,6 +231,8 @@ import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.j
 import missionsCombatStartHandler from './api/missions/combat-start.js';
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import pveFightOutcomeHandler from './api/pve/fight-outcome.js';
+import soloPveActionHandler from './api/solo-pve/action.js';
+import soloPveStateHandler from './api/solo-pve/state.js';
 import patreonOauthStartHandler       from './api/patreon/oauth-start.js';
 import patreonOauthCallbackHandler    from './api/patreon/oauth-callback.js';
 import patreonWebhookHandler          from './api/patreon/webhook.js';
@@ -291,6 +302,7 @@ import adminAuditLogHandler from './api/admin/audit-log.js';
 // Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
 import adminEconomyHandler from './api/admin/economy.js';
 import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
+import adminEconomySettlementsHandler from './api/admin/economy-settlements.js';
 import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
@@ -1275,6 +1287,9 @@ route('/missions/record-progress',  missionsRecordProgressHandler);
 // The physical cost of a server-resolved PvE fight (surviving HP / hospital on a
 // defeat or a forfeit). Pays nothing — the reward settles stay where they are.
 route('/pve/fight-outcome', pveFightOutcomeHandler);
+// Durable solo-PvE sessions share these routes across every deployed server.
+route('/solo-pve/action', soloPveActionHandler);
+route('/solo-pve/state', soloPveStateHandler);
 // Patreon — OAuth account-link + membership webhook + subscriber status.
 // Perks are gated on the server-owned character.patreon flag, written ONLY by
 // the signature-verified webhook / OAuth callback (api/patreon/_patreon.ts).
@@ -1368,6 +1383,7 @@ route('/admin/asset-report', adminAssetReportHandler);
 route('/admin/audit-log', adminAuditLogHandler);
 route('/admin/economy', adminEconomyHandler);
 route('/admin/economy-reconcile', adminEconomyReconcileHandler);
+route('/admin/economy-settlements', adminEconomySettlementsHandler);
 route('/admin/beta-metrics', adminBetaMetricsHandler);
 
 // Release-handoff endpoints. Express has no folder-convention routing, so every
@@ -1392,6 +1408,11 @@ route('/pet/befriend', petBefriendHandler);
 route('/pet/choose-starter', petChooseStarterHandler);
 route('/pet/encounter-start', petEncounterStartHandler);
 route('/pet/progress', petProgressHandler);
+route('/pet/breeding/status', petBreedingStatusHandler);
+route('/pet/breeding/start', petBreedingStartHandler);
+route('/pet/breeding/hatch', petBreedingHatchHandler);
+route('/pet/sanctuary/list', petSanctuaryListHandler);
+route('/pet/sanctuary/transfer', petSanctuaryTransferHandler);
 route('/player/profile-title', playerProfileTitleHandler);
 route('/player/stat-respec', playerStatRespecHandler);
 route('/profession/mastery', professionMasteryHandler);

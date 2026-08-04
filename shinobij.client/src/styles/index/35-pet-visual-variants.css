@@ -1,0 +1,32 @@
+/* Owned-pet cosmetic variants are presentation-only. The class is applied at
+   every roster/battle shell while variant-specific shared art, when published,
+   is resolved before this graceful palette/VFX fallback. */
+.pet-visual--chromatic img {
+    filter: saturate(1.35) hue-rotate(24deg) drop-shadow(0 0 12px rgba(188, 137, 255, 0.72));
+}
+
+.pet-visual--chromatic {
+    position: relative;
+}
+
+.pet-visual--chromatic::after {
+    content: "";
+    position: absolute;
+    inset: 4%;
+    z-index: 3;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 18px rgba(121, 224, 255, 0.2), 0 0 18px rgba(203, 142, 255, 0.2);
+}
+
+.pet-chromatic-label {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    color: #111827;
+    background: linear-gradient(90deg, #8be2ff, #cb9cff, #ffb1ca, #ffe29a);
+    font-size: 0.65rem;
+    font-weight: 900;
+    vertical-align: middle;
+}

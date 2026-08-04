@@ -78,6 +78,27 @@ describe('_ai-fight-token', () => {
         }
     });
 
+    it('carries a separately discriminated solo-PvE session binding', () => {
+        const token = createAiFightTokenRecord('Player', 'abc123', 1, {
+            sessionRuntime: 'solo-pve',
+            sessionId: 'solo-ai-deadbeef',
+        });
+        assert.equal(token.sessionRuntime, 'solo-pve');
+        assert.equal(token.sessionId, 'solo-ai-deadbeef');
+        assert.equal(token.runId, undefined);
+    });
+
+    it('never stamps a solo runtime without a valid solo session id', () => {
+        for (const sessionId of [undefined, '', 'bad/slash', 42]) {
+            const token = createAiFightTokenRecord('Player', 'abc123', 1, { sessionRuntime: 'solo-pve', sessionId });
+            assert.equal(token.sessionRuntime, undefined);
+            assert.equal(token.sessionId, undefined);
+        }
+        const wrongRuntime = createAiFightTokenRecord('Player', 'abc123', 1, { sessionRuntime: 'tower', sessionId: 'solo-ai-1' });
+        assert.equal(wrongRuntime.sessionRuntime, undefined);
+        assert.equal(wrongRuntime.sessionId, undefined);
+    });
+
     it('rejects claims that exceed the sealed ceiling', () => {
         const token = createAiFightTokenRecord('Player', 'abc123');
         assert.deepEqual(validateAiFightRewardClaim(token, MAX_AI_FIGHT_XP + 1, 90), {

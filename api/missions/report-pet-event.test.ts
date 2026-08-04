@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clearStuckExpeditionLease } from './report-pet-event.js';
+import { clearStuckExpeditionLease, petExpeditionTraitMultiplier } from './report-pet-event.js';
 
 const petWith = (id: string, expedition: unknown) => ({ id, name: id, expedition });
 
@@ -38,4 +38,11 @@ test('clearStuckExpeditionLease is a no-op when nothing matches (double-claim / 
 test('clearStuckExpeditionLease tolerates a missing/invalid pets array and empty match', () => {
     assert.deepEqual(clearStuckExpeditionLease({}, { token: 'AAA' }), { pets: [], cleared: false });
     assert.equal(clearStuckExpeditionLease({ pets: [petWith('p1', { token: 'AAA' })] }, {}).cleared, false);
+});
+
+test('only Boonbringer doubles authoritative expedition Ryo and pet XP', () => {
+    assert.equal(petExpeditionTraitMultiplier({ trait: 'Boonbringer' }), 2);
+    assert.equal(petExpeditionTraitMultiplier({ trait: 'Fateweaver' }), 1);
+    assert.equal(petExpeditionTraitMultiplier({ trait: 'Lucky' }), 1);
+    assert.equal(petExpeditionTraitMultiplier(undefined), 1);
 });

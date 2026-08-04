@@ -11,7 +11,36 @@ import type { PetRole, PetSubRole } from "../lib/pet-roles";
 
 export type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 
-export type PetTrait = "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn";
+export type PetOrigin = "starter" | "wild" | "bred" | "event" | "admin";
+
+export type PetBreedingRequirementCategory = "care" | "adventure" | "elementalBond";
+
+export type PetBreedingRequirement = {
+    id: string;
+    category: PetBreedingRequirementCategory;
+    kind: string;
+    label: string;
+    progress: number;
+    target: number;
+    element?: Exclude<JutsuElement, "None">;
+};
+
+export type PetBreedingSession = {
+    sessionId: string;
+    state: "breeding" | "egg";
+    parentIds: [string, string];
+    parentNames: [string, string];
+    parentElement: Exclude<JutsuElement, "None">;
+    startedAt: number;
+    readyAt: number;
+    eggCreatedAt?: number;
+    requirements?: PetBreedingRequirement[];
+    rulesVersion: number;
+};
+
+export type PetTrait =
+    | "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn"
+    | "Fateweaver" | "Hollowborn" | "Boonbringer";
 
 export type PetTrainingType = "strength" | "endurance" | "agility" | "chakra" | "bond";
 
@@ -155,4 +184,18 @@ export type Pet = {
     // the two-admin merge a recency tiebreaker. Undefined = never admin-edited →
     // keep the built-in baseline. Mirrors Jutsu.updatedAt.
     updatedAt?: number;
+    // Owned-pet identity and breeding metadata. These fields are assigned,
+    // migrated, and protected by the server. Static templates may set only
+    // `breedable` (undefined means a normal breedable catalog species).
+    templateId?: string;
+    origin?: PetOrigin;
+    breedingUsesMax?: number;
+    breedingUsesRemaining?: number;
+    paletteVariantId?: string;
+    generation?: number;
+    parentInstanceIds?: [string, string];
+    parentTemplateIds?: [string, string];
+    hatchedAt?: number;
+    breedable?: boolean;
+    breedingSessionId?: string;
 };

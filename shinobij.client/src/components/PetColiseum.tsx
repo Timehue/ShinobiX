@@ -91,6 +91,7 @@ import { petCombatFamilyPresentation } from "../lib/pet-combat-family";
 import { petDisplayName } from "../lib/pet";
 import { petDuelBroadcastRead, petDuelRecap } from "../lib/pet-duel-broadcast";
 import { HOLLOW_HOUND_SURFACE } from "../lib/pet-model-surface";
+import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { isHollowHoundEncounterPet } from "../../../shared/hollow-gate-contract";
 
 type Vec3 = [number, number, number];
@@ -2604,7 +2605,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
                                     </mesh>
                                 </Billboard>
                             )}>
-                                <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} surfaceTreatment={hollowHoundSurface(pet)} />
+                                <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} showIdentity={showIdentity} surfaceTreatment={petModelVariantSurface(pet, hollowHoundSurface(pet))} />
                             </Suspense>
                         </PetModelBoundary>
                     </group>
@@ -2687,7 +2688,7 @@ function DuelCutInModelPortrait({ pet, config, style, move, mirror }: {
                     <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={0.68} color={elementColor(pet.element).glow} />
                     <group position={[0, -config.targetHeight * 0.5, 0]} rotation={[0, mirror ? -0.34 : 0.34, 0]}>
                         <Suspense fallback={null}>
-                            <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} surfaceTreatment={hollowHoundSurface(pet)} />
+                            <PetModel3D config={config} frame={frame} element={pet.element} showIdentity={false} surfaceTreatment={petModelVariantSurface(pet, hollowHoundSurface(pet))} />
                         </Suspense>
                     </group>
                 </Canvas>

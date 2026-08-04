@@ -1,3 +1,32 @@
+# Deployment topology and cPanel retirement record
+
+## Current operating topology — 2026-08-03
+
+Railway is the active deployment direction. The active server command is
+`node dist/server.js` from the container image, and the health path is
+`/health`. The active base store is PostgreSQL through `DATABASE_URL` (with
+the repository's supported Supabase PostgreSQL fallback variable where used).
+
+Vercel is retired and compatibility-only. cPanel/Passenger is retired from
+normal traffic and retained only for rollback and data-recovery work while its
+data is intentionally preserved. The cPanel `app.js` entry point, disk overlay,
+route aliases, and migration utilities must not be treated as current Railway
+operating instructions. Do not run the historical steps below unless a new
+operator explicitly starts a rollback or migration procedure with the required
+approval and backup.
+
+The repository does not claim live Railway, production PostgreSQL, or cPanel
+state verification in this document; those require an authorized operational
+check outside this code change.
+
+---
+
+## Historical cutover record — not a current operating procedure
+
+The following record documents the 2026-07-17 cPanel overlay retirement and
+remains for rollback/data recovery. It is deliberately preserved rather than
+deleted because the old store may still be needed to recover data safely.
+
 # Retire cPanel — move `save:*` off the disk overlay into Postgres (Option B)
 
 > **STATUS: ✅ COMPLETED 2026-07-17.** The cutover ran successfully: all 118
@@ -12,7 +41,7 @@
 > and for the rollback path.
 
 
-Goal: stop routing player saves through the cPanel disk overlay (`KV_PROXY_URL`)
+Historical goal: stop routing player saves through the cPanel disk overlay (`KV_PROXY_URL`)
 and serve them from the Postgres base store, so cPanel can be decommissioned.
 Chosen because it removes the most moving parts, is the only option that works
 if you ever run more than one server instance, and lowers cost (drops the cPanel
@@ -21,7 +50,7 @@ bill; Postgres storage stays inside Supabase Pro's included quota).
 **Reversible by design:** the copy NEVER deletes the cPanel data. Rollback is a
 one-variable env change + redeploy at any point until you decommission cPanel.
 
-Confirmed starting state (from Railway vars, 2026-07-16): `KV_PROXY_URL` set,
+Historical confirmed starting state (from Railway vars, 2026-07-16): `KV_PROXY_URL` set,
 `KV_PROXY_TOKEN` set, `REQUIRE_DISK_OVERLAY` set, `DATABASE_URL` set, no
 `DISK_KV_DIR`. So saves currently live on cPanel via the proxy.
 

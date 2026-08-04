@@ -27,7 +27,6 @@ import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS 
 import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/character-progress";
-import { maxPets } from "../lib/entitlements";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
@@ -141,7 +140,7 @@ import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } 
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
-import { isLegacyEnabled, isLegacyServerLive, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { isLegacyServerLive, useLegacyAvailability, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, emissaryLoreLine, emissaryQuestById, EMISSARY_METRIC_LABELS, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
 import { EmissaryTrialPanel } from "../components/EmissaryTrialPanel";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
@@ -406,6 +405,7 @@ export function WorldMap({
     // the 3-attempt cap — same path as the "Fight Boss" button.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
 }) {
+    const legacyAvailable = useLegacyAvailability();
     // Live players in the current sector come from the presence store. WorldMap reads
     // the MEMBERSHIP-only snapshot (useLiveSectorRoster) — it re-renders on join/leave
     // but NOT when a peer merely walks to a new tile; the walking overlay
@@ -877,7 +877,7 @@ export function WorldMap({
     // Sage departure) — these used to be native alert() dialogs.
     const [whisper, setWhisper] = useState<{ text: string; kicker?: string } | null>(null);
     useEffect(() => {
-        if (!isLegacyEnabled() || character.level < 50 || character.legacy) return;
+        if (!legacyAvailable || character.level < 50 || character.legacy) return;
         let alive = true;
         void sageRoll(character.name).then(r => {
             if (!alive) return;
@@ -899,13 +899,13 @@ export function WorldMap({
             }
         });
         return () => { alive = false; };
-    }, [character.name, character.level, character.legacy]);
+    }, [legacyAvailable, character.name, character.level, character.legacy]);
     // Pre-50 Legacy rumors: at level milestones, one vague hint about the
     // strongest path the player is carving (never formulas — the mystery rule).
     // Fires for the highest unseen milestone at level >= it, so leveling past
     // one offline doesn't eat the beat; heard rumors accumulate in the panel log.
     useEffect(() => {
-        if (!isLegacyEnabled() || character.level >= 50) return;
+        if (!legacyAvailable || character.level >= 50) return;
         const milestone = nextUnseenRumorMilestone(character.level);
         if (milestone == null) return;
         let alive = true;
@@ -927,7 +927,7 @@ export function WorldMap({
             setWhisper({ text });
         });
         return () => { alive = false; };
-    }, [character.name, character.level]);
+    }, [legacyAvailable, character.name, character.level]);
     const sageWanderers = useMemo(
         () => (sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector
             ? [synthSageWanderer(sageOffer.sector)] : []),
@@ -947,15 +947,15 @@ export function WorldMap({
     const [legacyServerLive, setLegacyServerLive] = useState(false);
     useEffect(() => {
         let alive = true;
-        if (isLegacyEnabled()) void isLegacyServerLive().then(live => { if (alive) setLegacyServerLive(live); });
+        if (legacyAvailable) void isLegacyServerLive().then(live => { if (alive) setLegacyServerLive(live); });
         return () => { alive = false; };
-    }, []);
+    }, [legacyAvailable]);
     useEffect(() => {
-        if (!isLegacyEnabled() || !character.legacy) { return; }
+        if (!legacyAvailable || !character.legacy) { return; }
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => { if (alive) setLegacyCategory(s?.legacyCategory ?? null); });
         return () => { alive = false; };
-    }, [character.name, character.legacy]);
+    }, [legacyAvailable, character.name, character.legacy]);
     const emissaryWanderers = useMemo(() => {
         if (!legacyServerLive || !isWanderersEnabled() || selectedSector == null) return [];
         // A legacy holder's emissary is category-bound; until the category fetch
@@ -2940,13 +2940,6 @@ export function WorldMap({
                             // Ignore clicks during the grace window — a rapid-click
                             // carried over from the VN must not auto-resolve this.
                             if (!petDecisionReady || petBefriendPending) return;
-                            // Re-read length inside the handler in case of fast double-click.
-                            const petCap = maxPets(character);
-                            if (character.pets.length >= petCap) {
-                                return alert(petCap < 5
-                                    ? `Your Pet Yard is full (${character.pets.length}/${petCap}). Link your Patreon (Shinobi Supporter) for 5 pet slots, or release a pet.`
-                                    : `Your Pet Yard is full (${petCap}/${petCap}). Release a pet before befriending another.`);
-                            }
                             const encounter = activePetEncounter;
                             const token = petEncounterToken.current;
                             if (!token) return alert("This encounter has expired. Explore again to find another companion.");
@@ -2957,9 +2950,7 @@ export function WorldMap({
                             void befriendWildPet(character.name, token).then((result) => {
                                 setPetBefriendPending(false);
                                 if (!result.character) {
-                                    return alert(result.error === "pet-yard-full"
-                                        ? `Your Pet Yard is full (${petCap}/${petCap}). Release a pet before befriending another.`
-                                        : result.error === "invalid-or-spent-encounter"
+                                    return alert(result.error === "invalid-or-spent-encounter"
                                             ? "This encounter has expired. Explore again to find another companion."
                                             : result.error ?? "The pet could not be befriended.");
                                 }
@@ -2970,9 +2961,10 @@ export function WorldMap({
                                 updateCharacter(result.character);
                                 onServerVersion?.(result.saveVersion);
                                 const trait = result.trait as PetTrait | null;
+                                const destination = result.destination === "sanctuary" ? "\nYour carried roster was full, so they are resting safely in the Sanctuary." : "";
                                 alert(trait
-                                    ? `${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`
-                                    : `${encounter.name} joined you!`);
+                                    ? `${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}${destination}`
+                                    : `${encounter.name} joined you!${destination}`);
                             });
                         }}
                     >
@@ -3963,7 +3955,7 @@ export function WorldMap({
                                                             )}
                                                         </div>
                                                     )}
-                                                    {isLegacyEnabled() && character.legacy && (
+                                                    {legacyAvailable && character.legacy && (
                                                         <EmissaryTrialPanel
                                                             playerName={character.name}
                                                             emissary={em}

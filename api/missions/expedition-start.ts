@@ -7,6 +7,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 
 /*
  * /api/missions/expedition-start  — POST only
@@ -98,6 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const realMaxLevel = Number(thePet?.maxLevel ?? 100);
         const petMaxed = !!thePet && realLevel >= realMaxLevel;
         if (!thePet) return res.status(404).json({ error: 'Pet not found.' });
+        if (activeBreedingParentIds(char ?? {}, Date.now()).has(petId)) return res.status(409).json({ error: 'This pet is in the breeding barn.' });
         if (realLevel < 20) return res.status(409).json({ error: 'Pet must reach level 20.' });
         if (thePet.training || thePet.expedition) return res.status(409).json({ error: 'Pet is already busy.' });
         // Half rate for the non-Tamer maxed-pet path; full rate for Pet Tamers.
@@ -164,6 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const currentIndex = storedPets.findIndex((pet) => String(pet?.id ?? '') === petId);
             if (currentIndex < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
             const currentPet = storedPets[currentIndex];
+            if (activeBreedingParentIds(character, mintedAt).has(petId)) return { ok: false as const, status: 409, error: 'This pet is in the breeding barn.' };
             if (currentPet.training || currentPet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
             const nextPets = storedPets.map((pet, i) => i === currentIndex ? {
                 ...pet,

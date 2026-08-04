@@ -93,6 +93,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   centralHub: archive,
   petArena: atFacility(companion, "pet-yard"),
   petLadder: atFacility(companion, "pet-yard"),
+  home: atFacility(companion, "home"),
   pets: atFacility(companion, "pet-yard"),
   shinobiTiles: atFacility(combat, "card-hall"),
   eventPetBattle: companion,

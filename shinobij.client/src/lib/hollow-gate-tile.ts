@@ -26,6 +26,7 @@ import { tryHollowGateSecondWind } from "./hollow-gate-shards";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
 import { requireServerSettlement } from "./server-settlement-gate";
 import { descendHollowGateRun } from "./hollow-gate-combat-api";
+import { maxPets } from "./entitlements";
 import type {
     Character,
     HollowGateShrineRun,
@@ -67,6 +68,7 @@ export interface HollowGateTileCtx {
     setHollowGateRun: SetState<HollowGateShrineRun | null>;
     setHollowGateEvent: SetState<HollowGateEventModal>;
     setHollowGateHiddenChamber: SetState<HiddenChamberState>;
+    onServerVersion: (version: number | undefined) => void;
 
     gainXp: (character: Character, amount: number) => Character;
     pushHollowGateLog: (line: string) => void;
@@ -84,6 +86,7 @@ export function resolveHollowGateTile(
     const {
         character, hollowGateRun, HOLLOW_GATE_TRAP_DMG_PCT,
         setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
+        onServerVersion,
         gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
         leaveHollowGateShrine,
     } = ctx;
@@ -482,13 +485,14 @@ export function resolveHollowGateTile(
                     pushHollowGateLog(`A ${rarity} pet emerges from behind the sealed door: ${encounter.name}.`);
                     setHollowGateEvent({
                         title: `${String(rarity).charAt(0).toUpperCase() + String(rarity).slice(1)} Pet Encounter`,
-                        body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} - Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (${character.pets.length}/5)`,
+                        body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} - Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Carried ${character.pets.length}/${maxPets(character)}; overflow rests in the Sanctuary)`,
                         kind: "pet_event",
                         choices: [{ label: `Befriend ${encounter.name}`, tone: "primary", onSelect: () => {
                             if (!requireServerSettlement("hollowGatePetBefriend")) return;
                             void befriendHollowGatePetServer(character.name, petToken).then((befriended) => {
                                 if (!befriended.character) return alert(befriended.error || "The pet could not be befriended.");
-                                setCharacter(befriended.character); pushHollowGateLog(`${encounter.name} joined you!${befriended.trait ? ` Trait: ${befriended.trait}.` : ""}`); setHollowGateEvent(null);
+                                onServerVersion(befriended.saveVersion);
+                                setCharacter(befriended.character); pushHollowGateLog(`${encounter.name} joined you!${befriended.trait ? ` Trait: ${befriended.trait}.` : ""}${befriended.destination === "sanctuary" ? " Your carried roster was full, so the companion is resting in the Sanctuary." : ""}`); setHollowGateEvent(null);
                             });
                         } }, { label: "Leave it", onSelect: () => setHollowGateEvent(null) }],
                     });
@@ -608,7 +612,7 @@ export function resolveHollowGateTile(
                         const rarityColor = rarity === "mythic" ? "#fbbf24" : rarity === "legendary" ? "#a855f7" : "#60a5fa";
                         setHollowGateEvent({
                             title: `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} Pet Encounter`,
-                            body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} — Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Pet Yard ${character.pets.length}/5)`,
+                            body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} — Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Overflow rests in the Sanctuary)`,
                             kind: "pet_event",
                             choices: [
                                 {
@@ -616,10 +620,6 @@ export function resolveHollowGateTile(
                                     tone: "primary",
                                     onSelect: () => {
                                         if (!requireServerSettlement("hollowGatePetBefriend")) return;
-                                        if (character.pets.length >= 5) {
-                                            alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
-                                            return;
-                                        }
                                         const trait = rollPetTrait(encounter.rarity);
                                         const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
                                         const updated = { ...character, pets: [...character.pets, petWithTrait] };

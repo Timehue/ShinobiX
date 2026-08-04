@@ -45,19 +45,19 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'pvp/claim-rewards.ts', mechanism: 'in-save-receipt', markers: ['serverSettlementReceipts'] },
     { file: 'weekly-boss.ts', mechanism: 'nx-marker', markers: [/nx:\s*true/] },
     { file: 'towers/settle.ts', mechanism: 'nx-marker', markers: [/[Rr]eceipt/] },
-    { file: 'festival/sunscar.ts', mechanism: 'single-use-token', markers: ['consumeSingleUseToken'] },
+    { file: 'festival/sunscar.ts', mechanism: 'state-machine', markers: ['beginDurableSettlement', 'completeDurableSettlement'] },
     { file: 'events/claim.ts', mechanism: 'in-save-receipt', markers: ['claimBuiltinEvent'] },
     { file: 'achievements/sync.ts', mechanism: 'in-save-receipt', markers: ['mutatePlayerSave'] },
     { file: 'player/daily-login.ts', mechanism: 'in-save-receipt', markers: ['lastLoginRewardDate'] },
     { file: 'bank/claim-interest.ts', mechanism: 'in-save-receipt', markers: ['lastBankInterestAt'] },
     { file: 'clan/mission/claim.ts', mechanism: 'in-save-receipt', markers: [/[Ee]conomic[-]?[Rr]eceipt/] },
     { file: 'clan/exchange/purchase.ts', mechanism: 'state-machine', markers: ['refundClanExchangeTreasuryPurchase'] },
-    { file: 'clan/treasury/transfer.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx'] },
-    { file: 'village/treasury/transfer.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx'] },
+    { file: 'clan/treasury/transfer.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
+    { file: 'village/treasury/transfer.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
     { file: 'card-clash/open-pack.ts', mechanism: 'state-machine', markers: ['mutatePlayerSave'] },
     { file: 'card-clash/ai-move.ts', mechanism: 'in-save-receipt', markers: ['redeemedCardClashAiSessions'] },
     { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'trade:nonce:'] },
-    { file: 'cron/_ranked-season.ts', mechanism: 'nx-marker', markers: [/nx:\s*true/, 'SEASON_REWARDED_PREFIX'] },
+    { file: 'cron/_ranked-season.ts', mechanism: 'in-save-receipt', markers: ['SEASON_SETTLEMENT_RECEIPTS_FIELD', 'settleRankedSeasonCharacter'] },
 ];
 
 const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf8');
@@ -83,8 +83,13 @@ describe('reward-settlement contract inventory', () => {
     it('every currency-mutating settlement passes failClosed to its lock (spot inventory)', () => {
         // The full lock audit lives in docs/audits/concurrency-and-locking-audit.md;
         // this pins the currency-path convention on the highest-value endpoints.
-        for (const rel of ['player/trade.ts', 'clan/treasury/transfer.ts', 'village/treasury/transfer.ts', 'pvp/claim-rewards.ts']) {
+        for (const rel of ['player/trade.ts', 'pvp/claim-rewards.ts']) {
             assert.match(read(rel), /failClosed:\s*true/, `${rel} must lock failClosed`);
         }
+        for (const rel of ['clan/treasury/transfer.ts', 'village/treasury/transfer.ts']) {
+            assert.match(read(rel), /settleCrossKeyTransfer/, `${rel} must use the shared cross-key settlement lock`);
+        }
+        const shared = read('_cross-key-settlement.ts');
+        assert.match(shared, /failClosed:\s*true/, 'shared cross-key settlement helper must lock failClosed');
     });
 });

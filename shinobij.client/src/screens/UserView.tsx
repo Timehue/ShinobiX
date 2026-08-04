@@ -24,6 +24,7 @@ import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
 import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, type LegacyDefView } from "../lib/legacy";
 import { LegacyBadge } from "../components/LegacyBadge";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "var(--red-400)", water: "var(--blue-400)", earth: "#d4a574", lightning: "#fbbf24",
@@ -267,7 +268,7 @@ export function UserView({
                             {pets.slice(0, 8).map((p) => {
                                 const petImg = sharedImages['pet:' + String(p.id).toLowerCase()] || p.image || "";
                                 return (
-                                    <div key={String(p.id)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
+                                    <div key={String(p.id)} className={petVisualVariantClass(p)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
                                         <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                             {petImg ? <img src={petImg} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: "1.2rem" }}>🐾</span>}
                                         </div>

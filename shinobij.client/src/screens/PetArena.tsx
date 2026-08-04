@@ -14,6 +14,7 @@ import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-d
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
     availablePetBattleCount,
@@ -1165,7 +1166,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const rm = ROLE_META[role];
         return (
             <button key={key} type="button"
-                className={`pet-pick${sel ? " selected" : ""}`}
+                className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
                 title={opts?.owner ? `${opts.owner}: ${petDisplayName(pet)}` : petDisplayName(pet)}
                 style={opts?.dim ? { opacity: 0.5 } : undefined}
                 onClick={onClick}>
@@ -1628,7 +1629,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     const atMax = !sel && picks.length >= max;
                                     return (
                                         <button key={pet.id} type="button"
-                                            className={`pet-pick${sel ? " selected" : ""}`}
+                                            className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
                                             title={rm ? `${petDisplayName(pet)} — ${rm.label} (${subRole})` : petDisplayName(pet)}
                                             style={atMax ? { opacity: 0.45 } : undefined}
                                             onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : atMax ? picks : [...picks, pet.id])}>

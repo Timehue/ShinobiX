@@ -71,7 +71,8 @@ export function rollFateDice(playerName: string): Promise<SunscarDiceResult> {
 
 /** Open a Miraa wager: the server escrows the stake and mints a single-use token. */
 export function startMiraaWager(playerName: string, bet: number): Promise<MiraaStartResult> {
-    return postSunscar<MiraaStartResult>({ kind: "miraa-start", playerName, bet }, "Miraa won't take that wager. Try again.");
+    const requestId = typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : `miraa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return postSunscar<MiraaStartResult>({ kind: "miraa-start", playerName, bet, requestId }, "Miraa won't take that wager. Try again.");
 }
 
 /**

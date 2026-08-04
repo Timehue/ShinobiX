@@ -6,9 +6,18 @@
  * server's ENABLE_LEGACY; endpoints 404 while it's off and every wrapper here
  * resolves to null/empty rather than throwing).
  */
+import { useEffect, useState } from "react";
 import type { Wanderer } from "./wanderers";
 
+export function legacyAvailabilityAllowed(preferenceEnabled: boolean, serverEnabled: boolean | null): boolean {
+    return preferenceEnabled && serverEnabled === true;
+}
+
 export function isLegacyEnabled(): boolean {
+    return legacyAvailabilityAllowed(legacyPreferenceEnabled(), legacyServerLive);
+}
+
+function legacyPreferenceEnabled(): boolean {
     if (typeof window === "undefined") return false;
     try { return window.localStorage?.getItem("legacy.v1") !== "off"; } catch { return true; }
 }
@@ -133,10 +142,45 @@ export function fetchLegacyDefinitions(): Promise<{ minLevel: number; legacies: 
 // UI (title style/icon pickers) so a player can't spend shards on a cosmetic the
 // server would strip at save time.
 let legacyServerLive: boolean | null = null;
+let legacyProbe: Promise<boolean> | null = null;
+const legacyAvailabilityListeners = new Set<() => void>();
+
+function notifyLegacyAvailability(): void {
+    for (const listener of legacyAvailabilityListeners) listener();
+}
+
 export async function isLegacyServerLive(): Promise<boolean> {
-    if (!isLegacyEnabled()) return false;
-    if (legacyServerLive === null) legacyServerLive = (await fetchLegacyDefinitions()) !== null;
-    return legacyServerLive;
+    if (!legacyPreferenceEnabled()) return false;
+    if (legacyServerLive === null) {
+        legacyProbe ??= fetchLegacyDefinitions().then((result) => {
+            legacyServerLive = result !== null;
+            notifyLegacyAvailability();
+            return legacyServerLive;
+        }).catch(() => {
+            legacyServerLive = false;
+            notifyLegacyAvailability();
+            return false;
+        });
+    }
+    if (legacyProbe) await legacyProbe;
+    return legacyServerLive === true;
+}
+
+/**
+ * Server availability is the only enable gate. A local preference may hide
+ * the feature, but it cannot expose a server-disabled Legacy surface. The
+ * hook probes once per browser session and re-renders every entry point when
+ * the authoritative result arrives.
+ */
+export function useLegacyAvailability(): boolean {
+    const [available, setAvailable] = useState(isLegacyEnabled);
+    useEffect(() => {
+        const listener = () => setAvailable(isLegacyEnabled());
+        legacyAvailabilityListeners.add(listener);
+        void isLegacyServerLive().then(listener);
+        return () => { legacyAvailabilityListeners.delete(listener); };
+    }, []);
+    return available && legacyPreferenceEnabled();
 }
 
 export function sageRoll(playerName: string, sector?: number | null): Promise<{ spawn: boolean; offer?: SageOfferView; reason?: string } | null> {

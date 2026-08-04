@@ -5,6 +5,7 @@ import {
     chooseOwnedLadderPets, ladderRoles, snapshotLadderPet, CLIMB_BAND, OFFER_SIZE,
     type LadderPet, type LadderEntry, type DefenseDoc, type OfferOpponent,
 } from "./_core.js";
+import { petArenaTraitCombat } from "./_arena-sim.js";
 
 /*
  * Pet-ladder core. Also the server-side smoke test that the PORTED engines
@@ -26,6 +27,12 @@ const team = (slug: string, mul: number): DefenseDoc => {
     const pets = roles.map((r, i) => pet({ id: `${slug}-${r}`, role: r, hp: Math.round(700 * mul), attack: Math.round(90 * mul) }));
     return { slug, name: slug, mode: "tactical", pets, roles: ladderRoles(pets), updatedAt: 1 };
 };
+
+test("server tactical arena preserves Shrine apex combat passives", () => {
+    assert.deepEqual(petArenaTraitCombat("Fateweaver"), { critBonus: 0.16, dodgeChance: 0.18, damageMult: 1, drainPct: 0 });
+    assert.deepEqual(petArenaTraitCombat("Hollowborn"), { critBonus: 0.16, dodgeChance: 0, damageMult: 1.12, drainPct: 0.12 });
+    assert.deepEqual(petArenaTraitCombat("Boonbringer"), { critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0 });
+});
 
 // ── ported engines (server-authoritative resolution) ──────────────────────────
 test("resolveColiseum: deterministic, and a clearly stronger pet wins", () => {

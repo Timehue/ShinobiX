@@ -10,6 +10,7 @@ import { masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { settleServerPetExpedition } from '../pet/_progress.js';
 import { PET_EXPEDITION_TYPES, petExpeditionSealForToken, type PetExpeditionSeal, type PetExpeditionType } from './_pet-expedition-lease.js';
+import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
@@ -64,6 +65,12 @@ const RYO_MULT: Record<ExpType, number> = { scout: 1.35, forage: 1.0, ruins: 1.1
 const BONE_RATE: Record<ExpType, number> = { scout: 0.25, forage: 0.30, ruins: 0.40 };
 const AURA_RATE: Record<ExpType, number> = { scout: 0.00, forage: 0.01, ruins: 0.01 };
 const FATE_RATE: Record<ExpType, number> = { scout: 0.05, forage: 0.05, ruins: 0.10 };
+
+/** Boonbringer doubles expedition Ryo and pet XP. Keep this server-owned so a
+ * modified client cannot claim the bonus for a pet that does not have it. */
+export function petExpeditionTraitMultiplier(pet: Record<string, unknown> | undefined): number {
+    return pet?.trait === 'Boonbringer' ? 2 : 1;
+}
 
 function petTamerExpeditionMultFromRank(rank: number, profession: unknown): number {
     if (profession !== 'petTamer') return 1;
@@ -298,6 +305,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const isFirstToday = claimedToday === 0;
                 const escortReady = !!char.petEscortBonusReady;
                 const rank = Number(char.professionRank ?? 1);
+                const rewardPet = (Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [])
+                    .find((pet) => String(pet?.id ?? '') === expeditionPetId);
+                const boonMult = petExpeditionTraitMultiplier(rewardPet);
 
                 // Tamer XP only on the full Tamer path; a non-Tamer (half-rate
                 // maxed-pet) token earns currency only.
@@ -313,7 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const firstBonus = tamerToken && isFirstToday ? 2 : 1;
                     const dropBonus = tamerToken ? (tamerMult - 1) + (isFirstToday ? 0.5 : 0) : 0;
 
-                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus * expRewardMult * rewardScale);
+                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus * expRewardMult * rewardScale * boonMult);
                     foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) * expMaterialMult * rewardScale ? 1 : 0;
                     foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
                     foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
@@ -321,23 +331,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 // Stamp daily tracking + consume escort bonus + apply currencies.
                 const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1);
+                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1) * boonMult;
                 const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
                     ? settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult).pet
                     : pet);
+                const expeditionPet = pets.find((pet) => String(pet?.id ?? '') === expeditionPetId);
+                const progressedCharacter = recordPetBreedingProgress({
+                    ...char,
+                    pets: nextPets,
+                    lastExpeditionClaimDate: today,
+                    expeditionsClaimedToday: claimedToday + 1,
+                    ryo: Number(char.ryo ?? 0) + ryoEarned,
+                    boneCharms: Number(char.boneCharms ?? 0) + foundBone,
+                    auraStones: Number(char.auraStones ?? 0) + foundAura,
+                    fateShards: Number(char.fateShards ?? 0) + foundFate,
+                    ...(escortReady ? { petEscortBonusReady: false } : {}),
+                }, {
+                    kind: 'expedition-complete',
+                    petElement: String(expeditionPet?.element ?? ''),
+                    receipt: `expedition:${expeditionReceipt}`,
+                }).character;
                 const updated = bumpSaveVersion({
                     ...record,
-                    character: {
-                        ...char,
-                        pets: nextPets,
-                        lastExpeditionClaimDate: today,
-                        expeditionsClaimedToday: claimedToday + 1,
-                        ryo: Number(char.ryo ?? 0) + ryoEarned,
-                        boneCharms: Number(char.boneCharms ?? 0) + foundBone,
-                        auraStones: Number(char.auraStones ?? 0) + foundAura,
-                        fateShards: Number(char.fateShards ?? 0) + foundFate,
-                        ...(escortReady ? { petEscortBonusReady: false } : {}),
-                    },
+                    character: progressedCharacter,
                 });
                 await kv.set(saveKey, mergePreservingImages(updated, record));
                 if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);

@@ -31,3 +31,11 @@ test('invalid admin prices and slots never enter the authoritative catalog', () 
     assert.equal(catalogs.items.has('negative'), false);
     assert.equal(catalogs.items.has('wrong-slot'), false);
 });
+
+test('a later stale source cannot resurrect a tombstoned custom item', () => {
+    const catalogs = buildSettlementCatalogs([
+        { creatorItems: [{ id: 'deleted-custom', name: '__ADMIN_DELETED_ITEM__' }] },
+        { creatorItems: [{ id: 'deleted-custom', name: 'Stale', slot: 'item', rarity: 'common', cost: 1 }] },
+    ]);
+    assert.equal(catalogs.items.has('deleted-custom'), false);
+});

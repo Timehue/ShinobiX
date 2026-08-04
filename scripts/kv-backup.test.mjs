@@ -65,6 +65,16 @@ describe('hybrid KV backup evidence helpers', () => {
         assert.ok(samples.every((sample) => !JSON.stringify(sample).includes('alice')));
     });
 
+    it('includes separately stored companion sanctuaries in restore-drill evidence', () => {
+        const records = [
+            { key: 'save:alice', value: { character: { level: 3 } }, store: 'base' },
+            { key: 'pet-sanctuary:alice:meta', value: { total: 12, lastPage: 1 }, store: 'base' },
+        ];
+        const samples = representativeRecords(records);
+        assert.deepEqual(samples.map((sample) => sample.category), ['player-save', 'pet-sanctuary']);
+        assert.ok(samples.every((sample) => !JSON.stringify(sample).includes('alice')));
+    });
+
     it('round-trips the production disk-overlay file format into an empty target', async () => {
         const root = await writeOverlayDirectory(overlayEntries);
         try {

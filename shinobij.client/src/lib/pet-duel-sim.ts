@@ -294,8 +294,8 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         recovT: Math.round(DUEL_TPS * clamp(0.46 - speed * 0.0010, 0.20, 0.46)),
         staggerT: Math.round(DUEL_TPS * 0.35),
         dashT: 7, dodgeT: 6,
-        dodgeChance: clamp(0.12 + speed * 0.0008 + (trait === "Swift" ? 0.12 : 0), 0.12, 0.6),
-        critChance: CRIT_CHANCE + (trait === "Lucky" ? 0.1 : 0),
+        dodgeChance: clamp(0.12 + speed * 0.0008 + (trait === "Swift" ? 0.12 : 0) + (trait === "Fateweaver" ? 0.18 : 0), 0.12, 0.6),
+        critChance: CRIT_CHANCE + (trait === "Lucky" ? 0.1 : 0) + (trait === "Fateweaver" || trait === "Hollowborn" ? 0.16 : 0),
         spdStat: speed,
         role, neutralRange, plantedMotion,
         // Deterministic circling direction: lead/reserve orbit opposite ways,
@@ -474,6 +474,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     if (att.plantedMotion && t > PLANTED_LATE_T) mult *= 1 + (t - PLANTED_LATE_T) / PLANTED_LATE_RAMP;
     const base = att.atk * DMG_SCALE * powerScale;
     let dmg = Math.max(1, Math.round(base * mult * mitigation));
+    if (att.pet.trait === "Hollowborn") dmg = Math.max(1, Math.round(dmg * 1.12));
     // PVP gear: defender's last-stand reduction while low; then the Smoke-Pellet
     // mitigate consumable (single use).
     if (tgt.itemsOn) {
@@ -496,6 +497,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
 
     // Lifesteal heal (ability).
     if (ab && ab.kind === "lifesteal") att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
+    if (att.pet.trait === "Hollowborn" && dmg > 0 && att.hp > 0) att.hp = Math.min(att.maxHp, att.hp + Math.floor(dmg * 0.12));
 
     // PVP gear / consumable reactions tied to the blow that just landed.
     if (dmg > 0) {
@@ -550,6 +552,7 @@ function applyOnHit(att: Fighter, tgt: Fighter, ab: Ability) {
         case "wound":
             s.burnLeft = Math.max(s.burnLeft, dur); s.burnDmg = Math.max(s.burnDmg, Math.max(1, Math.round(att.atk * 0.1))); s.halfHeal = true; break;
         case "freeze": case "stun": case "confuse":
+            if (tgt.pet.trait === "Fateweaver" && ab.kind !== "stun") break;
             s.stunLeft = Math.max(s.stunLeft, ab.kind === "stun" ? dur : Math.round(dur * 0.7)); break;
         case "slow":
             s.slowLeft = Math.max(s.slowLeft, dur); break;

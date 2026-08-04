@@ -1,11 +1,11 @@
 /*
- * rawPetPool — the canonical template list for all 140 built-in pets
+ * rawPetPool — the canonical template list for all 145 built-in pets
  * (original 70 + a 70-pet expansion appended to the same generators, so the
  * second batch shares the identical kit/stat treatment):
  *   50 standard (level 1 generic kit)
  *   50 rare     (damage + utility)
  *   30 legendary (buff + damage + utility)
- *   10 mythic    (full hand-crafted 5-jutsu kits with element)
+ *   15 mythic    (full hand-crafted 5-jutsu kits with element; five breeding-only candidates)
  *
  * The expansion pets keep numbering past the original count (standard-25…,
  * rare-25…, legendary-15…, mythic-5…). balanceBuiltInPetTemplate wraps the
@@ -521,6 +521,124 @@ export const rawPetPool: Pet[] = ([
             { name: "Continental Slam",  power: 250, cooldown: 4, currentCooldown: 0, kind: "damage" },
             { name: "Stoneheart Regen",  power: 110, cooldown: 5, currentCooldown: 0, kind: "heal"   },
             { name: "Tremor Step",       power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
+        ],
+    },
+    // Breeding-only mythic candidates. They are intentionally not wild
+    // encounter species, but remain valid breedable alternatives so each
+    // same-element mythic pair has a non-parent candidate in the 9% branch.
+    {
+        id: "mythic-10",
+        name: "Ash Crown Phoenix",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1120,
+        attack: 150,
+        defense: 92,
+        speed: 118,
+        unlockedForPve: false,
+        element: "Fire",
+        wildSpawnable: false,
+        description: "A cinder-crowned heir that only appears when two fire myths have exhausted every ordinary omen.",
+        jutsus: [
+            { name: "Ash Crown Aura", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
+            { name: "Crownfire Talon", power: 190, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Phoenix Ashfall", power: 275, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Ember Rebirth", power: 115, cooldown: 5, currentCooldown: 0, kind: "heal" },
+            { name: "Cinder Wing", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
+        ],
+    },
+    {
+        id: "mythic-11",
+        name: "Moonwell Leviathan",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1240,
+        attack: 132,
+        defense: 126,
+        speed: 88,
+        unlockedForPve: false,
+        element: "Water",
+        wildSpawnable: false,
+        description: "A moon-fed leviathan whose first tide is said to rise from a sealed breeding pool.",
+        jutsus: [
+            { name: "Moonwell Aura", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
+            { name: "Tidal Coil", power: 185, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Leviathan Deluge", power: 270, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Moonwell Barrier", power: 135, cooldown: 5, currentCooldown: 0, kind: "barrier" },
+            { name: "Undertow Slide", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
+        ],
+    },
+    {
+        id: "mythic-12",
+        name: "Skyglass Kirin",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1010,
+        attack: 142,
+        defense: 94,
+        speed: 138,
+        unlockedForPve: false,
+        element: "Wind",
+        wildSpawnable: false,
+        description: "A glass-hoofed kirin glimpsed between two gusts, never on a wild trail.",
+        jutsus: [
+            { name: "Skyglass Focus", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
+            { name: "Kirin Gale", power: 180, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Skyglass Tempest", power: 268, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Horizon Mirage", power: 105, cooldown: 4, currentCooldown: 0, kind: "debuff" },
+            { name: "Cloudstep", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
+        ],
+    },
+    {
+        id: "mythic-13",
+        name: "Thunderbloom Kirin",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1060,
+        attack: 158,
+        defense: 88,
+        speed: 116,
+        unlockedForPve: false,
+        element: "Lightning",
+        wildSpawnable: false,
+        description: "A thunderbloom that flowers only in the charged space between two lightning myths.",
+        jutsus: [
+            { name: "Thunderbloom Aura", power: 26, cooldown: 3, currentCooldown: 0, kind: "buff" },
+            { name: "Blooming Bolt", power: 200, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Stormgarden Judgment", power: 290, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Static Thorn", power: 112, cooldown: 5, currentCooldown: 0, kind: "dot" },
+            { name: "Flash Bloom", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
+        ],
+    },
+    {
+        id: "mythic-14",
+        name: "Gravepeak Behemoth",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1330,
+        attack: 126,
+        defense: 150,
+        speed: 62,
+        unlockedForPve: false,
+        element: "Earth",
+        wildSpawnable: false,
+        description: "A gravepeak behemoth bred from stone-deep echoes rather than found in the wild.",
+        jutsus: [
+            { name: "Gravepeak Aura", power: 30, cooldown: 3, currentCooldown: 0, kind: "buff" },
+            { name: "Basalt Fist", power: 176, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Mountainwake", power: 258, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Deepstone Regen", power: 118, cooldown: 5, currentCooldown: 0, kind: "heal" },
+            { name: "Faultstep", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
         ],
     },
 ] as Pet[]).map((pet) => ({

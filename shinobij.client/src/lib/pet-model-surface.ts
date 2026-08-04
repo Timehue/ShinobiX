@@ -8,6 +8,21 @@ export type PetModelSurfaceTreatment = Readonly<{
 }>;
 
 /**
+ * Chromatic pets use one shared shader treatment instead of duplicating all 155
+ * production GLBs. The violet-to-cyan value shift preserves atlas detail while
+ * the restrained emissive edge makes the variant readable in both Coliseum and
+ * Tactical Arena lighting.
+ */
+export const CHROMATIC_PET_SURFACE: PetModelSurfaceTreatment = Object.freeze({
+    lowTint: "#581c87",
+    highTint: "#67e8f9",
+    tintStrength: 0.86,
+    tintBlend: 0.76,
+    emissive: "#f0abfc",
+    emissiveIntensity: 0.5,
+});
+
+/**
  * Hollow Gate creatures keep their authored atlas detail, but the void has to
  * read as their identity rather than as a faint elemental wash. This treatment
  * is deliberately opt-in so ordinary roster pets retain their certified color.

@@ -5,7 +5,7 @@ import test from "node:test";
 const facilities = [
   "battle-arena", "story-hall", "town-hall", "bank", "shop",
   "clan-hall", "hospital", "mission-hall", "cafeteria", "tavern",
-  "stat-training", "jutsu-training", "world-map", "pet-yard", "card-hall",
+  "stat-training", "jutsu-training", "world-map", "home", "pet-yard", "card-hall",
 ] as const;
 
 // Facility card icons are painted per village (lib/facility-thumbs.ts globs these).
@@ -35,7 +35,7 @@ test("generated facility heroes exist for every destination without an existing 
 test("facility art is used by the Village directory and destination mastheads", () => {
   assert.ok(villageSource.includes("VILLAGE_FACILITIES.map"));
   assert.ok(!villageSource.includes("assets/village-icons"));
-  for (const route of ["training", "jutsuTraining", "missions", "battleArena", "clan", "worldMap", "townHall", "bank", "shop", "hospital", "cafeteria", "storyHall", "pets", "shinobiTiles", "tavern"])
+  for (const route of ["training", "jutsuTraining", "missions", "battleArena", "clan", "worldMap", "townHall", "bank", "shop", "hospital", "cafeteria", "storyHall", "home", "pets", "shinobiTiles", "tavern"])
     assert.match(studioSource, new RegExp(`\\b${route}: atFacility\\(`), `missing facility presentation for ${route}`);
   assert.ok(appSource.includes("<ScreenTopChrome"));
   assert.ok(appSource.includes("screen-facility"));

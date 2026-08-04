@@ -24,6 +24,7 @@ import {
 } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
+import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
     APEX_REWARD,
     APEX_STAT_POINTS,
@@ -471,6 +472,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (missionType === 'field' || missionType === 'hunt') {
                 next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
             }
+            next = recordPetBreedingProgress(next, {
+                kind: 'mission-complete',
+                receipt: `mission:${missionReceipt}`,
+            }).character as SaveChar;
 
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),

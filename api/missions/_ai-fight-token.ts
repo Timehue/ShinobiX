@@ -25,6 +25,10 @@ export type AiFightToken = {
      * written but not read.
      */
     runId?: string;
+    /** New normal-solo authority binding. Explicit runtime discrimination keeps
+     * a solo session id from ever being interpreted as a Tower run id. */
+    sessionRuntime?: 'solo-pve';
+    sessionId?: string;
 };
 
 export type AiFightRewardClaim =
@@ -44,10 +48,13 @@ export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; runId?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; runId?: unknown; sessionRuntime?: unknown; sessionId?: unknown } = {},
 ): AiFightToken {
     const runIdRaw = typeof context.runId === 'string' ? context.runId.trim().slice(0, 96) : '';
     const runId = /^[A-Za-z0-9:_-]+$/.test(runIdRaw) ? runIdRaw : undefined;
+    const sessionIdRaw = typeof context.sessionId === 'string' ? context.sessionId.trim().slice(0, 96) : '';
+    const sessionId = /^[A-Za-z0-9:_-]+$/.test(sessionIdRaw) ? sessionIdRaw : undefined;
+    const sessionRuntime = context.sessionRuntime === 'solo-pve' && sessionId ? 'solo-pve' as const : undefined;
     const opponentIdRaw = typeof context.opponentId === 'string' ? context.opponentId.trim().slice(0, 96) : '';
     const opponentId = /^[A-Za-z0-9:_-]+$/.test(opponentIdRaw) ? opponentIdRaw : undefined;
     const opponentLevelNum = Math.floor(Number(context.opponentLevel ?? 0));
@@ -77,6 +84,7 @@ export function createAiFightTokenRecord(
         ...(opponentId ? { opponentId } : {}),
         ...(opponentLevel ? { opponentLevel } : {}),
         ...(runId ? { runId } : {}),
+        ...(sessionRuntime && sessionId ? { sessionRuntime, sessionId } : {}),
     };
 }
 

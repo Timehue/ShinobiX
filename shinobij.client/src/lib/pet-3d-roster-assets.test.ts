@@ -49,7 +49,7 @@ function parseGlb(file: Buffer): GltfDocument {
 test("all approved roster models are colored, skinned, animated single-pet assets", () => {
     const modelFiles = readdirSync(rosterDirectory).filter((file) => file.endsWith(".glb")).sort();
     const modelIds = modelFiles.map((file) => file.slice(0, -4));
-    assert.equal(modelIds.length, 140, "the complete production roster must be present");
+    assert.equal(modelIds.length, 145, "the complete production roster must be present");
     assert.deepEqual(modelIds, [...APPROVED_ROSTER_MODEL_IDS].sort(), "disk assets and the approval list must match");
     assert.deepEqual(Object.keys(manifest.entries).sort(), modelIds, "manifest and production assets must match");
 
@@ -66,9 +66,9 @@ test("all approved roster models are colored, skinned, animated single-pet asset
         assert.equal(gltf.nodes?.filter((node) => Number.isInteger(node.mesh)).length, 1, `${id}: model must contain one visible pet mesh`);
         assert.equal(gltf.skins?.length, 1, `${id}: model is missing its production skeleton`);
         assert.equal(gltf.animations?.length, 8, `${id}: model is missing its reviewed animation set`);
-        assert.equal(gltf.images?.length, 1, `${id}: embedded color atlas is missing`);
-        assert.ok(Number.isInteger(gltf.images[0]?.bufferView) || gltf.images[0]?.uri?.startsWith("data:"), `${id}: color atlas must be embedded`);
-        assert.equal(gltf.textures?.length, 1, `${id}: texture binding is missing`);
+        assert.ok((gltf.images?.length ?? 0) >= 1, `${id}: embedded color atlas is missing`);
+        assert.ok(gltf.images?.every((image) => Number.isInteger(image.bufferView) || image.uri?.startsWith("data:")), `${id}: all authored textures must be embedded`);
+        assert.ok((gltf.textures?.length ?? 0) >= 1, `${id}: texture binding is missing`);
         assert.equal(gltf.materials?.length, 1, `${id}: model must use its single reviewed production material`);
 
         const primitive = gltf.meshes[0]?.primitives?.[0];

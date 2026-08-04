@@ -16,13 +16,17 @@ import { gameConfirm } from "../components/GameAlert";
 import { currentDateKey, formatPetTimer } from "../lib/utils";
 import { isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
-import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
+import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { countItem, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameToast } from "../components/GameToast";
+import { PetHomeTabs } from "../components/PetHomeTabs";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { activeClientBreedingParentIds } from "../lib/pet-breeding";
+import "../styles/pet-home.css";
 
-export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave: _onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
+export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave: _onImmediateSave, sharedImages = {} }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void; sharedImages?: Record<string, string> }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
@@ -51,6 +55,14 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
     const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
+    const selectedPetBreedingLocked = Boolean(selectedPet && activeClientBreedingParentIds(character).has(selectedPet.id));
+    const releaseBlocker = selectedPetBreedingLocked
+        ? "This companion is committed to the Breeding Barn until its timer completes."
+        : selectedPet?.training
+            ? "Collect or finish this companion's training before releasing it."
+            : selectedPet?.expedition
+                ? "Collect this companion's expedition before releasing it."
+                : "";
     const petXpBonus = getPetXpBonus(character);
     const canOfferEscort = character.profession === "petTamer" && !!character.clan;
     const showStarterPetNote = character.level < 20 && character.pets.length > 0 && !(character.examsPassed ?? []).includes("genin");
@@ -235,12 +247,13 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         const todayKey = currentDateKey();
         const firstResult = petTamerClaimFirstExpeditionToday(character, todayKey);
         const firstBonus = firstResult.isFirst ? 2 : 1;
+        const boonMult = selectedPet.trait === "Boonbringer" ? 2 : 1;
 
         // A max-level pet can't grow, so its expeditions award 0 pet XP and 0
         // stats. The server-computed ryo + rare drops below are keyed off pet
         // level/type and are unaffected — a maxed pet still earns currency.
         const petMaxed = selectedPet.level >= selectedPet.maxLevel;
-        const xp       = petMaxed ? 0 : Math.round(120 * durationHours * xpMult * tamerMult * firstBonus);
+        const xp       = petMaxed ? 0 : Math.round(120 * durationHours * xpMult * tamerMult * firstBonus * boonMult);
         const statGain = petMaxed ? 0 : Math.max(1, Math.round(durationHours));
 
         const levelBefore = selectedPet.level;
@@ -549,6 +562,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
 
     return (
         <div className="pet-yard-screen">
+            <PetHomeTabs active="yard" setScreen={setScreen} />
 
             {evolveCutscene && (
                 <PetEvolutionCutscene
@@ -663,14 +677,14 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                         return (
                             <div
                                 key={i}
-                                className={`pet-slot-card${pet ? (selectedPet?.id === pet.id ? " pet-selected" : "") : " pet-empty"}${character.activePetId === pet?.id ? " pet-active" : ""}`}
+                                className={`pet-slot-card${pet ? (selectedPet?.id === pet.id ? " pet-selected" : "") : " pet-empty"}${character.activePetId === pet?.id ? " pet-active" : ""} ${pet ? petVisualVariantClass(pet) : ""}`}
                                 onClick={() => pet && setSelectedPetId(pet.id)}
                             >
                                 {pet ? (
                                     <>
                                         <div className="pet-slot-avatar">
                                             {(() => {
-                                                const avatar = petCardImage(pet);
+                                                const avatar = petCardImage(pet, sharedImages);
                                                 return avatar
                                                     ? <img src={avatar} alt={pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                                     : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>;
@@ -678,7 +692,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         </div>
                                         <p className="pet-slot-name">{petDisplayName(pet)}</p>
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
-                                        {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
+                                        {pet.trait && <span className={`pet-trait-tag${ultraPetTraits.includes(pet.trait) ? " pet-trait-tag--apex" : ""}`}>{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
                                         {pet.expedition && serverNow() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>}
@@ -707,10 +721,10 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                     // glow color it gives the pet in battle (prismatic cycles).
                                     const detailCollar = petCollarVisual(selectedPet.loadout?.collar);
                                     const detailGlowClass = detailCollar ? (detailCollar.prismatic ? " pet-collar-detail-prismatic" : " pet-collar-detail-glow") : "";
-                                    const detailImg = petCardImage(selectedPet);
+                                    const detailImg = petCardImage(selectedPet, sharedImages);
                                     return (
                                         <div
-                                            className={`pet-detail-avatar${detailGlowClass}`}
+                                            className={`pet-detail-avatar${detailGlowClass} ${petVisualVariantClass(selectedPet)}`}
                                             style={detailCollar ? { ["--collar-glow" as string]: detailCollar.glow } : undefined}
                                         >
                                             {detailImg ? <img src={detailImg} alt={selectedPet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
@@ -803,10 +817,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 </div>
                             </section>
                             <div className="menu">
-                                <button onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
+                                <button disabled={selectedPetBreedingLocked} aria-describedby={selectedPetBreedingLocked ? "pet-yard-roster-lock" : undefined} onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
                                     {character.activePetId === selectedPet.id ? "⭐ Active Pet" : "Set as Active"}
                                 </button>
                                 <button
+                                    disabled={selectedPetBreedingLocked}
+                                    aria-describedby={selectedPetBreedingLocked ? "pet-yard-roster-lock" : undefined}
                                     onClick={() => updateCharacter({
                                         ...character,
                                         activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : selectedPet.id,
@@ -815,8 +831,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 >
                                     {character.activePetId2v2 === selectedPet.id ? "🐾 2v2 Partner" : "Set as 2v2 Partner"}
                                 </button>
-                                <button className="danger-button" onClick={releasePet}>Release</button>
+                                <button className="danger-button" disabled={Boolean(releaseBlocker)} aria-describedby={releaseBlocker ? "pet-yard-roster-lock" : undefined} onClick={releasePet}>Release</button>
                             </div>
+                            {releaseBlocker && <p id="pet-yard-roster-lock" className="hint" role="status">{releaseBlocker}</p>}
                         </div>
 
                         <div className="pet-center-column">
@@ -1104,7 +1121,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                         </div>
 
                         <div className="pet-info-panel">
-                            <section className="pet-trait-display">
+                            <section className={`pet-trait-display${selectedPet.trait && ultraPetTraits.includes(selectedPet.trait) ? " pet-trait-display--apex" : ""}`}>
                                 <h4>Trait</h4>
                                 {selectedPet.trait ? (
                                     <>

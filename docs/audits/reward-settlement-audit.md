@@ -1,13 +1,18 @@
 # Reward-Settlement Audit — Phase 0 (2026-07-31)
 
+> **Follow-up status (2026-08-03):** ranked-season settlement now uses an
+> in-save receipt written atomically with rating reset and podium reward. A
+> durable original-field plan survives partial failure, retries only unsettled
+> players, and advances the season clock only after the full plan completes.
+
 > **P0-2 status (2026-08-01,** branch `refactor/reward-settlement-p0-2`**):**
 > the contract is now documented (`docs/architecture/reward-settlement-contract.md`)
 > and inventoried by `api/_settlement-contract.test.ts`. Landed fixes: player
 > trade journals through economy-tx with a pending-nonce-before-debit guard
 > (the P2 double-debit/burn window); the Arena→queue mission-win handoff parks
 > in a durable client outbox (`shinobij.client/src/lib/claim-outbox.ts`) —
-> the open loss race below is closed; the ranked-season NX marker rolls back
-> on payout failure and logs; Card Clash AI settles against an in-save
+> the open loss race below is closed; the ranked-season NX-marker rollback was
+> the interim fix later superseded by the 2026-08-03 in-save receipt; Card Clash AI settles against an in-save
 > `redeemedCardClashAiSessions` receipt (duplicate window closed). The
 > claim-mission token-before-payout ordering and the HG/casual-PvP bounded
 > client-trust items are deliberately unchanged (documented trade-offs;
@@ -41,7 +46,7 @@ or loss-only windows.
 | Pet train/evolve | `pet/progress.ts`, `evolve.ts` | save-state lease / gates under lock | none | sealed/spec | MPS / WKL | YES | state machine (cleared lease ⇒ 409) | none | none |
 | Pet battles | `pet/battle-result.ts` | battle-start token; ranked: re-sim from sealed seed | server sim | server (sealed level / Elo) | WKL failClosed | casual YES; ranked NX-before-write | token + in-save receipt / NX `pet:ranked-settled` | ranked: loss-window only | P3 |
 | PvP rewards | `api/pvp/claim-rewards.ts` | real PvpSession, winner identity, 2h window (`:132-150`) | n/a | server (Elo, base ryo/XP, stat growth, item deduction) | sorted multi-save WKL failClosed (`:57-66`) | YES — receipt embedded in credited char (`:393-395`) | in-save `serverSettlementReceipts`; casual grants = NX key (fail-open) | casual dup possible on KV outage | **P2 (casual)** |
-| Ranked season | `api/cron/_ranked-season.ts` | cron/admin only | none | fixed table | WKL per save | NO — NX before write, no rollback (`:226-248`) | NX `ranked:season:rewarded:` | none (loss window) | P3 |
+| Ranked season | `api/cron/_ranked-season.ts` | cron/admin only | none | fixed table | distributed job lease + two-hour WKL; WKL per save | YES — reset, reward, and receipt share one write | in-save `rankedSeasonSettlementReceipts` + durable season plan | none | none/P3 |
 | Towers/Spire | `api/towers/settle.ts` + `_tower-store.ts` | server session, membership | none | sealed catalog | WKL failClosed | NEAR — NX receipts before write, rollback in catch | per-run NX + first-clear NX + weekly tier NX | process-kill strands receipt | P3 |
 | Hollow Gate run | `hollow-gate/settle.ts` | sealed run token | none | **min(client haul, server depth ceiling)** | nested WKL failClosed | YES (`redeemedHollowGateRuns` in payout write) | in-save list + token del + marker | none | **P2 (design)** |
 | HG combat | `hollow-gate/combat-settle.ts` | sealed binding; **pve outcome client-claimed**; tactical/pet server-proven | server randomInt | server table | WKL ×2 failClosed | NX before write + rollback | NX `hg-combat-paid` + settled binding | strand window | **P2 (pve win claim)** |
@@ -112,9 +117,8 @@ retired Miraa client-attested path (410).
 
 ## Stamp-consumed-without-payout windows (all loss-only; none can mint)
 
-- **Ranked-season podium**: NX marker before save write, no rollback, error
-  swallowed (`_ranked-season.ts:226-248`) — the only one with neither rollback
-  nor recovery.
+- **Ranked-season podium is no longer in this category**: its reset, reward,
+  and receipt are atomic in one player-save write, with durable-plan retry.
 - Towers/Spire, HG combat-settle, weekly-boss: NX receipt before save write,
   rollback in catch — a hard process-kill strands the receipt (permanent for
   the towers first-clear NX).

@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { HOLLOW_HOUND_SURFACE, WARFRONT_MINION_SURFACES } from "./pet-model-surface.ts";
+import { CHROMATIC_PET_SURFACE, HOLLOW_HOUND_SURFACE, WARFRONT_MINION_SURFACES } from "./pet-model-surface.ts";
+
+test("Chromatic pets have a strong shared 3D palette treatment", () => {
+    assert.match(CHROMATIC_PET_SURFACE.lowTint, /^#[0-9a-f]{6}$/i);
+    assert.match(CHROMATIC_PET_SURFACE.highTint, /^#[0-9a-f]{6}$/i);
+    assert.match(CHROMATIC_PET_SURFACE.emissive, /^#[0-9a-f]{6}$/i);
+    assert.ok(CHROMATIC_PET_SURFACE.tintStrength >= 0.75);
+    assert.ok(CHROMATIC_PET_SURFACE.tintBlend >= 0.65);
+    assert.ok(CHROMATIC_PET_SURFACE.emissiveIntensity >= 0.4);
+});
 
 test("Hollow Hounds have an explicit, visibly emissive purple treatment", () => {
     assert.match(HOLLOW_HOUND_SURFACE.lowTint, /^#[0-9a-f]{6}$/i);

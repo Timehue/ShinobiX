@@ -25,6 +25,7 @@ import { BattleTabBar } from "../components/BattleTabBar";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { isImageAvatar } from "../lib/avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
+import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
 import { getAllJutsus } from "../App";
 import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
@@ -37,8 +38,7 @@ import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 // pet.image), then fall back to petCardImage so portrait-less starters still show
 // their baked idle pose instead of bare initials.
 function petOrbPortrait(pet: Pet, shared: Record<string, string>): string {
-    return shared[`pet:${pet.id}`]
-        || shared[`pet:${petStripVariant(pet.id)}`]
+    return firstSharedImage(shared, variantImageKeys("pet:", pet, [pet.id, petStripVariant(pet.id)]))
         || pet.image
         || petCardImage(pet, shared);
 }
@@ -732,7 +732,7 @@ export function MissionArenaFight({
                                 })()}
                                 {companion && isImageAvatar(companionImage) && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);
-                                    return <div key="pet-orb" className="avatar-orb pet-summon-orb" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    return <div key="pet-orb" className={`avatar-orb pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         <img className="tiny-map-avatar" src={companionImage} alt={companion.name} />
                                     </div>;
                                 })()}

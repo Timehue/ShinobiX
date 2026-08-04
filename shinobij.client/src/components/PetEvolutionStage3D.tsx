@@ -40,6 +40,7 @@ import {
 import { petCloseupPresentationModel } from "../lib/pet-3d-models";
 import { petVisualId } from "../data/pet-evolutions";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME } from "./PetModel3D";
+import { petModelVariantSurface, petPaletteVariant, petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
     groundedSpriteLayout,
     spriteBoundsFromAlpha,
@@ -327,7 +328,7 @@ function useCleanSprite(visualId: string, portrait?: string): Sprite | null {
 
 /** One evolving form rendered as a grounded, lit billboard. Eases toward the
  *  pure stage-motion targets and layers clock-driven breathing on top. */
-function EvoStandee({ visualId, portrait, element, isNew, phase, reduced }: {
+function EvoStandee({ visualId, portrait, element, isNew, phase, reduced, chromatic }: {
     visualId: string;
     portrait?: string;
     element?: string | null;
@@ -336,6 +337,7 @@ function EvoStandee({ visualId, portrait, element, isNew, phase, reduced }: {
      *  useFrame picks up the latest phase (same pattern as the coliseum Standee). */
     phase: EvolutionPhase;
     reduced: boolean;
+    chromatic?: boolean;
 }) {
     const group = useRef<THREE.Group>(null);   // lane + rise
     const poseG = useRef<THREE.Group>(null);    // scale + hero turn (pivots at feet)
@@ -386,6 +388,14 @@ function EvoStandee({ visualId, portrait, element, isNew, phase, reduced }: {
         pg.scale.set(scl.current * spinSquash * spinFlip, scl.current * breathe, 1);
 
         m.opacity = motion.opacity; // white material ⇒ the sprite keeps its own art colors
+        if (chromatic) {
+            const hue = reduced ? 0.76 : (0.72 + t * 0.055) % 1;
+            m.color.setHSL(hue, 0.5, 0.84);
+            if (auraMat.current) auraMat.current.color.setHSL((hue + 0.42) % 1, 0.78, 0.7);
+        } else {
+            m.color.set("#ffffff");
+            if (auraMat.current) auraMat.current.color.copy(tint);
+        }
         if (flashMat.current) { flashMat.current.opacity = motion.flash * motion.opacity; }
         if (auraMat.current) {
             const pulse = reduced ? motion.glow : motion.glow * (0.92 + 0.08 * Math.sin(t * 2.3));
@@ -790,7 +800,7 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
 
     if (!config) {
         // No closeup-approved GLB → use the form's approved evolution standee.
-        return <EvoStandee visualId={petVisualId(isNew ? pet : priorForm(pet, oldVisualId))} element={element} isNew={isNew} phase={phase} reduced={reduced} />;
+        return <EvoStandee visualId={petVisualId(isNew ? pet : priorForm(pet, oldVisualId))} element={element} isNew={isNew} phase={phase} reduced={reduced} chromatic={Boolean(petPaletteVariant(pet))} />;
     }
     return (
         <group ref={group}>
@@ -801,6 +811,7 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
                         frame={frame}
                         element={pet.element ?? element ?? undefined}
                         showIdentity={false}
+                        surfaceTreatment={petModelVariantSurface(pet)}
                     />
                 </group>
             </group>
@@ -842,12 +853,14 @@ export function PetEvolutionStage3D({
         const src = showNew ? (newImage ?? `/pet-evos/${petVisualId(pet)}.webp`)
                             : (oldImage ?? `/pet-poses/${posedId(oldVisualId) ?? oldVisualId}-idle.webp`);
         return (
-            <img
-                src={src}
-                alt=""
-                draggable={false}
-                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 0 24px rgba(167,139,250,0.6))" }}
-            />
+            <div className={petVisualVariantClass(pet)} style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
+                <img
+                    src={src}
+                    alt=""
+                    draggable={false}
+                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", filter: petPaletteVariant(pet) ? "saturate(1.35) hue-rotate(24deg) drop-shadow(0 0 28px rgba(188,137,255,0.82))" : "drop-shadow(0 0 24px rgba(167,139,250,0.6))" }}
+                />
+            </div>
         );
     }
 

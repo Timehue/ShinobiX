@@ -125,7 +125,7 @@ publish path has **no lock, no version guard, no sanitizer**
 (`api/save/[name].ts:2800-2826`) — a stale admin tab or two concurrent editors
 silently clobber newer content. Recency merge protects only jutsu +
 hollowGateEventConfig; items/cards/AIs/events/missions/raids are
-last-writer-wins. Deletion semantics are inconsistent (item tombstones diverge
+last-writer-wins. At the roadmap baseline, deletion semantics were inconsistent (item tombstones diverged
 between combat and shop catalogs; jutsu/cards/AIs have no deletion mechanism).
 The strict-ledger flip will freeze admin-slot `creatorItems` on the ordinary
 path, making the unguarded path the ONLY publisher.
@@ -139,7 +139,8 @@ path, making the unguarded path the ONLY publisher.
 `shop/_catalog.ts` become **dual-read** (new keys first, admin-slot fallback)
 so no data migration is required upfront; a one-shot admin endpoint copies the
 slots into the new keys; the slots become read-only legacy after soak.
-Unify tombstone semantics in one shared merge helper.
+Tombstone semantics were unified across the dual-read item catalogs on
+2026-08-03; the remaining store/client/slot cutover steps are unchanged.
 
 **Reuse:** `_admin-content.ts` composer as the single read surface;
 `withKvLock`; `_save-version.ts` version pattern.

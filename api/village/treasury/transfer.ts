@@ -3,9 +3,9 @@ import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock } from '../../_lock.js';
 import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
+import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
+import { settlementFingerprint } from '../../_durable-settlement.js';
 
 /*
  * /api/village/treasury/transfer  — POST only
@@ -118,6 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+    const isAdmin = identity.admin;
+    const actorName = isAdmin ? undefined : identity.name;
 
     // Rate-limit ALL transfers per actor. 30/min is comfortably above any
     // legit Kage workflow (a Kage manually gifting 30 villagers in a minute
@@ -125,8 +127,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rlName = identity.admin ? undefined : identity.name;
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-treasury-transfer', 30, 60_000, rlName))) return;
 
-    let txId: string | null = null;
-    let txState: 'reserved' | 'credit-applied' | 'complete' | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const village = typeof body.village === 'string' ? body.village.trim() : '';
@@ -178,143 +178,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!recipientChar) {
             return res.status(404).json({ error: 'Recipient save not found.' });
         }
-        if ((recipientChar.village ?? '').trim() !== village.trim() && !identity.admin) {
+        if (String(recipientChar.village ?? '').trim() !== village.trim() && !isAdmin) {
             return res.status(403).json({ error: 'Recipient is not a member of this village.' });
         }
 
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${villageSlug(village)}`;
-        txId = makeEconomyTxId('village-treasury-transfer');
-
-        // ── Atomic transfer ────────────────────────────────────────────
-        // We lock the village state row first (the contended resource),
-        // then read + mutate the recipient under its own save lock. The
-        // double lock keeps us race-safe against (a) two Kage transfers
-        // in flight, and (b) a recipient autosave landing during the
-        // credit step. Ordering: village first, save second — matches
-        // alphabetical key order so we can't deadlock against another
-        // path that takes both in the opposite direction.
-        const result = await withKvLock(villageStateKey, async () => {
-            const state = (await kv.get<VillageStateRow>(villageStateKey)) ?? {};
-            const treasury = (state.treasury ?? {}) as Record<string, unknown> & {
-                items?: Array<{ itemId: string; count: number }>;
-            };
-
-            if (isCurrency) {
-                const c = currency as TransferCurrency;
-                const available = Math.max(0, Number(treasury[c] ?? 0));
-                if (available < amount) {
-                    return { ok: false as const, status: 400, error: `Insufficient treasury ${c} (have ${available}, need ${amount}).` };
+        const requestId = typeof body.requestId === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(body.requestId.trim())
+            ? body.requestId.trim()
+            : settlementFingerprint({ village: villageSlug(village), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
+        const fingerprint = settlementFingerprint({ operation: 'village-treasury-transfer', village: villageSlug(village), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
+        const transfer = await settleCrossKeyTransfer<VillageStateRow>({
+            operationType: 'village-treasury-transfer',
+            idempotencyKey: requestId,
+            fingerprint,
+            actorIds: [actorName ?? 'admin', villageSlug(village), recipientName],
+            resource: isCurrency ? String(currency) : `item:${itemId}`,
+            amount: isCurrency ? amount : 1,
+            sourceKey: villageStateKey,
+            recipientKey: recipientSaveKey,
+            loadSource: () => kv.get<VillageStateRow>(villageStateKey),
+            validateSource: (source) => {
+                const sourceTreasury = (source.treasury ?? {}) as Record<string, unknown> & { items?: Array<{ itemId: string; count: number }> };
+                if (isCurrency) {
+                    const available = Math.max(0, Number(sourceTreasury[currency as TransferCurrency] ?? 0));
+                    if (available < amount) throw new SettlementValidationError(400, `Insufficient treasury ${currency} (have ${available}, need ${amount}).`);
+                } else {
+                    const stack = (Array.isArray(sourceTreasury.items) ? sourceTreasury.items : []).find((entry) => entry.itemId === itemId);
+                    if (!stack || stack.count < 1) throw new SettlementValidationError(400, 'Item not in village treasury.');
                 }
-
-                // Credit recipient under the save lock to prevent racing
-                // with the recipient's own autosave.
-                await reserveEconomyTx({
-                    id: txId!,
-                    kind: 'village-treasury-transfer',
-                    debitKey: villageStateKey,
-                    creditKey: recipientSaveKey,
-                    resource: c,
-                    amount,
-                    meta: { village, recipientName },
-                });
-                txState = 'reserved';
-                const credit = await withKvLock(recipientSaveKey, async () => {
-                    const fresh = await kv.get<Record<string, unknown>>(recipientSaveKey);
-                    const freshChar = (fresh?.character ?? null) as CharacterRow | null;
-                    if (!fresh || !freshChar) return { ok: false as const };
-                    const nextChar = {
-                        ...freshChar,
-                        [c]: Math.max(0, Number(freshChar[c] ?? 0)) + amount,
-                    };
-                    const written = await writeVersionedPlayerSave(recipientSaveKey, fresh, nextChar);
-                    return { ok: true as const, _saveVersion: written._saveVersion };
-                }, { failClosed: true });
-                if (!credit.ok) {
-                    return { ok: false as const, status: 500, error: 'Failed to credit recipient.' };
+            },
+            debitSource: (source, receipt) => {
+                const sourceTreasury = (source.treasury ?? {}) as Record<string, unknown> & { items?: Array<{ itemId: string; count: number }> };
+                if (isCurrency) {
+                    const key = currency as TransferCurrency;
+                    const available = Math.max(0, Number(sourceTreasury[key] ?? 0));
+                    return { ...source, treasury: { ...sourceTreasury, [key]: available - amount }, settlementReceipts: [receipt, ...(Array.isArray(source.settlementReceipts) ? source.settlementReceipts : [])].slice(0, 100) };
                 }
-
-                // Deduct from treasury — done AFTER the credit succeeds so
-                // a credit failure can't leave the treasury short.
-                await markEconomyTx(txId!, 'credit-applied');
-                txState = 'credit-applied';
-                const nextState: VillageStateRow = {
-                    ...state,
-                    treasury: { ...treasury, [c]: available - amount },
-                };
-                await kv.set(villageStateKey, nextState);
-                await completeEconomyTx(txId!);
-                txState = 'complete';
-                return { ok: true as const, currency: c, amount, _saveVersion: credit._saveVersion };
-            } else {
-                // Item transfer — find the stack in the treasury.
-                const items = Array.isArray(treasury.items) ? treasury.items : [];
-                const stack = items.find(s => s.itemId === itemId);
-                if (!stack || stack.count < 1) {
-                    return { ok: false as const, status: 400, error: 'Item not in village treasury.' };
+                const items = Array.isArray(sourceTreasury.items) ? sourceTreasury.items : [];
+                return { ...source, treasury: { ...sourceTreasury, items: removeOneItem(items, itemId!) }, settlementReceipts: [receipt, ...(Array.isArray(source.settlementReceipts) ? source.settlementReceipts : [])].slice(0, 100) };
+            },
+            saveSource: async (source) => { await kv.set(villageStateKey, source); },
+            loadRecipient: async () => {
+                const record = await kv.get<Record<string, unknown>>(recipientSaveKey);
+                const character = (record?.character ?? null) as CharacterRow | null;
+                return record && character ? { record, character } : null;
+            },
+            validateRecipient: async ({ character }) => {
+                if (!isAdmin && String(character.village ?? '').trim() !== village.trim()) throw new SettlementValidationError(403, 'Recipient is not a member of this village.');
+                if (!isAdmin) {
+                    const freshKage = await kv.get<VillageKageState>(kageKey(village));
+                    if (!freshKage?.kageSystemUnlocked || safeName(freshKage.seatedKage ?? '') !== actorName) throw new SettlementValidationError(403, 'Only the seated Kage may transfer village treasury.');
                 }
-
-                await reserveEconomyTx({
-                    id: txId!,
-                    kind: 'village-treasury-transfer',
-                    debitKey: villageStateKey,
-                    creditKey: recipientSaveKey,
-                    resource: `item:${itemId}`,
-                    amount: 1,
-                    meta: { village, recipientName },
-                });
-                txState = 'reserved';
-                const credit = await withKvLock(recipientSaveKey, async () => {
-                    const fresh = await kv.get<Record<string, unknown>>(recipientSaveKey);
-                    const freshChar = (fresh?.character ?? null) as CharacterRow | null;
-                    if (!fresh || !freshChar) return { ok: false as const };
-                    const nextInv = Array.isArray(freshChar.inventory)
-                        ? [...freshChar.inventory, itemId!]
-                        : [itemId!];
-                    const nextChar = { ...freshChar, inventory: nextInv };
-                    const written = await writeVersionedPlayerSave(recipientSaveKey, fresh, nextChar);
-                    return { ok: true as const, _saveVersion: written._saveVersion };
-                }, { failClosed: true });
-                if (!credit.ok) {
-                    return { ok: false as const, status: 500, error: 'Failed to credit recipient.' };
+            },
+            creditRecipient: (character) => {
+                if (isCurrency) {
+                    const key = currency as TransferCurrency;
+                    return { character: { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + amount }, result: { currency: key, amount } };
                 }
-
-                await markEconomyTx(txId!, 'credit-applied');
-                txState = 'credit-applied';
-                const nextItems = removeOneItem(items, itemId!);
-                const nextState: VillageStateRow = {
-                    ...state,
-                    treasury: { ...treasury, items: nextItems },
-                };
-                await kv.set(villageStateKey, nextState);
-                await completeEconomyTx(txId!);
-                txState = 'complete';
-                return { ok: true as const, itemId, _saveVersion: credit._saveVersion };
-            }
-        }, { failClosed: true });
-
-        if (!result.ok) {
-            return res.status(result.status).json({ error: result.error });
-        }
-
-        // ── Audit log ─────────────────────────────────────────────────
-        // Single KV write keyed by transfer time. Bounded TTL (30 days)
-        // so it doesn't accumulate indefinitely. Used for admin review
-        // if abuse suspected.
-        const auditKey = `${AUDIT_LOG_PREFIX}${village.toLowerCase()}:${Date.now()}`;
-        await kv.set(auditKey, {
+                const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
+                inventory.push(itemId!);
+                return { character: { ...character, inventory }, result: { itemId } };
+            },
+            saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientSaveKey, record, character)).record,
+        });
+        await kv.set(`${AUDIT_LOG_PREFIX}${village.toLowerCase()}:${Date.now()}`, {
             ts: Date.now(),
-            actor: identity.admin ? 'admin' : identity.name,
+            actor: actorName ?? 'admin',
             village,
             recipientName,
-            ...('currency' in result ? { currency: result.currency, amount: result.amount } : {}),
-            ...('itemId' in result ? { itemId: result.itemId } : {}),
+            ...('currency' in transfer.result ? { currency: transfer.result.currency, amount: transfer.result.amount } : {}),
+            ...('itemId' in transfer.result ? { itemId: transfer.result.itemId } : {}),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-
-        // `result` already includes `ok: true` plus the currency / item payload.
-        return res.status(200).json(result);
+        return res.status(200).json({ ok: true, ...transfer.result });
     } catch (err) {
-        if (txId && txState && txState !== 'complete') {
-            await failEconomyTx(txId, err).catch(() => undefined);
+        if (err instanceof SettlementValidationError) {
+            return res.status(err.status).json({ error: err.message });
         }
         console.error('[village/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });

@@ -1,5 +1,7 @@
 /**
  * Dual-mode KV adapter — drop-in replacement for @vercel/kv.
+ * Railway is the active runtime; cPanel/Passenger and Vercel references below
+ * describe retained compatibility, migration, or rollback behavior only.
  *
  * ┌──────────────┬──────────────────────────────────────────────────────┐
  * │ Environment  │ Backend                                              │

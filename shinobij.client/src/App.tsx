@@ -172,6 +172,7 @@ const PetArena = lazyWithRetry(() => import("./screens/PetArena").then(m => ({ d
 const PetLadder = lazyWithRetry(() => import("./screens/PetLadder").then(m => ({ default: m.PetLadder })));
 import { type PetArenaOpponent } from "./data/pet-arena-opponents";
 const PetYard = lazyWithRetry(() => import("./screens/PetYard").then(m => ({ default: m.PetYard })));
+const Home = lazyWithRetry(() => import("./screens/Home").then(m => ({ default: m.Home })));
 const ClanWarTileCardDuel = lazyWithRetry(() => import("./screens/ClanWarTileCardDuel").then(m => ({ default: m.ClanWarTileCardDuel })));
 const ShinobiCouncilHall = lazyWithRetry(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
 const CardClashDuel = lazyWithRetry(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
@@ -476,7 +477,6 @@ export type { CreatorEvent, StoryStep };
 // Creator mission/raid content types (MissionRank, CreatorMission, CreatorRaid)
 // moved to ./types/missions and imported back near the top of this file.
 
-
 function normalizePendingTravel(value: unknown): PendingTravelSave | null {
     if (!value || typeof value !== "object") return null;
     const raw = value as Record<string, unknown>;
@@ -674,7 +674,7 @@ import {
     gainPetXp,
     scaleEventPetOpponent,
 } from "./lib/pet-balance";
-import { chooseStarterPetServer } from "./lib/pet-acquisition-api";
+import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
 export { gainPetXp, collectPetTraining };
 // Pet element/special jutsu tables + balance/training/XP helpers all
 // moved to ./lib/pet-balance — imported above. See that file for the
@@ -732,7 +732,6 @@ export { percentageTags, cappedDamageTags, binaryTags, allTags, tagCapForRank };
 
 import { defaultAncientChestVn, defaultPetEncounterVn } from "./data/default-vn-events";
 export { defaultAncientChestVn, defaultPetEncounterVn };
-
 // starterItems moved to ./data/starter-items — imported at the top of this file.
 
 // Item catalog + treasury/inventory helpers (getAllItems, getItemById,
@@ -741,8 +740,6 @@ export { defaultAncientChestVn, defaultPetEncounterVn };
 // top of this file; getAllItems and getItemById are re-exported for the
 // Inventory screen's "../App" import site.
 export { getAllItems, getItemById };
-
-
 // Item ID constants moved to ./constants/game.
 // HOLLOW_GATE_KEY_DUNGEON_KEY_COST / FATE_SHARD_COST / TRAP_DMG_PCT /
 // BOSS_FLOOR_REWARD_MULT are MUTABLE (admin-tunable via let) so they stay
@@ -3498,7 +3495,7 @@ export default function App() {
             let didOptimisticPaint = false;
             try {
                 const hubHash = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
-                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "home", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
                 if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
                     const preview = readSavePreview(localAccountName);
                     if (preview && preview.character) {
@@ -6295,6 +6292,7 @@ export default function App() {
         resolveHollowGateTileImpl(tile, x, y, {
             character, hollowGateRun, HOLLOW_GATE_TRAP_DMG_PCT,
             setCharacter, setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
+            onServerVersion: (version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); },
             gainXp, pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
             leaveHollowGateShrine,
         });
@@ -6930,6 +6928,7 @@ export default function App() {
                                                 if (typeof result._saveVersion === "number") {
                                                     latestSaveVersionRef.current = Math.max(latestSaveVersionRef.current, result._saveVersion);
                                                 }
+                                                setCharacter((current) => current && current.name === updated.name ? reconcileOwnedStarter(current, result.character!, granted.id) : current);
                                                 return true;
                                             })
                                             .catch(() => {
@@ -7258,7 +7257,8 @@ export default function App() {
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
+                {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {

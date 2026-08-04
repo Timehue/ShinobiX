@@ -30,7 +30,7 @@ import { useSharedNow } from "../lib/use-shared-now";
 import { petDisplayName } from "../lib/pet";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
-import { fetchAnnouncements, fetchEras, fetchLegacyStatus, isLegacyEnabled, type AnnouncementView, type EraView } from "../lib/legacy";
+import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
 import { loadVillageState } from "../lib/world-state";
 import {
@@ -65,6 +65,7 @@ export function DailyBriefingModal({
     activeJutsuTraining: ActiveJutsuTraining | null;
 }) {
     const now = useSharedNow(); // ticks once a second so the training countdowns stay live
+    const legacyAvailable = useLegacyAvailability();
     const today = currentDateKey();
     const [dismissed, setDismissed] = useState(() => {
         try { return localStorage.getItem(SEEN_KEY) === today; } catch { return false; }
@@ -94,7 +95,7 @@ export function DailyBriefingModal({
     // visibility (depth-audit finding) — one line of collective progress.
     const [activeEra, setActiveEra] = useState<EraView | null>(null);
     useEffect(() => {
-        if (!shouldShow || !isLegacyEnabled()) return;
+        if (!shouldShow || !legacyAvailable) return;
         let alive = true;
         void fetchAnnouncements(15).then((r) => {
             if (!alive || !r) return;
@@ -105,7 +106,7 @@ export function DailyBriefingModal({
             setActiveEra(r.eras.find((e) => e.status === "milestone_active" && e.milestones.length > 0) ?? null);
         });
         return () => { alive = false; };
-    }, [shouldShow]);
+    }, [shouldShow, legacyAvailable]);
 
     // Pre-50 rumor: a map-avoider might never open the world map, so the Legacy
     // discovery arc would never reach them. Surface the next unheard milestone
@@ -113,7 +114,7 @@ export function DailyBriefingModal({
     // never hears the same beat twice across surfaces.
     const [rumor, setRumor] = useState<{ milestone: number; text: string } | null>(null);
     useEffect(() => {
-        if (!shouldShow || !isLegacyEnabled()) return;
+        if (!shouldShow || !legacyAvailable) return;
         if (character.level >= 50 || character.legacy) return;
         const milestone = nextUnseenRumorMilestone(character.level);
         if (milestone == null) return;
@@ -127,7 +128,7 @@ export function DailyBriefingModal({
             recordRumorHeard(milestone, text);
         });
         return () => { alive = false; };
-    }, [shouldShow, character.level, character.name, character.legacy]);
+    }, [shouldShow, legacyAvailable, character.level, character.name, character.legacy]);
 
     if (!shouldShow) return null;
 

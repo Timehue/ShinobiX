@@ -41,6 +41,7 @@ const ADMIN_DELETED_ITEM_MARKER = '__ADMIN_DELETED_ITEM__';
 const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 
 export type AdminItem = Record<string, unknown> & { id: string };
+export type AdminItemCatalog = Map<string, AdminItem> & { readonly deletedIds: ReadonlySet<string> };
 type AdminContentRecord = { creatorItems?: unknown };
 
 /**
@@ -57,8 +58,10 @@ type AdminContentRecord = { creatorItems?: unknown };
  *
  * Exported for tests and for callers that already hold the admin records.
  */
-export function buildAdminItemCatalog(records: readonly (AdminContentRecord | null | undefined)[]): Map<string, AdminItem> {
-    const out = new Map<string, AdminItem>();
+export function buildAdminItemCatalog(records: readonly (AdminContentRecord | null | undefined)[]): AdminItemCatalog {
+    const deletedIds = new Set<string>();
+    const out = new Map<string, AdminItem>() as AdminItemCatalog;
+    Object.defineProperty(out, 'deletedIds', { value: deletedIds, enumerable: false });
     for (const record of records) {
         const list = Array.isArray(record?.creatorItems) ? record.creatorItems as unknown[] : [];
         for (const raw of list) {
@@ -66,12 +69,20 @@ export function buildAdminItemCatalog(records: readonly (AdminContentRecord | nu
             const value = raw as Record<string, unknown>;
             const id = typeof value.id === 'string' ? value.id.trim() : '';
             if (!id || id.length > MAX_ID_LENGTH) continue;
-            if (value.name === ADMIN_DELETED_ITEM_MARKER) { out.delete(id); continue; }
             // A player-forged piece is personal, never shared content. One that
             // leaked onto a slot must not become a definition the server hands
             // to other fighters — its real owner resolves it from their OWN
             // creatorItems, which this catalog never shadows.
             if (FORGED_ITEM_ID.test(id)) continue;
+            if (value.name === ADMIN_DELETED_ITEM_MARKER) {
+                deletedIds.add(id);
+                out.delete(id);
+                continue;
+            }
+            // Deletion is persistent across all dual-read sources. This matches
+            // the shop catalog and prevents a stale later slot from resurrecting
+            // content that an earlier authoritative source deleted.
+            if (deletedIds.has(id)) continue;
             out.set(id, { ...value, id } as AdminItem);
         }
     }

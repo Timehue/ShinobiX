@@ -10,10 +10,9 @@
  * Underscore-prefixed so it is NOT treated as a route — it's a server helper,
  * imported directly by server.ts.
  *
- * Single always-on instance assumption (same as the game loop). If a secondary
- * instance (e.g. cPanel) also schedules it, the 20h dedup window inside
- * runSnapshotSaves makes the second run a harmless no-op — set
- * DISABLE_SNAPSHOT_CRON=1 on secondaries to skip the redundant keyspace scan.
+ * Every process creates these timers, but each invocation claims a distributed
+ * KV lease. That keeps the jobs single-owner if Railway scales past one replica
+ * or briefly overlaps old and new processes during a deployment.
  */
 import {
     isSnapshotMarkerFresh,
@@ -26,17 +25,60 @@ import { runVillageWarDailyPass } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
+import { runSettlementReconciliation } from './_settlement-reconciliation.js';
+import { withScheduledJobLease } from './_job-lease.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
+const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
 const NIGHTLY_BUDGET_MS = 5 * 60_000;
+const LEASE_TTL = {
+    // These also act as success dedupe windows. They are shorter than each
+    // cadence so the next legitimate tick can acquire, but long enough to stop
+    // a delayed replica from replaying the same invocation.
+    snapshot: 20 * 60 * 60,
+    rankedRollover: 20 * 60 * 60,
+    clanBoss: 20 * 60 * 60,
+    villageWar: 20 * 60 * 60,
+    era: 20 * 60 * 60,
+    mercAuto: 9 * 60,
+    settlementReconciliation: 4 * 60,
+} as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
 let _interval: ReturnType<typeof setInterval> | null = null;
 let _mercInterval: ReturnType<typeof setInterval> | null = null;
+let _settlementInterval: ReturnType<typeof setInterval> | null = null;
+let _settlementScanRunning = false;
+
+async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>): Promise<T | null> {
+    const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true });
+    return leased.acquired ? leased.value : null;
+}
+
+async function fireSettlementReconciliation(includeLegacyScan = false): Promise<void> {
+    if (_settlementScanRunning) return;
+    _settlementScanRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'settlement-reconciliation',
+            () => runSettlementReconciliation({ includeLegacyScan }),
+            { ttlSec: LEASE_TTL.settlementReconciliation, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
+        if (result.markedRequired > 0 || result.alreadyRequired > 0 || result.failures.length > 0) {
+            console.warn(`[cron-scheduler] durable settlements: ${result.markedRequired} newly stale, ${result.alreadyRequired} awaiting reconciliation, ${result.failures.length} scan failures.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] durable-settlement reconciliation threw:', (err as Error).message);
+    } finally {
+        _settlementScanRunning = false;
+    }
+}
 
 /** ms from `now` until the next TARGET_UTC_HOUR:00:00 UTC. */
 function msUntilNextTargetHour(now: number): number {
@@ -59,7 +101,13 @@ async function runBootSnapshotCatchUp(): Promise<void> {
     }
 
     try {
-        const result = await runSnapshotSaves(NIGHTLY_BUDGET_MS);
+        const leased = await withScheduledJobLease(
+            'snapshot',
+            () => runSnapshotSaves(NIGHTLY_BUDGET_MS),
+            { ttlSec: LEASE_TTL.snapshot, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
         console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed; ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
     } catch (err) {
         console.error('[cron-scheduler] boot catch-up threw:', (err as Error).message);
@@ -67,24 +115,28 @@ async function runBootSnapshotCatchUp(): Promise<void> {
 }
 
 async function fire(): Promise<void> {
-    try {
-        const r = await runSnapshotSaves(NIGHTLY_BUDGET_MS);
-        if (r.emptyKeyspace) {
-            console.error('[cron-scheduler] snapshot run found ZERO saves — check KV_PROXY_URL / KV_PROXY_TOKEN.');
-        } else {
-            console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped, ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
+    if (process.env.DISABLE_SNAPSHOT_CRON !== '1') {
+        try {
+            const r = await runLeasedJob('snapshot', LEASE_TTL.snapshot, () => runSnapshotSaves(NIGHTLY_BUDGET_MS));
+            if (!r) {
+                // Another process owns this invocation.
+            } else if (r.emptyKeyspace) {
+                console.error('[cron-scheduler] snapshot run found ZERO saves — check KV_PROXY_URL / KV_PROXY_TOKEN.');
+            } else {
+                console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped, ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
+            }
+        } catch (err) {
+            console.error('[cron-scheduler] snapshot run threw:', (err as Error).message);
         }
-    } catch (err) {
-        console.error('[cron-scheduler] snapshot run threw:', (err as Error).message);
     }
     // Ranked-season rollover on the same daily tick. It self-checks the season
     // clock and no-ops (`pending`) until the ~30-day window expires, so running
     // it nightly just means the rollover fires within 24h of the month ending.
     try {
-        const s = await runRankedSeasonRollover();
-        if (s.action === 'rolled-over') {
+        const s = await runLeasedJob('ranked-rollover', LEASE_TTL.rankedRollover, () => runRankedSeasonRollover());
+        if (s?.action === 'rolled-over') {
             console.log(`[cron-scheduler] ranked season ${s.seasonId} → ${s.nextSeasonId}: champion=${s.playerChampion ?? '—'} pet=${s.petChampion ?? '—'}, ${s.resetCount} reset, ${s.rewardedCount} rewarded.`);
-        } else if (s.action === 'initialized') {
+        } else if (s?.action === 'initialized') {
             console.log(`[cron-scheduler] ranked season ${s.seasonId} initialised.`);
         }
     } catch (err) {
@@ -94,8 +146,8 @@ async function fire(): Promise<void> {
     // ended week. ON by default in testing (server.ts sets ENABLE_CLAN_BOSS unless
     // DISABLE_CLAN_BOSS=1); no-ops if disabled.
     try {
-        const cb = await runClanBossWeekly();
-        if (cb.enabled && (cb.spawned || cb.settled.length)) {
+        const cb = await runLeasedJob('clan-boss-weekly', LEASE_TTL.clanBoss, () => runClanBossWeekly());
+        if (cb && cb.enabled && (cb.spawned || cb.settled.length)) {
             console.log(`[cron-scheduler] clan boss: ${cb.spawned ? `spawned ${cb.spawned}` : 'no spawn'}${cb.settled.length ? `, settled ${cb.settled.join(', ')}` : ''}.`);
         }
     } catch (err) {
@@ -104,8 +156,8 @@ async function fire(): Promise<void> {
     // Village War Map daily pass (WR accrual + structure upkeep + merc-lease
     // expiry). No-op unless ENABLE_VILLAGE_WAR=1 — server-gated, default OFF.
     try {
-        const w = await runVillageWarDailyPass();
-        if (w.enabled && w.ran > 0) {
+        const w = await runLeasedJob('village-war-daily', LEASE_TTL.villageWar, () => runVillageWarDailyPass());
+        if (w && w.enabled && w.ran > 0) {
             console.log(`[cron-scheduler] village-war daily pass: ${w.ran}/${w.processed} villages processed.`);
         }
     } catch (err) {
@@ -115,8 +167,8 @@ async function fire(): Promise<void> {
     // the case where the credited trigger fired BEFORE the server-wide
     // milestones finished — the recorded finisher keeps their credit.
     try {
-        const e = await runEraDailyPass();
-        if (e.enabled && e.unlocked.length > 0) {
+        const e = await runLeasedJob('era-daily', LEASE_TTL.era, () => runEraDailyPass());
+        if (e && e.enabled && e.unlocked.length > 0) {
             console.log(`[cron-scheduler] era pass UNLOCKED: ${e.unlocked.join(', ')}`);
         }
     } catch (err) {
@@ -125,18 +177,27 @@ async function fire(): Promise<void> {
 }
 
 /**
- * Start the daily 03:00-UTC snapshot. Idempotent. No-op when
- * DISABLE_SNAPSHOT_CRON=1. Timers are unref'd so they never hold the process
- * open on their own.
+ * Start the in-process jobs. The settlement scanner is independent of the
+ * snapshot-specific kill switch; DISABLE_SCHEDULED_JOBS remains the global
+ * stop. Timers are unref'd so they never hold the process open on their own.
  */
 export function startSnapshotCron(): void {
     if (scheduledJobsDisabled()) {
         console.log('[cron-scheduler] all scheduled jobs disabled via DISABLE_SCHEDULED_JOBS=1');
         return;
     }
-    if (process.env.DISABLE_SNAPSHOT_CRON === '1') {
+    if (!_settlementInterval) {
+        if (process.env.DISABLE_SETTLEMENT_RECONCILIATION !== '1') {
+            _settlementInterval = setInterval(() => void fireSettlementReconciliation(), SETTLEMENT_RECONCILIATION_TICK_MS);
+            _settlementInterval.unref?.();
+            void fireSettlementReconciliation(true);
+        } else {
+            console.log('[cron-scheduler] durable-settlement reconciliation disabled via DISABLE_SETTLEMENT_RECONCILIATION=1');
+        }
+    }
+    const snapshotDisabled = process.env.DISABLE_SNAPSHOT_CRON === '1';
+    if (snapshotDisabled) {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
-        return;
     }
     if (_timeout || _interval) return;
     // NOTE: ranked seasons do NOT auto-start — an admin starts them from the
@@ -150,22 +211,23 @@ export function startSnapshotCron(): void {
     }, delay);
     _timeout.unref?.();
     // If the process was down across 03:00 UTC, do not wait until tomorrow.
-    // The durable marker proves freshness and the per-player 20h dedup keeps
-    // restarts or a second scheduler from creating duplicate daily copies.
-    void runBootSnapshotCatchUp();
+    // The durable marker proves freshness and the distributed 20h job lease
+    // keeps restarts or a second scheduler from creating duplicate daily copies.
+    if (!snapshotDisabled) void runBootSnapshotCatchUp();
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
     // low-HP enemy defenders on their own. No-op unless ENABLE_VILLAGE_WAR=1.
     _mercInterval = setInterval(() => {
-        void runMercAutoDeploy()
-            .then((r) => { if (r.enabled && r.deployed > 0) console.log(`[cron-scheduler] merc auto-snipe: ${r.deployed} deployed.`); })
+        void runLeasedJob('merc-auto', LEASE_TTL.mercAuto, () => runMercAutoDeploy())
+            .then((r) => { if (r && r.enabled && r.deployed > 0) console.log(`[cron-scheduler] merc auto-snipe: ${r.deployed} deployed.`); })
             .catch((err) => console.error('[cron-scheduler] merc auto-snipe threw:', (err as Error).message));
     }, MERC_TICK_MS);
     _mercInterval.unref?.();
     // Kick the clan-boss weekly pass once on boot so the current week's boss is live
     // immediately when the feature is enabled (rather than dark until the next 03:00
     // tick). No-op unless ENABLE_CLAN_BOSS=1; NX-guarded so it never double-spawns.
-    void runClanBossWeekly().catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
-    console.log(`[cron-scheduler] daily save-snapshot scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
+    void runLeasedJob('clan-boss-weekly', LEASE_TTL.clanBoss, () => runClanBossWeekly())
+        .catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
+    console.log(`[cron-scheduler] daily jobs scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }
 
 /** Stop the scheduler (tests / graceful shutdown). */
@@ -173,4 +235,6 @@ export function stopSnapshotCron(): void {
     if (_timeout) { clearTimeout(_timeout); _timeout = null; }
     if (_interval) { clearInterval(_interval); _interval = null; }
     if (_mercInterval) { clearInterval(_mercInterval); _mercInterval = null; }
+    if (_settlementInterval) { clearInterval(_settlementInterval); _settlementInterval = null; }
+    _settlementScanRunning = false;
 }

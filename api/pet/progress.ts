@@ -7,6 +7,17 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { masteryBonus } from '../_profession-mastery.js';
 import { applyPetSummonCost, gainServerPetXp, petHappiness, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, removePetItem, settleFinishedTraining } from './_progress.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
+import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_breeding-requirements.js';
+import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
+import { kv } from '../_storage.js';
+
+function defensePetIds(defense: unknown): string[] {
+    if (!defense || typeof defense !== 'object') return [];
+    const pets = (defense as { pets?: unknown }).pets;
+    return Array.isArray(pets)
+        ? pets.map((entry) => String((entry as Record<string, unknown>)?.id ?? '')).filter(Boolean)
+        : [];
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
@@ -18,10 +29,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only update your own pet.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-progress', 30, 60_000, identity.name))) return;
         const now = Date.now();
-        const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, ({ character }) => {
+        const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, async ({ character }) => {
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const index = pets.findIndex((pet) => String(pet?.id ?? '') === petId); if (index < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
             const pet = pets[index]; let nextCharacter = character; let nextPet = pet;
+            if (activeBreedingParentIds(character, now).has(petId)) {
+                return { ok: false as const, status: 409, error: 'This pet is in the breeding barn until the timer completes.' };
+            }
             // Set when this call paid out a finished training session (either the
             // explicit collect, or the start-training self-heal below). Drives the
             // Pet Tamer "trained a pet" mission credit + the client notice.
@@ -72,9 +86,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 nextPet = settle.pet;
             } else if (action === 'feed') {
                 const itemId = String(body.itemId ?? ''); const xp = PET_FEED_XP[itemId]; if (!xp) return { ok: false as const, status: 400, error: 'Invalid pet food.' };
-                if (Number(pet.level) >= Number(pet.maxLevel)) return { ok: false as const, status: 409, error: 'Pet is already max level.' };
                 const afterItem = removePetItem(character, itemId); if (!afterItem) return { ok: false as const, status: 409, error: 'Pet food not owned.' };
-                nextCharacter = afterItem; nextPet = gainServerPetXp(pet, xp); nextPet.happiness = Math.min(100, petHappiness(nextPet) + 10);
+                nextCharacter = afterItem;
+                nextPet = Number(pet.level) >= Number(pet.maxLevel) ? { ...pet } : gainServerPetXp(pet, xp);
+                nextPet.happiness = Math.min(100, petHappiness(nextPet) + 10);
             } else if (action === 'pet') {
                 nextPet = { ...pet, happiness: Math.min(100, petHappiness(pet) + 10) };
             } else if (action === 'nickname') {
@@ -121,13 +136,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     value: { action, pet: nextPet, gearBroke: spend.gearBroke, consumableSpent: spend.consumableSpent },
                 };
             } else if (action === 'release') {
+                const [activeBattle, coliseumDefense, tacticalDefense] = await Promise.all([
+                    kv.get(`battle-lock:${playerName}`),
+                    kv.get(`petladder:coliseum:def:${playerName}`),
+                    kv.get(`petladder:tactical:def:${playerName}`),
+                ]);
+                if (activeBattle) return { ok: false as const, status: 409, error: 'Finish or resume your active battle before releasing a companion.' };
+                const releaseBusy = petBusyReason(character, pet, now, {
+                    includeActive: false,
+                    includeReserve: false,
+                    assignmentIds: [...defensePetIds(coliseumDefense), ...defensePetIds(tacticalDefense)],
+                });
+                if (releaseBusy) return { ok: false as const, status: 409, error: petBusyMessage(releaseBusy).replace('before breeding', 'before releasing it') };
                 const remaining = pets.filter((_, i) => i !== index);
                 const activePetId = character.activePetId === petId ? remaining[0]?.id : character.activePetId;
                 const activePetId2v2 = character.activePetId2v2 === petId ? undefined : character.activePetId2v2;
                 return { ok: true as const, character: { ...character, pets: remaining, activePetId, activePetId2v2 }, value: { action, pet: null } };
             } else return { ok: false as const, status: 400, error: 'Invalid pet action.' };
             const nextPets = pets.map((entry, i) => i === index ? nextPet : entry);
-            return { ok: true as const, character: { ...nextCharacter, pets: nextPets }, value: { action, pet: nextPet, settledTraining } };
+            let finalizedCharacter: Record<string, unknown> = { ...nextCharacter, pets: nextPets };
+            let breedingEvent: PetBreedingProgressEvent | null = null;
+            if (settledTraining) {
+                breedingEvent = { kind: 'training', receipt: `training:${petId}:${String((pet.training as Record<string, unknown> | undefined)?.endsAt ?? now)}` };
+            } else if (action === 'feed') {
+                breedingEvent = { kind: 'feed' };
+            } else if (action === 'pet') {
+                breedingEvent = { kind: 'pet-interaction', petElement: String(pet.element ?? '') };
+            }
+            if (breedingEvent) finalizedCharacter = recordPetBreedingProgress(finalizedCharacter, breedingEvent, now).character;
+            return { ok: true as const, character: finalizedCharacter, value: { action, pet: nextPet, settledTraining } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         let missionsCompleted: CompletedMissionInfo[] = [];

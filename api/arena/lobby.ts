@@ -8,6 +8,7 @@ import {
     newLobby, codeFromBytes, openSeat, slotOf, findPlayerSlot, chooseOwnedPets,
     resolveMatch, startBlock, publicView, type Lobby, type Team,
 } from './_lobby-core.js';
+import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 
 /*
  * Co-op Tactical Pet Arena lobby — server-authoritative coordinator for the
@@ -103,6 +104,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const owned = Array.isArray(save?.character?.pets) ? save!.character!.pets! : [];
             preChosen = chooseOwnedPets(owned, (body as { petIds?: unknown }).petIds);
             if (!preChosen) return res.status(400).json({ error: 'Pick exactly 2 pets that you own.' });
+            const breedingParents = activeBreedingParentIds((save?.character ?? {}) as Record<string, unknown>);
+            if (preChosen.some((pet) => breedingParents.has(String(pet.id ?? '')))) {
+                return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+            }
         }
 
         const out = await withKvLock<LockOut>(key, async () => {

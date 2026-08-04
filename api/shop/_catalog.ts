@@ -39,7 +39,7 @@ function cleanCard(raw: unknown): SettlementCard | null {
     return { id, rarity: rarity as SettlementCard['rarity'] };
 }
 
-/** Reproduce the client merge: built-in item definitions win, admin deletions hide them, Admin 2 wins custom-id collisions. */
+/** Merge authored content with persistent tombstones shared by shop and combat. */
 export function buildSettlementCatalogs(adminRecords: readonly AdminContentRecord[]): SettlementCatalogs {
     const deleted = new Set<string>();
     const customItems = new Map<string, SettlementItem>();
@@ -85,10 +85,8 @@ export async function loadSettlementCatalogs(): Promise<SettlementCatalogs> {
     // Dual-read (P0-4): the canonical content store is appended LAST, matching
     // this builder's Admin-2-wins-collisions rule. Empty until the first
     // publish, so shop/sell settlement resolves exactly as before until then.
-    // NOTE: this builder's tombstone semantics differ from the combat item
-    // catalog (a deletion here also blocks a later live copy) — that
-    // divergence is pre-existing and deliberately left alone; see
-    // docs/audits/shared-content-audit.md finding 6.
+    // Tombstones remain authoritative across every source, matching the combat
+    // catalog. A stale slot cannot resurrect a deleted item after publication.
     const [slots, published] = await Promise.all([
         Promise.all(ADMIN_SAVE_KEYS.map((key) => kv.get<AdminContentRecord>(key))),
         loadPublishedContent().catch(() => ({}) as Record<string, unknown>),

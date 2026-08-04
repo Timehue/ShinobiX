@@ -20,6 +20,9 @@ import {
 
 export const petTraits: PetTrait[] = ["Loyal", "Aggressive", "Guardian", "Swift", "Lucky", "Battleborn"];
 
+/** Shrine apex traits. Kept separate so ordinary acquisition rolls cannot mint them. */
+export const ultraPetTraits: PetTrait[] = ["Fateweaver", "Hollowborn", "Boonbringer"];
+
 export const petTraitDescriptions: Record<PetTrait, string> = {
     Loyal: "Pet trains 50% faster — gains more stats from every training session",
     Aggressive: "Pet spawns with +15% attack",
@@ -27,6 +30,9 @@ export const petTraitDescriptions: Record<PetTrait, string> = {
     Swift: "Pet spawns with +20% speed — you earn +25% XP from battles while active",
     Lucky: "You earn +20% ryo from battles while this pet is active",
     Battleborn: "Pet spawns with +10% to all stats",
+    Fateweaver: "Apex Â· +20% to all stats, 18% dodge, greatly raised critical chance, and immunity to freeze and confusion",
+    Hollowborn: "Apex Â· +5% to all stats; deals 12% more pet-battle damage, drains 12% of damage dealt, and has greatly raised critical chance",
+    Boonbringer: "Apex Â· doubles rewards and pet XP from pet expeditions",
 };
 
 // ── Training duration tiers + speed multipliers ─────────────────────────

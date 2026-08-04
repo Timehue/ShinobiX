@@ -18,7 +18,7 @@ import { ProgressionPanel } from "../components/ProgressionPanel";
 import { ShinobiIdentityCard } from "../components/ShinobiIdentityCard";
 import { LegacyPanel } from "./LegacyPanel";
 import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
-import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, isLegacyEnabled } from "../lib/legacy";
+import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, useLegacyAvailability } from "../lib/legacy";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -62,6 +62,7 @@ export function Profile({
     /** Opens the durable read-only battle record (Screen "battleLog"). */
     onOpenBattle?: (battleId: string) => void;
 }) {
+    const legacyAvailable = useLegacyAvailability();
     const [feedingAura, setFeedingAura] = useState(false);
     const feedingAuraRef = useRef(false);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
@@ -485,7 +486,7 @@ export function Profile({
                     { id: 'achievements', label: 'Achievements' },
                     { id: 'battlelogs', label: 'Battles' },
                     { id: 'legacy',   label: 'Legacy'  },
-                ] as const).filter((t) => t.id !== 'legacy' || isLegacyEnabled()).map(({ id, label }) => (
+                ] as const).filter((t) => t.id !== 'legacy' || legacyAvailable).map(({ id, label }) => (
                     <button
                         type="button"
                         key={id}
@@ -849,7 +850,7 @@ export function Profile({
 
             {/* ── Legacy tab (fully gated: no empty tab/heading when the
                  server flag is off, keeping "off = byte-identical") ──────── */}
-            {isLegacyEnabled() && (
+            {legacyAvailable && (
             <div className={mobileTab !== 'legacy' ? 'profile-tab-hidden' : ''}>
             <section className="profile-overview-panel" style={{ display: 'block' }}>
                 <h3 style={{ marginTop: 0 }}>Legacy</h3>

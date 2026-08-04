@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Pet } from "../types/pet";
-import { runPetArenaMatch, ARENA_TPS, MAX_SECONDS, WIN_SCORE, SCROLL_FIRST_SPAWN, type ArenaSlot, type ArenaRole } from "./pet-arena-sim";
+import { petArenaTraitCombat, runPetArenaMatch, ARENA_TPS, MAX_SECONDS, WIN_SCORE, SCROLL_FIRST_SPAWN, type ArenaSlot, type ArenaRole } from "./pet-arena-sim";
 
 /*
  * Coverage for the Tactical Pet Arena match sim. Load-bearing invariant is
@@ -17,6 +17,13 @@ function roster(roles: ArenaRole[], over: Partial<Pet> = {}): ArenaSlot[] {
 }
 const COMP: ArenaRole[] = ["defender", "tracker", "assassin", "sage"];
 const SEEDS = [1, 7, 2024, 99999];
+
+test("Shrine apex combat passives are exact in the tactical arena", () => {
+    assert.deepEqual(petArenaTraitCombat("Fateweaver"), { critBonus: 0.16, dodgeChance: 0.18, damageMult: 1, drainPct: 0 });
+    assert.deepEqual(petArenaTraitCombat("Hollowborn"), { critBonus: 0.16, dodgeChance: 0, damageMult: 1.12, drainPct: 0.12 });
+    assert.deepEqual(petArenaTraitCombat("Boonbringer"), { critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0 });
+    assert.deepEqual(petArenaTraitCombat("Aggressive"), { critBonus: 0, dodgeChance: 0, damageMult: 1, drainPct: 0 });
+});
 
 function assertFinite(v: unknown, path = "result"): void {
     if (typeof v === "number") { assert.ok(Number.isFinite(v), `non-finite at ${path}: ${v}`); return; }

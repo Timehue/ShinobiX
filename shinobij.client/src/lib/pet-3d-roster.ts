@@ -12,7 +12,7 @@ const ROSTER_RARITY_COUNTS = [
     ["standard", 50],
     ["rare", 50],
     ["legendary", 30],
-    ["mythic", 10],
+    ["mythic", 15],
 ] as const;
 
 const APPROVED_ROSTER_MODEL_ID_LIST: readonly string[] = Object.freeze(
@@ -28,17 +28,16 @@ export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set(APPROVED_R
  * early untextured or untrimmed candidate alive for the rest of the browser
  * session. Bump this revision whenever the approved production GLBs change.
  */
-export const ROSTER_MODEL_ASSET_REVISION = "20260728-grounded-meshopt-v9";
+export const ROSTER_MODEL_ASSET_REVISION = "20260803-breeding-mythics-v10";
 
 function rosterModelUrl(id: string): string {
     return `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`;
 }
 
-// The three built-in Coliseum opponents predate the canonical 140-pet roster,
-// so their persistent ids do not have dedicated GLBs. Give each one the closest
-// approved species model instead of forcing every AI exhibition back to the
-// legacy 2D renderer. Their combat stats, names, elements and kits stay intact;
-// this mapping is presentation-only.
+// The three built-in Coliseum opponents predate the canonical pet roster, so
+// their persistent ids intentionally reuse the closest approved species rig.
+// Breeding-exclusive Mythics have dedicated production assets and therefore do
+// not belong in this presentation-only alias map.
 const COLISEUM_MODEL_ALIASES: Readonly<Record<string, string>> = {
     "generic-ai-pet-sparrow": "standard-44",   // Glide Sparrow
     "generic-ai-pet-guardhound": "rare-24",    // Young Direwolf
@@ -69,7 +68,7 @@ const ROSTER_PROFILE_CODES = [
     ["standard", "qbbabbbabbabbhabqabbbqbbbqbhbqbhbabaaaaabbbaaqbqbb"],
     ["rare", "qbbabbbabqabqhabqabbbbqbqqqaqqbqqaqaaaaabbbbabbqbb"],
     ["legendary", "qaqqbqasqhasbhaqahssbaqqqbqhbh"],
-    ["mythic", "qqhqqasbbh"],
+    ["mythic", "qqhqqasbbhasqqh"],
 ] as const;
 
 export const ROSTER_MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = Object.fromEntries(

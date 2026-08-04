@@ -13,6 +13,7 @@ import { captureSectorForVillage } from '../world-state.js';
 import { runDoctrineDuel, parseDoctrine } from '../_pet-sim/pet-duel-doctrine.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
+import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 
 /*
  * /api/village/sector-pet — POST only. The sector-war "Pet" win-condition (Phase 7).
@@ -65,7 +66,7 @@ async function villageOf(playerName: string): Promise<string> {
 // CLAMP the four battle stats to the per-rarity anti-tamper ceiling so a tampered
 // save can't field an absurd pet into a territory-flipping duel.
 async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | null> {
-    const save = await kv.get<{ character?: { pets?: unknown[]; activePetId?: string } }>(`save:${playerName.toLowerCase()}`);
+    const save = await kv.get<{ character?: { pets?: unknown[]; activePetId?: string; petBreeding?: unknown } }>(`save:${playerName.toLowerCase()}`);
     const pets = Array.isArray(save?.character?.pets) ? (save!.character!.pets as Record<string, unknown>[]) : [];
     if (!pets.length) return null;
     const activeId = String(save?.character?.activePetId ?? '');
@@ -73,6 +74,7 @@ async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | n
         ?? pets.find((p) => String(p.id) === activeId)
         ?? pets[0];
     if (!raw) return null;
+    if (activeBreedingParentIds((save?.character ?? {}) as Record<string, unknown>).has(String(raw.id ?? ''))) return null;
     const pet = { ...raw } as unknown as Pet;
     for (const stat of CEIL_STATS) {
         const v = Number(raw[stat]) || 0;

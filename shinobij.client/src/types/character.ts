@@ -17,7 +17,7 @@
 
 import type { Profession, JutsuType, VillageUpgrades } from "./core";
 import type { Stats, EquipmentSlots, JutsuMastery } from "./combat";
-import type { Pet } from "./pet";
+import type { Pet, PetBreedingSession } from "./pet";
 
 // ── Hollow Gate Shrine run state ──────────────────────────────────────────
 
@@ -333,6 +333,13 @@ export type Character = {
     // activePetId (the PvE summon) this pet is never summoned in PvE; it only
     // pre-fills the 2v2 reserve slot, which stays overridable per battle.
     activePetId2v2?: string;
+    // Server-owned, account-wide breeding/nursery state. Hidden offspring
+    // identity is never stored here; it lives in a private server record.
+    petBreeding?: PetBreedingSession | null;
+    petBreedingMigrationVersion?: number;
+    petBreedingReceipts?: string[];
+    petBreedingHatchReceipts?: Array<{ sessionId: string; petId: string; destination?: "roster" | "sanctuary" }>;
+    petBreedingProgressReceipts?: string[];
     tileCards: string[];
     savedTileDeck?: string[];
     // ── Shinobi Chronicle Showdown (compatibility field names retained) ──────────

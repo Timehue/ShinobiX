@@ -184,7 +184,7 @@ const BEGINNER: Guide = {
                     ["Bank", "Store your ryo safely and earn daily interest."],
                     ["Shop", "Buy gear, items, and Card Packs."],
                     ["Clan Hall", "Join or form a clan and fight for territory."],
-                    ["Pet Yard", "Raise pets that fight alongside you."],
+                    ["Pet Home / Yard", "Manage your carried roster, Sanctuary, training, and breeding."],
                     ["World Map", "Explore sectors and contest territory."],
                     ["Town Hall", "Village upgrades and bonuses."],
                     ["Card Hall", "Play Shinobi Chronicle Showdown with your collected cards."],
@@ -440,9 +440,11 @@ const PETS: Guide = {
             heading: "1 · Getting & Raising Pets",
             blocks: [
                 { type: "list", items: [
-                    "Befriend wild pets you meet exploring the world map and inside the Hollow Gate dungeon. You can keep up to 5.",
+                    "Befriend wild pets on the world map and inside the Hollow Gate. You carry 3 battle-ready companions (5 for Shinobi Supporters); every additional companion is kept safely in your unlimited Sanctuary.",
+                    "Open Home → Sanctuary to move companions between storage and your carried roster. A full roster never blocks a capture or hatch — overflow arrives there automatically.",
                     "Rarity runs Standard → Rare → Legendary → Mythic. Mythics come with full, hand-crafted kits.",
                     "Train pets in the Pet Yard (15 min / 1 hr / 4 hr / 8 hr sessions) or feed treats for instant XP. Pets level up to 100.",
+                    "Breeding unlocks for level 50 companions of the same element. Each companion has 5–10 lifetime breeding uses; a sealed egg takes 24 real hours, with a 0.05% Chromatic roll and a separate 0.5% roll for one of the three Apex Shrine traits.",
                 ] },
                 { type: "p", text: "Each pet rolls a permanent trait when you befriend it, which buffs it (and sometimes you):" },
                 { type: "table", head: ["Trait", "Feel"], rows: [

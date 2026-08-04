@@ -172,10 +172,16 @@ export function evolvePet(pet: Pet, nextStage: EvolveStage, line: EvolutionLine)
  * lookups (poses / shared images) WITHOUT changing the pet's persistent id.
  *   stage 0 → starter-fire      stage 1 → starter-fire-r      stage 2 → starter-fire-l
  */
-export function petVisualId(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): string {
-    if (!evolutionLineFor(pet.id)) return pet.id;
+export function petVisualId(pet: Pick<Pet, "id" | "templateId" | "evolutionStage" | "rarity">): string {
+    // Owned pets use UUID-backed instance ids (`template-id:<uuid>`). Artwork,
+    // poses, and evolution lines are authored against the stable template id,
+    // so presentation must never key solely from the owned instance id.
+    const templateId = typeof pet.templateId === "string" && pet.templateId.trim()
+        ? pet.templateId.trim()
+        : pet.id;
+    if (!evolutionLineFor(templateId)) return templateId;
     const stage = currentStage(pet);
-    return stage === 1 ? `${pet.id}-r` : stage === 2 ? `${pet.id}-l` : pet.id;
+    return stage === 1 ? `${templateId}-r` : stage === 2 ? `${templateId}-l` : templateId;
 }
 
 /**
@@ -196,6 +202,7 @@ export const STARTER_EVOLUTIONS: Pet[] = STARTER_PETS.flatMap((option) => {
         level: line.stages[stage].requiredLevel,
         xp: 0,
         wildSpawnable: false,
+        breedable: false,
         description: line.stages[stage].description,
     });
     return [template(1, rare, "r"), template(2, legendary, "l")];

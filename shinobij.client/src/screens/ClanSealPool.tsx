@@ -36,6 +36,11 @@ export function ClanSealPool({
     const [escortBusy, setEscortBusy] = useState(false);
     const escortBusyRef = useRef(false);
 
+    const nextDonationRequestId = () => {
+        const uuid = globalThis.crypto?.randomUUID?.();
+        return uuid ? `seal-donate-${uuid}` : `seal-donate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    };
+
     const isVanguard = character.profession === "vanguard";
     const isPetTamer = character.profession === "petTamer";
     const isLeader = !!character.clanFounder;
@@ -100,7 +105,7 @@ export function ClanSealPool({
             const res = await fetch('/api/clan/seal-pool/donate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, amount: donateAmount }),
+                body: JSON.stringify({ playerName: character.name, amount: donateAmount, requestId: nextDonationRequestId() }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {

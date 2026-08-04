@@ -4,6 +4,7 @@ import { ROLE_META, derivePetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
 import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass, petCardImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import type { PetVisualState } from "../types/pet-battle";
 
 export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
@@ -29,7 +30,7 @@ export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages =
     const collarClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
     return (
         <div
-            className={`pet-battle-avatar pet-sprite ${side}${active ? " active" : ""}${hit ? " hit" : ""}${status?.poisoned ? " poisoned" : ""}${collarClass}${modeClass}${poseClass}`}
+            className={`pet-battle-avatar pet-sprite ${side}${active ? " active" : ""}${hit ? " hit" : ""}${status?.poisoned ? " poisoned" : ""}${collarClass}${modeClass}${poseClass} ${petVisualVariantClass(pet)}`}
             style={collarVisual ? { ["--collar-glow" as string]: collarVisual.glow } : undefined}
         >
             {sheet ? (
@@ -61,12 +62,13 @@ export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string;
     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
     const rm = ROLE_META[role];
     return (
-        <div className="pet-arena-card">
+        <div className={`pet-arena-card ${petVisualVariantClass(pet)}`}>
             <div className="pet-arena-avatar">
                 {img ? <img src={img} alt={petDisplayName(pet)} /> : <span>{petDisplayName(pet).slice(0, 2).toUpperCase()}</span>}
             </div>
             <div>
                 <strong>{petDisplayName(pet)}</strong>
+                {pet.paletteVariantId && <span className="pet-chromatic-label">Chromatic</span>}
                 {rm && (
                     <span
                         className="pet-role-badge"
