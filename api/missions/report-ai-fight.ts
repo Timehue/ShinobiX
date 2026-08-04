@@ -17,8 +17,8 @@ import {
     type AiFightToken,
 } from './_ai-fight-token.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
-import { readSession } from '../towers/_tower-store.js';
-import { readSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { isSoloPveSession, type SoloPveCompanionUsage } from '../solo-pve/_session.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import {
     aiFightPaysReward,
@@ -45,6 +45,31 @@ import {
 } from './_apex-contract.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
+
+export function applyCompanionUsageCost(
+    character: Record<string, unknown>,
+    usage: SoloPveCompanionUsage | undefined,
+): Record<string, unknown> {
+    if (!usage || !Array.isArray(character.pets)) return character;
+    let matched = false;
+    const pets = (character.pets as Array<Record<string, unknown>>).map((pet) => {
+        if (String(pet?.id ?? '') !== usage.petId) return pet;
+        matched = true;
+        const loadout = { ...(pet.loadout && typeof pet.loadout === 'object' ? pet.loadout as Record<string, unknown> : {}) };
+        if (usage.pveGearId && loadout.pve === usage.pveGearId) {
+            const durability = Math.max(0, Math.floor(Number(loadout.pveDurability) || 0));
+            if (durability <= 0) {
+                delete loadout.pve;
+                delete loadout.pveDurability;
+            } else {
+                loadout.pveDurability = durability - 1;
+            }
+        }
+        if (usage.consumableId && loadout.consumable === usage.consumableId) delete loadout.consumable;
+        return { ...pet, loadout };
+    });
+    return matched ? { ...character, pets } : character;
+}
 
 // Settles ONE AI fight against its single-use token from /api/missions/ai-fight-start.
 // The token seals opponentId, battleKind, the reward ceilings and (when the fight
@@ -106,11 +131,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // and its sealed runId selects which authority track this report takes.
         const peeked = await kv.get<AiFightToken>(tokenKey).catch(() => null);
         const sealedOpponentId = typeof peeked?.opponentId === 'string' ? peeked.opponentId : '';
-        const sealedRunId = typeof peeked?.runId === 'string' ? peeked.runId : '';
         const sealedSessionId = peeked?.sessionRuntime === 'solo-pve' && typeof peeked.sessionId === 'string'
             ? peeked.sessionId
             : '';
         const sealedBattleKind = peeked?.battleKind ?? 'practice';
+        if (!sealedSessionId) {
+            return res.status(409).json({ error: 'AI fight token has no standalone combat authority.', outcome: 'unknown' });
+        }
 
         // ── Step 4: the SESSION decides, not the caller ──────────────────────
         // When the token carries a runId, this fight was resolved by the server
@@ -120,15 +147,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // client-authored `temp-*` opponent, or the kill switch), which has no
         // session to read — that track keeps the old behaviour until step 5
         // retires it.
-        const hasSealedSession = Boolean(sealedSessionId || sealedRunId);
-        const sealedSession: AiFightSession | null = sealedSessionId
-            ? await readSoloPveSession(sealedSessionId).catch(() => null)
-            : sealedRunId
-                ? await readSession(sealedRunId).catch(() => null)
-                : null;
-        const outcome: AiFightOutcome = hasSealedSession ? resolveAiFightOutcome(sealedSession) : 'win';
+        const sealedSession: AiFightSession | null = await readSoloPveSession(sealedSessionId).catch(() => null);
+        const outcome: AiFightOutcome = resolveAiFightOutcome(sealedSession);
         const playerActor = aiFightPlayerActor(sealedSession);
         const playerItemsUsed = aiFightPlayerItemsUsed(sealedSession);
+        const companionUsage = isSoloPveSession(sealedSession) ? sealedSession.companionUsage : undefined;
         // A vanished session neither pays nor punishes — see _ai-fight-outcome.
         // 409 so the client's settle retry can pick it up if it was a slow read.
         if (outcome === 'unknown') {
@@ -156,12 +179,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const combatCharacter = Object.keys(playerItemsUsed).length > 0
                 ? deductUsedItems(character, playerItemsUsed)
                 : character;
+            const companionCharacter = applyCompanionUsageCost(combatCharacter, companionUsage);
 
             // A loss, draw or forfeit consumes the token and writes the physical
             // consequence, but pays nothing and never touches the daily counter —
             // the counter is a REWARD counter, and a defeat earned no reward.
             if (!paysReward) {
-                const settled = applyAiFightOutcomeToCharacter(combatCharacter, outcome, playerActor, Date.now());
+                const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now());
                 const redemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
                 return {
                     ok: true as const,
@@ -172,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
             const reward = aiFightReward(claim.xp, claim.ryo, dailyCount);
-            const leveled = gainXp(combatCharacter, reward.xp) as Record<string, unknown>;
+            const leveled = gainXp(companionCharacter, reward.xp) as Record<string, unknown>;
             const paid = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
             const rewarded = applyAiFightSecondaryRewards(
                 paid,
@@ -193,9 +217,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-        await kv.del(tokenKey).catch(() => undefined);
         const reward = result.value;
         const dailyCount = reward.dailyCount;
+        if (isSoloPveSession(sealedSession) && sealedSession.terminalEvidence) {
+            const settledAt = Date.now();
+            await writeSoloPveSession({
+                ...sealedSession,
+                settlementState: 'settled',
+                terminalEvidence: {
+                    ...sealedSession.terminalEvidence,
+                    settlementState: 'settled',
+                    receipt: {
+                        kind: 'ai-fight',
+                        id: aiFightToken,
+                        settledAt,
+                        rewards: { outcome, xp: reward.xp, ryo: reward.ryo, replayed: reward.replayed },
+                    },
+                },
+            });
+        }
+        await kv.del(tokenKey).catch(() => undefined);
 
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy

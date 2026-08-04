@@ -1,10 +1,10 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import type { Character, BattleHistoryEntry } from "../types/character";
-import type { TowerSession } from "../lib/towers-api";
+import type { SoloPveSession } from "../lib/solo-pve-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { startAiFight } from "../lib/ai-fight-api";
-import { aiFightHostLoadout } from "../lib/ai-fight-loadout";
+import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 import { onAiFightRequest, type AiFightRequest } from "../lib/ai-fight-request";
 import {
     settleAiFight,
@@ -23,15 +23,15 @@ function applySectorRaidDamage(sector: number): void {
 }
 
 // AI fights render through MissionArenaFight — the SAME server-authoritative arena
-// shell combat missions and story bosses use (a sealed tower:<runId> session,
-// /api/towers/action moves, the 12×10 hex board). MissionArenaFight portals itself
+// shell combat missions and story bosses use. The standalone transport submits
+// versioned intent-only actions. MissionArenaFight portals itself
 // to <body>, so the fight covers whatever screen the player launched from and no
 // navigation is needed. App mounts THIS host eagerly so its request-bus listener is
 // always live; the screen is code-split and warmed on the request, in parallel with
 // the start round-trip, so it is resident by the time the session opens.
 const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
 
-type ActiveFight = { request: AiFightRequest; token: string; runId: string; session: TowerSession };
+type ActiveFight = { request: AiFightRequest; token: string; sessionId: string; session: SoloPveSession };
 
 /*
  * The single host for sealed AI fights (api/missions/ai-fight-start), mounted once
@@ -39,12 +39,10 @@ type ActiveFight = { request: AiFightRequest; token: string; runId: string; sess
  * wanderers, explore ambushes, sector raids, field/E-rank missions — emits one
  * request on lib/ai-fight-request and this host decides the screen:
  *
- *   sealed encounter  → MissionArenaFight (server-resolved)
- *   nothing sealed    → request.playLocally() (the local Arena, unchanged)
+ *   sealed solo-PvE encounter → MissionArenaFight (server-resolved)
  *
- * The second branch is the DESIGNED DEGRADE, not a feature gate: a client-authored
- * `temp-*` opponent the catalog cannot resolve, a storage error, or any failed seal
- * must still produce a fight.
+ * Missing or unresolvable server profiles fail closed and are shown to the
+ * player; this host never runs a rewarding client-resolved fight.
  *
  * The fight is started BEFORE the screen is chosen. The old path minted its token
  * from a `battleStarted` effect INSIDE Arena, so the runId only arrived once the
@@ -76,6 +74,7 @@ export function AiFightHost({
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     const [fight, setFight] = useState<ActiveFight | null>(null);
+    const [startFailure, setStartFailure] = useState<{ request: AiFightRequest; message: string } | null>(null);
     const startingRef = useRef(false);
     // One settle per fight. The screen settles on resolve; closeFight settles an
     // ABANDONED fight (the server scores that a forfeit), and this stops the two
@@ -86,8 +85,8 @@ export function AiFightHost({
     // single-listener registration) every time a catalog prop changes identity.
     // Updated in an effect, not during render: a bus request always arrives from
     // a user interaction, i.e. after the commit that refreshed this.
-    const latest = useRef({ character, creatorItems, savedBloodlines });
-    useEffect(() => { latest.current = { character, creatorItems, savedBloodlines }; });
+    const latestCharacter = useRef(character);
+    useEffect(() => { latestCharacter.current = character; });
     // `fight` itself is not readable from the bus callback (it closes over the
     // mount render), so mirror "a fight is on screen" into a ref.
     const activeRef = useRef(false);
@@ -96,8 +95,8 @@ export function AiFightHost({
     useEffect(() => {
         if (!playerName) return;
         return onAiFightRequest((request) => {
-            const me = latest.current.character;
-            if (!me) return request.playLocally();
+            const me = latestCharacter.current;
+            if (!me) return;
             // One fight at a time. A second request while a start is in flight —
             // or while a fight is already on screen — is dropped rather than
             // queued: two sealed encounters would mint two tokens for one
@@ -106,28 +105,31 @@ export function AiFightHost({
             if (startingRef.current || activeRef.current) return;
             startingRef.current = true;
             settledRef.current = false;
+            setStartFailure(null);
             void import("../screens/MissionArenaFight");
             startAiFight({
                 playerName: me.name,
                 opponentId: request.opponentId,
                 opponentLevel: request.opponentLevel,
                 battleKind: request.battleKind,
-                hostLoadout: aiFightHostLoadout(me, latest.current.creatorItems, latest.current.savedBloodlines),
             })
-                .then((started) => {
-                    if (started.runId && started.session) {
-                        setFight({ request, token: started.token, runId: started.runId, session: started.session });
-                    } else {
-                        // No encounter sealed → the local Arena plays this fight,
-                        // which mints its own token from inside the battle. The
-                        // token minted above simply expires unspent.
-                        request.playLocally();
-                    }
-                })
+                .then((started) => setFight({ request, token: started.token, sessionId: started.sessionId, session: started.session }))
+                .catch((error) => setStartFailure({ request, message: String((error as Error)?.message ?? error) }))
                 .finally(() => { startingRef.current = false; });
         });
     }, [playerName]);
 
+    if (startFailure) {
+        return (
+            <div className="battle-ended-overlay" role="alert" aria-live="assertive">
+                <div className="card battle-ended-card">
+                    <h2>Fight unavailable</h2>
+                    <p>{startFailure.message}</p>
+                    <button onClick={() => { const screen = startFailure.request.returnScreen; setStartFailure(null); onClose?.(screen); }}>Return</button>
+                </div>
+            </div>
+        );
+    }
     if (!fight || !character) return null;
     const request = fight.request;
     const opponentName = request.opponentName ?? "the enemy";
@@ -159,7 +161,7 @@ export function AiFightHost({
         // forfeit and hospitalizes, exactly like a defeat.
         if (shouldSettleOnClose(!!active, settledRef.current) && active) {
             settledRef.current = true;
-            void settle(active.runId, playerName).catch(() => { /* the run stays open; the seal expires */ });
+            void settle(active.sessionId, playerName).catch(() => { /* the run stays open; the seal expires */ });
         }
         setFight(null);
         onClose?.(returnScreen);
@@ -169,8 +171,9 @@ export function AiFightHost({
         <Suspense fallback={null}>
             <MissionArenaFight
                 character={character}
-                runId={fight.runId}
-                initialSession={fight.session}
+                runId={fight.sessionId}
+                initialSession={soloPveSessionForArena(fight.session)}
+                transport={soloPveArenaTransport}
                 sharedImages={sharedImages}
                 savedBloodlines={savedBloodlines}
                 creatorJutsus={creatorJutsus}

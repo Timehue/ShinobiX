@@ -1135,11 +1135,6 @@ export function WorldMap({
             opponentLevel: level,
             battleKind: "raidAi",
             sector,
-            playLocally: () => {
-                setPendingAiProfileId(aiId);
-                setRaidBattleKind("raidAi");
-                setScreen("arena");
-            },
         });
     }
     function startWandererAttack(w: Wanderer, nemesis = false) {
@@ -2612,10 +2607,6 @@ export function WorldMap({
                 opponentName: randomAi.name,
                 enemyAvatar: randomAi.image,
                 sector,
-                playLocally: () => {
-                    setPendingAiProfileId(randomAi.id);
-                    setScreen("arena");
-                },
             });
             return;
         }

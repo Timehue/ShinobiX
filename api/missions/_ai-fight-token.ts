@@ -16,15 +16,6 @@ export type AiFightToken = {
     opponentId?: string;
     opponentLevel?: number;
     battleKind?: AiFightBattleKind;
-    /**
-     * The sealed server encounter this token belongs to, when one was built
-     * (ENABLE_SERVER_AI_COMBAT). One token = one battle lifecycle, so carrying
-     * the runId here keeps the whole lifecycle on ONE record instead of needing
-     * a second binding key. Step 4 derives the reward from this session's
-     * settled outcome instead of the client-claimed win; until then it is
-     * written but not read.
-     */
-    runId?: string;
     /** New normal-solo authority binding. Explicit runtime discrimination keeps
      * a solo session id from ever being interpreted as a Tower run id. */
     sessionRuntime?: 'solo-pve';
@@ -48,10 +39,8 @@ export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; runId?: unknown; sessionRuntime?: unknown; sessionId?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown } = {},
 ): AiFightToken {
-    const runIdRaw = typeof context.runId === 'string' ? context.runId.trim().slice(0, 96) : '';
-    const runId = /^[A-Za-z0-9:_-]+$/.test(runIdRaw) ? runIdRaw : undefined;
     const sessionIdRaw = typeof context.sessionId === 'string' ? context.sessionId.trim().slice(0, 96) : '';
     const sessionId = /^[A-Za-z0-9:_-]+$/.test(sessionIdRaw) ? sessionIdRaw : undefined;
     const sessionRuntime = context.sessionRuntime === 'solo-pve' && sessionId ? 'solo-pve' as const : undefined;
@@ -83,7 +72,6 @@ export function createAiFightTokenRecord(
         ...(Number.isFinite(baseXp) && Number.isFinite(baseRyo) ? { rewardSource: 'server-save' as const } : {}),
         ...(opponentId ? { opponentId } : {}),
         ...(opponentLevel ? { opponentLevel } : {}),
-        ...(runId ? { runId } : {}),
         ...(sessionRuntime && sessionId ? { sessionRuntime, sessionId } : {}),
     };
 }
