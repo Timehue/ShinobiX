@@ -1,5 +1,12 @@
 import { COMBAT_RESOURCES_V2, v2PoisonOnSpend, v2ResourceRegen } from '../_combat-resources.js';
-import { pveAiCompetence, pveEasyBandAllowsLethal, pveEasyBandHoldsBurst, pveGuardedEnemyHit } from '../_pve-difficulty.js';
+import {
+    pveAiCompetence,
+    pveEasyBandAllowsLethal,
+    pveEasyBandHoldsBurst,
+    pveGuardedEnemyHit,
+    weeklyBossDamageMultiplier,
+    weeklyBossGuardedHit,
+} from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { MAX_ACTIONS, MAX_ROUNDS, GRID_H, GRID_W, SPIRAL_RADIUS } from '../combat-core/constants.js';
 import {
@@ -104,10 +111,18 @@ function hollowGateDirective(session: SoloPveSession): HollowGateCombatDirective
     });
 }
 
-function hollowGateDamageMultiplier(session: SoloPveSession, side: SoloPveSide): number {
+function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide): number {
     const directive = hollowGateDirective(session);
-    if (!directive) return 1;
-    return side === 'player' ? directive.outgoingDamageMultiplier : directive.incomingDamageMultiplier;
+    const hollowGate = directive
+        ? side === 'player' ? directive.outgoingDamageMultiplier : directive.incomingDamageMultiplier
+        : 1;
+    const weeklyBossGuardActive = Boolean(
+        session.weeklyBossGuard && session.weeklyBossGuard.mechanicsEnabled !== false,
+    );
+    const weeklyBoss = side === 'player' && weeklyBossGuardActive
+        ? weeklyBossDamageMultiplier(session.round)
+        : 1;
+    return hollowGate * weeklyBoss;
 }
 
 function fighterEventState(value: PvpFighter) {
@@ -340,6 +355,10 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
         session.difficultyGuard.playerHpTurnStart = session.player.hp;
         session.difficultyGuard.dealtThisTurn = 0;
     }
+    if (side === 'enemy' && session.weeklyBossGuard) {
+        session.weeklyBossGuard.playerHpTurnStart = session.player.hp;
+        session.weeklyBossGuard.dealtThisTurn = 0;
+    }
     checkWinner(session);
 }
 
@@ -404,7 +423,7 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
         * companionGearDamageMult(companion.pveGearId, enemyHpPct, ownerHpPct);
     if (raw <= 0) return 0;
     const cap = Math.max(1, Math.floor(session.enemy.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-    const dealt = Math.max(0, Math.min(Math.floor(raw * hollowGateDamageMultiplier(session, 'player')), cap));
+    const dealt = Math.max(0, Math.min(Math.floor(raw * soloPveDamageMultiplier(session, 'player')), cap));
     session.enemy.hp = Math.max(0, session.enemy.hp - dealt);
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
@@ -561,6 +580,13 @@ export function endSoloPveTurn(session: SoloPveSession): void {
     session.cooldowns[current] = tickCombatCooldowns(session.cooldowns[current]);
     if (current === 'enemy') {
         session.groundEffects = tickGroundEffects(session.groundEffects);
+        if (session.weeklyBossGuard && session.round >= session.weeklyBossGuard.roundBudget) {
+            session.status = 'done';
+            session.winner = 'player';
+            session.outcome = 'win';
+            session.log.push(`${session.player.name} outlasts the Weekly Boss assault.`);
+            return;
+        }
         session.round += 1;
         session.log.push(`--- Round ${session.round} ---`);
         if (session.round > MAX_ROUNDS) {
@@ -583,7 +609,15 @@ function weatherMult(session: SoloPveSession, jutsu: SoloPveJutsu): number {
 }
 
 function guardedDamageCap(session: SoloPveSession, side: SoloPveSide): number | undefined {
-    if (side !== 'enemy' || !session.difficultyGuard) return undefined;
+    if (side !== 'enemy') return undefined;
+    if (session.weeklyBossGuard && session.weeklyBossGuard.mechanicsEnabled !== false) {
+        return weeklyBossGuardedHit(
+            Number.MAX_SAFE_INTEGER,
+            session.player.maxHp,
+            session.weeklyBossGuard.dealtThisTurn,
+        );
+    }
+    if (!session.difficultyGuard) return undefined;
     return pveGuardedEnemyHit(Number.MAX_SAFE_INTEGER, {
         enemyLevel: session.difficultyGuard.enemyLevel,
         playerMaxHp: session.player.maxHp,
@@ -599,7 +633,7 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
         self,
         opponent,
         jutsu as Parameters<typeof applyJutsu>[2],
-        weatherMult(session, jutsu) * hollowGateDamageMultiplier(session, side),
+        weatherMult(session, jutsu) * soloPveDamageMultiplier(session, side),
         session.environment.biome,
         session.round,
         guardedDamageCap(session, side),
@@ -610,6 +644,9 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
     appendFx(session, side, result.fx);
     if (side === 'enemy' && session.difficultyGuard) {
         session.difficultyGuard.dealtThisTurn += Math.max(0, Math.floor(result.metadata.damage ?? 0));
+    }
+    if (side === 'enemy' && session.weeklyBossGuard) {
+        session.weeklyBossGuard.dealtThisTurn += Math.max(0, Math.floor(result.metadata.damage ?? 0));
     }
     checkWinner(session);
 }

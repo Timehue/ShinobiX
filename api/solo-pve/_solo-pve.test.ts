@@ -6,7 +6,7 @@ import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave } from '../pvp/session.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from './_ai-encounter.js';
-import { applySoloPveAction } from './_engine.js';
+import { applySoloPveAction, endSoloPveTurn } from './_engine.js';
 import { executeSoloPveAction, type SoloPveLock } from './_action-service.js';
 import {
     createSoloPveSession,
@@ -171,6 +171,49 @@ describe('generic AI solo-PvE encounter seal', () => {
         });
         assert.deepEqual(forged.player, honest.player);
         assert.deepEqual(forged.itemCharges, honest.itemCharges);
+    });
+});
+
+describe('Weekly Boss score-attack rules on the solo runtime', () => {
+    function weekly(round: number): SoloPveSession {
+        return makeSession({
+            encounter: { kind: 'weekly-boss', id: '2026-W31' },
+            round,
+            difficultyGuard: undefined,
+            weeklyBossGuard: { roundBudget: 20, playerHpTurnStart: 1_000, dealtThisTurn: 0 },
+            player: makeFighter('Alice', 62),
+            enemy: makeFighter('Oni', 63, {
+                hp: 99_999_999,
+                maxHp: 99_999_999,
+                character: { level: 100, specialty: 'Taijutsu', stats: { taijutsuOffense: 3_000, taijutsuDefense: 600 }, jutsu: [], pvpItems: [], equipment: {} },
+            }),
+        });
+    }
+
+    it('seals the guard-down damage window into the server engine', () => {
+        const open = applySoloPveAction(weekly(1), { type: 'basicAttack' }).session;
+        const guarded = applySoloPveAction(weekly(2), { type: 'basicAttack' }).session;
+        const openDamage = 99_999_999 - open.enemy.hp;
+        const guardedDamage = 99_999_999 - guarded.enemy.hp;
+        assert.ok(openDamage > guardedDamage, `open=${openDamage}, guarded=${guardedDamage}`);
+    });
+
+    it('caps boss damage to 8% per hit and 15% per enemy turn', () => {
+        const start = weekly(2);
+        start.activeSide = 'enemy';
+        const first = applySoloPveAction(start, { type: 'basicAttack' }).session;
+        const second = applySoloPveAction(first, { type: 'basicAttack' }).session;
+        assert.ok(1_000 - first.player.hp <= 80);
+        assert.ok(1_000 - second.player.hp <= 150);
+    });
+
+    it('wins by surviving the sealed 20-round budget', () => {
+        const session = weekly(20);
+        session.activeSide = 'enemy';
+        endSoloPveTurn(session);
+        assert.equal(session.status, 'done');
+        assert.equal(session.winner, 'player');
+        assert.equal(session.outcome, 'win');
     });
 });
 

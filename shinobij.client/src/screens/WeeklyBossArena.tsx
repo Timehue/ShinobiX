@@ -9,14 +9,12 @@ import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
 import { WeeklyBossFight } from "./WeeklyBossFight";
-import type { TowerSession } from "../lib/towers-api";
+import type { SoloPveSession } from "../lib/solo-pve-api";
 
 // ─── Weekly Boss Arena ────────────────────────────────────────────────────────
-// Shared-HP boss fought by the whole server. Damage is tracked server-side;
-// when HP hits 0 every contributor is rewarded. New boss spawns each ISO week.
-// Combat is a simple "tap to attack" loop — each attack costs stamina and
-// rolls damage based on the player's combat stats. Keeps the system decoupled
-// from the full Arena.
+// Shared score-attack boss fought through the authoritative Solo PvE runtime.
+// The server derives each contribution from the terminal sealed session and
+// distributes the weekly leaderboard rewards after the spawn expires.
 export function WeeklyBossArena({
     character,
     updateCharacter,
@@ -34,7 +32,6 @@ export function WeeklyBossArena({
     setScreen: (s: Screen) => void;
     playerRoster: PlayerRecord[];
     sharedImages?: Record<string, string>;
-    onLaunchFight?: (bossAiId: string, bossDisplayName?: string) => void;
 }) {
     const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
     const [fightEnabled, setFightEnabled] = useState(true);
@@ -42,7 +39,7 @@ export function WeeklyBossArena({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [startingFight, setStartingFight] = useState(false);
-    const [fight, setFight] = useState<{ runId: string; session: TowerSession } | null>(null);
+    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession } | null>(null);
 
     const refresh = useCallback(async () => {
         try {
@@ -96,6 +93,7 @@ export function WeeklyBossArena({
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
         if (data?.boss) setBossState(data.boss);
+        if (data?.character) updateCharacter(data.character);
         return data;
     }
 

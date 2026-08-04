@@ -2,7 +2,7 @@
 
 ## Current authority boundary
 
-PvP (`api/pvp/*`) is the normal-shinobi rules source. Battle Towers (`api/towers/*`) reuse PvP hydration, jutsu resolution, statuses, resources, items, and cooldown helpers. Clan Boss, C/B/A/S combat missions, and Weekly Boss now create sealed Tower sessions and derive outcomes from completed server state. The independent client Arena remains the result source for E/D tutorial missions, Hollow Gate encounters, and story/event fights.
+PvP (`api/pvp/*`) remains the human-vs-human rules source. Battle Towers (`api/towers/*`) own true party/tower encounters. One-human/one-AI fights—including missions, story, Academy, Hollow Gate, Endless, and Weekly Boss—run on the independent server-owned Solo PvE runtime. The client Arena remains only for non-authoritative tutorial/cosmetic fallbacks while those last surfaces are retired.
 
 The shared binding is `api/missions/_authoritative-combat-session.ts`. It seals player, mission, enemy profile, reward fingerprint, run ID, expiry, and settlement state, then validates a completed winning Tower session. Its hostile tests cover wrong player, mission, run, membership, expiry, incomplete/lost sessions, reward drift, and replay.
 
@@ -14,7 +14,7 @@ Acceptance: C/B/A/S fight start is player/mission/enemy bound; abandoned/lost/ex
 
 ## Stage 2: Weekly Boss â€” implemented
 
-`startFight` now reserves an attempt, charges stamina server-side, seals the boss week/profile/starting HP and player into a score-attack Tower session, and returns the server session. `logFight` ignores client damage numbers and banks only the completed session's boss HP delta under the run and boss locks. The run settles once and consumed items deduct through the Tower store. Keep `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE` unset; the public legacy `damage` route is rejected.
+`startFight` reserves an attempt, charges stamina server-side, and seals the boss week/profile/starting HP and player into a 20-round Solo PvE score attack. `logFight` accepts only the run identifier, validates exact terminal Solo state, and banks the server enemy-HP delta under run and boss locks. Usage costs and outcome persist once through server receipts. The old Tower guard, client Arena damage tracker, token proof, `damage`, and `logFightLegacy` contribution paths are retired; legacy reports fail closed with HTTP 410.
 
 ## Stage 3: Hollow Gate
 
