@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildAdminJutsuCatalog } from './_admin-jutsu-catalog.js';
 import { buildAdminItemCatalog } from './_admin-item-catalog.js';
+import { buildAdminAiCatalog } from './_admin-ai-catalog.js';
 import { buildSettlementCatalogs } from './shop/_catalog.js';
 
 /*
@@ -40,6 +41,14 @@ describe('dual-read is a no-op until content is published', () => {
         const after = buildSettlementCatalogs([slot1, slot2, {}]);
         assert.deepEqual(after, before);
     });
+
+    it('AI catalog: empty published record changes nothing', () => {
+        const records = [{ creatorAis: [{ id: 'ai-1', name: 'Slot AI' }] }];
+        assert.deepEqual(
+            [...buildAdminAiCatalog([...records, {}]).entries()],
+            [...buildAdminAiCatalog(records).entries()],
+        );
+    });
 });
 
 describe('published content participates with each catalog’s existing rule', () => {
@@ -55,6 +64,14 @@ describe('published content participates with each catalog’s existing rule', (
         const merged = buildAdminItemCatalog([slot1, slot2, { creatorItems: [{ id: 'i1', name: 'Published Item' }] }]);
         assert.equal(merged.get('i1')!.name, 'Published Item');
         assert.equal(merged.get('i2')!.name, 'Other Item', 'untouched ids are unaffected');
+    });
+
+    it('AI profiles: later-source-wins still decides', () => {
+        const merged = buildAdminAiCatalog([
+            { creatorAis: [{ id: 'ai-1', name: 'Slot AI' }] },
+            { creatorAis: [{ id: 'ai-1', name: 'Published AI' }] },
+        ]);
+        assert.equal(merged.get('ai-1')?.name, 'Published AI');
     });
 
     it('items: a published tombstone deletes exactly like a slot tombstone', () => {
@@ -80,13 +97,13 @@ describe('published content participates with each catalog’s existing rule', (
 
 describe('every shared-content reader dual-reads', () => {
     it('the four server readers consult the canonical store', () => {
-        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
+        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', '_admin-ai-catalog.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
             assert.match(read(rel), /loadPublishedContent\(/, `${rel} must dual-read the canonical content store`);
         }
     });
 
     it('a storage failure in the content store degrades to slots-only', () => {
-        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
+        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', '_admin-ai-catalog.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
             assert.match(read(rel), /loadPublishedContent\(\)\.catch\(/, `${rel} must not fail when the content store is unavailable`);
         }
     });
