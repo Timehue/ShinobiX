@@ -40,9 +40,9 @@ export type PveMasteryMode =
  * • WEEKLY BOSS. It now runs on the independent Solo PvE engine, which seals
  *   its own 8%/hit, 15%/turn guard and mastery. Tower-mode mastery must not
  *   mutate that separate runtime.
- * • ANBU VAULT. Its opponent is a sealed snapshot of a REAL player, and
- *   `sealTowerFighter` already carries that player's OWN jutsuMastery. There is
- *   nothing missing to seal, and overwriting it would rewrite their loadout.
+ * • ANBU VAULT. It now runs on the independent Solo PvE engine against a
+ *   canonically hydrated snapshot of a REAL player, including that player's own
+ *   jutsuMastery. Tower-mode mastery must not mutate the separate runtime.
  * • AI FIGHTS. `buildAiFightEncounter` already seals its own mastery (step 3b).
  * • HOLLOW GATE. It now runs on the independent Solo PvE engine.
  *

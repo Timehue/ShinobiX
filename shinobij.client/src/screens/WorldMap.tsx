@@ -3631,8 +3631,6 @@ export function WorldMap({
                                             sharedImages={sharedImages}
                                             sector={vaultRaid.sector}
                                             targetVillage={vaultRaid.village}
-                                            creatorItems={wmCreatorItems}
-                                            savedBloodlines={savedBloodlines}
                                             updateCharacter={updateCharacter}
                                             onExit={() => setVaultRaid(null)}
                                         />

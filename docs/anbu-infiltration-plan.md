@@ -88,9 +88,9 @@ Reuse the Hollow Gate *dungeon stack* (all verified present):
 
 - **Roster:** one of the target village's `anbuAppointees` (`game:village-state:<village>`,
   15 slots) — verified in `api/_war-role.ts`.
-- **Snapshot:** `sealTowerFighter(char, rec, loadout)` (the Battle Towers sealer,
-  `api/towers/_seal.ts`) — full equipped jutsu / bloodline / stats, "identical to a
-  PvP fighter."
+- **Snapshot:** the canonical PvP hydrator seals full equipped jutsu, bloodline,
+  stats, items, and mastery from the defender's authoritative save. The client
+  supplies no combat fields.
 - **Lifecycle:** frozen at Anbu appointment, **re-sealed daily** (a daily job
   writes `anbuGarrison` snapshots into village-state).
 - **AI:** the strongest available — the weekly-boss / PvE-phases-0-4 reactive,
@@ -160,8 +160,9 @@ Plus a **personal ryo** reward on any success (server-computed, daily-capped).
 - `infiltration-start` mints a **single-use token** sealing: target sector, the
   chosen Anbu ref, the base seed/layout, and the reward params.
 - Base progression is **server-validated step-by-step** (no skipping to the vault).
-- The Anbu fight resolves as an **authoritative session** (tower/PvP-style), never a
-  client claim.
+- The Anbu fight resolves as an exact-bound **Solo PvE session**. There is one
+  human participant; the daily-sealed Anbu/Kage snapshot is server-controlled
+  enemy content, not a second live participant or a party member.
 - `infiltration-report` (settle) verifies the Anbu was beaten + vault reached,
   **rolls and computes amounts server-side**, applies both daily-loss ledgers,
   debits the enemy pool(s) and **mints caches** into the raider's save under
@@ -261,14 +262,13 @@ Implemented, tested (43 new tests), type-checked, route-registered:
 - **`api/_anbu-infiltration.ts`** — pure economy core: roll bands, both 50%/day
   ledgers (`rolloverLedger`/`applySkim`: clamp ≥ 0, tapped→0, new-day re-anchor),
   cache denomination, type-locked turn-in ratios, all balance constants.
-- **`api/_anbu-infiltration-encounter.ts`** — the vault fight as a Battle Towers
-  session: the raider (live human squad actor) vs the SEALED Anbu as the AI boss
-  actor (`boss:true`, `aiTargetMode:'lowest-hp'`) on a synthetic floor id 9101
-  (never in the public catalog), sector terrain → biome for the home edge.
-  Integration-tested: the engine runs the sealed actor to termination and it
-  deals damage — no template lookup, no engine changes.
+- **`api/_anbu-infiltration-encounter.ts`** — the vault fight as a Solo PvE
+  session: one human raider versus the SEALED Anbu snapshot as the AI enemy
+  (`boss:true`, `aiTargetMode:'lowest-hp'`). The exact run, owner, sector,
+  village, defender, terrain, and round budget are sealed into encounter
+  metadata. Integration tests drive the shared Solo engine to termination.
 - **`api/_anbu-infiltration-store.ts`** — settlement + persistence (injectable
-  kv/lock/now, tower-store pattern): NX paid receipt (idempotent settle), roll →
+  kv/lock/now): NX paid receipt (idempotent settle), roll →
   per-pool skim recomputed INSIDE each failClosed lock from the fresh balance,
   lazy-accrual materialization via `collectTerritorySupply` before the supply
   skim, economy-tx reserve→debit-applied→complete with "lose, never duplicate",
@@ -276,7 +276,8 @@ Implemented, tested (43 new tests), type-checked, route-registered:
   clamps points to destination caps BEFORE consuming caches, Anbu roster load /
   least-recently-defended pick / lazy daily seal cache.
 - **`api/village/anbu-infiltration.ts`** — ONE route, action switch (sector-war
-  shape): `start` / `act` / `state` / `report` / `turn-in`. Registered in
+  shape): `start` / `state` / `report` / `turn-in`. Combat actions use the
+  generic `/solo-pve/action` route; legacy `act` returns 410. Registered in
   `server.ts`; route-parity green.
 - **`api/save/_entitlement-guard.ts`** — both cache ids added to
   `SERVER_OWNED_ITEM_IDS` (imported from the core, no drift): a client save can
@@ -310,18 +311,17 @@ Deliberate deviations from the plan above (all safer):
 - Generator: `shinobij.client/scripts/gen-anbu-vault-art.mjs` (idempotent,
   `--dry-run` / `--only` / `--publish`, mirrors gen-hollow-gate-tiles.mjs).
 
-**Client (flag `anbuInfiltration.v1`, localStorage, default OFF):**
+**Client (flag `anbuInfiltration.v1`, localStorage, live by default):**
 - `src/lib/anbu-infiltration-api.ts` — flag helper + typed wrappers over the one
-  server route (start / act / state / report / turn-in); fight types reuse
-  towers-api (same engine shapes).
+  server route (start / state / report / turn-in); combat uses the shared Solo
+  PvE action/state transport.
 - `src/features/anbuInfiltration/AnbuVaultRaid.tsx` — the raid screen:
   traverse (lean navigable war-vault reusing ONLY the pure HG primitives —
   generate/path/visibility — every room stamped 'warvault'; strict hooks-lints
-  clean, no HG state touched) → fight (reuses the WHOLE `BattleTowerFight` via
-  the new optional `actionFn` prop + `settleFn`, the Clan Boss pattern) →
-  result (spoils panel; mirrors caches+ryo locally via FUNCTIONAL updates).
-- `src/screens/BattleTowerFight.tsx` — added optional `actionFn` override
-  (defaults to `submitTowerAction`; behavior-preserving).
+  clean, no HG state touched) → fight (reuses the runtime-neutral
+  `MissionArenaFight` shell with the generic Solo PvE transport) → result
+  (spoils panel; installs the full authoritative settled character returned by
+  the server, with no local reward math).
 - `src/screens/WorldMap.tsx` — the vault **landmark structure** renders inside
   every enemy-held sector for L100 players (flag-gated), click → Infiltrate /
   Retreat prompt → the raid, both portaled to body @ z-index 1000000 (the
