@@ -4,7 +4,9 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { sessionKey } from '../towers/_tower-store.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
 import {
     createHollowGateCombatBinding,
@@ -15,6 +17,7 @@ import {
     isHollowGateCombatKind,
     normalizeHollowGateNodeId,
 } from './_combat-session.js';
+import { buildHollowGateSoloPveEncounter } from './_encounter.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 
 type StartOutcome =
@@ -32,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const token = String(body.token ?? '').slice(0, 64);
         const floor = Math.floor(Number(body.floor));
         const kind = body.kind;
-        const combatMode = body.mode === 'pet' ? 'pet' : 'pve';
+        const combatMode = body.mode === 'pet' ? 'pet' : 'solo-pve';
         const nodeId = normalizeHollowGateNodeId(body.nodeId);
         if (!playerName || !token || !nodeId || !Number.isFinite(floor) || !isHollowGateCombatKind(kind)) {
             return res.status(400).json({ error: 'Invalid Hollow Gate encounter.' });
@@ -64,6 +67,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const activeBinding = await kv.get<ReturnType<typeof createHollowGateCombatBinding>>(hollowGateCombatBindingKey(active.runId));
                 const sameEncounter = active.floor === floor && active.nodeId === nodeId && active.kind === kind;
                 if (sameEncounter && activeBinding?.combatMode === combatMode && activeBinding.status === 'active') {
+                    const activeSession = combatMode === 'solo-pve' ? await readSoloPveSession(active.runId) : null;
+                    if (combatMode === 'solo-pve' && !activeSession) {
+                        return { status: 409, body: { error: 'The active Hollow Gate combat session expired.' } };
+                    }
                     return {
                         status: 200,
                         body: {
@@ -71,18 +78,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             resumed: true,
                             runId: active.runId,
                             combatMode,
-                            petAssisted: false,
+                            ...(activeSession ? { session: activeSession } : {}),
                         },
                     };
                 }
-                if ((activeBinding?.combatMode === 'pve' || activeBinding?.combatMode === 'pet') && activeBinding.status === 'active') {
+                if (activeBinding?.status === 'active') {
                     return { status: 409, body: { error: 'Finish the active Hollow Gate encounter before moving.' } };
                 }
-                // Migration path for the retired tactical hex-board encounter:
-                // discard its board/binding and recreate a normal Arena PvE
-                // Hollow Hound below. This also frees saves whose local pointer
-                // was written just before the old board pointer autosaved.
-                await kv.del(sessionKey(active.runId), hollowGateCombatBindingKey(active.runId)).catch(() => undefined);
                 run.activeEncounter = null;
             }
 
@@ -96,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 429, body: { error: 'The sealed floor encounter limit was reached.' } };
             }
 
-            const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
             const char = save?.character as Record<string, unknown> | undefined;
             if (!save || !char) return { status: 404, body: { error: 'Player save not found.' } };
             if (char.hospitalized === true || Number(char.hp ?? 0) <= 0) {
@@ -106,6 +108,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const savedRun = char.hollowGateRun && typeof char.hollowGateRun === 'object'
                 ? char.hollowGateRun as Record<string, unknown>
                 : null;
+            if (!savedRun || savedRun.runToken !== token || savedRun.serverSeed !== run.seed || Math.floor(Number(savedRun.floor)) !== currentFloor) {
+                return { status: 409, body: { error: 'The saved shrine floor does not match the sealed run.' } };
+            }
+            if (nodeId.includes(':tile:')) {
+                const tileIndex = Math.floor(Number(nodeId.split(':tile:')[1]));
+                const tiles = Array.isArray(savedRun.tiles) ? savedRun.tiles as Array<Record<string, unknown>> : [];
+                const tile = tiles[tileIndex];
+                const expectedTileKind = kind === 'beast' ? 'pet_battle' : kind;
+                if (!tile || tile.kind !== expectedTileKind || tile.resolved === true) {
+                    return { status: 409, body: { error: 'The encounter node does not match the sealed shrine floor.' } };
+                }
+            } else if (kind !== 'ambush') {
+                return { status: 409, body: { error: 'Only a sealed ambush may use a non-tile encounter identity.' } };
+            }
             const binding = createHollowGateCombatBinding({
                 playerName,
                 token,
@@ -117,6 +133,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
 
             try {
+                const session = combatMode === 'solo-pve'
+                    ? buildHollowGateSoloPveEncounter({ binding, run, save, now: binding.createdAt, admin: await loadAdminCombatContent() })
+                    : null;
+                if (session) await writeSoloPveSession(session);
                 await kv.set(hollowGateCombatBindingKey(binding.runId), binding, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
                 await kv.set(runKey, { ...run, currentFloor, activeEncounter: {
                     runId: binding.runId,
@@ -127,10 +147,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     createdAt: binding.createdAt,
                 } }, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
             } catch (error) {
-                await kv.del(hollowGateCombatBindingKey(binding.runId)).catch(() => undefined);
+                await kv.del(hollowGateCombatBindingKey(binding.runId), soloPveSessionKey(binding.runId)).catch(() => undefined);
                 throw error;
             }
-            return { status: 200, body: { ok: true, runId: binding.runId, combatMode, petAssisted: false } };
+            const session = combatMode === 'solo-pve' ? await readSoloPveSession(binding.runId) : null;
+            return { status: 200, body: { ok: true, runId: binding.runId, combatMode, ...(session ? { session } : {}) } };
         }, { failClosed: true, ttlSec: 10 });
 
         if (!outcome) return res.status(503).json({ error: 'The Hollow Gate is busy. Retry shortly.' });

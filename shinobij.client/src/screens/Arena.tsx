@@ -34,11 +34,6 @@ import { interpolateFlavor } from "../lib/battle-log-format";
 import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
 import { playPetSfx } from "../lib/pet-sfx";
 import { setBattleMusicIntensity, startBattleMusic, stopBattleMusic } from "../lib/pet-music";
-import {
-    hollowGateCombatDirective,
-    hollowGateHazardDamage,
-    hollowGatePhaseTransitionText,
-} from "../lib/hollow-gate-combat-director";
 import { isMercAiId } from "../lib/merc-ai";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
@@ -678,8 +673,6 @@ export function Arena({
     // (but not bossInitialHp) would start enemyHp ~8M below bossInitialHp and inflate
     // every damage reading by that fixed offset. Keep the boss at its full sentinel HP.
     const isWeeklyBossFight = pendingStoryBattle?.kind === "weeklyBoss";
-    const hollowGateFight = pendingStoryBattle?.kind === "hollowGateShrine" ? pendingStoryBattle : null;
-    const isHollowGateFight = hollowGateFight !== null;
     const enemyHpDifficultyFactor = (isStandardPve && !isWeeklyBossFight) ? pveDifficultyHpMultiplier(opponentLevel) : 1;
     const enemyMaxHp = Math.max(1, Math.floor((opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel)) * enemyHpDifficultyFactor));
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
@@ -704,21 +697,18 @@ export function Arena({
     // so the per-turn cap bounds a chained turn, not just one hit). Non-standard PvE
     // (live PvP, endless, ranked) bypasses the guard entirely. See pve-difficulty.ts.
     const guardEnemyHit = (rawDamage: number): number => {
-        const directedRawDamage = hollowGateDirective
-            ? Math.max(0, Math.floor(rawDamage * hollowGateDirective.incomingDamageMultiplier))
-            : rawDamage;
         // Weekly boss is a survivable GRIND, not a glass cannon: clamp its hit to a
         // small fraction of the player's max HP (per-hit + per-turn ceiling), so a
         // 10k-HP fighter endures many rounds instead of being ~one-shot by the raw
         // stat sheet. Tracks enemyTurnDealtRef so the per-turn ceiling bounds a
         // chained multi-action boss turn. See pve-difficulty.ts weeklyBossGuardedHit.
         if (isWeeklyBossFight) {
-            const capped = weeklyBossGuardedHit(directedRawDamage, character.maxHp, enemyTurnDealtRef.current);
+            const capped = weeklyBossGuardedHit(rawDamage, character.maxHp, enemyTurnDealtRef.current);
             enemyTurnDealtRef.current += capped;
             return capped;
         }
-        if (!isStandardPve) return Math.max(0, Math.floor(Number.isFinite(directedRawDamage) ? directedRawDamage : 0));
-        const guarded = pveGuardedEnemyHit(directedRawDamage, {
+        if (!isStandardPve) return Math.max(0, Math.floor(Number.isFinite(rawDamage) ? rawDamage : 0));
+        const guarded = pveGuardedEnemyHit(rawDamage, {
             enemyLevel: opponentLevel,
             playerMaxHp: character.maxHp,
             playerHpTurnStart: enemyTurnStartHpRef.current,
@@ -774,59 +764,6 @@ export function Arena({
         easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
-    const hollowGateDirective = useMemo(() => hollowGateFight
-        ? hollowGateCombatDirective({
-            floor: hollowGateFight.floor,
-            kind: hollowGateFight.combatKind,
-            turn,
-            enemyHp,
-            enemyMaxHp,
-            playerPos,
-            enemyPos,
-            gridWidth,
-            gridHeight,
-        })
-        : null, [
-            hollowGateFight?.floor,
-            hollowGateFight?.combatKind,
-            turn,
-            enemyHp,
-            enemyMaxHp,
-            playerPos,
-            enemyPos,
-        ]);
-    const hollowGateHazardTiles = useMemo(
-        () => new Set(hollowGateDirective?.hazardTiles ?? []),
-        [hollowGateDirective?.hazardTiles],
-    );
-    const hollowGateSafeTiles = useMemo(
-        () => new Set(hollowGateDirective?.safeTiles ?? []),
-        [hollowGateDirective?.safeTiles],
-    );
-    useEffect(() => {
-        if (!battleStarted || battleEnded || !isHollowGateFight) return;
-        startBattleMusic("hollow-gate");
-        return () => stopBattleMusic();
-    }, [battleStarted, battleEnded, isHollowGateFight]);
-    useEffect(() => {
-        if (!battleStarted || battleEnded || !hollowGateDirective) return;
-        setBattleMusicIntensity(hollowGateDirective.musicIntensity);
-    }, [battleStarted, battleEnded, hollowGateDirective?.musicIntensity]);
-    const announcedAlphaPhaseRef = useRef<1 | 2 | 3>(1);
-    useEffect(() => {
-        if (!battleStarted || battleEnded || !hollowGateFight?.isBoss || !hollowGateDirective) {
-            announcedAlphaPhaseRef.current = 1;
-            return;
-        }
-        const previous = announcedAlphaPhaseRef.current;
-        const next = hollowGateDirective.phase;
-        const transition = hollowGatePhaseTransitionText(previous, next);
-        if (!transition) return;
-        announcedAlphaPhaseRef.current = next;
-        playPetSfx("crit");
-        setLog(transition);
-        addCombatLog(transition, "hollowGatePhase", opponentName, "enemy");
-    }, [battleStarted, battleEnded, hollowGateFight?.isBoss, hollowGateDirective?.phase]);
     // Mint the reward token when an AI battle begins, not after the client says
     // it won. This binds each redemption to one battle lifecycle and prevents
     // the victory handler from manufacturing a fresh token on demand.
@@ -1062,7 +999,7 @@ export function Arena({
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
     // A summoned pet is a live on-field actor while it has HP and phases left.
     const isPetAlive = Boolean(summonedPet) && petHp > 0 && petTurnsRemaining > 0;
-    const canSummonPet = Boolean(!isHollowGateFight && !opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
+    const canSummonPet = Boolean(!opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
     const activeBattlePetCanSummon = Boolean(
         activeBattlePet &&
         !isPetOnExpedition(activeBattlePet) &&
@@ -1170,15 +1107,12 @@ export function Arena({
     // converts a capped % into avoided damage) plus any reflected damage the attacker
     // receives. Reads activeStatuses so a just-applied (deferred) buff waits a round.
     function enemyDefenseFor(rawDamage: number, bypass = false) {
-        const directedDamage = hollowGateDirective
-            ? Math.max(0, Math.floor(rawDamage * hollowGateDirective.outgoingDamageMultiplier))
-            : rawDamage;
-        if (bypass || directedDamage <= 0) return { net: directedDamage, reflected: 0, absorbed: 0 };
+        if (bypass || rawDamage <= 0) return { net: rawDamage, reflected: 0, absorbed: 0 };
         const absorbPct = sumActiveStatusPct(enemyStatuses, "Absorb");
         const reflectPct = sumActiveStatusPct(enemyStatuses, "Reflect");
-        const absorbed = absorbPct > 0 ? Math.min(directedDamage, Math.floor(cappedPostDamage(directedDamage, absorbPct))) : 0;
-        const reflected = reflectPct > 0 ? Math.floor(cappedPostDamage(directedDamage, reflectPct)) : 0;
-        let net = Math.max(0, directedDamage - absorbed);
+        const absorbed = absorbPct > 0 ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbPct))) : 0;
+        const reflected = reflectPct > 0 ? Math.floor(cappedPostDamage(rawDamage, reflectPct)) : 0;
+        let net = Math.max(0, rawDamage - absorbed);
         // Weekly boss GUARD CYCLE: most rounds its guard is up and soaks the brunt
         // of the blow (net ×0.30); every few rounds the guard drops for an OPEN
         // round where the player lands double damage (net ×2.0). Pierce already
@@ -2531,13 +2465,13 @@ export function Arena({
         }
         const blocked = Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
-        const basicLsHeal = !isHollowGateFight && equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
+        const basicLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
         // Honor the player's Lifesteal / Recoil STATUS (from a jutsu buff/debuff),
         // not just item lifesteal — matches castJutsu. Recoil makes the attacker
         // take a cut of their own damage.
         const activeP = activeStatuses(playerStatuses);
         const lsStatusPct = activeP.filter((s) => s.name === "Lifesteal").reduce((sum, s) => sum + (s.percent ?? 0), 0);
-        const statusLsHeal = !isHollowGateFight && lsStatusPct > 0 && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, lsStatusPct)) : 0;
+        const statusLsHeal = lsStatusPct > 0 && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, lsStatusPct)) : 0;
         const recoilStatus = activeP.find((s) => s.name === "Recoil");
         const recoilDmg = recoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, recoilStatus.percent ?? 30)) : 0;
         const basicHeal = basicLsHeal + statusLsHeal;
@@ -2669,7 +2603,7 @@ export function Arena({
         const weaponPierce = item.weaponTags?.some((t) => t.name === "Pierce") ?? false;
         const blocked = weaponPierce ? 0 : Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
-        const weaponLsHeal = !isHollowGateFight && equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
+        const weaponLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
         const effectVal = item.weaponEffectValue ?? 0;
 
         const effectLines: string[] = [];
@@ -2680,11 +2614,8 @@ export function Arena({
         if (item.weaponEffect === "Lifesteal") {
             // Match PvP/jutsu Lifesteal: apply a 2-round status that heals a % of
             // damage dealt on subsequent attacks (was a one-time instant heal).
-            if (isHollowGateFight) effectLines.push("Lifesteal is sealed inside the Hollow Gate.");
-            else {
-                setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
-                effectLines.push(`Lifesteal: ${character.name} will heal ${effectVal}% of damage dealt for 2 rounds.`);
-            }
+            setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
+            effectLines.push(`Lifesteal: ${character.name} will heal ${effectVal}% of damage dealt for 2 rounds.`);
         }
         if (item.weaponEffect === "Reflect") {
             setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
@@ -2723,14 +2654,11 @@ export function Arena({
                 } else if (wt.name === "Lifesteal") {
                     // Match PvP/jutsu Lifesteal: 2-round status that heals a % of
                     // damage dealt on subsequent attacks (was a one-time instant heal).
-                    if (isHollowGateFight) effectLines.push("Lifesteal sealed");
-                    else {
-                        setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
-                        effectLines.push(`Lifesteal: ${character.name} will heal ${p}% of damage dealt for 2 rounds.`);
-                    }
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
+                    effectLines.push(`Lifesteal: ${character.name} will heal ${p}% of damage dealt for 2 rounds.`);
                 } else if (wt.name === "Siphon") {
                     // Siphon stays an instant one-time heal off this swing (per its tooltip).
-                    const ls = isHollowGateFight ? 0 : Math.floor(cappedPostDamage(finalDamage, p));
+                    const ls = Math.floor(cappedPostDamage(finalDamage, p));
                     if (ls > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + ls)); effectLines.push(`Siphon +${ls} HP`); }
                 } else if (wt.name === "Reflect") {
                     setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
@@ -2741,11 +2669,8 @@ export function Arena({
                     setPlayerShield((s) => s + SHIELD_FLAT_PVE);
                     effectLines.push(`Shield +${SHIELD_FLAT_PVE}`);
                 } else if (wt.name === "Heal") {
-                    if (isHollowGateFight) effectLines.push("Healing sealed");
-                    else {
-                        setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
-                        effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
-                    }
+                    setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
+                    effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
                 } else if (wt.name === "Wound") {
                     setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
                     effectLines.push(`Wound ${p}%`);
@@ -2798,7 +2723,7 @@ export function Arena({
         // hits too — item lifesteal (weaponLsHeal / weaponTags) is handled above.
         const activeWp = activeStatuses(playerStatuses);
         const wLsStatusPct = activeWp.filter((s) => s.name === "Lifesteal").reduce((sum, s) => sum + (s.percent ?? 0), 0);
-        const wStatusLsHeal = !isHollowGateFight && wLsStatusPct > 0 && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wLsStatusPct)) : 0;
+        const wStatusLsHeal = wLsStatusPct > 0 && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wLsStatusPct)) : 0;
         const wRecoilStatus = activeWp.find((s) => s.name === "Recoil");
         const wRecoilDmg = wRecoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wRecoilStatus.percent ?? 30)) : 0;
         const wHeal = weaponLsHeal + wStatusLsHeal;
@@ -2846,10 +2771,6 @@ export function Arena({
 
     function activateCombatItem(item: GameItem) {
         if (battleEnded) return;
-        if (isHollowGateFight) {
-            setLog("Consumables are sealed inside the Hollow Gate. Only combat techniques and equipment attacks remain available.");
-            return;
-        }
         // Consumables/potions are spent from inventory — refuse when out of stock
         // (or, for the potion, once the per-battle sip cap is reached).
         if (!canUseCombatItem(item)) {
@@ -2957,7 +2878,6 @@ export function Arena({
 
     function basicHeal() {
         setPendingTargetJutsuId("");
-        if (isHollowGateFight) return setLog("Healing is sealed inside the Hollow Gate. Only the Shrine Keeper can restore HP.");
         if (playerHp >= character.maxHp) return setLog("You are already at full HP. Save your AP and chakra for another action.");
         if ((cooldowns.basicHeal ?? 0) > 0) return setLog(`Basic Heal cooldown: ${cooldowns.basicHeal} rounds.`);
         if (character.chakra < 10) return setLog("Basic Heal needs 10 chakra.");
@@ -3010,23 +2930,18 @@ export function Arena({
 
     function flee() {
         setPendingTargetJutsuId("");
-        if (hollowGateFight && !hollowGateFight.canWithdraw) {
-            setLog("The Hollow Gate seals your retreat. Defeat the Hollow Hound.");
-            addCombatLog("The chosen Hollow Gate augment prevents withdrawal.", "flee", character.name);
-            return;
-        }
         if (!spendAp(100, "flee")) return;
 
         const hpCost = Math.max(1, Math.floor(character.maxHp * 0.1));
-        const escaped = isHollowGateFight || Math.random() < 0.5;
+        const escaped = Math.random() < 0.5;
         setPlayerHp((hp) => Math.max(0, hp - hpCost));
 
         if (escaped) {
             setBattleEnded(true);
             setBattleResult("fled");
             setRaidBattleKind("none");
-            setLog(isHollowGateFight ? "You withdrew from the Hollow Hound." : "You escaped the fight.");
-            addCombatLog(`${character.name} successfully ${isHollowGateFight ? "withdrew" : "fled the battle"}, losing ${hpCost} HP in the retreat.`, "flee", character.name);
+            setLog("You escaped the fight.");
+            addCombatLog(`${character.name} successfully fled the battle, losing ${hpCost} HP in the retreat.`, "flee", character.name);
         } else {
             setLog("Flee failed. 50% odds missed.");
             addCombatLog(`${character.name} tried to flee, lost ${hpCost} HP, but failed.`, "flee", character.name);
@@ -3072,7 +2987,6 @@ export function Arena({
             setRaidBattleKind("none");
             const fallback = `${opponentName} defeated. Story battle complete.`;
             const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
-            if (isHollowGateFight) setStorySettlementPending(true);
             void tokenRequest
                 .then((token) => onPendingStoryBattleWin?.(playerHp, token) ?? fallback)
                 .then((rewardLog) => {
@@ -3084,9 +2998,7 @@ export function Arena({
                     setLog(failed);
                     addCombatLog(failed, "storyVictory", character.name);
                 })
-                .finally(() => {
-                    if (isHollowGateFight) setStorySettlementPending(false);
-                });
+                .finally(() => undefined);
             aiFightTokenPromiseRef.current = null;
             return;
         }
@@ -3488,7 +3400,6 @@ export function Arena({
 
             if (tag.name === "Lifesteal") {
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s Lifesteal was prevented`);
-                else if (isHollowGateFight) effectLines.push("Lifesteal is sealed inside the Hollow Gate.");
                 else {
                     queuePlayerStatus({ name: "Lifesteal", rounds: 2, percent: pct, kind: "positive" });
                     effectLines.push(`Lifesteal: ${character.name} will heal ${pct}% of ${flavorDisc}damage dealt for 2 rounds${tagTimingText}.`);
@@ -3499,12 +3410,10 @@ export function Arena({
                 // Increase Heal boosts the flat Heal too (matches PvP move.ts
                 // `HEAL_FLAT * healBoost`); ramp by jutsu mastery + hard-cap at
                 // HEAL_FLAT_PVE, identical to the server.
-                const healAmt = isHollowGateFight ? 0 : Math.min(HEAL_FLAT_PVE, Math.floor(HEAL_FLAT_PVE * masteryDamageFrac(effMasteryLevel) * healMultiplier));
+                const healAmt = Math.min(HEAL_FLAT_PVE, Math.floor(HEAL_FLAT_PVE * masteryDamageFrac(effMasteryLevel) * healMultiplier));
                 healing += healAmt;
                 damage = 0;
-                effectLines.push(isHollowGateFight
-                    ? "Healing is sealed inside the Hollow Gate."
-                    : `Heal: ${character.name} restores ${healAmt} HP.`);
+                effectLines.push(`Heal: ${character.name} restores ${healAmt} HP.`);
             }
 
             if (tag.name === "Shield") {
@@ -3740,13 +3649,13 @@ export function Arena({
                 effectLines.push(`Recoil: ${opponentName} will take recoil when attacking${tagTimingText}.`);
             }
             if (tag.name === "Siphon") {
-                const restored = isHollowGateFight ? 0 : Math.floor(cappedPostDamage(finalDamage, pct) * healMultiplier);
+                const restored = Math.floor(cappedPostDamage(finalDamage, pct) * healMultiplier);
                 healing += restored;
-                effectLines.push(isHollowGateFight ? "Siphon is sealed inside the Hollow Gate." : `${tag.name} restores ${restored} HP`);
+                effectLines.push(`${tag.name} restores ${restored} HP`);
             }
         });
 
-        if (!isHollowGateFight && equippedLifeStealPercent > 0) {
+        if (equippedLifeStealPercent > 0) {
             const itemLsHeal = Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent));
             healing += itemLsHeal;
             // "Gear lifesteal" (not "Lifesteal") — this is the equipped-item
@@ -3756,7 +3665,7 @@ export function Arena({
             if (itemLsHeal > 0) effectLines.push(`Gear lifesteal restores ${itemLsHeal} HP`);
         }
 
-        if (!isHollowGateFight && activePlayerLifesteal.length > 0 && finalDamage > 0) {
+        if (activePlayerLifesteal.length > 0 && finalDamage > 0) {
             const lsPct = activePlayerLifesteal.reduce((sum, s) => sum + (s.percent ?? 0), 0);
             const lsHeal = Math.floor(cappedPostDamage(finalDamage, lsPct) * healMultiplier);
             if (lsHeal > 0) { healing += lsHeal; effectLines.push(`Lifesteal: restores ${lsHeal} HP.`); }
@@ -4942,15 +4851,6 @@ export function Arena({
         // DoT counts toward the enemy-turn budget so a bleed can't slip a player
         // under the easy-band mercy floor.
         pDotDamage = guardEnemyHit(pDotDamage);
-        const gateHazardDamage = hollowGateDirective
-            ? hollowGateHazardDamage(hollowGateDirective, playerPos, character.maxHp)
-            : 0;
-        if (gateHazardDamage > 0) {
-            pDotDamage += gateHazardDamage;
-            const hazardLine = `${hollowGateDirective?.signature ?? "The Hollow Gate"} erupts beneath ${character.name} for ${gateHazardDamage} damage.`;
-            addCombatLog(hazardLine, "hollowGateHazard", opponentName, "enemy");
-            playPetSfx("crit");
-        }
         if (pDotDamage > 0) {
             const nextHp = Math.max(0, playerHp - pDotDamage);
             setPlayerHp(nextHp);
@@ -4961,14 +4861,13 @@ export function Arena({
             const nextStamina = Math.min(character.maxStamina, character.stamina + pRegen);
             updateCharacter({ ...character, hp: nextHp, chakra: nextChakra, stamina: nextStamina });
             const drainNote = pDrainChakra > 0 ? ` Drain also removes ${pDrainChakra} chakra.` : "";
-            const hazardNote = gateHazardDamage > 0 ? ` ${gateHazardDamage} came from the active shrine seal.` : "";
-            addCombatLog(`Damage over time: ${character.name} takes ${pDotDamage} damage from active effects.${hazardNote}${drainNote}`, "effects", character.name);
+            addCombatLog(`Damage over time: ${character.name} takes ${pDotDamage} damage from active effects.${drainNote}`, "effects", character.name);
             if (nextHp <= 0) {
                 setBattleEnded(true);
                 setBattleResult("loss");
                 setRaidBattleKind("none");
-                setLog(gateHazardDamage > 0 ? `${character.name} is consumed by the active shrine seal.` : `${character.name} bleeds out from active effects.`);
-                addCombatLog(gateHazardDamage > 0 ? `${character.name} is consumed by the active shrine seal.` : `${character.name} is defeated by damage over time.`, "defeat", opponentName);
+                setLog(`${character.name} bleeds out from active effects.`);
+                addCombatLog(`${character.name} is defeated by damage over time.`, "defeat", opponentName);
                 if (rankedBattleActive) applyRankedLoss();
                 return;  // don't set up the next turn for a downed player
             }
@@ -5277,8 +5176,6 @@ export function Arena({
                             } ${groundEffectClass
                             } ${(isMoveLandingTile || isBasicMoveLandingTile) ? "dash-target-tile" : ""
                             } ${isBasicAttackReadyTile ? "basic-attack-ready-tile" : ""
-                            } ${hollowGateHazardTiles.has(i) ? "hg-hazard-tile" : ""
-                            } ${hollowGateSafeTiles.has(i) ? "hg-safe-tile" : ""
                             }`}
                         style={{
                             left: `${x}px`,
@@ -5300,7 +5197,7 @@ export function Arena({
                 );
             })
         )
-    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, selectedActionId, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, activeMoveAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName, hollowGateHazardTiles, hollowGateSafeTiles]);
+    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, selectedActionId, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, activeMoveAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
         const availablePetCount = availablePetBattleCount(character.pets);
@@ -5875,19 +5772,6 @@ export function Arena({
                                 </span>
                             </>
                         )}
-                        {hollowGateDirective && (
-                            <>
-                                <span className="twp-strip-sep">·</span>
-                                <span
-                                    className={`hg-combat-directive hg-tone-${hollowGateDirective.tone} hg-phase-${hollowGateDirective.phase}`}
-                                    aria-live="polite"
-                                >
-                                    <strong>{hollowGateFight?.isBoss ? `PHASE ${hollowGateDirective.phase} · ` : ""}{hollowGateDirective.phaseName}</strong>
-                                    <span>{hollowGateDirective.title}</span>
-                                    <small>{hollowGateDirective.instruction}</small>
-                                </span>
-                            </>
-                        )}
                     </div>
 
                     <div className="dual-ap-panel">
@@ -5927,7 +5811,7 @@ export function Arena({
                     </div>
 
                     <div
-                        className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}${hollowGateDirective ? ` hollow-gate-combat hg-tone-${hollowGateDirective.tone} hg-phase-${hollowGateDirective.phase}` : ""}`}
+                        className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}
                     >
                         {/*
@@ -5981,7 +5865,7 @@ export function Arena({
                                         // change but never the initial mount.
                                         <div
                                             key={isEnemy ? "enemy-orb" : "player-orb"}
-                                            className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}${isEnemy && hollowGateDirective ? ` hg-hound-orb hg-tone-${hollowGateDirective.tone} hg-phase-${hollowGateDirective.phase}` : ""}`}
+                                            className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}`}
                                             style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}
                                         >
                                             {/* The orb ALWAYS renders so both fighters get the same token
@@ -5992,7 +5876,6 @@ export function Arena({
                                                 unstyled next to the player). */}
                                             <span className="avatar-orb-fallback" aria-hidden="true">{altText.slice(0, 2).toUpperCase()}</span>
                                             {isImageAvatar(imgSrc) && <img className="tiny-map-avatar" src={imgSrc} alt={altText} fetchPriority="high" />}
-                                            {isEnemy && hollowGateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
                                         </div>
                                     );
                                 };
@@ -6109,9 +5992,9 @@ export function Arena({
                         <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
                         <button
                             onClick={basicHeal}
-                            title={isHollowGateFight ? "Healing is sealed inside the Hollow Gate" : playerHp >= character.maxHp ? "You are already at full HP" : "Restore 10% HP"}
-                            disabled={isHollowGateFight || battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || playerHp >= character.maxHp || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}
-                        ><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{isHollowGateFight ? "Sealed by the Gate" : playerHp >= character.maxHp ? "Full HP - not needed" : `60 AP | 10 CP | CD ${cooldowns.basicHeal ?? 0}`}</small></button>
+                            title={playerHp >= character.maxHp ? "You are already at full HP" : "Restore 10% HP"}
+                            disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || playerHp >= character.maxHp || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}
+                        ><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{playerHp >= character.maxHp ? "Full HP - not needed" : `60 AP | 10 CP | CD ${cooldowns.basicHeal ?? 0}`}</small></button>
                         <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
                         {canSummonPet && (
@@ -6127,12 +6010,11 @@ export function Arena({
                         )}
                         <button
                             onClick={flee}
-                            disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100) || (hollowGateFight !== null && !hollowGateFight.canWithdraw)}
-                            title={hollowGateFight && !hollowGateFight.canWithdraw ? "Your Hollow Gate augment prevents withdrawal." : undefined}
+                            disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}
                         >
                             <i className="cmd-icon" aria-hidden="true"><GiRun /></i>
-                            <span>{isHollowGateFight ? "Withdraw" : "Flee"}</span>
-                            <small>{hollowGateFight ? (hollowGateFight.canWithdraw ? "100 AP | Guaranteed" : "Retreat sealed") : "100 AP | 50%"}</small>
+                            <span>Flee</span>
+                            <small>100 AP | 50%</small>
                         </button>
                         <button onClick={waitTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
                     </div>
@@ -6244,7 +6126,7 @@ export function Arena({
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                     title={onCooldown ? `${item.name} — on cooldown (${itemCd} round(s) left)` : isArmed ? `${item.name} armed — click ${opponentName} to fire` : !usable ? `${item.name} — none left this battle` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
-                                                    disabled={(!isWeapon && isHollowGateFight) || !usable || onCooldown || battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(itemAp)}
+                                                    disabled={!usable || onCooldown || battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(itemAp)}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();
@@ -6489,19 +6371,6 @@ export function Arena({
                                             <GiVillage style={ARENA_ICON} />{storySettlementPending ? "Closing Run..." : "Return to Village"}
                                         </button>
                                     </>
-                                ) : battleResult === "loss" && pendingStoryBattle?.kind === "hollowGateShrine" ? (
-                                    <>
-                                        <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
-                                            Resolve the encounter to use Second Wind if it was armed, or return to the hospital after a true defeat.
-                                        </p>
-                                        <button
-                                            style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
-                                            disabled={storySettlementPending}
-                                            onClick={() => { void continuePendingStoryResult(); }}
-                                        >
-                                            <GiFirstAidKit style={ARENA_ICON} />{storySettlementPending ? "Resolving..." : "Resolve Hollow Gate Defeat"}
-                                        </button>
-                                    </>
                                 ) : battleResult === "loss" ? (
                                     <>
                                         <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
@@ -6518,11 +6387,7 @@ export function Arena({
                                             disabled={storySettlementPending}
                                             onClick={() => { void continuePendingStoryResult(); }}
                                         >
-                                            {storySettlementPending
-                                                ? "Settling..."
-                                                : pendingStoryBattle.kind === "hollowGateShrine"
-                                                    ? battleResult === "fled" ? "Return to Hollow Gate" : "Continue Hollow Gate"
-                                                    : "Continue Story"}
+                                            {storySettlementPending ? "Settling..." : "Continue Story"}
                                         </button>
                                     </div>
                                 ) : exploreAmbushWinRef.current ? (
