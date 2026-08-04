@@ -40,7 +40,9 @@ const ECHOES_VERSION = new Set([
     'clan/seal-pool/donate.ts',
     'festival/black-market.ts',
     'hollow-gate/combat-settle.ts',
+    'hollow-gate/event.ts',
     'hollow-gate/settle.ts',
+    'hollow-gate/step.ts',
     'hollow-gate/use-consumable.ts',
     'jutsu/speedup.ts',
     'jutsu/train-with-seals.ts',
@@ -63,6 +65,7 @@ const ECHOES_VERSION = new Set([
     'village/claim-war-crate.ts',
     'village/hollow-gate-unlock.ts',
     'village/kage-challenge.ts',
+    'weekly-boss.ts',
 ]);
 
 /**
@@ -83,7 +86,6 @@ const PENDING_ECHO = new Set([
     'sector/wanderer-quest.ts',
     'sector/wanderer-service.ts',
     'village/hire-mercenary.ts',
-    'weekly-boss.ts',
 ]);
 
 /**

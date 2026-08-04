@@ -86,8 +86,9 @@ describe("server settlement policy", () => {
         // invariant is unchanged — only the file it has to hold in did.
         const hollowTile = source("./hollow-gate-tile.ts");
         const befriendGuard = hollowTile.indexOf('requireServerSettlement("hollowGatePetBefriend")');
-        const befriendWrite = hollowTile.indexOf("const updated = { ...character, pets:", befriendGuard);
-        assert.ok(befriendGuard >= 0 && befriendWrite > befriendGuard, "Hollow Gate befriend must gate before adding a pet");
+        const befriendRequest = hollowTile.indexOf("befriendHollowGatePetServer(", befriendGuard);
+        assert.ok(befriendGuard >= 0 && befriendRequest > befriendGuard, "Hollow Gate befriend must gate before requesting the server mutation");
+        assert.doesNotMatch(hollowTile, /const updated = \{ \.\.\.character, pets:/, "Hollow Gate befriend must never mint a pet locally");
 
         const petYard = source("../screens/PetYard.tsx");
         assertGuardBefore(petYard, "startTraining", "petTraining", "updateCharacter(");
@@ -110,7 +111,11 @@ describe("server settlement policy", () => {
         const missions = source("../screens/Missions.tsx");
         assertGuardBefore(missions, "acceptFetchMission", "fieldHuntMissions", "setAcceptedMissionIds(");
         assertGuardBefore(missions, "claimFetchMission", "fieldHuntMissions", "postClaimMission(");
-        assertGuardBefore(missions, "startCreatorMissionBattle", "fieldHuntMissions", "setPendingAiProfileId(");
+        const missionStart = functionSlice(missions, "startMissionBattle");
+        const missionServerStart = missionStart.indexOf('fetch("/api/missions/combat-start"');
+        const missionMount = missionStart.indexOf("setAuthoritativeFight(");
+        assert.ok(missionServerStart >= 0 && missionMount > missionServerStart, "combat missions must receive a sealed server session before mounting a fight");
+        assert.doesNotMatch(missionStart, /setPendingAiProfileId\(/, "combat missions must not fall back to the local AI profile path");
 
         const hunter = source("../screens/HunterBoard.tsx");
         assertGuardBefore(hunter, "rankUp", "fieldHuntMissions", "updateCharacter(");
