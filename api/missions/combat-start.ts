@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -11,20 +11,13 @@ import {
     missionCombatBindingKey,
     MISSION_COMBAT_SESSION_TTL_SECONDS,
 } from './_authoritative-combat-session.js';
-import {
-    buildAuthoritativeSoloEncounter,
-    dynamicBossFloor,
-    missionEnemyTemplate,
-    missionEnvironment,
-} from '../_authoritative-pve.js';
+import { missionEnemyTemplate, missionEnvironment } from '../_authoritative-pve.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
-import { writeSession } from '../towers/_tower-store.js';
-import { sealCompanionFromSave } from '../towers/_companion.js';
+import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { sealPveDifficultyBand } from '../_pve-band-seal.js';
-import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 
-/** Start a sealed, server-resolved combat mission. Body: { playerName, missionId, hostLoadout? }. */
+/** Start a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -49,47 +42,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!eligibility.ok) return res.status(403).json(missionEligibilityFailureBody(eligibility));
 
         const runId = `mission-${randomUUID().replace(/-/g, '')}`;
-        const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
         const now = Date.now();
         // Themed battlefield: biome drives the board art + the +10% school terrain
         // buff; the optional weather adds the ±element damage term. Both sealed here.
         const env = missionEnvironment(mission.key);
-        const floor = dynamicBossFloor({
-            id: 9_100 + Math.max(0, ['combat-e-drill', 'combat-d-errand', 'combat-c-patrol', 'combat-b-escort', 'combat-a-hunt', 'combat-s-crisis'].indexOf(mission.key)),
-            name: mission.key,
-            bossAiId: mission.aiProfileId,
-            objective: 'defeat-boss',
-            roundBudget: 24,
-            biome: env.biome,
-        });
-        const session = buildAuthoritativeSoloEncounter({
+        const enemy = missionEnemyTemplate(mission);
+        const session = buildSoloPveAiEncounter({
+            sessionId: runId,
             playerName,
             save,
-            floor,
-            bossTemplate: missionEnemyTemplate(mission),
-            runId,
-            seed,
+            profile: { ...enemy, id: mission.aiProfileId },
             now,
-            towerId: 'combat-mission',
             admin: await loadAdminCombatContent(),
-            hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
+            difficultyMode: 'MISSION',
+            encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
+            environment: {
+                biome: env.biome,
+                weatherPositiveElement: env.weather?.positiveElement,
+                weatherNegativeElement: env.weather?.negativeElement,
+            },
         });
         // Seal the weather (if any) so the engine's wMult junction reads it; absent
         // for clear-weather missions, so those fights stay at the neutral ×1 term.
-        if (env.weather) session.weather = env.weather;
         // Seal the player's ACTIVE pet so it can be summoned onto the field once
         // (the 'summon' action). Server-sealed from the save — the client never
         // supplies the pet's HP/damage, and the seal is consumed on use.
-        const companion = sealCompanionFromSave(char);
-        if (companion) session.pendingCompanion = companion;
         // Arm the standard-PvE difficulty layer (band + hit guard). Sealed BEFORE
         // the session is written, so the very first enemy turn is already guarded.
-        sealPveDifficultyBand(session, { mode: 'MISSION' });
         // Give the AI its jutsu mastery — without this it casts at 30% (step C).
         // Must follow the guard above, which bounds the uplift.
-        sealPveAiMastery(session, { mode: 'MISSION' });
         const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
-        await writeSession(session);
+        await writeSoloPveSession(session);
         await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
         return res.status(200).json({ ok: true, runId, session });
     } catch (err) {

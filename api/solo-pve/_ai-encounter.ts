@@ -8,12 +8,12 @@ import {
     pveDifficultyStatMultiplier,
     scaleStatsForPveDifficulty,
 } from '../_pve-difficulty.js';
-import { pveDifficultyGuardEnabled } from '../_pve-band-seal.js';
+import { pveDifficultyGuardEnabled, type PveBandMode } from '../_pve-band-seal.js';
 import { perRankStatCap } from '../combat-core/formulas.js';
 import { sealCompanionFromSave } from '../combat-core/companion.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
-import { createSoloPveSession, type SoloPveSession } from './_session.js';
+import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveSession } from './_session.js';
 
 export type SoloPveAiProfile = Record<string, unknown> & { id: string };
 
@@ -78,11 +78,14 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
     const maxHp = Math.max(50, Math.min(5_000_000, Math.floor(
         finite(profile.hp, 240 + level * level * 1.05) * (banded ? pveDifficultyHpMultiplier(level) : 1),
     )));
-    const maxChakra = integer(profile.chakra, 100, 20_000, 120 + level * 4);
-    const maxStamina = integer(profile.stamina, 100, 20_000, 120 + level * 4);
-    const jutsu = resolveAiProfileJutsu(profile.jutsuIds, admin);
+    const maxChakra = integer(profile.chakra ?? profile.maxChakra, 100, 20_000, 120 + level * 4);
+    const maxStamina = integer(profile.stamina ?? profile.maxStamina, 100, 20_000, 120 + level * 4);
+    const embeddedJutsu = Array.isArray(profile.jutsu)
+        ? profile.jutsu.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).id === 'string')
+        : [];
+    const jutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(profile.jutsuIds, admin);
     const mastery = pveAiMasteryForLevel(level);
-    const specialty = specialtyForStats(stats);
+    const specialty = typeof profile.specialty === 'string' ? profile.specialty : specialtyForStats(stats);
     const character: Record<string, unknown> = {
         name: typeof profile.name === 'string' ? profile.name.slice(0, 80) : 'Opponent',
         level,
@@ -91,8 +94,8 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         armorRawDR: Math.max(0, Math.min(1.5, finite(profile.armorRawDR, 0))),
         jutsu: jutsu.map((entry) => ({ ...entry })),
         jutsuMastery: jutsu.map((entry) => ({ jutsuId: entry.id, level: mastery })),
-        visual: profile.id,
-        ...(profile.isBossAi === true ? { boss: true } : {}),
+        visual: typeof profile.visual === 'string' ? profile.visual : profile.id,
+        ...(profile.isBossAi === true || profile.boss === true ? { boss: true } : {}),
         ...(profile.masterAi === true ? { masterAi: true } : {}),
     };
     return {
@@ -125,6 +128,9 @@ export function buildSoloPveAiEncounter(params: {
     /** @deprecated Accepted only for wire compatibility; never combat-authoritative. */
     hostLoadout?: Record<string, unknown>;
     scaling?: SoloPveAiScaling;
+    difficultyMode?: PveBandMode;
+    encounter?: SoloPveEncounter;
+    environment?: Partial<SoloPveEnvironment>;
     env?: NodeJS.ProcessEnv;
 }): SoloPveSession {
     const saveCharacter = params.save.character && typeof params.save.character === 'object'
@@ -141,7 +147,7 @@ export function buildSoloPveAiEncounter(params: {
             resolveAiProfileJutsu(params.profile.jutsuIds, params.admin),
         ) as unknown as SoloPveAiProfile
         : params.profile;
-    const banded = pveDifficultyGuardEnabled('AI_FIGHT', params.env ?? process.env);
+    const banded = pveDifficultyGuardEnabled(params.difficultyMode ?? 'AI_FIGHT', params.env ?? process.env);
     const hydrated = hydrateCharacterFromSave(
         saveCharacter,
         {},
@@ -152,7 +158,10 @@ export function buildSoloPveAiEncounter(params: {
     return createSoloPveSession({
         sessionId: params.sessionId,
         ownerSlug: params.playerName,
-        encounter: {
+        encounter: params.encounter ? {
+            ...params.encounter,
+            level: Number(enemy.character.level) || params.encounter.level,
+        } : {
             kind: 'generic-ai',
             id: profile.id,
             sourceId: params.profile.id,
@@ -161,7 +170,7 @@ export function buildSoloPveAiEncounter(params: {
         player: fighterFromHydratedCharacter(hydrated, 62),
         enemy,
         now: params.now,
-        environment: { biome: 'central' },
+        environment: params.environment ?? { biome: 'central' },
         itemCharges: sealItemCharges(hydrated, saveCharacter),
         companion: sealCompanionFromSave(saveCharacter, params.now),
         ...(banded ? { difficultyEnemyLevel: Number(enemy.character.level) || 1 } : {}),

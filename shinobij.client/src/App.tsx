@@ -368,7 +368,6 @@ import { starterItems } from "./data/starter-items";
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
-import { villageBiomeMap } from "./data/village-biomes";
 import { loadStoryTrigger } from "./lib/story-trigger-loader";
 import {
     awakeningLv2VnEvent,
@@ -587,7 +586,6 @@ import {
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
-import { buildAcademySparDummy } from "./lib/academy-spar";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
@@ -5474,30 +5472,15 @@ export default function App() {
     // few hits. The win advances onboardingStep -> "cafeteria"; a loss returns to
     // the village and re-prompts via the OnboardingCoach's Hospital step.
     //
-    // Preferred path: the SEALED server fight (api/story/spar-start), hosted by
-    // StoryBossFightHost like every other story-lane bout. `playLocally` below is
-    // the designed degrade — the local Arena spar this used to be, still exact,
-    // still settling through /api/story/settle with the temp-* token. This is the
-    // first minute of the game: a failed round-trip costs the seal, not the spar.
+    // The SEALED server fight (api/story/spar-start) is hosted by
+    // StoryBossFightHost like every other story-lane bout. A failed start remains
+    // fail-closed; the client never recreates the dummy or resolves the fight.
     function startAcademySparringMatch() {
         if (!character) return;
-        const village = character.village;
         requestStoryBossFight({
             kind: "academySpar",
             bossName: "Academy Training Dummy",
             bossPortrait: academyTrainingDummyImg,
-            playLocally: () => {
-                const sparBiome = villageBiomeMap[village] ?? "central";
-                const dummy = buildAcademySparDummy({ id: `temp-academy-spar-${Date.now()}`, village, image: academyTrainingDummyImg });
-                setTemporaryStoryAi(dummy); setPendingAiProfileId(dummy.id);
-                setPendingPvpOpponent(null);
-                setRaidBattleKind("none");
-                setPendingArenaStoryBattle({ kind: "academySparring", returnScreen: "village" });
-                setCurrentBiome(sparBiome);
-                setCurrentWeather(weatherForBiome(sparBiome));
-                setArenaKey((key) => key + 1);
-                setScreen("arena");
-            },
         });
     }
 

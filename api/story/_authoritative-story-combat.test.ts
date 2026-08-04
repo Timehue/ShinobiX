@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { TowerSession } from '../towers/_tower-session.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import { STORY_LEVELS, STORY_REWARDS, storyOpponentId } from './_settle.js';
 import {
     createStoryCombatBinding,
@@ -25,22 +25,29 @@ function makeBinding(overrides: Partial<StoryCombatBinding> = {}): StoryCombatBi
     return { ...createStoryCombatBinding({ runId: 'story-run-1', playerName: 'hero', village: VILLAGE, progressIndex: 0, now: NOW }), ...overrides };
 }
 
-function makeSession(overrides: Partial<TowerSession> = {}): TowerSession {
+function makeSession(overrides: Partial<SoloPveSession> = {}): SoloPveSession {
     return {
-        runId: 'story-run-1',
+        runtime: 'solo-pve',
+        schemaVersion: 1,
+        sessionId: 'story-run-1',
+        ownerSlug: 'hero',
+        encounter: {
+            kind: 'story-boss',
+            id: `${VILLAGE}:0`,
+            sourceId: storyOpponentId(VILLAGE, STORY_LEVELS[0]),
+            bindingId: 'story-run-1',
+        },
         status: 'done',
-        winner: 'squad',
-        actors: [
-            { side: 'squad', ownerSlug: 'hero', hp: 321 } as unknown as TowerSession['actors'][number],
-            { side: 'tower', ownerSlug: null, hp: 0 } as unknown as TowerSession['actors'][number],
-        ],
+        winner: 'player',
+        settlementState: 'pending',
+        player: { hp: 321 },
         ...overrides,
-    } as TowerSession;
+    } as SoloPveSession;
 }
 
 function validate(params: {
     binding?: StoryCombatBinding | null;
-    session?: TowerSession | null;
+    session?: SoloPveSession | null;
     playerName?: string;
     character?: Record<string, unknown>;
     now?: number;
@@ -67,14 +74,14 @@ test('hostile paths are rejected with the specific reason', () => {
     assert.deepEqual(validate({ character: makeCharacter({ storyProgress: 1 }) }), { ok: false, reason: 'wrong-milestone' });
     // Village swap between start and settle is also milestone drift.
     assert.deepEqual(validate({ character: makeCharacter({ village: 'Frostfang Village' }) }), { ok: false, reason: 'wrong-milestone' });
-    assert.deepEqual(validate({ session: makeSession({ runId: 'other-run' }) }), { ok: false, reason: 'wrong-run' });
+    assert.deepEqual(validate({ session: makeSession({ sessionId: 'other-run' }) }), { ok: false, reason: 'wrong-run' });
     assert.deepEqual(validate({ session: null }), { ok: false, reason: 'wrong-run' });
     assert.deepEqual(validate({ now: NOW + 46 * 60 * 1000 }), { ok: false, reason: 'expired' });
     assert.deepEqual(validate({ binding: makeBinding({ status: 'won', settledAt: NOW }) }), { ok: false, reason: 'already-settled' });
-    assert.deepEqual(validate({ session: makeSession({ status: 'active' as TowerSession['status'] }) }), { ok: false, reason: 'not-complete' });
-    assert.deepEqual(validate({ session: makeSession({ winner: 'tower' as TowerSession['winner'] }) }), { ok: false, reason: 'not-won' });
+    assert.deepEqual(validate({ session: makeSession({ status: 'active' }) }), { ok: false, reason: 'not-complete' });
+    assert.deepEqual(validate({ session: makeSession({ winner: 'enemy' }) }), { ok: false, reason: 'not-won' });
     assert.deepEqual(
-        validate({ session: makeSession({ actors: [{ side: 'squad', ownerSlug: 'someone-else', hp: 100 } as unknown as TowerSession['actors'][number]] }) }),
+        validate({ session: makeSession({ ownerSlug: 'someone-else' }) }),
         { ok: false, reason: 'not-a-member' },
     );
     assert.deepEqual(validate({ binding: makeBinding({ rewardFingerprint: 'tampered' }) }), { ok: false, reason: 'reward-drift' });
@@ -92,8 +99,7 @@ test('settling flips the binding once and is idempotent', () => {
 
 test('surviving HP comes from the server-recorded squad actor, floored at 0', () => {
     assert.equal(storySessionSurvivingHp(makeSession(), 'hero'), 321);
-    assert.equal(storySessionSurvivingHp(makeSession({ actors: [{ side: 'squad', ownerSlug: 'hero', hp: -5 } as unknown as TowerSession['actors'][number]] }), 'hero'), 0);
-    assert.equal(storySessionSurvivingHp(makeSession(), 'someone-else'), 0);
+    assert.equal(storySessionSurvivingHp(makeSession({ player: { hp: -5 } as SoloPveSession['player'] }), 'hero'), 0);
 });
 
 test('reward fingerprint tracks the milestone reward row and opponent', () => {

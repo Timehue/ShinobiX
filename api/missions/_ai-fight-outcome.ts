@@ -117,7 +117,7 @@ export function aiFightPaysReward(outcome: AiFightOutcome, battleKind: string | 
 }
 
 /** The Academy spar's sealed session (api/story/spar-start.ts). */
-const ACADEMY_SPAR_TOWER_ID = 'academy-spar';
+const ACADEMY_SPAR_ENCOUNTER_KIND = 'academy-spar';
 
 /**
  * Whether this run's own SETTLEMENT already owns the player's HP on a win, so
@@ -134,8 +134,9 @@ const ACADEMY_SPAR_TOWER_ID = 'academy-spar';
  * A LOST spar is untouched by this and reports normally, which is what puts a
  * knocked-out beginner in the Hospital.
  */
-export function settlementOwnsHpOnWin(session: TowerSession | null | undefined): boolean {
-    return session?.towerId === ACADEMY_SPAR_TOWER_ID;
+export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined): boolean {
+    if (isSoloPveSession(session)) return session.encounter.kind === ACADEMY_SPAR_ENCOUNTER_KIND;
+    return session?.towerId === ACADEMY_SPAR_ENCOUNTER_KIND;
 }
 
 /**
