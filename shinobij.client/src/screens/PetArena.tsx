@@ -584,8 +584,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             playerName: character.name,
             token: gate.token,
             runId: gate.runId,
-            outcome: petBattleResult.outcome === "win" ? "win" : "loss",
-            survivingHp: character.hp,
             petReceipt: petBattleResult.petReceipt,
         });
         if (settled.character) updateCharacter(settled.character);
