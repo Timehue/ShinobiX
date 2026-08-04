@@ -5,9 +5,9 @@
  * The standing answer to "would a brand-new player's rewards actually survive
  * a refresh?" It boots the REAL Express server (server.ts — the same handler
  * graph Railway runs), registers a REAL account over HTTP, and walks the
- * reward-critical journey end to end: create → clamp → earn → refresh →
- * relog → retry → stale-autosave. Every assertion is a failure class the
- * Phase 0 audits catalogued.
+ * reward-critical journey end to end: create → clamp → reject forged currency →
+ * sanitize forged progression → earn → refresh → relog → retry → stale autosave.
+ * Every assertion maps to a failure class catalogued by the Phase 0 audits.
  *
  * It needs no database and no secrets: the storage layer ships an isolated
  * in-memory backend (SHINOBIX_QA_MEMORY_KV=1 with NODE_ENV=test), so this runs
@@ -171,28 +171,68 @@ async function certify() {
     const baseVersion = Number(afterCreate.body._saveVersion ?? 0);
     check(baseVersion > 0, `the save carries an optimistic-concurrency version (v${baseVersion})`);
 
-    // 3 ── An ordinary autosave cannot mint currency or forge progression.
-    step('tampered autosave');
-    const tampered = {
+    // 3 ── Currency is server-authoritative. A forged increase must be rejected
+    //      explicitly and atomically so the client can repair its local balance
+    //      without persisting any other fields from the rejected request.
+    step('forged currency is rejected atomically');
+    const forgedCurrency = {
         character: { ...char0, ryo: 5_000_000, fateShards: 900, unlockedAchievements: ['forged'], equipment: { body: 'mythic-battle-plate' } },
         _baseSaveVersion: baseVersion,
     };
     await settleSaveBurst();
-    const tamperRes = await api(`/api/save/${player}`, { method: 'POST', token, body: tampered });
-    // The write must be ACCEPTED for this step to certify anything: if the
-    // server rejected it outright, the clamp assertions below would pass for
-    // the wrong reason.
-    if (!check(tamperRes.status === 200, `autosave accepted → ${tamperRes.status} (the sanitizer clamps rather than rejects)`)) {
-        check(false, 'clamp assertions skipped — the write never reached the sanitizer');
+    const rejectedMint = await api(`/api/save/${player}`, { method: 'POST', token, body: forgedCurrency });
+    if (!check(rejectedMint.status === 409, `forged ryo increase rejected → ${rejectedMint.status} (expected 409)`)) {
+        check(false, 'server-authority response assertions skipped — the request was not rejected by the expected boundary');
         return;
     }
-    const afterTamper = (await api(`/api/save/${player}`, { token })).body.character ?? {};
-    check(Number(afterTamper.ryo) <= 1_100, `minted ryo rejected (got ${afterTamper.ryo})`);
-    check(Number(afterTamper.fateShards ?? 0) === 0, `minted premium currency rejected (got ${afterTamper.fateShards ?? 0})`);
-    check((afterTamper.unlockedAchievements ?? []).length === 0, 'forged achievements rejected (server-owned)');
-    check(!(afterTamper.equipment ?? {}).body, 'equipping an unowned item rejected');
+    check(rejectedMint.body.code === 'RYO_SERVER_AUTHORITY', `stable repair code returned (${rejectedMint.body.code ?? 'missing'})`);
+    check(Number(rejectedMint.body.authoritativeRyo) === Number(char0.ryo),
+        `authoritative balance returned (${rejectedMint.body.authoritativeRyo} vs ${char0.ryo})`);
+    check(Number(rejectedMint.body._saveVersion) === baseVersion,
+        `authoritative save version returned (v${rejectedMint.body._saveVersion} vs v${baseVersion})`);
 
-    // 4 ── A server-authoritative reward lands and is reported.
+    const afterRejectedMint = await api(`/api/save/${player}`, { token });
+    const charAfterRejectedMint = afterRejectedMint.body.character ?? {};
+    check(afterRejectedMint.status === 200, `save remains readable after rejection → ${afterRejectedMint.status}`);
+    check(Number(afterRejectedMint.body._saveVersion) === baseVersion,
+        `rejected write does not advance the save version (v${afterRejectedMint.body._saveVersion})`);
+    check(JSON.stringify(charAfterRejectedMint) === JSON.stringify(char0),
+        'rejected write leaves the complete character snapshot unchanged');
+    check(Number(charAfterRejectedMint.ryo) === Number(char0.ryo),
+        `rejected write cannot mint ryo (${charAfterRejectedMint.ryo} vs ${char0.ryo})`);
+    check(Number(charAfterRejectedMint.fateShards ?? 0) === Number(char0.fateShards ?? 0),
+        'rejected write cannot mutate premium currency');
+    check(JSON.stringify(charAfterRejectedMint.unlockedAchievements ?? []) === JSON.stringify(char0.unlockedAchievements ?? []),
+        'rejected write cannot mutate achievements');
+    check(JSON.stringify(charAfterRejectedMint.equipment ?? {}) === JSON.stringify(char0.equipment ?? {}),
+        'rejected write cannot mutate equipment');
+
+    // 4 ── Keep the sanitizer boundary independently certified. With the
+    //      authoritative balance echoed unchanged, an otherwise ordinary
+    //      autosave is accepted while forged server-owned fields are stripped.
+    step('forged progression is sanitized');
+    const forgedProgression = {
+        character: { ...char0, fateShards: 900, unlockedAchievements: ['forged'], equipment: { body: 'mythic-battle-plate' } },
+        _baseSaveVersion: baseVersion,
+    };
+    await settleSaveBurst();
+    const sanitizedWrite = await api(`/api/save/${player}`, { method: 'POST', token, body: forgedProgression });
+    if (!check(sanitizedWrite.status === 200, `same-balance autosave accepted for sanitization → ${sanitizedWrite.status}`)) return;
+
+    const afterSanitizedWrite = await api(`/api/save/${player}`, { token });
+    const sanitizedChar = afterSanitizedWrite.body.character ?? {};
+    check(afterSanitizedWrite.status === 200, `sanitized save can be read back → ${afterSanitizedWrite.status}`);
+    check(Number(afterSanitizedWrite.body._saveVersion) === baseVersion + 1,
+        `accepted sanitized write advances the save version once (v${afterSanitizedWrite.body._saveVersion})`);
+    check(Number(sanitizedChar.ryo) === Number(char0.ryo), `authoritative ryo is preserved (got ${sanitizedChar.ryo})`);
+    check(Number(sanitizedChar.fateShards ?? 0) === Number(char0.fateShards ?? 0),
+        `minted premium currency sanitized (got ${sanitizedChar.fateShards ?? 0})`);
+    check(JSON.stringify(sanitizedChar.unlockedAchievements ?? []) === JSON.stringify(char0.unlockedAchievements ?? []),
+        'forged achievements sanitized (server-owned)');
+    check(JSON.stringify(sanitizedChar.equipment ?? {}) === JSON.stringify(char0.equipment ?? {}),
+        'unowned equipment sanitized');
+
+    // 5 ── A server-authoritative reward lands and is reported.
     step('earn a reward');
     const claim = await api('/api/player/daily-login', { method: 'POST', token, body: { playerName: player } });
     if (!check(claim.status === 200 && claim.body.ok === true, `daily-login → ${claim.status}`)) return;
@@ -201,13 +241,13 @@ async function certify() {
     const balanceAfterClaim = Number(claim.body.balances?.ryo ?? 0);
     check(balanceAfterClaim > 0, `the server reports the resulting balance (${balanceAfterClaim})`);
 
-    // 5 ── THE historical failure class: the reward is still there after a refresh.
+    // 6 ── THE historical failure class: the reward is still there after a refresh.
     step('reward survives refresh');
     const refreshed = await api(`/api/save/${player}`, { token });
     const refreshedRyo = Number(refreshed.body.character?.ryo ?? 0);
     check(refreshedRyo === balanceAfterClaim, `refetched balance matches the credited balance (${refreshedRyo} vs ${balanceAfterClaim})`);
 
-    // 6 ── ...and after a relog on a fresh session.
+    // 7 ── ...and after a relog on a fresh session.
     step('reward survives relog');
     const relog = await api('/api/player-auth', { method: 'POST', body: { action: 'verify', name: player, password } });
     check(relog.status === 200 && relog.body.ok === true, `re-authentication → ${relog.status}`);
@@ -215,7 +255,7 @@ async function certify() {
     const afterRelog = await api(`/api/save/${player}`, { token });
     check(Number(afterRelog.body.character?.ryo ?? 0) === balanceAfterClaim, 'the balance survives a new session');
 
-    // 7 ── Retrying the claim does not pay twice (idempotency contract, P0-2).
+    // 8 ── Retrying the claim does not pay twice (idempotency contract, P0-2).
     step('reward is idempotent');
     const replay = await api('/api/player/daily-login', { method: 'POST', token, body: { playerName: player } });
     check(replay.status === 200 && replay.body.alreadyClaimed === true, 'a retry reports alreadyClaimed');
@@ -223,7 +263,7 @@ async function certify() {
     const afterReplay = await api(`/api/save/${player}`, { token });
     check(Number(afterReplay.body.character?.ryo ?? 0) === balanceAfterClaim, 'the balance is unchanged by the retry');
 
-    // 8 ── A stale autosave is rejected AND cannot roll the reward back.
+    // 9 ── A stale autosave is rejected AND cannot roll the reward back.
     //      (This is the exact shape of "my reward disappeared after a refresh".)
     step('stale autosave cannot erase the reward');
     await settleSaveBurst();
@@ -236,7 +276,7 @@ async function certify() {
     check(Number(afterStale.body.character?.ryo ?? 0) === balanceAfterClaim,
         `the reward survives the stale write (${afterStale.body.character?.ryo} vs ${balanceAfterClaim})`);
 
-    // 9 ── A foreign reader cannot see private state (projection boundary, P0-1).
+    // 10 ── A foreign reader cannot see private state (projection boundary, P0-1).
     step('public projection');
     const other = `certobs${suffix}`;
     const otherPw = `Cert-${randomBytes(8).toString('hex')}B2!`;
@@ -258,7 +298,7 @@ async function certify() {
         check(false, `could not register the observer account → ${otherReg.status}`);
     }
 
-    // 9 ── The Academy spar, fought on the server.
+    // 11 ── The Academy spar, fought on the server.
     //
     // Step 5 subsystem 1 of the AI-fight migration moved the onboarding spar's
     // opponent server-side so the fight could be sealed at all. This is the
