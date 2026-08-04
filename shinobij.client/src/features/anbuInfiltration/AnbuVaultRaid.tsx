@@ -12,11 +12,10 @@
  *      theme (it is not in HOLLOW_GATE_THEMES).
  *   2. fight — reaching the vault starts the server-auth run
  *      (api/village/anbu-infiltration action:'start') and REUSES the whole
- *      BattleTowerFight screen with actionFn/settleFn overrides (the Clan Boss
- *      pattern). The defender is the server-sealed Anbu snapshot.
- *   3. result — the raid report: which pools the server rolled, caches minted
- *      (also mirrored onto the local save via updateCharacter so the inventory
- *      shows them before the next server pull), ryo, or a clean "the Anbu held".
+ *      normal Solo PvE Arena shell. The defender is a server-sealed snapshot.
+ *   3. result — the raid report: which pools the server rolled, caches minted,
+ *      ryo, or a clean "the Anbu held". The returned server character replaces
+ *      local state; this screen does not reconstruct rewards or combat costs.
  *
  * The traversal is CLIENT-side flavor: rewards flow ONLY from the server-settled
  * fight win, so skipping the walk cheats nothing (docs plan §9).
@@ -27,34 +26,23 @@ import { findHollowGatePath } from "../../lib/hollow-gate-path";
 import { computeHollowGateVisible } from "../../lib/hollow-gate-dungeon";
 import {
     startInfiltration,
-    infiltrationAct,
     reportInfiltration,
     fetchInfiltrationState,
     anbuAvatarForVillage,
     anbuDisplayName,
-    INFIL_CACHE_ITEM_IDS,
     type InfilReportResponse,
 } from "../../lib/anbu-infiltration-api";
 import { MissionArenaFight } from "../../screens/MissionArenaFight";
-import { createTowerArenaTransport, towerSessionForArena } from "../../lib/tower-arena-adapter";
-import { getAllItems } from "../../lib/items";
-import { getBloodlineMultiplier } from "../../lib/combat-math";
-import { getPvpItemLoadout, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus } from "../../lib/equipment-stats";
-import type { TowerSession, TowerHostLoadout } from "../../lib/towers-api";
-import type { GameItem, SavedBloodline } from "../../types/combat";
+import { soloPveArenaTransport, soloPveSessionForArena } from "../../lib/solo-pve-arena-adapter";
+import type { SoloPveSession } from "../../lib/solo-pve-api";
 import type { BattleHistoryEntry, Character, HollowGateShrineRun } from "../../types/character";
 
 const STEP_MS = 170;
 const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48;
 // Refresh-resume: the live runId persists here while a fight is up, so a
-// mid-fight reload can rejoin the server run (the BattleTowers TOWER_RUN_KEY
-// pattern). Cleared on clean exits and on resolution.
+// mid-fight reload can rejoin the server run. Cleared on clean exits and on
+// resolution.
 const INFIL_RUN_KEY = "anbuInfiltration.activeRun";
-const infiltrationArenaTransport = createTowerArenaTransport({
-    submit: infiltrationAct,
-    state: async (runId, playerName) => (await fetchInfiltrationState(runId, playerName)).session,
-});
-
 type Phase = "traverse" | "fight" | "result";
 
 export function AnbuVaultRaid({
@@ -62,8 +50,6 @@ export function AnbuVaultRaid({
     sharedImages,
     sector,
     targetVillage,
-    creatorItems,
-    savedBloodlines,
     updateCharacter,
     onRecordBattle,
     onExit,
@@ -72,13 +58,7 @@ export function AnbuVaultRaid({
     sharedImages: Record<string, string>;
     sector: number;
     targetVillage: string;
-    /** admin custom items + the player's bloodlines — the raider-loadout inputs
-     *  (WorldMap already holds both, so App.tsx stays untouched) */
-    creatorItems: GameItem[];
-    savedBloodlines: SavedBloodline[];
-    /** mirror minted caches + ryo onto the local save (server already credited).
-     *  A React dispatcher so the mirror is a FUNCTIONAL update — the fight runs
-     *  for minutes, so a captured `character` would be stale by settle time. */
+    /** Install the full character returned by authoritative settlement. */
     updateCharacter?: Dispatch<SetStateAction<Character | null>>;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     onExit: () => void;
@@ -93,25 +73,8 @@ export function AnbuVaultRaid({
     });
     const run = world.run;
     const seen = world.seen;
-    // The raider's client-computed combat extras (pvpItems + equipment passives)
-    // — the exact recipe App.tsx uses for Battle Towers, so the sealed fighter
-    // matches a tower host. The server clamps every field (sealTowerFighter).
-    const hostLoadout = useMemo<TowerHostLoadout>(() => {
-        const it = getAllItems(creatorItems);
-        return {
-            pvpItems: getPvpItemLoadout(character, it),
-            bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-            armorFactor: getCharacterArmorFactor(character, it),
-            armorRawDR: getCharacterArmorRawDR(character, it),
-            itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"),
-            itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"),
-            itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"),
-            itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"),
-            itemShield: getEquippedItemBonus(character, it, "shield"),
-        };
-    }, [character, creatorItems, savedBloodlines]);
     const [phase, setPhase] = useState<Phase>("traverse");
-    const [fight, setFight] = useState<{ runId: string; session: TowerSession; anbuName: string } | null>(null);
+    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession; anbuName: string } | null>(null);
     const [report, setReport] = useState<InfilReportResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
@@ -121,13 +84,6 @@ export function AnbuVaultRaid({
     // The masked, anonymous face of this village's vault defender.
     const anbuAvatar = anbuAvatarForVillage(targetVillage);
     const anbuName = anbuDisplayName(targetVillage);
-    // Show the mask (not the real appointee's avatar/name) on the enemy actor.
-    const maskSession = (s: TowerSession): TowerSession => ({
-        ...s,
-        actors: s.actors.map(a => a.side === "enemy"
-            ? { ...a, name: anbuName, character: { ...a.character, ...(anbuAvatar ? { avatarImage: anbuAvatar } : {}) } }
-            : a),
-    });
     // Refresh-resume: a stored runId from an interrupted fight is probed once on
     // mount; success jumps straight back into the live fight (the server run
     // lives 45 min). Failure (expired/settled) clears the key and the vault is
@@ -142,7 +98,7 @@ export function AnbuVaultRaid({
         fetchInfiltrationState(resumeRunId, character.name)
             .then(res => {
                 if (!alive) return;
-                setFight({ runId: resumeRunId, session: maskSession(res.session), anbuName: res.anbu.name });
+                setFight({ runId: resumeRunId, session: res.session, anbuName: res.anbu.name });
                 setPhase("fight");
                 setResumeRunId(null);
             })
@@ -182,10 +138,10 @@ export function AnbuVaultRaid({
         if (startingRef.current || phaseRef.current !== "traverse") return;
         setStarting(true); setError(null);
         try {
-            const res = await startInfiltration(character.name, sector, hostLoadout as unknown as Record<string, unknown>);
+            const res = await startInfiltration(character.name, sector);
             try { localStorage.setItem(INFIL_RUN_KEY, res.runId); } catch { /* storage disabled */ }
             setChallenge(false);
-            setFight({ runId: res.runId, session: maskSession(res.session), anbuName: res.anbu.name });
+            setFight({ runId: res.runId, session: res.session, anbuName: res.anbu.name });
             setPhase("fight");
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
@@ -251,29 +207,14 @@ export function AnbuVaultRaid({
 
     useEffect(() => () => stopWalk(), []);
 
-    // settleFn adapter for BattleTowerFight: report the run, keep the response
-    // for the result panel, and mirror the minted caches + ryo onto the local
-    // save (the SERVER already credited them under the save lock — this only
-    // keeps the visible inventory in sync until the next authoritative pull).
+    // Report the terminal Solo PvE evidence through the vault economy route and
+    // install the authoritative settled character it returns.
     async function settleInfiltration(runId: string, _playerName: string): Promise<unknown> {
         const r = await reportInfiltration(runId, character.name);
         try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
         setReport(r);
-        if (r.ok && r.won && !("alreadySettled" in r && r.alreadySettled) && updateCharacter) {
-            const won = r as Extract<InfilReportResponse, { won: true; alreadySettled: false }>;
-            updateCharacter(prev => {
-                if (!prev) return prev;
-                const stacks = Array.isArray(prev.itemStacks) ? prev.itemStacks.map(s => ({ ...s })) : [];
-                const mint = (itemId: string, add: number) => {
-                    if (add <= 0) return;
-                    const st = stacks.find(s => s.itemId === itemId);
-                    if (st) st.count = Math.min(9999, st.count + add);
-                    else stacks.push({ itemId, count: Math.min(9999, add) });
-                };
-                mint(INFIL_CACHE_ITEM_IDS.warSupply, won.supplyCaches);
-                mint(INFIL_CACHE_ITEM_IDS.warResources, won.wrCaches);
-                return { ...prev, itemStacks: stacks, ryo: (prev.ryo ?? 0) + won.ryo };
-            });
+        if (r.ok && "character" in r && r.character && updateCharacter) {
+            updateCharacter(r.character);
         }
         setPhase("result");
         return r;
@@ -307,9 +248,9 @@ export function AnbuVaultRaid({
     if (phase === "fight" && fight) {
         // Reuse the normal Arena shell (MissionArenaFight) — the same server-authoritative
         // 1v1 board PvE/missions/story use — instead of the tower rail. The vault fight is
-        // a plain 1v1 TowerSession; only the move route differs (actionFn=infiltrationAct).
-        // The raider's loadout is already sealed at startInfiltration (line ~180), so no
-        // co-op join-seal / hostLoadout is needed here. On resolve, settleInfiltration flips
+        // a plain server-owned 1v1 Solo PvE session using the shared action/state routes.
+        // The raider's loadout is already sealed at startInfiltration. On resolve,
+        // settleInfiltration flips
         // this screen to its own `phase === "result"` spoils panel, so the in-fight result
         // card only shows transiently (while the report is in flight) or on report failure.
         return (
@@ -317,8 +258,8 @@ export function AnbuVaultRaid({
                 character={character}
                 sharedImages={sharedImages}
                 runId={fight.runId}
-                initialSession={towerSessionForArena(fight.session)}
-                transport={infiltrationArenaTransport}
+                initialSession={soloPveSessionForArena(fight.session)}
+                transport={soloPveArenaTransport}
                 onExit={() => {
                     // Leaving pre-report abandons the run (the attempt stays
                     // burned — the raid-start mint-cap rule); post-report just

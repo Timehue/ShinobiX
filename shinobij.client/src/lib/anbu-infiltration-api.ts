@@ -2,15 +2,15 @@
  * Anbu Vault Infiltration — client API + feature flag.
  *
  * Thin typed wrappers over the single server route (api/village/anbu-infiltration,
- * action switch). The fight session/action shapes ARE the Battle Towers shapes —
- * the server runs the vault fight on the shared tower engine — so the types are
- * imported from towers-api and the whole BattleTowerFight screen is reused with
- * `actionFn`/`settleFn` overrides (the Clan Boss pattern).
+ * action switch). Combat itself uses the normal Solo PvE action/state routes;
+ * this module owns only raid start, binding-context restore, settlement, and
+ * cache turn-in.
  *
  * Auth headers are attached by the global authFetch interceptor; the server
  * cross-validates playerName against them.
  */
-import type { TowerSession, TowerActionInput, TowerActionResponse } from './towers-api';
+import type { SoloPveSession } from './solo-pve-api';
+import type { Character } from '../types/character';
 
 // ── Feature toggle (client half) ─────────────────────────────────────────────
 /** LIVE by default. localStorage `anbuInfiltration.v1` = "0" is the only off
@@ -62,11 +62,11 @@ export type InfilStartResponse = {
     sector: number;
     targetVillage: string;
     anbu: { name: string };
-    session: TowerSession;
+    session: SoloPveSession;
 };
 
 export type InfilReportResponse =
-    | { ok: true; won: false }
+    | { ok: true; won: false; alreadySettled?: boolean; character?: Character; _saveVersion?: number }
     | { ok: true; won: true; alreadySettled: true }
     | {
         ok: true; won: true; alreadySettled: false;
@@ -74,6 +74,7 @@ export type InfilReportResponse =
         supplySkim: number; wrSkim: number;
         supplyCaches: number; wrCaches: number;
         ryo: number; overflowLost: number;
+        character: Character;
         _saveVersion: number;
     };
 
@@ -101,28 +102,17 @@ async function post<T>(body: Record<string, unknown>): Promise<T> {
 export function startInfiltration(
     playerName: string,
     sector: number,
-    raiderLoadout?: Record<string, unknown>,
 ): Promise<InfilStartResponse> {
-    return post({ action: 'start', playerName, sector, raiderLoadout });
-}
-
-/** Submit one combat action (BattleTowerFight `actionFn` adapter — same shape as
- *  submitTowerAction so the fight screen plugs in unchanged). */
-export function infiltrationAct(
-    runId: string,
-    playerName: string,
-    action: TowerActionInput,
-): Promise<TowerActionResponse> {
-    return post({ action: 'act', runId, playerName, ...action });
+    return post({ action: 'start', playerName, sector });
 }
 
 /** Reconnect / poll the live run (refresh-restore). */
-export async function fetchInfiltrationState(runId: string, playerName: string): Promise<{ session: TowerSession; sector: number; targetVillage: string; anbu: { name: string } }> {
+export async function fetchInfiltrationState(runId: string, playerName: string): Promise<{ session: SoloPveSession; sector: number; targetVillage: string; anbu: { name: string } }> {
     return post({ action: 'state', runId, playerName });
 }
 
 /** Settle a FINISHED run. Win → the server rolls the skim and mints caches + ryo;
- *  loss → { won:false }. Idempotent; safe to pass as BattleTowerFight `settleFn`. */
+ *  loss → { won:false }. Fresh outcomes include the server-settled character. */
 export function reportInfiltration(runId: string, playerName: string): Promise<InfilReportResponse> {
     return post({ action: 'report', runId, playerName });
 }

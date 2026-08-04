@@ -2,25 +2,19 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID, randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
-import { loadAdminCombatContent } from '../_admin-content.js';
 import { withKvLock } from '../_lock.js';
 import { cors, safeName, clanRecordKey } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
-import { enforceRateLimit, enforceRateLimitKv } from '../_ratelimit.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { isWarVillage, isWarSector, homeVillageForSector } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
-import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
-import { activeActor } from '../towers/_tower-session.js';
-import { applyAction, endTurn, runAiUntilHuman, startRound, type TowerAction } from '../towers/_engine.js';
-import { makeRng } from '../towers/_sim.js';
 import {
     buildInfiltrationEncounter,
-    makeInfiltrationFloor,
-    biomeForTerrain,
+    infiltrationSessionMatches,
 } from '../_anbu-infiltration-encounter.js';
 import {
     readInfilRun,
@@ -31,13 +25,16 @@ import {
     pickAnbuDefender,
     getOrSealAnbuSnapshot,
     settleInfiltrationWin,
+    settleInfiltrationLoss,
     turnInCachesForSave,
-    infilRunKey,
     type InfilRun,
 } from '../_anbu-infiltration-store.js';
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
-import { settleConsumedItemsForMember } from '../towers/_tower-store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
+import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -46,14 +43,13 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
  *
  * Actions (body.action):
  *   - start   : gate-check, pick + daily-seal the defending Anbu, build the vault
- *               fight (shared Battle Towers engine; the Anbu is a sealed REAL
- *               loadout run as the AI boss), persist the run (infil:<runId>).
- *   - act     : submit ONE combat action for the raider's turn — engine-validated,
- *               'wait' advances the AI Anbu until the raider is up / the fight ends.
+ *               Solo PvE fight against a sealed REAL defender snapshot).
+ *   - act     : retired compatibility action; combat intents go to /solo-pve/action.
  *   - state   : read-only run fetch (refresh-restore).
  *   - report  : settle a FINISHED run. Win → server-rolled skim of the enemy war
  *               economy (both 50%/day ledgers enforced inside pool locks), caches +
- *               ryo minted under the save lock. Loss → nothing. Idempotent.
+ *               ryo minted under the save lock. Loss persists proven usage and
+ *               terminal character state without a reward. Idempotent.
  *   - turn-in : convert held caches into standing points, type-locked (War Supply →
  *               clan 2:1, War Resource → village merit 1:1).
  *
@@ -103,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'start': return await doStart(req, res, identity, playerName, body);
-            case 'act': return await doAct(req, res, identity, playerName, body);
+            case 'act': return res.status(410).json({ error: 'ANBU combat actions moved to /api/solo-pve/action.', code: 'anbu-solo-pve-cutover' });
             case 'state': return await doState(res, identity, playerName, body);
             case 'report': return await doReport(req, res, identity, playerName, body);
             case 'turn-in': return await doTurnIn(req, res, identity, playerName, body);
@@ -170,81 +166,33 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     const defRec = normalizeVillageWarRecord(targetVillage, (await kv.get<Record<string, unknown>>(villageWarKey(targetVillage))) ?? undefined);
     const terrain = String(defRec.sectors[String(sector)]?.terrain ?? 'central');
 
-    // Seal the raider exactly like a tower host: authoritative save + the
-    // client-computed combat extras the save doesn't persist (clamped in-seal).
-    const raiderLoadout = (body.raiderLoadout && typeof body.raiderLoadout === 'object') ? body.raiderLoadout as Record<string, unknown> : {};
-    const raiderCharacter = sealTowerFighter(char, rec ?? null, raiderLoadout, await loadAdminCombatContent());
+    // Seal both sides through the canonical server hydrator. Client-computed
+    // loadout fields are deliberately ignored; equipped content and passives
+    // resolve from the authoritative save and admin catalogs.
+    const raiderCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
 
     const runId = `infil-${randomUUID().replace(/-/g, '')}`;
-    const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
     const now = Date.now();
-    const { session, floor } = buildInfiltrationEncounter({
-        runId, seed, now,
-        raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealTowerItemCharges(char) },
-        anbu: { slug: snapshot.slug, name: snapshot.name, character: snapshot.character },
-        terrain,
+    const shortVillage = targetVillage.replace(/\s+Village$/i, '').trim();
+    const maskedAnbuName = `The ${shortVillage || 'Village'} Anbu`;
+    const session = buildInfiltrationEncounter({
+        runId, now,
+        raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealItemCharges(raiderCharacter, char) },
+        anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
+        terrain, sector, targetVillage,
     });
-    startRound(session);
-    runAiUntilHuman(session, floor, makeRng(seed));
 
     const run: InfilRun = {
         runId, raiderSlug: playerName, sector, targetVillage,
-        anbuSlug: snapshot.slug, anbuName: snapshot.name, terrain,
-        session, createdAt: now,
+        anbuSlug: snapshot.slug, anbuName: maskedAnbuName, terrain,
+        createdAt: now,
     };
+    await writeSoloPveSession(session);
     await writeInfilRun(run);
     return res.status(200).json({
         ok: true, runId, sector, targetVillage,
-        anbu: { name: snapshot.name }, session,
+        anbu: { name: maskedAnbuName }, session,
     });
-}
-
-// ── act (one combat action; mirrors /api/towers/action) ──────────────────────
-async function doAct(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
-    const runId = String(body.runId ?? '');
-    if (!runId) return res.status(400).json({ error: 'Missing runId.' });
-    if (!enforceRateLimit(req, res, 'anbu-infil-act', 120, 60_000, playerName)) return;
-
-    const outcome = await withKvLock(infilRunKey(runId), async (): Promise<{ status: number; body: unknown }> => {
-        const run = await readInfilRun(runId);
-        if (!run) return { status: 404, body: { error: 'Run not found or expired.' } };
-        if (!identity.admin && run.raiderSlug !== playerName) return { status: 403, body: { error: 'Not your run.' } };
-        const session = run.session;
-        if (session.status !== 'active') return { status: 200, body: { applied: false, reason: 'session-done', session } };
-
-        const actor = activeActor(session);
-        const callerSlug = identity.admin ? null : identity.name;
-        const owns = !!actor && (identity.admin || (actor.ai === false && actor.hp > 0 && actor.ownerSlug === callerSlug));
-        if (!owns) return { status: 409, body: { error: 'Not your turn.', session } };
-
-        const floor = makeInfiltrationFloor(biomeForTerrain(run.terrain));
-        const rng = makeRng(session.seed);
-        const type = String(body.type);
-        // Build the action server-side with actorId = the verified active actor (no client spoof).
-        const action: TowerAction =
-            type === 'move' ? { actorId: actor.id, type: 'move', tile: Math.floor(Number(body.tile)) }
-            : type === 'dash' ? { actorId: actor.id, type: 'dash', tile: Math.floor(Number(body.tile)) }
-            : type === 'attack' ? { actorId: actor.id, type: 'attack', targetId: String(body.targetId ?? '') }
-            : type === 'jutsu' ? { actorId: actor.id, type: 'jutsu', jutsuId: String(body.jutsuId ?? ''), targetId: body.targetId !== undefined ? String(body.targetId) : undefined, tile: body.tile !== undefined ? Math.floor(Number(body.tile)) : undefined }
-            : type === 'weapon' ? { actorId: actor.id, type: 'weapon', targetId: String(body.targetId ?? ''), itemId: body.itemId ? String(body.itemId) : undefined }
-            : type === 'item' ? { actorId: actor.id, type: 'item', itemId: body.itemId ? String(body.itemId) : undefined }
-            : type === 'heal' ? { actorId: actor.id, type: 'heal' }
-            : type === 'cleanse' ? { actorId: actor.id, type: 'cleanse' }
-            : type === 'clear' ? { actorId: actor.id, type: 'clear', targetId: String(body.targetId ?? '') }
-            : { actorId: actor.id, type: 'wait' };
-
-        const result = applyAction(session, floor, action, rng);
-        if (!result.applied) {
-            return { status: 200, body: { applied: false, reason: result.reason, session } };
-        }
-        if (action.type === 'wait') {
-            endTurn(session, floor);
-            runAiUntilHuman(session, floor, rng); // the Anbu strikes back until the raider is up / it's over
-        }
-        await writeInfilRun(run); // refreshes the run TTL
-        return { status: 200, body: { applied: true, session } };
-    });
-    return res.status(outcome.status).json(outcome.body);
 }
 
 // ── state (read-only refresh-restore) ─────────────────────────────────────────
@@ -254,7 +202,9 @@ async function doState(res: VercelResponse, identity: Identity, playerName: stri
     const run = await readInfilRun(runId);
     if (!run) return res.status(404).json({ error: 'Run not found or expired.' });
     if (!identity.admin && run.raiderSlug !== playerName) return res.status(403).json({ error: 'Not your run.' });
-    return res.status(200).json({ ok: true, runId, sector: run.sector, targetVillage: run.targetVillage, anbu: { name: run.anbuName }, session: run.session });
+    const session = await readSoloPveSession(runId);
+    if (!infiltrationSessionMatches(run, session)) return res.status(409).json({ error: 'The infiltration combat binding is invalid.' });
+    return res.status(200).json({ ok: true, runId, sector: run.sector, targetVillage: run.targetVillage, anbu: { name: run.anbuName }, session });
 }
 
 // ── report (settle a finished run — the ONLY reward path) ─────────────────────
@@ -266,24 +216,29 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
     const run = await readInfilRun(runId);
     if (!run) return res.status(404).json({ error: 'Run not found, expired, or already settled.' });
     if (!identity.admin && run.raiderSlug !== playerName) return res.status(403).json({ error: 'Not your run.' });
-    if (run.session.status !== 'done') return res.status(409).json({ error: 'The fight is not finished.' });
+    const session = await readSoloPveSession(runId);
+    if (!infiltrationSessionMatches(run, session)) return res.status(409).json({ error: 'The infiltration combat binding is invalid.' });
+    if (session.status !== 'done' || !session.terminalEvidence) return res.status(409).json({ error: 'The fight is not finished.' });
 
-    // Deduct the throwables / consumables the SERVER recorded the raider
-    // spending this run (the engine decremented the sealed itemCharges;
-    // usedItemsForMember sums the actor's itemsUsed). Same helper + per-run
-    // receipt every other tower-engine mode uses — win OR wipe, spent is spent.
-    // Best-effort: a contended lock just leaves it for a report retry.
-    await settleConsumedItemsForMember({ session: run.session, slug: run.raiderSlug });
-
-    if (run.session.winner !== 'squad') {
+    if (session.outcome !== 'win') {
         // The Anbu held. No reward, no drain — the vault stands.
+        const loss = await settleInfiltrationLoss(run, session);
+        if (!loss.ok) return res.status(404).json({ error: 'Your save was not found.' });
+        await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
+            kind: 'anbu-infiltration', id: runId, settledAt: Date.now(), rewards: { won: false },
+        }));
         await deleteInfilRun(runId);
-        return res.status(200).json({ ok: true, won: false });
+        return res.status(200).json({
+            ok: true,
+            won: false,
+            alreadySettled: loss.alreadySettled,
+            ...(!loss.alreadySettled ? { character: loss.character, _saveVersion: loss.saveVersion } : {}),
+        });
     }
 
     // Server-side roll — the client never picks the pool, the outcome, or amounts.
     const roll = randomInt(0, 1_000_000_000) / 1_000_000_000;
-    const out = await settleInfiltrationWin(run, roll);
+    const out = await settleInfiltrationWin(run, roll, {}, session);
     if (!out.ok) {
         if (out.error === 'no-save') return res.status(404).json({ error: 'Your save was not found.' });
         return res.status(503).json({
@@ -291,6 +246,17 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
             error: 'The raid succeeded but the reward could not be saved. An admin can reconcile it — please do not retry.',
         });
     }
+    await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
+        kind: 'anbu-infiltration',
+        id: runId,
+        settledAt: Date.now(),
+        rewards: out.alreadySettled ? { won: true } : {
+            won: true,
+            supplyCaches: out.supplyCaches,
+            wrCaches: out.wrCaches,
+            ryo: out.ryo,
+        },
+    }));
     await deleteInfilRun(runId);
     if (out.alreadySettled) return res.status(200).json({ ok: true, won: true, alreadySettled: true });
 
@@ -339,6 +305,7 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
         supplySkim: out.supplySkim, wrSkim: out.wrSkim,
         supplyCaches: out.supplyCaches, wrCaches: out.wrCaches,
         ryo: out.ryo, overflowLost: out.overflowLost,
+        character: out.character,
         missionsCompleted, missionXp,
         _saveVersion: out.saveVersion,
     });

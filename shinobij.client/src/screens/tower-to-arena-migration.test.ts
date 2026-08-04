@@ -22,14 +22,15 @@ test("Weekly Boss renders on the arena shell, not the tower rail", () => {
     assert.match(weeklyWrapper, /settleOnAnyDone/);
     assert.match(weeklyArena, /<WeeklyBossFight/);
     assert.doesNotMatch(weeklyArena, /<BattleTowerFight|screens\/BattleTowerFight/);
-    assert.match(app, /<WeeklyBossFight/);
+    assert.match(app, /<WeeklyBossArena/);
+    assert.doesNotMatch(app, /<WeeklyBossFight/);
     assert.doesNotMatch(app, /<BattleTowerFight|screens\/BattleTowerFight/);
 });
 
-test("Anbu Vault fight renders on the arena shell with its own action route", () => {
+test("Anbu Vault fight renders on the arena shell with the generic Solo PvE transport", () => {
     assert.match(anbuRaid, /<MissionArenaFight/);
-    assert.match(anbuRaid, /createTowerArenaTransport\(\{[\s\S]*submit: infiltrationAct/);
-    assert.match(anbuRaid, /transport=\{infiltrationArenaTransport\}/);
+    assert.match(anbuRaid, /soloPveSessionForArena\(fight\.session\)/);
+    assert.match(anbuRaid, /transport=\{soloPveArenaTransport\}/);
     assert.match(anbuRaid, /settleOnAnyDone/);
-    assert.doesNotMatch(anbuRaid, /<BattleTowerFight|screens\/BattleTowerFight/);
+    assert.doesNotMatch(anbuRaid, /createTowerArenaTransport|infiltrationAct|towerSessionForArena|<BattleTowerFight|screens\/BattleTowerFight/);
 });
