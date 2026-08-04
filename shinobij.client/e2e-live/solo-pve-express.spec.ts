@@ -11,7 +11,7 @@ type Session = {
     environment: { blockedTiles: number[] };
 };
 
-type JsonResponse = { status: number; body: Record<string, any> };
+type JsonResponse = { status: number; body: Record<string, unknown> };
 
 const GRID_W = 12;
 const GRID_H = 10;
