@@ -293,13 +293,13 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
 
     await expect(page.locator(".pet-sanctuary-ledger")).toContainText("4/5");
     await page.getByRole("button", { name: "Move to Sanctuary" }).click();
-    await expect(page.getByRole("status")).toContainText("Sumi is resting safely");
+    await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi is resting safely");
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(3);
     await expect(page.locator(".pet-sanctuary-ledger")).toContainText("3/5");
     const depositedPet = page.locator(".pet-sanctuary-card", { hasText: "Sumi" });
     await expect(depositedPet).toHaveCount(1);
     await depositedPet.getByRole("button", { name: "Add to carried" }).click();
-    await expect(page.getByRole("status")).toContainText("Sumi joined your carried roster");
+    await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi joined your carried roster");
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(2);
     await expect(page.locator(".pet-sanctuary-ledger")).toContainText("4/5");
     await shot(page, testInfo, "02d-sanctuary-roster-round-trip");
@@ -451,11 +451,11 @@ test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page 
     }).toBe(true);
 
     await page.getByRole("button", { name: "Move to Sanctuary" }).click();
-    await expect(page.getByRole("status")).toContainText("Sumi is resting safely");
+    await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi is resting safely");
     await expect(page.locator(".pet-sanctuary-ledger")).toContainText("3/5");
     const depositedPet = page.locator(".pet-sanctuary-card", { hasText: "Sumi" });
     await depositedPet.getByRole("button", { name: "Add to carried" }).click();
-    await expect(page.getByRole("status")).toContainText("Sumi joined your carried roster");
+    await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi joined your carried roster");
     await expect(page.locator(".pet-sanctuary-ledger")).toContainText("4/5");
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(2);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {

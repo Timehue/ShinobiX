@@ -131,6 +131,7 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
             <label><span>Carried companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No carried companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)}</option>)}</select></label>
             <button type="button" className="pet-home-primary" disabled={!selectedDepositPetId || Boolean(busyPetId)} onClick={() => void moveToSanctuary()}>{busyPetId === selectedDepositPetId ? "Preparing habitat…" : "Move to Sanctuary"}</button>
         </div>
+        {message && <p className="pet-sanctuary-message" role="status">{message}</p>}
 
         <div className="pet-sanctuary-toolbar" aria-label="Filter Sanctuary companions">
             <label className="pet-search"><span>Search</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, nickname, trait…" /></label>
@@ -138,8 +139,6 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
             <label><span>Rarity</span><select value={rarity} onChange={(event) => setRarity(event.target.value)}>{RARITIES.map((value) => <option key={value} value={value}>{title(value)}</option>)}</select></label>
             <label><span>Origin</span><select value={origin} onChange={(event) => setOrigin(event.target.value)}>{ORIGINS.map((value) => <option key={value} value={value}>{title(value)}</option>)}</select></label>
         </div>
-        {message && <p className="pet-sanctuary-message" role="status">{message}</p>}
-
         {loading ? <div className="pet-sanctuary-loading" role="status"><span /><p>Opening the habitats…</p></div> : items.length ? <div className="pet-sanctuary-grid">{items.map((item) => {
             const pet = item.pet;
             const art = petCardImage(pet, sharedImages);
