@@ -2,12 +2,13 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     settleInfiltrationWin,
+    settleInfiltrationLoss,
     turnInCachesForSave,
     pickAnbuDefender,
     getOrSealAnbuSnapshot,
-    bumpInfilStartCount,
+    reserveInfilStartAttempt,
     loadAnbuAppointees,
-    infilPaidKey,
+    infilStartCountKey,
     supplyLedgerKey,
     wrLedgerKey,
     villageStateKey,
@@ -16,6 +17,7 @@ import {
     type InfilKv,
     type InfilLock,
 } from './_anbu-infiltration-store.js';
+import { buildInfiltrationEncounter } from './_anbu-infiltration-encounter.js';
 import { villageWarKey } from './_war-state.js';
 import { clanPointWeekKey } from './_clan-points.js';
 import { CACHE_ITEM_IDS, RAID_RYO_REWARD, type DailyLossLedger } from './_anbu-infiltration.js';
@@ -35,7 +37,6 @@ function fakeKv(): InfilKv & { store: Map<string, unknown> } {
             return 'OK';
         },
         async del(...keys: string[]) { let n = 0; for (const k of keys) if (store.delete(k)) n++; return n; },
-        async incr(key: string) { const v = (Number(store.get(key)) || 0) + 1; store.set(key, v); return v; },
     };
 }
 const passLock: InfilLock = async (_t, fn) => fn();
@@ -73,6 +74,26 @@ function makeRun(over: Partial<InfilRun> = {}): InfilRun {
     ...over };
 }
 
+function terminalSession(outcome: 'win' | 'loss' = 'win') {
+    const session = buildInfiltrationEncounter({
+        runId: 'r1', now: NOW, sector: SECTOR, targetVillage: VILLAGE, terrain: 'snow',
+        raider: {
+            slug: 'raider', name: 'raider', itemCharges: { potion: 1 },
+            character: { level: 100, maxHp: 9000, maxChakra: 100, maxStamina: 100, stats: {}, jutsu: [], pvpItems: [], equipment: {} },
+        },
+        anbu: {
+            slug: 'anbu-one', name: 'The Frostfang Anbu',
+            character: { level: 100, maxHp: 9000, maxChakra: 100, maxStamina: 100, stats: {}, jutsu: [], pvpItems: [], equipment: {} },
+        },
+    });
+    session.status = 'done';
+    session.winner = outcome === 'win' ? 'player' : 'enemy';
+    session.outcome = outcome;
+    session.player.hp = outcome === 'win' ? 4321 : 0;
+    session.itemsUsed = { potion: 1 };
+    return session;
+}
+
 describe('settleInfiltrationWin', () => {
     it('both-roll: drains both pools, mints both caches + ryo, writes ledgers', async () => {
         const kv = fakeKv();
@@ -98,8 +119,7 @@ describe('settleInfiltrationWin', () => {
         // ledgers written for today
         assert.deepEqual(kv.store.get(supplyLedgerKey(SECTOR)), { date: TODAY, openingBalance: 4000, lostToday: 40 });
         assert.deepEqual(kv.store.get(wrLedgerKey(villageSlug(VILLAGE))), { date: TODAY, openingBalance: 5000, lostToday: 50 });
-        // paid receipt placed
-        assert.ok(kv.store.has(infilPaidKey('r1')));
+        assert.ok(Array.isArray(charOf(kv, 'raider').serverSettlementReceipts));
     });
 
     it('materializes lazy accrual before skimming (stored 0, 10 days accrued)', async () => {
@@ -168,12 +188,65 @@ describe('settleInfiltrationWin', () => {
         assert.equal((kv.store.get(TERRITORY_KEY) as Record<string, unknown>).warSupply, 3960);
     });
 
-    it('missing raider save → no-save error, tx marked failed, pools already debited stay debited', async () => {
+    it('missing raider save can retry later without draining either pool twice', async () => {
         const kv = fakeKv();
         seedTerritory(kv); seedWarRecord(kv); // no raider save
         const out = await settleInfiltrationWin(makeRun(), 0.05, deps(kv));
         assert.deepEqual(out, { ok: false, error: 'no-save' });
-        assert.equal((kv.store.get(TERRITORY_KEY) as Record<string, unknown>).warSupply, 3960); // lose, never duplicate
+        assert.equal((kv.store.get(TERRITORY_KEY) as Record<string, unknown>).warSupply, 3960);
+        assert.equal((kv.store.get(villageWarKey(VILLAGE)) as Record<string, unknown>).warResources, 4950);
+        seedSave(kv, 'raider');
+        const retry = await settleInfiltrationWin(makeRun(), 0.90, deps(kv));
+        if (!retry.ok) throw new Error('retry should recover');
+        assert.deepEqual(retry.rolled, { supply: true, wr: true }, 'original server roll stays sealed');
+        assert.equal((kv.store.get(TERRITORY_KEY) as Record<string, unknown>).warSupply, 3960);
+        assert.equal((kv.store.get(villageWarKey(VILLAGE)) as Record<string, unknown>).warResources, 4950);
+        assert.equal(charOf(kv, 'raider').ryo, RAID_RYO_REWARD);
+    });
+
+    it('a failed save write retries the credit and combat usage exactly once', async () => {
+        const kv = fakeKv();
+        seedTerritory(kv); seedWarRecord(kv);
+        seedSave(kv, 'raider', { inventory: ['potion'] });
+        const originalSet = kv.set.bind(kv);
+        let failSaveOnce = true;
+        kv.set = async (key, value, opts) => {
+            if (key === 'save:raider' && failSaveOnce) {
+                failSaveOnce = false;
+                throw new Error('injected save write failure');
+            }
+            return originalSet(key, value, opts);
+        };
+        const first = await settleInfiltrationWin(makeRun(), 0.05, deps(kv), terminalSession('win'));
+        assert.deepEqual(first, { ok: false, error: 'credit-failed' });
+        assert.equal((kv.store.get(TERRITORY_KEY) as Record<string, unknown>).warSupply, 3960);
+        assert.equal((kv.store.get(villageWarKey(VILLAGE)) as Record<string, unknown>).warResources, 4950);
+        assert.deepEqual(charOf(kv, 'raider').inventory, ['potion']);
+
+        const retry = await settleInfiltrationWin(makeRun(), 0.90, deps(kv), terminalSession('win'));
+        if (!retry.ok) throw new Error('retry should recover');
+        assert.equal((kv.store.get(TERRITORY_KEY) as Record<string, unknown>).warSupply, 3960);
+        assert.equal((kv.store.get(villageWarKey(VILLAGE)) as Record<string, unknown>).warResources, 4950);
+        assert.deepEqual(charOf(kv, 'raider').inventory, []);
+        assert.equal(charOf(kv, 'raider').ryo, RAID_RYO_REWARD);
+        const replay = await settleInfiltrationWin(makeRun(), 0.90, deps(kv), terminalSession('win'));
+        assert.equal(replay.ok && replay.alreadySettled, true);
+        assert.deepEqual(charOf(kv, 'raider').inventory, []);
+        assert.equal(charOf(kv, 'raider').ryo, RAID_RYO_REWARD);
+    });
+});
+
+describe('settleInfiltrationLoss', () => {
+    it('persists item usage and terminal outcome once, with replayable save receipt', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'raider', { inventory: ['potion'], hp: 9000 });
+        const first = await settleInfiltrationLoss(makeRun(), terminalSession('loss'), deps(kv));
+        assert.equal(first.ok && !first.alreadySettled, true);
+        assert.deepEqual(charOf(kv, 'raider').inventory, []);
+        const afterFirst = structuredClone(charOf(kv, 'raider'));
+        const replay = await settleInfiltrationLoss(makeRun(), terminalSession('loss'), deps(kv));
+        assert.equal(replay.ok && replay.alreadySettled, true);
+        assert.deepEqual(charOf(kv, 'raider'), afterFirst);
     });
 });
 
@@ -301,10 +374,14 @@ describe('Anbu roster + snapshot', () => {
         assert.equal(await getOrSealAnbuSnapshot(VILLAGE, 'ghost', d), null);
     });
 
-    it('bumpInfilStartCount increments per call', async () => {
+    it('daily attempt reservation replays the same prepared run without incrementing', async () => {
         const kv = fakeKv();
         const d = deps(kv);
-        assert.equal(await bumpInfilStartCount('raider', d), 1);
-        assert.equal(await bumpInfilStartCount('raider', d), 2);
+        assert.deepEqual(await reserveInfilStartAttempt('raider', 'run-a', 2, d), { allowed: true, replayed: false, count: 1 });
+        assert.deepEqual(await reserveInfilStartAttempt('raider', 'run-a', 2, d), { allowed: true, replayed: true, count: 1 });
+        assert.deepEqual(await reserveInfilStartAttempt('raider', 'run-b', 2, d), { allowed: true, replayed: false, count: 2 });
+        assert.deepEqual(await reserveInfilStartAttempt('raider', 'run-c', 2, d), { allowed: false, replayed: false, count: 2 });
+        const stored = kv.store.get(infilStartCountKey('raider', TODAY)) as { count: number };
+        assert.equal(stored.count, 2);
     });
 });

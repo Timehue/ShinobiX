@@ -19,21 +19,23 @@ import {
 import {
     readInfilRun,
     writeInfilRun,
-    deleteInfilRun,
-    bumpInfilStartCount,
+    reserveInfilStartAttempt,
     loadAnbuAppointees,
     pickAnbuDefender,
     getOrSealAnbuSnapshot,
     settleInfiltrationWin,
     settleInfiltrationLoss,
     turnInCachesForSave,
+    infilRunKey,
+    infilActiveRunKey,
+    INFIL_RUN_TTL,
     type InfilRun,
 } from '../_anbu-infiltration-store.js';
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
-import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 
 /*
@@ -148,19 +150,6 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         return res.status(409).json({ error: 'That village has no Anbu or Kage to defend its vault yet.' });
     }
 
-    // Daily attempt cap (counts ATTEMPTS — abandoning a run does not refund it).
-    const started = await bumpInfilStartCount(playerName);
-    if (!identity.admin && started > MAX_RAID_ATTEMPTS_PER_DAY) {
-        return res.status(429).json({ error: 'Daily infiltration limit reached.' });
-    }
-
-    // Defender: least-recently-defended Anbu, sealed daily from their save.
-    const anbuSlug = await pickAnbuDefender(targetVillage, appointees);
-    const snapshot = anbuSlug ? await getOrSealAnbuSnapshot(targetVillage, anbuSlug) : null;
-    if (!anbuSlug || !snapshot) {
-        return res.status(409).json({ error: 'No defending Anbu could be prepared — try again shortly.' });
-    }
-
     // Defender home-terrain edge: the sector's Kage-set terrain seals in as the
     // fight biome (identical mechanic to sector-war's terrain seal).
     const defRec = normalizeVillageWarRecord(targetVillage, (await kv.get<Record<string, unknown>>(villageWarKey(targetVillage))) ?? undefined);
@@ -171,28 +160,84 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     // resolve from the authoritative save and admin catalogs.
     const raiderCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
 
-    const runId = `infil-${randomUUID().replace(/-/g, '')}`;
-    const now = Date.now();
-    const shortVillage = targetVillage.replace(/\s+Village$/i, '').trim();
-    const maskedAnbuName = `The ${shortVillage || 'Village'} Anbu`;
-    const session = buildInfiltrationEncounter({
-        runId, now,
-        raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealItemCharges(raiderCharacter, char) },
-        anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
-        terrain, sector, targetVillage,
-    });
+    const activeKey = infilActiveRunKey(playerName, sector);
+    const started = await withKvLock(activeKey, async () => {
+        const activeRunId = await kv.get<string>(activeKey);
+        if (activeRunId) {
+            const activeRun = await readInfilRun(activeRunId);
+            const activeSession = await readSoloPveSession(activeRunId);
+            const resumable = Boolean(activeRun
+                && !activeRun.settlement
+                && activeRun.sector === sector
+                && activeRun.targetVillage === targetVillage
+                && infiltrationSessionMatches(activeRun, activeSession));
+            if (resumable && activeRun && activeSession) {
+                const attempt = identity.admin
+                    ? { allowed: true, replayed: true, count: 0 }
+                    : await reserveInfilStartAttempt(playerName, activeRun.runId, MAX_RAID_ATTEMPTS_PER_DAY);
+                if (!attempt.allowed) {
+                    await kv.del(activeKey, infilRunKey(activeRunId), soloPveSessionKey(activeRunId));
+                    return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
+                }
+                if (activeRun.startState !== 'ready') {
+                    await writeInfilRun({ ...activeRun, startState: 'ready' });
+                }
+                await kv.set(activeKey, activeRunId, { ex: INFIL_RUN_TTL });
+                return { status: 200 as const, body: {
+                    ok: true,
+                    replayed: true,
+                    runId: activeRunId,
+                    sector,
+                    targetVillage,
+                    anbu: { name: activeRun.anbuName },
+                    session: activeSession,
+                } };
+            }
+            await kv.del(activeKey);
+        }
 
-    const run: InfilRun = {
-        runId, raiderSlug: playerName, sector, targetVillage,
-        anbuSlug: snapshot.slug, anbuName: maskedAnbuName, terrain,
-        createdAt: now,
-    };
-    await writeSoloPveSession(session);
-    await writeInfilRun(run);
-    return res.status(200).json({
-        ok: true, runId, sector, targetVillage,
-        anbu: { name: maskedAnbuName }, session,
-    });
+        // Defender: least-recently-defended Anbu, sealed daily from their save.
+        const anbuSlug = await pickAnbuDefender(targetVillage, appointees);
+        const snapshot = anbuSlug ? await getOrSealAnbuSnapshot(targetVillage, anbuSlug) : null;
+        if (!anbuSlug || !snapshot) {
+            return { status: 409 as const, body: { error: 'No defending Anbu could be prepared — try again shortly.' } };
+        }
+
+        const runId = `infil-${randomUUID().replace(/-/g, '')}`;
+        const now = Date.now();
+        const shortVillage = targetVillage.replace(/\s+Village$/i, '').trim();
+        const maskedAnbuName = `The ${shortVillage || 'Village'} Anbu`;
+        const session = buildInfiltrationEncounter({
+            runId, now,
+            raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealItemCharges(raiderCharacter, char) },
+            anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
+            terrain, sector, targetVillage,
+        });
+        const run: InfilRun = {
+            runId, raiderSlug: playerName, sector, targetVillage,
+            anbuSlug: snapshot.slug, anbuName: maskedAnbuName, terrain,
+            createdAt: now,
+            startState: 'prepared',
+        };
+
+        // Persist a resumable prepared run before consuming the daily attempt.
+        await writeSoloPveSession(session);
+        await writeInfilRun(run);
+        await kv.set(activeKey, runId, { ex: INFIL_RUN_TTL });
+        const attempt = identity.admin
+            ? { allowed: true, replayed: false, count: 0 }
+            : await reserveInfilStartAttempt(playerName, runId, MAX_RAID_ATTEMPTS_PER_DAY);
+        if (!attempt.allowed) {
+            await kv.del(activeKey, infilRunKey(runId), soloPveSessionKey(runId));
+            return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
+        }
+        await writeInfilRun({ ...run, startState: 'ready' });
+        return { status: 200 as const, body: {
+            ok: true, replayed: attempt.replayed, runId, sector, targetVillage,
+            anbu: { name: maskedAnbuName }, session,
+        } };
+    }, { failClosed: true, ttlSec: 30 });
+    return res.status(started.status).json(started.body);
 }
 
 // ── state (read-only refresh-restore) ─────────────────────────────────────────
@@ -213,9 +258,14 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
     const runId = String(body.runId ?? '');
     if (!runId) return res.status(400).json({ error: 'Missing runId.' });
 
+    return withKvLock(infilRunKey(runId), () => doReportLocked(res, identity, playerName, runId), { failClosed: true, ttlSec: 30 });
+}
+
+async function doReportLocked(res: VercelResponse, identity: Identity, playerName: string, runId: string) {
     const run = await readInfilRun(runId);
-    if (!run) return res.status(404).json({ error: 'Run not found, expired, or already settled.' });
+    if (!run) return res.status(404).json({ error: 'Run not found or expired.' });
     if (!identity.admin && run.raiderSlug !== playerName) return res.status(403).json({ error: 'Not your run.' });
+    if (run.settlement) return res.status(200).json(run.settlement.response);
     const session = await readSoloPveSession(runId);
     if (!infiltrationSessionMatches(run, session)) return res.status(409).json({ error: 'The infiltration combat binding is invalid.' });
     if (session.status !== 'done' || !session.terminalEvidence) return res.status(409).json({ error: 'The fight is not finished.' });
@@ -223,17 +273,24 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
     if (session.outcome !== 'win') {
         // The Anbu held. No reward, no drain — the vault stands.
         const loss = await settleInfiltrationLoss(run, session);
-        if (!loss.ok) return res.status(404).json({ error: 'Your save was not found.' });
+        if (!loss.ok) {
+            return loss.error === 'no-save'
+                ? res.status(404).json({ error: 'Your save was not found.' })
+                : res.status(409).json({ error: 'The settlement receipt conflicts with this raid.' });
+        }
+        const settledAt = Date.now();
         await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
-            kind: 'anbu-infiltration', id: runId, settledAt: Date.now(), rewards: { won: false },
+            kind: 'anbu-infiltration', id: runId, settledAt, rewards: { won: false },
         }));
-        await deleteInfilRun(runId);
-        return res.status(200).json({
+        const response = {
             ok: true,
             won: false,
-            alreadySettled: loss.alreadySettled,
-            ...(!loss.alreadySettled ? { character: loss.character, _saveVersion: loss.saveVersion } : {}),
-        });
+            alreadySettled: false,
+            character: loss.character,
+            _saveVersion: loss.saveVersion,
+        };
+        await writeInfilRun({ ...run, settlement: { settledAt, response } });
+        return res.status(200).json(response);
     }
 
     // Server-side roll — the client never picks the pool, the outcome, or amounts.
@@ -246,19 +303,32 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
             error: 'The raid succeeded but the reward could not be saved. An admin can reconcile it — please do not retry.',
         });
     }
+    const settledAt = Date.now();
     await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
         kind: 'anbu-infiltration',
         id: runId,
-        settledAt: Date.now(),
-        rewards: out.alreadySettled ? { won: true } : {
+        settledAt,
+        rewards: {
             won: true,
             supplyCaches: out.supplyCaches,
             wrCaches: out.wrCaches,
             ryo: out.ryo,
         },
     }));
-    await deleteInfilRun(runId);
-    if (out.alreadySettled) return res.status(200).json({ ok: true, won: true, alreadySettled: true });
+
+    const economicResponse = {
+        ok: true, won: true, alreadySettled: false,
+        rolled: out.rolled,
+        supplySkim: out.supplySkim, wrSkim: out.wrSkim,
+        supplyCaches: out.supplyCaches, wrCaches: out.wrCaches,
+        ryo: out.ryo, overflowLost: out.overflowLost,
+        character: out.character,
+        missionsCompleted: [] as CompletedMissionInfo[], missionXp: 0,
+        _saveVersion: out.saveVersion,
+    };
+    // Persist the replayable response before non-economic hooks or the HTTP
+    // response. A lost response can now return the exact paid result for seven days.
+    await writeInfilRun({ ...run, settlement: { settledAt, response: economicResponse } });
 
     // ── Mission / legacy / clan hooks (docs plan §9) ──────────────────────────
     // Best-effort AFTER the authoritative settle — a hook failure must never
@@ -299,16 +369,9 @@ async function doReport(req: VercelRequest, res: VercelResponse, identity: Ident
         console.error('[village/anbu-infiltration] post-win hooks (non-fatal)', hookErr);
     }
 
-    return res.status(200).json({
-        ok: true, won: true, alreadySettled: false,
-        rolled: out.rolled,
-        supplySkim: out.supplySkim, wrSkim: out.wrSkim,
-        supplyCaches: out.supplyCaches, wrCaches: out.wrCaches,
-        ryo: out.ryo, overflowLost: out.overflowLost,
-        character: out.character,
-        missionsCompleted, missionXp,
-        _saveVersion: out.saveVersion,
-    });
+    const response = { ...economicResponse, missionsCompleted, missionXp };
+    await writeInfilRun({ ...run, settlement: { settledAt, response } });
+    return res.status(200).json(response);
 }
 
 // ── turn-in (caches → standing points, type-locked) ───────────────────────────
