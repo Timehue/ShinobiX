@@ -24,6 +24,7 @@ export type BetaMetricEvent =
     | 'combat.session_settled'
     | 'combat.session_unresolved'
     | 'hollow_gate.run_started'
+    | 'hollow_gate.run_start_replayed'
     | 'hollow_gate.floor_descended'
     | 'hollow_gate.combat_started'
     | 'hollow_gate.combat_resumed'

@@ -4,7 +4,7 @@ import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import type { Character, HollowGateShrineRun, HollowGateTile } from "../types/character";
 import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
-import { applyAttunementToRun, attunementLootRetention } from "./hollow-gate-attunement";
+import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 import {
     buildHollowHoundOpponent,
@@ -16,7 +16,6 @@ import {
     hollowGateAlphaCinematicImage,
     hollowGateHoundCombatImage,
 } from "./hollow-gate-presentation";
-import { clawBackHollowGateLoot } from "./hollow-gate-run";
 import {
     finalizeHollowGateRunEnd,
     reportHollowGateRunError,
@@ -76,33 +75,12 @@ export function useHollowGateAppFlow(params: {
         setExitPending(true);
         try {
             if (!run.runToken) {
-                const death = opts?.death === true;
-                const now = Date.now();
-                setCharacter((previous) => {
-                    if (!previous) return previous;
-                    const retained = death
-                        ? clawBackHollowGateLoot(previous, run, 1 - attunementLootRetention(previous))
-                        : previous;
-                    return {
-                        ...retained,
-                        ...(death ? {
-                            hp: 0,
-                            hospitalized: true,
-                            hospitalizedAt: now,
-                            hospitalizedUntil: now + 60_000,
-                        } : {}),
-                        hollowGateRun: null,
-                    };
-                });
-                clearRunUi();
-                setScreen(death ? "hospital" : "worldMap");
-                return;
+                throw new Error("This Hollow Gate run has no valid server settlement token.");
             }
             await finalizeHollowGateRunEnd({
                 run,
                 outcome: opts?.death ? "death" : "extract",
                 character,
-                lootRetention: attunementLootRetention(character),
                 setCharacter,
             });
             clearRunUi();

@@ -4,7 +4,9 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { AUGMENT_CATALOG, hollowGateRunKey, hollowGateRunsEnabled, type HollowGateRunToken } from './_run-token.js';
+import { withKvLock } from '../_lock.js';
+import { AUGMENT_CATALOG, augmentDisplay, hollowGateRunKey, hollowGateRunsEnabled, type HollowGateRunToken } from './_run-token.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 
 /*
  * /api/hollow-gate/choose-augment  — POST only
@@ -15,10 +17,6 @@ import { AUGMENT_CATALOG, hollowGateRunKey, hollowGateRunsEnabled, type HollowGa
  * settle reads it from chosenAugmentId, never from the client.
  * Body: { playerName, token, augmentId }.
  */
-
-// Re-seal preserves the token's lifetime: match start.ts's resumable-run TTL so
-// choosing an augment never shortens the window (see start.ts for the rationale).
-const RUN_TTL_SEC = 24 * 60 * 60;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -41,16 +39,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-choose', 30, 60_000, identity.name))) return;
 
         const key = hollowGateRunKey(playerName, token);
-        const run = await kv.get<HollowGateRunToken>(key);
-        if (!run) return res.status(200).json({ ok: true, reason: 'invalid-or-spent' });
-        if (run.playerName.toLowerCase() !== playerName.toLowerCase()) return res.status(403).json({ error: 'Not your run.' });
-        if (run.chosenAugmentId) return res.status(200).json({ ok: true, reason: 'already-chosen', chosenAugmentId: run.chosenAugmentId });
-        if (!run.offeredAugmentIds.includes(augmentId) || !AUGMENT_CATALOG[augmentId]) {
-            return res.status(400).json({ error: 'That augment was not offered for this run.' });
+        const result = await withKvLock(key, async () => {
+            const run = await kv.get<HollowGateRunToken>(key);
+            if (!run) return { status: 200, body: { ok: true, reason: 'invalid-or-spent' } };
+            if (run.playerName.toLowerCase() !== playerName.toLowerCase()) return { status: 403, body: { error: 'Not your run.' } };
+            if (run.chosenAugmentId) return { status: 200, body: { ok: true, reason: 'already-chosen', chosenAugmentId: run.chosenAugmentId } };
+            if (!run.offeredAugmentIds.includes(augmentId) || !AUGMENT_CATALOG[augmentId]) {
+                return { status: 400, body: { error: 'That augment was not offered for this run.' } };
+            }
+            await kv.set(key, { ...run, chosenAugmentId: augmentId });
+            return { status: 200, body: { ok: true, chosenAugmentId: augmentId } };
+        }, { failClosed: true, ttlSec: 10 });
+        const chosenAugmentId = typeof result.body === 'object' && result.body && 'chosenAugmentId' in result.body
+            ? String((result.body as { chosenAugmentId?: unknown }).chosenAugmentId ?? '')
+            : '';
+        if (result.status === 200 && chosenAugmentId && AUGMENT_CATALOG[chosenAugmentId]) {
+            // Keep the refresh projection aligned with the sealed choice. A
+            // failed projection write is recoverable: replaying this endpoint
+            // reads the existing KV choice and retries the same save update.
+            const projection = await mutatePlayerSave(playerName, ({ character }) => {
+                const savedRun = character.hollowGateRun && typeof character.hollowGateRun === 'object'
+                    ? character.hollowGateRun as Record<string, unknown>
+                    : null;
+                if (!savedRun || savedRun.runToken !== token) {
+                    return { ok: true as const, character, value: null };
+                }
+                return {
+                    ok: true as const,
+                    character: {
+                        ...character,
+                        hollowGateRun: {
+                            ...savedRun,
+                            chosenAugment: augmentDisplay(AUGMENT_CATALOG[chosenAugmentId]),
+                        },
+                    },
+                    value: null,
+                };
+            });
+            if (!projection.ok) return res.status(503).json({ error: 'The augment was sealed; retry to synchronize the saved run.' });
         }
-
-        await kv.set(key, { ...run, chosenAugmentId: augmentId }, { ex: RUN_TTL_SEC });
-        return res.status(200).json({ ok: true, chosenAugmentId: augmentId });
+        return res.status(result.status).json(result.body);
     } catch (err) {
         console.error('[hollow-gate/choose-augment]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

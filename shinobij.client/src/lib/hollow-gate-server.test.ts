@@ -3,70 +3,66 @@ import assert from "node:assert/strict";
 import type { Character, HollowGateShrineRun, HollowGateAugmentOffer } from "../types/character";
 import {
     hollowGateServerEnabled,
-    computeHollowGateHaul,
-    applyServerSettle,
+    startHollowGateServerRun,
     reconcileHollowGateSettle,
-    applyHollowGateRunEndLocal,
     buildAugmentPickerEvent,
     shouldResumeAugmentPicker,
     hollowGateAugmentEffects,
 } from "./hollow-gate-server";
 
+test("start retry reuses one idempotency request id", async () => {
+    const originalFetch = globalThis.fetch;
+    const bodies: Array<Record<string, unknown>> = [];
+    let attempt = 0;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        bodies.push(JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>);
+        attempt += 1;
+        if (attempt === 1) throw new Error("lost response");
+        return new Response(JSON.stringify({ ok: true, token: "sealed-token" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    }) as typeof fetch;
+    try {
+        const result = await startHollowGateServerRun("Rin", 5);
+        assert.equal(result?.token, "sealed-token");
+        assert.equal(bodies.length, 2);
+        assert.equal(bodies[0].requestId, bodies[1].requestId);
+        assert.match(String(bodies[0].requestId), /^[A-Za-z0-9:_-]{8,96}$/);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("start recovery sends the persisted request id unchanged", async () => {
+    const originalFetch = globalThis.fetch;
+    let body: Record<string, unknown> = {};
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        return new Response(JSON.stringify({ ok: true, token: "sealed-token" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    }) as typeof fetch;
+    try {
+        await startHollowGateServerRun("Rin", 5, undefined, "hg-start-recovery-123");
+        assert.equal(body.requestId, "hg-start-recovery-123");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 function char(overrides: Record<string, unknown>): Character {
     return { name: "Rin", ryo: 0, auraDust: 0, auraStones: 0, boneCharms: 0, fateShards: 0, honorSeals: 0, hollowShards: 0, ...overrides } as unknown as Character;
 }
-function run(entry: Record<string, number> | undefined): HollowGateShrineRun {
-    return { entryCurrencies: entry } as unknown as HollowGateShrineRun;
-}
-
 test("flag defaults OFF (no window in node, and never throws)", () => {
     assert.equal(hollowGateServerEnabled(), false);
-});
-
-test("computeHollowGateHaul = current − entry, floored at 0", () => {
-    const haul = computeHollowGateHaul(char({ ryo: 1400, hollowShards: 30, fateShards: 1 }), { ryo: 1000, hollowShards: 0, fateShards: 5 });
-    assert.equal(haul.ryo, 400);
-    assert.equal(haul.hollowShards, 30);
-    assert.equal(haul.fateShards, 0); // spent below entry → never negative
-});
-
-test("computeHollowGateHaul with no entry snapshot treats entry as 0", () => {
-    const haul = computeHollowGateHaul(char({ ryo: 250 }), undefined);
-    assert.equal(haul.ryo, 250);
-});
-
-test("applyServerSettle mirrors entry + server credit; only touches credited keys", () => {
-    const reconciled = applyServerSettle(
-        char({ ryo: 999999, hollowShards: 999999, fateShards: 7 }),
-        { ryo: 1000, hollowShards: 0, fateShards: 5 },
-        { ryo: 400, hollowShards: 50 }, // server clamped these; fateShards omitted
-    );
-    assert.equal((reconciled as Record<string, number>).ryo, 1400);          // entry 1000 + credited 400
-    assert.equal((reconciled as Record<string, number>).hollowShards, 50);    // entry 0 + credited 50 (clamped down from 999999)
-    assert.equal((reconciled as Record<string, number>).fateShards, 7);       // untouched (not in credited)
-});
-
-test("applyServerSettle never touches non-currency fields", () => {
-    const c = char({ ryo: 10, level: 42, name: "Rin" });
-    const reconciled = applyServerSettle(c, { ryo: 5 }, { ryo: 3 }) as Record<string, unknown>;
-    assert.equal(reconciled.level, 42);
-    assert.equal(reconciled.name, "Rin");
-    assert.equal(reconciled.ryo, 8);
-});
-
-test("computeHollowGateHaul carries bounded-at-server XP and item claims from the run", () => {
-    const haul = computeHollowGateHaul(char({ ryo: 10 }), { ryo: 0 }, {
-        earnedXp: 1234, earnedFragments: 2, earnedVeils: 1,
-    } as unknown as HollowGateShrineRun);
-    assert.equal(haul.xp, 1234);
-    assert.equal(haul.fragments, 2);
-    assert.equal(haul.veils, 1);
 });
 
 test("reconcileHollowGateSettle prefers the complete committed character", () => {
     const local = char({ ryo: 999999, hollowShards: 999999, level: 2 });
     const committed = char({ ryo: 1400, hollowShards: 50, level: 3 });
-    const reconciled = reconcileHollowGateSettle(local, { ryo: 1000 }, {
+    const reconciled = reconcileHollowGateSettle(local, {
         ok: true,
         credited: { ryo: 999999 },
         character: committed,
@@ -74,29 +70,6 @@ test("reconcileHollowGateSettle prefers the complete committed character", () =>
     assert.equal(reconciled.ryo, 1400);
     assert.equal(reconciled.hollowShards, 50);
     assert.equal(reconciled.level, 3);
-});
-
-test("applyHollowGateRunEndLocal: extract keeps everything and clears the run", () => {
-    const after = applyHollowGateRunEndLocal(char({ ryo: 1500, hollowShards: 40 }), run({ ryo: 1000, hollowShards: 0 }), "extract", 0.5);
-    assert.equal((after as Record<string, number>).ryo, 1500);
-    assert.equal((after as Record<string, number>).hollowShards, 40);
-    assert.equal((after as Record<string, unknown>).hollowGateRun, null);
-});
-
-test("applyHollowGateRunEndLocal: death claws back (1 − retention) of the haul", () => {
-    // retention 0.5 → lose 50% of the +500 ryo / +40 shards earned this run.
-    const after = applyHollowGateRunEndLocal(char({ ryo: 1500, hollowShards: 40 }), run({ ryo: 1000, hollowShards: 0 }), "death", 0.5);
-    assert.equal((after as Record<string, number>).ryo, 1500 - 250);
-    assert.equal((after as Record<string, number>).hollowShards, 40 - 20);
-    assert.equal((after as Record<string, unknown>).hollowGateRun, null);
-});
-
-test("applyHollowGateRunEndLocal: higher retention keeps strictly more on death", () => {
-    // Greedy Hands raises retention; the claw-back loses floor(earned × (1 − retention)).
-    const lo = applyHollowGateRunEndLocal(char({ ryo: 1500 }), run({ ryo: 1000 }), "death", 0.5);
-    const hi = applyHollowGateRunEndLocal(char({ ryo: 1500 }), run({ ryo: 1000 }), "death", 0.8);
-    assert.equal((lo as Record<string, number>).ryo, 1250, "0.5 retention loses half of the +500 earned");
-    assert.ok((hi as Record<string, number>).ryo > (lo as Record<string, number>).ryo, "0.8 retention keeps more than 0.5");
 });
 
 test("shouldResumeAugmentPicker: true only for a tokened run with offers and no choice yet", () => {

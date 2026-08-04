@@ -52,19 +52,11 @@ import { petDisplayName } from "../lib/pet";
 import { rankTitleForLevel } from "../lib/character-progress";
 import { aiJutsuLoadout, aiLoadoutFromJutsus, aiLoadoutLabels, blankAiRule, buildBasicCombatAiRules, builtinAis, normalizeAiProfile, starterAiProfile } from "../lib/combat-ai";
 import {
-    HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT,
     HOLLOW_GATE_KEY_DUNGEON_KEY_COST,
     HOLLOW_GATE_KEY_FATE_SHARD_COST,
-    HOLLOW_GATE_THREAT_AMBUSH,
-    HOLLOW_GATE_THREAT_PER_STEP,
-    HOLLOW_GATE_TRAP_DMG_PCT,
     HOLLOW_GATE_UNLOCK_COST,
-    setHollowGateBossFloorRewardMult,
     setHollowGateKeyDungeonKeyCost,
     setHollowGateKeyFateShardCost,
-    setHollowGateThreatAmbush,
-    setHollowGateThreatPerStep,
-    setHollowGateTrapDmgPct,
     setHollowGateUnlockCost,
     adminIconOptions,
     createCharacter,
@@ -5758,36 +5750,12 @@ export function AdminPanel({
                                     <strong>{HOLLOW_GATE_MAX_FLOOR} floors (server contract)</strong>
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
-                                    <span>Threat gained per step</span>
-                                    <input
-                                        type="number" min={0} max={100} step={1}
-                                        defaultValue={HOLLOW_GATE_THREAT_PER_STEP}
-                                        onChange={(e) => { setHollowGateThreatPerStep(Math.max(0, Math.min(100, Math.floor(Number(e.target.value) || 0)))); }}
-                                    />
-                                </label>
-                                <label style={{ display: "grid", gap: 4 }}>
-                                    <span>Threat ambush trigger</span>
-                                    <input
-                                        type="number" min={1} max={500} step={1}
-                                        defaultValue={HOLLOW_GATE_THREAT_AMBUSH}
-                                        onChange={(e) => { setHollowGateThreatAmbush(Math.max(1, Math.min(500, Math.floor(Number(e.target.value) || 100)))); }}
-                                    />
-                                </label>
-                                <label style={{ display: "grid", gap: 4 }}>
-                                    <span>Trap damage (% of max HP, 0-1)</span>
-                                    <input
-                                        type="number" min={0} max={1} step={0.01}
-                                        defaultValue={HOLLOW_GATE_TRAP_DMG_PCT}
-                                        onChange={(e) => { setHollowGateTrapDmgPct(Math.max(0, Math.min(1, Number(e.target.value) || 0))); }}
-                                    />
+                                    <span>Threat and trap rules</span>
+                                    <strong>Server-owned: 4 Threat/step, 100 trigger, 33% max-HP traps</strong>
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
                                     <span>Boss reward boost per floor (mult)</span>
-                                    <input
-                                        type="number" min={0} max={2} step={0.05}
-                                        defaultValue={HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT}
-                                        onChange={(e) => { setHollowGateBossFloorRewardMult(Math.max(0, Math.min(2, Number(e.target.value) || 0))); }}
-                                    />
+                                    <strong>Server-owned: +0.20 per floor</strong>
                                 </label>
                             </div>
                             <p className="hint" style={{ marginTop: 10 }}>

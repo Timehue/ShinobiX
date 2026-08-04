@@ -325,7 +325,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('cardClashTutorialVersion', 'character', 'client-preference', 'card-clash', [], 'tutorial-seen marker'),
     f('savedBloodlines', 'character', 'personal-authored', 'bloodlines', [], 'legacy character-scope mirror seeded by the first-save baseline; the live copy is the TOP-LEVEL savedBloodlines'),
     f('battleHistory', 'character', 'client-state', 'combat', ['combat-strip-char'], 'size-capped'),
-    f('hollowGateRun', 'character', 'server-clamped', 'hollow-gate', ['combat-strip-char'], 'in-flight run shape-bounded; run token gates ryo freeze'),
+    f('hollowGateRun', 'character', 'server-clamped', 'hollow-gate', ['combat-strip-char'], 'presentation is shape-bounded; an active stored server token cannot be cleared or replaced by generic save'),
+    f('lastHollowGateStart', 'character', 'server-owned', 'hollow-gate', ['combat-strip-char'], 'idempotency marker for lost start responses'),
     f('hollowGateIntroSeen', 'character', 'client-preference', 'hollow-gate', ['combat-strip-char']),
 
     // ── Titles / legacy / server vaults ─────────────────────────────────────
