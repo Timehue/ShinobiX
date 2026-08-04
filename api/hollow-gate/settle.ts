@@ -11,72 +11,33 @@ import {
     HG_HIGH_VALUE_ITEM_ID,
     hollowGateRunKey,
     itemStackCount,
-    maxHaulForDepth,
-    rewardMultiplierForToken,
     type HollowGateRunToken,
 } from './_run-token.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { hollowGateCombatBindingKey } from './_combat-session.js';
-import { sessionKey } from '../towers/_tower-store.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { soloPveSessionKey } from '../solo-pve/_store.js';
+import {
+    HOLLOW_GATE_LEDGER_ITEM_IDS,
+    hollowGateDeathRetention,
+    normalizeHollowGateLedger,
+    reconcileLedgerAmount,
+    setCountedItem,
+} from './_ledger.js';
+import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
  *
- * The authoritative payout for a dive. Reads the sealed token (depth + entry
- * snapshot + chosen augment), computes the per-currency ceiling
- * maxHaulForDepth(depth, sealedMultiplier), and credits min(client-claimed,
- * ceiling) — anchored to the sealed entry so a crafted client can neither inflate
- * the haul nor smuggle a bigger multiplier. Death applies a server-computed ×0.5
- * claw-back. Single-use (NX hg-settled entity key → reconnect/retry/co-op pays
- * once). Body: { playerName, token, outcome: 'extract'|'death', haul: {currency:n} }.
- *
- * pure helper exported for the test.
+ * The authoritative end of a dive. The request carries only an action intent;
+ * every retained currency/item is derived from the sealed entry snapshot and
+ * the exact server reward ledger. Abandonment applies the stored Greedy Hands
+ * retention rule. Single-use and safe to replay after a lost response.
  */
 
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const HOLLOW_GATE_HOSPITAL_MS = 60_000;
-
-/** Pure: credit a sealed, ceiling-bounded haul onto the stored wallet.
- * Generic saves cannot pre-credit the haul, so settlement is the sole positive
- * writer. In-run spending is preserved and the total stays within entry+credit. */
-export function settleCurrency(current: number, entry: number, claimed: number, ceiling: number, frac: number): number {
-    const credit = Math.floor(Math.min(Math.max(0, claimed), Math.max(0, ceiling)) * frac);
-    return Math.max(0, Math.min(num(current) + credit, Math.max(0, entry) + credit));
-}
-
-/** Reconcile a run whose combat payouts were already committed server-side.
- * Extraction treats those credits as part of the sealed baseline instead of
- * crediting them twice. Death still applies its retention fraction to the full
- * run gain. */
-export function settleCurrencyWithServerCredit(
-    current: number,
-    entry: number,
-    claimed: number,
-    serverCredited: number,
-    ceiling: number,
-    frac: number,
-): number {
-    const serverCredit = Math.min(Math.max(0, num(serverCredited)), Math.max(0, num(ceiling)));
-    const totalClaim = Math.max(Math.max(0, num(claimed)), serverCredit);
-    if (frac < 1) return settleCurrency(current, entry, totalClaim, ceiling, frac);
-    const unbankedClaim = Math.max(0, Math.min(totalClaim, Math.max(0, ceiling)) - serverCredit);
-    return settleCurrency(current, Math.max(0, entry) + serverCredit, unbankedClaim, Math.max(0, ceiling) - serverCredit, 1);
-}
-
-export function addCountedItem(itemStacks: unknown, itemId: string, amountRaw: unknown): Array<Record<string, unknown>> {
-    const amount = Math.max(0, Math.floor(num(amountRaw)));
-    const stacks = Array.isArray(itemStacks) ? itemStacks as Array<Record<string, unknown>> : [];
-    if (!amount) return stacks;
-    let found = false;
-    const next = stacks.map((stack) => {
-        if (!stack || String(stack.itemId ?? '') !== itemId) return stack;
-        found = true;
-        return { ...stack, count: Math.max(0, Math.floor(num(stack.count))) + amount };
-    });
-    return found ? next : [...next, { itemId, count: amount }];
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -87,9 +48,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
         const token = String(body.token ?? '').slice(0, 64);
-        const outcome = body.outcome === 'death' ? 'death' : 'extract';
-        const haul = (body.haul && typeof body.haul === 'object') ? body.haul as Record<string, unknown> : {};
+        const action = body.action === 'abandon' ? 'abandon' : body.action === 'extract' ? 'extract' : null;
         if (!playerName || !token) return res.status(400).json({ error: 'Missing playerName or token.' });
+        if (!action) return res.status(400).json({ error: 'Invalid Hollow Gate end action.' });
+        const outcome = action === 'abandon' ? 'death' : 'extract';
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -119,6 +81,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
         if (run.playerName.toLowerCase() !== playerName.toLowerCase()) return res.status(403).json({ error: 'Not your run.' });
+        if (outcome === 'extract' && !run.chosenAugmentId) {
+            return res.status(409).json({ error: 'Choose the sealed augment before extracting.' });
+        }
 
         if (run.activeEncounter && outcome !== 'death') {
             return res.status(409).json({ error: 'Finish the active Hollow Gate encounter before leaving.' });
@@ -129,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (run.activeEncounter && outcome === 'death') {
             await kv.del(
                 hollowGateCombatBindingKey(run.activeEncounter.runId),
-                sessionKey(run.activeEncounter.runId),
+                soloPveSessionKey(run.activeEncounter.runId),
             ).catch(() => undefined);
             run.activeEncounter = null;
         }
@@ -138,14 +103,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: "Berserker's Gamble seals retreat until the final Hollow Hound Alpha falls." });
         }
 
+        if (outcome === 'extract' && !bossResolved) {
+            const position = run.position;
+            const currentFloor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
+            const manifest = run.floorManifests?.[String(currentFloor)];
+            const nodeId = hollowGatePositionNodeId(manifest, position);
+            if (hollowGateManifestNode(manifest, nodeId) !== 'exit') {
+                return res.status(409).json({ error: 'Reach the sealed exit before extracting.' });
+            }
+        }
+
         const runAgeMs = Date.now() - Number(run.mintedAt ?? 0);
         if (outcome === 'extract' && runAgeMs < 3 * 60 * 1000 && !bossResolved) {
             return res.status(409).json({ error: 'The run is too new to extract.' });
         }
 
-        const mult = rewardMultiplierForToken(run);
-        const ceiling = maxHaulForDepth(run.floorDepth, mult);
-        const frac = outcome === 'death' ? 0.5 : 1;
+        const ledger = normalizeHollowGateLedger(run);
 
         const credited = {} as Record<string, number>;
         let fragmentsClampedTo: number | null = null;
@@ -161,21 +134,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { ok: true as const, alreadyReported: true as const, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
             }
             let next: Record<string, unknown> = { ...c };
+            const retention = outcome === 'death' ? hollowGateDeathRetention(c) : 1;
             for (const k of HG_CLAWBACK_KEYS) {
-                const value = settleCurrencyWithServerCredit(
-                    num(c[k]),
-                    num(run.entryCurrencies[k]),
-                    num(haul[k]),
-                    num(run.serverCreditedCurrencies?.[k]),
-                    ceiling[k],
-                    frac,
+                const value = reconcileLedgerAmount(
+                    c[k],
+                    run.entryCurrencies[k],
+                    ledger.currencies[k],
+                    retention,
                 );
                 next[k] = value;
                 credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
             }
-            // XP and high-value items are now committed only by authoritative
-            // encounter settlement. Ignore browser-reported run tallies here so
-            // extraction cannot mint a second copy (or forge one without a win).
+            for (const itemId of HOLLOW_GATE_LEDGER_ITEM_IDS) {
+                const current = itemStackCount(next.itemStacks, itemId);
+                // Pre-ledger tokens did not seal all item baselines; preserve
+                // their already-stored item state instead of confiscating it.
+                const entry = run.entryItems
+                    ? num(run.entryItems[itemId])
+                    : itemId === HG_HIGH_VALUE_ITEM_ID && typeof run.entryFragments === 'number'
+                        ? run.entryFragments
+                        : current;
+                const target = reconcileLedgerAmount(current, entry, ledger.items[itemId], 1);
+                next.itemStacks = setCountedItem(next.itemStacks, itemId, target);
+            }
             if (outcome === 'death') {
                 const now = Date.now();
                 next.hp = 0;
@@ -184,6 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next.hospitalizedUntil = now + HOLLOW_GATE_HOSPITAL_MS;
             }
             next.hollowGateRun = null;
+            delete next.lastHollowGateStart;
             next.redeemedHollowGateRuns = [...redeemedRuns.slice(-99), token];
             fragmentsClampedTo = itemStackCount(next.itemStacks, HG_HIGH_VALUE_ITEM_ID);
             const updated: Record<string, unknown> = bumpSaveVersion({ ...fresh, character: next });

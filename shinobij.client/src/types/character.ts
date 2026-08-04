@@ -632,6 +632,9 @@ export type Character = {
     // and a lifetime final-boss counter. The serialized field retains its legacy
     // Warden name for save, mission, and telemetry compatibility.
     hollowGateRun?: HollowGateShrineRun | null;
+    /** Server-owned recovery marker for a start response lost before floor 1
+     * was attached locally. Generic saves cannot originate or clear it. */
+    lastHollowGateStart?: { requestId: string; token: string; at: number };
     hollowGateWardenKills?: number;
     hollowGateIntroSeen?: boolean;
     // Early-game onboarding flags (additive; undefined = not started / legacy).

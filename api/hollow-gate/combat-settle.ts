@@ -9,7 +9,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { gainXp } from '../_xp-engine.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
-import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
+import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, itemStackCount, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 import {
     hollowGateCombatBindingKey,
     hollowGatePostWinHp,
@@ -23,6 +23,14 @@ import {
     type HollowGateCombatReward,
 } from './_combat-session.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import {
+    creditHollowGateLedger,
+    HOLLOW_GATE_LEDGER_ITEM_IDS,
+    hollowGateDeathRetention,
+    normalizeHollowGateLedger,
+    reconcileLedgerAmount,
+    setCountedItem,
+} from './_ledger.js';
 
 const COMBAT_RECEIPT_TTL_SECONDS = 8 * 24 * 60 * 60;
 const HOSPITAL_DURATION_MS = 60_000;
@@ -31,6 +39,7 @@ const ELEMENTAL_SHARD_ID = 'elemental-shard';
 const VEIL_OF_THE_HOLLOW_ID = 'veil-of-the-hollow';
 
 type CombatReceipt = {
+    version?: 2;
     won: boolean;
     revived?: boolean;
     escaped?: boolean;
@@ -47,6 +56,14 @@ type HollowGatePetResultReceipt = {
     playerPetIds: string[];
     settledAt: number;
 };
+
+export function hollowGateCombatReceiptNeedsRecovery(
+    receipt: Pick<CombatReceipt, 'version'>,
+    appliedIds: readonly unknown[],
+    runId: string,
+): boolean {
+    return receipt.version === 2 && !appliedIds.includes(runId);
+}
 
 function num(value: unknown): number {
     const n = Number(value);
@@ -75,32 +92,42 @@ async function persistRunCombatSettlement(
     const encounterKey = hollowGateEncounterKey(binding.floor, binding.kind, binding.nodeId);
     const resolved = Array.isArray(run.resolvedEncounterIds) ? run.resolvedEncounterIds : [];
     const alreadyResolved = resolved.includes(encounterKey);
-    const priorCredits = run.serverCreditedCurrencies ?? {};
     const paid = receipt.reward;
     const activeIsThisFight = run.activeEncounter?.runId === binding.runId;
     if (!activeIsThisFight && !alreadyResolved) {
         await kv.set(hollowGateCombatBindingKey(binding.runId), settleHollowGateCombatBinding(binding, receipt.won, receipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
         return;
     }
+    const ledgerResult = receipt.won && !alreadyResolved
+        ? creditHollowGateLedger(run, `combat:${encounterKey}`, {
+            currencies: {
+                ryo: paid.ryo,
+                auraDust: paid.auraDust,
+                honorSeals: paid.honorSeals,
+                boneCharms: paid.boneCharms,
+                fateShards: paid.fateShards,
+                hollowShards: paid.hollowShards,
+            },
+            items: {
+                [HG_FRAGMENT_ID]: paid.fragments,
+                [VEIL_OF_THE_HOLLOW_ID]: paid.veils,
+                [ELEMENTAL_SHARD_ID]: receipt.elementalShards,
+            },
+        })
+        : { ledger: normalizeHollowGateLedger(run), alreadyCredited: true };
     const nextRun: HollowGateRunToken = {
         ...run,
         ...(activeIsThisFight ? { activeEncounter: null } : {}),
+        ...(activeIsThisFight ? { threat: 0, pendingAmbush: null } : {}),
         ...(receipt.revived ? { secondWindArmed: false } : {}),
         resolvedEncounterIds: receipt.revived || receipt.escaped || receipt.petDefeat || alreadyResolved
             ? resolved
             : [...resolved.slice(-127), encounterKey],
-        serverCreditedCurrencies: receipt.won && !alreadyResolved ? {
-            ...priorCredits,
-            ryo: num(priorCredits.ryo) + paid.ryo,
-            auraDust: num(priorCredits.auraDust) + paid.auraDust,
-            honorSeals: num(priorCredits.honorSeals) + paid.honorSeals,
-            boneCharms: num(priorCredits.boneCharms) + paid.boneCharms,
-            fateShards: num(priorCredits.fateShards) + paid.fateShards,
-            hollowShards: num(priorCredits.hollowShards) + paid.hollowShards,
-        } : priorCredits,
+        rewardLedger: ledgerResult.ledger,
+        serverCreditedCurrencies: ledgerResult.ledger.currencies,
     };
     if (!receipt.won && !receipt.revived && !receipt.escaped && !receipt.petDefeat) await kv.del(runKey);
-    else await kv.set(runKey, nextRun, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
+    else await kv.set(runKey, nextRun);
     await kv.set(hollowGateCombatBindingKey(binding.runId), settleHollowGateCombatBinding(binding, receipt.won, receipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
 }
 
@@ -131,29 +158,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const [run, binding, session, existingReceipt] = await Promise.all([
+            const [run, binding, session, storedReceipt] = await Promise.all([
                 kv.get<HollowGateRunToken>(runKey),
                 kv.get<HollowGateCombatBinding>(bindingKey),
                 readSoloPveSession(runId),
                 kv.get<CombatReceipt>(receiptKey),
             ]);
             if (!binding || binding.playerName !== playerName) return { status: 404, body: { error: 'Encounter not found.' } };
+            let existingReceipt = storedReceipt;
             if (existingReceipt) {
-                if (run) await persistRunCombatSettlement(runKey, run, binding, existingReceipt);
-                else await kv.set(bindingKey, settleHollowGateCombatBinding(binding, existingReceipt.won, existingReceipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
                 const current = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                return { status: 200, body: {
-                    ok: true,
-                    alreadyReported: true,
-                    won: existingReceipt.won,
-                    revived: existingReceipt.revived ?? false,
-                    escaped: existingReceipt.escaped ?? false,
-                    petDefeat: existingReceipt.petDefeat ?? false,
-                    reward: existingReceipt.reward,
-                    elementalShards: existingReceipt.elementalShards,
-                    character: current?.character ?? null,
-                    _saveVersion: Number(current?._saveVersion ?? 0),
-                } };
+                const currentCharacter = current?.character as Record<string, unknown> | undefined;
+                const appliedIds = Array.isArray(currentCharacter?.settledHollowGateCombatIds)
+                    ? currentCharacter.settledHollowGateCombatIds as unknown[]
+                    : [];
+                if (hollowGateCombatReceiptNeedsRecovery(existingReceipt, appliedIds, runId)) {
+                    // The process can stop after reserving a receipt but before
+                    // the atomic save write. Such an orphan is safe to rerun.
+                    await kv.del(receiptKey);
+                    existingReceipt = null;
+                } else {
+                    if (run) await persistRunCombatSettlement(runKey, run, binding, existingReceipt);
+                    else await kv.set(bindingKey, settleHollowGateCombatBinding(binding, existingReceipt.won, existingReceipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
+                    return { status: 200, body: {
+                        ok: true,
+                        alreadyReported: true,
+                        won: existingReceipt.won,
+                        revived: existingReceipt.revived ?? false,
+                        escaped: existingReceipt.escaped ?? false,
+                        petDefeat: existingReceipt.petDefeat ?? false,
+                        reward: existingReceipt.reward,
+                        elementalShards: existingReceipt.elementalShards,
+                        character: current?.character ?? null,
+                        _saveVersion: Number(current?._saveVersion ?? 0),
+                    } };
+                }
             }
             if (binding.status !== 'active' || binding.settledAt) {
                 return { status: 409, body: { error: 'The encounter is settled but its reward receipt is unavailable.' } };
@@ -192,12 +231,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing) return { receipt: existing, character: char, saveVersion: Number(record._saveVersion ?? 0) };
 
                 const reward = won ? hollowGateCombatReward(binding!.floor, binding!.kind, char.profession) : hollowGateCombatReward(binding!.floor, binding!.kind, undefined);
+                if (won) {
+                    const multiplier = rewardMultiplierForToken(run);
+                    for (const key of ['ryo', 'auraDust', 'honorSeals', 'boneCharms', 'fateShards', 'hollowShards'] as const) {
+                        reward[key] = Math.floor(reward[key] * multiplier);
+                    }
+                }
                 if (!won) {
                     for (const key of Object.keys(reward) as Array<keyof HollowGateCombatReward>) reward[key] = 0;
                 }
                 const elementalShards = won && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
-                const receipt: CombatReceipt = { won, revived, escaped, petDefeat, reward, elementalShards, settledAt: Date.now() };
+                const receipt: CombatReceipt = { version: 2, won, revived, escaped, petDefeat, reward, elementalShards, settledAt: Date.now() };
                 const placed = await kv.set(receiptKey, receipt, { nx: true, ex: COMBAT_RECEIPT_TTL_SECONDS });
                 if (!placed) {
                     const raced = await kv.get<CombatReceipt>(receiptKey);
@@ -271,13 +316,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                 } else {
                     const now = Date.now();
-                    // Preserve the shipped death rule: retain 50% of positive
-                    // run gains, never refund an in-run spend below the entry
-                    // snapshot, then close the run and hospitalize the player.
+                    // Reconcile only server-recorded run gains. Greedy Hands is
+                    // derived from the stored character, never from the client.
+                    const ledger = normalizeHollowGateLedger(run);
+                    const retention = hollowGateDeathRetention(next);
                     for (const key of ['ryo', 'auraDust', 'auraStones', 'boneCharms', 'fateShards', 'honorSeals', 'hollowShards']) {
-                        const current = Math.max(0, num(next[key]));
-                        const entry = Math.max(0, num(run.entryCurrencies[key as keyof typeof run.entryCurrencies]));
-                        next[key] = current > entry ? entry + Math.floor((current - entry) * 0.5) : current;
+                        next[key] = reconcileLedgerAmount(
+                            next[key],
+                            run.entryCurrencies[key as keyof typeof run.entryCurrencies],
+                            ledger.currencies[key as keyof typeof ledger.currencies],
+                            retention,
+                        );
+                    }
+                    for (const itemId of HOLLOW_GATE_LEDGER_ITEM_IDS) {
+                        const current = itemStackCount(next.itemStacks, itemId);
+                        const entry = run.entryItems ? num(run.entryItems[itemId]) : current;
+                        next.itemStacks = setCountedItem(
+                            next.itemStacks,
+                            itemId,
+                            reconcileLedgerAmount(current, entry, ledger.items[itemId], 1),
+                        );
                     }
                     next = {
                         ...next,
@@ -288,6 +346,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         hollowGateRun: null,
                     };
                 }
+                const settledIds = Array.isArray(next.settledHollowGateCombatIds)
+                    ? (next.settledHollowGateCombatIds as unknown[]).filter((id): id is string => typeof id === 'string')
+                    : [];
+                next.settledHollowGateCombatIds = [...settledIds.filter((id) => id !== runId).slice(-199), runId];
 
                 try {
                     const updated: Record<string, unknown> = bumpSaveVersion({ ...record, character: next });

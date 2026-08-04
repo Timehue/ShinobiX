@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
     rollAugmentOffers,
+    AUGMENT_CATALOG,
     augmentDisplay,
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
@@ -20,6 +21,7 @@ import {
 import { RIFT_QUESTS } from '../sector/_rift-quest.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { loadPublishedContent } from '../_content-store.js';
+import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -28,25 +30,20 @@ import { loadPublishedContent } from '../_content-store.js';
  * currency snapshot + dive depth, rolls 3 augment offers (the client can't pick
  * the pool), and increments a SERVER daily-run counter (independent of the
  * client's lastDailyReset — closes the backdated-reset extra-dive exploit, #7).
- * Settle later credits min(claimed, sealed ceiling). Body: { playerName, floorDepth }.
+ * Every server-owned run event appends an exact credit to the sealed ledger.
  *
- * Inert until the client run loop is wired to it (a later pass, flag-gated), so
- * the existing no-token client path keeps working (token-first invariant).
+ * This seal is mandatory for browser runs; there is no rewarding no-token path.
  */
 
-const DEFAULT_DAILY_RUN_CAP = 2; // base 2/day; attunement raises it in the client-wiring pass
-// Hollow Gate runs are RESUMABLE across sessions (the run persists on the save), so
-// the token must outlive a dive the player walks away from and finishes later. 24h
-// comfortably covers any same-day resume; a run older than that has already crossed
-// the UTC daily-cap reset, and an expired token just reverts that run to the
-// non-browser compatibility path; shipped browser gameplay requires this seal.
-const RUN_TTL_SEC = 24 * 60 * 60;
+const DEFAULT_DAILY_RUN_CAP = 2;
 
 function utcDateKey(): string { return new Date().toISOString().slice(0, 10); }
 
 type PublishedEventGate = {
     id: string;
     floors: number;
+    width: number;
+    height: number;
     bossAiId?: string;
     bossName?: string;
     keyCost: 0 | 1;
@@ -59,9 +56,15 @@ export function normalizePublishedEventGate(raw: unknown, requestedId: string): 
     if (config.active !== true || String(config.id ?? '') !== requestedId) return null;
     const bossAiId = String(config.bossAiId ?? '').trim().slice(0, 128);
     const bossName = String(config.bossName ?? '').trim().slice(0, 64);
+    const dimension = (value: unknown, min: number, max: number, fallback: number): number => {
+        const parsed = Math.floor(Number(value));
+        return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
+    };
     return {
         id: requestedId,
         floors: canonicalHollowGateDepth(config.maxFloor),
+        width: dimension(config.width, 15, 31, 25),
+        height: dimension(config.height, 11, 21, 17),
         ...(bossAiId ? { bossAiId } : {}),
         ...(bossName ? { bossName } : {}),
         keyCost: Number(config.keyCost) === 0 ? 0 : 1,
@@ -111,7 +114,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
         const requestedVariantId = String(body.variantId ?? '').slice(0, 64);
-        if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
+        const requestId = typeof body.requestId === 'string' && /^[A-Za-z0-9:_-]{8,96}$/.test(body.requestId) ? body.requestId : '';
+        if (!playerName || !requestId) return res.status(400).json({ error: 'Missing playerName or requestId.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -130,11 +134,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const floorDepth = riftDef?.floors ?? eventDef?.floors ?? canonicalHollowGateDepth();
 
         let issued: { token: string; runToken: HollowGateRunToken; offers: ReturnType<typeof rollAugmentOffers> } | null = null;
+        let replayed = false;
         const mutation = await mutatePlayerSave(playerName, async ({ character }) => {
+            const priorStart = character.lastHollowGateStart && typeof character.lastHollowGateStart === 'object'
+                ? character.lastHollowGateStart as Record<string, unknown>
+                : null;
+            if (priorStart?.requestId === requestId && typeof priorStart.token === 'string') {
+                const priorRun = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, priorStart.token));
+                if (!priorRun) return { ok: false as const, status: 409, error: 'hollow-gate-start-spent' };
+                const priorOffers = priorRun.offeredAugmentIds
+                    .map((id) => AUGMENT_CATALOG[id])
+                    .filter((offer): offer is NonNullable<typeof offer> => Boolean(offer));
+                replayed = true;
+                issued = { token: priorStart.token, runToken: priorRun, offers: priorOffers };
+                return { ok: true as const, character, value: { token: priorStart.token } };
+            }
             const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
             const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);
             if (!afterKey) return { ok: false as const, status: 409, error: 'hollow-gate-key-required' };
-            const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.floor(Number(character.hollowGateRunBonus ?? 0)));
+            const attunement = character.hollowGateAttunement && typeof character.hollowGateAttunement === 'object'
+                ? character.hollowGateAttunement as Record<string, unknown>
+                : {};
+            const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.min(1, Math.floor(Number(attunement['extra-dive']) || 0)));
             const countKey = `hg-runs:${playerName}:${utcDateKey()}`;
             const priorRuns = Math.max(0, Math.floor(Number(await kv.get<number>(countKey)) || 0));
             if (!identity.admin && priorRuns >= cap) return { ok: false as const, status: 429, error: 'daily-cap' };
@@ -143,10 +164,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const k of HG_CLAWBACK_KEYS) entry[k] = Math.max(0, Math.floor(Number(character[k]) || 0));
             const offers = rollAugmentOffers(3);
             const token = randomUUID().replace(/-/g, '');
+            const entryItems = Object.fromEntries(
+                HOLLOW_GATE_LEDGER_ITEM_IDS.map((itemId) => [itemId, itemStackCount(character.itemStacks, itemId)]),
+            );
+            const rewardLedger: HollowGateRewardLedger = { currencies: {}, items: {}, sourceIds: [] };
+            const startKeys = Math.max(0, Math.min(2, Math.floor(Number(attunement['seasoned-delver']) || 0)));
+            const wardSteps = Math.max(0, Math.min(6, Math.floor(Number(attunement['reiki-reserves']) || 0) * 3));
             const runToken: HollowGateRunToken = {
                 playerName, mintedAt: Date.now(), floorDepth, currentFloor: 1, seed: randomUUID(),
+                floorWidth: eventDef?.width ?? 25,
+                floorHeight: eventDef?.height ?? 17,
                 entryCurrencies: entry,
                 entryFragments: itemStackCount(character.itemStacks, HG_HIGH_VALUE_ITEM_ID),
+                entryItems,
+                rewardLedger,
+                keys: startKeys,
+                torch: 10,
+                threat: 0,
+                resolvedEventIds: [],
+                stepVersion: 0,
+                recentStepIds: [],
+                recentConsumableIds: [],
+                wardSteps,
+                divinerUsed: false,
+                pendingAmbush: null,
                 offeredAugmentIds: offers.map((o) => o.id), chosenAugmentId: null,
                 dailyRunOrdinal: ord,
                 ...(riftDef ? {
@@ -160,12 +201,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } : {}),
             };
             issued = { token, runToken, offers };
+            // Write the reward-bearing run before committing the key/daily save.
+            // A crash can leave an unguessable orphan, but never a paid save with
+            // a missing run token. The request marker makes a lost response safe.
+            await kv.set(hollowGateRunKey(playerName, token), runToken);
+            const augmentOffers = offers.map(augmentDisplay);
             return {
                 ok: true as const,
                 character: {
                     ...afterKey,
                     dailyHollowGateRuns: ord,
                     lastDailyReset: utcDateKey(),
+                    lastHollowGateStart: { requestId, token, at: Date.now() },
+                    // Persist enough private projection for an immediate reload
+                    // to recover before the browser has generated/sealed floor 1.
+                    // The browser replaces this with its presentation grid; the
+                    // KV run above remains the gameplay authority throughout.
+                    hollowGateRun: {
+                        floor: 1,
+                        runToken: token,
+                        serverSeed: runToken.seed,
+                        augmentOffers,
+                        chosenAugment: null,
+                        entryCurrencies: entry,
+                        keys: startKeys,
+                        torch: runToken.torch,
+                        threat: runToken.threat,
+                        wardSteps: runToken.wardSteps,
+                        secondWindArmed: false,
+                        pendingFloorSeal: true,
+                    },
                 },
                 value: { token },
             };
@@ -176,9 +241,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!issued) return res.status(500).json({ error: 'Run token was not issued.' });
         const committed = issued as { token: string; runToken: HollowGateRunToken; offers: ReturnType<typeof rollAugmentOffers> };
-        await kv.set(hollowGateRunKey(playerName, committed.token), committed.runToken, { ex: RUN_TTL_SEC });
+        // A run remains durable until extraction/death. Expiring the only exact
+        // ledger would let an abandoned browser keep immediate credits without
+        // applying the loss rule. It was written inside the save mutation above,
+        // before the entry key/daily fields could commit.
         await recordBetaMetric({
-            event: 'hollow_gate.run_started',
+            event: replayed ? 'hollow_gate.run_start_replayed' : 'hollow_gate.run_started',
             playerName,
             level: Number((mutation.character as Record<string, unknown> | null)?.level),
             source: committed.runToken.variantId ? `variant:${committed.runToken.variantId}` : `standard:${committed.runToken.floorDepth}f`,
@@ -187,6 +255,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: true,
             token: committed.token,
             seed: committed.runToken.seed,
+            floorDepth: committed.runToken.floorDepth,
+            variantId: committed.runToken.variantId,
+            floorWidth: committed.runToken.floorWidth,
+            floorHeight: committed.runToken.floorHeight,
+            bossProfileId: committed.runToken.bossProfileId,
+            bossName: committed.runToken.bossName,
+            chosenAugmentId: committed.runToken.chosenAugmentId,
             augmentOffers: committed.offers.map(augmentDisplay),
             character: mutation.character,
             _saveVersion: mutation._saveVersion,
