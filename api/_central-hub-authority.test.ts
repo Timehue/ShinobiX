@@ -8,6 +8,7 @@ const arena = readFileSync("shinobij.client/src/screens/Arena.tsx", "utf8");
 const council = readFileSync("shinobij.client/src/screens/ShinobiCouncilHall.tsx", "utf8");
 const readiness = readFileSync("shinobij.client/src/lib/release-readiness.ts", "utf8");
 const endlessActions = readFileSync("shinobij.client/src/lib/use-endless-tower-actions.ts", "utf8");
+const endlessFight = readFileSync("shinobij.client/src/screens/EndlessTowerFight.tsx", "utf8");
 
 describe("Central Hub release authority", () => {
     it("settles Awakening and Bloodline Forge on the server", () => {
@@ -27,11 +28,15 @@ describe("Central Hub release authority", () => {
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"start"\)/);
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"settle",\s*token\)/);
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"abandon",\s*token\)/);
-        for (const action of ["start", "win", "cashout", "abandon"]) {
+        for (const action of ["start", "settle", "cashout"]) {
             assert.match(endlessActions, new RegExp(`mutateEndlessRun\\([^\\n]+,\\s*"${action}"`));
         }
-        assert.doesNotMatch(`${app}\n${endlessActions}`, /payEndlessEntry\(|applyTowerCashOut\(/);
-        assert.match(arena, /endlessSettlementPending/);
+        assert.match(endlessActions, /startEndlessWave\(/);
+        assert.match(endlessFight, /soloPveArenaTransport/);
+        assert.match(endlessFight, /MissionArenaFight/);
+        assert.doesNotMatch(`${app}\n${endlessActions}`, /payEndlessEntry\(|applyTowerCashOut\(|prepareOpponent|endlessSettlementPending/);
+        assert.doesNotMatch(endlessActions, /aiFightToken|\bhp\s*:|\bchakra\s*:|\bstamina\s*:/);
+        assert.doesNotMatch(arena, /onEndless|endlessBattleWave/);
     });
 
     it("uses current war receipts for Council contributors", () => {

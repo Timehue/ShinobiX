@@ -1,11 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { TowerSession } from '../towers/_tower-session.js';
 import type { AdminCombatContent } from '../_admin-content.js';
-import {
-    buildAiFightEncounter,
-    ENDLESS_WAVE_FLOOR_ID,
-    type AiFightProfile,
-} from '../missions/_ai-fight-encounter.js';
+import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import type { SoloPveOutcome, SoloPveSession } from '../solo-pve/_session.js';
 import { pickEndlessWaveOpponent } from './_wave-opponent.js';
 
 /*
@@ -36,6 +32,10 @@ export function endlessWaveBindingKey(runId: string): string {
     return `endless-wave-binding:${runId}`;
 }
 
+export function endlessActiveWaveKey(playerName: string, runToken: string): string {
+    return `endless-wave-active:${playerName}:${runToken}`;
+}
+
 export function endlessWaveRunId(): string {
     return `endlesswave-${randomUUID().replace(/-/g, '')}`;
 }
@@ -43,6 +43,7 @@ export function endlessWaveRunId(): string {
 export interface EndlessWaveBinding {
     version: 1;
     runId: string;
+    sessionId: string;
     playerName: string;
     /** The endless RUN's token — ties this fight to one run, not just one player. */
     runToken: string;
@@ -54,9 +55,10 @@ export interface EndlessWaveBinding {
     settledAt?: number;
 }
 
+export type EndlessWaveFailureReason = 'invalid-binding' | 'wrong-player' | 'wrong-run' | 'wrong-wave' | 'expired' | 'already-settled' | 'not-complete' | 'not-won' | 'not-a-member';
 export type EndlessWaveValidation =
     | { ok: true; binding: EndlessWaveBinding }
-    | { ok: false; reason: 'invalid-binding' | 'wrong-player' | 'wrong-run' | 'wrong-wave' | 'expired' | 'already-settled' | 'not-complete' | 'not-won' | 'not-a-member' };
+    | { ok: false; reason: EndlessWaveFailureReason };
 
 export function createEndlessWaveBinding(params: {
     runId: string;
@@ -70,6 +72,7 @@ export function createEndlessWaveBinding(params: {
     return {
         version: 1,
         runId: params.runId,
+        sessionId: params.runId,
         playerName: params.playerName,
         runToken: params.runToken,
         wave: Math.max(1, Math.floor(params.wave)),
@@ -80,9 +83,9 @@ export function createEndlessWaveBinding(params: {
     };
 }
 
-export function settleEndlessWaveBinding(binding: EndlessWaveBinding, now = Date.now()): EndlessWaveBinding {
+export function settleEndlessWaveBinding(binding: EndlessWaveBinding, now = Date.now(), won = true): EndlessWaveBinding {
     if (binding.status !== 'active' || binding.settledAt) return binding;
-    return { ...binding, status: 'won', settledAt: now };
+    return { ...binding, status: won ? 'won' : 'spent', settledAt: now };
 }
 
 /**
@@ -94,35 +97,53 @@ export function settleEndlessWaveBinding(binding: EndlessWaveBinding, now = Date
  */
 export function validateCompletedEndlessWave(params: {
     binding: EndlessWaveBinding | null | undefined;
-    session: TowerSession | null | undefined;
+    session: SoloPveSession | null | undefined;
     playerName: string;
     runToken: string;
     expectedWave: number;
     now?: number;
 }): EndlessWaveValidation {
+    const terminal = validateTerminalEndlessWave(params);
+    if (!terminal.ok) return terminal;
+    if (terminal.outcome !== 'win') return { ok: false, reason: 'not-won' };
+    return { ok: true, binding: terminal.binding };
+}
+
+export type EndlessTerminalValidation =
+    | { ok: true; binding: EndlessWaveBinding; outcome: Exclude<SoloPveOutcome, null> }
+    | { ok: false; reason: EndlessWaveFailureReason };
+
+export function validateTerminalEndlessWave(params: {
+    binding: EndlessWaveBinding | null | undefined;
+    session: SoloPveSession | null | undefined;
+    playerName: string;
+    runToken: string;
+    expectedWave: number;
+    now?: number;
+}): EndlessTerminalValidation {
     const { binding, session, playerName, runToken, expectedWave } = params;
     const now = params.now ?? Date.now();
-    if (!binding || binding.version !== 1 || !binding.runId) return { ok: false, reason: 'invalid-binding' };
+    if (!binding || binding.version !== 1 || !binding.runId || !binding.sessionId) return { ok: false, reason: 'invalid-binding' };
     if (binding.playerName !== playerName) return { ok: false, reason: 'wrong-player' };
     if (!binding.runToken || binding.runToken !== runToken) return { ok: false, reason: 'wrong-run' };
     if (binding.wave !== Math.max(1, Math.floor(Number(expectedWave) || 0))) return { ok: false, reason: 'wrong-wave' };
-    if (!session || session.runId !== binding.runId) return { ok: false, reason: 'invalid-binding' };
+    if (!session || session.sessionId !== binding.sessionId || session.sessionId !== binding.runId) return { ok: false, reason: 'invalid-binding' };
     if (binding.expiresAt <= now) return { ok: false, reason: 'expired' };
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
-    if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
-    if (session.winner !== 'squad') return { ok: false, reason: 'not-won' };
-    if (!session.actors.some((actor) => actor.side === 'squad' && actor.ownerSlug === playerName)) {
-        return { ok: false, reason: 'not-a-member' };
-    }
-    return { ok: true, binding };
+    if (session.status !== 'done' || !session.outcome) return { ok: false, reason: 'not-complete' };
+    if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };
+    if (session.encounter.kind !== 'endless-wave'
+        || session.encounter.id !== `${runToken}:${binding.wave}`
+        || session.encounter.sourceId !== binding.opponentId
+        || session.encounter.bindingId !== binding.runId) return { ok: false, reason: 'invalid-binding' };
+    return { ok: true, binding, outcome: session.outcome };
 }
 
 /** The player's vitals AS THE SERVER RECORDED THEM — this is what replaces the
  *  client-reported `{hp, chakra, stamina}` the win used to carry in its body. */
-export function endlessWaveVitals(session: TowerSession, playerName: string): { hp: number; chakra: number; stamina: number } {
-    const actor = session.actors.find((candidate) => candidate.side === 'squad' && candidate.ownerSlug === playerName);
+export function endlessWaveVitals(session: SoloPveSession, _playerName: string): { hp: number; chakra: number; stamina: number } {
     const whole = (value: unknown) => Math.max(0, Math.floor(Number(value) || 0));
-    return { hp: whole(actor?.hp), chakra: whole(actor?.chakra), stamina: whole(actor?.stamina) };
+    return { hp: whole(session.player.hp), chakra: whole(session.player.chakra), stamina: whole(session.player.stamina) };
 }
 
 /**
@@ -142,28 +163,31 @@ export function buildEndlessWaveEncounter(params: {
     wave: number;
     playerLevel: number;
     runId: string;
-    seed: number;
     now: number;
     admin?: AdminCombatContent | null;
-    hostLoadout?: Record<string, unknown>;
-}): { session: TowerSession; opponentId: string } | null {
+}): { session: SoloPveSession; opponentId: string } | null {
     const opponent = pickEndlessWaveOpponent({
         runToken: params.runToken,
         wave: params.wave,
         playerLevel: params.playerLevel,
     });
     if (!opponent) return null;
-    const session = buildAiFightEncounter({
+    const session = buildSoloPveAiEncounter({
+        sessionId: params.runId,
         playerName: params.playerName,
         save: params.save,
-        profile: opponent as unknown as AiFightProfile,
-        runId: params.runId,
-        seed: params.seed,
+        profile: opponent,
         now: params.now,
         admin: params.admin ?? null,
-        hostLoadout: params.hostLoadout,
-        floorId: ENDLESS_WAVE_FLOOR_ID,
-        towerId: 'endless-wave',
+        difficultyMode: 'AI_FIGHT',
+        encounter: {
+            kind: 'endless-wave',
+            id: `${params.runToken}:${params.wave}`,
+            sourceId: opponent.id,
+            bindingId: params.runId,
+            metadata: { wave: params.wave },
+        },
+        environment: { biome: 'central' },
     });
     return { session, opponentId: opponent.id };
 }
