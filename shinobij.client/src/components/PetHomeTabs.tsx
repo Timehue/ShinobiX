@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- the session routing helper is tested with the tabs */
 import type { Screen } from "../types/core";
 
 export type PetHomeTab = "collection" | "yard" | "sanctuary" | "breeding";

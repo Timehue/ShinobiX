@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- the feature probe is shared with source-level tests */
 /*
  * WorldRoadsOverlay — charts the road graph + region names over the painted
  * world map, so the (previously invisible) sector connectivity reads at a

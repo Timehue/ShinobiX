@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- tested grouping helpers intentionally share this component module */
 /*
  * Round-by-round accordion over a durable battle record.
  *
