@@ -112,6 +112,9 @@ const EXEMPT = new Set([
     'player/sleeper-kill.ts',
     'player/trade.ts',
     'missions/_progress.ts',
+    // Shared multi-member operation helper; assault-settle rereads and echoes the
+    // requesting member's final `_saveVersion` after all reward helpers complete.
+    'clan-boss/_profession.ts',
     'towers/_tower-store.ts',
     'world-state.ts',
     '_clan-points.ts',

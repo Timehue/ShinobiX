@@ -5,7 +5,7 @@ import { buildActivitySpine, type ActivitySpineInput } from './_activity-spine.j
 
 const input: ActivitySpineInput = {
     now: Date.UTC(2026, 7, 5), level: 40, hospitalized: false, onboardingStep: 'done', unspentStats: 0,
-    trainingIdle: true, jutsuTrainingIdle: true, hasJutsu: true, hasProfession: true, clanName: 'Testers', lastLoginRewardDate: '2026-08-04',
+    trainingIdle: true, jutsuTrainingIdle: true, hasJutsu: true, hasProfession: true, profession: 'healer', clanName: 'Testers', lastLoginRewardDate: '2026-08-04',
     clanBoss: { active: true, killed: false, attemptsLeft: 3, pressure: 72, sectorName: 'Emberspine Ridge' },
 };
 
@@ -14,6 +14,9 @@ describe('server activity spine', () => {
         const spine = buildActivitySpine(input);
         assert.deepEqual(Object.keys(spine.horizons), [...ACTIVITY_HORIZONS]);
         for (const horizon of ACTIVITY_HORIZONS) assert.ok(spine.horizons[horizon].length > 0);
+        assert.deepEqual(spine.horizons['this-week'].map((entry) => entry.id), [
+            'weekly-clan-operation', 'weekly-ranked', 'weekly-profession', 'weekly-solo',
+        ]);
     });
 
     it('prioritizes recovery and reconnects an active operation after refresh', () => {

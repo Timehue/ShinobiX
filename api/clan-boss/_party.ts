@@ -141,6 +141,12 @@ export function partyView(party: StoredParty, now = Date.now()): ClanBossPartyVi
     };
 }
 
+export function canClaimPartyLeadership(party: StoredParty, actor: string, now = Date.now()): boolean {
+    if (!isOpenStatus(party.status) || actor === party.leaderSlug || !party.members.some((member) => member.slug === actor)) return false;
+    const leader = party.members.find((member) => member.slug === party.leaderSlug);
+    return !!leader && now - leader.lastSeenAt > CLAN_BOSS_PARTY_STALE_MS;
+}
+
 export function addPartyMember(party: StoredParty, player: PartyPlayerContext, now: number): PartyMutationResult {
     if (!isOpenStatus(party.status)) return { ok: false, status: 409, code: 'party-not-open', error: 'That party is no longer open.', party };
     if (party.clanName !== player.clanName) return { ok: false, status: 403, code: 'wrong-clan', error: 'That operation belongs to another clan.', party };
