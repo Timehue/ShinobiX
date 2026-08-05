@@ -53,7 +53,11 @@ test('registration survives refresh and a clean-device login against real Expres
 
     const runtimeErrors: string[] = [];
     const serverFailures: string[] = [];
-    page.on('pageerror', (error) => runtimeErrors.push(error.message));
+    let intentionallyResettingClient = false;
+    page.on('pageerror', (error) => {
+        if (intentionallyResettingClient && error.message === 'Failed to fetch') return;
+        runtimeErrors.push(error.message);
+    });
     page.on('console', (message) => {
         if (message.type() === 'error' && !message.text().includes('Failed to load resource')) {
             runtimeErrors.push(message.text());
@@ -80,11 +84,13 @@ test('registration survives refresh and a clean-device login against real Expres
         return raw ? JSON.parse(raw).currentAccountName : '';
     })).toBe(PLAYER_NAME);
 
+    intentionallyResettingClient = true;
     await page.evaluate(() => localStorage.clear());
     await page.goto('/', { waitUntil: 'networkidle' });
+    intentionallyResettingClient = false;
     await page.getByRole('button', { name: 'Log In' }).click();
     await page.getByLabel('Name').fill(PLAYER_NAME);
-    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByPlaceholder('Enter your password').fill(PASSWORD);
 
     const restoredSave = page.waitForResponse((response) =>
         response.request().method() === 'GET'

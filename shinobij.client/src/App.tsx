@@ -4613,12 +4613,12 @@ export default function App() {
             // reject and preserve the other tab's progress rather than letting
             // a stale unload-time write clobber newer state.
             const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
-            fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
+            void fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 keepalive: true,
                 body: JSON.stringify(bodyWithVersion, stripImages),
-            });
+            }).catch(() => undefined);
         }
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
