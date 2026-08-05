@@ -35,8 +35,15 @@ import {
 } from '../combat-core/events.js';
 import type { ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import type { CombatFxEvent } from '../combat-core/types.js';
-import { filledDiskTiles } from '../pvp/_aoe.js';
-import { canonicalTagName, GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
+import { semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
+import { filledDiskTiles } from '../combat-core/aoe.js';
+import { canonicalTagName, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
+import {
+    canonicalGroundTags,
+    createCanonicalGroundEffect,
+    resolveJutsuActionPlan,
+    type JutsuActionPlan,
+} from '../combat-core/resolve-jutsu-action.js';
 import {
     applyDoTs,
     applyGroundEffectToFighter,
@@ -237,7 +244,7 @@ function normalizedMethod(jutsu: SoloPveJutsu): string {
     return jutsu.method === 'AOE_LINE' ? 'INSTANT_EFFECT' : (jutsu.method ?? 'SINGLE');
 }
 
-function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAction): SoloPveVfxEvent[] {
+function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAction, ko = false): SoloPveVfxEvent[] {
     if (action.type === 'move') return [{ key: 'move', target: 'tile', anchor: 'tile', tiles: [action.tile] }];
     if (action.type === 'basicAttack') return [{ key: 'impact', target: otherSide(side), anchor: 'target' }];
     if (action.type === 'basicHeal') return [{ key: 'heal', target: side, anchor: 'caster' }];
@@ -249,15 +256,16 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
     const jutsu = jutsuList(fighter(session, side)).find((entry) => entry.id === action.jutsuId);
     if (!jutsu) return [];
     const names = tagNames(jutsu);
-    const key = jutsu.visualEffect
-        ?? (names.includes('Heal') ? 'heal'
-            : names.includes('Poison') ? 'poison'
-                : names.includes('Barrier') || names.includes('Shield') ? 'shield'
-                    : names.includes('Push') || names.includes('Pull') || names.includes('Move') ? 'wind'
-                        : String(jutsu.element ?? jutsu.type ?? 'impact').toLowerCase());
+    const pureMove = names.includes('Move') && names.every((name) => name === 'Move');
+    if (pureMove) return [];
     const method = normalizedMethod(jutsu);
     const area = method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL';
-    const ground = jutsu.target === 'EMPTY_GROUND' || hasMoveTag(jutsu);
+    const persistent = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';
+    const semantic = semanticJutsuVfx(jutsu, {
+        ...(persistent || method === 'AOE_SPIRAL' ? { ground: true } : {}),
+        ...(area ? { area: true } : {}),
+        ...(ko ? { ko: true } : {}),
+    });
     const tiles = action.tile === undefined
         ? undefined
         : method === 'AOE_SPIRAL'
@@ -266,11 +274,13 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
                 ? [action.tile, ...hexNeighbors(action.tile)]
                 : [action.tile];
     return [{
-        key,
-        target: area ? 'area' : ground ? 'tile' : jutsu.target === 'SELF' ? side : otherSide(side),
-        anchor: area ? 'area' : ground ? 'tile' : jutsu.target === 'SELF' ? 'caster' : 'target',
+        key: semantic.key,
+        target: semantic.anchor === 'area' ? 'area'
+            : semantic.anchor === 'tile' ? 'tile'
+                : semantic.anchor === 'caster' ? side : otherSide(side),
+        anchor: semantic.anchor,
         ...(tiles ? { tiles } : {}),
-        ...(method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL' ? { persistent: true } : {}),
+        ...(persistent ? { persistent: true } : {}),
     }];
 }
 
@@ -300,6 +310,39 @@ function validOpenTile(session: SoloPveSession, side: SoloPveSide, tile: number,
         && (allowCurrent || tile !== self.pos)
         && tile !== opponent.pos
         && !tileBlocked(session, tile);
+}
+
+function jutsuActionPlan(
+    session: SoloPveSession,
+    side: SoloPveSide,
+    jutsu: SoloPveJutsu,
+    tile?: number,
+) {
+    const self = fighter(session, side);
+    const opponent = fighter(session, otherSide(side));
+    return resolveJutsuActionPlan({
+        jutsu,
+        casterPos: self.pos,
+        opponentPos: opponent.pos,
+        casterChakra: self.chakra,
+        casterStamina: self.stamina,
+        casterStatuses: self.statuses,
+        round: session.round,
+        availableAp: session.ap[side],
+        actionsThisTurn: session.actionsThisTurn,
+        cooldownRemaining: session.cooldowns[side][jutsu.id] ?? 0,
+        ...(tile === undefined ? {} : { tile }),
+        board: {
+            width: GRID_W,
+            height: GRID_H,
+            unavailableTiles: new Set([
+                ...session.environment.blockedTiles,
+                ...barrierTiles(session),
+                opponent.pos,
+                ...(session.companion ? [session.companion.pos] : []),
+            ]),
+        },
+    });
 }
 
 function statusPct(value: PvpFighter, name: string, round: number): number | undefined {
@@ -362,31 +405,18 @@ function playerHasLegalAction(session: SoloPveSession): boolean {
     if (canAct(session, 'player', CLEAR_AP) && (session.cooldowns.player.clear ?? 0) <= 0) return true;
     if (canAct(session, 'player', CLEANSE_AP) && (session.cooldowns.player.cleanse ?? 0) <= 0) return true;
 
-    const elementallySealed = activeStatuses(self, session.round).some((status) => status.name === 'Elemental Seal');
     for (const jutsu of jutsuList(self)) {
-        const cost = Math.max(1, Number(jutsu.ap ?? 40));
-        if (!canAct(session, 'player', cost)) continue;
-        if ((session.cooldowns.player[jutsu.id] ?? 0) > 0) continue;
-        if (self.chakra < Math.max(0, Number(jutsu.chakraCost ?? 0))) continue;
-        if (self.stamina < Math.max(0, Number(jutsu.staminaCost ?? 0))) continue;
-        if (jutsu.element && ['Earth', 'Wind', 'Water', 'Lightning', 'Fire'].includes(jutsu.element) && elementallySealed) continue;
-
         const names = tagNames(jutsu);
         const moveTag = names.includes('Move');
         const groundTarget = jutsu.target === 'EMPTY_GROUND';
-        const method = normalizedMethod(jutsu);
-        const range = Math.max(moveTag || groundTarget ? 1 : 0, Number(jutsu.range) || (moveTag || groundTarget ? 4 : 0));
         if (moveTag || groundTarget) {
-            if ((method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL') && groundTags(jutsu).length === 0) continue;
             let hasOpenTarget = false;
             for (let tile = 0; tile < GRID_W * GRID_H; tile += 1) {
-                if (validOpenTile(session, 'player', tile, range)) { hasOpenTarget = true; break; }
+                if (jutsuActionPlan(session, 'player', jutsu, tile).accepted) { hasOpenTarget = true; break; }
             }
             if (!hasOpenTarget) continue;
         } else {
-            const affectsOpponent = Number(jutsu.effectPower ?? 0) > 0
-                || names.some((name) => OPPONENT_AFFECTING_TAGS.has(name));
-            if (jutsu.target !== 'SELF' && affectsOpponent && range > 0 && hexDistance(self.pos, opponent.pos) > range) continue;
+            if (!jutsuActionPlan(session, 'player', jutsu).accepted) continue;
         }
         return true;
     }
@@ -844,22 +874,16 @@ function spendItemCharge(session: SoloPveSession, itemId: string): boolean {
 }
 
 function groundTags(jutsu: SoloPveJutsu): PvpGroundEffect['tags'] {
-    return (jutsu.tags ?? [])
-        .map((tag) => ({ ...tag, name: canonicalTagName(tag.name) }))
-        .filter((tag) => GROUND_EFFECT_TAGS.has(tag.name));
+    return canonicalGroundTags(jutsu.tags);
 }
 
-function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, center: number, spiral: boolean): void {
-    const effect: PvpGroundEffect = {
+function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, plan: JutsuActionPlan): void {
+    const effect: PvpGroundEffect = createCanonicalGroundEffect({
         id: `${session.sessionId}:${session.eventSeq + 1}:${side}:${jutsu.id}`,
         owner: side === 'player' ? 'p1' : 'p2',
         name: jutsu.name,
-        tiles: spiral
-            ? filledDiskTiles(center, SPIRAL_RADIUS, GRID_W, GRID_H)
-            : [center, ...hexNeighbors(center)],
-        rounds: 2,
-        tags: groundTags(jutsu),
-    };
+        plan,
+    });
     session.groundEffects.push(effect);
     session.log.push(`${jutsu.name} creates a ground effect across ${effect.tiles.length} hexes for 2 rounds.`);
     const opponentSide = otherSide(side);
@@ -894,40 +918,9 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
     const opponent = fighter(session, otherSide(side));
     const jutsu = jutsuList(self).find((entry) => entry.id === action.jutsuId);
     if (!jutsu) return { applied: false, reason: 'no-jutsu' };
-    const cost = Math.max(1, Number(jutsu.ap ?? 40));
-    if (!canAct(session, side, cost)) return { applied: false, reason: 'cannot-act' };
-    if ((session.cooldowns[side][jutsu.id] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
-    const chakra = Math.max(0, Number(jutsu.chakraCost ?? 0));
-    const stamina = Math.max(0, Number(jutsu.staminaCost ?? 0));
-    if (self.chakra < chakra) return { applied: false, reason: 'no-chakra' };
-    if (self.stamina < stamina) return { applied: false, reason: 'no-stamina' };
-
-    const names = tagNames(jutsu);
-    const moveTag = names.includes('Move');
-    const pureMove = moveTag && names.every((name) => name === 'Move');
-    const groundTarget = jutsu.target === 'EMPTY_GROUND';
-    const selfTarget = jutsu.target === 'SELF';
-    const affectsOpponent = Number(jutsu.effectPower ?? 0) > 0
-        || names.some((name) => OPPONENT_AFFECTING_TAGS.has(name));
-    const method = normalizedMethod(jutsu);
-    const range = Math.max(moveTag || groundTarget ? 1 : 0, Number(jutsu.range) || (moveTag || groundTarget ? 4 : 0));
     const tile = action.tile === undefined ? undefined : Math.floor(action.tile);
-
-    if ((moveTag || groundTarget) && tile === undefined) return { applied: false, reason: 'target-tile-required' };
-    if (!selfTarget && !groundTarget && !moveTag && affectsOpponent && range > 0 && hexDistance(self.pos, opponent.pos) > range) {
-        return { applied: false, reason: 'out-of-range' };
-    }
-    const basicElements = new Set(['Earth', 'Wind', 'Water', 'Lightning', 'Fire']);
-    if (jutsu.element && basicElements.has(jutsu.element) && activeStatuses(self, session.round).some((status) => status.name === 'Elemental Seal')) {
-        return { applied: false, reason: 'elementally-sealed' };
-    }
-
-    if ((moveTag || groundTarget) && !validOpenTile(session, side, tile!, range)) {
-        return { applied: false, reason: moveTag ? 'invalid-move-target' : 'invalid-ground-target' };
-    }
-    if ((method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL') && (moveTag || groundTarget) && groundTags(jutsu).length === 0) {
-        return { applied: false, reason: 'ground-effect-needs-supported-tag' };
-    }
+    const plan = jutsuActionPlan(session, side, jutsu, tile);
+    if (!plan.accepted) return { applied: false, reason: plan.rejection };
 
     const flavor = String(jutsu.battleDescription ?? '').trim()
         .replace(/%user/g, self.name)
@@ -935,29 +928,32 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
     session.log.push(`${self.name} uses ${jutsu.name}:${flavor ? ` ${flavor}` : ''}`);
     let resolution: CombatResolutionFacts | undefined;
 
-    if (moveTag) {
-        setFighter(session, side, { ...self, pos: tile! });
+    // PvP pays a tile-target cast before movement/impact resolution. Preserve
+    // that ordering so Poison-on-spend and any self heal/shield on the same cast
+    // observe the same fighter state in both runtimes.
+    if (plan.move || plan.groundTarget) payJutsuResources(session, side, plan.chakraCost, plan.staminaCost);
+
+    if (plan.move) {
+        setFighter(session, side, { ...fighter(session, side), pos: plan.targetTile! });
         session.log.push(`${self.name} dashes to hex ${tile}.`);
-        if (method === 'AOE_SPIRAL') {
-            addGroundEffect(session, side, jutsu, tile!, true);
-        } else if (method === 'AOE_CIRCLE') {
-            const ring = hexNeighbors(tile!);
-            if (ring.includes(opponent.pos)) {
+        if (plan.createsGroundEffect) {
+            addGroundEffect(session, side, jutsu, plan);
+        } else if (plan.method === 'AOE_CIRCLE') {
+            if (plan.hitsOpponent) {
                 session.log.push(`Ring impact catches ${opponent.name}!`);
                 resolution = resolutionFacts(applyCast(session, side, { ...jutsu, tags: (jutsu.tags ?? []).filter((tag) => canonicalTagName(tag.name) !== 'Move') }));
             } else {
                 session.log.push(`${opponent.name} is outside the impact area.`);
             }
-        } else if (!pureMove) {
+        } else if (!plan.pureMove) {
             // A Move-tagged single-target utility relocates only. This matches
             // the canonical PvP movement branch, where Move owns the cast.
         }
-    } else if (groundTarget) {
-        if (method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL') {
-            addGroundEffect(session, side, jutsu, tile!, method === 'AOE_SPIRAL');
+    } else if (plan.groundTarget) {
+        if (plan.createsGroundEffect) {
+            addGroundEffect(session, side, jutsu, plan);
         } else {
-            const ring = hexNeighbors(tile!);
-            if (method === 'AOE_CIRCLE' && ring.includes(opponent.pos)) {
+            if (plan.method === 'AOE_CIRCLE' && plan.hitsOpponent) {
                 session.log.push(`Area burst catches ${opponent.name}!`);
                 resolution = resolutionFacts(applyCast(session, side, jutsu));
             } else {
@@ -966,11 +962,12 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
         }
     } else {
         resolution = resolutionFacts(applyCast(session, side, jutsu));
+        payJutsuResources(session, side, plan.chakraCost, plan.staminaCost);
     }
 
-    payJutsuResources(session, side, chakra, stamina);
-    if ((jutsu.cooldown ?? 0) > 0) session.cooldowns[side][jutsu.id] = Math.floor(jutsu.cooldown!);
-    spendAction(session, side, cost);
+    if (plan.cooldown > 0) session.cooldowns[side][jutsu.id] = plan.cooldown;
+    session.ap[side] = Math.max(0, session.ap[side] - plan.effectiveApCost);
+    session.actionsThisTurn += 1;
     checkWinner(session);
     return { applied: true, ...(resolution ? { resolution } : {}) };
 }
@@ -1190,7 +1187,6 @@ function directAction(
     const identity = actionIdentity(session, side, action);
     const target = eventTarget(session, side, action);
     const logStart = session.log.length;
-    const vfx = jutsuVfx(session, side, action);
     const result = resolveDirectAction(session, side, action, opts);
     if (!result.applied) {
         const after = eventSnapshot(session);
@@ -1214,6 +1210,12 @@ function directAction(
         };
     }
 
+    const vfx = jutsuVfx(
+        session,
+        side,
+        action,
+        action.type === 'jutsu' && fighter(session, otherSide(side)).hp <= 0,
+    );
     const after = eventSnapshot(session);
     const sequence = session.eventSeq + 1;
     const event: SoloPveCombatEvent = {
