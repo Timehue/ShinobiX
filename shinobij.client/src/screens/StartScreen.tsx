@@ -7,6 +7,8 @@ import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/
 import { LegalPage } from "./LegalPage";
 import { captureProductEvent } from "../lib/analytics";
 
+const PRODUCT_ANALYTICS_ENABLED = import.meta.env.VITE_PRODUCT_ANALYTICS_ENABLED === "1";
+
 const CharacterCreator = lazyWithRetry(() => import("./CharacterCreator").then(m => ({ default: m.CharacterCreator })));
 const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then(m => ({ default: m.PublicLeaderboard })));
 
@@ -174,7 +176,7 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     });
 
     useEffect(() => {
-        if (view === "main") captureProductEvent("landing_viewed", { screenId: "landing", source: "navigation" });
+        if (PRODUCT_ANALYTICS_ENABLED && view === "main") captureProductEvent("landing_viewed", { screenId: "landing", source: "navigation" });
     }, [view]);
 
     if (view.startsWith("legal:")) {
@@ -243,19 +245,19 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     return (
         <LandingMain
             onOpenCreate={() => {
-                captureProductEvent("character_creation_started", { source: "landing" });
+                if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("character_creation_started", { source: "landing" });
                 setView("create");
             }}
             onOpenLogin={() => {
-                captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "login" });
+                if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "login" });
                 setView("login");
             }}
             onOpenGuides={() => {
-                captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "guides" });
+                if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "guides" });
                 setView("guides");
             }}
             onOpenLeaderboard={() => {
-                captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "leaderboard" });
+                if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "leaderboard" });
                 setView("leaderboard");
             }}
         />
