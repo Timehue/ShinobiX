@@ -16,6 +16,7 @@ import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
 import type { TowerFeature, TowerBoardObject } from './_floor-catalog.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
+import type { ClanBossContribution } from '../../shared/clan-boss-operation.js';
 
 export type TowerActorId = string;
 export type TowerSide = 'squad' | 'enemy' | 'npc';
@@ -208,6 +209,10 @@ export type TowerSession = {
      *  moves), the % maxHp chip, and its kind/label. Cleared when it detonates. Absent → no
      *  strike this round; floors whose boss carries no strike config never set it (byte-identical). */
     bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string; center?: number };
+
+    /** Server-derived per-actor operation credit. Present only on Clan Boss
+     * sessions; ordinary Tower/Spire sessions remain byte-compatible. */
+    clanBossContributions?: Record<string, ClanBossContribution>;
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────

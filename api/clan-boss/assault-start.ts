@@ -14,6 +14,7 @@ import { makeRng } from '../towers/_sim.js';
 import { readSession, writeSession, setTowerInvite } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { loadAssault, saveAssault, selectClanBossParty } from './_assault.js';
+import { activatePartyStart, clanBossPartiesEnabled, loadParty, preparePartyStart, reopenPartyStart } from './_party.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 import { sealPveAiMastery } from '../_pve-ai-mastery.js';
@@ -22,6 +23,7 @@ import {
     clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
     newClanBossProgress, reserveAttemptForRequest, resolveClanBossDef, saveClanBossProgress,
 } from './_storage.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
 
 /*
  * POST /api/clan-boss/assault-start — begin a co-op assault on THIS week's clan boss.
@@ -37,6 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (process.env.ENABLE_CLAN_BOSS !== '1') return res.status(404).json({ error: 'Not found.' });
     if (req.method !== 'POST') return res.status(405).end();
+    let preparedParty: { id: string; requestId: string } | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const hostName = safeName(String(body.hostName ?? ''));
@@ -71,11 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const memberCount = members.length || 1;
         const memberSlugs = members.map(m => safeName(String(m?.name ?? ''))).filter(Boolean);
 
-        // Party = host + clanmate allies (de-duped, capped). Non-clanmates are dropped.
-        const allyNames: string[] = Array.isArray(body.allies) ? body.allies.map((a: unknown) => safeName(String(a))).filter(Boolean) : [];
-        const partySlugs = selectClanBossParty(hostName, allyNames, memberSlugs, CB_MAX_PARTY);
+        // New operation parties are accepted + readied server-side. If the party
+        // feature is rolled back, the compatibility path is truthful SOLO — never
+        // client-selected offline clanmates presented as live humans.
+        const partyId = clanBossPartiesEnabled() && typeof body.partyId === 'string' ? body.partyId : '';
+        const loadedParty = partyId ? await loadParty(partyId) : null;
+        if (partyId && !loadedParty) return res.status(404).json({ error: 'That operation party no longer exists.' });
+        const requestedAllies = loadedParty?.members.map((member) => member.slug).filter((slug) => slug !== hostName) ?? [];
+        const partySlugs = selectClanBossParty(hostName, requestedAllies, memberSlugs, loadedParty ? CB_MAX_PARTY : 1);
         if (!partySlugs) {
             return res.status(403).json({ error: 'You are no longer a member of that clan.' });
+        }
+        if (loadedParty && (loadedParty.clanName !== clanName || loadedParty.leaderSlug !== hostName || loadedParty.weekId !== weekId || loadedParty.bossId !== boss.id)) {
+            return res.status(409).json({ error: 'That party no longer matches this Clan Boss operation.' });
         }
 
         // Seal every party member from their authoritative save (host also supplies the
@@ -100,6 +111,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (squad.length === 0) return res.status(400).json({ error: 'No valid party members.' });
         const sealedPartySlugs = squad.map(s => s.ownerSlug);
+
+        if (loadedParty) {
+            if (sealedPartySlugs.length !== loadedParty.members.length || sealedPartySlugs.some((slug) => !loadedParty.members.some((member) => member.slug === slug))) {
+                return res.status(409).json({ error: 'A party member save is unavailable. Remove them or try again after they reconnect.' });
+            }
+            const prepared = await preparePartyStart({
+                partyId: loadedParty.id,
+                leaderSlug: hostName,
+                requestId,
+                expectedVersion: Number(body.expectedVersion),
+            });
+            if (!prepared.ok) return res.status(prepared.status).json({ error: prepared.error, errorCode: prepared.code, party: prepared.party });
+            preparedParty = { id: loadedParty.id, requestId };
+        }
 
         // Bind one client request to one attempt/run under the progress lock.
         // Re-check attempts + not-already-killed only for a new request.
@@ -131,7 +156,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await saveClanBossProgress(next.progress);
             return { ok: true as const, replayed: false, receipt: next.receipt };
         }, { failClosed: true });
-        if (!reserved.ok) return res.status('conflict' in reserved ? 409 : 400).json({ error: reserved.error });
+        if (!reserved.ok) {
+            if (preparedParty) await reopenPartyStart(preparedParty.id, preparedParty.requestId);
+            return res.status('conflict' in reserved ? 409 : 400).json({ error: reserved.error });
+        }
 
         // Mint the tower session on the clan-boss floor.
         const { runId, seed, bossHp } = reserved.receipt;
@@ -168,11 +196,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Tag the run as a clan-boss assault so settle knows where to bank it.
         if (!(await loadAssault(runId))) {
-            await saveAssault({ runId, weekId, clanName, host: hostName, party: reserved.receipt.party, bossId: boss.id, createdAt: reserved.receipt.at });
+            await saveAssault({ runId, weekId, clanName, host: hostName, party: reserved.receipt.party, partyId: loadedParty?.id, bossId: boss.id, createdAt: reserved.receipt.at });
         }
+
+        if (preparedParty) await activatePartyStart(preparedParty.id, preparedParty.requestId, runId);
+        captureServerProductEvent('clan_boss_operation_started', {
+            partySizeBucket: String(sealedPartySlugs.length),
+            mode: loadedParty ? 'operation-party' : 'solo-compatibility',
+        });
 
         return res.status(200).json({ runId, session, replayed: reserved.replayed, boss: { id: boss.id, name: boss.name, icon: boss.icon } });
     } catch (err) {
+        if (preparedParty) await reopenPartyStart(preparedParty.id, preparedParty.requestId).catch(() => undefined);
         console.error('[clan-boss/assault-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

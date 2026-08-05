@@ -16,6 +16,7 @@
  * gated on clanBoss.v1. Ships inert.
  */
 import { kv } from '../_storage.js';
+import type { ClanBossContributionResult } from '../../shared/clan-boss-operation.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BALANCE — all tunable; NEEDS SIGN-OFF before ENABLE_CLAN_BOSS=1. Rewards are
@@ -40,7 +41,7 @@ export const CB_MEMBER_CAP = 25;           // pool stops scaling past this roste
 // challenge ends in a wipe besides the clear." Banked chip-damage is what matters.
 export const CB_ASSAULT_HP_CAP = 24000;
 export const CB_ASSAULTS_PER_MEMBER = 5;
-export const CB_MAX_PARTY = 3;             // host + up to 2 clanmates
+export const CB_MAX_PARTY = 4;             // one to four accepted, ready clanmates
 export const CB_ASSAULT_LOG_CAP = 200;
 export const CB_START_REQUEST_CAP = 200;
 
@@ -121,12 +122,41 @@ export function clanBossMemberDamage(p: ClanBossProgress): Map<string, number> {
     return byMember;
 }
 
-/**
- * What each participating member earns: flat ryo for taking part, plus Fate Shards for
- * the top CB_MEMBER_TOP_SHARDS.length damage dealers. Ties break on slug so the split
- * is deterministic and a settlement retry pays the same players the same amounts.
- */
-export function clanBossMemberRewards(p: ClanBossProgress): Array<{ slug: string; ryo: number; fateShards: number; damage: number }> {
+/** Modern operation receipts pay only active contributors and use role-neutral
+ * contribution thresholds. Legacy receipts retain the historical damage ranking so
+ * already-earned weekly rewards remain stable across deployment. */
+export function clanBossMemberRewards(p: ClanBossProgress): Array<{ slug: string; ryo: number; fateShards: number; damage: number; contributionScore?: number; threshold?: string }> {
+    const modern = p.assaults.some((assault) => assault.contributions && Object.keys(assault.contributions).length > 0);
+    if (modern) {
+        const byMember = new Map<string, { damage: number; score: number; active: boolean; threshold: string }>();
+        for (const assault of p.assaults) {
+            for (const [slug, contribution] of Object.entries(assault.contributions ?? {})) {
+                const current = byMember.get(slug) ?? { damage: 0, score: 0, active: false, threshold: 'none' };
+                const threshold = contribution.threshold === 'elite'
+                    || (contribution.threshold === 'veteran' && current.threshold !== 'elite')
+                    || (contribution.threshold === 'field' && current.threshold === 'none')
+                    ? contribution.threshold
+                    : current.threshold;
+                byMember.set(slug, {
+                    damage: current.damage + Math.max(0, contribution.damage),
+                    score: current.score + Math.max(0, contribution.score),
+                    active: current.active || contribution.active,
+                    threshold,
+                });
+            }
+        }
+        for (const slug of p.participants ?? []) if (!byMember.has(slug)) byMember.set(slug, { damage: 0, score: 0, active: false, threshold: 'none' });
+        return [...byMember.entries()]
+            .sort((a, b) => (b[1].score - a[1].score) || a[0].localeCompare(b[0]))
+            .map(([slug, contribution]) => ({
+                slug,
+                ryo: contribution.active ? CB_MEMBER_RYO : 0,
+                fateShards: contribution.threshold === 'elite' ? 3 : contribution.threshold === 'veteran' ? 2 : contribution.threshold === 'field' ? 1 : 0,
+                damage: contribution.damage,
+                contributionScore: contribution.score,
+                threshold: contribution.threshold,
+            }));
+    }
     const byMember = clanBossMemberDamage(p);
     // Anyone who ATTEMPTED counts for ryo even if their party dealt no damage.
     for (const slug of p.participants ?? []) if (!byMember.has(slug)) byMember.set(slug, 0);
@@ -154,15 +184,18 @@ export type ClanBossDef = {
     mechanic: 'enrage' | 'summon' | 'regen' | 'bulwark';
     // The reserved tower floor id an assault against this boss runs on.
     floorId: number;
+    // Canonical world-map location for the weekly operation context. Operation
+    // pressure is informational and never mutates territory ownership.
+    sectorId: number;
 };
 
 // Index-aligned with CLAN_BOSS_FLOORS in api/towers/_floor-catalog.ts (same order,
 // same mechanic, floorId = CB_FLOOR_BASE + index).
 export const CLAN_BOSSES: ClanBossDef[] = [
-    { id: 'oni-warlord', name: 'The Oni Warlord', icon: '👹', flavor: 'A horned titan that enrages as it bleeds — end it fast or be crushed.', mechanic: 'enrage', floorId: CB_FLOOR_BASE + 0 },
-    { id: 'abyss-leviathan', name: 'Abyssal Leviathan', icon: '🐉', flavor: 'It calls the drowned to its side. Cut down the spawn or drown in numbers.', mechanic: 'summon', floorId: CB_FLOOR_BASE + 1 },
-    { id: 'fallen-kage', name: 'The Fallen Kage', icon: '👤', flavor: 'Knits their wounds shut each round. Only overwhelming pressure wins the DPS race.', mechanic: 'regen', floorId: CB_FLOOR_BASE + 2 },
-    { id: 'stone-golem', name: 'Ancient Stone Golem', icon: '🗿', flavor: 'Its guardians shield it from harm. Break the guards before the core will fall.', mechanic: 'bulwark', floorId: CB_FLOOR_BASE + 3 },
+    { id: 'oni-warlord', name: 'The Oni Warlord', icon: '👹', flavor: 'A horned titan that enrages as it bleeds — end it fast or be crushed.', mechanic: 'enrage', floorId: CB_FLOOR_BASE + 0, sectorId: 66 },
+    { id: 'abyss-leviathan', name: 'Abyssal Leviathan', icon: '🐉', flavor: 'It calls the drowned to its side. Cut down the spawn or drown in numbers.', mechanic: 'summon', floorId: CB_FLOOR_BASE + 1, sectorId: 8 },
+    { id: 'fallen-kage', name: 'The Fallen Kage', icon: '👤', flavor: 'Knits their wounds shut each round. Only overwhelming pressure wins the DPS race.', mechanic: 'regen', floorId: CB_FLOOR_BASE + 2, sectorId: 64 },
+    { id: 'stone-golem', name: 'Ancient Stone Golem', icon: '🗿', flavor: 'Its guardians shield it from harm. Break the guards before the core will fall.', mechanic: 'bulwark', floorId: CB_FLOOR_BASE + 3, sectorId: 40 },
 ];
 
 export const CLAN_BOSS_BY_ID: Record<string, ClanBossDef> =
@@ -187,6 +220,7 @@ export type ClanBossAssault = {
     wiped: boolean;        // party lost / all KO'd
     clean: boolean;        // no party member was KO'd
     at: number;
+    contributions?: Record<string, ClanBossContributionResult>;
 };
 
 export type ClanBossStartReceipt = {
@@ -397,7 +431,7 @@ export function reserveAttemptForRequest(
  */
 export function bankAssault(
     p: ClanBossProgress,
-    assault: { runId: string; by: string; party: string[]; damage: number; rounds: number; wiped: boolean; clean: boolean; at: number },
+    assault: ClanBossAssault,
 ): ClanBossProgress {
     // The side-record and progress record are separate KV writes. If progress
     // commits but marking the side-record settled fails, a retry must not bank
