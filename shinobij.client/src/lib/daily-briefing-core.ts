@@ -9,22 +9,12 @@
  */
 import type { Screen } from "../types/core";
 import { builtinHuntMissions } from "../data/missions";
+export { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "./daily-login-preview";
 
 // ── Login reward preview ────────────────────────────────────────────────────
 // The SERVER is authoritative (api/player/_daily-login.ts); this mirrors the
 // same curve so the modal can show the amount before/independent of the claim
 // round-trip. Keep the constants in sync across the two files.
-const LOGIN_RYO_BASE = 500;
-const LOGIN_RYO_PER_LEVEL = 100;
-const LOGIN_RYO_CAP = 8000;
-export const STREAK_SHARD_INTERVAL = 7;
-export const STREAK_SHARD_REWARD = 5;
-
-export function dailyLoginRyo(level: number): number {
-    const lv = Math.max(1, Math.floor(Number(level) || 1));
-    return Math.min(LOGIN_RYO_CAP, LOGIN_RYO_BASE + LOGIN_RYO_PER_LEVEL * lv);
-}
-
 // ── Recommended mission for the player's level band ─────────────────────────
 // Picks the highest level-gated hunt the player qualifies for (best XP/ryo).
 export function recommendedMission(level: number): { name: string; rank: string } | null {
