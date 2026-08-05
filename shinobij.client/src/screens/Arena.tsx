@@ -5908,7 +5908,7 @@ export function Arena({
                                 title={activeBattlePetSummonNote}
                             >
                                 <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
-                                <span>Pet</span>
+                                <span>Summon Pet</span>
                                 <small>{summonedPet ? `${petDisplayName(summonedPet)} fighting` : petSummonedThisFight ? "Pet already used" : activeBattlePetSummonNote}</small>
                             </button>
                         )}
