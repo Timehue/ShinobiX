@@ -309,7 +309,8 @@ export type SoloPveAction =
     | { type: 'item'; itemId: string }
     | { type: 'summon' }
     | { type: 'wait' }
-    | { type: 'flee' };
+    | { type: 'flee' }
+    | { type: 'abandon' };
 
 export type SoloPveActionResult = {
     applied: boolean;

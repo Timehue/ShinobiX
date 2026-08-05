@@ -227,7 +227,7 @@ function eventTarget(session: SoloPveSession, side: SoloPveSide, action: SoloPve
         if (jutsu?.target === 'SELF') return side;
         return otherSide(side);
     }
-    if (action.type === 'basicHeal' || action.type === 'cleanse' || action.type === 'item' || action.type === 'summon' || action.type === 'flee') return side;
+    if (action.type === 'basicHeal' || action.type === 'cleanse' || action.type === 'item' || action.type === 'summon' || action.type === 'flee' || action.type === 'abandon') return side;
     if (action.type === 'wait') return null;
     return otherSide(side);
 }
@@ -1171,6 +1171,20 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             checkWinner(session);
             if (session.status === 'active') endSoloPveTurn(session);
         }
+        return { applied: true };
+    }
+    if (action.type === 'abandon') {
+        // Abandon is an explicit terminal forfeit, not an escape attempt. It is
+        // deliberately independent of AP and the sealed flee roll so closing an
+        // unresolved battle can always settle exactly once. The same 10% max-HP
+        // physical cost as an escape attempt is retained; loss settlement owns
+        // any additional defeat/hospital consequences for the host mode.
+        const hpCost = Math.max(1, Math.floor(self.maxHp * 0.1));
+        setFighter(session, side, { ...self, hp: Math.max(0, self.hp - hpCost) });
+        session.status = 'done';
+        session.winner = 'enemy';
+        session.outcome = 'loss';
+        session.log.push(`${self.name} abandons the encounter, forfeiting the fight and losing ${hpCost} HP.`);
         return { applied: true };
     }
     return { applied: false, reason: 'unknown-action' };

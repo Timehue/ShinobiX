@@ -111,6 +111,7 @@ function soloAction(action: ServerArenaAction): SoloPveActionInput {
         case "clear": return { type: "clear" };
         case "cleanse": return action;
         case "summon": return action;
+        case "flee": return action;
         case "wait": return action;
     }
 }
@@ -147,5 +148,5 @@ export const soloPveArenaTransport: ServerArenaTransport = {
     turnTimeoutMs: SOLO_ARENA_TURN_MS,
     fetchState: async (sessionId, playerName) => soloPveSessionForArena(await fetchSoloPveState(sessionId, playerName)),
     submitAction: (sessionId, playerName, current, action) => submitWithStableRetry({ sessionId, playerName, current, action: soloAction(action) }),
-    forfeit: (sessionId, playerName, current) => submitWithStableRetry({ sessionId, playerName, current, action: { type: "flee" } }),
+    forfeit: (sessionId, playerName, current) => submitWithStableRetry({ sessionId, playerName, current, action: { type: "abandon" } }),
 };
