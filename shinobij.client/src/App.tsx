@@ -1876,6 +1876,12 @@ export default function App() {
     // win-handlers compute correct rewards on resume.
     useEffect(() => {
         try {
+            // Do not erase the crash-recovery breadcrumb during the initial
+            // async save restore. pvpBattleId necessarily starts null; the
+            // snapshot loader reads this key and installs the real id/role a
+            // moment later. Clearing it on the mount effect made refresh-flee
+            // possible and prevented the live layout/reconnect path entirely.
+            if (restoringSession && !pvpBattleId) return;
             if (pvpBattleId) {
                 localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({
                     pvpBattleId,
@@ -1887,7 +1893,7 @@ export default function App() {
                 localStorage.removeItem(PVP_SESSION_KEY);
             }
         } catch { /* quota / SSR */ }
-    }, [pvpBattleId, pvpRole, pvpBattleContext]);
+    }, [pvpBattleId, pvpRole, pvpBattleContext, restoringSession]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [storyFightOpen, setStoryFightOpen] = useState(false); // sealed story-lane fights are body portals, so `screen` never changes — screen-keyed chrome checks this instead
     // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged

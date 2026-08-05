@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 // Command-deck glyphs (game-icons.net, CC BY 3.0) — one per basic action.
 import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
@@ -18,6 +17,9 @@ import { FighterHpBadge } from "../components/FighterHpBadge";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { CombatInstance } from "../components/CombatInstance";
+import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
+import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
+import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
@@ -787,7 +789,7 @@ export function PvpBattleScreen({
     // Below lg (1180px) the chat renders as a fixed 220px overlay that covers
     // ~60% of a phone screen over the combat HUD, so start it COLLAPSED there;
     // on desktop (in-grid column) start it open. Players can still toggle it.
-    const [battleChatVisible, setBattleChatVisible] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1180 : true);
+    const [battleChatVisible, setBattleChatVisible] = useState(false);
     const battleChatRef = useRef<HTMLDivElement>(null);
 
     /* Poll battle chat every 3s (paused when tab hidden) */
@@ -1110,14 +1112,7 @@ export function PvpBattleScreen({
     const weaponRangeTilesSet = new Set(pendingWeapon ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= pvpWeaponRange) : []);
     const basicAttackRangeTiles = new Set(pendingBasicAttack ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= 1) : []);
 
-    function pvpAdjustedApCost(base: number) {
-        const lag = me.statuses.find(s => statusMatchesName(s, "Lag"));
-        const overclock = me.statuses.find(s => statusMatchesName(s, "Overclock"));
-        let cost = base;
-        if (lag) cost = Math.ceil(cost * (1 + ((lag.percent ?? 20) / 100)));
-        if (overclock) cost = Math.floor(cost * (1 - ((overclock.percent ?? 20) / 100)));
-        return Math.max(1, cost);
-    }
+    const pvpAdjustedApCost = (base: number) => adjustedCombatApCost(me.statuses, base);
 
     function pvpMinActionCost() {
         // Every action cost MUST flow through pvpAdjustedApCost so the
@@ -1362,7 +1357,7 @@ export function PvpBattleScreen({
     };
 
     return (
-        <CombatInstance className={`pvp-battle-layout arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <ShinobiCombatShell mode="pvp" className={`pvp-battle-layout arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {connectionState === "reconnecting" && (
                 <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
                     <span className="pvp-reconnecting-dot" />
@@ -1387,27 +1382,6 @@ export function PvpBattleScreen({
                     </div>
                 </div>
             )}
-            {/* Portal player HUD to left sidebar on xl viewport */}
-            {(() => {
-                const portalTarget = document.getElementById("battle-hud-portal");
-                return portalTarget ? createPortal(
-                    <div className="battle-hud-sidebar">
-                        <CombatSideHud
-                            name={`${me.name} (You)`}
-                            avatar={myAvatar || "🥷"}
-                            hp={me.hp} maxHp={me.maxHp}
-                            chakra={me.chakra} maxChakra={me.maxChakra}
-                            stamina={me.stamina} maxStamina={me.maxStamina}
-                            shield={me.shield}
-                            village={(me.character?.village as string) || ""}
-                            turn={session.round}
-                            statuses={me.statuses}
-                            isActive={isMyTurn && !done}
-                        />
-                    </div>,
-                    portalTarget
-                ) : null;
-            })()}
             <div className="combat-layout">
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
@@ -1480,6 +1454,7 @@ export function PvpBattleScreen({
                     </div>
 
 
+                    <div className="combat-board-stage">
                     <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}>
                         <div style={(() => {
@@ -1635,10 +1610,22 @@ export function PvpBattleScreen({
                                             (!!pendingWeapon && i === oppPos && weaponRangeTilesSet.has(i)) ||
                                             (pendingBasicAttack && i === oppPos && basicAttackRangeTiles.has(i));
                                         const isSelfTarget = i === selfTargetTile;
+                                        const tileOccupant = isMyTile ? "your position" : isOppTile ? `${opp.name} position` : "empty";
+                                        const tilePurpose = isPendingTarget || isSelfTarget
+                                            ? "target"
+                                            : isGroundTarget
+                                                ? "ground target"
+                                                : canMove
+                                                    ? "move target"
+                                                    : isJutsuRange
+                                                        ? "in range"
+                                                        : null;
+                                        const tileLabel = `Tile ${i + 1}, row ${row + 1}, column ${col + 1}: ${tileOccupant}${tilePurpose ? `, ${tilePurpose}` : ""}`;
                                         return (
                                             <button
                                                 key={i}
                                                 className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}${isSelfTarget ? " jutsu-self-target-tile" : ""}`}
+                                                aria-label={tileLabel}
                                                 style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                                 // Only a ground-target jutsu consumes hoveredPvpTile (impact
                                                 // preview). Skip the setState otherwise so dragging the cursor
@@ -1652,6 +1639,7 @@ export function PvpBattleScreen({
                                 )}
                             </div>
                         </div>
+                    </div>
                     </div>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
@@ -1768,7 +1756,7 @@ export function PvpBattleScreen({
                                                         className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                         title={onCooldown ? `${j.name} cooldown: ${myCooldowns[j.id]} turns` : `${j.name} | ${j.ap} AP | Range ${j.range}`}
                                                         onClick={() => !onCooldown && selectJutsu(j)}
-                                                        disabled={submitting || onCooldown || myAp < (j.ap ?? 40)}
+                                                        disabled={submitting || onCooldown || myAp < pvpAdjustedApCost(j.ap ?? 40)}
                                                     >
                                                         <span className="combat-jutsu-thumb">
                                                             <strong className="combat-jutsu-fallback-icon">{fallbackIcon(j)}</strong>
@@ -1778,7 +1766,7 @@ export function PvpBattleScreen({
                                                         {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                             shows as the corner pip. Dropping it keeps the cost line
                                                             inside the card without truncating. */}
-                                                        <span className="combat-jutsu-info">{j.ap} AP · R{j.range}{onCooldown ? ` · CD ${myCooldowns[j.id]}` : ""}</span>
+                                                        <CombatJutsuMeta character={character} jutsu={j} statuses={me.statuses} activeCooldown={myCooldowns[j.id] ?? 0} />
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
@@ -2037,7 +2025,7 @@ export function PvpBattleScreen({
             </div>
 
             {/* Spectator list is now shown inside the chat panel header */}
-        </CombatInstance>
+        </ShinobiCombatShell>
     );
 }
 

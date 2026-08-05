@@ -20,16 +20,6 @@
 
 /* Wide viewports: show the in-grid player dossier (we don't portal it) and keep
    all three columns — player dossier | board | enemy dossier. */
-html[data-vp="xl"] .arena-fullscreen.mission-arena-fight .combat-layout > .combat-side-hud:first-child,
-html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout > .combat-side-hud:first-child {
-    display: flex !important;
-}
-
-html[data-vp="xl"] .arena-fullscreen.mission-arena-fight .combat-layout,
-html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
-    grid-template-columns: minmax(140px, 210px) minmax(0, 1fr) minmax(140px, 210px) !important;
-}
-
 /* Action-notice slot — the rejection alert and the armed-action hint share ONE
    grid child. `.combat-main-area` (desktop) and `.combat-layout` (mobile) are
    fixed-track grids whose bands are placed by `order`; an unordered extra child
