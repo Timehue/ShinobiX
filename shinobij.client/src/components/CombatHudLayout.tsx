@@ -61,7 +61,7 @@ export function CombatBoardStage({ children, className, ...props }: DivProps) {
     return <div className={classNames("combat-board-stage", className)} {...props}>{children}</div>;
 }
 
-/** Basic combat controls; mode-specific actions such as Pet or Abandon remain caller-owned children. */
+/** Basic combat controls; mode-specific actions such as Pet or Flee remain caller-owned children. */
 export function CombatCommandBar({ children, className, ...props }: DivProps) {
     return <div className={classNames("basic-action-bar shinobi-command-bar", className)} {...props}>{children}</div>;
 }
