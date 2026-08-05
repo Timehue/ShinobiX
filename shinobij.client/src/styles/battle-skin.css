@@ -4297,6 +4297,55 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-log .com
     display: block !important;
 }
 
+/* Shared authoritative PvP / Solo PvE log: retain the complete flat feed and
+   trade density for legibility. Long fights scroll inside the log panel. */
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log {
+    padding: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-header {
+    position: sticky;
+    z-index: 3;
+    top: 0;
+    padding: 11px 16px !important;
+    font-size: 14px !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-line {
+    margin: 0 !important;
+    padding: 10px 16px !important;
+    border-bottom: 1px solid rgba(196, 162, 90, 0.12);
+    border-left: 3px solid rgba(148, 163, 184, 0.48);
+    background: rgba(15, 23, 42, 0.34);
+    color: #f1f5f9 !important;
+    font: 500 clamp(15px, 1cqw, 17px) / 1.65 'Inter', system-ui, sans-serif !important;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-line:nth-child(odd) {
+    background: rgba(30, 41, 59, 0.34);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-round {
+    border-left-color: rgba(232, 212, 150, 0.8);
+    background: rgba(196, 162, 90, 0.12) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    font-family: var(--font-display) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-empty {
+    padding: 16px !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+}
+
 html body > .arena-fullscreen.shinobi-combat-shell .combat-equipped-jutsu-grid {
     display: grid !important;
     /* Keep square cast cards wide enough that the independent 44px details
