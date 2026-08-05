@@ -11,6 +11,10 @@ export const PRODUCT_EVENT_NAMES = [
     'shop_purchase_settled',
     'pet_breeding_started',
     'ranked_match_settled',
+    'activity_recommendation_viewed',
+    'clan_boss_party_state_changed',
+    'clan_boss_operation_started',
+    'clan_boss_operation_settled',
 ] as const;
 
 export type ProductEventName = (typeof PRODUCT_EVENT_NAMES)[number];
@@ -19,6 +23,8 @@ export const PRODUCT_EVENT_PROPERTY_KEYS = [
     'source', 'screenId', 'mode', 'resultCategory', 'levelBand', 'villageCode',
     'deviceTier', 'viewportClass', 'featureFlag', 'featureFlagState',
     'durationBucket', 'errorCategory', 'contentId', 'eventAuthority',
+    'partySizeBucket', 'queueWaitBucket', 'stateCategory', 'contributionCategory',
+    'horizon',
 ] as const;
 
 export type ProductEventPropertyKey = (typeof PRODUCT_EVENT_PROPERTY_KEYS)[number];

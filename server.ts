@@ -50,6 +50,7 @@ import cafeteriaHandler  from './api/player/cafeteria.js';
 import rosterHandler     from './api/player/roster.js';
 import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
+import playerActivitySpineHandler from './api/player/activity-spine.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
 import sunscarFestivalHandler from './api/festival/sunscar.js';
@@ -203,6 +204,7 @@ import clanChatSendHandler           from './api/clan/chat/send.js';
 import clanBossGetHandler            from './api/clan-boss/get.js';
 import clanBossAssaultStartHandler   from './api/clan-boss/assault-start.js';
 import clanBossAssaultSettleHandler  from './api/clan-boss/assault-settle.js';
+import clanBossPartyHandler          from './api/clan-boss/party.js';
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 import hollowGateStartHandler        from './api/hollow-gate/start.js';
 import hollowGateDescendHandler      from './api/hollow-gate/descend.js';
@@ -307,6 +309,7 @@ import adminEconomyHandler from './api/admin/economy.js';
 import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
 import adminEconomySettlementsHandler from './api/admin/economy-settlements.js';
 import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
+import adminClanBossOperationsHandler from './api/admin/clan-boss-operations.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER } from './api/_auth.js';
@@ -1012,6 +1015,7 @@ route('/player/cafeteria',    cafeteriaHandler);
 route('/player/roster',       rosterHandler);
 route('/player/leaderboards', playerLeaderboardsHandler);
 route('/player/trade',        playerTradeHandler);
+route('/player/activity-spine', playerActivitySpineHandler);
 // Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
 // once per UTC day under the save lock (failClosed), idempotent via the date
 // stamp on the save itself. See api/player/_daily-login.ts.
@@ -1250,6 +1254,7 @@ route('/clan/chat/send', clanChatSendHandler);
 // tower session on the clan-boss floor; assault-settle banks the finished fight's
 // server-computed damage into the clan's shared pool. Weekly cron ranks + rewards top 3.
 route('/clan-boss/get',            clanBossGetHandler);
+route('/clan-boss/party',          clanBossPartyHandler);
 route('/clan-boss/assault-start',  clanBossAssaultStartHandler);
 route('/clan-boss/assault-settle', clanBossAssaultSettleHandler);
 
@@ -1394,6 +1399,7 @@ route('/admin/economy', adminEconomyHandler);
 route('/admin/economy-reconcile', adminEconomyReconcileHandler);
 route('/admin/economy-settlements', adminEconomySettlementsHandler);
 route('/admin/beta-metrics', adminBetaMetricsHandler);
+route('/admin/clan-boss-operations', adminClanBossOperationsHandler);
 
 // Release-handoff endpoints. Express has no folder-convention routing, so every
 // handler added during the feature and settlement work must be mounted here.
