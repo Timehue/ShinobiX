@@ -113,7 +113,7 @@ import {
     rankTitleForLevel,
     applyStoryChoice, deriveStoryTraits,
 } from "./lib/character-progress";
-import { normalizeLoadedVital } from "./lib/loaded-vitals";
+import { normalizeLoadedVital, regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 import {
@@ -3927,12 +3927,7 @@ export default function App() {
                 if (isPresenceBattleActive(screen)) return prev;
                 if (prev.hp >= prev.maxHp && prev.chakra >= prev.maxChakra && prev.stamina >= prev.maxStamina) return prev; // idle at full vitals (common): same-ref no-op skips the per-second full-App reconcile; values are Math.min-clamped so identical — no gameplay change
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
-                return {
-                    ...prev,
-                    hp: Math.min(prev.maxHp, prev.hp + 1 + auraBonuses.regen),
-                    chakra: Math.min(prev.maxChakra, prev.chakra + 1 + auraBonuses.regen),
-                    stamina: Math.min(prev.maxStamina, prev.stamina + 1 + auraBonuses.regen),
-                };
+                return regenerateIdleVitals(prev, 1 + auraBonuses.regen);
             });
         }, 1000);
 
