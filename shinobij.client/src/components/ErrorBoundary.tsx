@@ -26,6 +26,8 @@ import {
 } from "../lib/chunk-load-recovery";
 import { captureProductEvent } from "../lib/analytics";
 
+const PRODUCT_ANALYTICS_ENABLED = import.meta.env.VITE_PRODUCT_ANALYTICS_ENABLED === "1";
+
 type Props = { children: ReactNode };
 type State = { error: Error | null };
 
@@ -56,10 +58,12 @@ export class ErrorBoundary extends Component<Props, State> {
         // Genuine render crash — report it so we hear about it from tooling, not
         // from players. No-op when Sentry is disabled (DSN unset).
         reportError(error, { componentStack: info?.componentStack });
-        captureProductEvent("recoverable_ui_error_shown", {
-            source: "root_boundary",
-            errorCategory: "render_error",
-        });
+        if (PRODUCT_ANALYTICS_ENABLED) {
+            captureProductEvent("recoverable_ui_error_shown", {
+                source: "root_boundary",
+                errorCategory: "render_error",
+            });
+        }
     }
 
     private reload = (): void => {
