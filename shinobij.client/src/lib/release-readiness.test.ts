@@ -29,7 +29,9 @@ describe("release readiness metadata", () => {
 
         assert.doesNotMatch(sentrySource, /^import\s+.+["']@sentry\/react["'];?$/m);
         assert.match(sentrySource, /import\(["']\.\/sentry-runtime["']\)/);
-        assert.match(runtimeSource, /export\s+\{\s*captureException,\s*init,\s*setUser\s*\}\s+from\s+["']@sentry\/react["']/);
+        assert.match(runtimeSource, /import\s+\{\s*captureException,\s*init\s*\}\s+from\s+["']@sentry\/react["']/);
+        assert.match(runtimeSource, /sanitizeSentryEvent/);
+        assert.doesNotMatch(sentrySource, /username|setSentryUser|setUser/);
         assert.doesNotMatch(runtimeSource, /import\s+\*\s+as/);
         assert.match(sentrySource, /window\.addEventListener\(["']error["']/);
         assert.ok(ciSource.includes("VITE_SENTRY_DSN: https://public@example.invalid/1"));

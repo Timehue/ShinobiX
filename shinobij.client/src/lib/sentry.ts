@@ -12,22 +12,18 @@
  * Sentry's inbound filters / allowed-domains, not by trying to hide it.
  */
 
-const DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+import { isChunkLoadError } from "./chunk-load-recovery";
+
+const ENV = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {};
+const DSN = ENV.VITE_SENTRY_DSN;
 
 type SentryModule = typeof import("./sentry-runtime");
 
 let activeModule: SentryModule | null = null;
 let loadPromise: Promise<SentryModule | null> | null = null;
 let listenersInstalled = false;
-let currentUser: string | null = null;
-
-function setUser(module: SentryModule, name: string | null): void {
-    try {
-        module.setUser(name ? { username: name } : null);
-    } catch {
-        /* reporting must never throw into the game */
-    }
-}
+const seenErrors = new WeakSet<object>();
+const primitiveFingerprints = new Map<string, number>();
 
 function loadSentry(): Promise<SentryModule | null> {
     if (!DSN) return Promise.resolve(null);
@@ -39,16 +35,16 @@ function loadSentry(): Promise<SentryModule | null> {
             try {
                 module.init({
                     dsn: DSN,
-                    environment: import.meta.env.MODE,
-                    release: (import.meta.env.VITE_SENTRY_RELEASE || import.meta.env.VITE_BUILD_COMMIT) as string | undefined,
+                    environment: ENV.MODE,
+                    release: ENV.VITE_SENTRY_RELEASE || ENV.VITE_BUILD_COMMIT,
                     // Our tiny listeners below load the SDK on the first error.
                     // Disable Sentry's duplicate global handlers once it arrives.
                     integrations: (defaults) => defaults.filter((integration) => integration.name !== "GlobalHandlers"),
                     tracesSampleRate: 0,
                     sendDefaultPii: false,
+                    beforeSend: module.beforeSend,
                 });
                 activeModule = module;
-                setUser(module, currentUser);
                 return module;
             } catch {
                 loadPromise = null;
@@ -61,6 +57,22 @@ function loadSentry(): Promise<SentryModule | null> {
         });
 
     return loadPromise;
+}
+
+function duplicateError(error: unknown): boolean {
+    if (error && (typeof error === "object" || typeof error === "function")) {
+        if (seenErrors.has(error as object)) return true;
+        seenErrors.add(error as object);
+        return false;
+    }
+    const key = String(error).slice(0, 240);
+    const now = Date.now();
+    const previous = primitiveFingerprints.get(key) ?? 0;
+    primitiveFingerprints.set(key, now);
+    for (const [fingerprint, at] of primitiveFingerprints) {
+        if (now - at > 5_000) primitiveFingerprints.delete(fingerprint);
+    }
+    return now - previous < 5_000;
 }
 
 function browserError(event: ErrorEvent): unknown {
@@ -90,19 +102,9 @@ export function initSentry(): void {
 
 /** Report a caught exception. No-op when Sentry is disabled. */
 export function reportError(error: unknown, context?: Record<string, unknown>): void {
-    if (!DSN) return;
+    if (!DSN || isChunkLoadError(error) || duplicateError(error)) return;
     void loadSentry().then((module) => {
         if (!module) return;
-        try {
-            module.captureException(error, context ? { extra: context } : undefined);
-        } catch {
-            /* reporting must never throw into the caller */
-        }
+        module.captureSanitizedException(error, context);
     });
-}
-
-/** Tag subsequent events with the logged-in player so crashes are attributable. */
-export function setSentryUser(name: string | null): void {
-    currentUser = name;
-    if (activeModule) setUser(activeModule, name);
 }

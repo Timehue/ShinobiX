@@ -317,6 +317,8 @@ import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } 
 import { classifyBodyLimit } from './api/_body-limits.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
 import { evaluateLaunchControl } from './api/_launch-controls.js';
+import { captureExpressException } from './api/_sentry-context.js';
+import { sanitizeSentryEvent } from './shared/observability-sanitize.js';
 import {
     canonicalRedirectLocation,
     isLegacyDuplicateHost,
@@ -349,6 +351,7 @@ if (process.env.SENTRY_DSN) {
             ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value)),
             tracesSampleRate: 0,
             sendDefaultPii: false,
+            beforeSend: (event) => sanitizeSentryEvent(event),
         });
         console.log('[sentry] server error reporting enabled');
     } catch (err) {
@@ -1631,7 +1634,7 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).
     if (Sentry) {
-        try { Sentry.captureException(err); } catch { /* swallow */ }
+        captureExpressException(Sentry, req, err);
     }
     if (!res.headersSent) {
         // Echo the correlation id so a player can quote it in a bug report and an
