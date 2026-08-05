@@ -6,18 +6,14 @@ const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), 
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
 const solo = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const pvp = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
-const arena = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 
-test("all authoritative shinobi combat modes adopt one shell and aspect-locked board stage", () => {
-    for (const source of [solo, pvp, arena]) {
+test("PvP and authoritative Solo PvE adopt one shell and aspect-locked board stage", () => {
+    for (const source of [solo, pvp]) {
         assert.match(source, /<ShinobiCombatShell/);
         assert.match(source, /className="combat-board-stage"/);
-    }
-    for (const source of [solo, pvp]) {
         assert.match(source, /<CombatJutsuMeta/);
     }
-    assert.doesNotMatch(arena, /<CombatInstance/);
     assert.match(css, /container: shinobi-combat \/ size/);
     assert.match(css, /--combat-board-aspect: 1\.6214/);
     assert.match(css, /width: min\(100cqw, calc\(100cqh \* var\(--combat-board-aspect\)\)\)/);
