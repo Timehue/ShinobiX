@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { CLAN_BOSS_SOLO_FALLBACK_MS } from '../../shared/clan-boss-operation.js';
-import { addPartyMember, createPartyRecord, partyView, queueParty, removePartyMember, snapshotForPlayer, type PartyPlayerContext } from './_party.js';
+import { addPartyMember, canClaimPartyLeadership, createPartyRecord, partyView, queueParty, removePartyMember, snapshotForPlayer, type PartyPlayerContext } from './_party.js';
 
 const NOW = 10_000;
 function player(slug: string): PartyPlayerContext {
@@ -59,6 +59,16 @@ describe('Clan Boss operation party transitions', () => {
         const removed = removePartyMember(value, 'leader', NOW + 2);
         assert.equal(removed.ok, true);
         if (removed.ok) assert.equal(removed.party.leaderSlug, 'b');
+    });
+
+    it('lets a real member recover leadership only after the leader is stale', () => {
+        let value = party();
+        const joined = addPartyMember(value, player('b'), NOW + 1);
+        assert.equal(joined.ok, true);
+        if (joined.ok) value = joined.party;
+        assert.equal(canClaimPartyLeadership(value, 'b', NOW + 44_000), false);
+        assert.equal(canClaimPartyLeadership(value, 'b', NOW + 46_000), true);
+        assert.equal(canClaimPartyLeadership(value, 'outsider', NOW + 46_000), false);
     });
 
     it('queues only an all-ready leader-owned party and exposes solo fallback after the bounded wait', () => {

@@ -169,15 +169,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const strongestThreshold = Object.values(contributions).some((entry) => entry.threshold === 'elite')
             ? 'elite'
             : Object.values(contributions).some((entry) => entry.threshold === 'veteran') ? 'veteran' : activeCount > 0 ? 'field' : 'none';
-        captureServerProductEvent('clan_boss_operation_settled', {
-            partySizeBucket: String(party.length),
-            resultCategory: result.won ? 'won' : result.wiped ? 'wiped' : 'timed-out',
-            contributionCategory: strongestThreshold,
-        });
-        void recordBetaMetric({
-            event: 'clan_boss.assault_settled',
-            source: `party-${party.length}:${result.won ? 'won' : result.wiped ? 'wiped' : 'timeout'}:${strongestThreshold}`,
-        });
+        const telemetryGate = await kv.set(`clan-boss:telemetry:settle:${runId}`, '1', { nx: true, ex: 9 * 24 * 60 * 60 }).catch(() => null);
+        if (telemetryGate === 'OK') {
+            captureServerProductEvent('clan_boss_operation_settled', {
+                partySizeBucket: String(party.length),
+                resultCategory: result.won ? 'won' : result.wiped ? 'wiped' : 'timed-out',
+                contributionCategory: strongestThreshold,
+            });
+            void recordBetaMetric({
+                event: 'clan_boss.assault_settled',
+                source: `party-${party.length}:${result.won ? 'won' : result.wiped ? 'wiped' : 'timeout'}:${strongestThreshold}`,
+            });
+        }
+
+        // Multiple idempotent helpers may have advanced the caller's save. Echo the
+        // final authoritative version/character so the next autosave cannot collide
+        // with an operation reward that the client has not observed yet.
+        const finalPlayerRecord = party.includes(playerName)
+            ? await kv.get<Record<string, unknown>>(`save:${playerName}`)
+            : null;
+        const finalCharacter = finalPlayerRecord?.character as Record<string, unknown> | undefined;
+        if (finalCharacter) awardedCharacter = finalCharacter;
 
         return res.status(outcome.status).json({
             ...(outcome.body as Record<string, unknown>),
@@ -187,6 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sectorState: sector?.state,
             sectorPressureReducedBy: sector?.reducedBy ?? 0,
             character: awardedCharacter,
+            _saveVersion: Number(finalPlayerRecord?._saveVersion) || undefined,
         });
     } catch (err) {
         console.error('[clan-boss/assault-settle]', err);
