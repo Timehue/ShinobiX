@@ -313,7 +313,11 @@ test('real built client completes and recovers a server-owned combat mission', a
     expect(persisted.status).toBe(200);
     const persistedCharacter = persisted.body.character as Record<string, unknown>;
     expect(Number(persistedCharacter.ryo)).toBeGreaterThan(100);
-    expect(Number(persistedCharacter.hp)).toBe(Math.max(1, Number(terminal.player.hp)));
+    // Settlement recovery, reward claiming, and the injected lost-response retry
+    // take long enough for ordinary village regeneration to tick. The physical
+    // remainder may rise, but it must survive and must never become a free refill.
+    expect(Number(persistedCharacter.hp)).toBeGreaterThanOrEqual(Math.max(1, Number(terminal.player.hp)));
+    expect(Number(persistedCharacter.hp)).toBeLessThan(Number(persistedCharacter.maxHp));
     expect((persistedCharacter.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
         .some((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === initial.sessionId)).toBe(true);
     expect((persistedCharacter.pendingCombatMissionClaims as unknown[] ?? []).map(String)).not.toContain('combat-e-drill');
