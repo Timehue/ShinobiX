@@ -12,14 +12,26 @@ import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, ROSTER_MODEL_PR
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
 
-test("all five base starter forms have a combat model at their canonical path", () => {
+test("all five base starter forms have an approved combat model", () => {
     assert.equal(PET_COMBAT_MODEL_IDS.length, 15);
     for (const element of ["fire", "water", "wind", "lightning", "earth"]) {
         const base = petCombatModel(pet(`starter-${element}`, 0));
         const rare = petCombatModel(pet(`starter-${element}`, 1, "rare"));
-        assert.equal(base?.url, `/pet-models/starter-${element}.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+        if (element === "earth") {
+            assert.equal(base?.url, `/pet-models/roster/standard-5.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+        } else {
+            assert.equal(base?.url, `/pet-models/starter-${element}.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+        }
         assert.ok((base?.targetHeight ?? Infinity) < (rare?.targetHeight ?? 0));
     }
+});
+
+test("Pebble Tortoise replaces the duplicate-head-shell asset with the reviewed one-shell rig", () => {
+    const pebble = petCombatModel({ ...pet("starter-earth", 0), name: "Pebble Tortoise" });
+    assert.equal(pebble?.visualId, "standard-5");
+    assert.equal(pebble?.identityVisualId, "starter-earth", "Pebble keeps its Earth VFX identity");
+    assert.equal(pebble?.profile, "biped");
+    assert.equal(pebble?.targetHeight, 1.95, "the replacement keeps Pebble's starter scale");
 });
 
 test("all ten evolved starter forms have a combat model", () => {

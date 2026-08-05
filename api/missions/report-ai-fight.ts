@@ -44,6 +44,7 @@ import {
     isApexBeastForWeek,
     isoWeekKey,
 } from './_apex-contract.js';
+import { creditFieldRaidProgress } from './_field-raid-progress.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -73,8 +74,8 @@ const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 //
 // The payout, the secondary rewards and the physical outcome all land in ONE
 // mutatePlayerSave, so a win cannot bank its reward while losing the damage it
-// cost. The hunt/apex kill receipts are written after it, best-effort, and never
-// fail an already-applied reward.
+// cost. The field-raid/hunt/apex progress receipts are written after it,
+// best-effort, and never fail an already-applied reward.
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -225,6 +226,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 console.error('[report-ai-fight] legacy tracking failed:', legacyErr);
             }
         }
+        // ── Field-raid producer ───────────────────────────────────────────────
+        // AI village raids now settle through THIS endpoint and its sealed
+        // solo-PvE session. The older client path followed settlement with
+        // report-raid, but it had neither a PvP battleId nor a raid-start token,
+        // so claim-mission's receipt remained at 0 raids while the local board
+        // showed the win. Stamp the proven raid from the same AI-fight token
+        // whose sealed session supplied the WIN. The helper hashes the proof and
+        // deduplicates it, so retries cannot count one fight twice.
+        const fetchMissionsCredited = paysReward && sealedBattleKind === 'raidAi'
+            ? await creditFieldRaidProgress({
+                playerName,
+                save: result.record as Record<string, unknown> | undefined,
+                proofId: `ai-fight:${aiFightToken}`,
+            })
+            : [];
         // ── Hunt-kill producer ───────────────────────────────────────────────
         // A validated win against a hunt's beast (opponentId sealed at fight start)
         // stamps that accepted hunt's kill onto its progress receipt so claim-mission
@@ -275,7 +291,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // `outcome` lets the client's result card state what actually happened
         // instead of assuming a win — a forfeit and a loss read differently.
-        return res.status(200).json({ ok: true, outcome, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });
+        return res.status(200).json({ ok: true, outcome, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, fetchMissionsCredited, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
         console.error('[missions/report-ai-fight]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
