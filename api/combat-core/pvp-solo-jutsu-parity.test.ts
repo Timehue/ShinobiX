@@ -84,7 +84,7 @@ const stats = {
     ninjutsuDefense: 500,
 };
 
-function fighter(name: string, pos: number, jutsu: CombatJutsu): PvpFighter {
+function fighter(name: string, pos: number, jutsu: CombatJutsu, masteryLevel = 50, level = 100): PvpFighter {
     return {
         name,
         hp: 1_000_000,
@@ -98,11 +98,11 @@ function fighter(name: string, pos: number, jutsu: CombatJutsu): PvpFighter {
         pos,
         character: {
             name,
-            level: 100,
+            level,
             specialty: 'Ninjutsu',
             stats,
             jutsu: [clone(jutsu)],
-            jutsuMastery: [{ jutsuId: jutsu.id, level: 50 }],
+            jutsuMastery: [{ jutsuId: jutsu.id, level: masteryLevel }],
             pvpItems: [],
             equipment: {},
         },
@@ -260,9 +260,65 @@ function normalizeSolo(before: SoloPveSession, after: SoloPveSession, applied: b
     };
 }
 
-async function runParityCase(jutsu: CombatJutsu, index: number) {
+type ParitySetup = {
+    casterPos?: number;
+    targetPos?: number;
+    ap?: number;
+    actionsThisTurn?: number;
+    chakra?: number;
+    stamina?: number;
+    casterHp?: number;
+    targetHp?: number;
+    targetShield?: number;
+    casterStatuses?: PvpFighter['statuses'];
+    targetStatuses?: PvpFighter['statuses'];
+    cooldown?: number;
+    round?: number;
+    tile?: number;
+    masteryLevel?: number;
+    level?: number;
+};
+
+function applySetupToPvp(session: PvpSession, jutsu: CombatJutsu, setup: ParitySetup) {
+    session.p1.pos = setup.casterPos ?? session.p1.pos;
+    session.p2.pos = setup.targetPos ?? session.p2.pos;
+    session.ap.p1 = setup.ap ?? session.ap.p1;
+    session.actionsThisTurn = setup.actionsThisTurn ?? session.actionsThisTurn;
+    session.p1.chakra = setup.chakra ?? session.p1.chakra;
+    session.p1.stamina = setup.stamina ?? session.p1.stamina;
+    session.p1.hp = setup.casterHp ?? session.p1.hp;
+    session.p2.hp = setup.targetHp ?? session.p2.hp;
+    session.p2.shield = setup.targetShield ?? session.p2.shield;
+    session.p1.statuses = clone(setup.casterStatuses ?? session.p1.statuses);
+    session.p2.statuses = clone(setup.targetStatuses ?? session.p2.statuses);
+    session.round = setup.round ?? session.round;
+    session.cooldowns.p1[jutsu.id] = setup.cooldown ?? 0;
+    session.p1.character.level = setup.level ?? session.p1.character.level;
+    session.p1.character.jutsuMastery = [{ jutsuId: jutsu.id, level: setup.masteryLevel ?? 50 }];
+}
+
+function applySetupToSolo(session: SoloPveSession, jutsu: CombatJutsu, setup: ParitySetup) {
+    session.player.pos = setup.casterPos ?? session.player.pos;
+    session.enemy.pos = setup.targetPos ?? session.enemy.pos;
+    session.ap.player = setup.ap ?? session.ap.player;
+    session.actionsThisTurn = setup.actionsThisTurn ?? session.actionsThisTurn;
+    session.player.chakra = setup.chakra ?? session.player.chakra;
+    session.player.stamina = setup.stamina ?? session.player.stamina;
+    session.player.hp = setup.casterHp ?? session.player.hp;
+    session.enemy.hp = setup.targetHp ?? session.enemy.hp;
+    session.enemy.shield = setup.targetShield ?? session.enemy.shield;
+    session.player.statuses = clone(setup.casterStatuses ?? session.player.statuses);
+    session.enemy.statuses = clone(setup.targetStatuses ?? session.enemy.statuses);
+    session.round = setup.round ?? session.round;
+    session.cooldowns.player[jutsu.id] = setup.cooldown ?? 0;
+    session.player.character.level = setup.level ?? session.player.character.level;
+    session.player.character.jutsuMastery = [{ jutsuId: jutsu.id, level: setup.masteryLevel ?? 50 }];
+}
+
+async function runParityCase(jutsu: CombatJutsu, index: number, setup: ParitySetup = {}) {
     const id = `parity-${index}`;
     const pvpBefore = pvpSession(id, jutsu);
+    applySetupToPvp(pvpBefore, jutsu, setup);
     store.set(`pvp:${id}`, clone(pvpBefore));
     const { res, out } = fakeRes();
     await moveHandler(fakeReq(pvpBefore.p1.name, {
@@ -270,7 +326,7 @@ async function runParityCase(jutsu: CombatJutsu, index: number) {
         role: 'p1',
         action: 'jutsu',
         jutsuId: jutsu.id,
-        ...(jutsu.target === 'EMPTY_GROUND' || jutsu.tags?.some((tag) => tag.name === 'Move') ? { tile: 64 } : {}),
+        ...(jutsu.target === 'EMPTY_GROUND' || jutsu.tags?.some((tag) => tag.name === 'Move') ? { tile: setup.tile ?? 64 } : {}),
         moveToken: `token-${index}`,
     }), res);
     assert.equal(out.statusCode, 200);
@@ -278,15 +334,45 @@ async function runParityCase(jutsu: CombatJutsu, index: number) {
     const pvpApplied = !(out.body as PvpSession).rejected;
 
     const soloBefore = soloSession(id, jutsu);
+    applySetupToSolo(soloBefore, jutsu, setup);
     const soloResult = applySoloPveAction(soloBefore, {
         type: 'jutsu',
         jutsuId: jutsu.id,
-        ...(jutsu.target === 'EMPTY_GROUND' || jutsu.tags?.some((tag) => tag.name === 'Move') ? { tile: 64 } : {}),
+        ...(jutsu.target === 'EMPTY_GROUND' || jutsu.tags?.some((tag) => tag.name === 'Move') ? { tile: setup.tile ?? 64 } : {}),
     });
     return {
         pvp: normalizePvp(pvpBefore, pvpAfter, pvpApplied),
         solo: normalizeSolo(soloBefore, soloResult.session, soloResult.applied),
     };
+}
+
+function customJutsu(id: string, overrides: Partial<CombatJutsu>): CombatJutsu {
+    const base = clone(Object.values(JUTSU_CATALOG)[0]);
+    return {
+        ...base,
+        id,
+        name: id,
+        element: 'None',
+        target: 'OPPONENT',
+        method: 'SINGLE',
+        ap: 40,
+        range: 4,
+        effectPower: 30,
+        cooldown: 7,
+        chakraCost: 25,
+        staminaCost: 0,
+        isUtility: false,
+        tags: [],
+        ...overrides,
+    };
+}
+
+function parityStatus(name: string, kind: 'positive' | 'negative', percent = 20, rounds = 2, activeRound = 1): PvpFighter['statuses'][number] {
+    return { name, kind, percent, rounds, activeRound };
+}
+
+function assertParity(result: { pvp: NormalizedCast; solo: NormalizedCast }, label: string) {
+    assert.deepEqual(result.solo, result.pvp, label);
 }
 
 describe('authoritative PvP/Solo-PvE jutsu parity', () => {
@@ -301,6 +387,115 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
         for (const jutsu of catalog.values()) {
             const result = await runParityCase(jutsu, index++);
             assert.deepEqual(result.solo, result.pvp, `${jutsu.id} (${jutsu.name}) diverged`);
+        }
+    });
+
+    test('eligibility gates and adjusted AP stay identical', async () => {
+        const cases: Array<[string, CombatJutsu, ParitySetup]> = [
+            ['Lag then Overclock', customJutsu('target-ap-status', {}), {
+                casterStatuses: [parityStatus('Lag', 'negative', 50), parityStatus('Overclock', 'positive', 20)],
+            }],
+            ['insufficient adjusted AP', customJutsu('target-no-ap', {}), { ap: 39 }],
+            ['chakra gate', customJutsu('target-no-chakra', { chakraCost: 50 }), { chakra: 49 }],
+            ['stamina gate', customJutsu('target-no-stamina', { type: 'Taijutsu', chakraCost: 0, staminaCost: 50 }), { stamina: 49 }],
+            ['cooldown gate', customJutsu('target-cooldown', {}), { cooldown: 1 }],
+            ['range gate', customJutsu('target-range', { range: 2 }), { casterPos: 0, targetPos: 119 }],
+            ['elemental seal', customJutsu('target-seal', { element: 'Fire' }), { casterStatuses: [parityStatus('Elemental Seal', 'negative')] }],
+            ['action cap', customJutsu('target-action-cap', {}), { actionsThisTurn: 5 }],
+        ];
+        let index = 1000;
+        for (const [label, jutsu, setup] of cases) {
+            const result = await runParityCase(jutsu, index++, setup);
+            assertParity(result, label);
+        }
+        const adjusted = await runParityCase(cases[0][1], index++, cases[0][2]);
+        assert.equal(adjusted.pvp.apSpent, 48);
+        assert.equal(adjusted.pvp.actionsAdded, 1);
+    });
+
+    test('circle, spiral, immediate ground application, displacement, and VFX stay identical', async () => {
+        const circle = await runParityCase(customJutsu('target-circle', {
+            target: 'EMPTY_GROUND', method: 'AOE_CIRCLE', effectPower: 45,
+        }), 1100, { tile: 64 });
+        assertParity(circle, 'circle footprint');
+        assert.ok(circle.pvp.damageToHp > 0);
+        assert.equal(circle.pvp.zones.length, 0);
+        assert.ok(circle.pvp.vfx[0]?.tiles.length > 1);
+
+        const ground = await runParityCase(customJutsu('target-ground', {
+            target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', effectPower: 0,
+            tags: [{ name: 'Poison', percent: 12 }],
+        }), 1101, { tile: 64 });
+        assertParity(ground, 'ground zone');
+        assert.equal(ground.pvp.zones.length, 1);
+        assert.ok(ground.pvp.zones[0].tiles.length > 1);
+        assert.ok(ground.pvp.target.statuses.some((status) => status.name === 'Poison'));
+        assert.equal(ground.pvp.vfx[0]?.persistent, true);
+
+        const spiral = await runParityCase(customJutsu('target-spiral', {
+            target: 'EMPTY_GROUND', method: 'AOE_SPIRAL', effectPower: 0,
+            tags: [{ name: 'Move' }, { name: 'Poison', percent: 9 }],
+        }), 1102, { tile: 64 });
+        assertParity(spiral, 'spiral footprint');
+        assert.ok(spiral.pvp.zones[0].tiles.length > ground.pvp.zones[0].tiles.length);
+
+        for (const [index, name] of [[1103, 'Push'], [1104, 'Pull']] as const) {
+            const displaced = await runParityCase(customJutsu(`target-${name.toLowerCase()}`, {
+                effectPower: 0, tags: [{ name, percent: 0 }],
+            }), index, { casterPos: 52, targetPos: 54 });
+            assertParity(displaced, name);
+            assert.notEqual(displaced.pvp.target.pos, 54, `${name} must move the target`);
+        }
+    });
+
+    test('resource spending, poison-on-spend, status timing, and cooldown ordering stay identical', async () => {
+        const result = await runParityCase(customJutsu('target-ordering', {
+            chakraCost: 50,
+            cooldown: 10,
+            tags: [{ name: 'Lag', percent: 25 }, { name: 'Heal', percent: 20 }],
+        }), 1200, {
+            casterHp: 999_950,
+            casterStatuses: [parityStatus('Poison', 'negative', 10, 3)],
+        });
+        assertParity(result, 'resource/status ordering');
+        assert.equal(result.pvp.chakraSpent, 50);
+        assert.ok(result.pvp.caster.hp < 999_950, 'poison must react after the same-cast heal reaches its cap');
+        assert.equal(result.pvp.cooldown['target-ordering'], 10);
+        const lag = result.pvp.target.statuses.find((status) => status.name === 'Lag');
+        assert.deepEqual(lag && { rounds: lag.rounds, activeRound: lag.activeRound, percent: lag.percent }, {
+            rounds: 1, activeRound: 2, percent: 25,
+        });
+    });
+
+    test('mastery and level boundaries remain differential-parity pinned', async () => {
+        const jutsu = customJutsu('target-mastery', { effectPower: 60, chakraCost: 25 });
+        let index = 1300;
+        for (const masteryLevel of [0, 1, 49, 50]) {
+            for (const level of [1, 50, 100]) {
+                const result = await runParityCase(jutsu, index++, { masteryLevel, level });
+                assertParity(result, `mastery ${masteryLevel}, level ${level}`);
+            }
+        }
+    });
+
+    test('the normalized contract rejects mutations to every fragile compared field', async () => {
+        const baseline = (await runParityCase(customJutsu('target-mutation-sentinel', {
+            target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', effectPower: 0,
+            cooldown: 10, tags: [{ name: 'Poison', percent: 12 }],
+        }), 1400, { tile: 64 })).pvp;
+        const mutations: Array<[string, (value: NormalizedCast) => void]> = [
+            ['AP', (value) => { value.apSpent += 1; }],
+            ['resource', (value) => { value.chakraSpent += 1; }],
+            ['cooldown', (value) => { value.cooldown['target-mutation-sentinel'] = 9; }],
+            ['footprint', (value) => { value.zones[0].tiles.pop(); }],
+            ['immediate status', (value) => { value.target.statuses.pop(); }],
+            ['status duration', (value) => { value.target.statuses[0].rounds += 1; }],
+            ['VFX', (value) => { value.vfx[0].persistent = false; }],
+        ];
+        for (const [label, mutate] of mutations) {
+            const changed = clone(baseline);
+            mutate(changed);
+            assert.throws(() => assert.deepEqual(changed, baseline), `${label} mutation must be detected`);
         }
     });
 });
