@@ -52,3 +52,16 @@ test('Docker build and runtime use the pinned Node 22 release toolchain', async 
     ['runtime', 'node:22.23.1-bookworm-slim'],
   ]);
 });
+
+test('Railway Docker build can receive every client analytics gate', async () => {
+  const dockerfile = await readFile('Dockerfile', 'utf8');
+  for (const name of [
+    'VITE_PRODUCT_ANALYTICS_ENABLED',
+    'VITE_PRODUCT_ANALYTICS_PROVIDER',
+    'VITE_POSTHOG_KEY',
+    'VITE_POSTHOG_HOST',
+  ]) {
+    assert.match(dockerfile, new RegExp(`^ARG ${name}=""$`, 'm'));
+    assert.match(dockerfile, new RegExp(`${name}=\\$${name}`));
+  }
+});
