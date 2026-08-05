@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 interface CombatInstanceProps {
     children: ReactNode;
     className?: string;
+    id?: string;
     style?: CSSProperties;
 }
 
@@ -14,9 +15,9 @@ interface CombatInstanceProps {
  * the player is inside any menu or world screen, and no parent layout, scroll
  * position, or responsive center-column rule may move the fight out of view.
  */
-export function CombatInstance({ children, className = "", style }: CombatInstanceProps) {
+export function CombatInstance({ children, className = "", id, style }: CombatInstanceProps) {
     const combat = (
-        <div className={`arena-fullscreen combat-instance${className ? ` ${className}` : ""}`} style={style}>
+        <div id={id} className={`arena-fullscreen combat-instance${className ? ` ${className}` : ""}`} style={style}>
             {children}
         </div>
     );

@@ -26,8 +26,8 @@ test("rookie combat tip reserves a row without displacing the hex battlefield", 
     for (const rule of rookieRowRules) {
         assert.match(
             rule,
-            /grid-template-rows:\s*auto auto auto minmax\(/,
-            "the tip, AP panel, and terrain strip must each precede the battlefield row",
+            /grid-template-rows:\s*(?:auto|minmax\(\d+px,\s*auto\)) (?:auto|\d+px) (?:auto|\d+px) minmax\(/,
+            "the fighter/AP HUD, tip, and terrain strip must each precede the battlefield row",
         );
     }
 

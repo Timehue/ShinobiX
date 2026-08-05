@@ -11,6 +11,7 @@ test("shared shell stamps the same application boundary for PvP and Solo PvE", (
     const pvp = renderToStaticMarkup(<ShinobiCombatShell mode="pvp"><main>pvp</main></ShinobiCombatShell>);
     for (const html of [solo, pvp]) {
         assert.match(html, /arena-fullscreen combat-instance shinobi-combat-shell/);
+        assert.match(html, /id="combat"/);
     }
     assert.match(solo, /shinobi-combat-shell--solo/);
     assert.match(pvp, /shinobi-combat-shell--pvp/);

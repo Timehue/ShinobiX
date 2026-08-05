@@ -4464,9 +4464,31 @@ html body > .arena-fullscreen.shinobi-combat-shell .battle-chat-col {
     }
 
     html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-avatar,
-    html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-effect-panel,
     html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-hud-meta {
         display: flex !important;
+    }
+
+    /* Effect trays are a vertical reading surface. Grouping them with the
+       portrait/meta flex reset put the heading and every effect pill on one
+       horizontal line; a 210-260px dossier then shrank each pill to a few
+       characters and `overflow-wrap` rendered status names one letter per
+       line. Keep every pill at the dossier's full usable width. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-effect-panel {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .effect-pill {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .effect-pill > span {
+        word-break: normal !important;
+        overflow-wrap: normal !important;
     }
 
     html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-hud-village,
@@ -4492,7 +4514,33 @@ html body > .arena-fullscreen.shinobi-combat-shell .battle-chat-col {
     }
 
     html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
-        grid-template-rows: auto auto minmax(0, 1.65fr) 48px auto auto minmax(126px, 0.55fr) !important;
+        grid-template-rows: auto auto minmax(0, 1.65fr) 48px auto auto minmax(250px, 0.78fr) !important;
+    }
+
+    /* A populated desktop loadout must wrap before its labels become cryptic.
+       Earlier data-vp rules forced 96px square cards and a later shell rule
+       forced names to one line, producing twelve tiny, truncated cards across
+       the tray. These dimensions preserve a readable card floor, expose two
+       rows at common desktop heights, keep the independent details target clear
+       of the cast-card center, and leave overflow local to the tray for
+       exceptionally large loadouts. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-equipped-jutsu-grid {
+        grid-template-columns: repeat(auto-fit, minmax(118px, 132px)) !important;
+        justify-content: start !important;
+        gap: 7px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-card-wrap {
+        aspect-ratio: 6 / 5 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-name {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        white-space: normal !important;
+        overflow-wrap: normal !important;
     }
 }
 
@@ -4644,6 +4692,39 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     margin-left: 8px !important;
 }
 
+/* Desktop action density is independent of dossier placement. Compact desktop
+   heights may keep the fighters above the board, but they still need the same
+   readable card floor, two-line names, and separated cast/details hit targets
+   as the full three-column layout. Overflow remains inside the action tray. */
+@container shinobi-combat (min-width: 980px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-equipped-jutsu-grid {
+        grid-template-columns: repeat(auto-fit, minmax(118px, 132px)) !important;
+        justify-content: start !important;
+        gap: 7px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-card-wrap {
+        aspect-ratio: 6 / 5 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-name {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        white-space: normal !important;
+        overflow-wrap: normal !important;
+    }
+}
+
+/* When compact desktop also has useful vertical space, reserve enough of it
+   for a populated two-row loadout instead of showing a clipped first row. */
+@container shinobi-combat (min-width: 980px) and (min-height: 820px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+        grid-template-rows: auto auto minmax(0, 1.55fr) 48px auto auto minmax(230px, 0.65fr) !important;
+    }
+}
+
 @container shinobi-combat (min-width: 800px) and (max-height: 800px) {
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .dual-ap-panel {
         height: 76px !important;
@@ -4674,7 +4755,16 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
-        grid-template-rows: auto auto minmax(0, 1.65fr) 48px auto auto minmax(126px, 0.55fr) !important;
+        grid-template-rows: auto auto minmax(0, 1.65fr) 48px auto auto minmax(250px, 0.78fr) !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-name {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        white-space: normal !important;
+        overflow-wrap: normal !important;
     }
 }
 
@@ -4993,4 +5083,335 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         height: 44px !important;
         border-radius: 8px !important;
     }
+}
+
+/* =========================================================================
+   MOBILE SHINOBI HUD RESTORE — PvE + PvP only
+   -------------------------------------------------------------------------
+   The container-aware desktop consolidation above intentionally keeps two
+   compact dossiers over the board at constrained desktop heights. On actual
+   phone/portrait-tablet widths, however, those high-specificity rules also
+   overrode the shipped fighter | AP/timer | fighter HUD and pushed the AP rail
+   below both dossiers. Restore that mobile composition without changing the
+   980px+ desktop contract or the dedicated short-landscape split layout.
+   ========================================================================= */
+@media (max-width: 979px) {
+@container shinobi-combat (max-width: 979px) and (min-height: 501px) {
+    #combat .combat-layout {
+        grid-template-columns: minmax(0, 1fr) 86px minmax(0, 1fr) !important;
+        grid-template-rows: minmax(116px, auto) auto minmax(196px, 42cqh) 48px auto minmax(88px, 1fr) !important;
+        grid-template-areas: none !important;
+        align-items: stretch !important;
+        gap: 6px !important;
+        padding: max(6px, env(safe-area-inset-top)) 6px max(8px, env(safe-area-inset-bottom)) !important;
+    }
+
+    #combat .combat-layout.has-rookie-tip {
+        grid-template-rows: minmax(116px, auto) auto auto minmax(196px, 42cqh) 48px auto minmax(88px, 1fr) !important;
+    }
+
+    #combat .combat-layout > .combat-main-area {
+        display: contents !important;
+        grid-area: auto !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud {
+        display: grid !important;
+        grid-template-columns: 38px minmax(0, 1fr) !important;
+        grid-auto-rows: min-content !important;
+        align-content: start !important;
+        column-gap: 6px !important;
+        row-gap: 2px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 116px !important;
+        max-height: none !important;
+        padding: 6px !important;
+        overflow: hidden !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud:first-child {
+        grid-area: auto !important;
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud:last-child {
+        grid-area: auto !important;
+        grid-column: 3 !important;
+        grid-row: 1 !important;
+    }
+
+    #combat .combat-side-hud > .combat-hud-header {
+        display: grid !important;
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud:last-child .combat-hud-header h3 {
+        text-align: right !important;
+    }
+
+    #combat .combat-side-hud .combat-avatar {
+        display: grid !important;
+        grid-column: 1 !important;
+        grid-row: 1 / span 2 !important;
+        place-items: center;
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        margin: 0 !important;
+        border-radius: 9px !important;
+        font-size: 18px !important;
+    }
+
+    #combat .combat-side-hud .combat-avatar img {
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        border-radius: 9px !important;
+    }
+
+    #combat .combat-side-hud > .resource-line,
+    #combat .combat-side-hud > .combat-mobile-effects {
+        grid-column: 1 / -1 !important;
+    }
+
+    #combat .combat-side-hud > .resource-line {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        row-gap: 1px !important;
+        margin: 0 !important;
+    }
+
+    #combat .combat-side-hud .combat-hud-village,
+    #combat .combat-side-hud .combat-hud-turn-badge,
+    #combat .combat-side-hud .combat-hud-meta,
+    #combat .combat-side-hud .combat-effect-panel,
+    #combat .combat-side-hud .combat-hud-stats {
+        display: none !important;
+    }
+
+    #combat .dual-ap-panel {
+        grid-area: auto !important;
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        align-self: stretch !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: auto minmax(0, 1fr) auto !important;
+        gap: 2px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 116px !important;
+        margin: 0 !important;
+        padding: 5px 2px !important;
+        overflow: hidden !important;
+        border-radius: 999px 999px 10px 10px !important;
+    }
+
+    #combat .dual-ap-panel > div:first-child,
+    #combat .dual-ap-panel > div:last-child {
+        display: contents !important;
+    }
+
+    #combat .dual-ap-panel strong,
+    #combat .dual-ap-panel .hud-bar {
+        display: none !important;
+    }
+
+    #combat .dual-ap-panel small {
+        display: block !important;
+        grid-column: 1 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        font-size: 8px !important;
+        line-height: 1 !important;
+        text-align: center !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    #combat .dual-ap-panel > div:first-child > small {
+        grid-row: 1 !important;
+    }
+
+    #combat .dual-ap-panel > div:last-child > small {
+        grid-row: 3 !important;
+    }
+
+    #combat .round-timer-display {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+        align-self: center !important;
+        justify-self: center !important;
+    }
+
+    #combat .round-timer-display .round-timer-ring {
+        width: 50px !important;
+        height: 50px !important;
+    }
+
+    #combat .round-timer-display .round-timer-num {
+        font-size: 20px !important;
+    }
+
+    #combat .twp-strip,
+    #combat .combat-board-stage,
+    #combat .battle-tabbar,
+    #combat .shinobi-command-bar,
+    #combat .combat-jutsu-bar,
+    #combat .combat-text-log,
+    #combat .combat-action-notice {
+        grid-area: auto !important;
+        grid-column: 1 / -1 !important;
+    }
+
+    #combat .twp-strip { grid-row: 2 !important; }
+    #combat .combat-board-stage { grid-row: 3 !important; }
+    #combat .battle-tabbar { grid-row: 4 !important; }
+    #combat .shinobi-command-bar { grid-row: 5 !important; }
+    #combat .combat-jutsu-bar { grid-row: 6 !important; }
+    #combat .combat-text-log { grid-row: 5 / span 2 !important; }
+
+    #combat .combat-board-stage {
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+    }
+
+    #combat .shinobi-command-bar {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    #combat .combat-layout.has-rookie-tip .combat-action-notice {
+        grid-row: 2 !important;
+    }
+
+    #combat .combat-layout.has-rookie-tip .twp-strip { grid-row: 3 !important; }
+    #combat .combat-layout.has-rookie-tip .combat-board-stage { grid-row: 4 !important; }
+    #combat .combat-layout.has-rookie-tip .battle-tabbar { grid-row: 5 !important; }
+    #combat .combat-layout.has-rookie-tip .shinobi-command-bar { grid-row: 6 !important; }
+    #combat .combat-layout.has-rookie-tip .combat-jutsu-bar { grid-row: 7 !important; }
+    #combat .combat-layout.has-rookie-tip .combat-text-log { grid-row: 6 / span 2 !important; }
+}
+
+@container shinobi-combat (max-width: 979px) and (min-height: 501px) and (max-height: 740px) {
+    #combat .combat-layout {
+        grid-template-rows: minmax(100px, auto) auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
+        gap: 4px !important;
+    }
+
+    #combat .combat-layout.has-rookie-tip {
+        grid-template-rows: minmax(100px, auto) auto auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud,
+    #combat .dual-ap-panel {
+        min-height: 100px !important;
+    }
+
+    #combat .battle-tabbar {
+        height: 44px !important;
+        min-height: 44px !important;
+    }
+
+    #combat .shinobi-command-bar > button {
+        min-height: 44px !important;
+    }
+}
+
+@container shinobi-combat (max-width: 360px) and (min-height: 501px) and (max-height: 600px) {
+    #combat .combat-layout {
+        grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr) !important;
+        grid-template-rows: minmax(96px, auto) 18px minmax(90px, 1.7fr) 44px auto minmax(48px, 0.4fr) !important;
+        gap: 3px !important;
+    }
+
+    #combat .combat-layout.has-rookie-tip {
+        grid-template-rows: minmax(96px, auto) 18px 18px minmax(90px, 1.7fr) 44px auto minmax(48px, 0.4fr) !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud,
+    #combat .dual-ap-panel {
+        min-height: 96px !important;
+    }
+
+    #combat .combat-side-hud .combat-avatar,
+    #combat .combat-side-hud .combat-avatar img {
+        width: 28px !important;
+        min-width: 28px !important;
+        max-width: 28px !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        max-height: 28px !important;
+    }
+
+    #combat .twp-strip {
+        min-height: 18px !important;
+        height: 18px !important;
+        padding-block: 1px !important;
+    }
+}
+}
+
+/* A desktop window at 150% zoom presents a roughly 960x600 CSS viewport. It is
+   wide enough for the three-part fighter/AP/fighter rail, but the ordinary
+   phone-height allocation clipped the status strip and placed square action
+   cards beyond the tray's hit-testable area. Rebalance that intermediate tier:
+   keep the complete fighter summary, retain a real board, and reserve one fully
+   operable row of compact landscape cards. */
+@media (min-width: 800px) and (max-width: 979px) {
+@container shinobi-combat (min-width: 800px) and (max-width: 979px) and (min-height: 501px) and (max-height: 740px) {
+    #combat .combat-layout {
+        grid-template-rows: minmax(126px, auto) auto minmax(90px, 1fr) 44px auto 96px !important;
+    }
+
+    #combat .combat-layout.has-rookie-tip {
+        grid-template-rows: minmax(126px, auto) auto auto minmax(90px, 1fr) 44px auto 96px !important;
+    }
+
+    #combat .combat-layout > .combat-side-hud,
+    #combat .dual-ap-panel {
+        min-height: 126px !important;
+    }
+
+    #combat .combat-equipped-jutsu-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 118px)) !important;
+        justify-content: start !important;
+        gap: 5px !important;
+        padding: 3px !important;
+    }
+
+    #combat .combat-jutsu-card-wrap {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        aspect-ratio: 4 / 3 !important;
+    }
+
+    #combat .combat-jutsu-name {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        white-space: normal !important;
+        overflow-wrap: normal !important;
+    }
+}
 }
