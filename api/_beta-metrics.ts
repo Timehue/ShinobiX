@@ -1,5 +1,6 @@
 import { kv, type KvLike } from './_storage.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
+import { captureProductEventFromBetaMetric } from './_product-analytics.js';
 
 export type BetaMetricEvent =
     | 'account.registered'
@@ -161,6 +162,7 @@ export function recentBetaDates(days: number, now = Date.now()): string[] {
 }
 
 export async function recordBetaMetric(input: BetaMetricInput, opts: { kv?: BetaKv } = {}): Promise<void> {
+    captureProductEventFromBetaMetric(input);
     const store = opts.kv ?? kv;
     try {
         const ts = input.ts ?? Date.now();
