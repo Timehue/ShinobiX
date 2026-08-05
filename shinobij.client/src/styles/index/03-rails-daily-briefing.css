@@ -199,31 +199,6 @@
     color: var(--text-dim);
 }
 
-/* Recommendations */
-.db-recos { display: flex; flex-direction: column; gap: 8px; }
-.db-reco {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    text-align: left;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(96, 165, 250, 0.28);
-    background: linear-gradient(180deg, rgba(30, 58, 138, 0.4), rgba(2, 6, 15, 0.4));
-    color: #f1f5f9;
-    cursor: pointer;
-    transition: filter 0.12s ease, transform 0.08s ease;
-}
-.db-reco:first-child { border-color: rgba(250, 204, 21, 0.5); background: linear-gradient(180deg, rgba(161, 98, 7, 0.45), rgba(2, 6, 15, 0.45)); }
-.db-reco:hover { filter: brightness(1.14); }
-.db-reco:active { transform: translateY(1px); }
-.db-reco-icon { flex: 0 0 auto; font-size: 1.4rem; }
-.db-reco-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
-.db-reco-title { font-weight: 700; font-size: 0.92rem; }
-.db-reco-detail { font-size: 0.76rem; color: var(--slate-300); }
-.db-reco-cta { flex: 0 0 auto; font-size: 0.78rem; font-weight: 700; color: var(--gold-400); white-space: nowrap; }
-
 /* Two-column grid (training + today) */
 .db-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .db-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
@@ -343,7 +318,6 @@
         text-align: left;
         font-size: 0.72rem;
     }
-    .db-reco-detail { display: none; }
 }
 
 @media (max-width: 380px) {

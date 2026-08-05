@@ -34,8 +34,6 @@ import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
 import { loadVillageState } from "../lib/world-state";
 import {
-    buildRecommendations,
-    recommendedMission,
     worldReport,
     dailyLoginRyo,
     STREAK_SHARD_INTERVAL,
@@ -184,25 +182,6 @@ export function DailyBriefingModal({
     const jutsuTimer = activeJutsuTraining && now < activeJutsuTraining.endsAt ? activeJutsuTraining : null;
     const petTimers = (character.pets ?? []).filter((p) => p.training && now < p.training.endsAt);
 
-    const recMission = recommendedMission(character.level);
-    const recos = buildRecommendations({
-        hospitalized: !!character.hospitalized,
-        onboardingStep: normalizeOnboardingStep(character.onboardingStep),
-        unspentStats: character.unspentStats ?? 0,
-        level: character.level,
-        hasMissionSlot: hasDailyMissionSlot(character),
-        missionsDone: dailyMissionsCompleted(character),
-        missionCap: DAILY_MISSION_LIMIT,
-        recommendedMissionName: recMission?.name,
-        hasProfession: !!character.profession,
-        trainingIdle: !statTimer,
-        jutsuTrainingIdle: !jutsuTimer,
-        hasJutsu: (character.jutsuMastery?.length ?? 0) > 0,
-        petTrainingIdle: petTimers.length === 0,
-        hasPets: (character.pets?.length ?? 0) > 0,
-        examsPassed: character.examsPassed ?? [],
-    }).slice(0, 3);
-
     const wars = worldReport(now);
 
     // The rank exam / Academy checklist the player is currently working toward.
@@ -264,23 +243,6 @@ export function DailyBriefingModal({
                             </div>
 
                             <ActivitySpine playerName={character.name} onNavigate={go} />
-
-                            {/* ── Recommendations ───────────────────────────── */}
-                            <section className="db-section">
-                                <h3>Quick picks</h3>
-                                <div className="db-recos">
-                                    {recos.map((r) => (
-                                        <button key={r.id} type="button" className="db-reco" onClick={() => go(r.screen)}>
-                                            <span className="db-reco-icon" aria-hidden="true">{r.icon}</span>
-                                            <span className="db-reco-text">
-                                                <span className="db-reco-title">{r.title}</span>
-                                                <span className="db-reco-detail">{r.detail}</span>
-                                            </span>
-                                            <span className="db-reco-cta">{r.cta} ›</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
 
                             {/* ── Current logbook objective ─────────────────── */}
                             {objective && (
