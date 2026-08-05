@@ -1,0 +1,243 @@
+/* Four-horizon activity spine and server-owned Clan Boss operation flow. */
+.activity-spine-heading,
+.operation-lobby-heading,
+.activity-card-topline,
+.operation-comms-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.activity-spine-heading h3,
+.operation-lobby h4,
+.operation-lobby h5,
+.clan-boss-operation h3,
+.clan-boss-operation h4 {
+    margin: 0;
+}
+
+.activity-spine-returner,
+.operation-population,
+.operation-queue-badge {
+    border: 1px solid rgba(103, 232, 249, 0.38);
+    border-radius: 999px;
+    padding: 4px 8px;
+    color: #67e8f9;
+    font-size: 0.7rem;
+    font-weight: 800;
+}
+
+.activity-spine-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.activity-horizon {
+    min-width: 0;
+    border-left: 2px solid rgba(96, 165, 250, 0.52);
+    padding-left: 9px;
+}
+
+.activity-horizon-now { border-left-color: #facc15; }
+.activity-horizon-this-week { border-left-color: #c084fc; }
+.activity-horizon-long-term { border-left-color: #34d399; }
+.activity-horizon h4 { margin: 0 0 7px; color: var(--slate-200); font-size: 0.76rem; letter-spacing: 0.07em; text-transform: uppercase; }
+
+.activity-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    margin-bottom: 8px;
+    padding: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 9px;
+    background: rgba(2, 6, 15, 0.62);
+}
+
+.activity-card.is-complete { border-color: rgba(52, 211, 153, 0.38); }
+.activity-card.is-blocked { border-color: rgba(248, 113, 113, 0.28); }
+.activity-card-topline { align-items: flex-start; }
+.activity-card-topline strong { color: #f8fafc; font-size: 0.84rem; }
+.activity-card-topline span { flex: none; color: #67e8f9; font-size: 0.68rem; }
+.activity-card p,
+.activity-card small { margin: 0; color: var(--slate-300); font-size: 0.72rem; line-height: 1.35; }
+.activity-card .activity-card-blocker { color: #fca5a5; }
+.activity-card button,
+.activity-spine-error button {
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 7px 11px;
+    border: 1px solid rgba(250, 204, 21, 0.42);
+    border-radius: 8px;
+    background: rgba(161, 98, 7, 0.28);
+    color: #fde68a;
+    font-weight: 800;
+    cursor: pointer;
+}
+.activity-card button:disabled { border-color: var(--slate-700); background: var(--slate-900); color: var(--text-dim); cursor: not-allowed; }
+.activity-spine-loading,
+.activity-spine-error { min-height: 72px; color: var(--slate-300); }
+.activity-spine-error { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+
+.clan-boss-operation {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.clan-boss-operation .clan-raid-boss { margin-bottom: 0; }
+.clan-boss-operation .clan-raid-boss h3 + p { margin: 3px 0 0; }
+.clan-boss-operation .clan-raid-boss p + p { margin: 3px 0 0; font-size: 0.74rem; }
+.clan-boss-operation .enemy-bar { background: #0b1220; }
+.clan-boss-operation .enemy-bar > span { background: var(--danger); }
+.clan-boss-operation .enemy-bar > span.is-defeated { background: var(--text-muted); }
+
+.operation-world-context {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.operation-world-context > div,
+.operation-preparation {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px;
+    border: 1px solid rgba(96, 165, 250, 0.22);
+    border-radius: 9px;
+    background: rgba(15, 23, 42, 0.62);
+}
+.operation-world-context span,
+.operation-world-context small { color: var(--text-dim); font-size: 0.7rem; }
+.operation-world-context strong { color: #e0f2fe; }
+
+.operation-lobby {
+    padding: 12px;
+    border: 1px solid rgba(192, 132, 252, 0.34);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(88, 28, 135, 0.18), rgba(2, 6, 15, 0.62));
+}
+.operation-lobby-heading { align-items: flex-start; margin-bottom: 10px; }
+.operation-lobby-heading p,
+.operation-wait-note,
+.operation-invited,
+.operation-empty,
+.operation-state-message,
+.operation-preparation p,
+.operation-score-note { margin: 4px 0 0; color: var(--slate-300); font-size: 0.78rem; line-height: 1.45; }
+.operation-finder-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.operation-finder-row,
+.operation-member,
+.operation-standings > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 8px;
+    background: rgba(2, 6, 15, 0.5);
+}
+.operation-finder-row > div,
+.operation-member-identity > div { display: flex; flex-direction: column; min-width: 0; }
+.operation-finder-row span,
+.operation-member small { color: var(--text-dim); font-size: 0.7rem; overflow-wrap: anywhere; }
+.operation-invite-row { display: flex; gap: 6px; }
+.operation-invite-row .operation-finder-row { flex: 1 1 auto; }
+.operation-roster,
+.operation-standings { display: flex; flex-direction: column; gap: 6px; }
+.operation-member-identity { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.operation-presence { font-size: 1rem; }
+.operation-presence.is-online { color: #34d399; }
+.operation-presence.is-stale { color: #fbbf24; }
+.operation-ready { flex: none; font-size: 0.72rem; font-weight: 800; }
+.operation-ready.is-ready { color: #6ee7b7; }
+.operation-ready.is-not-ready { color: #fca5a5; }
+.operation-member-actions,
+.operation-primary-actions,
+.operation-create-actions,
+.operation-invite-grid,
+.operation-pings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+.operation-lobby button,
+.operation-rejoin,
+.operation-comms button,
+.operation-error button {
+    min-height: 44px;
+    padding: 7px 10px;
+    border: 1px solid var(--slate-600);
+    border-radius: 8px;
+    background: var(--slate-900);
+    color: var(--slate-200);
+    cursor: pointer;
+}
+.operation-lobby button:hover:not(:disabled),
+.operation-rejoin:hover,
+.operation-comms button:hover { filter: brightness(1.16); }
+.operation-lobby button:disabled { cursor: wait; opacity: 0.62; }
+.operation-primary-actions .operation-start,
+.operation-rejoin {
+    border-color: rgba(248, 113, 113, 0.7);
+    background: linear-gradient(#7f1d1d, #450a0a);
+    color: #fecaca;
+    font-weight: 800;
+}
+.operation-link-button { flex: none; }
+.operation-state-message.is-complete { color: #6ee7b7; }
+.operation-new-party { margin-top: 10px; }
+.operation-standings > div { padding: 6px 10px; }
+.operation-standings > div strong { flex: 1 1 auto; }
+.operation-standings > div.is-mine { border-color: rgba(250, 204, 21, 0.48); }
+
+.clan-boss-operation-fight { min-width: 0; }
+.operation-comms {
+    position: sticky;
+    top: 6px;
+    z-index: 8;
+    margin-bottom: 8px;
+    padding: 8px;
+    border: 1px solid rgba(103, 232, 249, 0.34);
+    border-radius: 10px;
+    background: rgba(2, 6, 15, 0.94);
+    backdrop-filter: blur(6px);
+}
+.operation-comms-status { align-items: flex-start; }
+.operation-comms-status span,
+.operation-latest-ping { color: var(--slate-300); font-size: 0.7rem; }
+.operation-pings { margin-top: 6px; }
+.operation-comms button { min-height: 38px; padding: 5px 8px; }
+.operation-latest-ping { margin-top: 5px; }
+
+@media (max-width: 979px) {
+    .activity-spine-grid,
+    .operation-world-context { grid-template-columns: 1fr; }
+    .operation-member { align-items: flex-start; flex-wrap: wrap; }
+    .operation-member-actions { flex: 1 0 100%; margin-top: 0; }
+    .operation-primary-actions > button,
+    .operation-create-actions > button { flex: 1 1 180px; }
+}
+
+@media (max-width: 559px) {
+    .activity-spine-heading,
+    .operation-lobby-heading,
+    .operation-comms-status { align-items: flex-start; flex-direction: column; }
+    .operation-finder-row { align-items: flex-start; }
+    .operation-finder-row > button { flex: none; }
+    .operation-invite-row { flex-direction: column; }
+    .operation-invite-grid { display: grid; grid-template-columns: 1fr; }
+    .operation-lobby button,
+    .operation-rejoin,
+    .operation-comms button { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .operation-lobby *,
+    .activity-spine * { scroll-behavior: auto; transition: none; }
+}

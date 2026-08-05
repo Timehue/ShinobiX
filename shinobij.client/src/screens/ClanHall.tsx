@@ -58,7 +58,13 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     const [mentorView, setMentorView] = useState<MentorView | null>(null);
     const [mentorStudentInput, setMentorStudentInput] = useState("");
     const [recruitmentDraft, setRecruitmentDraft] = useState("");
-    const [view, setView] = useState<"exchange" | "roster" | "guard" | "treasury" | "boosts" | "upgrades" | "missions" | "wars" | "rankings" | "boss" | "territory" | "notices" | "hall" | "mentor" | "chat">("exchange");
+    const [view, setView] = useState<"exchange" | "roster" | "guard" | "treasury" | "boosts" | "upgrades" | "missions" | "wars" | "rankings" | "boss" | "territory" | "notices" | "hall" | "mentor" | "chat">(() => {
+        try {
+            const initial = sessionStorage.getItem("clan.initialView");
+            sessionStorage.removeItem("clan.initialView");
+            return initial === "boss" ? "boss" : "exchange";
+        } catch { return "exchange"; }
+    });
     const bossTabEnabled = clanBossEnabled();
     const [loading, setLoading] = useState(false);
     const [clanData, setClanData] = useState<EnhancedClanData | null>(null);
