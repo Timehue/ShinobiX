@@ -1,0 +1,953 @@
+[
+  {
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 360,
+      "height": 640,
+      "right": 360,
+      "bottom": 640
+    },
+    "layout": {
+      "x": 6,
+      "y": 6,
+      "width": 348,
+      "height": 626,
+      "right": 354,
+      "bottom": 632
+    },
+    "main": null,
+    "board": {
+      "x": 6,
+      "y": 141,
+      "width": 348,
+      "height": 230.390625,
+      "right": 354,
+      "bottom": 371.390625
+    },
+    "gridLayer": {
+      "x": 7,
+      "y": 149.1875,
+      "width": 346.3199768066406,
+      "height": 213.58999633789062,
+      "right": 353.3199768066406,
+      "bottom": 362.7774963378906
+    },
+    "actions": {
+      "x": 6,
+      "y": 538.390625,
+      "width": 348,
+      "height": 93.609375,
+      "right": 354,
+      "bottom": 632
+    },
+    "tabs": {
+      "x": 6,
+      "y": 379.390625,
+      "width": 348,
+      "height": 42,
+      "right": 354,
+      "bottom": 421.390625
+    },
+    "log": null,
+    "dossiers": [
+      {
+        "x": 6,
+        "y": 6,
+        "width": 127,
+        "height": 101,
+        "right": 133,
+        "bottom": 107
+      },
+      {
+        "x": 227,
+        "y": 6,
+        "width": 127,
+        "height": 101,
+        "right": 354,
+        "bottom": 107
+      }
+    ],
+    "gridTemplateColumns": "127px 86px 127px",
+    "gridTemplateRows": "101px 26px 230.391px 46px 109px 93.6094px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 40,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 844,
+      "right": 390,
+      "bottom": 844
+    },
+    "layout": {
+      "x": 6,
+      "y": 6,
+      "width": 378,
+      "height": 830,
+      "right": 384,
+      "bottom": 836
+    },
+    "main": null,
+    "board": {
+      "x": 6,
+      "y": 158,
+      "width": 378,
+      "height": 354.46875,
+      "right": 384,
+      "bottom": 512.46875
+    },
+    "gridLayer": {
+      "x": 7,
+      "y": 218.953125,
+      "width": 376.2900085449219,
+      "height": 232.07373046875,
+      "right": 383.2900085449219,
+      "bottom": 451.02685546875
+    },
+    "actions": {
+      "x": 6,
+      "y": 690.46875,
+      "width": 378,
+      "height": 145.53125,
+      "right": 384,
+      "bottom": 836
+    },
+    "tabs": {
+      "x": 6,
+      "y": 521.46875,
+      "width": 378,
+      "height": 42,
+      "right": 384,
+      "bottom": 563.46875
+    },
+    "log": null,
+    "dossiers": [
+      {
+        "x": 6,
+        "y": 6,
+        "width": 141,
+        "height": 116,
+        "right": 147,
+        "bottom": 122
+      },
+      {
+        "x": 243,
+        "y": 6,
+        "width": 141,
+        "height": 116,
+        "right": 384,
+        "bottom": 122
+      }
+    ],
+    "gridTemplateColumns": "141px 86px 141px",
+    "gridTemplateRows": "116px 26px 354.469px 46px 117px 145.531px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 40,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 412,
+      "height": 915
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 412,
+      "height": 915,
+      "right": 412,
+      "bottom": 915
+    },
+    "layout": {
+      "x": 6,
+      "y": 6,
+      "width": 400,
+      "height": 901,
+      "right": 406,
+      "bottom": 907
+    },
+    "main": null,
+    "board": {
+      "x": 6,
+      "y": 158,
+      "width": 400,
+      "height": 384.296875,
+      "right": 406,
+      "bottom": 542.296875
+    },
+    "gridLayer": {
+      "x": 7,
+      "y": 227.171875,
+      "width": 398.26800537109375,
+      "height": 245.62847900390625,
+      "right": 405.26800537109375,
+      "bottom": 472.80035400390625
+    },
+    "actions": {
+      "x": 6,
+      "y": 720.296875,
+      "width": 400,
+      "height": 186.703125,
+      "right": 406,
+      "bottom": 907
+    },
+    "tabs": {
+      "x": 6,
+      "y": 551.296875,
+      "width": 400,
+      "height": 42,
+      "right": 406,
+      "bottom": 593.296875
+    },
+    "log": null,
+    "dossiers": [
+      {
+        "x": 6,
+        "y": 6,
+        "width": 152,
+        "height": 116,
+        "right": 158,
+        "bottom": 122
+      },
+      {
+        "x": 254,
+        "y": 6,
+        "width": 152,
+        "height": 116,
+        "right": 406,
+        "bottom": 122
+      }
+    ],
+    "gridTemplateColumns": "152px 86px 152px",
+    "gridTemplateRows": "116px 26px 384.297px 46px 117px 186.703px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 40,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 768,
+      "height": 1024,
+      "right": 768,
+      "bottom": 1024
+    },
+    "layout": {
+      "x": 6,
+      "y": 6,
+      "width": 756,
+      "height": 1010,
+      "right": 762,
+      "bottom": 1016
+    },
+    "main": null,
+    "board": {
+      "x": 6,
+      "y": 172,
+      "width": 756,
+      "height": 430.078125,
+      "right": 762,
+      "bottom": 602.078125
+    },
+    "gridLayer": {
+      "x": 37,
+      "y": 173,
+      "width": 693.9720458984375,
+      "height": 428.00152587890625,
+      "right": 730.9720458984375,
+      "bottom": 601.0015258789062
+    },
+    "actions": {
+      "x": 6,
+      "y": 783.078125,
+      "width": 756,
+      "height": 232.921875,
+      "right": 762,
+      "bottom": 1016
+    },
+    "tabs": {
+      "x": 6,
+      "y": 612.078125,
+      "width": 756,
+      "height": 42,
+      "right": 762,
+      "bottom": 654.078125
+    },
+    "log": null,
+    "dossiers": [
+      {
+        "x": 6,
+        "y": 6,
+        "width": 329,
+        "height": 128,
+        "right": 335,
+        "bottom": 134
+      },
+      {
+        "x": 433,
+        "y": 6,
+        "width": 329,
+        "height": 128,
+        "right": 762,
+        "bottom": 134
+      }
+    ],
+    "gridTemplateColumns": "329px 86px 329px",
+    "gridTemplateRows": "128px 26px 430.078px 46px 117px 232.922px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 40,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 1024,
+      "height": 768
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 768,
+      "right": 1024,
+      "bottom": 768
+    },
+    "layout": {
+      "x": 32,
+      "y": 28,
+      "width": 960,
+      "height": 726,
+      "right": 992,
+      "bottom": 754
+    },
+    "main": {
+      "x": 252,
+      "y": 28,
+      "width": 520,
+      "height": 726,
+      "right": 772,
+      "bottom": 754
+    },
+    "board": {
+      "x": 261,
+      "y": 171,
+      "width": 502,
+      "height": 216,
+      "right": 763,
+      "bottom": 387
+    },
+    "gridLayer": {
+      "x": 338.5,
+      "y": 172,
+      "width": 346.98602294921875,
+      "height": 214.00076293945312,
+      "right": 685.4860229492188,
+      "bottom": 386.0007629394531
+    },
+    "actions": {
+      "x": 261,
+      "y": 543,
+      "width": 502,
+      "height": 214,
+      "right": 763,
+      "bottom": 757
+    },
+    "tabs": null,
+    "log": {
+      "x": 261,
+      "y": 765,
+      "width": 502,
+      "height": 48,
+      "right": 763,
+      "bottom": 813
+    },
+    "dossiers": [
+      {
+        "x": 32,
+        "y": 28,
+        "width": 210,
+        "height": 726,
+        "right": 242,
+        "bottom": 754
+      },
+      {
+        "x": 782,
+        "y": 28,
+        "width": 210,
+        "height": 726,
+        "right": 992,
+        "bottom": 754
+      }
+    ],
+    "gridTemplateColumns": "210px 520px 210px",
+    "gridTemplateRows": "726px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 56,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 720,
+      "right": 1280,
+      "bottom": 720
+    },
+    "layout": {
+      "x": 32,
+      "y": 28,
+      "width": 1216,
+      "height": 678,
+      "right": 1248,
+      "bottom": 706
+    },
+    "main": {
+      "x": 252,
+      "y": 28,
+      "width": 776,
+      "height": 678,
+      "right": 1028,
+      "bottom": 706
+    },
+    "board": {
+      "x": 261,
+      "y": 171,
+      "width": 758,
+      "height": 216,
+      "right": 1019,
+      "bottom": 387
+    },
+    "gridLayer": {
+      "x": 466.5,
+      "y": 172,
+      "width": 346.98602294921875,
+      "height": 214.00076293945312,
+      "right": 813.4860229492188,
+      "bottom": 386.0007629394531
+    },
+    "actions": {
+      "x": 261,
+      "y": 481,
+      "width": 758,
+      "height": 214,
+      "right": 1019,
+      "bottom": 695
+    },
+    "tabs": null,
+    "log": {
+      "x": 261,
+      "y": 703,
+      "width": 758,
+      "height": 48,
+      "right": 1019,
+      "bottom": 751
+    },
+    "dossiers": [
+      {
+        "x": 32,
+        "y": 28,
+        "width": 210,
+        "height": 678,
+        "right": 242,
+        "bottom": 706
+      },
+      {
+        "x": 1038,
+        "y": 28,
+        "width": 210,
+        "height": 678,
+        "right": 1248,
+        "bottom": 706
+      }
+    ],
+    "gridTemplateColumns": "210px 776px 210px",
+    "gridTemplateRows": "678px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 56,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 1366,
+      "height": 768,
+      "right": 1366,
+      "bottom": 768
+    },
+    "layout": {
+      "x": 32,
+      "y": 28,
+      "width": 1302,
+      "height": 726,
+      "right": 1334,
+      "bottom": 754
+    },
+    "main": {
+      "x": 283,
+      "y": 28,
+      "width": 800,
+      "height": 726,
+      "right": 1083,
+      "bottom": 754
+    },
+    "board": {
+      "x": 292,
+      "y": 171,
+      "width": 782,
+      "height": 216,
+      "right": 1074,
+      "bottom": 387
+    },
+    "gridLayer": {
+      "x": 509.5,
+      "y": 172,
+      "width": 346.98602294921875,
+      "height": 214.00076293945312,
+      "right": 856.4860229492188,
+      "bottom": 386.0007629394531
+    },
+    "actions": {
+      "x": 292,
+      "y": 475,
+      "width": 782,
+      "height": 214,
+      "right": 1074,
+      "bottom": 689
+    },
+    "tabs": null,
+    "log": {
+      "x": 292,
+      "y": 697,
+      "width": 782,
+      "height": 48,
+      "right": 1074,
+      "bottom": 745
+    },
+    "dossiers": [
+      {
+        "x": 32,
+        "y": 28,
+        "width": 235,
+        "height": 726,
+        "right": 267,
+        "bottom": 754
+      },
+      {
+        "x": 1099,
+        "y": 28,
+        "width": 235,
+        "height": 726,
+        "right": 1334,
+        "bottom": 754
+      }
+    ],
+    "gridTemplateColumns": "235px 800px 235px",
+    "gridTemplateRows": "726px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 52,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900,
+      "right": 1440,
+      "bottom": 900
+    },
+    "layout": {
+      "x": 32,
+      "y": 28,
+      "width": 1376,
+      "height": 858,
+      "right": 1408,
+      "bottom": 886
+    },
+    "main": {
+      "x": 283,
+      "y": 28,
+      "width": 874,
+      "height": 858,
+      "right": 1157,
+      "bottom": 886
+    },
+    "board": {
+      "x": 292,
+      "y": 189.5,
+      "width": 856,
+      "height": 324.1875,
+      "right": 1148,
+      "bottom": 513.6875
+    },
+    "gridLayer": {
+      "x": 458.921875,
+      "y": 190.5,
+      "width": 522.1439819335938,
+      "height": 322.0279541015625,
+      "right": 981.0658569335938,
+      "bottom": 512.5279541015625
+    },
+    "actions": {
+      "x": 292,
+      "y": 601.6875,
+      "width": 856,
+      "height": 219.3125,
+      "right": 1148,
+      "bottom": 821
+    },
+    "tabs": null,
+    "log": {
+      "x": 292,
+      "y": 829,
+      "width": 856,
+      "height": 48,
+      "right": 1148,
+      "bottom": 877
+    },
+    "dossiers": [
+      {
+        "x": 32,
+        "y": 28,
+        "width": 235,
+        "height": 858,
+        "right": 267,
+        "bottom": 886
+      },
+      {
+        "x": 1173,
+        "y": 28,
+        "width": 235,
+        "height": 858,
+        "right": 1408,
+        "bottom": 886
+      }
+    ],
+    "gridTemplateColumns": "235px 874px 235px",
+    "gridTemplateRows": "858px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 52,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080,
+      "right": 1920,
+      "bottom": 1080
+    },
+    "layout": {
+      "x": 32,
+      "y": 28,
+      "width": 1856,
+      "height": 1038,
+      "right": 1888,
+      "bottom": 1066
+    },
+    "main": {
+      "x": 326.65625,
+      "y": 28,
+      "width": 1266.671875,
+      "height": 1038,
+      "right": 1593.328125,
+      "bottom": 1066
+    },
+    "board": {
+      "x": 335.65625,
+      "y": 189.5,
+      "width": 1248.671875,
+      "height": 423.078125,
+      "right": 1584.328125,
+      "bottom": 612.578125
+    },
+    "gridLayer": {
+      "x": 618.828125,
+      "y": 190.5,
+      "width": 682.64990234375,
+      "height": 421.01873779296875,
+      "right": 1301.47802734375,
+      "bottom": 611.5187377929688
+    },
+    "actions": {
+      "x": 335.65625,
+      "y": 700.578125,
+      "width": 1248.671875,
+      "height": 286.203125,
+      "right": 1584.328125,
+      "bottom": 986.78125
+    },
+    "tabs": null,
+    "log": {
+      "x": 335.65625,
+      "y": 994.78125,
+      "width": 1248.671875,
+      "height": 62.21875,
+      "right": 1584.328125,
+      "bottom": 1057
+    },
+    "dossiers": [
+      {
+        "x": 32,
+        "y": 28,
+        "width": 278.65625,
+        "height": 1038,
+        "right": 310.65625,
+        "bottom": 1066
+      },
+      {
+        "x": 1609.328125,
+        "y": 28,
+        "width": 278.65625,
+        "height": 1038,
+        "right": 1887.984375,
+        "bottom": 1066
+      }
+    ],
+    "gridTemplateColumns": "278.656px 1266.67px 278.656px",
+    "gridTemplateRows": "1038px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 52,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 2560,
+      "height": 1440,
+      "right": 2560,
+      "bottom": 1440
+    },
+    "layout": {
+      "x": 340,
+      "y": 28,
+      "width": 1880,
+      "height": 1398,
+      "right": 2220,
+      "bottom": 1426
+    },
+    "main": {
+      "x": 638.328125,
+      "y": 28,
+      "width": 1283.328125,
+      "height": 1398,
+      "right": 1921.65625,
+      "bottom": 1426
+    },
+    "board": {
+      "x": 647.328125,
+      "y": 193,
+      "width": 1265.328125,
+      "height": 604.3125,
+      "right": 1912.65625,
+      "bottom": 797.3125
+    },
+    "gridLayer": {
+      "x": 791.640625,
+      "y": 194,
+      "width": 976.35595703125,
+      "height": 602.1594848632812,
+      "right": 1767.99658203125,
+      "bottom": 796.1594848632812
+    },
+    "actions": {
+      "x": 647.328125,
+      "y": 911.328125,
+      "width": 1265.328125,
+      "height": 408.8125,
+      "right": 1912.65625,
+      "bottom": 1320.140625
+    },
+    "tabs": null,
+    "log": {
+      "x": 647.328125,
+      "y": 1328.140625,
+      "width": 1265.328125,
+      "height": 88.859375,
+      "right": 1912.65625,
+      "bottom": 1417
+    },
+    "dossiers": [
+      {
+        "x": 340,
+        "y": 28,
+        "width": 282.328125,
+        "height": 1398,
+        "right": 622.328125,
+        "bottom": 1426
+      },
+      {
+        "x": 1937.65625,
+        "y": 28,
+        "width": 282.328125,
+        "height": 1398,
+        "right": 2219.984375,
+        "bottom": 1426
+      }
+    ],
+    "gridTemplateColumns": "282.328px 1283.33px 282.328px",
+    "gridTemplateRows": "1398px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 78.015625,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  },
+  {
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "documentOverflow": 0,
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 3440,
+      "height": 1440,
+      "right": 3440,
+      "bottom": 1440
+    },
+    "layout": {
+      "x": 780,
+      "y": 28,
+      "width": 1880,
+      "height": 1398,
+      "right": 2660,
+      "bottom": 1426
+    },
+    "main": {
+      "x": 1078.328125,
+      "y": 28,
+      "width": 1283.328125,
+      "height": 1398,
+      "right": 2361.65625,
+      "bottom": 1426
+    },
+    "board": {
+      "x": 1087.328125,
+      "y": 193,
+      "width": 1265.328125,
+      "height": 604.3125,
+      "right": 2352.65625,
+      "bottom": 797.3125
+    },
+    "gridLayer": {
+      "x": 1231.640625,
+      "y": 194,
+      "width": 976.35595703125,
+      "height": 602.1594848632812,
+      "right": 2207.99658203125,
+      "bottom": 796.1594848632812
+    },
+    "actions": {
+      "x": 1087.328125,
+      "y": 911.328125,
+      "width": 1265.328125,
+      "height": 408.8125,
+      "right": 2352.65625,
+      "bottom": 1320.140625
+    },
+    "tabs": null,
+    "log": {
+      "x": 1087.328125,
+      "y": 1328.140625,
+      "width": 1265.328125,
+      "height": 88.859375,
+      "right": 2352.65625,
+      "bottom": 1417
+    },
+    "dossiers": [
+      {
+        "x": 780,
+        "y": 28,
+        "width": 282.328125,
+        "height": 1398,
+        "right": 1062.328125,
+        "bottom": 1426
+      },
+      {
+        "x": 2377.65625,
+        "y": 28,
+        "width": 282.328125,
+        "height": 1398,
+        "right": 2659.984375,
+        "bottom": 1426
+      }
+    ],
+    "gridTemplateColumns": "282.328px 1283.33px 282.328px",
+    "gridTemplateRows": "1398px",
+    "visibleTileCount": 120,
+    "tileCentersInsideBoard": false,
+    "minCommandTouchTarget": 78.015625,
+    "boardActionOverlap": false,
+    "boardDossierOverlap": false
+  }
+]
