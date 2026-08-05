@@ -614,17 +614,24 @@ export function MissionArenaFight({
         return type === "Taijutsu" ? GiBoxingGlove : type === "Bukijutsu" ? GiCrossedSwords : type === "Genjutsu" ? GiEyeball : GiFireSpellCast;
     }
 
-    async function leaveFight() {
+    async function abandonFight() {
         if (done) { onExit(); return; }
-        if (!(await gameConfirm("Leave this fight? You'll forfeit the run — no reward, and you take the loss."))) return;
+        if (!(await gameConfirm("Abandon this fight? This is a guaranteed loss, costs 10% max HP, and cannot be undone."))) return;
         if (transport.forfeit) {
             try {
                 const result = await transport.forfeit(runId, me, session);
                 setSession(result.session);
+                if (result.session.status !== "done") {
+                    setReject(result.reason ?? "The server did not finish the forfeit. The fight remains active.");
+                    return;
+                }
             } catch (error) {
                 setReject(String((error as Error)?.message ?? error));
                 return;
             }
+        } else {
+            setReject("This combat mode does not support a server-authoritative forfeit.");
+            return;
         }
         // Report the forfeit BEFORE unmounting. Leaving an unresolved run used to
         // be free, which made walking out of a fight you were losing strictly
@@ -878,7 +885,17 @@ export function MissionArenaFight({
                                 <small>{companion ? `${companion.name} · ${companionRoundsLeft}⟳` : session.pendingCompanion ? `Summon ${session.pendingCompanion.name}` : "No active pet"}</small>
                             </button>
                         )}
-                        <button disabled={retreatSealed} title={retreatSealed ? "Berserker's Gamble seals retreat." : undefined} onClick={() => { void leaveFight(); }}><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : "Leave fight"}</small></button>
+                        <button
+                            disabled={busy || !myTurn || outOfActions || myAp < 100 || retreatSealed}
+                            title={retreatSealed ? "Berserker's Gamble seals retreat." : "Attempt to escape for 100 AP and 10% max HP. Failure continues the fight."}
+                            onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
+                        ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : "100 AP · escape roll"}</small></button>
+                        <button
+                            className="danger-button"
+                            disabled={busy}
+                            title="Deterministic server forfeit: guaranteed loss and 10% max HP cost."
+                            onClick={() => { resetTargeting(); void abandonFight(); }}
+                        ><span>Abandon</span><small>Guaranteed loss</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                     </div>
 

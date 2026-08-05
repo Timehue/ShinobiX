@@ -71,6 +71,7 @@ export type ServerArenaAction =
     | { type: "cleanse" }
     | { type: "clear"; targetId: string }
     | { type: "summon" }
+    | { type: "flee" }
     | { type: "wait" };
 
 export type ServerArenaActionResponse = { applied: boolean; reason?: string; session: ServerArenaSession };
@@ -84,7 +85,7 @@ export type ServerArenaTransport = {
         current: ServerArenaSession,
         action: ServerArenaAction,
     ) => Promise<ServerArenaActionResponse>;
-    /** Optional authoritative forfeit intent used before the shell unmounts. */
+    /** Optional deterministic terminal abandon intent used before the shell unmounts. */
     forfeit?: (
         sessionId: string,
         playerName: string,
