@@ -28,6 +28,7 @@ import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { BountyBoardPanel } from "../components/BountyBoardPanel";
 import { BattleTabBar } from "../components/BattleTabBar";
+import { CombatInstance } from "../components/CombatInstance";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
@@ -5473,7 +5474,7 @@ export function Arena({
     // screens render mirror-identical combat-layout markup, so the shared
     // class is what keeps them visually in lockstep.
     return (
-        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <CombatInstance className={`pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Onboarding spar coaching — read-only top banner, only during the
                 guaranteed-first-win Academy spar. Never covers the bottom action
                 bar; dismissible so it can't trap. */}
@@ -6288,7 +6289,7 @@ export function Arena({
                     </div>
                 </div>
             )}
-        </div>
+        </CombatInstance>
     );
 }
 

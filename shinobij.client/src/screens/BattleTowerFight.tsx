@@ -17,6 +17,7 @@ import { tagMatchesName } from "../lib/tags";
 import { equipSlotForItem } from "../lib/equipment";
 import { resolveTowerEnemyPortrait, type TowerEnemySpriteKey } from "../lib/ai-fight-art";
 import { gameConfirm } from "../components/GameAlert";
+import { CombatInstance } from "../components/CombatInstance";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
@@ -662,7 +663,7 @@ export function BattleTowerFight({
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 
     return (
-        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
+        <CombatInstance className="screen-battleTowerFight" style={{ color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
             {bark && (
@@ -1164,7 +1165,7 @@ export function BattleTowerFight({
                     </div>
                 </div>
             ))}
-        </div>
+        </CombatInstance>
     );
 }
 

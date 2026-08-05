@@ -14,21 +14,9 @@
  * Everything is scoped to `.mission-arena-fight` so no other battle screen is
  * touched. The extra class also raises specificity above the base viewport rules.
  *
- * The component renders into a body portal (like the game's other full-screen
- * overlays) so it sits ABOVE the app nav/sidebar instead of inside the narrower
- * center column — giving the fight the full viewport the way the Arena does when
- * it hides the chrome. Fixed + inset:0 + a high z-index does the covering.
+ * The shared CombatInstance boundary owns body-portaling, viewport placement,
+ * and scroll locking for this screen and every other active shinobi fight.
  */
-
-.arena-fullscreen.mission-arena-fight {
-    position: fixed;
-    inset: 0;
-    z-index: 1000000;
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-}
 
 /* Wide viewports: show the in-grid player dossier (we don't portal it) and keep
    all three columns — player dossier | board | enemy dossier. */

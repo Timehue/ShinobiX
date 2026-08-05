@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
+import { CombatInstance } from "../components/CombatInstance";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -643,9 +643,9 @@ export function MissionArenaFight({
         onExit();
     }
 
-    return createPortal(
-        <div
-            className={`arena-fullscreen pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
+    return (
+        <CombatInstance
+            className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
             {/* Onboarding coaching (display-only). Portals to document.body like the
@@ -1016,7 +1016,6 @@ export function MissionArenaFight({
                     </div>
                 )
             )}
-        </div>,
-        document.body,
+        </CombatInstance>
     );
 }
