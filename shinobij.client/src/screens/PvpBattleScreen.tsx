@@ -17,6 +17,7 @@ import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
+import { CombatInstance } from "../components/CombatInstance";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
@@ -970,14 +971,14 @@ export function PvpBattleScreen({
         [pendingJutsuDirect, boardOppPos, jutsuRangeTiles, allTiles]);
 
     if (!session) return (
-        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <CombatInstance className={`arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
                     <h2>PvP Battle</h2>
                     <p style={{ color: "var(--text-dim)" }}>Connecting to battle session...</p>
                 </div>
             </div>
-        </div>
+        </CombatInstance>
     );
 
     const me = role === "p1" ? session.p1 : session.p2;
@@ -1361,7 +1362,7 @@ export function PvpBattleScreen({
     };
 
     return (
-        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <CombatInstance className={`pvp-battle-layout arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {connectionState === "reconnecting" && (
                 <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
                     <span className="pvp-reconnecting-dot" />
@@ -1690,45 +1691,6 @@ export function PvpBattleScreen({
                             </button>
                         </div>
                     )}
-                    {!done && !amSpectator && !isMyTurn && (() => {
-                        // Two AFK signals:
-                        //  1) Opponent has skipped 2 consecutive rounds via the
-                        //     45s round timer auto-firing (server-tracked).
-                        //  2) No moves at all for 90s (crashed-tab fallback).
-                        // Either lets us claim the win — server validates both.
-                        const opponentRole: "p1" | "p2" = role === "p1" ? "p2" : "p1";
-                        const oppSkips = session.consecAutoWait?.[opponentRole] ?? 0;
-                        const lastMove = Number(session.lastMoveAt ?? session.createdAt);
-                        const idleMs = Date.now() - lastMove;
-                        const FALLBACK_MS = 90_000;
-                        const canClaim = oppSkips >= 2 || idleMs >= FALLBACK_MS;
-                        const fallbackSecs = Math.max(0, Math.ceil((FALLBACK_MS - idleMs) / 1000));
-                        return (
-                            <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center", flexDirection: "column", gap: 8 }}>
-                                <p style={{ color: "var(--text-dim)", padding: "0.5rem 1rem", margin: 0 }}>
-                                    {opp.name} is taking their turn...
-                                </p>
-                                {canClaim ? (
-                                    <button
-                                        onClick={() => submitAction("claim-afk-win", undefined, undefined, undefined, { allowWhenNotMyTurn: true })}
-                                        disabled={submitting}
-                                        style={{ background: "linear-gradient(#7c2d12, #422006)", borderColor: "#f97316", color: "#fed7aa" }}
-                                    >
-                                        ⏱ Claim Win (Opponent AFK)
-                                    </button>
-                                ) : oppSkips >= 1 ? (
-                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "var(--gold-400)" }}>
-                                        Opponent skipped {oppSkips}/2 rounds — one more for AFK forfeit
-                                    </p>
-                                ) : idleMs > 30_000 ? (
-                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "var(--gold-400)" }}>
-                                        AFK forfeit fallback available in {fallbackSecs}s
-                                    </p>
-                                ) : null}
-                            </div>
-                        );
-                    })()}
-
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
                             <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
@@ -2075,7 +2037,7 @@ export function PvpBattleScreen({
             </div>
 
             {/* Spectator list is now shown inside the chat panel header */}
-        </div>
+        </CombatInstance>
     );
 }
 
