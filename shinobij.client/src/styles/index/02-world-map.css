@@ -388,14 +388,9 @@ html.wm-zoom .world-map-scroll .generated-world-map {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    /* Displayed TALLER than the source art (16:9 since the 2026-07 keyart) so it
-       (background-size:100% 100%) stretches vertically to better fill a phone
-       screen; driven by useWorldMapZoom (must match its MAP_AR). Markers are
-       %-positioned so they stretch with it. The fallback is unreachable in
-       practice — this rule only applies under html.wm-zoom, and that is exactly
-       when the hook sets --wm-map-ar inline — but keep it equal to MAP_AR so the
-       two never disagree on inspection. */
-    aspect-ratio: var(--wm-map-ar, 1.48) !important;
+    /* Preserve the source coordinate system. The hook applies a uniform cover
+       transform, so percentage markers and painted landmarks cannot drift. */
+    aspect-ratio: var(--wm-map-ar, 1672 / 941) !important;
     margin: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -476,6 +471,12 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
 html.wm-zoom .world-map-scroll .vw-sector-claim {
     transform: scale(var(--wm-marker-scale, 1));
     transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.wm-zoom .world-map-scroll .generated-world-map {
+        transition: none !important;
+    }
 }
 
 /* Zoom controls live in the top bar (beside "← Village"); the region chips sit
@@ -601,20 +602,13 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     transform: translate(-50%, -50%) scale(1.06);
 }
 
-.map-instance {
-    display: grid;
-    gap: 12px;
-}
+/* Map-instance layout is owned by layout/adaptive-stages.css. */
 
     .map-instance > button {
         justify-self: start;
     }
 
 .instance-frame {
-    display: grid;
-    grid-template-columns: 150px minmax(360px, 1fr) 150px;
-    gap: 8px;
-    padding: 12px;
     border: 6px solid #7c3f11;
     border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
     background: linear-gradient(90deg, rgba(120,53,15,.88), rgba(15,23,42,.96) 16%, rgba(15,23,42,.96) 84%, rgba(120,53,15,.88));
@@ -644,7 +638,6 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .tile-scene {
-    min-width: 0;
     border: 3px solid #111827;
     background: #050816;
 }
@@ -659,16 +652,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     color: #fef3c7;
 }
 
-.pixel-map {
-    aspect-ratio: 1 / 1;
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    grid-template-rows: repeat(12, 1fr);
-    gap: 1px;
-    padding: 8px;
-    background: #0f4ca7;
-    image-rendering: pixelated;
-}
+/* The 12x12 logical grid is owned by layout/adaptive-stages.css. */
 
 /* SectorMap — painted adventure-map board behind the grid. Fills the grid exactly
    (cover, no pan/over-scale) so the painted layout stays aligned under the tiles;
@@ -792,27 +776,13 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .right-menu-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 240px;
-    height: 100vh;
-    height: 100dvh;
-    z-index: 999999;
-    padding: 12px;
-    padding-top: 225px;
     color: white;
-    overflow-y: auto;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     border-left: 3px solid gold;
     box-shadow: 0 0 25px black;
 }
-
-    .right-menu-panel.closed {
-        width: 74px;
-    }
 
     .right-menu-panel h3 {
         color: var(--gold);

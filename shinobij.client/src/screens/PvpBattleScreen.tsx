@@ -19,6 +19,7 @@ import { BattleTabBar } from "../components/BattleTabBar";
 import { CombatInstance } from "../components/CombatInstance";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
+import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
@@ -1769,7 +1770,14 @@ export function PvpBattleScreen({
                                                         <CombatJutsuMeta character={character} jutsu={j} statuses={me.statuses} activeCooldown={myCooldowns[j.id] ?? 0} />
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
-                                                        onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
+                                                        id={`pvp-combat-detail-trigger-jutsu-${j.id}`}
+                                                        aria-haspopup="dialog"
+                                                        aria-controls={`pvp-combat-detail-jutsu-${j.id}`}
+                                                        aria-expanded={inspectedJutsuId === j.id}
+                                                        onClick={() => {
+                                                            setInspectedWeaponId("");
+                                                            setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id);
+                                                        }}
                                                         title={`View ${j.name} details`}>ℹ️</button>
                                                 </div>
                                             );
@@ -1801,7 +1809,14 @@ export function PvpBattleScreen({
                                                         <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
-                                                        onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
+                                                        id={`pvp-combat-detail-trigger-item-${item.id}`}
+                                                        aria-haspopup="dialog"
+                                                        aria-controls={`pvp-combat-detail-item-${item.id}`}
+                                                        aria-expanded={inspectedWeaponId === item.id}
+                                                        onClick={() => {
+                                                            setInspectedJutsuId("");
+                                                            setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
+                                                        }}
                                                         title={`View ${item.name} details`}>ℹ️</button>
                                                 </div>
                                             );
@@ -1835,7 +1850,14 @@ export function PvpBattleScreen({
                                                         <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
-                                                        onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
+                                                        id={`pvp-combat-detail-trigger-item-${item.id}`}
+                                                        aria-haspopup="dialog"
+                                                        aria-controls={`pvp-combat-detail-item-${item.id}`}
+                                                        aria-expanded={inspectedWeaponId === item.id}
+                                                        onClick={() => {
+                                                            setInspectedJutsuId("");
+                                                            setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
+                                                        }}
                                                         title={`View ${item.name} details`}>ℹ️</button>
                                                 </div>
                                             );
@@ -1874,15 +1896,21 @@ export function PvpBattleScreen({
                                     </div>
                                 )}
                                 {inspectedWeaponId && (() => {
-                                    const w = pvpEquippedWeapons.find(x => x.id === inspectedWeaponId);
+                                    const w = [...pvpEquippedWeapons, ...pvpEquippedThrown]
+                                        .find(x => x.id === inspectedWeaponId);
                                     if (!w) return null;
                                     const slot = normalizeEquipmentSlot(w.slot);
                                     const wRange = w.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                     return (
-                                        <div className="combat-jutsu-detail-popover">
+                                        <CombatDetailPortal
+                                            id={`pvp-combat-detail-item-${w.id}`}
+                                            labelId={`pvp-combat-detail-label-item-${w.id}`}
+                                            triggerId={`pvp-combat-detail-trigger-item-${w.id}`}
+                                            onClose={() => setInspectedWeaponId("")}
+                                        >
                                             <div className="combat-jutsu-detail-header">
-                                                <div><strong>{w.name}</strong><small>{slot === "thrown" ? "Thrown" : "Melee"}</small></div>
-                                                <button type="button" onClick={() => setInspectedWeaponId("")}>x</button>
+                                                <div><strong id={`pvp-combat-detail-label-item-${w.id}`}>{w.name}</strong><small>{slot === "thrown" ? "Thrown" : "Melee"}</small></div>
+                                                <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedWeaponId("")}>x</button>
                                             </div>
                                             <div className="combat-jutsu-detail-grid">
                                                 <span><strong>Type:</strong> Bukijutsu</span>
@@ -1894,17 +1922,22 @@ export function PvpBattleScreen({
                                                 {w.weaponEffect && <span><strong>Effect:</strong> {w.weaponEffect}</span>}
                                             </div>
                                             {w.description && <p className="combat-jutsu-detail-desc">{w.description}</p>}
-                                        </div>
+                                        </CombatDetailPortal>
                                     );
                                 })()}
                                 {inspectedJutsu && (() => {
                                     const mastery = getJutsuMastery(character, inspectedJutsu.id);
                                     const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
                                     return (
-                                        <div className="combat-jutsu-detail-popover">
+                                        <CombatDetailPortal
+                                            id={`pvp-combat-detail-jutsu-${inspectedJutsu.id}`}
+                                            labelId={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}
+                                            triggerId={`pvp-combat-detail-trigger-jutsu-${inspectedJutsu.id}`}
+                                            onClose={() => setInspectedJutsuId("")}
+                                        >
                                             <div className="combat-jutsu-detail-header">
-                                                <div><strong>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
-                                                <button type="button" onClick={() => setInspectedJutsuId("")}>x</button>
+                                                <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
+                                                <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
                                             </div>
                                             <div className="combat-jutsu-detail-grid">
                                                 <span><strong>Type:</strong> {inspectedJutsu.type}</span>
@@ -1921,7 +1954,7 @@ export function PvpBattleScreen({
                                             <div className="combat-jutsu-effects-list">
                                                 <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
                                             </div>
-                                        </div>
+                                        </CombatDetailPortal>
                                     );
                                 })()}
                             </div>

@@ -6,6 +6,7 @@ const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), 
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
 const solo = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const pvp = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
+const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 
 test("PvP and authoritative Solo PvE adopt one shell and aspect-locked board stage", () => {
@@ -30,11 +31,27 @@ test("side dossiers require both usable width and height and remain symmetric", 
 
 test("shell pins optional notices and accessible controls without hard battlefield heights", () => {
     assert.match(css, /\.combat-action-notice[\s\S]*?grid-area: notice !important/);
-    assert.match(shellCss, /@container shinobi-combat \(max-width: 520px\) and \(max-height: 700px\)[\s\S]*?\.combat-action-notice[\s\S]*?position: absolute !important/);
+    const shortestPhoneTier = shellCss.match(
+        /@container shinobi-combat \(max-width: 520px\) and \(max-height: 700px\) \{([\s\S]*?)\n\}/,
+    )?.[1] ?? "";
+    assert.match(shortestPhoneTier, /\.combat-action-notice[\s\S]*?position: static !important/);
+    assert.match(shortestPhoneTier, /\.combat-action-notice[\s\S]*?height: 18px !important/);
+    assert.doesNotMatch(shortestPhoneTier, /\.combat-action-notice[\s\S]*?position: absolute !important/);
     assert.match(shellCss, /grid-template-areas:\s*"ap"\s*"terrain"\s*"board"\s*"tabs"\s*"notice"\s*"commands"\s*"panel"/);
     assert.equal((solo.match(/className="combat-action-notice"/g) ?? []).length, 1);
     assert.match(css, /\.shinobi-command-bar > button[\s\S]*?min-height: 44px !important/);
     assert.doesNotMatch(shellCss, /\.hex-battlefield[^{]*\{[^}]*min-height:\s*(?:[3-9]\d{2}|\d{4,})px/);
+});
+
+test("combat details use a modal backdrop with bounded keyboard focus", () => {
+    assert.match(detailPortal, /className="combat-detail-backdrop"/);
+    assert.match(detailPortal, /aria-modal="true"/);
+    assert.match(detailPortal, /event\.key !== "Tab"/);
+    assert.match(detailPortal, /active === dialog \|\| !dialog\.contains\(active\)/);
+    assert.match(detailPortal, /onCloseRef\.current\(\)/);
+    assert.match(css, /body > \.combat-detail-backdrop[\s\S]*?position: fixed/);
+    assert.match(css, /body > \.combat-detail-backdrop[\s\S]*?z-index: var\(--z-combat-hud\)/);
+    assert.match(pvp, /\[\.\.\.pvpEquippedWeapons, \.\.\.pvpEquippedThrown\][\s\S]*?\.find\(x => x\.id === inspectedWeaponId\)/);
 });
 
 test("PvP refresh guard preserves the live battle breadcrumb until restore installs its id", () => {

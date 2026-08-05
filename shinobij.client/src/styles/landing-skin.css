@@ -1,34 +1,10 @@
 /* ──────────────────────────────────────────────────────────────────────────
    LANDING SKIN — cinematic AAA-style homepage for the logged-out start screen.
    Sits on top of start-skin.css (imported AFTER it) so `.landing-auth-card`
-   can extend `.start-card` and reuse its field/input styling. Full-bleed:
-   the start screen breaks out of the side-rail margins so hero art runs
-   edge-to-edge. All colours track the shared design tokens (dark navy + gold).
+   can extend `.start-card` and reuse its field/input styling. The adaptive
+   shell owns the full-bleed start-screen geometry; this file owns only the
+   landing content skin. All colours track the shared design tokens.
    ────────────────────────────────────────────────────────────────────────── */
-
-/* On the logged-out start screen there are no side rails / right menu, so let
-   the center column fill the viewport for edge-to-edge hero art. (Keeps the
-   base .center-game height + overflow that make it the scroll container.) */
-.app-shell.screen-start {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: clip !important;
-}
-
-.center-game.screen-start {
-    margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 !important;
-    /* Let the landing scroll with the WINDOW instead of being a nested
-       overflow:auto box. This makes the sticky nav behave like a normal site
-       AND is the root-cause fix for feature images that never entered the
-       nested container's viewport (native lazy-load / IntersectionObserver
-       is keyed to the document viewport). */
-    height: auto !important;
-    min-height: 100dvh !important;
-    overflow: visible !important;
-}
 
 .landing-root {
     width: 100%;

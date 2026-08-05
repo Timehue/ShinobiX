@@ -3,15 +3,7 @@
     box-sizing: border-box;
 }
 
-html, body, #root {
-    margin: 0;
-    min-height: 100%;
-}
-
 body {
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: 100dvh; /* fill the visible viewport on mobile (dynamic toolbar) */
     color: #e8eef8;
     font-family: Verdana, Arial, sans-serif;
     background: radial-gradient(circle at 20% 0%, rgba(56,189,248,.18), transparent 32%), radial-gradient(circle at 90% 15%, rgba(250,204,21,.10), transparent 30%), linear-gradient(135deg, #07111f, #101827 45%, #05070d);
@@ -22,17 +14,6 @@ input,
 select,
 textarea {
     font: inherit;
-}
-
-.game {
-    max-width: 100vw;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    height: 100dvh;
-    margin: 0 auto;
-    padding: 0;
-    overflow: hidden;
 }
 
 .hero {

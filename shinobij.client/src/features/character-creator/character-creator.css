@@ -39,7 +39,7 @@
 }
 
 .cc-back-link {
-    min-height: 38px;
+    min-height: 44px;
     padding: 9px 14px;
     border: 1px solid rgba(250, 204, 21, 0.30);
     background: rgba(2, 6, 23, 0.48);
@@ -427,9 +427,11 @@
 
 .cc-password-wrap button {
     position: absolute;
-    top: 6px;
+    top: 0;
+    bottom: 0;
     right: 6px;
-    height: 32px;
+    height: auto;
+    min-height: 44px;
     min-width: 58px;
     border-radius: 7px;
     border: 1px solid rgba(202, 138, 4, 0.32);

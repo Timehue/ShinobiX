@@ -171,7 +171,7 @@ function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
     return pets.slice(0, Math.max(1, count)).map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
 }
 
-export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onHollowGatePetBattleEnd }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onHollowGatePetBattleEnd?: (result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) => void }) {
+export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onHollowGatePetBattleEnd }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onHollowGatePetBattleEnd?: (result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -477,15 +477,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const hollowGateSettlementRetryRef = useRef<(() => Promise<void>) | null>(null);
     const hollowGateSettlementInFlightRef = useRef(false);
     const hollowGateSettlementFinishedRef = useRef(false);
-    // Report unresolved tactical matches and the player-controlled Hollow Gate
-    // duel to App's global navigation lock. Ordinary cinematic duels are already
-    // decided before playback; the Gate duel is live and must remain bound until
-    // its two-hop server settlement completes.
+    // Fullscreen presentation is deliberately separate from App's unresolved
+    // battle signal: the latter also controls presence, regen, and clan-war
+    // launch behavior, while already-decided cinematic playback must not.
+    const fullscreenBattleActive = arenaMatch !== null
+        || arenaCountdown !== null
+        || battleReady
+        || duelBattle !== null;
     useEffect(() => {
-        const active = arenaMatch !== null
+        const unresolvedBattleActive = arenaMatch !== null
             || arenaCountdown !== null
             || Boolean(battleReady && battleOpponent?.hollowGate && hollowGateSettlementStatus !== "settled");
-        onBattleActiveChange?.(active);
+        onBattleActiveChange?.(unresolvedBattleActive);
         return () => onBattleActiveChange?.(false);
     }, [
         arenaMatch,
@@ -495,6 +498,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         hollowGateSettlementStatus,
         onBattleActiveChange,
     ]);
+    useEffect(() => {
+        onFullscreenActiveChange?.(fullscreenBattleActive);
+        return () => onFullscreenActiveChange?.(false);
+    }, [fullscreenBattleActive, onFullscreenActiveChange]);
+    useEffect(() => {
+        if (!fullscreenBattleActive) return;
+        document.body.classList.add("pet-combat-active");
+        return () => document.body.classList.remove("pet-combat-active");
+    }, [fullscreenBattleActive]);
     const currentFrame = battleFrames[frameIndex];
     const showResult = currentFrame?.actionKind === "result";
     const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : battleLog;

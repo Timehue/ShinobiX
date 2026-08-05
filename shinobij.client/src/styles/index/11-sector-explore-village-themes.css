@@ -1,18 +1,8 @@
 /* ===== Compact sector explore screen ===== */
 
-.map-instance {
-    gap: 4px !important;
-}
+/* Map-instance geometry is owned by layout/adaptive-stages.css. */
 
-.instance-frame {
-    grid-template-columns: 110px minmax(0, 1fr) 130px !important;
-    gap: 6px !important;
-    padding: 6px !important;
-    /* Use --banner-h (defined on :root) so the frame never exceeds the
-       available space below the banner, keeping all tiles on-screen. */
-    height: calc(100dvh - var(--banner-h) - 2px) !important;
-    overflow: hidden !important;
-}
+/* Instance-frame coordinate geometry is owned by layout/adaptive-stages.css. */
 
 .instance-sidebar,
 .instance-actions {
@@ -38,12 +28,6 @@
 .scene-title {
     padding: 4px 8px !important;
     font-size: 12px !important;
-}
-
-.pixel-map {
-    height: calc(100dvh - var(--banner-h) - 60px) !important;
-    aspect-ratio: auto !important;
-    padding: 4px !important;
 }
 
 .walkable-tile {
@@ -361,12 +345,12 @@
        land exactly where it should at any size. The 2026-07 keyart is 16:9
        (1672×941) — the `* 1.7768` in max-width below IS this aspect, so the
        two must change together. */
-    aspect-ratio: 1672 / 941;
+    aspect-ratio: var(--wm-map-ar, 1672 / 941);
     width: 100%;
     height: auto !important;
     min-height: 0 !important;
-    max-height: calc(100dvh - 40px);
-    max-width: calc((100dvh - 40px) * 1.7768);
+    max-height: none;
+    max-width: 100%;
     margin: 0 auto;
     background-size: 100% 100% !important;
     background-position: center !important;
@@ -1024,11 +1008,6 @@
 }
 
 .sector-image-map {
-    position: relative; /* containing block for the ambience layers + walking <SectorAvatar> overlay */
-    isolation: isolate; /* own stacking context so the z-index:-1 <SectorScene> backdrop
-                           paints ABOVE this element's blue .pixel-map fill, not behind it
-                           (a -1 child of a non-stacking parent escapes and is hidden). */
-    overflow: hidden;   /* clip the over-scaled, panning <SectorScene> backdrop */
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;

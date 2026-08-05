@@ -90,8 +90,19 @@ function useTex(url: string | undefined): THREE.Texture | null {
     useEffect(() => {
         if (!url) return;
         let live = true;
-        new THREE.TextureLoader().load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true; if (live) setTex(t); });
-        return () => { live = false; };
+        let loaded: THREE.Texture | null = null;
+        new THREE.TextureLoader().load(url, (t) => {
+            loaded = t;
+            t.colorSpace = THREE.SRGBColorSpace;
+            t.anisotropy = 4;
+            t.needsUpdate = true;
+            if (live) setTex(t);
+            else t.dispose();
+        });
+        return () => {
+            live = false;
+            loaded?.dispose();
+        };
     }, [url]);
     return tex;
 }
@@ -248,6 +259,11 @@ function BoardScene({ result, round, spriteMap, stars }: {
     const [pops, setPops] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; size: number }>>([]);
     const [hpView, setHpView] = useState<Record<string, number>>({});   // live, per-impact HP (drives the bars)
     const [pulses, setPulses] = useState<Record<string, number>>({});   // per-unit hit counter (drives the flash)
+    const popTimers = useRef(new Set<number>());
+    useEffect(() => () => {
+        for (const timer of popTimers.current) window.clearTimeout(timer);
+        popTimers.current.clear();
+    }, []);
 
     const maxHpMap = useMemo(() => {
         const m: Record<string, number> = {};
@@ -266,7 +282,11 @@ function BoardScene({ result, round, spriteMap, stars }: {
         const pos = headOf(id); if (!pos) return;
         const pid = ++idRef.current;
         setPops((p) => [...p, { id: pid, pos, text, color, size }]);
-        window.setTimeout(() => setPops((p) => p.filter((x) => x.id !== pid)), 950);
+        const timer = window.setTimeout(() => {
+            popTimers.current.delete(timer);
+            setPops((p) => p.filter((x) => x.id !== pid));
+        }, 950);
+        popTimers.current.add(timer);
     };
     // A hit LANDS: drop the target's live HP, flash it, pop the damage (gold + "!" on crit).
     const landDamage = (id: string, dmg: number, crit: boolean) => {
@@ -371,7 +391,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     const resultLabel = result.result === "win" ? "Victory" : result.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="pet-combat-takeover" style={{ backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
             {/* floating combat-number animation (damage / heal / shield pops) */}
             <style>{"@keyframes boardPop{0%{transform:translateY(8px) scale(.6);opacity:0}18%{opacity:1;transform:translateY(0) scale(1.08)}100%{transform:translateY(-42px) scale(1);opacity:0}}"}</style>
             <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 14.5, 13.5], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}>

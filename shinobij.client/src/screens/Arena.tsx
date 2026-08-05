@@ -25,10 +25,11 @@ import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
 import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
+import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { BountyBoardPanel } from "../components/BountyBoardPanel";
 import { BattleTabBar } from "../components/BattleTabBar";
-import { CombatInstance } from "../components/CombatInstance";
+import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
@@ -5474,7 +5475,7 @@ export function Arena({
     // screens render mirror-identical combat-layout markup, so the shared
     // class is what keeps them visually in lockstep.
     return (
-        <CombatInstance className={`pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <ShinobiCombatShell mode="solo" className={`pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Onboarding spar coaching — read-only top banner, only during the
                 guaranteed-first-win Academy spar. Never covers the bottom action
                 bar; dismissible so it can't trap. */}
@@ -5706,6 +5707,7 @@ export function Arena({
                         </div>
                     </div>
 
+                    <div className="combat-board-stage">
                     <div
                         className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}
@@ -5868,6 +5870,7 @@ export function Arena({
                         {/* Sprite-sheet effect overlay (CC0 art / KV override), above
                             the particles. Re-keyed per cast so it restarts cleanly. */}
                     </div>
+                    </div>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
 
@@ -5976,6 +5979,10 @@ export function Arena({
                                                 <button
                                                     type="button"
                                                     className="combat-jutsu-help"
+                                                    id={`solo-combat-detail-trigger-jutsu-${jutsu.id}`}
+                                                    aria-haspopup="dialog"
+                                                    aria-controls={`solo-combat-detail-jutsu-${jutsu.id}`}
+                                                    aria-expanded={inspectedJutsuId === jutsu.id}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();
@@ -6041,6 +6048,10 @@ export function Arena({
                                                 <button
                                                     type="button"
                                                     className="combat-jutsu-help"
+                                                    id={`solo-combat-detail-trigger-item-${item.id}`}
+                                                    aria-haspopup="dialog"
+                                                    aria-controls={`solo-combat-detail-item-${item.id}`}
+                                                    aria-expanded={inspectedCombatItemId === item.id}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();
@@ -6067,15 +6078,22 @@ export function Arena({
                                     const cleanMethod = inspectedJutsu.method.toLowerCase().replaceAll("_", " ");
 
                                     return (
-                                        <div className="combat-jutsu-detail-popover">
+                                        <CombatDetailPortal
+                                            id={`solo-combat-detail-jutsu-${inspectedJutsu.id}`}
+                                            labelId={`solo-combat-detail-label-jutsu-${inspectedJutsu.id}`}
+                                            triggerId={`solo-combat-detail-trigger-jutsu-${inspectedJutsu.id}`}
+                                            onClose={() => setInspectedJutsuId("")}
+                                        >
                                             <div className="combat-jutsu-detail-header">
                                                 <div>
-                                                    <strong>{inspectedJutsu.name}</strong>
+                                                    <strong id={`solo-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong>
                                                     <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}{mastery.level > effLevel ? ` · combat-capped to ${effLevel} at your rank` : ""}</small>
                                                 </div>
 
                                                 <button
                                                     type="button"
+                                                    data-combat-detail-close
+                                                    aria-label="Close combat details"
                                                     onClick={() => setInspectedJutsuId("")}
                                                 >
                                                     ×
@@ -6110,20 +6128,28 @@ export function Arena({
                                             <div className="combat-jutsu-effects-list">
                                                 <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={effLevel} lensDiscipline={playerLensDiscipline(character)} />
                                             </div>
-                                        </div>
+                                        </CombatDetailPortal>
                                     );
                                 })()}
 
                                 {inspectedCombatItem && (
-                                    <div className="combat-jutsu-detail-popover combat-item-detail-popover">
+                                    <CombatDetailPortal
+                                        id={`solo-combat-detail-item-${inspectedCombatItem.id}`}
+                                        labelId={`solo-combat-detail-label-item-${inspectedCombatItem.id}`}
+                                        triggerId={`solo-combat-detail-trigger-item-${inspectedCombatItem.id}`}
+                                        className="combat-item-detail-popover"
+                                        onClose={() => setInspectedCombatItemId("")}
+                                    >
                                         <div className="combat-jutsu-detail-header">
                                             <div>
-                                                <strong>{inspectedCombatItem.name}</strong>
+                                                <strong id={`solo-combat-detail-label-item-${inspectedCombatItem.id}`}>{inspectedCombatItem.name}</strong>
                                                 <small>{equipmentSlotLabel(inspectedCombatItem.slot)} | {inspectedCombatItem.rarity}</small>
                                             </div>
 
                                             <button
                                                 type="button"
+                                                data-combat-detail-close
+                                                aria-label="Close combat details"
                                                 onClick={() => setInspectedCombatItemId("")}
                                             >
                                                 ×
@@ -6145,7 +6171,7 @@ export function Arena({
                                             <strong>Combat Bonuses</strong>
                                             <p>{combatItemSummary(inspectedCombatItem)}</p>
                                         </div>
-                                    </div>
+                                    </CombatDetailPortal>
                                 )}
                             </>
                         )}
@@ -6289,7 +6315,7 @@ export function Arena({
                     </div>
                 </div>
             )}
-        </CombatInstance>
+        </ShinobiCombatShell>
     );
 }
 

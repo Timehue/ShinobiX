@@ -140,6 +140,24 @@ function Backdrop({ image, biome, focus, depth, onReady }: { image: string; biom
     const hazeTex = useMemo(() => buildHazeTexture(HAZE[biome]), [biome]);
     useEffect(() => () => { colorTex.dispose(); depthTex.dispose(); hazeTex.dispose(); }, [colorTex, depthTex, hazeTex]);
 
+    // Match CSS `background-size: cover` without stretching the painting. Both
+    // colour and depth sample the identical centred UV window so displacement
+    // features stay registered with the visible terrain after every resize.
+    useEffect(() => {
+        const source = colorSrc.image as { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number };
+        const sourceWidth = source.naturalWidth ?? source.width ?? 1;
+        const sourceHeight = source.naturalHeight ?? source.height ?? 1;
+        const sourceAspect = sourceWidth / Math.max(1, sourceHeight);
+        const viewAspect = size.width / Math.max(1, size.height);
+        const repeatX = sourceAspect > viewAspect ? viewAspect / sourceAspect : 1;
+        const repeatY = sourceAspect > viewAspect ? 1 : sourceAspect / viewAspect;
+        for (const texture of [colorTex, depthTex]) {
+            texture.repeat.set(repeatX, repeatY);
+            texture.offset.set((1 - repeatX) / 2, (1 - repeatY) / 2);
+            texture.needsUpdate = true;
+        }
+    }, [colorSrc, colorTex, depthTex, size.width, size.height]);
+
     // Fire `onReady` once the first frame of THIS painting has actually rendered,
     // so the gate (SectorScene3D) can fade this layer in over the flat backdrop —
     // no abrupt swap between the two framings. Re-arm when the painting changes
