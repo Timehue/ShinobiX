@@ -43,6 +43,7 @@ import {
 } from "../lib/daily-briefing";
 import briefingBg from "../assets/daily-briefing.webp";
 import { Modal } from "./ui/Modal";
+import { ActivitySpine } from "./ActivitySpine";
 
 const SEEN_KEY = "dailyBriefing.seen.v1";
 // Hold the briefing until level 5. Levels 1–4 are the guided tutorial/onboarding
@@ -262,9 +263,11 @@ export function DailyBriefingModal({
                                 </div>
                             </div>
 
+                            <ActivitySpine playerName={character.name} onNavigate={go} />
+
                             {/* ── Recommendations ───────────────────────────── */}
                             <section className="db-section">
-                                <h3>Recommended for you</h3>
+                                <h3>Quick picks</h3>
                                 <div className="db-recos">
                                     {recos.map((r) => (
                                         <button key={r.id} type="button" className="db-reco" onClick={() => go(r.screen)}>
