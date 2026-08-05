@@ -55,6 +55,7 @@ import type { CombatFxEvent, CombatTag } from '../combat-core/types.js';
 import {
     CASTER_WARD_VFX_KEYS as VFX_CASTER_WARD_KEYS,
     ELEMENTAL_60_VFX_KEYS as VFX_ELEMENTAL_60_KEYS,
+    MAX_COMBAT_VFX_TILES,
     canonicalJutsuTagNames,
     semanticJutsuVfx,
     semanticKeyForJutsuTags,
@@ -126,7 +127,7 @@ function vfxEvent(
         durationMs: patch.durationMs ?? defaults.durationMs,
         persistent: patch.persistent,
         maxParticles: patch.maxParticles ?? defaults.maxParticles,
-        tiles: patch.tiles?.slice(0, 18),
+        tiles: patch.tiles?.slice(0, MAX_COMBAT_VFX_TILES),
     };
 }
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';

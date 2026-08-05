@@ -35,7 +35,7 @@ import {
 } from '../combat-core/events.js';
 import type { ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import type { CombatFxEvent } from '../combat-core/types.js';
-import { semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
+import { MAX_COMBAT_VFX_TILES, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { canonicalTagName, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
 import {
@@ -270,7 +270,7 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
         ? undefined
         : method === 'AOE_SPIRAL'
             ? filledDiskTiles(action.tile, SPIRAL_RADIUS, GRID_W, GRID_H)
-            : method === 'AOE_CIRCLE'
+            : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
                 ? [action.tile, ...hexNeighbors(action.tile)]
                 : [action.tile];
     return [{
@@ -279,7 +279,7 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
             : semantic.anchor === 'tile' ? 'tile'
                 : semantic.anchor === 'caster' ? side : otherSide(side),
         anchor: semantic.anchor,
-        ...(tiles ? { tiles } : {}),
+        ...(tiles ? { tiles: tiles.slice(0, MAX_COMBAT_VFX_TILES) } : {}),
         ...(persistent ? { persistent: true } : {}),
     }];
 }
@@ -1224,12 +1224,16 @@ function directAction(
         };
     }
 
+    const actionLog = session.log.slice(logStart);
     const vfx = jutsuVfx(
         session,
         side,
         action,
         action.type === 'jutsu' && fighter(session, otherSide(side)).hp <= 0,
     );
+    if (actionLog.some((line) => line.endsWith('Poison damage from exertion.'))) {
+        vfx.push({ key: 'poisonCloud', target: side, anchor: 'caster' });
+    }
     const after = eventSnapshot(session);
     const sequence = session.eventSeq + 1;
     const event: SoloPveCombatEvent = {
@@ -1243,7 +1247,7 @@ function directAction(
         ...('tile' in action && action.tile !== undefined ? { tile: action.tile } : {}),
         before,
         after,
-        log: session.log.slice(logStart),
+        log: actionLog,
         vfx,
         status: session.status,
         winner: session.winner,
