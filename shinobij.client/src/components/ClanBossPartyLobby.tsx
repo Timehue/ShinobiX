@@ -64,6 +64,7 @@ export function ClanBossPartyLobby({
 
     const self = party.members.find((member) => member.slug === playerSlug);
     const isLeader = party.leaderSlug === playerSlug;
+    const leader = party.members.find((member) => member.slug === party.leaderSlug);
     const isPreStart = party.status === "forming" || party.status === "queued";
     const availableInvites = clanmates.filter((name) => {
         const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -108,6 +109,7 @@ export function ClanBossPartyLobby({
 
             {isPreStart ? (
                 <div className="operation-primary-actions">
+                    {!isLeader && leader?.connection === "stale" ? <button type="button" disabled={busy} onClick={() => onAction("claim-leadership")}>Recover Leadership</button> : null}
                     {party.status === "forming" ? <button type="button" aria-pressed={self?.ready ?? false} disabled={busy} onClick={() => onAction(self?.ready ? "unready" : "ready")}>{self?.ready ? "Mark Not Ready" : "Seal Loadout & Ready"}</button> : null}
                     {isLeader && party.status === "forming" && party.allReady && party.members.length === 1 && party.visibility === "public" && !party.soloFallbackAccepted ? <button type="button" disabled={busy} onClick={() => onAction("queue")}>Enter Clan Finder</button> : null}
                     {isLeader && party.status === "queued" ? <button type="button" disabled={busy} onClick={() => onAction("cancel-queue")}>Cancel Finder</button> : null}

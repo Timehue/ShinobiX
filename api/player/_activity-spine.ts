@@ -10,6 +10,7 @@ export type ActivitySpineInput = {
     jutsuTrainingIdle: boolean;
     hasJutsu: boolean;
     hasProfession: boolean;
+    profession: string;
     clanName: string;
     lastLoginRewardDate: string;
     clanBoss?: {
@@ -113,6 +114,34 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
             commitment: '20–40 min', screen: input.level >= 30 ? 'centralHub' : 'worldMap', cta: 'Review Activities', eligibility: 'eligible', context: 'progression',
         }));
     }
+    week.push(item('this-week', {
+        id: 'weekly-ranked', title: 'Set a ranked season target',
+        why: 'Ranked uses the existing PvP rules and turns combat skill into seasonal standing and durable battle history.',
+        commitment: '10â€“20 min', screen: 'battleArena', cta: 'Open Ranked PvP',
+        eligibility: input.level >= 15 ? 'eligible' : 'blocked',
+        blocker: input.level >= 15 ? undefined : 'Reach level 15 and finish your Academy foundation first.',
+        reward: 'Season standing and competitive record', context: 'progression',
+    }));
+    week.push(item('this-week', {
+        id: 'weekly-profession',
+        title: input.hasProfession ? `Advance your ${input.profession} practice` : 'Choose a profession path',
+        why: 'Healer, Vanguard, and Pet Tamer progress turns combat and support play into a distinct long-term identity.',
+        commitment: '10â€“25 min', screen: input.hasProfession ? 'professions' : 'professionPicker',
+        cta: input.hasProfession ? 'Review Profession' : 'Choose Profession',
+        eligibility: input.hasProfession || input.level >= 13 ? 'eligible' : 'blocked',
+        blocker: input.hasProfession || input.level >= 13 ? undefined : 'Professions unlock at level 13.',
+        reward: 'Profession XP and role capability', context: 'economy',
+    }));
+    week.push(item('this-week', {
+        id: 'weekly-solo',
+        title: input.level >= 30 ? 'Climb a Tower on your own schedule' : 'Build strength through missions and hunts',
+        why: input.level >= 30
+            ? 'Tower progression remains a meaningful low-population alternative when a live party is unavailable.'
+            : 'Missions and hunts grow your character and supply the preparation economy without requiring a queue.',
+        commitment: '15â€“30 min', screen: input.level >= 30 ? 'battleTowers' : 'missions',
+        cta: input.level >= 30 ? 'Review Towers' : 'Open Missions', eligibility: 'eligible',
+        reward: input.level >= 30 ? 'Tower progress and build mastery' : 'Growth, ryo, and hunt materials', context: 'progression',
+    }));
 
     longTerm.push(item('long-term', {
         id: 'long-level-band',
@@ -133,4 +162,3 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
 
     return { generatedAt: input.now, returningPlayer, horizons: { now, today, 'this-week': week, 'long-term': longTerm } };
 }
-

@@ -30,8 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const progress = clanName && week ? await loadClanBossProgress(weekId, clanName) : null;
         const party = clanName ? await activePartyForPlayer(playerName) : null;
         const sector = boss && week ? await loadSectorState(weekId, boss) : null;
-        const activeTraining = record.activeTraining as { endsAt?: number } | null | undefined;
-        const activeJutsuTraining = record.activeJutsuTraining as { endsAt?: number } | null | undefined;
+        const activeTraining = record?.activeTraining as { endsAt?: number } | null | undefined;
+        const activeJutsuTraining = record?.activeJutsuTraining as { endsAt?: number } | null | undefined;
         const spine = buildActivitySpine({
             now,
             level: Math.max(1, Math.floor(Number(character.level) || 1)),
@@ -44,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? character.jutsuMastery.length > 0
                 : Array.isArray(character.equippedJutsuIds) && character.equippedJutsuIds.length > 0,
             hasProfession: ['healer', 'vanguard', 'petTamer'].includes(String(character.profession ?? '')),
+            profession: typeof character.profession === 'string' ? character.profession : '',
             clanName,
             lastLoginRewardDate: typeof character.lastLoginRewardDate === 'string' ? character.lastLoginRewardDate : '',
             clanBoss: {

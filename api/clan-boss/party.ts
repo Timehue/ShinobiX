@@ -11,6 +11,7 @@ import {
     activePartyForPlayer,
     addPartyInvitation,
     addPartyMember,
+    canClaimPartyLeadership,
     clanBossPartiesEnabled,
     clearPartyMemberIndices,
     createParty,
@@ -150,6 +151,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!party.members.some((entry) => entry.slug === target)) return { ok: false, status: 400, code: 'invalid-target', error: 'Choose a current party member.', party };
                     return genericMutation(party, { leaderSlug: target });
                 }
+                if (action === 'claim-leadership') {
+                    if (!canClaimPartyLeadership(party, player.slug, now)) {
+                        return { ok: false, status: 409, code: 'leader-present', error: 'Leadership can only be recovered after the current leader disconnects.', party };
+                    }
+                    return genericMutation(party, { leaderSlug: player.slug });
+                }
                 if (action === 'ready') {
                     if (party.status !== 'forming') return { ok: false, status: 409, code: 'party-not-forming', error: 'Readiness is locked while queued or active.', party };
                     return genericMutation(party, { members: party.members.map((entry) => entry.slug === player.slug ? { ...entry, ready: true, snapshot: snapshotForPlayer(player, now), lastSeenAt: now } : entry) });
@@ -197,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!result.replayed && action !== 'heartbeat' && action !== 'ping') {
             const stateByAction: Record<string, string> = {
                 invite: 'invited', decline: 'declined', leave: 'abandoned', kick: 'removed',
-                transfer: 'leader-transferred', ready: 'ready', unready: 'unready', queue: 'queued',
+                transfer: 'leader-transferred', 'claim-leadership': 'leader-recovered', ready: 'ready', unready: 'unready', queue: 'queued',
                 'cancel-queue': 'queue-cancelled', 'solo-fallback': 'solo-fallback', disband: 'disbanded',
             };
             const wait = queuedAtBeforeMutation > 0 ? Date.now() - queuedAtBeforeMutation : 0;
