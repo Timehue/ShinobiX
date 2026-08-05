@@ -33,12 +33,8 @@ import { currentLogbookObjective } from "../lib/logbook-objectives";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
 import { loadVillageState } from "../lib/world-state";
-import {
-    worldReport,
-    dailyLoginRyo,
-    STREAK_SHARD_INTERVAL,
-    STREAK_SHARD_REWARD,
-} from "../lib/daily-briefing";
+import { worldReport } from "../lib/daily-briefing";
+import { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
 import briefingBg from "../assets/daily-briefing.webp";
 import { Modal } from "./ui/Modal";
 import { ActivitySpine } from "./ActivitySpine";

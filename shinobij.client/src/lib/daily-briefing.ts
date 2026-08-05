@@ -7,8 +7,6 @@
 import { activeVillageWarsGlobal } from "./world-state";
 import { sharedClanWarCache } from "./clan-war-api";
 
-export * from "./daily-briefing-core";
-
 export interface WarLine {
     id: string;
     kind: "village" | "clan";
