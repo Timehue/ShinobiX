@@ -328,6 +328,90 @@ function spendAction(session: SoloPveSession, side: SoloPveSide, baseCost: numbe
     session.actionsThisTurn += 1;
 }
 
+/**
+ * Whether the human fighter has any non-wait action the authoritative runtime
+ * would accept right now. This intentionally mirrors resolveDirectAction's AP,
+ * action-count, cooldown, resource, range, charge, and target-space gates.
+ *
+ * The retired local Arena advanced the turn after an action spent the last
+ * usable AP. Solo PvE originally omitted that transition, leaving every mission
+ * fight parked on a dead turn until the player clicked Wait or the timer fired.
+ * Keeping the decision here makes missions, story fights, hunts, Hollow Gate,
+ * and every other Solo PvE host behave identically without trusting a client.
+ */
+function playerHasLegalAction(session: SoloPveSession): boolean {
+    if (session.status !== 'active' || session.activeSide !== 'player') return false;
+    const self = session.player;
+    const opponent = session.enemy;
+
+    // Summoning is deliberately free in this runtime, so preserve the chance to
+    // use it even when AP is exhausted (provided an adjacent landing tile exists).
+    if (session.pendingCompanion && hexNeighbors(self.pos).some((tile) => tile !== opponent.pos && !tileBlocked(session, tile))) {
+        return true;
+    }
+    if (session.actionsThisTurn >= MAX_ACTIONS) return false;
+
+    if (canAct(session, 'player', MOVE_AP)
+        && hexNeighbors(self.pos).some((tile) => tile !== opponent.pos && !tileBlocked(session, tile))) return true;
+    if (canAct(session, 'player', BASIC_ATTACK_AP)
+        && hexDistance(self.pos, opponent.pos) <= 1
+        && self.stamina >= BASIC_ATTACK_STAMINA) return true;
+    if (canAct(session, 'player', BASIC_HEAL_AP)
+        && (session.cooldowns.player.basicHeal ?? 0) <= 0
+        && self.chakra >= BASIC_HEAL_CHAKRA) return true;
+    if (canAct(session, 'player', CLEAR_AP) && (session.cooldowns.player.clear ?? 0) <= 0) return true;
+    if (canAct(session, 'player', CLEANSE_AP) && (session.cooldowns.player.cleanse ?? 0) <= 0) return true;
+
+    const elementallySealed = activeStatuses(self, session.round).some((status) => status.name === 'Elemental Seal');
+    for (const jutsu of jutsuList(self)) {
+        const cost = Math.max(1, Number(jutsu.ap ?? 40));
+        if (!canAct(session, 'player', cost)) continue;
+        if ((session.cooldowns.player[jutsu.id] ?? 0) > 0) continue;
+        if (self.chakra < Math.max(0, Number(jutsu.chakraCost ?? 0))) continue;
+        if (self.stamina < Math.max(0, Number(jutsu.staminaCost ?? 0))) continue;
+        if (jutsu.element && ['Earth', 'Wind', 'Water', 'Lightning', 'Fire'].includes(jutsu.element) && elementallySealed) continue;
+
+        const names = tagNames(jutsu);
+        const moveTag = names.includes('Move');
+        const groundTarget = jutsu.target === 'EMPTY_GROUND';
+        const method = normalizedMethod(jutsu);
+        const range = Math.max(moveTag || groundTarget ? 1 : 0, Number(jutsu.range) || (moveTag || groundTarget ? 4 : 0));
+        if (moveTag || groundTarget) {
+            if ((method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL') && groundTags(jutsu).length === 0) continue;
+            let hasOpenTarget = false;
+            for (let tile = 0; tile < GRID_W * GRID_H; tile += 1) {
+                if (validOpenTile(session, 'player', tile, range)) { hasOpenTarget = true; break; }
+            }
+            if (!hasOpenTarget) continue;
+        } else {
+            const affectsOpponent = Number(jutsu.effectPower ?? 0) > 0
+                || names.some((name) => OPPONENT_AFFECTING_TAGS.has(name));
+            if (jutsu.target !== 'SELF' && affectsOpponent && range > 0 && hexDistance(self.pos, opponent.pos) > range) continue;
+        }
+        return true;
+    }
+
+    const items = Array.isArray(self.character.pvpItems) ? self.character.pvpItems as SoloPveItem[] : [];
+    const equipment = self.character.equipment && typeof self.character.equipment === 'object'
+        ? self.character.equipment as Record<string, unknown>
+        : {};
+    const equippedIds = new Set(Object.values(equipment).map(String));
+    for (const item of items) {
+        if (!item.id || !equippedIds.has(item.id)) continue;
+        const slot = normalizeSlot(item.slot);
+        if (!['hand', 'thrown', 'item', 'item1', 'item2', 'item3', 'potion'].includes(slot)) continue;
+        const cost = Math.max(1, Number(item.apCost ?? (slot === 'hand' || slot === 'thrown' ? 40 : 35)));
+        const cooldownKey = item.id ?? item.name ?? (slot === 'hand' || slot === 'thrown' ? 'weapon' : 'item');
+        if (!canAct(session, 'player', cost) || (session.cooldowns.player[cooldownKey] ?? 0) > 0) continue;
+        if ((slot === 'thrown' || !['hand', 'thrown'].includes(slot)) && (session.itemCharges[item.id] ?? Infinity) <= 0) continue;
+        if ((slot === 'hand' || slot === 'thrown')
+            && hexDistance(self.pos, opponent.pos) > Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 3 : 1)))) continue;
+        return true;
+    }
+
+    return false;
+}
+
 function appendFx(session: SoloPveSession, side: SoloPveSide, events: CombatFxEvent[]): void {
     if (!events.length) return;
     const opponent = otherSide(side);
@@ -1564,6 +1648,10 @@ export function applySoloPveAction(
 ): SoloPveActionResult {
     const session = cloneSession(source);
     const result = directAction(session, 'player', action, opts);
+    if (result.applied && session.status === 'active' && session.activeSide === 'player' && !playerHasLegalAction(session)) {
+        session.log.push(`${session.player.name} has no legal actions remaining and ends the turn automatically.`);
+        endSoloPveTurn(session);
+    }
     if (result.applied && session.status === 'active' && session.activeSide === 'enemy') {
         runSoloPveCompanionPhase(session);
     }

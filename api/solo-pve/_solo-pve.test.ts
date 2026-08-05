@@ -392,6 +392,56 @@ describe('solo-PvE engine', () => {
         assert.ok(result.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Given'));
     });
 
+    it('automatically advances a player turn when the accepted action leaves no legal move', () => {
+        const session = makeSession();
+        session.player.character.jutsu = [{
+            id: 'heavy-hit', name: 'Heavy Hit', type: 'Taijutsu', target: 'OPPONENT',
+            effectPower: 1, ap: 80, range: 1, tags: [],
+        }];
+
+        const result = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'heavy-hit' });
+
+        assert.equal(result.applied, true);
+        assert.ok(result.session.log.some((line) => line.includes('ends the turn automatically')));
+        assert.ok(result.session.events.some((event) => event.actor === 'enemy'), 'the enemy phase runs without a manual wait');
+        assert.equal(result.session.activeSide, 'player');
+        assert.equal(result.session.round, 2);
+    });
+
+    it('does not auto-end while a cheaper charged action remains usable', () => {
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Taijutsu', stats: { taijutsuOffense: 1_200, taijutsuDefense: 600 },
+                jutsu: [{ id: 'heavy-hit', name: 'Heavy Hit', type: 'Taijutsu', target: 'OPPONENT', effectPower: 1, ap: 80, range: 1, tags: [] }],
+                pvpItems: [{ id: 'smoke', name: 'Smoke Bomb', slot: 'item', apCost: 20, weaponEffect: 'Decrease Damage Given', weaponEffectValue: 10 }],
+                equipment: { item: 'smoke' },
+            },
+        });
+        const session = createSoloPveSession({
+            sessionId: 'auto-end-cheap-item', ownerSlug: 'alice', encounter: { kind: 'test', id: 'cheap-item' },
+            player, enemy: makeFighter('Rival', 63), now: NOW, itemCharges: { smoke: 1 },
+        });
+
+        const result = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'heavy-hit' });
+
+        assert.equal(result.session.activeSide, 'player');
+        assert.equal(result.session.ap.player, 20);
+        assert.equal(result.session.actionsThisTurn, 1);
+        assert.ok(!result.session.log.some((line) => line.includes('ends the turn automatically')));
+    });
+
+    it('uses status-adjusted AP costs when deciding whether the turn is dead', () => {
+        const session = makeSession();
+        session.player.statuses.push({ name: 'Lag', rounds: 2, percent: 50, kind: 'negative' });
+
+        const result = applySoloPveAction(session, { type: 'basicAttack' });
+
+        assert.equal(result.applied, true);
+        assert.ok(result.session.log.some((line) => line.includes('ends the turn automatically')),
+            '40 AP remains, but Lag raises the cheapest 30 AP move to 45');
+        assert.ok(result.session.events.some((event) => event.actor === 'enemy'));
+    });
+
     it('uses deterministic band-aware clear, cleanse, and healing decisions', () => {
         const clearSession = makeSession();
         clearSession.enemy.character.level = 60;
