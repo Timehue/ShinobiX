@@ -1,24 +1,25 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity -- idiomatic
-   fetch-on-mount; Date.now() drives a display-only "days left" countdown. */
-/*
- * Weekly Clan Boss tab. Shows the week's boss, the clan's shared HP pool, the
- * caller's attempts, and the live cross-clan standings; an assault queues a party
- * of up to 3 clanmates into a real Battle-Towers co-op fight (BattleTowerFight,
- * reused) whose server-computed damage banks into the pool. All authority is
- * server-side (api/clan-boss/*). Gated behind clanBoss.v1.
- */
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity -- polling a server-owned operation projection; Date.now drives display-only countdowns. */
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ClanBossPartyEnvelope } from "../../../shared/clan-boss-operation";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import { fetchMyRun, type TowerHostLoadout, type TowerSession } from "../lib/towers-api";
 import { visiblePoll } from "../lib/poll";
-import { fetchClanBoss, settleClanBossAssault, startClanBossAssault, type ClanBossView } from "../lib/clan-boss-api";
+import {
+    fetchClanBoss,
+    fetchClanBossParty,
+    mutateClanBossParty,
+    settleClanBossAssault,
+    startClanBossAssault,
+    type ClanBossView,
+} from "../lib/clan-boss-api";
+import { ClanBossPartyLobby, type ClanBossPartyAction } from "../components/ClanBossPartyLobby";
+import { ClanBossOperationComms } from "../components/ClanBossOperationComms";
 import { BattleTowerFight } from "./BattleTowerFight";
 import oniPortrait from "../assets/clan-boss/clan-boss-oni.webp";
 import leviathanPortrait from "../assets/clan-boss/clan-boss-leviathan.webp";
 import kagePortrait from "../assets/clan-boss/clan-boss-kage.webp";
 import golemPortrait from "../assets/clan-boss/clan-boss-golem.webp";
 
-// Generated boss portraits (gpt-image-1), keyed by CLAN_BOSSES id.
 const BOSS_PORTRAITS: Record<string, string> = {
     "oni-warlord": oniPortrait,
     "abyss-leviathan": leviathanPortrait,
@@ -26,11 +27,13 @@ const BOSS_PORTRAITS: Record<string, string> = {
     "stone-golem": golemPortrait,
 };
 
-function newAssaultRequestId(): string {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-        return crypto.randomUUID().replace(/-/g, "");
-    }
+function requestId(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID().replace(/-/g, "");
     return `cb${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+}
+
+function slug(value: string): string {
+    return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRecordBattle }: {
@@ -41,167 +44,169 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     const [view, setView] = useState<ClanBossView | null>(null);
+    const [partyState, setPartyState] = useState<ClanBossPartyEnvelope | null>(null);
+    const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
     const [fight, setFight] = useState<{ runId: string; session: TowerSession } | null>(null);
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
-    const [party, setParty] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
     const [flash, setFlash] = useState("");
-    const startRequestRef = useRef<{ key: string; id: string } | null>(null);
+    const actionBusyRef = useRef(false);
+    const startRequestRef = useRef<{ partyVersion: number; id: string } | null>(null);
+    const playerSlug = slug(character.name);
 
-    const load = useCallback(async () => { setView(await fetchClanBoss(character.name)); }, [character.name]);
+    const load = useCallback(async () => {
+        const [nextView, nextParty] = await Promise.all([fetchClanBoss(character.name), fetchClanBossParty(character.name)]);
+        if (!nextView) {
+            setLoadState("error");
+            return;
+        }
+        setView(nextView);
+        if (nextParty) setPartyState(nextParty);
+        setLoadState("ready");
+    }, [character.name]);
+
     useEffect(() => { void load(); }, [load]);
+    useEffect(() => {
+        const poll = () => fetchClanBossParty(character.name).then((next) => { if (next) setPartyState(next); });
+        return visiblePoll(poll, 4_000);
+    }, [character.name]);
 
-    // Co-op queue: poll for an assault a clanmate has invited us into (clan-boss runs
-    // use the `cboss-` runId prefix) so we can JOIN and play our own turns. Offline
-    // invitees still fight — their sealed fighter auto-acts via the AFK auto-pass.
     useEffect(() => {
         if (fight) return;
         let alive = true;
         const check = () => fetchMyRun(character.name)
-            .then(r => { if (alive) setPendingRun(r && r.runId.startsWith("cboss-") ? r : null); })
-            .catch(() => {});
-        check();
-        const stop = visiblePoll(check, 4000);
+            .then((run) => { if (alive) setPendingRun(run?.runId.startsWith("cboss-") ? run : null); })
+            .catch(() => undefined);
+        void check();
+        const stop = visiblePoll(check, 4_000);
         return () => { alive = false; stop(); };
     }, [character.name, fight]);
 
-    async function assault() {
-        if (busy) return;
+    const act: ClanBossPartyAction = useCallback((action, extras = {}) => {
+        if (actionBusyRef.current || !partyState) return;
+        const candidateId = (action === "join" || action === "decline") && !partyState.party ? extras.target : undefined;
+        const candidate = candidateId
+            ? [...partyState.invitations, ...partyState.publicParties].find((entry) => entry.id === candidateId)
+            : undefined;
+        const party = partyState.party ?? candidate;
+        if (action !== "create" && !party) return;
+        actionBusyRef.current = true;
         setBusy(true);
-        try {
-            const selectedParty = party.slice(0, 2);
-            const requestKey = selectedParty.join("\u0000");
-            if (!startRequestRef.current || startRequestRef.current.key !== requestKey) {
-                startRequestRef.current = { key: requestKey, id: newAssaultRequestId() };
-            }
-            const res = await startClanBossAssault(character.name, selectedParty, startRequestRef.current.id, hostLoadout);
-            if ("error" in res) {
-                // Keep the receipt only for transport/server failures that may have
-                // happened after reservation. Definitive client errors can start fresh.
-                if (res.status && res.status < 500) startRequestRef.current = null;
-                setFlash(res.error);
+        setFlash("");
+        void mutateClanBossParty({
+            playerName: character.name,
+            action,
+            partyId: party?.id,
+            expectedVersion: party?.version,
+            target: candidateId ? undefined : extras.target,
+            visibility: extras.visibility,
+            ping: extras.ping,
+            requestId: requestId(),
+        }).then((next) => {
+            if (!next.ok) {
+                setFlash(next.error ?? "The party changed. Refresh and try again.");
+                if (next.party) setPartyState((current) => current ? { ...current, party: next.party } : current);
                 return;
             }
-            startRequestRef.current = null;
-            setFight({ runId: res.runId, session: res.session });
-        } finally { setBusy(false); }
-    }
+            setPartyState(next);
+        }).finally(() => {
+            actionBusyRef.current = false;
+            setBusy(false);
+        });
+    }, [character.name, partyState]);
 
-    // The fight reuses the tower screen; on exit, return to the tab and refetch.
+    const start = useCallback(() => {
+        const party = partyState?.party;
+        if (!party || busy || party.leaderSlug !== playerSlug || !party.canStart) return;
+        setBusy(true);
+        setFlash("");
+        if (!startRequestRef.current || startRequestRef.current.partyVersion !== party.version) {
+            startRequestRef.current = { partyVersion: party.version, id: requestId() };
+        }
+        void startClanBossAssault(character.name, party.id, party.version, startRequestRef.current.id, hostLoadout)
+            .then((result) => {
+                if ("error" in result) {
+                    setFlash(result.error);
+                    if (result.status && result.status < 500) startRequestRef.current = null;
+                    void load();
+                    return;
+                }
+                startRequestRef.current = null;
+                setFight({ runId: result.runId, session: result.session });
+            })
+            .finally(() => setBusy(false));
+    }, [busy, character.name, hostLoadout, load, partyState?.party, playerSlug]);
+
     if (fight) {
         return (
-            <BattleTowerFight
-                character={character}
-                sharedImages={sharedImages}
-                hostLoadout={hostLoadout}
-                runId={fight.runId}
-                initialSession={fight.session}
-                onRecordBattle={onRecordBattle}
-                settleFn={settleClanBossAssault}
-                settleOnAnyDone
-                onExit={() => { setFight(null); setParty([]); setFlash("⚔ Assault resolved — your clan's boss pool has been updated below."); void load(); }}
-            />
+            <div className="clan-boss-operation-fight">
+                <ClanBossOperationComms party={partyState?.party ?? null} onAction={act} />
+                <BattleTowerFight
+                    character={character}
+                    sharedImages={sharedImages}
+                    hostLoadout={hostLoadout}
+                    runId={fight.runId}
+                    initialSession={fight.session}
+                    onRecordBattle={onRecordBattle}
+                    settleFn={settleClanBossAssault}
+                    settleOnAnyDone
+                    onExit={() => {
+                        setFight(null);
+                        setFlash("Assault resolved. Contribution, profession, clan, and sector results are sealed below.");
+                        void load();
+                    }}
+                />
+            </div>
         );
     }
 
-    if (!view) return <div className="summary-box"><p className="hint">Scouting the clan boss…</p></div>;
-    if (!view.active) return <div className="summary-box"><h3>Weekly Clan Boss</h3><p className="hint">No clan boss is active right now. A fresh boss appears at the start of each week.</p></div>;
-    if (!view.inClan || !view.myClan) return <div className="summary-box"><h3>Weekly Clan Boss</h3><p className="hint">Join a clan to take on the weekly boss with a party of 3.</p></div>;
+    if (loadState === "loading") return <div className="summary-box operation-loading" aria-busy="true"><p className="hint">Scouting the weekly threat and party service…</p></div>;
+    if (loadState === "error" || !view) return <div className="summary-box operation-error" role="status"><h3>Weekly Clan Boss</h3><p>The live operation state could not be reached. Your save and any active party remain server-side.</p><button type="button" onClick={() => void load()}>Retry</button></div>;
+    if (!view.active) return <div className="summary-box"><h3>Weekly Clan Boss</h3><p className="hint">No Clan Boss operation is active right now. A fresh threat appears at the weekly reset.</p></div>;
+    if (!view.inClan || !view.myClan) return <div className="summary-box"><h3>Weekly Clan Boss</h3><p className="hint">Join a clan to form a real 1–4 player operation party.</p></div>;
 
-    const mc = view.myClan;
+    const clan = view.myClan;
     const boss = view.boss;
     const portrait = boss ? BOSS_PORTRAITS[boss.id] : undefined;
-    const hpPct = Math.max(0, Math.min(100, (mc.pool / mc.poolMax) * 100));
-    const dead = mc.killed;
-    const daysLeft = view.endsAt ? Math.max(0, Math.ceil((view.endsAt - Date.now()) / 86400000)) : 0;
+    const hpPct = Math.max(0, Math.min(100, (clan.pool / clan.poolMax) * 100));
+    const daysLeft = view.endsAt ? Math.max(0, Math.ceil((view.endsAt - Date.now()) / 86_400_000)) : 0;
 
     return (
-        <div className="summary-box clan-raid">
+        <div className="summary-box clan-raid clan-boss-operation">
             <div className="clan-raid-boss">
-                {portrait
-                    ? <img className="clan-boss-portrait" src={portrait} alt={boss?.name ?? "Clan boss"} />
-                    : <span className="clan-raid-boss-icon">{boss?.icon ?? "👹"}</span>}
+                {portrait ? <img className="clan-boss-portrait" src={portrait} alt={boss?.name ?? "Clan boss"} /> : <span className="clan-raid-boss-icon">{boss?.icon ?? "Boss"}</span>}
                 <div>
-                    <h3 style={{ margin: 0 }}>{boss?.name ?? "Weekly Clan Boss"}</h3>
-                    <p className="hint" style={{ margin: "3px 0 0" }}>{boss?.flavor}</p>
-                    <p className="hint" style={{ margin: "3px 0 0", fontSize: "0.74rem" }}>Week ends in ~{daysLeft} day{daysLeft === 1 ? "" : "s"} · your clan is ranked {mc.rank ?? "—"}</p>
+                    <h3>{boss?.name ?? "Weekly Clan Boss"}</h3>
+                    <p className="hint">{boss?.flavor}</p>
+                    <p className="hint">Week ends in ~{daysLeft} day{daysLeft === 1 ? "" : "s"} · clan rank {clan.rank ?? "—"}</p>
                 </div>
             </div>
 
-            <div className="clan-raid-hp">
-                <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
-                    <span style={{ width: `${hpPct}%`, background: dead ? "var(--text-muted)" : "var(--danger)" }} />
-                </div>
-                <div className="clan-raid-hp-label"><span>{dead ? "☠ Boss defeated" : "Boss HP (your clan)"}</span><span>{mc.pool.toLocaleString()} / {mc.poolMax.toLocaleString()}</span></div>
+            <div className="operation-world-context">
+                <div><span>Operation Sector</span><strong>{view.sectorState?.sectorName ?? `Sector ${boss?.sectorId ?? "—"}`}</strong><small>{view.sectorState?.regionName}</small></div>
+                <div><span>World Pressure</span><strong>{view.sectorState?.pressure ?? 100}%</strong><small>Bounded shared context · no territory ownership change</small></div>
             </div>
 
-            {flash && <p className="clan-raid-flash">{flash}</p>}
-
-            {pendingRun && (
-                <button
-                    onClick={() => { const p = pendingRun; setPendingRun(null); setFight(p); }}
-                    style={{ marginTop: 8, width: "100%", padding: "0.7rem", borderRadius: 8, background: "linear-gradient(#7f1d1d,#450a0a)", border: "1px solid var(--red-400)", color: "#fecaca", fontWeight: 700, cursor: "pointer" }}
-                >
-                    ⚔ A clanmate is assaulting the boss — Join the fight!
-                </button>
-            )}
-
-            <div className="menu" style={{ marginTop: 8 }}>
-                {!dead && (
-                    <button onClick={() => void assault()} disabled={busy || mc.myAttemptsLeft <= 0}>
-                        {busy ? "Starting…" : mc.myAttemptsLeft > 0 ? `⚔ Assault the boss (${mc.myAttemptsLeft} left)` : "No assaults left this week"}
-                    </button>
-                )}
-                {dead && <span className="hint" style={{ color: "var(--green-400)", fontWeight: 600 }}>✓ Your clan defeated the boss! Final standings lock at week's end.</span>}
+            <div className="clan-raid-hp" aria-label={`Clan boss health ${clan.pool} of ${clan.poolMax}`}>
+                <div className="bar enemy-bar"><span className={clan.killed ? "is-defeated" : ""} style={{ width: `${hpPct}%` }} /></div>
+                <div className="clan-raid-hp-label"><span>{clan.killed ? "Boss defeated" : "Boss HP · your clan"}</span><span>{clan.pool.toLocaleString()} / {clan.poolMax.toLocaleString()}</span></div>
             </div>
 
-            {!dead && clanmates.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                    <p className="hint" style={{ fontSize: "0.78rem" }}>Bring up to 2 clanmates as your party (offline members auto-act during the fight):</p>
-                    <div className="clan-boss-party">
-                        {clanmates.slice(0, 16).map(name => {
-                            const on = party.includes(name);
-                            return (
-                                <button
-                                    key={name}
-                                    className={`clan-boss-party-btn${on ? " selected" : ""}`}
-                                    onClick={() => setParty(p => on ? p.filter(n => n !== name) : (p.length >= 2 ? p : [...p, name]))}
-                                >
-                                    {on ? "✓ " : ""}{name}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+            {flash ? <p className="clan-raid-flash" role="status">{flash}</p> : null}
+            {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>Rejoin your accepted operation</button> : null}
 
-            <p className="hint" style={{ marginTop: 10, fontSize: "0.78rem" }}>
-                Your clan has chipped <strong>{mc.damageDealt.toLocaleString()}</strong> boss HP with <strong>{mc.participants}</strong> member{mc.participants === 1 ? "" : "s"} fighting. This boss is tough — most assaults chip its HP and end in a wipe; the killing blow only lands once it's worn low. Score blends the kill, total damage, how many members join in, and how fast (rounds + time) you slay it — the top 3 clans earn treasury rewards at week's end.
-            </p>
+            {!clan.killed && partyState ? <ClanBossPartyLobby envelope={partyState} playerSlug={playerSlug} clanmates={clanmates} busy={busy} onAction={act} onStart={start} /> : null}
+            {!partyState ? <div className="operation-error" role="status"><p>The party service is offline. Existing combat remains recoverable; party changes are paused.</p><button type="button" onClick={() => void load()}>Retry Party Service</button></div> : null}
 
-            {view.lastWeek && (
-                <p className="hint" style={{ marginTop: 10, fontSize: "0.78rem", color: "#f5c451" }}>
-                    🏆 Last week your clan finished <strong>#{view.lastWeek.rank}</strong>{view.lastWeek.rank <= 3 ? " — top 3! Treasury reward earned." : view.lastWeek.killed ? " — boss slain, participation reward earned." : "."}
-                </p>
-            )}
+            <div className="operation-preparation">
+                <h4>Preparation Loop</h4>
+                <p>Hunts supply materials → the existing Crafter makes pills, smoke bombs, and potions → the Tower engine seals and consumes equipped supplies → server contribution credits damage, healing, shielding, cleanses, objectives, and survival.</p>
+            </div>
 
-            <h4 style={{ margin: "14px 0 6px" }}>Clan Standings</h4>
-            {(!view.standings || view.standings.length === 0) ? (
-                <p className="hint">No clan has struck yet — be the first on the board.</p>
-            ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {view.standings.map(s => {
-                        const isMine = s.clanName === mc.clanName;
-                        return (
-                            <div key={s.clanName} className={`clan-member-row-v2${isMine ? " clan-member-me" : ""}`} style={{ padding: "6px 10px" }}>
-                                <span className="clan-member-pos">#{s.rank}</span>
-                                <div className="clan-member-info"><span className="clan-member-name">{s.clanName}{isMine ? " ⭐" : ""}{s.killed ? " ☠" : ""}</span></div>
-                                <span className="clan-contrib-total">{s.score.toLocaleString()} pts</span>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+            <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Most assaults are expected to chip the persistent pool; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
+
+            <h4>Clan Standings</h4>
+            {!view.standings?.length ? <p className="hint">No clan has struck yet.</p> : <div className="operation-standings">{view.standings.map((standing) => <div key={standing.clanName} className={standing.clanName === clan.clanName ? "is-mine" : ""}><span>#{standing.rank}</span><strong>{standing.clanName}{standing.killed ? " · cleared" : ""}</strong><span>{standing.score.toLocaleString()} pts</span></div>)}</div>}
         </div>
     );
 }

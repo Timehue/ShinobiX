@@ -5,6 +5,7 @@
  * attached by the global fetch interceptor. Gated behind the clanBoss.v1 flag.
  */
 import type { TowerSession, TowerHostLoadout } from "./towers-api";
+import type { ClanBossPartyEnvelope } from "../../../shared/clan-boss-operation";
 
 export type ClanBossStanding = { clanName: string; score: number; killed: boolean; rank: number };
 export type ClanBossMyClan = {
@@ -16,7 +17,8 @@ export type ClanBossView = {
     active: boolean;
     weekId?: string;
     endsAt?: number;
-    boss?: { id: string; name: string; icon: string; flavor: string; mechanic: string } | null;
+    boss?: { id: string; name: string; icon: string; flavor: string; mechanic: string; sectorId: number } | null;
+    sectorState?: { weekId: string; bossId: string; sectorId: number; sectorName: string; regionName: string; pressure: number; version: number; updatedAt: number };
     inClan?: boolean;
     myClan?: ClanBossMyClan | null;
     standings?: ClanBossStanding[];
@@ -42,16 +44,48 @@ export type ClanBossStartResult =
     | { runId: string; session: TowerSession; replayed?: boolean; boss?: { id: string; name: string; icon: string } }
     | { error: string; status?: number };
 
-export async function startClanBossAssault(hostName: string, allies: string[], requestId: string, hostLoadout?: TowerHostLoadout): Promise<ClanBossStartResult> {
+export async function startClanBossAssault(hostName: string, partyId: string, expectedVersion: number, requestId: string, hostLoadout?: TowerHostLoadout): Promise<ClanBossStartResult> {
     try {
         const r = await fetch("/api/clan-boss/assault-start", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hostName, allies, requestId, hostLoadout }),
+            body: JSON.stringify({ hostName, partyId, expectedVersion, requestId, hostLoadout }),
         });
         const data = await r.json().catch(() => ({})) as Record<string, unknown>;
         if (!r.ok) return { error: (data.error as string) ?? `HTTP ${r.status}`, status: r.status };
         return data as ClanBossStartResult;
     } catch (e) { return { error: String((e as Error).message) }; }
+}
+
+export async function fetchClanBossParty(playerName: string): Promise<ClanBossPartyEnvelope | null> {
+    try {
+        const response = await fetch(`/api/clan-boss/party?player=${encodeURIComponent(playerName)}`);
+        if (!response.ok) return null;
+        return await response.json() as ClanBossPartyEnvelope;
+    } catch { return null; }
+}
+
+export async function mutateClanBossParty(input: {
+    playerName: string;
+    action: string;
+    partyId?: string;
+    expectedVersion?: number;
+    target?: string;
+    visibility?: "public" | "private";
+    ping?: string;
+    requestId: string;
+}): Promise<ClanBossPartyEnvelope> {
+    try {
+        const response = await fetch("/api/clan-boss/party", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(input),
+        });
+        const data = await response.json().catch(() => ({})) as ClanBossPartyEnvelope;
+        if (!response.ok) return { ...data, ok: false, serverNow: Date.now(), party: data.party ?? null, invitations: data.invitations ?? [], publicParties: data.publicParties ?? [], population: data.population ?? { publicParties: 0, openSeats: 0 } };
+        return data;
+    } catch {
+        return { ok: false, error: "The operation service is offline. Your party state was not changed.", errorCode: "offline", serverNow: Date.now(), party: null, invitations: [], publicParties: [], population: { publicParties: 0, openSeats: 0 } };
+    }
 }
 
 /** Bank a finished assault (used as BattleTowerFight's settleFn). Idempotent server-side. */
