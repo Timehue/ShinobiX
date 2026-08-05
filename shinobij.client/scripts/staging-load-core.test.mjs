@@ -48,7 +48,7 @@ test('release gates use strict required thresholds and skip absent mutation late
   assert.equal(boundaryFailure.checks.memoryGrowth.passed, false);
 });
 
-test('socket gates require initial connections, snapshots, reconnect success, and clean shutdown', () => {
+test('socket gates require traffic, error-free connections, bounded reconnects, and clean shutdown', () => {
   const result = evaluateReleaseThresholds({
     requestCount: 1,
     serverErrorCount: 0,
@@ -60,14 +60,45 @@ test('socket gates require initial connections, snapshots, reconnect success, an
       requested: 2,
       initialConnected: 2,
       snapshotClients: 2,
+      presenceEmits: 4,
+      connectionErrors: 1,
+      unexpectedDisconnects: 1,
       reconnectAttempts: 2,
       reconnectSuccesses: 1,
+      reconnectP95Ms: 5_000,
       orphanCount: 1,
     },
   });
   assert.equal(result.passed, false);
   assert.equal(result.checks.socketReconnects.passed, false);
+  assert.equal(result.checks.socketConnectionErrors.passed, false);
+  assert.equal(result.checks.socketUnexpectedDisconnects.passed, false);
+  assert.equal(result.checks.socketReconnectP95.passed, false);
   assert.equal(result.checks.socketOrphans.passed, false);
+});
+
+test('socket gates pass at zero errors with presence traffic and sub-threshold reconnect p95', () => {
+  const result = evaluateReleaseThresholds({
+    requestCount: 1,
+    serverErrorCount: 0,
+    requestErrorCount: 0,
+    unexpectedStatusCount: 0,
+    normalLatenciesMs: [5],
+    memoryGrowthPercent: 0,
+    socket: {
+      requested: 2,
+      initialConnected: 2,
+      snapshotClients: 2,
+      presenceEmits: 6,
+      connectionErrors: 0,
+      unexpectedDisconnects: 0,
+      reconnectAttempts: 2,
+      reconnectSuccesses: 2,
+      reconnectP95Ms: 4_999,
+      orphanCount: 0,
+    },
+  });
+  assert.equal(result.passed, true);
 });
 
 test('memory growth reports percentage and target policy fails closed for remote hosts', () => {

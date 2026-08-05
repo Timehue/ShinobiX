@@ -3,6 +3,7 @@ export const RELEASE_LOAD_THRESHOLDS = Object.freeze({
   maxNormalP95Ms: 500,
   maxSaveRewardP95Ms: 1_000,
   maxMemoryGrowthPercent: 10,
+  maxSocketReconnectP95Ms: 5_000,
 });
 
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
@@ -63,6 +64,9 @@ export function evaluateReleaseThresholds(measurements, thresholds = RELEASE_LOA
   const reconnectRate = reconnectAttempts > 0
     ? Number(socket.reconnectSuccesses ?? 0) / reconnectAttempts
     : null;
+  const reconnectP95Ms = Number.isFinite(socket.reconnectP95Ms)
+    ? Number(socket.reconnectP95Ms)
+    : null;
 
   const checks = {
     serverErrorRate: comparisonCheck({
@@ -100,10 +104,27 @@ export function evaluateReleaseThresholds(measurements, thresholds = RELEASE_LOA
       id: 'socket-presence-snapshots', observed: Number(socket.snapshotClients ?? 0),
       operator: '===', limit: socketRequested, skipped: !socketEnabled,
     }),
+    socketPresenceTraffic: comparisonCheck({
+      id: 'socket-presence-emits', observed: Number(socket.presenceEmits ?? 0),
+      operator: '>=', limit: socketRequested, skipped: !socketEnabled,
+    }),
+    socketConnectionErrors: comparisonCheck({
+      id: 'socket-connection-errors', observed: Number(socket.connectionErrors ?? 0),
+      operator: '===', limit: 0, skipped: !socketEnabled,
+    }),
+    socketUnexpectedDisconnects: comparisonCheck({
+      id: 'socket-unexpected-disconnects', observed: Number(socket.unexpectedDisconnects ?? 0),
+      operator: '===', limit: 0, skipped: !socketEnabled,
+    }),
     socketReconnects: comparisonCheck({
       id: 'socket-reconnect-success-rate', observed: reconnectRate,
       operator: '===', limit: 1, skipped: !socketEnabled,
       detail: socketEnabled && reconnectAttempts === 0 ? 'No reconnect cycle completed.' : undefined,
+    }),
+    socketReconnectP95: comparisonCheck({
+      id: 'socket-reconnect-p95-ms', observed: reconnectP95Ms,
+      operator: '<', limit: thresholds.maxSocketReconnectP95Ms, skipped: !socketEnabled,
+      detail: socketEnabled && reconnectP95Ms === null ? 'No reconnect latency observation was recorded.' : undefined,
     }),
     socketOrphans: comparisonCheck({
       id: 'socket-local-orphans-after-cleanup', observed: Number(socket.orphanCount ?? 0),
@@ -119,8 +140,9 @@ export function evaluateReleaseThresholds(measurements, thresholds = RELEASE_LOA
       normalP95Ms: { operator: '<', value: thresholds.maxNormalP95Ms },
       saveRewardP95Ms: { operator: '<', value: thresholds.maxSaveRewardP95Ms },
       memoryGrowthPercent: { operator: '<', value: thresholds.maxMemoryGrowthPercent },
+      socketReconnectP95Ms: { operator: '<', value: thresholds.maxSocketReconnectP95Ms },
     },
-    observed: { serverErrorRate, normalP95Ms, saveRewardP95Ms, memoryGrowthPercent: memoryGrowth },
+    observed: { serverErrorRate, normalP95Ms, saveRewardP95Ms, memoryGrowthPercent: memoryGrowth, socketReconnectP95Ms: reconnectP95Ms },
     checks,
   };
 }
