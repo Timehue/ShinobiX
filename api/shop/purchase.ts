@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { purchaseCatalogItem } from './_purchase.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
 
 const cleanId = (value: unknown) => {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -35,6 +36,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true as const, character: { ...bought.character, redeemedShopPurchases: [...receipts.slice(-99), receipt] }, value: { purchase: bought.item, replayed: false } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        if (!result.value.replayed) {
+            const purchase = result.value.purchase as { id?: unknown } | undefined;
+            captureServerProductEvent('shop_purchase_settled', {
+                source: 'shop',
+                contentId: String(purchase?.id ?? 'unknown'),
+            });
+        }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         console.error('[shop/purchase]', safeLogValue(error));
