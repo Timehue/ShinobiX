@@ -44,6 +44,7 @@ export type ClanBossAssaultRecord = {
     clanName: string;
     host: string;        // slug
     party: string[];     // slugs (host + clanmate allies)
+    partyId?: string;    // server-owned operation party (legacy assaults omit it)
     bossId: string;
     createdAt: number;
     settled?: boolean;

@@ -8,6 +8,7 @@ import {
     loadClanBossProgress, loadClanBossWeek, newClanBossProgress, rankClanBoss, resolveClanBossDef,
     type ClanBossProgress,
 } from './_storage.js';
+import { loadSectorState } from './_sector-state.js';
 
 /*
  * GET /api/clan-boss/get?player=<name> — the current weekly clan-boss event: the
@@ -33,6 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const boss = resolveClanBossDef(week);
         if (!boss) return res.status(500).json({ error: 'Clan boss data missing.' });
+        const sectorState = await loadSectorState(weekId, boss);
 
         // Live standings: scan every clan's progress for the week, rank by composite score.
         const progressKeys = await kv.keys(`clan-boss:progress:${weekId}:*`);
@@ -80,7 +82,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
             ok: true, active: true,
             weekId, endsAt: week.endsAt,
-            boss: { id: boss.id, name: boss.name, icon: boss.icon, flavor: boss.flavor, mechanic: boss.mechanic },
+            boss: { id: boss.id, name: boss.name, icon: boss.icon, flavor: boss.flavor, mechanic: boss.mechanic, sectorId: boss.sectorId },
+            sectorState,
             inClan: !!clanName,
             myClan,
             standings,

@@ -2,13 +2,21 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { kv } from '../_storage.js';
 import { awardClanPointsToPlayerSave } from '../_clan-points.js';
 import { readSession, settleConsumedItemsForMember, type ConsumedItemsResult } from '../towers/_tower-store.js';
 import { loadAssault, saveAssault, extractAssaultResult } from './_assault.js';
 import {
     bankAssault, clanBossProgressKey, loadClanBossProgress, newClanBossProgress,
-    loadClanBossWeek, saveClanBossProgress,
+    loadClanBossWeek, resolveClanBossDef, saveClanBossProgress,
 } from './_storage.js';
+import { projectClanBossContributions } from './_contribution.js';
+import { awardOperationProfessionXp } from './_profession.js';
+import { applyOperationPressure } from './_sector-state.js';
+import { completeParty } from './_party.js';
+import { announce } from '../_announce.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 /*
  * POST /api/clan-boss/assault-settle — bank a FINISHED clan-boss assault into the
@@ -44,7 +52,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (session.status !== 'done') return res.status(400).json({ error: 'The fight is not finished yet.' });
 
         const result = extractAssaultResult(session);
+        const contributions = projectClanBossContributions(session);
         const week = await loadClanBossWeek(assault.weekId);
+        const boss = resolveClanBossDef(week);
         const now = Date.now();
 
         const outcome = await withKvLock(clanBossProgressKey(assault.weekId, assault.clanName), async () => {
@@ -65,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const next = bankAssault(progress, {
                 runId, by: assault.host, party: assault.party,
                 damage: result.damage, rounds: result.rounds, wiped: result.wiped, clean: result.clean, at: now,
+                contributions,
             });
             const justKilled = applied
                 ? !!progress.killedAt && progress.killedAt === applied.at && progress.pool <= 0
@@ -127,7 +138,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        return res.status(outcome.status).json({ ...(outcome.body as Record<string, unknown>), consumables, character: awardedCharacter });
+        const professionAwards: Record<string, { awarded: number; xp?: number; rank?: number }> = {};
+        for (const member of party) {
+            const contribution = contributions[member];
+            if (!contribution) continue;
+            const award = await awardOperationProfessionXp({ playerName: member, runId, contribution });
+            setSafeRecordValue(professionAwards, member, { awarded: award.awarded, xp: award.xp, rank: award.rank });
+            if (member === playerName && award.character) awardedCharacter = award.character;
+        }
+
+        const sector = boss
+            ? await applyOperationPressure({ weekId: assault.weekId, boss, runId, damage: result.damage, contributions, now })
+            : null;
+        if (assault.partyId) await completeParty(assault.partyId, runId, now).catch(() => null);
+
+        if (outcomeBody.justKilled && boss) {
+            const gate = await kv.set(`clan-boss:announced:${assault.weekId}:${assault.clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`, '1', { nx: true, ex: 9 * 24 * 60 * 60 }).catch(() => null);
+            if (gate === 'OK') {
+                await announce({
+                    type: 'clan_boss_defeated',
+                    importance: 'high',
+                    title: `${assault.clanName} broke ${boss.name}`,
+                    message: `The weekly threat at ${sector?.state.sectorName ?? `Sector ${boss.sectorId}`} has been driven back.`,
+                    meta: { weekId: assault.weekId, bossId: boss.id, sectorId: boss.sectorId },
+                });
+            }
+        }
+
+        const activeCount = Object.values(contributions).filter((entry) => entry.active).length;
+        const strongestThreshold = Object.values(contributions).some((entry) => entry.threshold === 'elite')
+            ? 'elite'
+            : Object.values(contributions).some((entry) => entry.threshold === 'veteran') ? 'veteran' : activeCount > 0 ? 'field' : 'none';
+        captureServerProductEvent('clan_boss_operation_settled', {
+            partySizeBucket: String(party.length),
+            resultCategory: result.won ? 'won' : result.wiped ? 'wiped' : 'timed-out',
+            contributionCategory: strongestThreshold,
+        });
+        void recordBetaMetric({
+            event: 'clan_boss.assault_settled',
+            source: `party-${party.length}:${result.won ? 'won' : result.wiped ? 'wiped' : 'timeout'}:${strongestThreshold}`,
+        });
+
+        return res.status(outcome.status).json({
+            ...(outcome.body as Record<string, unknown>),
+            consumables,
+            contributions,
+            professionAwards,
+            sectorState: sector?.state,
+            sectorPressureReducedBy: sector?.reducedBy ?? 0,
+            character: awardedCharacter,
+        });
     } catch (err) {
         console.error('[clan-boss/assault-settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });

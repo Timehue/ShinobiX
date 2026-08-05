@@ -251,6 +251,26 @@ describe('clanBossMemberDamage — co-op damage attribution', () => {
 });
 
 describe('clanBossMemberRewards — participation ryo + top-5 shards', () => {
+    it('uses server contribution thresholds for modern operation receipts', () => {
+        const result = clanBossMemberRewards(progress({
+            participants: ['tank', 'healer', 'idle'],
+            assaults: [assault({
+                party: ['tank', 'healer', 'idle'],
+                damage: 800,
+                contributions: {
+                    tank: { actions: 8, damage: 100, healing: 0, shielding: 3000, cleanses: 0, objective: 1, score: 610, active: true, survived: true, threshold: 'elite' },
+                    healer: { actions: 6, damage: 0, healing: 2500, shielding: 0, cleanses: 2, objective: 0, score: 260, active: true, survived: true, threshold: 'veteran' },
+                    idle: { actions: 0, damage: 0, healing: 0, shielding: 0, cleanses: 0, objective: 0, score: 50, active: false, survived: true, threshold: 'none' },
+                },
+            })],
+        }));
+        assert.deepEqual(result.map(({ slug, ryo, fateShards, threshold }) => ({ slug, ryo, fateShards, threshold })), [
+            { slug: 'tank', ryo: CB_MEMBER_RYO, fateShards: 3, threshold: 'elite' },
+            { slug: 'healer', ryo: CB_MEMBER_RYO, fateShards: 2, threshold: 'veteran' },
+            { slug: 'idle', ryo: 0, fateShards: 0, threshold: 'none' },
+        ]);
+    });
+
     it('pays every participant ryo and ranks shards by personal damage', () => {
         const rewards = clanBossMemberRewards(progress({
             participants: ['a', 'b', 'c'],

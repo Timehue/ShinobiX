@@ -9,6 +9,7 @@ import { makeRng } from './_sim.js';
 import { readSession, writeSession, sessionKey } from './_tower-store.js';
 import { autoPassAfkHumans, stampTurnClock } from './_tower-mp.js';
 import { withKvLock } from '../_lock.js';
+import { recordClanBossContribution, snapshotContributionState } from '../clan-boss/_contribution.js';
 
 /*
  * POST /api/towers/action — submit ONE action for the human's actor on their turn.
@@ -73,10 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : type === 'summon' ? { actorId: actor.id, type: 'summon' }
                 : { actorId: actor.id, type: 'wait' };
 
+            const contributionBefore = snapshotContributionState(session);
             const result = applyAction(session, floor, action, rng);
             if (!result.applied) {
                 return { status: 200, body: { applied: false, reason: result.reason, session } };
             }
+            recordClanBossContribution(session, actor.id, contributionBefore);
             if (action.type === 'wait') {
                 endTurn(session, floor);
                 runAiUntilHuman(session, floor, rng); // run allies + enemies until the human is up / done
