@@ -1,9 +1,8 @@
 import type { BattleTab } from "../lib/use-battle-tabs";
 
 /**
- * Segmented "Actions | Battle Log" switch for the mobile battle UI, used by both
- * the PvE (Arena) and PvP battle screens. Hidden on desktop via CSS, where the
- * action bar and log render together. The unread badge mirrors the
+ * Segmented "Actions | Timeline" switch shared by Solo PvE and PvP combat.
+ * The unread badge mirrors the
  * notification-style count of new log entries since the log was last viewed.
  */
 export function BattleTabBar({
@@ -33,7 +32,7 @@ export function BattleTabBar({
                 className={`battle-tab${tab === "log" ? " battle-tab-active" : ""}`}
                 onClick={() => setTab("log")}
             >
-                Battle Log
+                Timeline
                 {unread > 0 && (
                     <span className="battle-tab-badge" aria-label={`${unread} new log entries`}>
                         {unread > 99 ? "99+" : unread}
