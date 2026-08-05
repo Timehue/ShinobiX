@@ -30,7 +30,11 @@ The JSON `releaseGate` applies strict (not inclusive) thresholds:
 | Load-generator steady-state RSS growth | `< 10%` |
 | Request/4xx errors | `0` |
 | Socket initial connections and presence snapshots | all requested clients |
+| Socket presence emits | at least one per requested client |
+| Socket connection errors | `0` |
+| Unexpected socket disconnects | `0` |
 | Forced reconnect success | `100%` |
+| Forced reconnect p95 | `< 5,000 ms` |
 | Connected local sockets after cleanup | `0` |
 
 The RSS gate catches growth in the bounded load generator; the JSON reports its
@@ -82,6 +86,10 @@ $env:LOAD_DURATION_SECONDS = '300'
 $env:LOAD_RPS = '25'
 $env:LOAD_CONCURRENCY = '10'
 $env:LOAD_SOCKET_CLIENTS = '10'
+$env:LOAD_SOCKET_RAMP_SECONDS = '10'
+$env:LOAD_SOCKET_SECTOR = '40'
+$env:LOAD_SOCKET_SECTOR_SPREAD = '5'
+$env:LOAD_SOCKET_PRESENCE_INTERVAL_MS = '5000'
 $env:LOAD_SOCKET_RECONNECT_SECONDS = '30'
 node --expose-gc shinobij.client/scripts/staging-load-harness.mjs > "$env:TEMP\shinobix-load-spike.json"
 ```
@@ -98,6 +106,9 @@ $env:LOAD_DURATION_SECONDS = '3600'
 $env:LOAD_RPS = '50'
 $env:LOAD_CONCURRENCY = '20'
 $env:LOAD_SOCKET_CLIENTS = '20'
+$env:LOAD_SOCKET_RAMP_SECONDS = '20'
+$env:LOAD_SOCKET_SECTOR_SPREAD = '10'
+$env:LOAD_SOCKET_PRESENCE_INTERVAL_MS = '5000'
 $env:LOAD_SOCKET_RECONNECT_SECONDS = '30'
 node --expose-gc shinobij.client/scripts/staging-load-harness.mjs > "$env:TEMP\shinobix-load-soak-2x.json"
 ```
@@ -114,6 +125,16 @@ against disposable staging data. `LOAD_ENDPOINTS_JSON` accepts up to 20 weighted
 objects with `name`, `method`, `path`, `kind` (`normal` or `saveReward`), `weight`,
 optional `requiresAuth`, and an explicit JSON `body` for non-GET/HEAD methods. It
 does not accept arbitrary headers or cross-origin URLs.
+
+Socket clients are likewise bounded and explicit. `LOAD_SOCKET_RAMP_SECONDS`
+spreads connection attempts evenly instead of creating an accidental thundering
+herd. `LOAD_SOCKET_SECTOR` is the first room and
+`LOAD_SOCKET_SECTOR_SPREAD` distributes clients round-robin across consecutive
+rooms. `LOAD_SOCKET_PRESENCE_INTERVAL_MS` emits ordinary presence plus roster
+requests throughout the run. The JSON includes emit/request counts, disconnect
+reasons, connection errors, unexpected disconnects, reconnect successes and p95.
+The forced transport close used for the reconnect exercise and final cleanup are
+marked expected; any other disconnect fails the gate.
 
 ## Deployment topology guard
 

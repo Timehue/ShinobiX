@@ -97,6 +97,15 @@ function loadConfig() {
     socketSector: parseBoundedInteger(env.LOAD_SOCKET_SECTOR, {
       name: 'LOAD_SOCKET_SECTOR', defaultValue: 40, min: 0, max: 10_000,
     }),
+    socketSectorSpread: parseBoundedInteger(env.LOAD_SOCKET_SECTOR_SPREAD, {
+      name: 'LOAD_SOCKET_SECTOR_SPREAD', defaultValue: 1, min: 1, max: 500,
+    }),
+    socketRampSeconds: parseBoundedInteger(env.LOAD_SOCKET_RAMP_SECONDS, {
+      name: 'LOAD_SOCKET_RAMP_SECONDS', defaultValue: 5, min: 0, max: 300,
+    }),
+    socketPresenceIntervalMs: parseBoundedInteger(env.LOAD_SOCKET_PRESENCE_INTERVAL_MS, {
+      name: 'LOAD_SOCKET_PRESENCE_INTERVAL_MS', defaultValue: 5_000, min: 1_000, max: 60_000,
+    }),
     socketConnectTimeoutSeconds: parseBoundedInteger(env.LOAD_SOCKET_CONNECT_TIMEOUT_SECONDS, {
       name: 'LOAD_SOCKET_CONNECT_TIMEOUT_SECONDS', defaultValue: 20, min: 2, max: 60,
     }),
@@ -104,6 +113,9 @@ function loadConfig() {
       name: 'LOAD_SOCKET_RECONNECT_SECONDS', defaultValue: 30, min: 5, max: 300,
     }),
   };
+  if (config.socketSector + config.socketSectorSpread - 1 > 10_000) {
+    throw new Error('LOAD_SOCKET_SECTOR plus LOAD_SOCKET_SECTOR_SPREAD must not exceed sector 10000');
+  }
   if (config.socketClients > 0) requireDisposableSocketScenario(scenario);
   return config;
 }
@@ -153,6 +165,11 @@ function makeMeasurements(config) {
       initialConnectedIds: new Set(),
       snapshotClientIds: new Set(),
       connectionErrors: 0,
+      unexpectedDisconnects: 0,
+      disconnectReasons: {},
+      expectedDisconnectIds: new Set(),
+      presenceEmits: 0,
+      presenceRequests: 0,
       reconnectAttempts: 0,
       reconnectSuccesses: 0,
       reconnectLatency: new BoundedSamples(config.sampleLimit),
@@ -221,12 +238,14 @@ async function verifyTarget(config) {
 
 function createSocketClients(config, measurements) {
   const sockets = [];
-  const presence = {
-    sector: config.socketSector,
-    character: null,
-    displayName: config.scenario.playerName,
-  };
   for (let id = 0; id < config.socketClients; id += 1) {
+    const sector = config.socketSector + (id % config.socketSectorSpread);
+    const presence = {
+      sector,
+      character: null,
+      displayName: config.scenario.playerName,
+    };
+    const entry = { id, socket: null, presence, cleanupRequested: false };
     const socket = io(config.target.origin, {
       autoConnect: false,
       forceNew: true,
@@ -243,6 +262,7 @@ function createSocketClients(config, measurements) {
     });
     socket.on('connect', () => {
       measurements.socket.initialConnectedIds.add(id);
+      measurements.socket.expectedDisconnectIds.delete(id);
       const pendingAt = measurements.socket.pendingReconnects.get(id);
       if (pendingAt !== undefined) {
         measurements.socket.pendingReconnects.delete(id);
@@ -250,17 +270,31 @@ function createSocketClients(config, measurements) {
         measurements.socket.reconnectLatency.add(performance.now() - pendingAt);
       }
       socket.emit('presence', presence);
-      socket.emit('presence:request', { sector: config.socketSector });
+      measurements.socket.presenceEmits += 1;
+      socket.emit('presence:request', { sector });
+      measurements.socket.presenceRequests += 1;
     });
     socket.on('presence:sector', () => measurements.socket.snapshotClientIds.add(id));
     socket.on('connect_error', () => { measurements.socket.connectionErrors += 1; });
-    sockets.push({ id, socket });
+    socket.on('disconnect', (reason) => {
+      measurements.socket.disconnectReasons[reason] = (measurements.socket.disconnectReasons[reason] ?? 0) + 1;
+      const expected = measurements.socket.expectedDisconnectIds.delete(id);
+      if (!expected && !entry.cleanupRequested) measurements.socket.unexpectedDisconnects += 1;
+    });
+    entry.socket = socket;
+    sockets.push(entry);
   }
   return sockets;
 }
 
-async function connectSocketClients(sockets, timeoutMs) {
-  await Promise.all(sockets.map(({ socket }) => new Promise((resolve) => {
+async function connectSocketClients(sockets, timeoutMs, rampMs) {
+  const spacingMs = sockets.length > 1 ? rampMs / (sockets.length - 1) : 0;
+  const rampStarted = performance.now();
+  await Promise.all(sockets.map(async ({ socket }, index) => {
+    const scheduledAt = rampStarted + (spacingMs * index);
+    const waitMs = scheduledAt - performance.now();
+    if (waitMs > 0) await delay(waitMs);
+    await new Promise((resolve) => {
     let settled = false;
     const finish = () => {
       if (settled) return;
@@ -272,7 +306,18 @@ async function connectSocketClients(sockets, timeoutMs) {
     const timer = setTimeout(finish, timeoutMs);
     socket.on('connect', finish);
     socket.connect();
-  })));
+    });
+  }));
+}
+
+function emitSocketPresence(sockets, measurements) {
+  for (const { socket, presence } of sockets) {
+    if (!socket.connected) continue;
+    socket.emit('presence', presence);
+    measurements.socket.presenceEmits += 1;
+    socket.emit('presence:request', { sector: presence.sector });
+    measurements.socket.presenceRequests += 1;
+  }
 }
 
 function forceSocketReconnect(sockets, measurements) {
@@ -280,6 +325,7 @@ function forceSocketReconnect(sockets, measurements) {
     if (!socket.connected || measurements.socket.pendingReconnects.has(id)) continue;
     measurements.socket.reconnectAttempts += 1;
     measurements.socket.pendingReconnects.set(id, performance.now());
+    measurements.socket.expectedDisconnectIds.add(id);
     // Closing the transport emulates a network interruption while leaving the
     // Socket.IO manager's automatic reconnection enabled.
     socket.io.engine?.close();
@@ -292,7 +338,10 @@ async function settlePendingReconnects(measurements, timeoutMs) {
 }
 
 async function closeSocketClients(sockets, measurements) {
-  for (const { socket } of sockets) {
+  for (const entry of sockets) {
+    const { id, socket } = entry;
+    entry.cleanupRequested = true;
+    measurements.socket.expectedDisconnectIds.add(id);
     socket.removeAllListeners();
     socket.io.removeAllListeners();
     socket.disconnect();
@@ -330,7 +379,11 @@ async function run() {
   const sockets = createSocketClients(config, measurements);
   if (sockets.length > 0) {
     console.error(`[load] connecting ${sockets.length} disposable Socket.IO clients`);
-    await connectSocketClients(sockets, config.socketConnectTimeoutSeconds * 1_000);
+    await connectSocketClients(
+      sockets,
+      config.socketConnectTimeoutSeconds * 1_000,
+      config.socketRampSeconds * 1_000,
+    );
   }
 
   if (typeof global.gc === 'function') global.gc();
@@ -349,6 +402,9 @@ async function run() {
   );
   const reconnectTimer = sockets.length > 0
     ? setInterval(() => forceSocketReconnect(sockets, measurements), reconnectCycleMs)
+    : null;
+  const presenceTimer = sockets.length > 0
+    ? setInterval(() => emitSocketPresence(sockets, measurements), config.socketPresenceIntervalMs)
     : null;
   const progressTimer = setInterval(() => {
     console.error(`[load] progress requests=${measurements.requestCount} 5xx=${measurements.serverErrorCount} errors=${measurements.requestErrorCount}`);
@@ -369,6 +425,7 @@ async function run() {
   await Promise.all(workers);
   clearInterval(progressTimer);
   if (reconnectTimer) clearInterval(reconnectTimer);
+  if (presenceTimer) clearInterval(presenceTimer);
   await settlePendingReconnects(measurements, config.socketConnectTimeoutSeconds * 1_000);
   await closeSocketClients(sockets, measurements);
   clearInterval(memoryTimer);
@@ -383,6 +440,12 @@ async function run() {
     initialConnected: measurements.socket.initialConnectedIds.size,
     snapshotClients: measurements.socket.snapshotClientIds.size,
     connectionErrors: measurements.socket.connectionErrors,
+    unexpectedDisconnects: measurements.socket.unexpectedDisconnects,
+    disconnectReasons: measurements.socket.disconnectReasons,
+    presenceEmits: measurements.socket.presenceEmits,
+    presenceRequests: measurements.socket.presenceRequests,
+    sectorBase: config.socketSector,
+    sectorSpread: config.socketSectorSpread,
     reconnectAttempts: measurements.socket.reconnectAttempts,
     reconnectSuccesses: measurements.socket.reconnectSuccesses,
     reconnectP95Ms: percentile(measurements.socket.reconnectLatency.values, 0.95),
@@ -417,6 +480,10 @@ async function run() {
       requestsPerSecond: config.requestsPerSecond,
       requestTimeoutMs: config.requestTimeoutMs,
       socketClients: config.socketClients,
+      socketRampSeconds: config.socketRampSeconds,
+      socketSector: config.socketSector,
+      socketSectorSpread: config.socketSectorSpread,
+      socketPresenceIntervalMs: config.socketPresenceIntervalMs,
       endpoints: config.endpoints.map(({ name, method, path, kind, weight }) => ({ name, method, path, kind, weight })),
       credentialsIncluded: config.endpoints.some((item) => item.mutation || item.requiresAuth || item.kind === 'saveReward') || config.socketClients > 0,
     },
