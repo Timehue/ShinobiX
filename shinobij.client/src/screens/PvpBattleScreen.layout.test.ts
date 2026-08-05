@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
+const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
+const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 
 test("the opponent's turn does not replace the PvP jutsu or battle-log area", () => {
     assert.doesNotMatch(source, /is taking their turn/, "the redundant opponent-turn panel must stay removed");
@@ -10,7 +12,7 @@ test("the opponent's turn does not replace the PvP jutsu or battle-log area", ()
 
     assert.match(
         source,
-        /className="basic-action-bar shinobi-command-bar" style=\{isMyTurn \? undefined : \{ opacity: 0\.55, pointerEvents: "none" \}\}/,
+        /<CombatCommandBar style=\{isMyTurn \? undefined : \{ opacity: 0\.55, pointerEvents: "none" \}\}/,
         "basic actions should remain visible but non-interactive while waiting",
     );
     assert.match(
@@ -28,4 +30,24 @@ test("the opponent's turn does not replace the PvP jutsu or battle-log area", ()
         /submitAction\("claim-afk-win"[\s\S]*?\{ allowWhenNotMyTurn: true \}\)/,
         "valid AFK forfeits should still resolve automatically",
     );
+});
+
+test("the PvP battle log uses the large scrollable PvE-style text feed", () => {
+    assert.match(source, /<PlainCombatBattleLog[\s\S]*?lines=\{session\.log\}/);
+    assert.match(source, /from "\.\.\/components\/CombatHudLayout"/);
+    assert.match(combatHudSource, /className=\{classNames\("combat-text-log", className\)\}/);
+    assert.match(
+        combatHudSource,
+        /<CombatBattleLogPanel className=\{classNames\("plain-combat-battle-log", className\)\}/,
+    );
+    assert.match(combatHudSource, /if \(newestFirst\) entries\.reverse\(\)/);
+    assert.doesNotMatch(source, /<BattleActionBlock/);
+    assert.doesNotMatch(source, /timeline-round-toggle/);
+
+    const panelRule = battleSkinCss.match(/\.plain-combat-battle-log\s*\{([^}]*)\}/s)?.[1] ?? "";
+    assert.match(panelRule, /overflow-y:\s*auto\s*!important/, "the complete log must scroll vertically");
+
+    const lineRule = battleSkinCss.match(/\.plain-combat-battle-log > \.plain-combat-log-line\s*\{([^}]*)\}/s)?.[1] ?? "";
+    assert.match(lineRule, /font:\s*500 clamp\(15px, 1cqw, 17px\) \/ 1\.65/, "shared combat log text must remain large and readable");
+    assert.match(lineRule, /padding:\s*10px 16px\s*!important/, "large log lines need readable spacing");
 });
