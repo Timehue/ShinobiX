@@ -11,8 +11,6 @@
 /* ── xl: large desktop (≥1400px) — give content a bit more breathing room ── */
 /* ── xl: 1080p desktop (1400–2199px) — tight layout ── */
 html[data-vp="xl"] {
-    --side-rail-w: clamp(190px, 14vw, 240px);
-    --right-menu-w: clamp(185px, 13vw, 230px);
     --banner-h: clamp(100px, 10dvh, 140px);
 }
 
@@ -29,14 +27,6 @@ html[data-vp="xl"] .journey-live-stats .stat-box strong {
 /* Left profile card: prevent bottom cutoff on 1080p. Top padding seats the
    avatar/content INSIDE the darker inset panel (::before starts at 56px) —
    the old 50px let the avatar poke ~6px above the rectangle on xl screens. */
-html[data-vp="xl"] .left-profile-card {
-    height: 92vh !important;
-    padding: 64px 14px 16px !important;
-    gap: 6px !important;
-    font-size: 0.82rem !important;
-    overflow-y: auto !important;
-}
-
 html[data-vp="xl"] .left-profile-avatar {
     width: 140px !important;
     height: 140px !important;
@@ -135,11 +125,6 @@ html[data-vp="lg"] .battle-hud-sidebar .combat-avatar img {
 }
 
 /* Narrow the sector banner (ornate frame) on xl to match the battle HUD sidebar */
-html[data-vp="xl"] .sector-banner-panel,
-html[data-vp="lg"] .sector-banner-panel {
-    width: var(--side-rail-w) !important;
-}
-
 /* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child,
 html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
@@ -669,8 +654,6 @@ html[data-vp="xxl"] .stormveil-map {
 
 /* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
 html[data-vp="xxl"] {
-    --side-rail-w: clamp(220px, 17vw, 280px);
-    --right-menu-w: clamp(210px, 16vw, 268px);
     --banner-h: clamp(130px, 13dvh, 175px);
 }
 
@@ -865,11 +848,6 @@ html[data-vp="md"] .right-menu-buttons button {
     border-radius: 6px !important;
 }
 
-html[data-vp="md"] .left-profile-card {
-    gap: 4px !important;
-    font-size: 0.76rem !important;
-}
-
 html[data-vp="md"] .left-profile-avatar {
     width: clamp(110px, 13vw, 140px) !important;
     height: clamp(110px, 13vw, 140px) !important;
@@ -886,15 +864,7 @@ html[data-vp="md"] .journey-live-stats .stat-box strong {
 /* ── sm: mobile / portrait tablet (560–979px) ─────────────────────────────
    No sidebars (handled by @media ≤980px).  Fine-tune center padding and
    any elements that still feel cramped at mid-phone widths.               ── */
-html[data-vp="sm"] .center-game {
-    padding: clamp(6px, 2vw, 10px) !important;
-}
-
 /* ── xs: small phone (<560px) — maximize every pixel ─────────────────────── */
-html[data-vp="xs"] .center-game {
-    padding: 4px !important;
-}
-
 html[data-vp="xs"] .profile-mobile-tabs {
     gap: 2px !important;
     padding: 4px !important;

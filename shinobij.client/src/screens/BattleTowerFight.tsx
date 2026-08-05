@@ -723,7 +723,7 @@ export function BattleTowerFight({
                                 {turnLabel}{afkRemaining != null ? ` · ${afkRemaining}s` : ""}
                             </span>
                         )}
-                        <input type="range" min={-0.4} max={1} step={0.05} value={userScaleOffset} title="Zoom"
+                        <input type="range" min={-0.4} max={0} step={0.05} value={userScaleOffset} title="Zoom" aria-label="Battlefield zoom"
                             onChange={e => setUserScaleOffset(Number(e.target.value))} style={{ width: 90 }} />
                         {session.status === "active" && (
                             // Free, penalty-free abandon — floors have unlimited retries.

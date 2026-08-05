@@ -197,15 +197,3 @@
         transition: none;
     }
 }
-
-/* Mobile: while the coaching banner is up (body class set by OnboardingCoach),
-   lift the scroll area's bottom padding clear of the banner (~205px tall at the
-   bottom) so a screen's OWN bottom-anchored controls scroll to rest ABOVE it —
-   e.g. Training's "Start {timer}" tiles, the first tutorial step. The banner is
-   click-through except its buttons, so this is about VISIBILITY, not just taps.
-   !important + the compound selector beat the base .center-game padding rules. */
-@media (max-width: 800px) {
-    body.coach-banner-open .center-game {
-        padding-bottom: calc(230px + env(safe-area-inset-bottom, 0px)) !important;
-    }
-}

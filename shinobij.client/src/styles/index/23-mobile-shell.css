@@ -4,26 +4,10 @@
    screen only, pin the chat to the viewport so the page itself can't scroll and the
    sole scroller is .tavern-log.
 
-   BREAKPOINT: 980px, not 800px. The desktop right rail / left profile card hide at
-   max-width:980px (18-mobile-safe-adaptive.css), so 981px is where the mobile shell
-   becomes the ONLY navigation. Revealing it at 800px left 801-980px — iPad portrait
-   (820/834) and every phone in landscape (852-932) — with no nav, no status HUD and
-   no logout at all. Every mobile-shell block in this file shares the 980 bound so
-   the shell always appears exactly where the rail disappears; they must move
-   together. The bottom-clearance companion rule lives in 18-mobile-safe-adaptive.css. */
-@media (max-width: 980px) {
-    /* Stop the tavern screen's container from growing/scrolling. */
-    .center-game.screen-tavern {
-        min-height: 0 !important;
-        height: 100dvh !important;
-        overflow: hidden !important;
-        padding: 0 !important;
-    }
-
-    /* The tavern carries its own Back button + title, so the sticky top status
-       HUD is redundant here and would otherwise sit above the full-page chat. */
-    .screen-tavern .mobile-top-hud { display: none !important; }
-
+   BREAKPOINT: 979px. adaptive-shell.css performs the exact navigation handoff:
+   mobile chrome is active through 979px and compact desktop begins at 980px.
+   This file decorates mobile-only features within that shared range. */
+@media (max-width: 979px) {
     /* Fill the viewport from the top edge down to just above the fixed bottom
        nav (~62px + safe area). Global banners (z-index 99999) and the nav
        (z-index 1000) still render above this. */
@@ -93,21 +77,11 @@
    viewport, even while scrolling the content below.
    ============================================= */
 
-.mobile-top-hud {
-  display: none; /* hidden on desktop — LeftProfileCard covers this role */
-}
-
-/* 980px, matching the rail's hide bound — see the note at the top of this file. */
-@media (max-width: 980px) {
+/* 979px, matching the shell contract — see the note at the top of this file. */
+@media (max-width: 979px) {
   .mobile-top-hud {
-    display: flex;
     align-items: center;
     gap: 8px;
-    position: sticky;
-    top: 0;
-    z-index: 999;
-    padding: 6px 10px;
-    padding-top: calc(6px + env(safe-area-inset-top, 0px));
     background: linear-gradient(180deg, rgba(7, 17, 31, 0.97) 0%, rgba(2, 6, 15, 0.92) 100%);
     border-bottom: 1px solid rgba(250, 204, 21, 0.32);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
@@ -284,10 +258,6 @@
    MOBILE BOTTOM NAV + MENU OVERLAY
    ============================================= */
 
-.mobile-bottom-nav {
-  display: none; /* hidden on desktop */
-}
-
 /* Hidden on desktop — the desktop right-rail NotificationBar already covers this.
    The fixed-to-bottom layout is defined only inside the mobile media query below,
    so without this base rule the bar would fall back to normal flow and render as a
@@ -417,13 +387,8 @@
 }
 .user-hub-follow-star.following { color: var(--gold); }
 
-/* 980px, matching the rail's hide bound — see the note at the top of this file. */
-@media (max-width: 980px) {
-  /* Add bottom padding to center-game so content isn't under the nav */
-  .center-game {
-    padding-bottom: 70px !important;
-  }
-
+/* 979px, matching the shell contract — see the note at the top of this file. */
+@media (max-width: 979px) {
   /* The onboarding tutorial banner is fixed to the bottom (inline bottom:16px)
      and sits at z-index 9000 — above the bottom nav (z-index 1000). On mobile
      the nav occupies that bottom strip (~70px + safe-area inset), so the banner
@@ -434,18 +399,8 @@
   }
 
   .mobile-bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
     background: linear-gradient(180deg, rgba(7,17,31,0.97), rgba(2,6,15,1));
     border-top: 1px solid rgba(250,204,21,0.3);
-    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-    gap: 2px;
-    justify-content: space-around;
-    align-items: center;
   }
 
   /* Mobile status notification strip — floats just above the bottom nav and

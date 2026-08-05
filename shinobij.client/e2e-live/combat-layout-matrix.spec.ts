@@ -7,8 +7,11 @@ const STRICT = PHASE === 'after' && process.env.COMBAT_LAYOUT_STRICT !== '0';
 const SCREENSHOT_ROOT = resolve(process.cwd(), '..', 'docs', 'screenshots', 'combat-layout', PHASE);
 
 const VIEWPORTS = [
-    [360, 640], [390, 844], [412, 915], [768, 1024], [1024, 768], [1280, 720],
-    [1366, 768], [1440, 900], [1920, 1080], [2560, 1440], [3440, 1440],
+    [320, 568], [360, 800], [375, 667], [390, 844], [412, 915], [430, 932],
+    [667, 375], [800, 360], [844, 390], [932, 430],
+    [768, 1024], [820, 1180], [1024, 768], [1180, 820],
+    [1280, 720], [1366, 768], [1440, 900], [1536, 864], [1600, 900],
+    [1920, 1080], [2560, 1440], [3440, 1440],
 ] as const;
 const VIEWPORT_FILTER = process.env.COMBAT_LAYOUT_VIEWPORT;
 const ACTIVE_VIEWPORTS = VIEWPORT_FILTER
@@ -16,12 +19,16 @@ const ACTIVE_VIEWPORTS = VIEWPORT_FILTER
     : VIEWPORTS;
 
 // Browser zoom reduces the CSS viewport while the physical window stays fixed.
-// These are the exact CSS viewport equivalents of 1440x900 at 80/100/125/150%.
+// These are the exact CSS viewport equivalents of 1440x900 at
+// 80/100/125/150/200%. This is reflow-equivalent coverage, not a claim that
+// Playwright controls each browser's native zoom UI.
 const BROWSER_ZOOM_EQUIVALENTS = [
     { zoomPercent: 80, width: 1800, height: 1125 },
     { zoomPercent: 100, width: 1440, height: 900 },
     { zoomPercent: 125, width: 1152, height: 720 },
     { zoomPercent: 150, width: 960, height: 600 },
+    { zoomPercent: 200, width: 720, height: 450 },
+    { zoomPercent: 200, width: 512, height: 384, physicalWidth: 1024, physicalHeight: 768 },
 ] as const;
 
 const JUTSU_IDS = [
@@ -34,13 +41,12 @@ function safeProject(testInfo: TestInfo): string {
     // Preserve enough of every project-name segment to distinguish configs such
     // as chromium-desktop-live and chromium-mobile-live. Prefix truncation made
     // both "chromiu", so the second project collided with the first account.
-    return testInfo.project.name
+    const segments = testInfo.project.name
         .toLowerCase()
         .split(/[^a-z0-9]+/)
-        .filter(Boolean)
-        .map((segment) => segment.slice(0, 3))
-        .join('')
-        .slice(0, 9);
+        .filter(Boolean);
+    const [engine = 'test', ...qualifiers] = segments;
+    return `${engine.slice(0, 3)}${qualifiers.join('').slice(0, 6)}`.slice(0, 9);
 }
 
 function character(name: string) {
@@ -65,12 +71,13 @@ function character(name: string) {
         chakra: 8_000, maxChakra: 8_000,
         stamina: 8_000, maxStamina: 8_000,
         onboardingStep: 'done',
-        inventory: ['rustfang-kunai', 'potion-rejuvenation', 'potion-rejuvenation', 'consum-smoke-pellet'],
+        inventory: ['rustfang-kunai', 'thrown-shuriken', 'potion-rejuvenation', 'potion-rejuvenation', 'consum-smoke-pellet'],
         itemStacks: [
+            { itemId: 'thrown-shuriken', count: 1 },
             { itemId: 'potion-rejuvenation', count: 2 },
             { itemId: 'consum-smoke-pellet', count: 1 },
         ],
-        equipment: { hand: 'rustfang-kunai', potion: 'potion-rejuvenation', item: 'consum-smoke-pellet' },
+        equipment: { hand: 'rustfang-kunai', thrown: 'thrown-shuriken', potion: 'potion-rejuvenation', item: 'consum-smoke-pellet' },
         pets: [],
         jutsuMastery: JUTSU_IDS.map((jutsuId) => ({ jutsuId, level: 50 })),
         equippedJutsuIds: JUTSU_IDS,
@@ -128,26 +135,41 @@ async function dismissNotices(page: Page) {
 type Rect = { x: number; y: number; width: number; height: number; right: number; bottom: number };
 type LayoutMeasurement = {
     viewport: { width: number; height: number };
+    devicePixelRatio: number;
     documentOverflow: number;
     root: Rect | null;
     layout: Rect | null;
     main: Rect | null;
+    boardStage: Rect | null;
     board: Rect | null;
     gridLayer: Rect | null;
     actions: Rect | null;
     tabs: Rect | null;
     log: Rect | null;
     dossiers: Rect[];
+    dossierFlow: Array<{ dossier: number; display: string; columns: string; children: Array<{ className: string; gridColumn: string; gridRow: string; rect: Rect | null }> }>;
     gridTemplateColumns: string;
     gridTemplateRows: string;
     mainGridRowCount: number;
+    mainGridTemplateColumns: string;
+    mainGridTemplateRows: string;
     visibleTileCount: number;
     allTilesNamed: boolean;
     tileCentersInsideBoard: boolean;
+    tileCentersHitTheirTile: boolean;
+    tileCenterHitCount: number;
+    tileCenterMisses: string[];
+    dossierResourcesContained: boolean;
+    dossierContentMisses: string[];
+    firstJutsuCenterVisibleAndHit: boolean;
+    firstJutsuCenterHit: string | null;
+    firstJutsu: Rect | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
     boardActionOverlap: boolean;
     boardDossierOverlap: boolean;
+    terrainNoticeOverlap: boolean;
+    dualApTextOverlap: boolean;
 };
 
 async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
@@ -166,10 +188,37 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const actionNode = root?.querySelector('.combat-jutsu-bar') ?? null;
         const tabNode = root?.querySelector('.battle-tabbar') ?? null;
         const logNode = root?.querySelector('.combat-text-log') ?? null;
+        const terrainNode = root?.querySelector('.twp-strip') ?? null;
+        const noticeNode = root?.querySelector('.combat-action-notice') ?? null;
         const layoutRect = rect(layoutNode);
         const boardRect = rect(boardNode);
         const actionRect = rect(actionNode);
         const dossiers = [...(root?.querySelectorAll('.combat-side-hud') ?? [])].map(rect).filter((value): value is Rect => value !== null);
+        const dossierFlow = [...(root?.querySelectorAll<HTMLElement>('.combat-side-hud') ?? [])].map((dossierNode, dossier) => ({
+            dossier,
+            display: getComputedStyle(dossierNode).display,
+            columns: getComputedStyle(dossierNode).gridTemplateColumns,
+            children: [...dossierNode.children].map((child) => ({
+                className: (child as HTMLElement).className,
+                gridColumn: getComputedStyle(child).gridColumn,
+                gridRow: getComputedStyle(child).gridRow,
+                rect: rect(child),
+            })),
+        }));
+        const dossierContentMisses: string[] = [];
+        const dossierResourcesContained = [...(root?.querySelectorAll('.combat-side-hud') ?? [])].every((dossier, dossierIndex) => {
+            const dossierRect = dossier.getBoundingClientRect();
+            return [...dossier.querySelectorAll('.resource-line, .combat-mobile-effects')].filter((resource) => {
+                const style = getComputedStyle(resource);
+                const value = resource.getBoundingClientRect();
+                return style.display !== 'none' && style.visibility !== 'hidden' && value.width > 0 && value.height > 0;
+            }).every((resource) => {
+                const resourceRect = resource.getBoundingClientRect();
+                const contained = resourceRect.top >= dossierRect.top - 1 && resourceRect.bottom <= dossierRect.bottom + 1;
+                if (!contained) dossierContentMisses.push(`${dossierIndex}:${resource.className}[${resourceRect.top.toFixed(1)},${resourceRect.bottom.toFixed(1)}] outside [${dossierRect.top.toFixed(1)},${dossierRect.bottom.toFixed(1)}]`);
+                return contained;
+            });
+        });
         const tiles = [...(root?.querySelectorAll<HTMLElement>('.hex-tile') ?? [])].filter((tile) => rect(tile));
         const tileCenters = tiles.map((tile) => {
             const value = tile.getBoundingClientRect();
@@ -185,32 +234,71 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         } : null;
         const tileCentersInsideBoard = Boolean(boardRect) && tileCenters.every(({ x, y }) =>
             x >= boardRect!.x - 1 && x <= boardRect!.right + 1 && y >= boardRect!.y - 1 && y <= boardRect!.bottom + 1);
+        const tileCenterMisses: string[] = [];
+        const tileCenterHits = tiles.map((tile) => {
+            const value = tile.getBoundingClientRect();
+            const hit = document.elementFromPoint(value.left + value.width / 2, value.top + value.height / 2);
+            const accurate = hit === tile || Boolean(hit && tile.contains(hit));
+            if (!accurate) tileCenterMisses.push(`${tile.dataset.tile ?? '?'}@${(value.left + value.width / 2).toFixed(1)},${(value.top + value.height / 2).toFixed(1)}=>${hit instanceof HTMLElement ? hit.className : hit?.nodeName ?? 'none'}`);
+            return accurate;
+        });
+        const tileCenterHitCount = tileCenterHits.filter(Boolean).length;
+        const tileCentersHitTheirTile = tileCenterHitCount === tiles.length;
         const commandButtons = [...(root?.querySelectorAll<HTMLElement>('.shinobi-command-bar button, .battle-tab') ?? [])]
             .map(rect).filter((value): value is Rect => value !== null);
+        const firstJutsu = root?.querySelector<HTMLElement>('.combat-jutsu-button:not(:disabled)') ?? null;
+        const firstJutsuRect = rect(firstJutsu);
+        const firstJutsuHit = firstJutsuRect
+            ? document.elementFromPoint(firstJutsuRect.x + firstJutsuRect.width / 2, firstJutsuRect.y + firstJutsuRect.height / 2)
+            : null;
+        const firstJutsuCenterVisibleAndHit = Boolean(
+            firstJutsu && firstJutsuRect && actionRect
+            && firstJutsuRect.y + firstJutsuRect.height / 2 >= actionRect.y
+            && firstJutsuRect.y + firstJutsuRect.height / 2 <= actionRect.bottom
+            && firstJutsuHit && (firstJutsuHit === firstJutsu || firstJutsu.contains(firstJutsuHit)),
+        );
         const style = layoutNode ? getComputedStyle(layoutNode) : null;
         const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
+        const apTextRects = [...(root?.querySelectorAll<HTMLElement>('.dual-ap-panel > div > strong, .dual-ap-panel > div > small, .dual-ap-panel > .round-timer-display > small, .dual-ap-panel .round-timer-ring') ?? [])]
+            .map(rect).filter((value): value is Rect => value !== null);
+        const dualApTextOverlap = apTextRects.some((first, index) => apTextRects.slice(index + 1).some((second) => overlap(first, second)));
         return {
             viewport: { width: window.innerWidth, height: window.innerHeight },
+            devicePixelRatio: window.devicePixelRatio,
             documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
             root: rect(root),
             layout: layoutRect,
             main: rect(mainNode),
+            boardStage: rect(root?.querySelector('.combat-board-stage') ?? null),
             board: boardRect,
             gridLayer: rect(root?.querySelector('.hex-grid-layer') ?? null),
             actions: actionRect,
             tabs: rect(tabNode),
             log: rect(logNode),
             dossiers,
+            dossierFlow,
             gridTemplateColumns: style?.gridTemplateColumns ?? '',
             gridTemplateRows: style?.gridTemplateRows ?? '',
             mainGridRowCount: (mainStyle?.gridTemplateRows ?? '').trim().split(/\s+/).filter(Boolean).length,
+            mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
+            mainGridTemplateRows: mainStyle?.gridTemplateRows ?? '',
             visibleTileCount: tiles.length,
             allTilesNamed: tiles.every((tile) => Boolean(tile.getAttribute('aria-label')?.trim())),
             tileCentersInsideBoard,
+            tileCentersHitTheirTile,
+            tileCenterHitCount,
+            tileCenterMisses,
+            dossierResourcesContained,
+            dossierContentMisses,
+            firstJutsuCenterVisibleAndHit,
+            firstJutsuCenterHit: firstJutsuHit instanceof HTMLElement ? firstJutsuHit.className : firstJutsuHit?.nodeName ?? null,
+            firstJutsu: firstJutsuRect,
             tileCenterBounds,
             minCommandTouchTarget: commandButtons.length ? Math.min(...commandButtons.map((value) => Math.min(value.width, value.height))) : null,
             boardActionOverlap: overlap(boardRect, actionRect),
             boardDossierOverlap: dossiers.some((value) => overlap(boardRect, value)),
+            terrainNoticeOverlap: overlap(rect(terrainNode), rect(noticeNode)),
+            dualApTextOverlap,
         };
     }, rootSelector);
 }
@@ -224,22 +312,121 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
     return current;
 }
 
+async function writeArtifactWithRetry(page: Page, path: string, data: string | Uint8Array): Promise<void> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+        try {
+            await writeFile(path, data);
+            return;
+        } catch (error) {
+            lastError = error;
+            if (attempt < 5) await page.waitForTimeout(150 * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
+async function writeScreenshotWithRetry(page: Page, path: string): Promise<void> {
+    const image = await page.screenshot({ animations: 'disabled', fullPage: false });
+    await writeArtifactWithRetry(page, path, image);
+}
+
+async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promise<void> {
+    const root = page.locator(rootSelector);
+    const helpButtons = root.locator('.combat-jutsu-help');
+    await expect(helpButtons.first()).toBeVisible();
+    const indices = await helpButtons.evaluateAll((buttons) => {
+        const positioned = buttons.map((button, index) => ({ index, rect: button.getBoundingClientRect() }));
+        const left = positioned.reduce((best, current) => current.rect.left < best.rect.left ? current : best);
+        const right = positioned.reduce((best, current) => current.rect.right > best.rect.right ? current : best);
+        return [...new Set([left.index, right.index])];
+    });
+    for (const [position, index] of indices.entries()) {
+        const trigger = helpButtons.nth(index);
+        const controlledId = await trigger.getAttribute('aria-controls');
+        expect(controlledId, `edge action trigger ${index} must identify its portaled detail dialog`).toBeTruthy();
+        await trigger.click();
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+        const popover = page.locator(`#${controlledId}`);
+        await expect(popover).toBeVisible();
+        await expect(popover).toHaveAttribute('role', 'dialog');
+        await expect(popover).toHaveAttribute('aria-modal', 'true');
+        const backdrop = popover.locator('..');
+        await expect(backdrop).toHaveClass(/combat-detail-backdrop/);
+        expect(await backdrop.evaluate((node) => document.elementFromPoint(2, 2) === node),
+            `edge action popover ${index} must block the live battle surface`).toBe(true);
+        await popover.locator('[data-combat-detail-close]').focus();
+        await page.keyboard.press('Tab');
+        await expect(popover.locator('[data-combat-detail-close]')).toBeFocused();
+        expect(await popover.evaluate((node) => {
+            const rect = node.getBoundingClientRect();
+            return rect.left >= -1 && rect.top >= -1
+                && rect.right <= window.innerWidth + 1
+                && rect.bottom <= window.innerHeight + 1;
+        }), `edge action popover ${index} must stay within the viewport`).toBe(true);
+        if (position === indices.length - 1) {
+            await writeScreenshotWithRetry(page, resolve(SCREENSHOT_ROOT, 'pvp', 'chromium', '390x844-popover.png'));
+            await page.keyboard.press('Escape');
+            await expect(popover).toBeHidden();
+            await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+            await expect(trigger).toBeFocused();
+            continue;
+        }
+        await popover.locator('[data-combat-detail-close]').click();
+        await expect(popover).toBeHidden();
+    }
+
+    const thrownTrigger = root.locator('#pvp-combat-detail-trigger-item-thrown-shuriken');
+    await expect(thrownTrigger).toBeVisible();
+    await thrownTrigger.click();
+    await expect(thrownTrigger).toHaveAttribute('aria-expanded', 'true');
+    const thrownDialog = page.locator('#pvp-combat-detail-item-thrown-shuriken');
+    await expect(thrownDialog).toBeVisible();
+    await expect(thrownDialog).toHaveAttribute('aria-labelledby', 'pvp-combat-detail-label-item-thrown-shuriken');
+    await expect(thrownDialog.getByText('Thrown', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(thrownDialog).toBeHidden();
+    await expect(thrownTrigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(thrownTrigger).toBeFocused();
+
+    // The edge-control checks intentionally scroll the contained action tray
+    // to its final equipment row. Restore the matrix's top-of-tray baseline so
+    // the subsequent first-jutsu hit test measures layout, not test residue.
+    await root.locator('.combat-jutsu-bar').evaluate((panel) => { panel.scrollTop = 0; });
+}
+
 async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: string, testInfo: TestInfo) {
-    const browser = testInfo.project.name.split('-')[0];
+    const browser = testInfo.project.name.includes('dpr')
+        ? testInfo.project.name
+        : testInfo.project.name.split('-')[0];
     const directory = resolve(SCREENSHOT_ROOT, mode, browser);
     await mkdir(directory, { recursive: true });
     const measurements: LayoutMeasurement[] = [];
     const zoomMeasurements: Array<{ zoomPercent: number; physicalViewport: { width: number; height: number }; measurement: LayoutMeasurement }> = [];
     const assertLayout = (current: LayoutMeasurement, label: string) => {
+        expect(current.devicePixelRatio, `${label} device pixel ratio`).toBe(Number(testInfo.project.use.deviceScaleFactor ?? 1));
         expect(current.documentOverflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
         expect(current.visibleTileCount, `${label} tile count`).toBe(120);
         expect(current.allTilesNamed, `${label} tile accessible names`).toBe(true);
         expect(current.tileCentersInsideBoard, `${label} tile centers`).toBe(true);
+        expect(
+            current.tileCenterHitCount,
+            `${label} tile center hit-testing misses: ${current.tileCenterMisses.join(', ')}; main=${JSON.stringify(current.main)} stage=${JSON.stringify(current.boardStage)} board=${JSON.stringify(current.board)}`,
+        ).toBe(current.visibleTileCount);
+        expect(current.dossierResourcesContained, `${label} dossier resources clipped: ${current.dossierContentMisses.join(', ')}`).toBe(true);
         expect(current.boardActionOverlap, `${label} action overlap`).toBe(false);
         expect(current.boardDossierOverlap, `${label} dossier overlap`).toBe(false);
+        expect(current.terrainNoticeOverlap, `${label} terrain/action-notice overlap`).toBe(false);
+        expect(current.dualApTextOverlap, `${label} AP/timer labels overlap`).toBe(false);
         expect(current.minCommandTouchTarget ?? 0, `${label} touch target`).toBeGreaterThanOrEqual(44);
-        expect(current.board?.height ?? 0, `${label} board must not collapse`).toBeGreaterThanOrEqual(90);
-        expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(7);
+        expect(current.actions?.height ?? 0, `${label} selected action panel height`).toBeGreaterThanOrEqual(44);
+        expect(current.firstJutsuCenterVisibleAndHit, `${label} first jutsu center inaccessible; hit=${current.firstJutsuCenterHit}`).toBe(true);
+        expect(
+            current.board?.height ?? 0,
+            `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
+        ).toBeGreaterThanOrEqual(90);
+        const shortLandscape = current.viewport.width >= 480 && current.viewport.height <= 500;
+        expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(shortLandscape ? 4 : 7);
         expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
     };
     for (const [width, height] of ACTIVE_VIEWPORTS) {
@@ -247,28 +434,61 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         await page.waitForTimeout(180);
         const root = page.locator(rootSelector);
         await expect(root).toBeVisible();
+        await page.evaluate((selector) => {
+            for (const dossier of document.querySelectorAll(`${selector} .combat-side-hud`)) {
+                if (!dossier.querySelector('.resource-line--shield')) {
+                    const shield = document.createElement('div');
+                    shield.className = 'resource-line resource-line--shield';
+                    shield.dataset.layoutFixture = 'shield';
+                    shield.innerHTML = '<span class="resource-label">Shield <small>1500</small></span><div class="hud-bar shield-bar"><span style="width:100%"></span></div>';
+                    dossier.querySelector('.combat-mobile-effects')?.before(shield);
+                    if (!shield.isConnected) dossier.append(shield);
+                }
+                let effects = dossier.querySelector<HTMLElement>('.combat-mobile-effects');
+                if (!effects) {
+                    effects = document.createElement('div');
+                    effects.className = 'combat-mobile-effects';
+                    effects.dataset.layoutFixture = 'effects';
+                    effects.setAttribute('aria-label', 'Active effects');
+                    dossier.append(effects);
+                }
+                if (!effects.querySelector('.cme-chip')) {
+                    effects.innerHTML = '<span class="cme-chip cme-pos">Guard<small>25% 3r</small></span><span class="cme-chip cme-neg">Burn<small>10% 2r</small></span><span class="cme-chip cme-more">+5</span>';
+                }
+            }
+        }, rootSelector);
+        if (browser === 'chromium' && mode === 'pvp' && width === 390 && height === 844) {
+            await assertEdgeActionPopovers(page, rootSelector);
+        }
         const current = await measureStable(page, rootSelector);
         measurements.push(current);
         if (browser === 'chromium') {
-            await page.screenshot({ path: resolve(directory, `${width}x${height}.png`), animations: 'disabled', fullPage: false });
+            await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
         }
         if (STRICT) {
             assertLayout(current, `${mode} ${width}x${height}`);
         }
     }
-    await writeFile(resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`, 'utf8');
+    await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
     for (const zoom of BROWSER_ZOOM_EQUIVALENTS) {
         await page.setViewportSize({ width: zoom.width, height: zoom.height });
         await page.waitForTimeout(180);
         const current = await measureStable(page, rootSelector);
+        const physicalViewport = {
+            width: 'physicalWidth' in zoom ? zoom.physicalWidth : 1440,
+            height: 'physicalHeight' in zoom ? zoom.physicalHeight : 900,
+        };
         zoomMeasurements.push({
             zoomPercent: zoom.zoomPercent,
-            physicalViewport: { width: 1440, height: 900 },
+            physicalViewport,
             measurement: current,
         });
-        if (STRICT) assertLayout(current, `${mode} 1440x900 at ${zoom.zoomPercent}% zoom`);
+        if (browser.startsWith('chromium') && zoom.zoomPercent === 200) {
+            await writeScreenshotWithRetry(page, resolve(directory, `${physicalViewport.width}x${physicalViewport.height}-at-200-percent.png`));
+        }
+        if (STRICT) assertLayout(current, `${mode} ${physicalViewport.width}x${physicalViewport.height} at ${zoom.zoomPercent}% zoom`);
     }
-    await writeFile(resolve(directory, 'zoom-measurements.json'), `${JSON.stringify(zoomMeasurements, null, 2)}\n`, 'utf8');
+    await writeArtifactWithRetry(page, resolve(directory, 'zoom-measurements.json'), `${JSON.stringify(zoomMeasurements, null, 2)}\n`);
 }
 
 test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInfo) => {

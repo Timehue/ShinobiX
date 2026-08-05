@@ -15,10 +15,12 @@
 
    RESPONSIVE BREAKPOINTS (documented standard — CSS can't put vars in @media,
    so these are the canonical values to use everywhere):
-       sm  = 560px   small phones
-       md  = 800px   phone / small-tablet boundary  (primary mobile cutoff)
-       lg  = 980px   tablet / desktop boundary       (primary desktop cutoff)
-       xl  = 1280px  wide desktop
+       xs  = below 560px
+       sm  = 560px through 979px
+       md  = 980px through 1179px
+       lg  = 1180px through 1399px
+       xl  = 1400px through 2199px
+       xxl = 2200px and above
    ========================================================================== */
 
 :root {
@@ -187,12 +189,18 @@
   --shadow-inset-top: inset 0 1px 0 rgba(255,255,255,.06);
 
   /* ---------- PRIMITIVES: z-index scale ----------------------------------- */
-  --z-base:    1;
-  --z-sticky:  100;
-  --z-rail:    200;
-  --z-overlay: 1000;
-  --z-modal:   1100;
-  --z-toast:   1200;
+  --z-background: -1;
+  --z-base:       1;
+  --z-sticky:     100;
+  --z-rail:       200;
+  --z-mobile-nav: 400;
+  --z-notice:     500;
+  --z-drawer:     700;
+  --z-overlay:    1000;
+  --z-modal:      1100;
+  --z-toast:      1200;
+  --z-combat:     2000;
+  --z-combat-hud: 2100;
 
   /* =========================================================================
      SEMANTIC TOKENS — reference these in components, not the primitives above.
@@ -229,6 +237,26 @@
   --success: var(--sj-success);
   --info:    var(--sj-info);
   --warning: var(--sj-warning);
+
+  /* Adaptive application shell geometry. Implementation: adaptive-shell.css. */
+  --shell-left-rail: clamp(176px, 13.25vw, 220px);
+  --shell-right-rail: clamp(230px, 16vw, 255px);
+  --shell-left-rail-compact: 190px;
+  --shell-right-rail-compact: 220px;
+  --shell-right-rail-collapsed: 74px;
+  --shell-content-max: 1680px;
+  --shell-gap: clamp(4px, 0.55vw, 10px);
+  --shell-page-padding-inline: clamp(6px, 0.8vw, 14px);
+  --shell-page-padding-block: clamp(6px, 0.8vw, 12px);
+  --shell-mobile-page-padding: clamp(6px, 2vw, 12px);
+  --shell-mobile-nav-height: 66px;
+  --shell-mobile-nav-clearance: 104px;
+  --shell-left-rail-padding: 48px 12px 16px;
+  --shell-right-rail-padding: clamp(132px, 17vh, 158px) 10px 12px;
+  --shell-rail-content-gap: 6px;
+  --shell-rail-font-size: 0.86rem;
+  --dialog-viewport-margin: clamp(8px, 3vw, 24px);
+  --touch-target-min: 44px;
 
   /* combat-log / element semantics (already used across battle UIs) */
   --heal:    var(--green-400);

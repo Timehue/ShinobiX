@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
+import { viewportClassForWidth } from './lib/viewport-contract';
 
 /*
  * Every viewport width must have SOME navigation.
@@ -24,8 +25,7 @@ import test from 'node:test';
  */
 
 const stylesDir = join(process.cwd(), 'shinobij.client', 'src', 'styles');
-const adaptiveCss = readFileSync(join(stylesDir, 'index', '18-mobile-safe-adaptive.css'), 'utf8');
-const shellCss = readFileSync(join(stylesDir, 'index', '23-mobile-shell.css'), 'utf8');
+const shellCss = readFileSync(join(stylesDir, 'layout', 'adaptive-shell.css'), 'utf8');
 
 interface MediaBlock { maxWidth: number; body: string }
 
@@ -64,13 +64,13 @@ function boundFor(css: string, pattern: RegExp, label: string): number {
 }
 
 // The rail/profile-card hide block — the one that actually sets display:none on them.
-const RAIL_HIDDEN = /\.right-menu-panel\s*\{\s*display:\s*none/;
+const RAIL_HIDDEN = /\.right-menu-panel[\s\S]*?\{\s*display:\s*none/;
 const NAV_SHOWN = /\.mobile-bottom-nav\s*\{\s*display:\s*flex/;
 const HUD_SHOWN = /\.mobile-top-hud\s*\{\s*display:\s*flex/;
-const NAV_CLEARANCE = /padding-bottom:\s*calc\(112px \+ env\(safe-area-inset-bottom/;
+const NAV_CLEARANCE = /--shell-mobile-nav-clearance/;
 
 test('the mobile shell appears exactly where the desktop rail disappears', () => {
-    const railHidesAt = boundFor(adaptiveCss, RAIL_HIDDEN, 'the desktop rail hide rule');
+    const railHidesAt = boundFor(shellCss, RAIL_HIDDEN, 'the desktop rail hide rule');
     const navShownAt = boundFor(shellCss, NAV_SHOWN, 'the mobile bottom nav reveal');
 
     assert.equal(
@@ -84,7 +84,7 @@ test('the mobile shell appears exactly where the desktop rail disappears', () =>
 test('the mobile status HUD shares the shell breakpoint', () => {
     // The HUD replaces the left profile card, which hides on the same bound as the
     // rail — so a narrower reveal loses HP/chakra/stamina and the per-screen back arrow.
-    const railHidesAt = boundFor(adaptiveCss, RAIL_HIDDEN, 'the desktop rail hide rule');
+    const railHidesAt = boundFor(shellCss, RAIL_HIDDEN, 'the desktop rail hide rule');
     const hudShownAt = boundFor(shellCss, HUD_SHOWN, 'the mobile top HUD reveal');
 
     assert.equal(hudShownAt, railHidesAt, `mobile top HUD reveals at ${hudShownAt}px, rail hides at ${railHidesAt}px`);
@@ -95,10 +95,15 @@ test('bottom clearance is reserved wherever the fixed nav is shown', () => {
     // set earlier — so the clearance rule has to cover every width where the nav is
     // fixed to the bottom, or the nav sits on the page's own bottom controls.
     const navShownAt = boundFor(shellCss, NAV_SHOWN, 'the mobile bottom nav reveal');
-    const clearanceAt = boundFor(adaptiveCss, NAV_CLEARANCE, 'the center-game nav clearance');
+    const clearanceAt = boundFor(shellCss, NAV_CLEARANCE, 'the center-game nav clearance');
 
     assert.ok(
         clearanceAt >= navShownAt,
         `nav is shown at ≤${navShownAt}px but bottom clearance is only reserved at ≤${clearanceAt}px`,
     );
+});
+
+test('the JavaScript viewport classifier shares the 979/980 shell handoff', () => {
+    assert.equal(viewportClassForWidth(979), 'sm');
+    assert.equal(viewportClassForWidth(980), 'md');
 });

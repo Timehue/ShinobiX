@@ -10,6 +10,7 @@
         "width": 1800,
         "height": 1125
       },
+      "devicePixelRatio": 1,
       "documentOverflow": 0,
       "root": {
         "x": 0,
@@ -35,37 +36,45 @@
         "right": 1508.9666748046875,
         "bottom": 1111
       },
+      "boardStage": {
+        "x": 292.0333251953125,
+        "y": 187.43333435058594,
+        "width": 1215.933349609375,
+        "height": 587.0333251953125,
+        "right": 1507.9666748046875,
+        "bottom": 774.4666595458984
+      },
       "board": {
-        "x": 426.5333251953125,
-        "y": 191.43333435058594,
-        "width": 946.9166259765625,
-        "height": 584.0166625976562,
-        "right": 1373.449951171875,
-        "bottom": 775.4499969482422
+        "x": 424.08331298828125,
+        "y": 187.43333435058594,
+        "width": 951.816650390625,
+        "height": 587.0333251953125,
+        "right": 1375.8999633789062,
+        "bottom": 774.4666595458984
       },
       "gridLayer": {
-        "x": 428.16668701171875,
-        "y": 192.43333435058594,
-        "width": 943.7166748046875,
-        "height": 582.0499877929688,
-        "right": 1371.8833618164062,
-        "bottom": 774.4833221435547
+        "x": 425.8833312988281,
+        "y": 188.46665954589844,
+        "width": 948.38330078125,
+        "height": 584.933349609375,
+        "right": 1374.2666320800781,
+        "bottom": 773.4000091552734
       },
       "actions": {
         "x": 292.0333251953125,
-        "y": 915.316650390625,
+        "y": 914.3333129882812,
         "width": 1215.933349609375,
-        "height": 194.68333435058594,
+        "height": 195.68333435058594,
         "right": 1507.9666748046875,
-        "bottom": 1109.999984741211
+        "bottom": 1110.0166473388672
       },
       "tabs": {
         "x": 292.0333251953125,
-        "y": 774.4166870117188,
+        "y": 773.433349609375,
         "width": 1215.933349609375,
         "height": 48,
         "right": 1507.9666748046875,
-        "bottom": 822.4166870117188
+        "bottom": 821.433349609375
       },
       "log": null,
       "dossiers": [
@@ -86,23 +95,330 @@
           "bottom": 1111
         }
       ],
+      "dossierFlow": [
+        {
+          "dossier": 0,
+          "display": "flex",
+          "columns": "repeat(2, minmax(0px, 1fr))",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 39.71665954589844,
+                "width": 219.60000610351562,
+                "height": 68.95001220703125,
+                "right": 263.31666564941406,
+                "bottom": 108.66667175292969
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 92.51666259765625,
+                "y": 126.66667175292969,
+                "width": 122,
+                "height": 122,
+                "right": 214.51666259765625,
+                "bottom": 248.6666717529297
+              }
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 266.66668701171875,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 263.31666564941406,
+                "bottom": 291.66668701171875
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 293.66668701171875,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 263.31666564941406,
+                "bottom": 318.66668701171875
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 320.66668701171875,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 263.31666564941406,
+                "bottom": 345.66668701171875
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 349.66668701171875,
+                "width": 219.60000610351562,
+                "height": 9.5,
+                "right": 263.31666564941406,
+                "bottom": 359.16668701171875
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 373.16668701171875,
+                "width": 219.60000610351562,
+                "height": 58,
+                "right": 263.31666564941406,
+                "bottom": 431.16668701171875
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 442.16668701171875,
+                "width": 219.60000610351562,
+                "height": 58,
+                "right": 263.31666564941406,
+                "bottom": 500.16668701171875
+              }
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 1048.2833251953125,
+                "width": 219.60000610351562,
+                "height": 24,
+                "right": 263.31666564941406,
+                "bottom": 1072.2833251953125
+              }
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43.71665954589844,
+                "y": 1074.2833251953125,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 263.31666564941406,
+                "bottom": 1099.2833251953125
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": null
+            }
+          ]
+        },
+        {
+          "dossier": 1,
+          "display": "flex",
+          "columns": "repeat(2, minmax(0px, 1fr))",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 39.71665954589844,
+                "width": 219.60000610351562,
+                "height": 68.95001220703125,
+                "right": 1756.2833557128906,
+                "bottom": 108.66667175292969
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1585.4833984375,
+                "y": 126.66667175292969,
+                "width": 122,
+                "height": 122,
+                "right": 1707.4833984375,
+                "bottom": 248.6666717529297
+              }
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 266.66668701171875,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 1756.2833557128906,
+                "bottom": 291.66668701171875
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 293.66668701171875,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 1756.2833557128906,
+                "bottom": 318.66668701171875
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 320.66668701171875,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 1756.2833557128906,
+                "bottom": 345.66668701171875
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 349.66668701171875,
+                "width": 219.60000610351562,
+                "height": 9.5,
+                "right": 1756.2833557128906,
+                "bottom": 359.16668701171875
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 373.16668701171875,
+                "width": 219.60000610351562,
+                "height": 58,
+                "right": 1756.2833557128906,
+                "bottom": 431.16668701171875
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 442.16668701171875,
+                "width": 219.60000610351562,
+                "height": 58,
+                "right": 1756.2833557128906,
+                "bottom": 500.16668701171875
+              }
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 1048.2833251953125,
+                "width": 219.60000610351562,
+                "height": 24,
+                "right": 1756.2833557128906,
+                "bottom": 1072.2833251953125
+              }
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1536.683349609375,
+                "y": 1074.2833251953125,
+                "width": 219.60000610351562,
+                "height": 25,
+                "right": 1756.2833557128906,
+                "bottom": 1099.2833251953125
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": null
+            }
+          ]
+        }
+      ],
       "gridTemplateColumns": "243.033px 1217.93px 243.033px",
       "gridTemplateRows": "1083px",
       "mainGridRowCount": 7,
+      "mainGridTemplateColumns": "1215.93px",
+      "mainGridTemplateRows": "110.5px 26px 587.033px 48px 0px 72px 195.683px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
+      "tileCentersHitTheirTile": true,
+      "tileCenterHitCount": 120,
+      "tileCenterMisses": [],
+      "dossierResourcesContained": true,
+      "dossierContentMisses": [],
+      "firstJutsuCenterVisibleAndHit": true,
+      "firstJutsuCenterHit": "combat-jutsu-resources",
+      "firstJutsu": {
+        "x": 306.0333251953125,
+        "y": 922.3333129882812,
+        "width": 99.81666564941406,
+        "height": 99.81666564941406,
+        "right": 405.84999084472656,
+        "bottom": 1022.1499786376953
+      },
       "tileCenterBounds": {
-        "x": 479.1750183105469,
-        "y": 222.19166564941406,
-        "right": 1320.8750305175781,
-        "bottom": 744.7416687011719,
-        "width": 841.7000122070312,
-        "height": 522.5500030517578
+        "x": 477.1500015258789,
+        "y": 218.36666107177734,
+        "right": 1323.0000610351562,
+        "bottom": 743.4833145141602,
+        "width": 845.8500595092773,
+        "height": 525.1166534423828
       },
       "minCommandTouchTarget": 48,
       "boardActionOverlap": false,
-      "boardDossierOverlap": false
+      "boardDossierOverlap": false,
+      "terrainNoticeOverlap": false,
+      "dualApTextOverlap": false
     }
   },
   {
@@ -116,6 +432,7 @@
         "width": 1440,
         "height": 900
       },
+      "devicePixelRatio": 1,
       "documentOverflow": 0,
       "root": {
         "x": 0,
@@ -141,37 +458,45 @@
         "right": 1182,
         "bottom": 886
       },
+      "boardStage": {
+        "x": 259,
+        "y": 184.5,
+        "width": 922,
+        "height": 424.8833312988281,
+        "right": 1181,
+        "bottom": 609.3833312988281
+      },
       "board": {
-        "x": 377.98333740234375,
-        "y": 188.5,
-        "width": 684.0333251953125,
-        "height": 421.8833312988281,
-        "right": 1062.0166625976562,
-        "bottom": 610.3833312988281
+        "x": 375.54998779296875,
+        "y": 184.5,
+        "width": 688.9000244140625,
+        "height": 424.8833312988281,
+        "right": 1064.4500122070312,
+        "bottom": 609.3833312988281
       },
       "gridLayer": {
-        "x": 379.6499938964844,
-        "y": 189.60000610351562,
-        "width": 680.6500244140625,
-        "height": 419.79998779296875,
-        "right": 1060.3000183105469,
-        "bottom": 609.3999938964844
+        "x": 377.3999938964844,
+        "y": 185.6666717529297,
+        "width": 685.316650390625,
+        "height": 422.683349609375,
+        "right": 1062.7166442871094,
+        "bottom": 608.3500213623047
       },
       "actions": {
         "x": 259,
-        "y": 744.38330078125,
+        "y": 743.38330078125,
         "width": 922,
-        "height": 140.63333129882812,
+        "height": 141.63333129882812,
         "right": 1181,
         "bottom": 885.0166320800781
       },
       "tabs": {
         "x": 259,
-        "y": 607.88330078125,
+        "y": 606.88330078125,
         "width": 922,
         "height": 48,
         "right": 1181,
-        "bottom": 655.88330078125
+        "bottom": 654.88330078125
       },
       "log": null,
       "dossiers": [
@@ -192,23 +517,330 @@
           "bottom": 886
         }
       ],
+      "dossierFlow": [
+        {
+          "dossier": 0,
+          "display": "flex",
+          "columns": "repeat(2, minmax(0px, 1fr))",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 39,
+                "width": 188,
+                "height": 68.94999694824219,
+                "right": 231,
+                "bottom": 107.94999694824219
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 76,
+                "y": 125.94999694824219,
+                "width": 122,
+                "height": 122,
+                "right": 198,
+                "bottom": 247.9499969482422
+              }
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 265.95001220703125,
+                "width": 188,
+                "height": 25,
+                "right": 231,
+                "bottom": 290.95001220703125
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 292.95001220703125,
+                "width": 188,
+                "height": 25,
+                "right": 231,
+                "bottom": 317.95001220703125
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 319.95001220703125,
+                "width": 188,
+                "height": 25,
+                "right": 231,
+                "bottom": 344.95001220703125
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 348.95001220703125,
+                "width": 188,
+                "height": 9.5,
+                "right": 231,
+                "bottom": 358.45001220703125
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 372.45001220703125,
+                "width": 188,
+                "height": 58,
+                "right": 231,
+                "bottom": 430.45001220703125
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 441.45001220703125,
+                "width": 188,
+                "height": 58,
+                "right": 231,
+                "bottom": 499.45001220703125
+              }
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 824,
+                "width": 188,
+                "height": 24,
+                "right": 231,
+                "bottom": 848
+              }
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 43,
+                "y": 850,
+                "width": 188,
+                "height": 25,
+                "right": 231,
+                "bottom": 875
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": null
+            }
+          ]
+        },
+        {
+          "dossier": 1,
+          "display": "flex",
+          "columns": "repeat(2, minmax(0px, 1fr))",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 39,
+                "width": 188,
+                "height": 68.94999694824219,
+                "right": 1397,
+                "bottom": 107.94999694824219
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1242,
+                "y": 125.94999694824219,
+                "width": 122,
+                "height": 122,
+                "right": 1364,
+                "bottom": 247.9499969482422
+              }
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 265.95001220703125,
+                "width": 188,
+                "height": 25,
+                "right": 1397,
+                "bottom": 290.95001220703125
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 292.95001220703125,
+                "width": 188,
+                "height": 25,
+                "right": 1397,
+                "bottom": 317.95001220703125
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 319.95001220703125,
+                "width": 188,
+                "height": 25,
+                "right": 1397,
+                "bottom": 344.95001220703125
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 348.95001220703125,
+                "width": 188,
+                "height": 9.5,
+                "right": 1397,
+                "bottom": 358.45001220703125
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 372.45001220703125,
+                "width": 188,
+                "height": 58,
+                "right": 1397,
+                "bottom": 430.45001220703125
+              }
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 441.45001220703125,
+                "width": 188,
+                "height": 58,
+                "right": 1397,
+                "bottom": 499.45001220703125
+              }
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 824,
+                "width": 188,
+                "height": 24,
+                "right": 1397,
+                "bottom": 848
+              }
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 1209,
+                "y": 850,
+                "width": 188,
+                "height": 25,
+                "right": 1397,
+                "bottom": 875
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": null
+            }
+          ]
+        }
+      ],
       "gridTemplateColumns": "210px 924px 210px",
       "gridTemplateRows": "858px",
       "mainGridRowCount": 7,
+      "mainGridTemplateColumns": "922px",
+      "mainGridTemplateRows": "110.5px 26px 424.883px 48px 0px 72px 141.633px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
+      "tileCentersHitTheirTile": true,
+      "tileCenterHitCount": 120,
+      "tileCenterMisses": [],
+      "dossierResourcesContained": true,
+      "dossierContentMisses": [],
+      "firstJutsuCenterVisibleAndHit": true,
+      "firstJutsuCenterHit": "combat-jutsu-resources",
+      "firstJutsu": {
+        "x": 273,
+        "y": 751.38330078125,
+        "width": 103.88333129882812,
+        "height": 103.88333129882812,
+        "right": 376.8833312988281,
+        "bottom": 855.2666320800781
+      },
       "tileCenterBounds": {
-        "x": 416.44166564941406,
-        "y": 211.05833435058594,
-        "right": 1023.5083465576172,
-        "bottom": 587.9416656494141,
-        "width": 607.0666809082031,
-        "height": 376.8833312988281
+        "x": 414.44166564941406,
+        "y": 207.2750015258789,
+        "right": 1025.6749649047852,
+        "bottom": 586.7416381835938,
+        "width": 611.2332992553711,
+        "height": 379.46663665771484
       },
       "minCommandTouchTarget": 48,
       "boardActionOverlap": false,
-      "boardDossierOverlap": false
+      "boardDossierOverlap": false,
+      "terrainNoticeOverlap": false,
+      "dualApTextOverlap": false
     }
   },
   {
@@ -222,6 +854,7 @@
         "width": 1152,
         "height": 720
       },
+      "devicePixelRatio": 1,
       "documentOverflow": 0,
       "root": {
         "x": 0,
@@ -247,6 +880,14 @@
         "right": 1111.3166961669922,
         "bottom": 685.3000335693359
       },
+      "boardStage": {
+        "x": 41.69999694824219,
+        "y": 263.8833312988281,
+        "width": 1068.61669921875,
+        "height": 211.0833282470703,
+        "right": 1110.3166961669922,
+        "bottom": 474.96665954589844
+      },
       "board": {
         "x": 404.8833312988281,
         "y": 263.8833312988281,
@@ -256,12 +897,12 @@
         "bottom": 474.96665954589844
       },
       "gridLayer": {
-        "x": 406.3833312988281,
-        "y": 264.8833312988281,
-        "width": 339,
-        "height": 209.0833282470703,
-        "right": 745.3833312988281,
-        "bottom": 473.96665954589844
+        "x": 406.7166748046875,
+        "y": 265.04998779296875,
+        "width": 338.3333435058594,
+        "height": 208.66665649414062,
+        "right": 745.0500183105469,
+        "bottom": 473.7166442871094
       },
       "actions": {
         "x": 41.69999694824219,
@@ -298,23 +939,288 @@
           "bottom": 136.60000610351562
         }
       ],
+      "dossierFlow": [
+        {
+          "dossier": 0,
+          "display": "grid",
+          "columns": "254.083px 254.083px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 48.366668701171875,
+                "y": 44.366668701171875,
+                "width": 516.1666870117188,
+                "height": 16.099990844726562,
+                "right": 564.5333557128906,
+                "bottom": 60.46665954589844
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 48.366668701171875,
+                "y": 62.46665954589844,
+                "width": 254.0833282470703,
+                "height": 13,
+                "right": 302.4499969482422,
+                "bottom": 75.46665954589844
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 310.45001220703125,
+                "y": 62.46665954589844,
+                "width": 254.08334350585938,
+                "height": 13,
+                "right": 564.5333557128906,
+                "bottom": 75.46665954589844
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 48.366668701171875,
+                "y": 77.46665954589844,
+                "width": 254.0833282470703,
+                "height": 24,
+                "right": 302.4499969482422,
+                "bottom": 101.46665954589844
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 310.45001220703125,
+                "y": 77.46665954589844,
+                "width": 254.08334350585938,
+                "height": 24,
+                "right": 564.5333557128906,
+                "bottom": 101.46665954589844
+              }
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 48.366668701171875,
+                "y": 103.46665954589844,
+                "width": 254.0833282470703,
+                "height": 13,
+                "right": 302.4499969482422,
+                "bottom": 116.46665954589844
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 48.366668701171875,
+                "y": 118.46665954589844,
+                "width": 516.1666870117188,
+                "height": 10.4666748046875,
+                "right": 564.5333557128906,
+                "bottom": 128.93333435058594
+              }
+            }
+          ]
+        },
+        {
+          "dossier": 1,
+          "display": "grid",
+          "columns": "254.083px 254.083px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 587.4833374023438,
+                "y": 44.366668701171875,
+                "width": 516.1666259765625,
+                "height": 16.099990844726562,
+                "right": 1103.6499633789062,
+                "bottom": 60.46665954589844
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 587.4833374023438,
+                "y": 62.46665954589844,
+                "width": 254.0833282470703,
+                "height": 13,
+                "right": 841.5666656494141,
+                "bottom": 75.46665954589844
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 849.566650390625,
+                "y": 62.46665954589844,
+                "width": 254.0833282470703,
+                "height": 13,
+                "right": 1103.6499786376953,
+                "bottom": 75.46665954589844
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 587.4833374023438,
+                "y": 77.46665954589844,
+                "width": 254.0833282470703,
+                "height": 24,
+                "right": 841.5666656494141,
+                "bottom": 101.46665954589844
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 849.566650390625,
+                "y": 77.46665954589844,
+                "width": 254.0833282470703,
+                "height": 24,
+                "right": 1103.6499786376953,
+                "bottom": 101.46665954589844
+              }
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 587.4833374023438,
+                "y": 103.46665954589844,
+                "width": 254.0833282470703,
+                "height": 13,
+                "right": 841.5666656494141,
+                "bottom": 116.46665954589844
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 587.4833374023438,
+                "y": 118.46665954589844,
+                "width": 516.1666259765625,
+                "height": 10.4666748046875,
+                "right": 1103.6499633789062,
+                "bottom": 128.93333435058594
+              }
+            }
+          ]
+        }
+      ],
       "gridTemplateColumns": "531.5px 531.5px",
       "gridTemplateRows": "99.9px 541.083px",
       "mainGridRowCount": 7,
+      "mainGridTemplateColumns": "1068.62px",
+      "mainGridTemplateRows": "76px 26px 211.083px 48px 0px 56px 96px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
+      "tileCentersHitTheirTile": true,
+      "tileCenterHitCount": 120,
+      "tileCenterMisses": [],
+      "dossierResourcesContained": true,
+      "dossierContentMisses": [],
+      "firstJutsuCenterVisibleAndHit": true,
+      "firstJutsuCenterHit": "combat-jutsu-method-target",
+      "firstJutsu": {
+        "x": 63.31666564941406,
+        "y": 603.9166870117188,
+        "width": 139.1666717529297,
+        "height": 139.16665649414062,
+        "right": 202.48333740234375,
+        "bottom": 743.0833435058594
+      },
       "tileCenterBounds": {
-        "x": 424.70833587646484,
-        "y": 275.5749969482422,
-        "right": 727.0583343505859,
-        "bottom": 463.2749786376953,
-        "width": 302.3499984741211,
-        "height": 187.69998168945312
+        "x": 425.0083465576172,
+        "y": 275.7166519165039,
+        "right": 726.7583465576172,
+        "bottom": 463.0499954223633,
+        "width": 301.75,
+        "height": 187.33334350585938
       },
       "minCommandTouchTarget": 44,
       "boardActionOverlap": false,
-      "boardDossierOverlap": false
+      "boardDossierOverlap": false,
+      "terrainNoticeOverlap": false,
+      "dualApTextOverlap": false
     }
   },
   {
@@ -328,6 +1234,7 @@
         "width": 960,
         "height": 600
       },
+      "devicePixelRatio": 1,
       "documentOverflow": 0,
       "root": {
         "x": 0,
@@ -353,6 +1260,14 @@
         "right": 946.4167022705078,
         "bottom": 584.4166717529297
       },
+      "boardStage": {
+        "x": 13.583328247070312,
+        "y": 230.21665954589844,
+        "width": 932.8333740234375,
+        "height": 146.20001220703125,
+        "right": 946.4167022705078,
+        "bottom": 376.4166717529297
+      },
       "board": {
         "x": 361.4666748046875,
         "y": 230.21665954589844,
@@ -362,12 +1277,12 @@
         "bottom": 376.4166717529297
       },
       "gridLayer": {
-        "x": 363.08331298828125,
-        "y": 231.21665954589844,
-        "width": 233.7666778564453,
-        "height": 144.18333435058594,
-        "right": 596.8499908447266,
-        "bottom": 375.3999938964844
+        "x": 363.41668701171875,
+        "y": 231.3333282470703,
+        "width": 233.09999084472656,
+        "height": 143.7666778564453,
+        "right": 596.5166778564453,
+        "bottom": 375.1000061035156
       },
       "actions": {
         "x": 13.583328247070312,
@@ -404,23 +1319,1006 @@
           "bottom": 105.58332824707031
         }
       ],
+      "dossierFlow": [
+        {
+          "dossier": 0,
+          "display": "grid",
+          "columns": "220.55px 220.55px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "1",
+              "rect": {
+                "x": 20.583328247070312,
+                "y": 20.583328247070312,
+                "width": 449.1000061035156,
+                "height": 12.600006103515625,
+                "right": 469.68333435058594,
+                "bottom": 33.18333435058594
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "1",
+              "gridRow": "1 / span 2",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 20.583328247070312,
+                "y": 35.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 241.13333129882812,
+                "bottom": 49.18333435058594
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 249.13333129882812,
+                "y": 35.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 469.68333435058594,
+                "bottom": 49.18333435058594
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 20.583328247070312,
+                "y": 51.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 241.13333129882812,
+                "bottom": 65.18333435058594
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 249.13333129882812,
+                "y": 51.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 469.68333435058594,
+                "bottom": 65.18333435058594
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 20.583328247070312,
+                "y": 67.18333435058594,
+                "width": 449.1000061035156,
+                "height": 16.449996948242188,
+                "right": 469.68333435058594,
+                "bottom": 83.63333129882812
+              }
+            }
+          ]
+        },
+        {
+          "dossier": 1,
+          "display": "grid",
+          "columns": "220.55px 220.55px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "1",
+              "rect": {
+                "x": 490.316650390625,
+                "y": 20.583328247070312,
+                "width": 449.1000061035156,
+                "height": 12.600006103515625,
+                "right": 939.4166564941406,
+                "bottom": 33.18333435058594
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "1",
+              "gridRow": "1 / span 2",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 490.316650390625,
+                "y": 35.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 710.8666534423828,
+                "bottom": 49.18333435058594
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 718.86669921875,
+                "y": 35.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 939.4167022705078,
+                "bottom": 49.18333435058594
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 490.316650390625,
+                "y": 51.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 710.8666534423828,
+                "bottom": 65.18333435058594
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 718.86669921875,
+                "y": 51.18333435058594,
+                "width": 220.5500030517578,
+                "height": 14,
+                "right": 939.4167022705078,
+                "bottom": 65.18333435058594
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 490.316650390625,
+                "y": 67.18333435058594,
+                "width": 449.1000061035156,
+                "height": 16.449996948242188,
+                "right": 939.4166564941406,
+                "bottom": 83.63333129882812
+              }
+            }
+          ]
+        }
+      ],
       "gridTemplateColumns": "463.1px 463.1px",
       "gridTemplateRows": "92px 472.2px",
       "mainGridRowCount": 7,
+      "mainGridTemplateColumns": "932.833px",
+      "mainGridTemplateRows": "76px 26px 146.2px 48px 0px 56px 96px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
+      "tileCentersHitTheirTile": true,
+      "tileCenterHitCount": 120,
+      "tileCenterMisses": [],
+      "dossierResourcesContained": true,
+      "dossierContentMisses": [],
+      "firstJutsuCenterVisibleAndHit": true,
+      "firstJutsuCenterHit": "combat-jutsu-method-target",
+      "firstJutsu": {
+        "x": 29.216659545898438,
+        "y": 504.04998779296875,
+        "width": 122.2166748046875,
+        "height": 122.21665954589844,
+        "right": 151.43333435058594,
+        "bottom": 626.2666473388672
+      },
       "tileCenterBounds": {
-        "x": 375.7166519165039,
-        "y": 238.94166564941406,
-        "right": 584.2166519165039,
-        "bottom": 368.375,
-        "width": 208.5,
-        "height": 129.43333435058594
+        "x": 376.01668548583984,
+        "y": 239.03333282470703,
+        "right": 583.9166488647461,
+        "bottom": 368.0999984741211,
+        "width": 207.89996337890625,
+        "height": 129.06666564941406
       },
       "minCommandTouchTarget": 44,
       "boardActionOverlap": false,
-      "boardDossierOverlap": false
+      "boardDossierOverlap": false,
+      "terrainNoticeOverlap": false,
+      "dualApTextOverlap": false
+    }
+  },
+  {
+    "zoomPercent": 200,
+    "physicalViewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "measurement": {
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "devicePixelRatio": 1,
+      "documentOverflow": 0,
+      "root": {
+        "x": 0,
+        "y": 0,
+        "width": 720,
+        "height": 450,
+        "right": 720,
+        "bottom": 450
+      },
+      "layout": {
+        "x": 6,
+        "y": 6,
+        "width": 708,
+        "height": 436,
+        "right": 714,
+        "bottom": 442
+      },
+      "main": {
+        "x": 12,
+        "y": 122,
+        "width": 696,
+        "height": 314,
+        "right": 708,
+        "bottom": 436
+      },
+      "boardStage": {
+        "x": 12,
+        "y": 212,
+        "width": 446.91668701171875,
+        "height": 224,
+        "right": 458.91668701171875,
+        "bottom": 436
+      },
+      "board": {
+        "x": 53.850006103515625,
+        "y": 212,
+        "width": 363.20001220703125,
+        "height": 224,
+        "right": 417.0500183105469,
+        "bottom": 436
+      },
+      "gridLayer": {
+        "x": 55.53334045410156,
+        "y": 213.10000610351562,
+        "width": 359.6333312988281,
+        "height": 221.81666564941406,
+        "right": 415.1666717529297,
+        "bottom": 434.9166717529297
+      },
+      "actions": {
+        "x": 462.91668701171875,
+        "y": 309.79998779296875,
+        "width": 245.0833282470703,
+        "height": 126.19999694824219,
+        "right": 708.0000152587891,
+        "bottom": 435.99998474121094
+      },
+      "tabs": {
+        "x": 462.91668701171875,
+        "y": 122,
+        "width": 245.0833282470703,
+        "height": 48,
+        "right": 708.0000152587891,
+        "bottom": 170
+      },
+      "log": null,
+      "dossiers": [
+        {
+          "x": 12,
+          "y": 12,
+          "width": 345,
+          "height": 104,
+          "right": 357,
+          "bottom": 116
+        },
+        {
+          "x": 363,
+          "y": 12,
+          "width": 345,
+          "height": 104,
+          "right": 708,
+          "bottom": 116
+        }
+      ],
+      "dossierFlow": [
+        {
+          "dossier": 0,
+          "display": "grid",
+          "columns": "161.5px 161.5px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "1",
+              "rect": {
+                "x": 19,
+                "y": 17,
+                "width": 331,
+                "height": 12.600006103515625,
+                "right": 350,
+                "bottom": 29.600006103515625
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "1",
+              "gridRow": "1 / span 2",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 19,
+                "y": 31.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 180.5,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 188.5,
+                "y": 31.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 350,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 19,
+                "y": 47.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 180.5,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 188.5,
+                "y": 47.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 350,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 19,
+                "y": 63.600006103515625,
+                "width": 331,
+                "height": 16.449996948242188,
+                "right": 350,
+                "bottom": 80.05000305175781
+              }
+            }
+          ]
+        },
+        {
+          "dossier": 1,
+          "display": "grid",
+          "columns": "161.5px 161.5px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "1",
+              "rect": {
+                "x": 370,
+                "y": 17,
+                "width": 331,
+                "height": 12.600006103515625,
+                "right": 701,
+                "bottom": 29.600006103515625
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "1",
+              "gridRow": "1 / span 2",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 370,
+                "y": 31.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 531.5,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 539.5,
+                "y": 31.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 701,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 370,
+                "y": 47.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 531.5,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 539.5,
+                "y": 47.600006103515625,
+                "width": 161.5,
+                "height": 14,
+                "right": 701,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 370,
+                "y": 63.600006103515625,
+                "width": 331,
+                "height": 16.449996948242188,
+                "right": 701,
+                "bottom": 80.05000305175781
+              }
+            }
+          ]
+        }
+      ],
+      "gridTemplateColumns": "345px 345px",
+      "gridTemplateRows": "104px 314px",
+      "mainGridRowCount": 4,
+      "mainGridTemplateColumns": "446.917px 245.083px",
+      "mainGridTemplateRows": "48px 26px 101.8px 126.2px",
+      "visibleTileCount": 120,
+      "allTilesNamed": true,
+      "tileCentersInsideBoard": true,
+      "tileCentersHitTheirTile": true,
+      "tileCenterHitCount": 120,
+      "tileCenterMisses": [],
+      "dossierResourcesContained": true,
+      "dossierContentMisses": [],
+      "firstJutsuCenterVisibleAndHit": true,
+      "firstJutsuCenterHit": "combat-jutsu-fallback-icon",
+      "firstJutsu": {
+        "x": 474.91668701171875,
+        "y": 321.79998779296875,
+        "width": 177.0833282470703,
+        "height": 44,
+        "right": 652.0000152587891,
+        "bottom": 365.79998779296875
+      },
+      "tileCenterBounds": {
+        "x": 74.97500610351562,
+        "y": 224.98333740234375,
+        "right": 395.7416534423828,
+        "bottom": 424.1166687011719,
+        "width": 320.7666473388672,
+        "height": 199.13333129882812
+      },
+      "minCommandTouchTarget": 45.399993896484375,
+      "boardActionOverlap": false,
+      "boardDossierOverlap": false,
+      "terrainNoticeOverlap": false,
+      "dualApTextOverlap": false
+    }
+  },
+  {
+    "zoomPercent": 200,
+    "physicalViewport": {
+      "width": 1024,
+      "height": 768
+    },
+    "measurement": {
+      "viewport": {
+        "width": 512,
+        "height": 384
+      },
+      "devicePixelRatio": 1,
+      "documentOverflow": 0,
+      "root": {
+        "x": 0,
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "right": 512,
+        "bottom": 384
+      },
+      "layout": {
+        "x": 6,
+        "y": 6,
+        "width": 500,
+        "height": 370,
+        "right": 506,
+        "bottom": 376
+      },
+      "main": {
+        "x": 12,
+        "y": 114.19999694824219,
+        "width": 488,
+        "height": 255.8000030517578,
+        "right": 500,
+        "bottom": 370
+      },
+      "boardStage": {
+        "x": 12,
+        "y": 204.1999969482422,
+        "width": 264,
+        "height": 165.8000030517578,
+        "right": 276,
+        "bottom": 370
+      },
+      "board": {
+        "x": 12,
+        "y": 206.68333435058594,
+        "width": 264,
+        "height": 162.81666564941406,
+        "right": 276,
+        "bottom": 369.5
+      },
+      "gridLayer": {
+        "x": 13.800003051757812,
+        "y": 207.88333129882812,
+        "width": 260.3999938964844,
+        "height": 160.61666870117188,
+        "right": 274.1999969482422,
+        "bottom": 368.5
+      },
+      "actions": {
+        "x": 280,
+        "y": 302,
+        "width": 220,
+        "height": 68,
+        "right": 500,
+        "bottom": 370
+      },
+      "tabs": {
+        "x": 280,
+        "y": 114.19999694824219,
+        "width": 220,
+        "height": 48,
+        "right": 500,
+        "bottom": 162.1999969482422
+      },
+      "log": null,
+      "dossiers": [
+        {
+          "x": 12,
+          "y": 12,
+          "width": 241,
+          "height": 96.19999694824219,
+          "right": 253,
+          "bottom": 108.19999694824219
+        },
+        {
+          "x": 259,
+          "y": 12,
+          "width": 241,
+          "height": 96.19999694824219,
+          "right": 500,
+          "bottom": 108.19999694824219
+        }
+      ],
+      "dossierFlow": [
+        {
+          "dossier": 0,
+          "display": "grid",
+          "columns": "109.5px 109.5px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "1",
+              "rect": {
+                "x": 19,
+                "y": 17,
+                "width": 227,
+                "height": 12.600006103515625,
+                "right": 246,
+                "bottom": 29.600006103515625
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "1",
+              "gridRow": "1 / span 2",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 19,
+                "y": 31.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 128.5,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 136.5,
+                "y": 31.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 246,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 19,
+                "y": 47.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 128.5,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 136.5,
+                "y": 47.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 246,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 19,
+                "y": 63.600006103515625,
+                "width": 227,
+                "height": 16.449996948242188,
+                "right": 246,
+                "bottom": 80.05000305175781
+              }
+            }
+          ]
+        },
+        {
+          "dossier": 1,
+          "display": "grid",
+          "columns": "109.5px 109.5px",
+          "children": [
+            {
+              "className": "combat-hud-header",
+              "gridColumn": "1 / -1",
+              "gridRow": "1",
+              "rect": {
+                "x": 266,
+                "y": 17,
+                "width": 227,
+                "height": 12.600006103515625,
+                "right": 493,
+                "bottom": 29.600006103515625
+              }
+            },
+            {
+              "className": "combat-avatar",
+              "gridColumn": "1",
+              "gridRow": "1 / span 2",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--hp",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 266,
+                "y": 31.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 375.5,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--chakra",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 383.5,
+                "y": 31.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 493,
+                "bottom": 45.600006103515625
+              }
+            },
+            {
+              "className": "resource-line resource-line--stamina",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 266,
+                "y": 47.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 375.5,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-hud-meta",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-buff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-effect-panel effects-debuff",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "combat-hud-stats",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": null
+            },
+            {
+              "className": "resource-line resource-line--shield",
+              "gridColumn": "auto",
+              "gridRow": "auto",
+              "rect": {
+                "x": 383.5,
+                "y": 47.600006103515625,
+                "width": 109.5,
+                "height": 14,
+                "right": 493,
+                "bottom": 61.600006103515625
+              }
+            },
+            {
+              "className": "combat-mobile-effects",
+              "gridColumn": "1 / -1",
+              "gridRow": "auto",
+              "rect": {
+                "x": 266,
+                "y": 63.600006103515625,
+                "width": 227,
+                "height": 16.449996948242188,
+                "right": 493,
+                "bottom": 80.05000305175781
+              }
+            }
+          ]
+        }
+      ],
+      "gridTemplateColumns": "241px 241px",
+      "gridTemplateRows": "96.2px 255.8px",
+      "mainGridRowCount": 4,
+      "mainGridTemplateColumns": "264px 220px",
+      "mainGridTemplateRows": "48px 26px 101.8px 68px",
+      "visibleTileCount": 120,
+      "allTilesNamed": true,
+      "tileCentersInsideBoard": true,
+      "tileCentersHitTheirTile": true,
+      "tileCenterHitCount": 120,
+      "tileCenterMisses": [],
+      "dossierResourcesContained": true,
+      "dossierContentMisses": [],
+      "firstJutsuCenterVisibleAndHit": true,
+      "firstJutsuCenterHit": "combat-jutsu-fallback-icon",
+      "firstJutsu": {
+        "x": 292,
+        "y": 314,
+        "width": 152,
+        "height": 44,
+        "right": 444,
+        "bottom": 358
+      },
+      "tileCenterBounds": {
+        "x": 27.875,
+        "y": 216.48332977294922,
+        "right": 260.125,
+        "bottom": 360.6666488647461,
+        "width": 232.25,
+        "height": 144.18331909179688
+      },
+      "minCommandTouchTarget": 45.399993896484375,
+      "boardActionOverlap": false,
+      "boardDossierOverlap": false,
+      "terrainNoticeOverlap": false,
+      "dualApTextOverlap": false
     }
   }
 ]

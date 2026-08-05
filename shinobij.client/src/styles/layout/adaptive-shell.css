@@ -1,0 +1,326 @@
+/* ==========================================================================
+   Adaptive application shell
+
+   The only normal-page authority for root sizing, rail/content geometry,
+   shell scrolling, desktop/mobile navigation visibility, and nav clearance.
+   Feature styles may decorate these surfaces but must not reposition them.
+   ========================================================================== */
+
+html,
+body,
+#root {
+  margin: 0;
+  min-inline-size: 0;
+  min-block-size: 100%;
+}
+
+html {
+  /* Logical-stage overlays can briefly animate beyond a clipped canvas. They
+     must never turn those world coordinates into document-level panning. */
+  overflow-x: clip;
+}
+
+body {
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  overflow-x: clip;
+}
+
+#root {
+  min-block-size: 100dvh;
+}
+
+.app-shell[data-shell="adaptive"] {
+  --shell-left-current: var(--shell-left-rail);
+  --shell-right-current: var(--shell-right-rail);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--shell-left-current)
+    minmax(0, var(--shell-content-max))
+    var(--shell-right-current)
+    minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: var(--shell-gap);
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 100vh;
+  block-size: 100dvh;
+  min-block-size: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell[data-shell="adaptive"]:has(> .right-menu-panel.closed) {
+  --shell-right-current: var(--shell-right-rail-collapsed);
+}
+
+.app-shell[data-shell="adaptive"] > .app-background {
+  position: fixed;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100dvh;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+  z-index: var(--z-background);
+}
+
+.app-shell[data-shell="adaptive"] > .left-profile-card,
+.app-shell[data-shell="adaptive"] > .sector-banner-panel {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.app-shell[data-shell="adaptive"] > .center-game {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.app-shell[data-shell="adaptive"] > .right-menu-panel {
+  grid-column: 4;
+  grid-row: 1;
+}
+
+.app-shell[data-shell="adaptive"] > .left-profile-card,
+.app-shell[data-shell="adaptive"] > .right-menu-panel,
+.app-shell[data-shell="adaptive"] > .sector-banner-panel {
+  box-sizing: border-box;
+  position: relative;
+  inset: auto;
+  transform: none;
+  align-self: stretch;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: none;
+  block-size: 100dvh;
+  min-block-size: 0;
+  max-block-size: 100dvh;
+  z-index: var(--z-rail);
+}
+
+/* Combat takeovers own the full stage; application rails have no interactive
+   role and must not paint over in-grid dossiers. */
+.app-shell[data-shell="adaptive"]:has(.arena-fullscreen) > .left-profile-card,
+.app-shell[data-shell="adaptive"]:has(.arena-fullscreen) > .sector-banner-panel {
+  display: none !important;
+}
+
+.app-shell[data-shell="adaptive"] > .left-profile-card {
+  display: flex;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: var(--shell-left-rail-padding);
+  gap: var(--shell-rail-content-gap);
+  font-size: var(--shell-rail-font-size);
+}
+
+.app-shell[data-shell="adaptive"] > .right-menu-panel {
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: var(--shell-right-rail-padding);
+}
+
+.app-shell[data-shell="adaptive"] > .right-menu-panel.closed {
+  padding-inline: var(--sp-2);
+}
+
+.app-shell[data-shell="adaptive"] > .sector-banner-panel {
+  overflow: clip;
+}
+
+.app-shell[data-shell="adaptive"]:has(> .left-profile-card) > .sector-banner-panel {
+  display: none;
+}
+
+.app-shell[data-shell="adaptive"] > .center-game {
+  position: relative;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: none;
+  block-size: 100dvh;
+  min-block-size: 0;
+  margin: 0;
+  padding: var(--shell-page-padding-block) var(--shell-page-padding-inline);
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  container: game-content / inline-size;
+}
+
+.app-shell[data-shell="adaptive"].screen-start {
+  display: block;
+  block-size: auto;
+  min-block-size: 100dvh;
+  overflow: visible;
+}
+
+.app-shell[data-shell="adaptive"].screen-start > .center-game {
+  inline-size: 100%;
+  min-block-size: 100dvh;
+  block-size: auto;
+  padding: 0;
+  overflow: visible;
+}
+
+.mobile-top-hud,
+.mobile-bottom-nav {
+  display: none;
+}
+
+#battle-hud-portal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-combat-hud);
+  pointer-events: none;
+}
+
+.storage-notice {
+  inset-block-end: 0;
+  z-index: var(--z-notice);
+  max-block-size: min(44dvh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 980px) and (max-width: 1179px) {
+  .app-shell[data-shell="adaptive"] {
+    --shell-left-current: var(--shell-left-rail-compact);
+    --shell-right-current: var(--shell-right-rail-compact);
+  }
+}
+
+@media (max-width: 979px) {
+  html,
+  body,
+  #root {
+    block-size: auto;
+    min-block-size: 100%;
+    overflow-y: visible;
+  }
+
+  body {
+    min-block-size: 100dvh;
+    /* Let the document element own mobile scrolling. Making a content-height
+       body an `auto` scroller gives sticky HUDs a non-scrolling containing
+       block, so they disappear on long clan/inventory pages. */
+    overflow-y: visible;
+  }
+
+  .app-shell[data-shell="adaptive"] {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    min-block-size: 100dvh;
+    overflow: visible;
+  }
+
+  .app-shell[data-shell="adaptive"] > .left-profile-card,
+  .app-shell[data-shell="adaptive"] > .right-menu-panel,
+  .app-shell[data-shell="adaptive"] > .sector-banner-panel {
+    display: none;
+  }
+
+  .app-shell[data-shell="adaptive"] > .center-game {
+    /* A size-query container establishes a containing block for fixed
+       descendants. The mobile HUD must be viewport-fixed, and no mobile
+       feature queries `game-content`, so release that containing block here. */
+    container: normal;
+    inline-size: 100%;
+    block-size: auto;
+    min-block-size: 0;
+    margin: 0;
+    padding:
+      calc(76px + var(--shell-mobile-page-padding) + env(safe-area-inset-top, 0px))
+      var(--shell-mobile-page-padding)
+      calc(var(--shell-mobile-nav-clearance) + env(safe-area-inset-bottom, 0px));
+    overflow-x: clip;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+  }
+
+  /* Fixed-surface exceptions remain part of the shell contract: Tavern owns a
+     viewport chat log, while Battle Arena owns the one route-level scroller
+     needed to prevent fixed-nav swipe gestures from landing on battle actions. */
+  .app-shell[data-shell="adaptive"] > .center-game.screen-tavern {
+    block-size: 100dvh !important;
+    min-block-size: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .app-shell[data-shell="adaptive"] > .center-game.screen-battleArena {
+    block-size: 100dvh !important;
+    min-block-size: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
+
+  .mobile-top-hud {
+    display: flex;
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: var(--z-sticky);
+    padding: calc(var(--sp-2) + env(safe-area-inset-top, 0px)) var(--sp-3) var(--sp-2);
+  }
+
+  .app-shell[data-shell="adaptive"].screen-tavern > .mobile-top-hud {
+    display: none !important;
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: var(--z-mobile-nav);
+    min-block-size: var(--shell-mobile-nav-height);
+    padding: var(--sp-2) var(--sp-1) calc(var(--sp-2) + env(safe-area-inset-bottom, 0px));
+    gap: var(--sp-1);
+    align-items: center;
+    justify-content: space-around;
+  }
+
+  .mobile-bottom-nav :where(button, a),
+  .mobile-top-hud :where(button, a) {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+  }
+
+  .storage-notice {
+    inset-block-end: calc(var(--shell-mobile-nav-height) + var(--sp-2) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 800px) {
+  /* The coach banner is taller than the fixed nav. Reserve its measured
+     footprint here so lazy-loaded feature CSS cannot change shell geometry. */
+  body.coach-banner-open .app-shell[data-shell="adaptive"] > .center-game {
+    padding-block-end: calc(230px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+@media (max-width: 559px) {
+  .app-shell[data-shell="adaptive"] > .center-game {
+    --shell-mobile-page-padding: var(--sp-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell[data-shell="adaptive"] *,
+  .storage-notice {
+    scroll-behavior: auto;
+  }
+}

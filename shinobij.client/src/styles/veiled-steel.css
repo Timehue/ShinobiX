@@ -112,8 +112,6 @@ html body.ui-scroll-locked {
 
 .app-shell:not(.screen-start) .left-profile-card {
   border-right: 1px solid color-mix(in srgb, var(--village-accent) 48%, var(--sj-border-soft));
-  box-sizing: border-box;
-  min-width: 0;
 }
 
 .app-shell:not(.screen-start) .left-profile-card > * {
@@ -155,8 +153,6 @@ html body.ui-scroll-locked {
 
 .app-shell:not(.screen-start) .right-menu-panel {
   border-left: 1px solid color-mix(in srgb, var(--village-accent) 42%, var(--sj-border-soft));
-  box-sizing: border-box;
-  overflow-x: hidden;
 }
 
 .app-shell:not(.screen-start) .right-menu-buttons {
@@ -238,27 +234,12 @@ html body.ui-scroll-locked {
 /* Fight boards replace the application rails with their own combat HUD. Once
    that chrome is hidden, release both reserved gutters so the board can use the
    entire shell width instead of staying trapped in the desktop center column. */
-.app-shell:not(.screen-start) .center-game.battle-focus {
-  width: 100% !important;
-  max-width: 100% !important;
-  margin-right: 0 !important;
-  margin-left: 0 !important;
-}
-
 /* A screen that portals a player HUD into the fixed lg/xl rail needs that
    battle-owned rail kept reserved while still releasing the application menu
    gutter; otherwise the full-width command deck renders underneath the fixed
    HUD and clips Attack/the leftmost jutsu card. Duel-dossier fights
    (.pvp-battle-layout — now both PvP and PvE) hide the portaled rail HUD and
    use in-grid fighter dossiers, so they keep the true full-width layout. */
-html[data-vp="lg"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(:has(.arena-fullscreen.pvp-battle-layout)) .center-game.battle-focus,
-html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(:has(.arena-fullscreen.pvp-battle-layout)) .center-game.battle-focus {
-  width: calc(100% - var(--side-rail-w) - var(--main-gutter)) !important;
-  max-width: calc(100% - var(--side-rail-w) - var(--main-gutter)) !important;
-  margin-left: calc(var(--side-rail-w) + var(--main-gutter)) !important;
-  margin-right: 0 !important;
-}
-
 /* The journey banner becomes a persistent, contextual command header. */
 .app-shell:not(.screen-start) .journey-banner {
   position: relative;
@@ -890,7 +871,7 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
   letter-spacing: 0.08em;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 979px) {
   .app-shell:not(.screen-start)::after {
     background: linear-gradient(180deg, rgba(8, 11, 15, 0.54), rgba(8, 11, 15, 0.74));
   }
@@ -901,10 +882,6 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
 }
 
 @media (max-width: 800px) {
-  .app-shell:not(.screen-start) .center-game {
-    padding: var(--sp-2) var(--sp-2) calc(104px + env(safe-area-inset-bottom, 0px));
-  }
-
   .app-shell:not(.screen-start) :where(.card, .summary-box, .profile-build-panel, .profile-overview-panel, .inventory-equipped-panel, .inventory-backpack-panel) {
     border-radius: var(--r-sm);
   }
@@ -942,24 +919,9 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
     font-size: 10px;
   }
 
-  .mobile-bottom-nav {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
 }
 
 /* ------------------------------------------------------ density refinement */
-
-:root {
-  --side-rail-w: clamp(176px, 13.25vw, 208px);
-  --right-menu-w: clamp(174px, 12.5vw, 196px);
-  --main-gutter: clamp(6px, 0.75vw, 12px);
-}
-
-.app-shell:not(.screen-start) {
-  --side-rail-w: clamp(176px, 13.25vw, 208px);
-  --right-menu-w: clamp(174px, 12.5vw, 196px);
-  --main-gutter: clamp(6px, 0.75vw, 12px);
-}
 
 .app-shell:not(.screen-start) :where(.profile-page-card, .inventory-page, .center-game > .card) {
   font-size: 0.9375rem;
@@ -1047,20 +1009,7 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
   font-style: italic;
 }
 
-@media (min-width: 981px) {
-  .app-shell:not(.screen-start) {
-    --right-menu-w: clamp(230px, 16vw, 255px);
-  }
-
-  .app-shell:not(.screen-start) .left-profile-card {
-    padding: 48px 12px 16px !important;
-    font-size: 0.86rem !important;
-  }
-
-  .app-shell:not(.screen-start) .right-menu-panel {
-    padding: clamp(132px, 17vh, 158px) 10px 12px !important;
-  }
-
+@media (min-width: 980px) {
   .app-shell:not(.screen-start) .right-menu-buttons {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 5px !important;
@@ -1120,25 +1069,7 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
   }
 }
 
-@media (min-width: 981px) and (max-width: 1100px) {
-  .app-shell:not(.screen-start) {
-    --side-rail-w: 190px;
-    --right-menu-w: 220px;
-    --main-gutter: 6px;
-  }
-
-  .app-shell:not(.screen-start) .left-profile-card {
-    height: calc(100dvh - 24px) !important;
-    padding-inline: 8px !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    scrollbar-width: thin;
-  }
-
-  .app-shell:not(.screen-start) .right-menu-panel {
-    padding-inline: 8px !important;
-  }
-
+@media (min-width: 980px) and (max-width: 1100px) {
   .app-shell:not(.screen-start) .right-menu-buttons button {
     padding-inline: 5px;
     font-size: 0.7rem;
@@ -1154,6 +1085,28 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
 }
 
 @media (max-width: 800px) {
+  .app-shell.screen-inventory :where(.inventory-page, .inventory-equipped-panel, .inventory-backpack-panel) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .app-shell.screen-inventory .inventory-panel-header {
+    min-inline-size: 0;
+    flex-wrap: wrap;
+  }
+
+  .app-shell.screen-inventory .inventory-tabs {
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .app-shell.screen-inventory .inventory-tabs > button {
+    flex: 1 1 min(140px, 100%);
+    min-inline-size: 0;
+    white-space: normal;
+  }
+
   .app-shell:not(.screen-start) .inventory-character-layout {
     min-height: 510px;
   }
@@ -1171,10 +1124,6 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
     width: 120px;
     min-height: 120px;
     margin-inline: auto;
-  }
-
-  .mobile-bottom-nav {
-    min-height: 66px;
   }
 
   .mobile-nav-btn,
@@ -1319,7 +1268,7 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
   letter-spacing: 0.08em;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 979px) {
   .app-shell.screen-pets .center-game > .pet-yard-screen,
   .app-shell.screen-pets .pet-yard-overlay {
     min-height: calc(100dvh - 154px) !important;
@@ -1398,14 +1347,6 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
    play surface should use the freed vertical space instead of inheriting the old
    banner-era sizing. These rules live in the final skin file so they win the
    legacy map overrides in index.css. */
-.app-shell:not(.screen-start) {
-  --main-gutter: clamp(4px, 0.55vw, 10px);
-}
-
-.app-shell:not(.screen-start) .center-game {
-  padding-top: clamp(6px, 0.8vw, 12px) !important;
-}
-
 .app-shell:not(.screen-start) .center-game > :where(.profile-page-card, .inventory-page, .card) {
   width: min(100%, 1680px) !important;
   max-width: min(100%, 1680px) !important;
@@ -1423,9 +1364,9 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
 }
 
 .app-shell.screen-worldMap .generated-world-map {
-  width: min(100%, calc((100dvh - 82px) * 1.5)) !important;
+  width: 100% !important;
   max-width: 100% !important;
-  max-height: calc(100dvh - 82px) !important;
+  max-height: none !important;
   border-color: rgba(230, 196, 119, 0.72) !important;
   box-shadow:
     inset 0 0 80px rgba(0, 0, 0, 0.38),
@@ -1488,8 +1429,8 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar):not(
 
 @media (min-width: 1500px) {
   .app-shell.screen-worldMap .generated-world-map {
-    width: min(100%, calc((100dvh - 76px) * 1.5)) !important;
-    max-height: calc(100dvh - 76px) !important;
+    width: 100% !important;
+    max-height: none !important;
   }
 }
 
@@ -1644,10 +1585,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
     left: calc(50% - 84px) !important;
   }
 
-  .app-shell.screen-worldMap .center-game {
-    padding-top: clamp(12px, 1.4vw, 24px) !important;
-  }
-
   .app-shell.screen-worldMap .center-game > .card {
     width: min(100%, calc((100dvh - 80px) * 1.68), 1680px) !important;
   }
@@ -1748,10 +1685,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
     min-height: 28px !important;
     padding: 5px 8px !important;
     font-size: 10px !important;
-  }
-
-  body.coach-banner-open .center-game {
-    padding-bottom: calc(138px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   html.wm-zoom .world-map-card,

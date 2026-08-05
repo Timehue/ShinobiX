@@ -10,19 +10,4 @@
     display: none !important;
 }
 
-/* Undo padding/offset added when the banner was a fixed header */
-.center-game {
-    padding-top: 0 !important;
-}
-.left-profile-card,
-.right-menu {
-    top: 50% !important;
-    height: 85vh !important;
-}
-@media (min-width: 1200px) {
-    .left-profile-card,
-    .right-menu {
-        top: 50% !important;
-        height: 85vh !important;
-    }
-}
+/* Shell offsets were retired with the banner; adaptive-shell.css owns geometry. */

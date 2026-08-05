@@ -15,6 +15,8 @@ import {
     Component,
     Suspense,
     useEffect,
+    useCallback,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -2124,16 +2126,23 @@ function WfCameraControls({ camCtlRef, onModeChange }: {
     useFrame((state) => { sizeRef.current = { w: state.size.width, h: state.size.height }; });
     useEffect(() => {
         const el = gl.domElement;
-        let dragging = false, lastX = 0, lastY = 0, moved = 0;
+        let activePointer: number | null = null, lastX = 0, lastY = 0, moved = 0;
         const clampView = () => {
             const c = camCtlRef.current;
             c.fx = Math.max(-WF_X - 6, Math.min(WF_X + 6, c.fx));
             c.fz = Math.max(-WF_Y - 6, Math.min(WF_Y + 6, c.fz));
             c.dist = Math.max(9, Math.min(48, c.dist));
         };
-        const down = (e: PointerEvent) => { dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY; };
+        const down = (e: PointerEvent) => {
+            if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
+            activePointer = e.pointerId;
+            moved = 0;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            el.setPointerCapture(e.pointerId);
+        };
         const move = (e: PointerEvent) => {
-            if (!dragging) return;
+            if (activePointer !== e.pointerId) return;
             const dx = e.clientX - lastX, dy = e.clientY - lastY;
             lastX = e.clientX; lastY = e.clientY;
             moved += Math.abs(dx) + Math.abs(dy);
@@ -2146,7 +2155,14 @@ function WfCameraControls({ camCtlRef, onModeChange }: {
             c.fz -= dy * worldPerPx / Math.sin(WF_CAMERA_PITCH);
             clampView();
         };
-        const up = () => { dragging = false; };
+        const stop = (e: PointerEvent) => {
+            if (activePointer !== e.pointerId) return;
+            if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+            activePointer = null;
+        };
+        const lost = (e: PointerEvent) => {
+            if (activePointer === e.pointerId) activePointer = null;
+        };
         const wheel = (e: WheelEvent) => {
             e.preventDefault();
             const c = camCtlRef.current;
@@ -2155,13 +2171,17 @@ function WfCameraControls({ camCtlRef, onModeChange }: {
             clampView();
         };
         el.addEventListener("pointerdown", down);
-        window.addEventListener("pointermove", move);
-        window.addEventListener("pointerup", up);
+        el.addEventListener("pointermove", move);
+        el.addEventListener("pointerup", stop);
+        el.addEventListener("pointercancel", stop);
+        el.addEventListener("lostpointercapture", lost);
         el.addEventListener("wheel", wheel, { passive: false });
         return () => {
             el.removeEventListener("pointerdown", down);
-            window.removeEventListener("pointermove", move);
-            window.removeEventListener("pointerup", up);
+            el.removeEventListener("pointermove", move);
+            el.removeEventListener("pointerup", stop);
+            el.removeEventListener("pointercancel", stop);
+            el.removeEventListener("lostpointercapture", lost);
             el.removeEventListener("wheel", wheel);
         };
     }, [gl, camCtlRef, onModeChange]);
@@ -2215,15 +2235,16 @@ function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, renderEv
     // STAGGERED WALL: High quality renders one tile every other frame into a
     // cached texture (~7.5 fps per tile at 60 fps). Average cost is 1.5 world
     // renders per frame instead of the old 2 or the original 5.
-    const rig = useRef<{ rts: THREE.WebGLRenderTarget[]; scene: THREE.Scene; cam: THREE.OrthographicCamera; quads: THREE.Mesh[] } | null>(null);
+    const rig = useRef<{ rts: THREE.WebGLRenderTarget[]; scene: THREE.Scene; cam: THREE.OrthographicCamera; quads: THREE.Mesh[]; width: number; height: number; dpr: number } | null>(null);
     const frameNo = useRef(0);
-    useEffect(() => () => {
+    const disposeRig = () => {
         const r = rig.current;
         if (!r) return;
         for (const rt of r.rts) rt.dispose();
         for (const q of r.quads) { q.geometry.dispose(); (q.material as THREE.Material).dispose(); }
         rig.current = null;
-    }, []);
+    };
+    useEffect(() => () => disposeRig(), []);
     useFrame((state, delta) => {
         const { gl, scene, camera, size } = state;
         // Shadow maps refresh at 30 Hz — invisible for a fixed sun, and it
@@ -2239,8 +2260,14 @@ function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, renderEv
         const snapIndex = wfSnapshotIndex(snap);
         const selected = selectedRef.current;
         const view = camViewRef.current;
+        const dpr = gl.getPixelRatio();
+        if (rig.current && (
+            rig.current.width !== tileW
+            || rig.current.height !== tileH
+            || rig.current.dpr !== dpr
+            || rig.current.rts.length !== petIds.length
+        )) disposeRig();
         if (!rig.current) {
-            const dpr = gl.getPixelRatio();
             const cscene = new THREE.Scene();
             const ccam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
             const rts: THREE.WebGLRenderTarget[] = [];
@@ -2252,7 +2279,7 @@ function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, renderEv
                 quads.push(q);
                 cscene.add(q);
             }
-            rig.current = { rts, scene: cscene, cam: ccam, quads };
+            rig.current = { rts, scene: cscene, cam: ccam, quads, width: tileW, height: tileH, dpr };
         }
         const r = rig.current;
         // Render exactly one tile's world this frame (round-robin).
@@ -2818,7 +2845,12 @@ function WfMinimap({ result, clock, theme, camViewRef, camCtlRef, onModeChange }
     }, [result, clock, bg, camViewRef]);
     return (
         <canvas
+            className="wf-minimap"
             ref={canvasRef} width={224} height={105}
+            role="button"
+            tabIndex={0}
+            aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home Enter Space"
+            aria-label="Warfront tactical minimap camera control. Click a location, use arrow keys to move, or press Home to center."
             onClick={(e) => {
                 // Tap the map → jump the spectator camera there (free-cam).
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -2826,6 +2858,22 @@ function WfMinimap({ result, clock, theme, camViewRef, camCtlRef, onModeChange }
                 c.mode = "free";
                 c.fx = ((e.clientX - rect.left) / rect.width) * WF_X * 2 - WF_X;
                 c.fz = ((e.clientY - rect.top) / rect.height) * WF_Y * 2 - WF_Y;
+                onModeChange("free");
+            }}
+            onKeyDown={(e) => {
+                const c = camCtlRef.current;
+                const stepX = WF_X * 0.12;
+                const stepZ = WF_Y * 0.12;
+                let handled = true;
+                if (e.key === "ArrowLeft") c.fx = Math.max(-WF_X, c.fx - stepX);
+                else if (e.key === "ArrowRight") c.fx = Math.min(WF_X, c.fx + stepX);
+                else if (e.key === "ArrowUp") c.fz = Math.max(-WF_Y, c.fz - stepZ);
+                else if (e.key === "ArrowDown") c.fz = Math.min(WF_Y, c.fz + stepZ);
+                else if (e.key === "Home") { c.fx = 0; c.fz = 0; }
+                else if (e.key !== "Enter" && e.key !== " ") handled = false;
+                if (!handled) return;
+                e.preventDefault();
+                c.mode = "free";
                 onModeChange("free");
             }}
             style={{ width: 224, height: 105, borderRadius: 8, border: "1px solid rgba(148,163,184,0.5)", background: spec.voidColor, boxShadow: "0 3px 14px rgba(0,0,0,0.45)", cursor: "pointer", pointerEvents: "auto" }}
@@ -3236,6 +3284,13 @@ export type PetWarfrontMatchProps = {
 
 export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, playbackRate = 1, onExit, onResult }: PetWarfrontMatchProps) {
     const safePlaybackRate = Number.isFinite(playbackRate) ? Math.max(0.1, Math.min(30, playbackRate)) : 1;
+    // Dev-only deterministic renderer mode for DPR/alignment automation. The
+    // production build always keeps the frame governor active; without this QA
+    // seam, software WebGL correctly sheds DPR before a matrix runner can record
+    // the requested device scale factor.
+    const fixedQaDpr = import.meta.env.DEV
+        && typeof window !== "undefined"
+        && new URLSearchParams(window.location.search).get("wfperf") === "fixed";
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [adaptivePressure, setAdaptivePressure] = useState<WarfrontAdaptivePressure>(0);
@@ -3276,6 +3331,9 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const camView = useRef<{ x: number; z: number; half: number }>({ x: 0, z: 0, half: 12 });
     const camCtl = useRef<WfCamCtl>({ mode: "follow", fx: 0, fz: 0, dist: 18 });
     const [freeCam, setFreeCam] = useState(false);
+    const handleFreeCameraMode = useCallback((mode: "follow" | "free") => {
+        setFreeCam(mode === "free");
+    }, []);
     const [sfxMuted, setSfxMuted] = useState(() => isPetSfxMuted());
     // Spectator camera mode — persisted per device; drag still enters free-cam.
     const [camMode, setCamModeState] = useState<WfCamMode>(() => {
@@ -3299,6 +3357,27 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const [shots, setShots] = useState<WfShotItem[]>([]);
     const [floaters, setFloaters] = useState<WfFloatItem[]>([]);
     const [council, setCouncil] = useState<{ round: number } | null>(null);
+    const stageRef = useRef<HTMLDivElement>(null);
+    const [stageWidth, setStageWidth] = useState(1200);
+    useLayoutEffect(() => {
+        const stage = stageRef.current;
+        if (!stage) return;
+        let frame = 0;
+        const measure = () => {
+            if (frame) cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                frame = 0;
+                setStageWidth(Math.max(1, stage.getBoundingClientRect().width));
+            });
+        };
+        measure();
+        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+        observer?.observe(stage);
+        return () => {
+            observer?.disconnect();
+            if (frame) cancelAnimationFrame(frame);
+        };
+    }, []);
     const timerRef = useRef<HTMLSpanElement>(null);
     const coinBlueRef = useRef<HTMLSpanElement>(null);
     const coinRedRef = useRef<HTMLSpanElement>(null);
@@ -3343,7 +3422,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     );
     const myPetIds = useMemo(() => myPets.map((m) => m.id), [myPets]);
     const multiCamOn = presentationBudget.squadCameras && myPetIds.length > 0;
-    const tileW = Math.round(Math.min(180, Math.max(84, ((typeof window !== "undefined" ? window.innerWidth : 1200) - 20 - 3 * 8) / 4)));
+    const tileW = Math.round(Math.min(180, Math.max(56, (stageWidth - 20 - Math.max(0, myPetIds.length - 1) * 8) / Math.max(1, myPetIds.length))));
     const tileH = Math.round(tileW * 0.6);
 
     const nameOf = useMemo(() => {
@@ -3358,10 +3437,31 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         };
     }, [roster]);
 
+    // Short-lived HUD effects can schedule heavily during a crowded fight. Keep
+    // their timers owned by this takeover so replay/restart and unmount cannot
+    // let stale callbacks mutate a replacement match.
+    const transientTimers = useRef(new Set<number>());
+    const scheduleTransient = (callback: () => void, delay: number) => {
+        const id = window.setTimeout(() => {
+            transientTimers.current.delete(id);
+            callback();
+        }, delay);
+        transientTimers.current.add(id);
+        return id;
+    };
+    const clearTransientTimers = () => {
+        for (const id of transientTimers.current) window.clearTimeout(id);
+        transientTimers.current.clear();
+    };
+    useEffect(() => () => {
+        for (const id of transientTimers.current) window.clearTimeout(id);
+        transientTimers.current.clear();
+    }, []);
+
     const pushFeed = (text: string, color: string) => {
         const id = wfSeq++;
         setFeed((arr) => [{ id, text, color }, ...arr].slice(0, 6));
-        window.setTimeout(() => setFeed((arr) => arr.filter((f) => f.id !== id)), 4500);
+        scheduleTransient(() => setFeed((arr) => arr.filter((f) => f.id !== id)), 4500);
     };
     // Banner QUEUE: broadcast moments display SEQUENTIALLY (big ones hold the
     // screen longer) instead of stomping each other mid-animation.
@@ -3372,7 +3472,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         if (!next) { bannerBusy.current = false; setBanner(null); return; }
         bannerBusy.current = true;
         setBanner(next);
-        window.setTimeout(pumpBanner, next.big ? 2300 : 1600);
+        scheduleTransient(pumpBanner, next.big ? 2300 : 1600);
     };
     const pushBanner = (text: string, color: string, big = false) => {
         if (bannerQueue.current.length >= 3) bannerQueue.current.shift();   // drop the stalest
@@ -3382,7 +3482,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const triggerFlash = (color: string) => {
         const id = wfSeq++;
         setFlash({ id, color });
-        window.setTimeout(() => setFlash((f) => (f && f.id === id ? null : f)), 380);
+        scheduleTransient(() => setFlash((f) => (f && f.id === id ? null : f)), 380);
     };
     const spawnFx = (x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number) => {
         const frames = (key ? bundledJutsuFxFrames(key) : null) ?? bundledJutsuFxFrames(elementVfxKey(element)) ?? bundledJutsuFxFrames("none");
@@ -3409,7 +3509,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             const next = [...arr, { id, pos: [x, 1.5, z] as Vec3, text, color, big }];
             return next.length > 12 ? next.slice(next.length - 12) : next;
         });
-        window.setTimeout(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 800);
+        scheduleTransient(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 800);
     };
 
     // Round boundary: interactive → pause + open the War Council; auto → advance.
@@ -3514,6 +3614,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // and later councils reopen on schedule); Restart rebuilds the sim on the
     // SAME seed; New match rolls a fresh deterministic seed (vs-AI/harness only).
     const resetTransient = () => {
+        clearTransientTimers();
         clock.current = { t: 0, playing: true, slow: 0, rate: safePlaybackRate };
         storyCam.current = null;
         setFocusPetId(null);
@@ -3540,9 +3641,9 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const btn: CSSProperties = { padding: "5px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", font: "700 12px Inter, system-ui, sans-serif" };
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
+        <div ref={stageRef} className="pet-combat-takeover pet-warfront-takeover" style={{ backgroundColor: "#05060a" }}>
             <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes wfLoad{from{transform:translateX(-10%);opacity:.55}to{transform:translateX(120%);opacity:1}}@keyframes wfFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes wfFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes wfBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}22%{transform:translate(-50%,-50%) scale(1)}84%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}@keyframes wfShine{0%{transform:translateX(-140%) skewX(-18deg)}60%,100%{transform:translateX(260%) skewX(-18deg)}}@keyframes wfTilePulse{0%,100%{box-shadow:0 0 6px rgba(251,113,133,0.35)}50%{box-shadow:0 0 20px rgba(251,113,133,0.95)}}@keyframes wfIntro{0%{opacity:0;transform:scale(0.94)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.02)}}@keyframes wfEndIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
-            <div style={{ position: "absolute", inset: 0 }}>
+            <div className="pet-warfront-canvas-stage" style={{ position: "absolute", inset: 0 }}>
                 <Canvas dpr={canvasDpr} shadows={quality.id === "high" && adaptivePressure === 0 ? "percentage" : false} camera={{ fov: A3D_FOV, near: 0.5, far: 160, position: [0, 20, 24] }} gl={{ antialias: true }}>
                     <color attach="background" args={[spec.voidColor]} />
                     <fog attach="fog" args={[spec.fogColor, 26, 64]} />
@@ -3604,9 +3705,9 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     {floaters.map((f) => (<Floater3D key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
                     <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />
                     <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} focusPetRef={focusPetRef} />
-                    <WfCameraControls camCtlRef={camCtl} onModeChange={(m) => setFreeCam(m === "free")} />
+                    <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
                     <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} playbackRate={safePlaybackRate} />
-                    <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />
+                    {!fixedQaDpr && <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />}
                     <WfDirector result={result} clockRef={clock} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} camViewRef={camView} onEnd={() => setEnded(true)} />
                     <WfHudWriter result={result} clock={clock} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} momentumRef={momentumRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} buffRef={buffRef} campsRef={campsRef} phaseOverlayRef={phaseOverlayRef} />
                     {multiCamOn && (
@@ -3688,7 +3789,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             )}
 
             {/* Top bar: exit · replay/restart · timer · coins · mode badge */}
-            <div style={{ position: "absolute", top: 10, left: 12, display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="wf-top-controls" style={{ position: "absolute", top: 10, left: 12, display: "flex", gap: 8, alignItems: "center" }}>
                 <button onClick={onExit} style={btn}>✕ Exit</button>
                 <button onClick={doReplay} style={btn} title="Rewatch this match from the start">⟲ Replay</button>
                 <button onClick={doRestart} style={btn} title="Fresh match, same seed">↻ Restart</button>
@@ -3708,7 +3809,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             {/* SCORE STRIP — the win condition at a glance: ⛩ points (statues +
                 seal broken, the exact timer-verdict formula), kills, coins, and
                 the momentum bar underneath. */}
-            <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "grid", gap: 4, justifyItems: "center", padding: "6px 16px 7px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 14, font: "800 14px Inter, system-ui, sans-serif" }}>
+            <div className="wf-score-strip" style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "grid", gap: 4, justifyItems: "center", padding: "6px 16px 7px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 14, font: "800 14px Inter, system-ui, sans-serif" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, whiteSpace: "nowrap" }}>
                     <span ref={stanceBlueRef} style={{ fontSize: 13 }} />
                     <span style={{ color: "#93c5fd" }} title="Structures broken (statues + Ward Seal) — how this mode is won">⛩ <span ref={scoreBlueRef}>0</span></span>
@@ -3731,14 +3832,14 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             </div>
             {/* Objective ribbon — phase clock, current instruction and live
                 neutral-objective state. Refs keep it cheap at 60fps. */}
-            <div style={{ position: "absolute", top: 70, left: "50%", transform: "translateX(-50%)", width: "min(610px, 58vw)", display: "grid", gap: 4, padding: "5px 10px 6px", background: "linear-gradient(90deg, transparent, rgba(8,12,24,0.9) 10%, rgba(8,12,24,0.9) 90%, transparent)", pointerEvents: "none", fontFamily: "Inter, system-ui, sans-serif" }}>
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: 9, whiteSpace: "nowrap" }}>
+            <div className="wf-objective-strip" style={{ position: "absolute", top: 70, left: "50%", transform: "translateX(-50%)", width: "min(610px, 58vw)", display: "grid", gap: 4, padding: "5px 10px 6px", background: "linear-gradient(90deg, transparent, rgba(8,12,24,0.9) 10%, rgba(8,12,24,0.9) 90%, transparent)", pointerEvents: "none", fontFamily: "Inter, system-ui, sans-serif" }}>
+                <div className="wf-objective-main" style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: 9, whiteSpace: "nowrap" }}>
                     <span ref={phaseRef} style={{ color: "#93c5fd", fontSize: 11, fontWeight: 900, letterSpacing: 1.8 }}>LANING</span>
                     <span ref={phaseClockRef} style={{ color: "#64748b", fontSize: 9, fontWeight: 800 }}>NEXT 1:00</span>
                     <span style={{ color: "#334155" }}>◆</span>
                     <span ref={objectiveRef} style={{ color: "#f8fafc", fontSize: 10, fontWeight: 900, letterSpacing: 0.7 }}>FARM COINS · SECURE THE LANES</span>
                 </div>
-                <div ref={wardenWrapRef} style={{ display: "none", gridTemplateColumns: "auto 170px auto", justifyContent: "center", alignItems: "center", columnGap: 8, rowGap: 2 }}>
+                <div className="wf-warden-strip" ref={wardenWrapRef} style={{ display: "none", gridTemplateColumns: "auto 170px auto", justifyContent: "center", alignItems: "center", columnGap: 8, rowGap: 2 }}>
                     <span ref={wardenStatusRef} style={{ color: "#e9d5ff", fontSize: 9, fontWeight: 800, minWidth: 102, textAlign: "right" }}>PHASE I</span>
                     <div style={{ height: 6, background: "#1e1b2e", border: "1px solid rgba(216,180,254,0.4)", borderRadius: 5, overflow: "hidden" }}>
                         <div ref={wardenHpRef} style={{ height: "100%", width: "100%", background: "#a78bfa", transition: "width 0.15s linear" }} />
@@ -3748,7 +3849,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     <span ref={campsRef} style={{ gridColumn: "3", color: "#d8b4fe", fontSize: 8, fontWeight: 800, whiteSpace: "nowrap" }}>🛡 READY · ✚ READY · 👁 READY · 🔥 READY</span>
                 </div>
             </div>
-            <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, alignItems: "center" }}>
+            <div className="wf-top-meta" style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, alignItems: "center" }}>
                 <div style={{ padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label} (beta)</div>
                 <label style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 7px", background: "rgba(15,23,42,0.9)", border: "1px solid #334155", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif" }}>
                     FX
@@ -3765,7 +3866,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                 </label>
             </div>
             {/* Camera modes: 📺 director's broadcast · 🎬 calm wide · 🛡 my team. */}
-            <div style={{ position: "absolute", top: 42, left: 12, display: "flex", gap: 4 }}>
+            <div className="wf-camera-modes" style={{ position: "absolute", top: 42, left: 12, display: "flex", gap: 4 }}>
                 {([
                     ["broadcast", "📺", "Broadcast — the director chases fights, kills and objectives"],
                     ["calm", "🎬", "Calm — wide and steady; only the big objective moments cut"],
@@ -3781,25 +3882,35 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             </div>
             {freeCam && (
                 <button
+                    className="wf-free-camera"
                     onClick={() => { camCtl.current.mode = "follow"; setFreeCam(false); }}
                     style={{ position: "absolute", top: 74, left: 12, padding: "4px 10px", background: "rgba(109,40,217,0.9)", border: "1px solid #a78bfa", borderRadius: 999, color: "#fff", cursor: "pointer", font: "700 11px Inter, system-ui, sans-serif" }}
                 >📍 Free cam — tap to follow</button>
             )}
 
             {/* Kill feed + minimap (right column) */}
-            <div style={{ position: "absolute", top: 46, right: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", pointerEvents: "none" }}>
-                <WfMinimap result={result} clock={clock} theme={theme} camViewRef={camView} camCtlRef={camCtl} onModeChange={(m) => setFreeCam(m === "free")} />
+            <div className="wf-right-stack" style={{ position: "absolute", top: 46, right: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", pointerEvents: "none" }}>
+                <WfMinimap result={result} clock={clock} theme={theme} camViewRef={camView} camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
                 {feed.map((f) => (<div key={f.id} style={{ padding: "3px 9px", background: "rgba(8,12,24,0.82)", border: `1px solid ${f.color}66`, borderRadius: 6, color: f.color, font: "700 11px Inter, system-ui, sans-serif", animation: "wfFeedIn 0.2s ease-out", maxWidth: "44vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.text}</div>))}
             </div>
 
             {/* MULTI-CAM WALL — one screen per pet; click to feature it. */}
             {multiCamOn && (
-                <div style={{ position: "absolute", left: 10, bottom: 10, display: "flex", gap: 8, zIndex: 55 }}>
+                <div className="wf-multicam-wall" style={{ position: "absolute", left: 10, bottom: 10, display: "flex", gap: 8, zIndex: 55 }}>
                     {myPets.map((mp, i) => (
                         <div
                             key={mp.id}
                             ref={(el) => { tileBoxRefs.current[i] = el; }}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={focusPetId === mp.id}
+                            aria-label={focusPetId === mp.id ? `Return ${mp.name} tile to chase camera` : `Feature ${mp.name} on the main screen`}
                             onClick={() => setFocusPetId((cur) => (cur === mp.id ? null : mp.id))}
+                            onKeyDown={(event) => {
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                setFocusPetId((cur) => (cur === mp.id ? null : mp.id));
+                            }}
                             title={focusPetId === mp.id ? "Swap back — broadcast returns to the main screen" : `Feature ${mp.name} on the main screen (the broadcast moves here)`}
                             style={{ position: "relative", width: tileW, height: tileH, border: `2px solid ${focusPetId === mp.id ? "#fbbf24" : "rgba(96,165,250,0.5)"}`, borderRadius: 10, cursor: "pointer", overflow: "hidden", boxShadow: focusPetId === mp.id ? "0 0 16px rgba(251,191,36,0.45)" : "0 4px 18px rgba(0,0,0,0.5)" }}
                         >

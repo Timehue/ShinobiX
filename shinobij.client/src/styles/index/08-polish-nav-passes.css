@@ -9,11 +9,6 @@ body {
     background: radial-gradient(circle at 14% 8%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 82% 2%, rgba(247, 201, 72, .15), transparent 24%), radial-gradient(circle at 60% 92%, rgba(185, 28, 28, .12), transparent 28%), linear-gradient(135deg, #07101d, #0f1b2d 46%, #120712);
 }
 
-.game {
-    max-width: 1320px;
-    padding: 0;
-}
-
 .hero,
 .card,
 .nav,
@@ -180,10 +175,6 @@ button {
     background: linear-gradient(180deg, rgba(255,255,255,.035), transparent), #16090d;
 }
 /* ===== Restored combat board + village lore ===== */
-
-.game {
-    max-width: 1700px !important;
-}
 
 .combat-layout {
     display: grid !important;
