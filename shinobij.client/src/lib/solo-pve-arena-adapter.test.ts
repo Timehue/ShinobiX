@@ -55,3 +55,31 @@ test("a lost response retries the same versioned intent token", async () => {
         globalThis.fetch = originalFetch;
     }
 });
+
+test("probabilistic flee and deterministic forfeit use distinct server actions", async () => {
+    const originalFetch = globalThis.fetch;
+    const bodies: Array<Record<string, unknown>> = [];
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        bodies.push(JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>);
+        const next = session();
+        next.version += 1;
+        if (bodies.at(-1)?.type === "abandon") {
+            next.status = "done";
+            next.winner = "enemy";
+            next.outcome = "loss";
+        }
+        return new Response(JSON.stringify({ applied: true, session: next }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+        });
+    }) as typeof fetch;
+    try {
+        const current = soloPveSessionForArena(session());
+        await soloPveArenaTransport.submitAction("solo-1", "Player", current, { type: "flee" });
+        await soloPveArenaTransport.forfeit!("solo-1", "Player", current);
+        assert.equal(bodies[0]?.type, "flee");
+        assert.equal(bodies[1]?.type, "abandon");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
