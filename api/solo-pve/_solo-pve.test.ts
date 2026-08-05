@@ -270,6 +270,45 @@ describe('solo-PvE engine', () => {
         assert.ok((resolved.session.difficultyGuard?.dealtThisTurn ?? 0) <= 450, 'server meters the sealed enemy-turn budget');
     });
 
+    it('keeps a failed flee visible and terminalizes only a successful escape', () => {
+        const start = makeSession();
+        const failed = applySoloPveAction(start, { type: 'flee' }, { escapeSucceeds: () => false });
+        assert.equal(failed.applied, true);
+        assert.equal(failed.session.status, 'active');
+        assert.equal(failed.session.outcome, null);
+        assert.equal(failed.session.round, 2, 'a failed escape advances through the enemy turn');
+        assert.equal(failed.session.activeSide, 'player');
+        assert.ok(failed.session.player.hp < start.player.hp - 99, '10% HP cost and enemy consequences remain visible');
+        assert.match(failed.session.log.join('\n'), /fails to escape/);
+
+        const escaped = applySoloPveAction(start, { type: 'flee' }, { escapeSucceeds: () => true });
+        assert.equal(escaped.applied, true);
+        assert.equal(escaped.session.status, 'done');
+        assert.equal(escaped.session.winner, 'enemy');
+        assert.equal(escaped.session.outcome, 'fled');
+        assert.equal(escaped.session.player.hp, 900);
+    });
+
+    it('abandons deterministically without calling the probabilistic flee rule', () => {
+        const start = makeSession({ ap: { player: 0, enemy: 100 } });
+        let escapeRolls = 0;
+        const abandoned = applySoloPveAction(start, { type: 'abandon' }, {
+            escapeSucceeds: () => { escapeRolls += 1; return true; },
+        });
+        assert.equal(abandoned.applied, true, 'forfeit remains available when escape AP is unavailable');
+        assert.equal(escapeRolls, 0);
+        assert.equal(abandoned.session.status, 'done');
+        assert.equal(abandoned.session.winner, 'enemy');
+        assert.equal(abandoned.session.outcome, 'loss');
+        assert.equal(abandoned.session.player.hp, 900);
+        assert.equal(abandoned.session.round, 1, 'forfeit does not run a hidden enemy turn');
+        assert.match(abandoned.session.log.join('\n'), /abandons the encounter/);
+
+        const sealed = makeSession({ encounter: { kind: 'hollow-gate', id: 'sealed', metadata: { noRetreat: true } } });
+        assert.equal(applySoloPveAction(sealed, { type: 'flee' }).reason, 'retreat-sealed');
+        assert.equal(applySoloPveAction(sealed, { type: 'abandon' }).session.outcome, 'loss');
+    });
+
     it('enforces the sealed per-turn PvE damage guard', () => {
         const session = makeSession({
             difficultyGuard: { enemyLevel: 1, playerHpTurnStart: 1_000, dealtThisTurn: 0 },
