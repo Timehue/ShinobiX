@@ -3952,3 +3952,59 @@ html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-jutsu-thumb {
 @media (prefers-reduced-motion: reduce) {
     .bt-strip { scroll-behavior: auto; }
 }
+
+/* =========================================================================
+   ACTIVE COMBAT INSTANCE - shared PvE + PvP application boundary
+   -------------------------------------------------------------------------
+   Every live shinobi fight is rendered by CombatInstance directly under
+   <body>. This selector deliberately outranks the legacy responsive arena
+   passes that restore position:relative, height:auto, and page scrolling.
+   A fight therefore opens immediately above whichever menu/world screen
+   launched it and can never be displaced by the document's scroll position.
+   ========================================================================= */
+html body > .arena-fullscreen.combat-instance {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 1000000 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    overscroll-behavior: none;
+    box-sizing: border-box !important;
+    isolation: isolate;
+}
+
+html:has(body > .combat-instance),
+body:has(> .combat-instance) {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+}
+
+/* Battle Towers use a separate three-rail layout. Keep that grid inside the
+   same viewport contract; the board consumes the available height while the
+   information rails retain contained scroll areas when necessary. */
+html body > .combat-instance.screen-battleTowerFight .tower-fight-grid {
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > main,
+html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > aside {
+    min-height: 0;
+}
+
+html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > aside {
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+}
+
+html body > .combat-instance.screen-battleTowerFight .tower-board-area {
+    min-height: 0 !important;
+}

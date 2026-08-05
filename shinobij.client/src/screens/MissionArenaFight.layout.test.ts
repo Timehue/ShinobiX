@@ -6,6 +6,10 @@ const missionSource = readFileSync(new URL("./MissionArenaFight.tsx", import.met
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
 const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const combatRestoreCss = readFileSync(new URL("../styles/index/24-combat-mobile-restore.css", import.meta.url), "utf8");
+const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.tsx", import.meta.url), "utf8");
+const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
+const pvpSource = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
+const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
 
 // The combat shell places its bands in a FIXED-track grid — `.combat-main-area`
 // on desktop, `.combat-layout` on mobile (where `.combat-main-area` flattens to
@@ -79,6 +83,43 @@ test("mission fight reserves a row for its action notice instead of displacing t
     assert.ok(
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
         "battle-skin must still reserve the extra tip row on desktop, mobile, and short-mobile",
+    );
+});
+
+test("every shinobi fight uses the shared viewport-level combat instance", () => {
+    assert.match(
+        combatInstanceSource,
+        /createPortal\(combat, document\.body\)/,
+        "the shared fight boundary must mount directly under body, outside every menu and page layout",
+    );
+
+    for (const [name, source] of [
+        ["mission PvE", missionSource],
+        ["arena PvE", arenaSource],
+        ["session PvP", pvpSource],
+        ["tower PvE/PvP", towerSource],
+    ] as const) {
+        assert.match(source, /<CombatInstance(?:\s|>)/, `${name} must render through CombatInstance`);
+    }
+
+    assert.ok(
+        (pvpSource.match(/<CombatInstance(?:\s|>)/g) ?? []).length >= 2,
+        "PvP must use the instance boundary while connecting and after the session loads",
+    );
+
+    const cssWithoutComments = battleSkinCss.replace(/\/\*[\s\S]*?\*\//g, "");
+    const rootRule = cssWithoutComments.match(/html body > \.arena-fullscreen\.combat-instance\s*\{([^}]*)\}/);
+    assert.ok(rootRule, "the shared combat instance must own a direct-body viewport rule");
+    assert.match(rootRule![1], /position:\s*fixed\s*!important/, "responsive arena rules must not put a fight back in document flow");
+    assert.match(rootRule![1], /inset:\s*0\s*!important/, "the fight must begin at the visible viewport edge");
+    assert.match(rootRule![1], /height:\s*100dvh\s*!important/, "generic desktop height:auto must not make the fight page-sized");
+    assert.match(rootRule![1], /max-height:\s*100dvh\s*!important/, "the fight must remain bounded to one viewport");
+    assert.match(rootRule![1], /overflow:\s*hidden\s*!important/, "combat bands must stay inside the viewport-owned shell");
+
+    assert.match(
+        cssWithoutComments,
+        /body:has\(> \.combat-instance\)\s*\{[^}]*overflow:\s*hidden\s*!important/,
+        "the covered app page must not scroll underneath any active fight",
     );
 });
 
