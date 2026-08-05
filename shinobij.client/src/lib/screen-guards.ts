@@ -45,9 +45,27 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 export function restoreScreenForSave(
     persisted: Screen | null,
     inHollowGateRun: boolean,
+    hospitalized = false,
 ): Screen {
+    // Hospital admission is stronger than a bookmarked/last-visited hub and
+    // than a stale dungeon breadcrumb. Admitted HP intentionally does not
+    // regenerate, so restoring anywhere else strands the player at zero HP.
+    if (hospitalized) return "hospital";
     if (inHollowGateRun) return "hollowGateShrine";
     return persisted && RESTORABLE_SCREENS.has(persisted) ? persisted : "village";
+}
+
+/**
+ * Keep a newly-settled or remotely-loaded admission on the Hospital screen.
+ * An unresolved battle wins precedence until its terminal state has landed;
+ * the next render then redirects without every PvE host duplicating routing.
+ */
+export function shouldRedirectToHospital(
+    hospitalized: boolean,
+    screen: Screen,
+    unresolvedBattle: boolean,
+): boolean {
+    return hospitalized && screen !== "hospital" && !unresolvedBattle;
 }
 
 // ─── Battle screens (navigation lock) ───────────────────────────────────────

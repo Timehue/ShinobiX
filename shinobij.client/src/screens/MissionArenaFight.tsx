@@ -59,7 +59,6 @@ function petOrbPortrait(pet: Pet, shared: Record<string, string>): string {
 import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
 import { tagMatchesName } from "../lib/tags";
-import { gameConfirm } from "../components/GameAlert";
 import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
 import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
@@ -202,9 +201,9 @@ export function MissionArenaFight({
      * is the REWARD and refuses a losing run by design; without this a lost
      * server fight costs nothing and can be retried instantly at full HP.
      *
-     * Fires on any resolution AND on leaving an unresolved run, because walking
-     * out of a fight you are losing must not be cheaper than finishing it.
-     * Opt-in: modes that do not pass it are unchanged.
+     * Fires on any terminal resolution, including a successful flee. The fight
+     * hosts separately protect forced/unresolved closes from becoming a free
+     * escape hatch. Opt-in: modes that do not pass it are unchanged.
      */
     outcomeFn?: (runId: string, playerName: string) => Promise<unknown>;
 }) {
@@ -626,42 +625,6 @@ export function MissionArenaFight({
         return type === "Taijutsu" ? GiBoxingGlove : type === "Bukijutsu" ? GiCrossedSwords : type === "Genjutsu" ? GiEyeball : GiFireSpellCast;
     }
 
-    async function abandonFight() {
-        if (done) { onExit(); return; }
-        if (!(await gameConfirm("Abandon this fight? This is a guaranteed loss, costs 10% max HP, and cannot be undone."))) return;
-        if (transport.forfeit) {
-            try {
-                const result = await transport.forfeit(runId, me, session);
-                setSession(result.session);
-                if (result.session.status !== "done") {
-                    setReject(result.reason ?? "The server did not finish the forfeit. The fight remains active.");
-                    return;
-                }
-            } catch (error) {
-                setReject(String((error as Error)?.message ?? error));
-                return;
-            }
-        } else {
-            setReject("This combat mode does not support a server-authoritative forfeit.");
-            return;
-        }
-        // Report the forfeit BEFORE unmounting. Leaving an unresolved run used to
-        // be free, which made walking out of a fight you were losing strictly
-        // better than finishing it — the server scores an unresolved session as a
-        // defeat, but only if someone tells it the player left.
-        if (outcomeFn && !outcomeReportedRef.current) {
-            outcomeReportedRef.current = true;
-            try {
-                await outcomeFn(runId, me);
-            } catch (error) {
-                outcomeReportedRef.current = false;
-                setReject(String((error as Error)?.message ?? error));
-                return;
-            }
-        }
-        onExit();
-    }
-
     return (
         <ShinobiCombatShell
             mode="solo"
@@ -905,28 +868,32 @@ export function MissionArenaFight({
                             disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < UTILITY_AP || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{UTILITY_AP} AP | CD {clearCd}</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
                             disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < UTILITY_AP}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{UTILITY_AP} AP | CD {cleanseCd}</small></button>
-                        {(session.pendingCompanion || companion) && (
-                            <button
-                                onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
-                                disabled={busy || !myTurn || !session.pendingCompanion || !!companion}
-                                title={companion ? `${companion.name} is already on the field` : session.pendingCompanion ? `Summon ${session.pendingCompanion.name}` : "No active pet"}
-                            >
-                                <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
-                                <span>Pet</span>
-                                <small>{companion ? `${companion.name} · ${companionRoundsLeft}⟳` : session.pendingCompanion ? `Summon ${session.pendingCompanion.name}` : "No active pet"}</small>
-                            </button>
-                        )}
+                        <button
+                            onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
+                            disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed}
+                            title={companion
+                                ? `${companion.name} is already on the field`
+                                : session.pendingCompanion
+                                    ? `Summon ${session.pendingCompanion.name}`
+                                    : session.companionUsed
+                                        ? "Your pet summon was already used in this fight"
+                                        : "Choose an eligible active PvE pet in the Pet Yard"}
+                        >
+                            <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
+                            <span>Summon Pet</span>
+                            <small>{companion
+                                ? `${companion.name} · ${companionRoundsLeft}⟳`
+                                : session.pendingCompanion
+                                    ? session.pendingCompanion.name
+                                    : session.companionUsed
+                                        ? "Already used"
+                                        : "No eligible active pet"}</small>
+                        </button>
                         <button
                             disabled={busy || !myTurn || outOfActions || myAp < 100 || retreatSealed}
                             title={retreatSealed ? "Berserker's Gamble seals retreat." : "Attempt to escape for 100 AP and 10% max HP. Failure continues the fight."}
                             onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
                         ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : "100 AP · escape roll"}</small></button>
-                        <button
-                            className="danger-button"
-                            disabled={busy}
-                            title="Deterministic server forfeit: guaranteed loss and 10% max HP cost."
-                            onClick={() => { resetTargeting(); void abandonFight(); }}
-                        ><span>Abandon</span><small>Guaranteed loss</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                     </CombatCommandBar>
 

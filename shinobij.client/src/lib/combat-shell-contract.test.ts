@@ -7,6 +7,7 @@ const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", imp
 const legacySolo = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
 const solo = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const pvp = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
+const tacticalPve = readFileSync(new URL("../screens/BattleTowerFight.tsx", import.meta.url), "utf8");
 const combatHud = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
@@ -49,6 +50,13 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
         /<CombatCommandBar>[\s\S]*?canSummonPet[\s\S]*?<\/CombatCommandBar>/,
         "legacy PvE pet summon must remain inside the shared command slot",
     );
+    assert.match(
+        tacticalPve,
+        /className="basic-action-bar shinobi-command-bar"[\s\S]*?type: "summon"[\s\S]*?Summon Pet/,
+        "tactical PvE must expose the server-owned pet summon when a companion is sealed",
+    );
+    assert.match(solo, /<span>Summon Pet<\/span>/, "authoritative PvE must label the summon explicitly");
+    assert.match(legacySolo, /<span>Summon Pet<\/span>/, "legacy PvE must label the summon explicitly");
 });
 
 test("side dossiers require both usable width and height and remain symmetric", () => {

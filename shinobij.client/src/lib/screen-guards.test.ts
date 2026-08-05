@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { isUnresolvedBattle, restoreScreenForSave, type BattleGuardSignals } from "./screen-guards";
+import { isUnresolvedBattle, restoreScreenForSave, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
 
 function signals(overrides: Partial<BattleGuardSignals>): BattleGuardSignals {
     return {
@@ -63,6 +63,18 @@ describe("screen navigation guards", () => {
     it("routes active Hollow Gate saves away from stale combat screens", () => {
         assert.equal(restoreScreenForSave("battleTowers", true), "hollowGateShrine");
         assert.equal(restoreScreenForSave("hollowGateTiles", true), "hollowGateShrine");
+    });
+
+    it("routes an admitted save to the hospital before any persisted screen", () => {
+        assert.equal(restoreScreenForSave("village", false, true), "hospital");
+        assert.equal(restoreScreenForSave("hollowGateShrine", true, true), "hospital");
+    });
+
+    it("redirects settled admissions but never interrupts an unresolved fight", () => {
+        assert.equal(shouldRedirectToHospital(true, "missions", false), true);
+        assert.equal(shouldRedirectToHospital(true, "hospital", false), false);
+        assert.equal(shouldRedirectToHospital(true, "arena", true), false);
+        assert.equal(shouldRedirectToHospital(false, "village", false), false);
     });
 
     it("retains normal restorable screens and otherwise uses the village", () => {

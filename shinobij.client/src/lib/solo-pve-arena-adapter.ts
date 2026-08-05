@@ -89,6 +89,7 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
             positiveElement: session.environment.weatherPositiveElement,
             negativeElement: session.environment.weatherNegativeElement,
         },
+        companionUsed: !!session.companionUsage,
         ...(session.pendingCompanion ? {
             pendingCompanion: {
                 petId: session.pendingCompanion.petId,
@@ -148,5 +149,4 @@ export const soloPveArenaTransport: ServerArenaTransport = {
     turnTimeoutMs: SOLO_ARENA_TURN_MS,
     fetchState: async (sessionId, playerName) => soloPveSessionForArena(await fetchSoloPveState(sessionId, playerName)),
     submitAction: (sessionId, playerName, current, action) => submitWithStableRetry({ sessionId, playerName, current, action: soloAction(action) }),
-    forfeit: (sessionId, playerName, current) => submitWithStableRetry({ sessionId, playerName, current, action: { type: "abandon" } }),
 };

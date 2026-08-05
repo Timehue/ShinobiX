@@ -59,6 +59,8 @@ export type ServerArenaSession = {
     }>;
     weather?: { positiveElement?: string; negativeElement?: string };
     pendingCompanion?: { petId: string; name: string; hp: number; damage: number };
+    /** True after this fight's one sealed companion summon has been consumed. */
+    companionUsed?: boolean;
 };
 
 export type ServerArenaAction =
@@ -84,11 +86,5 @@ export type ServerArenaTransport = {
         playerName: string,
         current: ServerArenaSession,
         action: ServerArenaAction,
-    ) => Promise<ServerArenaActionResponse>;
-    /** Optional deterministic terminal abandon intent used before the shell unmounts. */
-    forfeit?: (
-        sessionId: string,
-        playerName: string,
-        current: ServerArenaSession,
     ) => Promise<ServerArenaActionResponse>;
 };
