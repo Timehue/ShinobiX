@@ -8,6 +8,7 @@ const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.m
 const combatRestoreCss = readFileSync(new URL("../styles/index/24-combat-mobile-restore.css", import.meta.url), "utf8");
 const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.tsx", import.meta.url), "utf8");
 const shinobiCombatShellSource = readFileSync(new URL("../components/ShinobiCombatShell.tsx", import.meta.url), "utf8");
+const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const pvpSource = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
 const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
@@ -24,8 +25,13 @@ const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.u
 test("mission fight reserves a row for its action notice instead of displacing the board", () => {
     assert.match(
         missionSource,
-        /combat-layout\$\{hasActionNotice \? " has-rookie-tip" : ""\}/,
+        /<CombatHudLayout hasActionNotice=\{hasActionNotice\}>/,
         "the combat grid must be marked whenever the action notice is rendered",
+    );
+    assert.match(
+        combatHudSource,
+        /combat-layout\$\{hasActionNotice \? " has-rookie-tip" : ""\}/,
+        "the shared layout must map the notice flag to the reserved-grid class",
     );
 
     assert.match(

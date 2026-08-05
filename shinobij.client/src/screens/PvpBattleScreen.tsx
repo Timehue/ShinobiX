@@ -9,13 +9,21 @@ import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
-import { BattleLogLine } from "../components/BattleLogLine";
-import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
+import {
+    CombatApPanel,
+    CombatBoardStage,
+    CombatCommandBar,
+    CombatEnvironmentStrip,
+    CombatHudHeader,
+    CombatHudLayout,
+    CombatHudMain,
+    PlainCombatBattleLog,
+} from "../components/CombatHudLayout";
 import { CombatInstance } from "../components/CombatInstance";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
@@ -29,7 +37,6 @@ import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
-import { groupBattleLogActions } from "../lib/battle-log-format";
 import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
@@ -250,9 +257,6 @@ export function PvpBattleScreen({
     // PvP cosmetic); the floating ±damage numbers below are kept as the impact cue.
     const liteFx = prefersLiteCombatFx();
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
-    const logRef = useRef<HTMLDivElement>(null);
-    // Battle-log round accordion overrides (default-open = latest two rounds).
-    const [logRoundOverrides, setLogRoundOverrides] = useState<Record<number, boolean>>({});
     // Latest combat-hotkey handlers, read by a stable keydown listener (below).
     // Updated each render so it never goes stale and stays a top-level hook.
     const combatHotkeyRef = useRef<{ active: boolean; actions: Record<string, () => void> } | null>(null);
@@ -450,10 +454,6 @@ export function PvpBattleScreen({
             if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
         };
     }, [battleId]);
-
-    useEffect(() => {
-        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-    }, [session?.log?.length]);
 
     // Desktop combat hotkeys — A=Attack M=Move H=Heal C=Clear X=Cleanse
     // F=Flee W/Space=End turn Esc=Deselect. Reads the latest handlers via a ref
@@ -890,43 +890,6 @@ export function PvpBattleScreen({
     const p1AnimPos = useWaypointPos(session ? session.p1.pos : -1, gridWidth, gridHeight);
     const p2AnimPos = useWaypointPos(session ? session.p2.pos : -1, gridWidth, gridHeight);
 
-    // Battle-log grouping — hoisted ABOVE the `if (!session) return` guard (same
-    // reason as the useWaypointPos hooks above): React hook order must be identical
-    // every render, so these useMemo calls can't sit after the early return. They
-    // fall back to an empty log when session is null (the log never renders then).
-    // Grouping each round ONCE — instead of re-running groupBattleLogActions for
-    // every round on every render — keeps BattleActionBlock's memo() effective: a
-    // 3s chat poll / 5s spectator poll no longer regroups the whole log or hands it
-    // fresh object identities. Collapse state (logRoundOverrides) is applied later
-    // in render, so it is intentionally NOT a dep. exhaustive-deps is off file-wide
-    // (line 1); deps hand-verified. boardMeName/boardOppName equal me.name/opp.name
-    // whenever session is non-null (the only time the log renders).
-    const boardMeName = session ? (role === "p1" ? session.p1.name : session.p2.name) : "";
-    const boardOppName = session ? (role === "p1" ? session.p2.name : session.p1.name) : "";
-    const pvpLogRounds = useMemo(() => {
-        const groups: { round: number; entries: string[] }[] = [];
-        let current: { round: number; entries: string[] } | null = null;
-        for (const line of (session?.log ?? [])) {
-            const m = line.match(/^--- Round (\d+) ---$/);
-            if (m) {
-                current = { round: parseInt(m[1]!), entries: [] };
-                groups.push(current);
-            } else {
-                if (!current) { current = { round: 1, entries: [] }; groups.push(current); }
-                current.entries.push(line);
-            }
-        }
-        return groups;
-    }, [session?.log]);
-    const pvpGroupedLog = useMemo(() => {
-        let actOffset = 0;
-        return pvpLogRounds.map(group => {
-            const grouped = groupBattleLogActions(group.entries, boardMeName, boardOppName, actOffset);
-            actOffset = grouped.nextActionNumber;
-            return { round: group.round, count: group.entries.length, actions: grouped.actions };
-        });
-    }, [pvpLogRounds, boardMeName, boardOppName]);
-
     // ── Targeting-overlay tiles — hoisted above the guard for the same reason as
     //    the log memos (hooks can't follow the early return). Keyed on
     //    pendingJutsuDirect: it's the armed jutsu, ALWAYS set together with
@@ -1139,9 +1102,6 @@ export function PvpBattleScreen({
         // twin (pveMinActionCost in Arena) in sync when adding actions.
         return minActionCost(costs);
     }
-
-    // pvpLogRounds / pvpGroupedLog are memoized ABOVE the `if (!session)` guard
-    // (hook-order stability) — see the block just below the useWaypointPos hooks.
 
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
         if (submitting || done) return;
@@ -1383,7 +1343,7 @@ export function PvpBattleScreen({
                     </div>
                 </div>
             )}
-            <div className="combat-layout">
+            <CombatHudLayout>
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={`${me.name} (You)`}
@@ -1400,15 +1360,13 @@ export function PvpBattleScreen({
                     power={pvpEarnedPoints(me.character)}
                 />
 
-                <main className={`combat-main-area bt-${battleTabs.tab}`}>
-                    <div className="arena-top-panel">
-                        <div className="arena-title-panel">
-                            <h2>{biomeLabel(arenaBiome)}</h2>
-                            <p>Round {session.round} | PvP Duel</p>
-                        </div>
-                    </div>
+                <CombatHudMain activeTab={battleTabs.tab}>
+                    <CombatHudHeader
+                        title={biomeLabel(arenaBiome)}
+                        subtitle={<>Round {session.round} | PvP Duel</>}
+                    />
 
-                    <div className="twp-strip">
+                    <CombatEnvironmentStrip>
                         <span className="twp-strip-biome">{biomeLabel(arenaBiome)}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -1425,9 +1383,9 @@ export function PvpBattleScreen({
                         {weatherNegEl && (
                             <span className="twp-buff twp-negative">🔻 {weatherNegEl} -2%</span>
                         )}
-                    </div>
+                    </CombatEnvironmentStrip>
 
-                    <div className="dual-ap-panel">
+                    <CombatApPanel>
                         <div>
                             <strong>{me.name} AP</strong>
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${myAp}%` }} /></div>
@@ -1452,10 +1410,10 @@ export function PvpBattleScreen({
                             <div className="hud-bar enemy-ap-display-bar"><span style={{ width: `${oppAp}%` }} /></div>
                             <small>{oppAp}/100 | {!isMyTurn ? "Active" : "Waiting"}</small>
                         </div>
-                    </div>
+                    </CombatApPanel>
 
 
-                    <div className="combat-board-stage">
+                    <CombatBoardStage>
                     <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}>
                         <div style={(() => {
@@ -1641,7 +1599,7 @@ export function PvpBattleScreen({
                             </div>
                         </div>
                     </div>
-                    </div>
+                    </CombatBoardStage>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
 
@@ -1649,7 +1607,7 @@ export function PvpBattleScreen({
                         non-interactive) so the player can review their kit and plan.
                         submitAction also guards isMyTurn, so nothing can fire. */}
                     {!done && !amSpectator && (
-                        <div className="basic-action-bar shinobi-command-bar" style={isMyTurn ? undefined : { opacity: 0.55, pointerEvents: "none" }}>
+                        <CombatCommandBar style={isMyTurn ? undefined : { opacity: 0.55, pointerEvents: "none" }}>
                             <button className={pendingBasicAttack ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
                                 disabled={submitting || myAp < 40 || me.stamina < 10}>
@@ -1678,7 +1636,7 @@ export function PvpBattleScreen({
                             <button onClick={() => submitAction("wait")} disabled={submitting}>
                                 <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small>
                             </button>
-                        </div>
+                        </CombatCommandBar>
                     )}
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
@@ -1961,35 +1919,10 @@ export function PvpBattleScreen({
                         )}
                     </div>
 
-                    <div ref={logRef} className="combat-text-log combat-timeline" aria-live="polite" aria-label="Battle log">
-                        <div className="combat-log-header">
-                            <strong>Battle Log</strong>
-                            <span>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>
-                        </div>
-                        {session.log.length === 0 ? (
-                            <p>No entries yet.</p>
-                        ) : pvpGroupedLog.length > 0 ? (() => {
-                            // Rounds are pre-grouped in pvpGroupedLog (memoized). Here we
-                            // only apply per-round collapse state and render.
-                            const maxLogRound = pvpGroupedLog[pvpGroupedLog.length - 1]?.round ?? 0;
-                            return pvpGroupedLog.map(group => {
-                                const roundOpen = logRoundOverrides[group.round] ?? (group.round >= maxLogRound - 1);
-                                return (
-                                    <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={group.round}>
-                                        <button type="button" className="timeline-round-header timeline-round-toggle" aria-expanded={roundOpen}
-                                            onClick={() => setLogRoundOverrides((prev) => ({ ...prev, [group.round]: !roundOpen }))}>
-                                            <span className="timeline-round-chevron" aria-hidden="true">▾</span>
-                                            <span>Round {group.round}</span>
-                                            <span className="timeline-round-count">{group.count}</span>
-                                        </button>
-                                        {roundOpen && group.actions.map((a, i) => (
-                                            <BattleActionBlock key={i} action={a} selfName={me.name} oppName={opp.name} />
-                                        ))}
-                                    </section>
-                                );
-                            });
-                        })() : session.log.map((line, i) => <BattleLogLine line={line} key={i} />)}
-                    </div>
+                    <PlainCombatBattleLog
+                        lines={session.log}
+                        turnLabel={isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}
+                    />
 
                     {/* Whose-turn banner — pinned to the board panel's bottom-right
                         corner (absolute, so it takes no grid row). Purely a readout
@@ -2000,7 +1933,7 @@ export function PvpBattleScreen({
                             <span className="ctb-suffix">'s Turn</span>
                         </div>
                     )}
-                </main>
+                </CombatHudMain>
 
                 {/* ── Battle chat (in-grid, between battlefield and enemy HUD) ── */}
                 <div className={`battle-chat-panel battle-chat-col${battleChatVisible ? "" : " battle-chat-hidden"}`}>
@@ -2055,7 +1988,7 @@ export function PvpBattleScreen({
                     level={opp.character?.level as number | undefined}
                     power={pvpEarnedPoints(opp.character)}
                 />
-            </div>
+            </CombatHudLayout>
 
             {/* Spectator list is now shown inside the chat panel header */}
         </ShinobiCombatShell>

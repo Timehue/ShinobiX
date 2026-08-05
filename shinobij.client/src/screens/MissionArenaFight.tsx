@@ -24,6 +24,16 @@ import { useBattleTabs } from "../lib/use-battle-tabs";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BattleTabBar } from "../components/BattleTabBar";
+import {
+    CombatApPanel,
+    CombatBoardStage,
+    CombatCommandBar,
+    CombatEnvironmentStrip,
+    CombatHudHeader,
+    CombatHudLayout,
+    CombatHudMain,
+    PlainCombatBattleLog,
+} from "../components/CombatHudLayout";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
@@ -685,7 +695,7 @@ export function MissionArenaFight({
                     </div>
                 </div>
             )}
-            <div className={`combat-layout${hasActionNotice ? " has-rookie-tip" : ""}`}>
+            <CombatHudLayout hasActionNotice={hasActionNotice}>
                 {/* Player dossier */}
                 <CombatSideHud
                     name={me}
@@ -703,15 +713,13 @@ export function MissionArenaFight({
                     isActive={myTurn}
                 />
 
-                <main className={`combat-main-area bt-${tabs.tab}`}>
-                    <div className="arena-top-panel">
-                        <div className="arena-title-panel">
-                            <h2>{biomeLabel(biome as Parameters<typeof biomeLabel>[0])}</h2>
-                            <p>Round {session.round} | Shinobi Duel</p>
-                        </div>
-                    </div>
+                <CombatHudMain activeTab={tabs.tab}>
+                    <CombatHudHeader
+                        title={biomeLabel(biome as Parameters<typeof biomeLabel>[0])}
+                        subtitle={<>Round {session.round} | Shinobi Duel</>}
+                    />
 
-                    <div className="twp-strip">
+                    <CombatEnvironmentStrip>
                         <span className="twp-strip-biome">{biomeLabel(biome as Parameters<typeof biomeLabel>[0])}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -736,9 +744,9 @@ export function MissionArenaFight({
                                 </span>
                             </>
                         )}
-                    </div>
+                    </CombatEnvironmentStrip>
 
-                    <div className="dual-ap-panel">
+                    <CombatApPanel>
                         <div>
                             <strong>{me} AP</strong>
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${playerAp}%` }} /></div>
@@ -762,9 +770,9 @@ export function MissionArenaFight({
                             <div className="hud-bar enemy-ap-display-bar"><span style={{ width: `${enemyAp}%` }} /></div>
                             <small>{enemyAp}/100 | {enemyActive ? "Active" : "Waiting"}</small>
                         </div>
-                    </div>
+                    </CombatApPanel>
 
-                    <div className="combat-board-stage">
+                    <CombatBoardStage>
                     <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
@@ -869,7 +877,7 @@ export function MissionArenaFight({
                             </div>
                         </div>
                     </div>
-                    </div>
+                    </CombatBoardStage>
 
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
 
@@ -883,7 +891,7 @@ export function MissionArenaFight({
                         </div>
                     )}
 
-                    <div className="basic-action-bar shinobi-command-bar">
+                    <CombatCommandBar>
                         <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
                             disabled={busy || !myTurn || outOfActions || myAp < ATTACK_AP || !enemy || enemy.hp <= 0}
                             title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
@@ -920,7 +928,7 @@ export function MissionArenaFight({
                             onClick={() => { resetTargeting(); void abandonFight(); }}
                         ><span>Abandon</span><small>Guaranteed loss</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
-                    </div>
+                    </CombatCommandBar>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {myJutsu.length === 0 && myWeapons.length === 0 && myConsumables.length === 0 ? (
@@ -1001,20 +1009,8 @@ export function MissionArenaFight({
                         )}
                     </div>
 
-                    <div className="combat-text-log combat-timeline" aria-live="polite" aria-label="Battle log">
-                        <div className="combat-log-header">
-                            <strong>Battle Log</strong>
-                            <span>{turnLabel}</span>
-                        </div>
-                        {(session.log?.length ?? 0) === 0 ? (
-                            <p>No entries yet.</p>
-                        ) : (
-                            [...(session.log ?? [])].slice(-40).reverse().map((line, i) => (
-                                <p key={i} className="combat-log-line">{line}</p>
-                            ))
-                        )}
-                    </div>
-                </main>
+                    <PlainCombatBattleLog lines={session.log ?? []} turnLabel={turnLabel} />
+                </CombatHudMain>
 
                 {/* Enemy dossier */}
                 <CombatSideHud
@@ -1032,7 +1028,7 @@ export function MissionArenaFight({
                     statuses={hudStatuses(enemy?.statuses)}
                     isActive={enemyActive}
                 />
-            </div>
+            </CombatHudLayout>
 
             {done && (renderResult
                 ? renderResult({ won, draw: session.winner === "draw", settleState, settleResult, retry: () => { void runSettle(); }, onExit })

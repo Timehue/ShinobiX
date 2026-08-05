@@ -4,21 +4,51 @@ import { readFileSync } from "node:fs";
 
 const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
+const legacySolo = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
 const solo = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const pvp = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
+const combatHud = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 
-test("PvP and authoritative Solo PvE adopt one shell and aspect-locked board stage", () => {
-    for (const source of [solo, pvp]) {
+test("PvP and PvE adopt one HUD layout and aspect-locked board stage", () => {
+    for (const source of [legacySolo, solo, pvp]) {
         assert.match(source, /<ShinobiCombatShell/);
-        assert.match(source, /className="combat-board-stage"/);
+        assert.match(source, /<CombatHudLayout/);
+        assert.match(source, /<CombatHudMain/);
+        assert.match(source, /<CombatBoardStage/);
+        assert.match(source, /<CombatCommandBar/);
+    }
+    assert.match(legacySolo, /<CombatBattleLogPanel/);
+    assert.match(solo, /<PlainCombatBattleLog/);
+    assert.match(pvp, /<PlainCombatBattleLog/);
+    for (const source of [solo, pvp]) {
         assert.match(source, /<CombatJutsuMeta/);
     }
+    assert.match(combatHud, /classNames\("combat-board-stage", className\)/);
     assert.match(css, /container: shinobi-combat \/ size/);
     assert.match(css, /--combat-board-aspect: 1\.6214/);
     assert.match(css, /width: min\(100cqw, calc\(100cqh \* var\(--combat-board-aspect\)\)\)/);
     assert.match(css, /height: min\(100cqh, calc\(100cqw \/ var\(--combat-board-aspect\)\)\)/);
+});
+
+test("mode-only chat and pet controls stay owned by their battle screens", () => {
+    assert.doesNotMatch(combatHud, /battle-chat|GiPawPrint|type: "summon"/);
+    assert.match(
+        pvp,
+        /<\/CombatHudMain>[\s\S]*?className=\{`battle-chat-panel/,
+        "PvP chat must remain a PvP-owned side panel tied into the shared layout",
+    );
+    assert.match(
+        solo,
+        /<CombatCommandBar>[\s\S]*?type: "summon"[\s\S]*?<\/CombatCommandBar>/,
+        "authoritative PvE pet summon must remain inside the shared command slot",
+    );
+    assert.match(
+        legacySolo,
+        /<CombatCommandBar>[\s\S]*?canSummonPet[\s\S]*?<\/CombatCommandBar>/,
+        "legacy PvE pet summon must remain inside the shared command slot",
+    );
 });
 
 test("side dossiers require both usable width and height and remain symmetric", () => {
