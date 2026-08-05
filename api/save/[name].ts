@@ -52,6 +52,7 @@ import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-ind
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
@@ -2708,6 +2709,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(key, payload),
                         ...(writeRegistry ? [kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
                     ]);
+                    if (!existing && identityName && !isClanSave) {
+                        captureServerProductEvent('character_created', { source: 'save' });
+                    }
                     // Project the currency slice (P0-5). Player saves only —
                     // clan blobs carry no character. Skipped automatically when
                     // this write did not move currency, which is the common
