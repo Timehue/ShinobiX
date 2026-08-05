@@ -5031,7 +5031,7 @@ export default function App() {
         );
     }
 
-    function recordMissionRaid(_sector: number, battleId?: string) {
+    function recordMissionRaid(_sector: number, battleId?: string, serverReceiptAlreadyCredited = false) {
         // Sector filter removed: village territory raids use a virtual offset sector that
         // doesn't match mission.targetSector, so any raid win counts toward accepted raid
         // missions. The explore requirement still pins the player to the correct location.
@@ -5052,11 +5052,17 @@ export default function App() {
             });
         }
 
-        // One report, two systems: Vanguard daily raid-mission progress and the
-        // built-in fetch-* raidCount (which has no other server witness —
-        // record-progress refuses combat kinds). Every successful raid (human OR
-        // AI defender) counts; the endpoint is rate-limited so a retry can't
-        // double-count.
+        // AiFightHost settles a sealed raid through report-ai-fight, which now
+        // writes the authoritative field-raid receipt before this local mirror
+        // runs. Do not call the older report-raid endpoint without either proof
+        // it accepts; that request can only return missing-raid-proof.
+        if (serverReceiptAlreadyCredited) return;
+
+        // Legacy AI/PvP route: one report feeds Vanguard daily raid-mission
+        // progress and built-in fetch-* raidCount. Server-owned AI fights return
+        // above because report-ai-fight already witnessed and stamped their win.
+        // Every successful raid (human OR AI defender) counts; the endpoint is
+        // rate-limited so a retry can't double-count.
         //
         // PvP raid: pass `battleId` so the server cross-validates the win
         // against the actual PvpSession record.
@@ -6393,8 +6399,8 @@ export default function App() {
 
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={(character, version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); setCharacter(character); }} onFightOpenChange={setStoryFightOpen} />
 
-            {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host starts the fight, then routes it to the server arena or back to the caller's local Arena when nothing was sealed. `hooks` are the world/mission side effects the server does NOT own — the same callbacks Arena's win path fires, so both routes stay equivalent. */}
-            <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: recordMissionRaid, onExploreAmbushWon: () => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }, onHuntBeastDefeated: completeHuntForAi }} onSettled={(result) => { if (!result.character) return; latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion); setCharacter(result.character); }} onClose={(back) => { setMissionBattleActive(false); setPendingExploreSector(null); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
+            {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host starts the fight, then routes it to the server arena or back to the caller's local Arena when nothing was sealed. Hooks mirror server-owned progress into local UI and apply remaining world-side effects. */}
+            <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: (sector) => recordMissionRaid(sector, undefined, true), onExploreAmbushWon: () => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }, onHuntBeastDefeated: completeHuntForAi }} onSettled={(result) => { if (!result.character) return; latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion); setCharacter(result.character); }} onClose={(back) => { setMissionBattleActive(false); setPendingExploreSector(null); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}

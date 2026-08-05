@@ -51,7 +51,7 @@ const STARTER_QA_PETS = {
     water: { id: "starter-water", name: "Tidal Selkie", element: "Water" },
     wind: { id: "starter-wind", name: "Storm Hawk", element: "Wind" },
     lightning: { id: "starter-lightning", name: "Bolt Fang", element: "Lightning" },
-    earth: { id: "starter-earth", name: "Mossback Boar", element: "Earth" },
+    earth: { id: "starter-earth", name: "Pebble Tortoise", element: "Earth" },
 } as const satisfies Record<string, { id: string; name: string; element: Pet["element"] }>;
 
 function Harness() {
@@ -129,7 +129,14 @@ function Harness() {
             hp: quickDemoMode ? 520 : Math.max(1100, base.hp ?? 0),
             attack: quickDemoMode ? Math.max(150, base.attack ?? 0) : Math.max(110, base.attack ?? 0),
             speed: Math.max(88, base.speed ?? 0),
-            ...(model3dMode ? { evolutionStage: legendaryModelMode ? 2 as const : 1 as const, rarity: rosterBattlePet?.rarity ?? (legendaryModelMode ? "legendary" as const : "rare" as const) } : {}),
+            ...(model3dMode ? {
+                // An explicit starterpet request is the base-form QA boundary.
+                // Without this branch, starterpet=earth was promoted to Granite
+                // Tortoise and never exercised Pebble's live model replacement.
+                evolutionStage: starterBattlePet ? 0 as const : legendaryModelMode ? 2 as const : 1 as const,
+                rarity: rosterBattlePet?.rarity
+                    ?? (starterBattlePet ? "standard" as const : legendaryModelMode ? "legendary" as const : "rare" as const),
+            } : {}),
             jutsus: rosterBattlePet ? base.jutsus.map((move) => ({ ...move, currentCooldown: 0 })) : (model3dMode
                 ? jts(
                     { name: "Ember Fang", kind: "damage", power: 82, cooldown: 1, currentCooldown: 0 },

@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 import { acceptedRaidFetchMissions, fieldRaidEvidenceId } from './_field-raid-progress.js';
 import { fieldMissionById } from './_mission-catalog.js';
 import {
@@ -19,6 +21,16 @@ function saveAt(level: number, accepted: string[]): Record<string, unknown> {
 }
 
 describe('_field-raid-progress', () => {
+    it('REGRESSION: server-owned AI raid wins stamp the field receipt at settlement', () => {
+        // AI guard raids travel through ai-fight-start/report-ai-fight. Calling
+        // report-raid afterward has no battleId or raid-start token, so it cannot
+        // be the receipt producer for this route.
+        const source = fs.readFileSync(path.join(process.cwd(), 'api/missions/report-ai-fight.ts'), 'utf8');
+        assert.match(source, /import \{ creditFieldRaidProgress \} from '\.\/_field-raid-progress\.js';/);
+        assert.match(source, /paysReward && sealedBattleKind === 'raidAi'/);
+        assert.match(source, /proofId: `ai-fight:\$\{aiFightToken\}`/);
+    });
+
     it('REGRESSION: reads accepted ids off the save record, level off its character', () => {
         // report-raid passes the whole save record. acceptedMissionIds lives at its
         // top level while the eligibility gate reads the nested character — the old
@@ -94,7 +106,8 @@ describe('_field-raid-progress', () => {
         assert.equal(stuck.ok, false);
         assert.equal(stuck.ok === false && stuck.reason, 'incomplete-progress-receipt');
 
-        // The raid proof, as report-raid now stamps it.
+        // The raid proof, as report-raid (PvP/legacy AI) or report-ai-fight
+        // (server-owned AI raids) now stamps it.
         for (let i = 0; i < raidTarget; i += 1) {
             receipt = applyMissionProgressEvent(receipt, {
                 playerName: 'Rill', missionId: mission.id, missionType: 'field', kind: 'field-raid',
