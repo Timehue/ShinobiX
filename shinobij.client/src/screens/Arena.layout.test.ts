@@ -4,12 +4,18 @@ import test from "node:test";
 
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
+const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 
 test("rookie combat tip reserves a row without displacing the hex battlefield", () => {
     assert.match(
         arenaSource,
-        /combat-layout\$\{showRookieCombatTip \? " has-rookie-tip" : ""\}/,
+        /<CombatHudLayout hasActionNotice=\{showRookieCombatTip\}>/,
         "Arena must mark the combat grid whenever the First Fight Plan is rendered",
+    );
+    assert.match(
+        combatHudSource,
+        /combat-layout\$\{hasActionNotice \? " has-rookie-tip" : ""\}/,
+        "the shared layout must retain the reserved-grid class contract",
     );
 
     const rookieRowRules = battleSkinCss.match(

@@ -29,6 +29,16 @@ import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { BountyBoardPanel } from "../components/BountyBoardPanel";
 import { BattleTabBar } from "../components/BattleTabBar";
+import {
+    CombatApPanel,
+    CombatBattleLogPanel,
+    CombatBoardStage,
+    CombatCommandBar,
+    CombatEnvironmentStrip,
+    CombatHudHeader,
+    CombatHudLayout,
+    CombatHudMain,
+} from "../components/CombatHudLayout";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
@@ -5469,11 +5479,8 @@ export function Arena({
     // (deps: 4), restore is one-shot on mount, and the child component
     // takes all the state as props + an onRestore callback.
 
-    // `pvp-battle-layout` opts PvE into the same duel-dossier combat HUD as
-    // PvP (battle-skin.css "PvP combat reference restore"): symmetric in-grid
-    // fighter dossiers on desktop, compact fighter chips on mobile. The two
-    // screens render mirror-identical combat-layout markup, so the shared
-    // class is what keeps them visually in lockstep.
+    // The shared CombatHudLayout keeps the PvE and PvP shells in lockstep;
+    // this screen still owns its PvE-only pet command and battle behavior.
     return (
         <ShinobiCombatShell mode="solo" className={`pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Onboarding spar coaching — read-only top banner, only during the
@@ -5624,7 +5631,7 @@ export function Arena({
                     portalTarget
                 ) : null;
             })()}
-            <div className={`combat-layout${showRookieCombatTip ? " has-rookie-tip" : ""}`}>
+            <CombatHudLayout hasActionNotice={showRookieCombatTip}>
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={character.name}
@@ -5644,15 +5651,13 @@ export function Arena({
                     power={earnedStatPoints(character)}
                 />
 
-                <main className={`combat-main-area bt-${battleTabs.tab}`}>
-                    <div className="arena-top-panel">
-                        <div className="arena-title-panel">
-                            <h2>{biomeLabel(currentBiome)}</h2>
-                            <p>Turn {turn} | Shinobi Duel</p>
-                        </div>
-                    </div>
+                <CombatHudMain activeTab={battleTabs.tab}>
+                    <CombatHudHeader
+                        title={biomeLabel(currentBiome)}
+                        subtitle={<>Turn {turn} | Shinobi Duel</>}
+                    />
 
-                    <div className="twp-strip">
+                    <CombatEnvironmentStrip>
                         <span className="twp-strip-biome">{biomeLabel(currentBiome)}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -5669,9 +5674,9 @@ export function Arena({
                         {weatherEffects[currentWeather].negativeElement && (
                             <span className="twp-buff twp-negative">{weatherEffects[currentWeather].negativeElement} -2%</span>
                         )}
-                    </div>
+                    </CombatEnvironmentStrip>
 
-                    <div className="dual-ap-panel">
+                    <CombatApPanel>
                         <div>
                             <strong>{character.name} AP</strong>
                             <div className="hud-bar ap-display-bar">
@@ -5705,9 +5710,9 @@ export function Arena({
                             </div>
                             <small>{enemyAp}/100 | {activeActor === "enemy" ? "Active" : "Waiting"}</small>
                         </div>
-                    </div>
+                    </CombatApPanel>
 
-                    <div className="combat-board-stage">
+                    <CombatBoardStage>
                     <div
                         className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}
@@ -5870,7 +5875,7 @@ export function Arena({
                         {/* Sprite-sheet effect overlay (CC0 art / KV override), above
                             the particles. Re-keyed per cast so it restarts cleanly. */}
                     </div>
-                    </div>
+                    </CombatBoardStage>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
 
@@ -5881,7 +5886,7 @@ export function Arena({
                         </div>
                     )}
 
-                    <div className="basic-action-bar shinobi-command-bar">
+                    <CombatCommandBar>
                         {/* Affordance feedback: each action disables when it can't be
                             taken (not your turn / 5 actions used / not enough AP·SP·CP /
                             on cooldown), mirroring each handler's own guards so a
@@ -5916,7 +5921,7 @@ export function Arena({
                             <small>100 AP | 50%</small>
                         </button>
                         <button onClick={waitTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
-                    </div>
+                    </CombatCommandBar>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {/* Armed jutsu indicator removed — the jutsu card highlight
@@ -6176,11 +6181,11 @@ export function Arena({
                             </>
                         )}
                     </div>
-                    <div className="combat-text-log combat-timeline" ref={combatLogRef} aria-live="polite" aria-label="Battle log">
-                        <div className="combat-log-header">
-                            <strong>Battle Log</strong>
-                            <span>{activeActor === "player" ? `${character.name}'s turn` : `${opponentName}'s turn`}</span>
-                        </div>
+                    <CombatBattleLogPanel
+                        className="combat-timeline"
+                        ref={combatLogRef}
+                        turnLabel={activeActor === "player" ? `${character.name}'s turn` : `${opponentName}'s turn`}
+                    >
                         {battleHistory.length === 0 ? (
                             <p>No entries yet.</p>
                         ) : (
@@ -6212,7 +6217,7 @@ export function Arena({
                                 );
                             })
                         )}
-                    </div>
+                    </CombatBattleLogPanel>
 
                     {/* Whose-turn banner — pinned to the board panel's bottom-right
                         corner (absolute, so it takes no grid row). Purely a readout
@@ -6223,7 +6228,7 @@ export function Arena({
                             <span className="ctb-suffix">'s Turn</span>
                         </div>
                     )}
-                </main>
+                </CombatHudMain>
                 <CombatSideHud
                     name={opponentName}
                     avatar={opponentAvatar}
@@ -6240,7 +6245,7 @@ export function Arena({
                     isActive={activeActor === "enemy"}
                     level={opponentLevel}
                 />
-            </div>
+            </CombatHudLayout>
 
             {battleEnded && (
                 <div className="battle-ended-overlay">
