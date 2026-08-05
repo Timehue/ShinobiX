@@ -6,6 +6,7 @@ import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SES
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, gamePasswordPrompt } from "./components/GameAlert";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
+import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
@@ -36,6 +37,7 @@ import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { resolveDungeonWardenPortrait, storyRoadBattlePortrait } from "./lib/ai-fight-art";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
+import { useViewportContract } from "./lib/use-viewport-contract";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { presenceCharacter, peerIsTraveling } from "./lib/presence-character";
@@ -1636,19 +1638,7 @@ export default function App() {
     // the render block at the bottom handles it. The picker cannot be skipped.
 
     // ── Viewport size detector ──────────────────────────────────────────────
-    // Sets data-vp="xs|sm|md|lg|xl" on <html> so CSS can use attribute
-    // selectors for fine-grained layout control between media-query breakpoints.
-    useLayoutEffect(() => {
-        const vp = (w: number) =>
-            w < 560 ? "xs" : w < 980 ? "sm" : w < 1180 ? "md" : w < 1400 ? "lg" : w < 2200 ? "xl" : "xxl";
-        const apply = () =>
-            document.documentElement.setAttribute("data-vp", vp(window.innerWidth));
-        apply();
-        let raf = 0;
-        const onResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(apply); };
-        window.addEventListener("resize", onResize, { passive: true });
-        return () => { window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
-    }, []);
+    useViewportContract();
 
     // Toggle body class during battle so CSS can hide the left sidebar
     useEffect(() => {
@@ -1907,6 +1897,7 @@ export default function App() {
     // state otherwise lives only inside the screen component.
     const [arenaBattleActive, setArenaBattleActive] = useState(false);
     const [petBattleActive, setPetBattleActive] = useState(false);
+    const [petFullscreenActive, setPetFullscreenActive] = useState(false);
     // True while the player is in a mission AI fight launched from the Missions
     // screen. Mission completion (markMissionCompleted) is credited ONLY on a win
     // in winBattle and the flag is cleared on any battle end — so losing/fleeing a
@@ -6256,7 +6247,11 @@ export default function App() {
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
     }
 
-    const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
+    const hideBattleChrome = shouldHideBattleChrome({
+        screen,
+        arenaBattleActive,
+        petBattleActive: petBattleActive || petFullscreenActive,
+    });
     const introCinematicActive = Boolean(
         character
         && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
@@ -6265,13 +6260,12 @@ export default function App() {
     );
 
     return (
-        <div className={`app-shell shell-biome-${currentBiome} screen-${screen}${STUDIO_SCREEN_PRESENTATION[screen].facility ? " screen-facility" : ""}`} data-village={character?.village ?? ""}
-            style={{ "--facility-accent": STUDIO_SCREEN_PRESENTATION[screen].facility?.accent,
-                // Darkening overlay only — the full-bleed scene is painted once by
-                // the fixed `.app-background` layer below (cover/no-repeat). Tiling the
-                // image here too made the portrait art repeat across wide viewports.
-                backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76))`,
-            } as React.CSSProperties}
+        <AdaptiveGameShell
+            biome={currentBiome}
+            screen={screen}
+            village={character?.village}
+            facilityAccent={STUDIO_SCREEN_PRESENTATION[screen].facility?.accent}
+            artwork={screen === "start" ? backgroundImage : STUDIO_SCREEN_PRESENTATION[screen].artwork}
         >
             <GameAlertHost /><GameConfirmHost /><GamePasswordPromptHost /><GameToastHost />
             <SaveErrorBanner visible={saveBlocked} />
@@ -6336,14 +6330,10 @@ export default function App() {
                     </div>
                 </div>
             )}
-            <div
-                className="app-background"
-                style={{ backgroundImage: `url(${screen === "start" ? backgroundImage : STUDIO_SCREEN_PRESENTATION[screen].artwork})` }}
-            />
-
             {character &&
                 screen !== "start" &&
-                !hideBattleChrome && (
+                !hideBattleChrome &&
+                !introCinematicActive && (
                     <Suspense fallback={null}>
                     <LeftProfileCard
                         character={character}
@@ -6365,7 +6355,7 @@ export default function App() {
                 </Suspense>
             )}
 
-            {screen !== "start" && character && !hideBattleChrome && (
+            {screen !== "start" && character && !hideBattleChrome && !introCinematicActive && (
                 <Suspense fallback={null}>
                     <RightMenu
                         navigate={stableNavigate}
@@ -6380,6 +6370,18 @@ export default function App() {
                         navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
                         character={character} updateCharacter={setCharacter} currentSector={currentSector}
                         activeTraining={activeTraining} activeJutsuTraining={activeJutsuTraining} screen={screen}
+                    />
+                </Suspense>
+            )}
+
+            {/* Viewport chrome must remain outside the document-scrolling center.
+                A size-query/paint container inside that center would otherwise
+                turn fixed positioning into content-relative positioning. */}
+            {character && screen !== "start" && !hideBattleChrome && !introCinematicActive && (
+                <Suspense fallback={null}>
+                    <ScreenTopChrome
+                        character={character}
+                        onBack={canGoBack ? goBack : undefined}
                     />
                 </Suspense>
             )}
@@ -6410,6 +6412,7 @@ export default function App() {
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
+                inert={introCinematicActive}
                 style={{
                     // Darkening overlay only — the scene comes from `.app-background`.
                     // (Re-tiling the image here was the second source of the repeat.)
@@ -6422,14 +6425,6 @@ export default function App() {
                 {/* Hidden on the full-screen battle boards — the in-combat side HUDs
                     already show the player's HP/chakra/stamina, so the top status bar
                     is redundant there and just costs vertical space. */}
-                {character && screen !== "start" && !hideBattleChrome && (
-                    <Suspense fallback={null}>
-                    <ScreenTopChrome
-                        character={character}
-                        onBack={canGoBack ? goBack : undefined}
-                    />
-                    </Suspense>
-                )}
                 {screen === "start" && restoringSession && (
                     <div className="start-screen">
                         <div className="start-title-block">
@@ -7064,7 +7059,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
@@ -7501,7 +7496,7 @@ export default function App() {
                 onDismissAchievement={(achievement) => setAchievementToasts(prev => prev.filter(x => x !== achievement))}
                 onDismissMission={(id) => setMissionToasts(prev => prev.filter(x => x.id !== id))}
             />
-        </div>
+        </AdaptiveGameShell>
     );
 }
 

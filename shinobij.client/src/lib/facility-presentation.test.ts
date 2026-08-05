@@ -15,6 +15,7 @@ const presentationSource = readFileSync(new URL("./facility-presentation.ts", im
 const studioSource = readFileSync(new URL("./studio-screen-presentation.ts", import.meta.url), "utf8");
 const villageSource = readFileSync(new URL("../screens/Village.tsx", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const shellSource = readFileSync(new URL("../components/layout/AdaptiveGameShell.tsx", import.meta.url), "utf8");
 
 test("every Village destination has a coherent facility art contract", () => {
   assert.equal((presentationSource.match(/:\s*facility\(/g) ?? []).length, facilities.length);
@@ -38,5 +39,6 @@ test("facility art is used by the Village directory and destination mastheads", 
   for (const route of ["training", "jutsuTraining", "missions", "battleArena", "clan", "worldMap", "townHall", "bank", "shop", "hospital", "cafeteria", "storyHall", "home", "pets", "shinobiTiles", "tavern"])
     assert.match(studioSource, new RegExp(`\\b${route}: atFacility\\(`), `missing facility presentation for ${route}`);
   assert.ok(appSource.includes("<ScreenTopChrome"));
-  assert.ok(appSource.includes("screen-facility"));
+  assert.ok(appSource.includes("<AdaptiveGameShell"));
+  assert.ok(shellSource.includes("screen-facility"));
 });

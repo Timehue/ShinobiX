@@ -1,0 +1,360 @@
+/* ==========================================================================
+   Adaptive coordinate stages
+
+   These surfaces keep one logical coordinate system while their presentation
+   reflows. Normal document pages remain owned by adaptive-shell.css.
+   ========================================================================== */
+
+/* World atlas: one undistorted painting and one transformed marker layer. */
+.app-shell.screen-worldMap .world-map-scroll {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  overflow: hidden;
+}
+
+.app-shell.screen-worldMap .generated-world-map {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  aspect-ratio: var(--wm-map-ar, 1672 / 941);
+  background-size: 100% 100%;
+}
+
+/* Sector boards: the 12x12 DOM grid always occupies a measured square. */
+.map-instance,
+.map-instance .instance-frame,
+.sector-instance-wrap {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.map-instance {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.sector-instance-wrap:has(> .instance-info) {
+  grid-template-columns: clamp(160px, 15vw, 210px) minmax(0, 1fr) clamp(180px, 18vw, 240px);
+  grid-template-areas: "profile scene actions";
+}
+
+.sector-instance-wrap > .instance-info {
+  grid-area: profile;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.map-instance .instance-frame,
+.sector-instance-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(180px, 18vw, 280px);
+  grid-template-areas: "scene actions";
+  gap: clamp(6px, 1vw, 14px);
+  padding: var(--sp-1);
+  align-items: start;
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.map-instance .instance-frame > main.tile-scene,
+.sector-instance-wrap > main.tile-scene {
+  grid-area: scene;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: start;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map),
+.sector-instance-wrap > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
+  inline-size: min(100%, calc(100dvh - 96px));
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  aspect-ratio: 1;
+  margin-inline: auto;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.map-instance .instance-frame > main.tile-scene > .pixel-map,
+.sector-instance-wrap > main.tile-scene > .pixel-map {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: repeat(12, minmax(0, 1fr));
+  gap: 1px;
+  padding: var(--sp-1);
+  background: #0f4ca7;
+  image-rendering: pixelated;
+}
+
+.map-instance .instance-frame > aside.instance-actions,
+.sector-instance-wrap > aside.instance-actions {
+  grid-area: actions;
+  position: static;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  block-size: auto;
+  max-block-size: calc(100dvh - 48px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.map-instance .instance-frame > aside.instance-actions > button,
+.sector-instance-wrap > aside.instance-actions > button {
+  block-size: auto !important;
+  min-block-size: var(--touch-target-min) !important;
+  max-block-size: none !important;
+}
+
+@media (max-width: 979px) {
+  .map-instance .instance-frame,
+  .sector-instance-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-1);
+  }
+
+  .sector-instance-wrap:has(> .instance-info) {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "profile"
+      "scene"
+      "actions";
+  }
+
+  .map-instance .instance-frame > main.tile-scene,
+  .sector-instance-wrap > main.tile-scene {
+    flex: 0 0 auto;
+    inline-size: 100%;
+  }
+
+  .map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map),
+  .sector-instance-wrap > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
+    inline-size: 100%;
+  }
+
+  .map-instance .instance-frame > aside.instance-actions,
+  .sector-instance-wrap > aside.instance-actions {
+    flex: 0 0 auto;
+    max-block-size: none;
+    overflow: visible;
+  }
+}
+
+/* Chronicle Duel: the flexible play field absorbs short-height pressure. */
+@media (max-width: 760px) {
+  .chronicle-shell--duel-active .chronicle-table {
+    min-block-size: 0;
+    grid-template-rows:
+      minmax(28px, auto)
+      minmax(52px, auto)
+      minmax(26px, auto)
+      minmax(0, 1fr)
+      minmax(132px, 32dvh);
+  }
+}
+
+@media (max-height: 620px) and (max-width: 979px) {
+  .chronicle-shell--duel-active .chronicle-table {
+    grid-template-rows: 28px 52px 26px minmax(0, 1fr) minmax(112px, 31dvh);
+  }
+}
+
+/* Three/canvas pet modes are intentional full-viewport takeovers. */
+body.pet-combat-active {
+  overflow: hidden;
+}
+
+.pet-combat-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-combat);
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 100vh;
+  block-size: 100dvh;
+  overflow: hidden;
+  contain: strict;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+
+.pet-combat-takeover canvas {
+  touch-action: none;
+}
+
+@media (max-width: 559px) {
+  .pet-arena-takeover .pet-arena-controls {
+    top: max(6px, env(safe-area-inset-top, 0px)) !important;
+    left: 6px !important;
+    z-index: 4;
+  }
+
+  .pet-arena-takeover .pet-arena-controls > button {
+    min-block-size: var(--touch-target-min);
+  }
+
+  .pet-arena-takeover .pet-arena-mode-badge {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 50px) !important;
+    right: auto !important;
+    left: 50% !important;
+    max-inline-size: calc(100% - 12px);
+    transform: translateX(-50%);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    z-index: 3;
+  }
+
+  .pet-arena-takeover .pet-arena-scoreboard {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 82px) !important;
+    max-inline-size: calc(100% - 12px);
+    padding: 5px 10px !important;
+    font-size: 17px !important;
+    z-index: 3;
+  }
+
+  .pet-arena-takeover .pet-arena-scoreboard > div {
+    max-inline-size: 100%;
+  }
+
+  .pet-arena-takeover .pet-arena-objective {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 142px) !important;
+    inline-size: calc(100% - 12px);
+    z-index: 3;
+  }
+
+  .pet-arena-takeover .pet-arena-objective > span {
+    max-inline-size: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.pet-warfront-canvas-stage {
+  overflow: clip;
+  contain: layout paint;
+}
+
+@media (max-width: 979px) {
+  .pet-warfront-takeover .wf-top-controls {
+    inset-inline: 6px auto;
+    top: max(6px, env(safe-area-inset-top, 0px)) !important;
+    max-inline-size: calc(100% - 12px);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .pet-warfront-takeover .wf-top-controls::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pet-warfront-takeover .wf-top-controls > button,
+  .pet-warfront-takeover .wf-camera-modes > button,
+  .pet-warfront-takeover .wf-free-camera,
+  .pet-warfront-takeover .wf-top-meta select,
+  .pet-warfront-takeover .wf-multicam-wall [role="button"] {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+  }
+
+  .pet-warfront-takeover .wf-camera-modes {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 48px) !important;
+    left: 6px !important;
+  }
+
+  .pet-warfront-takeover .wf-top-meta {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 48px) !important;
+    right: 6px !important;
+  }
+
+  .pet-warfront-takeover .wf-top-meta > div {
+    display: none;
+  }
+
+  .pet-warfront-takeover .wf-score-strip {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 96px) !important;
+    inline-size: calc(100% - 12px);
+    max-inline-size: calc(100% - 12px);
+    padding-inline: 8px !important;
+    overflow-x: auto;
+    justify-items: start !important;
+  }
+
+  .pet-warfront-takeover .wf-objective-strip {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 156px) !important;
+    inline-size: calc(100% - 12px) !important;
+    min-inline-size: 0;
+    overflow: hidden;
+  }
+
+  .pet-warfront-takeover .wf-objective-main {
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    gap: 2px 8px !important;
+    white-space: normal !important;
+  }
+
+  .pet-warfront-takeover .wf-objective-main > span:last-child {
+    min-inline-size: 0;
+    text-align: center;
+  }
+
+  .pet-warfront-takeover .wf-warden-strip {
+    min-inline-size: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pet-warfront-takeover .wf-warden-strip > * {
+    min-inline-size: 0 !important;
+    white-space: normal !important;
+  }
+
+  .pet-warfront-takeover .wf-warden-strip > :nth-child(n + 4) {
+    grid-column: 1 / -1 !important;
+    text-align: center !important;
+  }
+
+  .pet-warfront-takeover .wf-right-stack {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 194px) !important;
+    right: 6px !important;
+    max-inline-size: calc(100% - 12px);
+  }
+
+  .pet-warfront-takeover .wf-free-camera {
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 96px) !important;
+    left: 6px !important;
+    z-index: 57;
+  }
+
+  .pet-warfront-takeover .wf-multicam-wall {
+    inset-inline: 6px !important;
+    bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+    max-inline-size: calc(100% - 12px);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+}

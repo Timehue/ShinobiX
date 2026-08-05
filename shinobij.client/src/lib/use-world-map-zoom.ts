@@ -1,6 +1,6 @@
 // World-map pinch/drag zoom (worldMapZoom.v1).
 //
-// The painted world map (`world_map.webp`) is a fixed 3:2 layer with ~60 sector
+// The painted world map (`world_map.webp`) is a fixed 1672x941 layer with ~60 sector
 // markers pinned to percentage coordinates. On desktop it already fits the
 // screen responsively (`.generated-world-map { width:100%; aspect-ratio }`), but
 // the legacy MOBILE path forced it to a fixed 1100×733 canvas with horizontal
@@ -17,6 +17,7 @@
 // COSMETIC / UI ONLY: no balance, saves, rewards, or travel logic here.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { VIEWPORT_BREAKPOINTS } from "./viewport-contract";
 
 const MIN_ZOOM = 1;            // fit-to-width — the whole painting is visible
 const MAX_ZOOM = 4;            // deep enough for comfortable tap targets
@@ -24,20 +25,15 @@ const DOUBLE_TAP_ZOOM = 2.6;   // where a double-tap lands (markers ≈ 55px)
 const CHIP_ZOOM = 2.4;         // village quick-jump target zoom
 const DOUBLE_TAP_MS = 320;     // max gap between taps to count as a double-tap
 const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
-// The map's DISPLAYED aspect on the mobile zoom surface. Deliberately TALLER
-// (smaller w/h) than the source art's true aspect so the painting stretches
-// vertically (its background-size is 100% 100%) to better fill a tall phone
-// screen with less side-crop — the %-positioned markers stretch with it and stay
-// registered, and the fixed-size pins stay round. MUST stay in sync with the
-// `--wm-map-ar` fallback in the wm-zoom .generated-world-map CSS rule.
-// The 2026-07 keyart is 16:9 (1.7768) rather than the old 3:2 (1.5); this keeps
-// the SAME ~1.2x vertical stretch the 3:2/1.25 pair had (1.7768 / 1.2 ≈ 1.48).
-// Lower = more stretch and less side-crop.
-const MAP_AR = 1.48;
+// The percentage-positioned landmarks and the painting share this exact source
+// aspect. Tall viewports use a uniform cover transform; the artwork is never
+// stretched away from its interactive coordinate system.
+export const WORLD_MAP_ASPECT_RATIO = 1672 / 941;
+const MOBILE_SHELL_QUERY = `(max-width: ${VIEWPORT_BREAKPOINTS.md - 1}px)`;
 
 /** Master flag. Default ON for narrow / touch viewports; a per-device
- *  `worldMapZoom.v1` localStorage override forces it on ("1") or off ("0").
- *  Off falls back to the legacy fixed-canvas mobile scroll map. */
+ *  `worldMapZoom.v1` localStorage override forces gestures on ("1") or off
+ *  ("0"). The fallback remains responsive and preserves the source aspect. */
 export function isWorldMapZoomEnabled(): boolean {
     try {
         const o = localStorage.getItem("worldMapZoom.v1");
@@ -47,7 +43,7 @@ export function isWorldMapZoomEnabled(): boolean {
     try {
         return typeof window !== "undefined"
             && typeof window.matchMedia === "function"
-            && window.matchMedia("(max-width: 800px)").matches;
+            && window.matchMedia(MOBILE_SHELL_QUERY).matches;
     } catch {
         return false;
     }
@@ -56,6 +52,41 @@ export function isWorldMapZoomEnabled(): boolean {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 interface Pt { x: number; y: number }
+interface Size { w: number; h: number }
+interface MapView { zoom: number; tx: number; ty: number }
+
+function clampPanForSize(size: Size, zoom: number, tx: number, ty: number): Pt {
+    const { w, h } = size;
+    const baseHeight = w / WORLD_MAP_ASPECT_RATIO;
+    const contentWidth = w * zoom;
+    const contentHeight = baseHeight * zoom;
+    return {
+        x: contentWidth <= w ? (w - contentWidth) / 2 : clamp(tx, w - contentWidth, 0),
+        y: contentHeight <= h ? (h - contentHeight) / 2 : clamp(ty, h - contentHeight, 0),
+    };
+}
+
+function coverZoomForSize(size: Size): number {
+    if (!size.w || !size.h) return MIN_ZOOM;
+    return clamp(size.h / (size.w / WORLD_MAP_ASPECT_RATIO), MIN_ZOOM, MAX_ZOOM);
+}
+
+function coverViewForSize(size: Size): MapView {
+    if (!size.w || !size.h) return { zoom: MIN_ZOOM, tx: 0, ty: 0 };
+    const zoom = coverZoomForSize(size);
+    const baseHeight = size.w / WORLD_MAP_ASPECT_RATIO;
+    const point = clampPanForSize(
+        size,
+        zoom,
+        (size.w - size.w * zoom) / 2,
+        (size.h - baseHeight * zoom) / 2,
+    );
+    return { zoom, tx: point.x, ty: point.y };
+}
+
+function sameView(a: MapView, b: MapView): boolean {
+    return a.zoom === b.zoom && a.tx === b.tx && a.ty === b.ty;
+}
 
 export interface WorldMapZoomApi {
     /** True when zoom mode is active (narrow/touch + flag). When false the map
@@ -65,13 +96,14 @@ export interface WorldMapZoomApi {
     zoom: number;
     /** Attach to the `.world-map-scroll` viewport element. */
     viewportRef: (el: HTMLDivElement | null) => void;
-    /** Pointer/wheel handlers for the viewport (no-ops when inactive). */
+    /** Pointer handlers for the viewport (no-ops when inactive). Wheel zoom is
+     *  installed natively by viewportRef so it can be explicitly non-passive. */
     viewportHandlers: {
         onPointerDown: (e: React.PointerEvent) => void;
         onPointerMove: (e: React.PointerEvent) => void;
         onPointerUp: (e: React.PointerEvent) => void;
         onPointerCancel: (e: React.PointerEvent) => void;
-        onWheel: (e: React.WheelEvent) => void;
+        onLostPointerCapture: (e: React.PointerEvent) => void;
     };
     /** Inline style for the map div (sets the `--wm-tf` transform var). */
     contentStyle: React.CSSProperties;
@@ -89,6 +121,9 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     // Live refs so pointer handlers never read stale closure state.
     const elRef = useRef<HTMLDivElement | null>(null);
+    const resizeCleanupRef = useRef<(() => void) | null>(null);
+    const wheelCleanupRef = useRef<(() => void) | null>(null);
+    const wheelHandlerRef = useRef<(event: WheelEvent) => void>(() => undefined);
     const sizeRef = useRef({ w: 0, h: 0 });
     // Mirror live state into refs (in effects, not during render) so the pointer
     // handlers never read stale closure values.
@@ -114,12 +149,10 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             if (!next) setView({ zoom: MIN_ZOOM, tx: 0, ty: 0 });
         };
         let mq: MediaQueryList | null = null;
-        try { mq = window.matchMedia("(max-width: 800px)"); } catch { mq = null; }
+        try { mq = window.matchMedia(MOBILE_SHELL_QUERY); } catch { mq = null; }
         mq?.addEventListener?.("change", recompute);
-        window.addEventListener("resize", recompute);
         return () => {
             mq?.removeEventListener?.("change", recompute);
-            window.removeEventListener("resize", recompute);
         };
     }, []);
 
@@ -135,33 +168,69 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     // ── Measure the viewport (drives pan clamping) ───────────────────────────
     const viewportRef = useCallback((el: HTMLDivElement | null) => {
+        resizeCleanupRef.current?.();
+        resizeCleanupRef.current = null;
+        wheelCleanupRef.current?.();
+        wheelCleanupRef.current = null;
         elRef.current = el;
         if (!el) return;
+        const onWheel = (event: WheelEvent) => wheelHandlerRef.current(event);
+        el.addEventListener("wheel", onWheel, { passive: false });
+        wheelCleanupRef.current = () => el.removeEventListener("wheel", onWheel);
+        let animationFrame = 0;
         const measure = () => {
-            sizeRef.current = { w: el.clientWidth, h: el.clientHeight };
+            const previousSize = sizeRef.current;
+            const nextSize = { w: el.clientWidth, h: el.clientHeight };
+            if (previousSize.w === nextSize.w && previousSize.h === nextSize.h) return;
+            sizeRef.current = nextSize;
+            if (!activeRef.current) return;
+
+            cancelAnimationFrame(animationFrame);
+            animationFrame = requestAnimationFrame(() => {
+                setView((current) => {
+                    const previousFloor = coverZoomForSize(previousSize);
+                    if (!previousSize.w || current.zoom <= previousFloor + 0.05) {
+                        const next = coverViewForSize(nextSize);
+                        return sameView(current, next) ? current : next;
+                    }
+
+                    // Keep the same logical map point under the viewport center
+                    // while the base map width changes during resize/rotation.
+                    const logicalX = (previousSize.w / 2 - current.tx)
+                        / (previousSize.w * current.zoom);
+                    const logicalY = (previousSize.h / 2 - current.ty)
+                        / ((previousSize.w / WORLD_MAP_ASPECT_RATIO) * current.zoom);
+                    const zoom = clamp(current.zoom, coverZoomForSize(nextSize), MAX_ZOOM);
+                    const point = clampPanForSize(
+                        nextSize,
+                        zoom,
+                        nextSize.w / 2 - logicalX * nextSize.w * zoom,
+                        nextSize.h / 2 - logicalY * (nextSize.w / WORLD_MAP_ASPECT_RATIO) * zoom,
+                    );
+                    const next = { zoom, tx: point.x, ty: point.y };
+                    return sameView(current, next) ? current : next;
+                });
+            });
         };
         measure();
         const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
         ro?.observe(el);
-        (el as HTMLDivElement & { _wmRo?: ResizeObserver })._wmRo = ro ?? undefined;
+        resizeCleanupRef.current = () => {
+            ro?.disconnect();
+            cancelAnimationFrame(animationFrame);
+        };
+    }, []);
+
+    useEffect(() => () => {
+        resizeCleanupRef.current?.();
+        resizeCleanupRef.current = null;
+        wheelCleanupRef.current?.();
+        wheelCleanupRef.current = null;
     }, []);
 
     const clampPan = useCallback((zoom: number, tx: number, ty: number) => {
-        const { w, h } = sizeRef.current;
-        // The base (zoom-1) map is fit-to-WIDTH: exactly as wide as the viewport,
-        // its height set by the 3:2 aspect (bh = w / MAP_AR). On mobile the map
-        // viewport is TALLER than that base map, so the default view scales the map
-        // UP to cover the height (see coverView) and pans horizontally. Center on
-        // whichever axis the scaled content is smaller than the viewport; clamp to
-        // the edges on the axis where it overflows.
-        const bw = w;
-        const bh = w / MAP_AR;
-        const cw = bw * zoom;
-        const ch = bh * zoom;
-        return {
-            tx: cw <= w ? (w - cw) / 2 : clamp(tx, w - cw, 0),
-            ty: ch <= h ? (h - ch) / 2 : clamp(ty, h - ch, 0),
-        };
+        const point = clampPanForSize(sizeRef.current, zoom, tx, ty);
+        return { tx: point.x, ty: point.y };
     }, []);
 
     // The MINIMUM allowed zoom: the "cover" zoom at which the map exactly fills
@@ -169,9 +238,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     // into an ugly black-bar letterbox — the map stays full-bleed at every zoom.
     // Viewport-dependent (recomputed from the live size each call).
     const coverZoom = useCallback(() => {
-        const { w, h } = sizeRef.current;
-        if (!w || !h) return MIN_ZOOM;
-        return clamp(h / (w / MAP_AR), MIN_ZOOM, MAX_ZOOM);
+        return coverZoomForSize(sizeRef.current);
     }, []);
 
     // The mobile "home" / reset view: the map scaled to COVER the viewport height,
@@ -179,13 +246,8 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     // the minimum zoom, so pinch-out lands exactly here. Region chips + pan reach
     // the cropped edges, so nothing is unreachable.
     const coverView = useCallback(() => {
-        const { w, h } = sizeRef.current;
-        if (!w || !h) return { zoom: MIN_ZOOM, tx: 0, ty: 0 };
-        const zoom = coverZoom();
-        const bh = w / MAP_AR;
-        const p = clampPan(zoom, (w - w * zoom) / 2, (h - bh * zoom) / 2);
-        return { zoom, tx: p.tx, ty: p.ty };
-    }, [clampPan, coverZoom]);
+        return coverViewForSize(sizeRef.current);
+    }, []);
 
     // Apply the fill-height home view once the viewport has been measured, and
     // again on re-activation (e.g. rotating back into the mobile breakpoint). rAF
@@ -298,18 +360,28 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         }
     }, [zoomAt, coverZoom, coverView]);
 
-    const onWheel = useCallback((e: React.WheelEvent) => {
-        if (!activeRef.current) return;
-        const r = elRef.current?.getBoundingClientRect();
-        const fx = e.clientX - (r?.left ?? 0);
-        const fy = e.clientY - (r?.top ?? 0);
-        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-        zoomAt(viewRef.current.zoom * factor, fx, fy);
+    const cancelPointer = useCallback((e: React.PointerEvent) => {
+        pointers.current.delete(e.pointerId);
+        if (pointers.current.size < 2) pinch.current = null;
+        if (pointers.current.size === 0) setDragging(false);
+    }, []);
+
+    useEffect(() => {
+        wheelHandlerRef.current = (event: WheelEvent) => {
+            if (!activeRef.current) return;
+            event.preventDefault();
+            const r = elRef.current?.getBoundingClientRect();
+            const fx = event.clientX - (r?.left ?? 0);
+            const fy = event.clientY - (r?.top ?? 0);
+            const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+            zoomAt(viewRef.current.zoom * factor, fx, fy);
+        };
+        return () => { wheelHandlerRef.current = () => undefined; };
     }, [zoomAt]);
 
     const focusPoint = useCallback((xPct: number, yPct: number, targetZoom = CHIP_ZOOM) => {
         const { w, h } = sizeRef.current;
-        const bh = w / MAP_AR;
+        const bh = w / WORLD_MAP_ASPECT_RATIO;
         const z = clamp(targetZoom, coverZoom(), MAX_ZOOM);
         // Marker sits at (xPct%, yPct%) of the base map, whose size is w × bh.
         const cx = (xPct / 100) * w;
@@ -319,7 +391,10 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     }, [clampPan, coverZoom]);
 
     const contentStyle = useMemo<React.CSSProperties>(() => {
-        if (!active) return {};
+        const aspectStyle = {
+            ["--wm-map-ar" as string]: String(WORLD_MAP_ASPECT_RATIO),
+        };
+        if (!active) return aspectStyle as React.CSSProperties;
         // Counter-scale for the pinned markers. They ride the map's `scale(zoom)`,
         // so on their own they inflate at the SAME rate as the spacing — clustered
         // sectors would stay overlapping no matter how far you zoom (the "it's just
@@ -336,7 +411,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             ["--wm-marker-scale" as string]: markerScale.toFixed(3),
             // Drives the map box's displayed aspect (background-size:100% 100% then
             // stretches the art to it). Single source of truth = MAP_AR.
-            ["--wm-map-ar" as string]: String(MAP_AR),
+            ...aspectStyle,
             transition: dragging ? "none" : "transform 140ms ease-out",
         } as React.CSSProperties;
     }, [active, view, dragging]);
@@ -345,7 +420,13 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         active,
         zoom: view.zoom,
         viewportRef,
-        viewportHandlers: { onPointerDown, onPointerMove, onPointerUp: endPointer, onPointerCancel: endPointer, onWheel },
+        viewportHandlers: {
+            onPointerDown,
+            onPointerMove,
+            onPointerUp: endPointer,
+            onPointerCancel: cancelPointer,
+            onLostPointerCapture: cancelPointer,
+        },
         contentStyle,
         zoomIn: () => centerZoom(viewRef.current.zoom * 1.4),
         zoomOut: () => centerZoom(viewRef.current.zoom / 1.4),

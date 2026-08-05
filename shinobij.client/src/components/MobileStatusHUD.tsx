@@ -8,7 +8,7 @@
  * of their HP, Chakra, Stamina, Ryo, Shards, or Level. This component fills
  * that gap.
  *
- * Sticky at the top of the viewport while scrolling. Hidden on desktop via
+ * Fixed at the top of the viewport while scrolling. Hidden on desktop via
  * CSS (the left-profile-card covers this role there).
  *
  * Pure leaf — receives the character snapshot via prop, no internal state.

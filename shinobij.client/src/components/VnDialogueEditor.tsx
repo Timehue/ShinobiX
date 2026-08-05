@@ -35,7 +35,7 @@ export function VnDialogueEditor({ value, onChange, cast, idBase }: {
         <div className="vn-dialogue-editor">
             <datalist id={listId}>{castNames.map((n) => <option key={n} value={n} />)}</datalist>
             {lines.map((line, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "minmax(84px, 124px) 1fr auto", gap: 6, marginBottom: 4 }}>
+                <div key={i} className="vn-dialogue-editor-row">
                     <input
                         list={listId}
                         placeholder="Speaker"
@@ -49,10 +49,10 @@ export function VnDialogueEditor({ value, onChange, cast, idBase }: {
                         value={line.text}
                         onChange={(e) => emit(lines.map((l, j) => j === i ? { ...l, text: e.target.value } : l))}
                     />
-                    <span style={{ display: "inline-flex", gap: 2 }}>
-                        <button type="button" title="Move up" disabled={i === 0} onClick={() => swap(i, i - 1)}>↑</button>
-                        <button type="button" title="Move down" disabled={i === lines.length - 1} onClick={() => swap(i, i + 1)}>↓</button>
-                        <button type="button" className="danger-button" title="Remove line" onClick={() => emit(lines.filter((_, j) => j !== i))}>🗑️</button>
+                    <span className="vn-dialogue-editor-actions">
+                        <button type="button" title="Move up" aria-label={`Move line ${i + 1} up`} disabled={i === 0} onClick={() => swap(i, i - 1)}>↑</button>
+                        <button type="button" title="Move down" aria-label={`Move line ${i + 1} down`} disabled={i === lines.length - 1} onClick={() => swap(i, i + 1)}>↓</button>
+                        <button type="button" className="danger-button" title="Remove line" aria-label={`Remove line ${i + 1}`} onClick={() => emit(lines.filter((_, j) => j !== i))}>🗑️</button>
                     </span>
                 </div>
             ))}

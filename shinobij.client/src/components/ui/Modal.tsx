@@ -169,7 +169,7 @@ export function Modal({
     >
       <div
         ref={cardRef}
-        className={`ui-modal-card ui-modal-card--${size} ${className}`.trim()}
+        className={`ui-modal-card ui-modal-card--${size}${bare ? " ui-modal-card--bare" : ""} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title != null ? titleId : undefined}
@@ -183,7 +183,7 @@ export function Modal({
             <CloseButton onClick={onClose} />
           </div>
         )}
-        <div className={bare ? "" : "ui-modal-body"}>{children}</div>
+        <div className={`ui-modal-body${bare ? " ui-modal-body--bare" : ""}`}>{children}</div>
       </div>
     </div>,
     document.body,

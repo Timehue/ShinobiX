@@ -29,9 +29,6 @@ const wrap: CSSProperties = {
     position: "fixed",
     left: 0,
     right: 0,
-    bottom: 0,
-    // Above normal game chrome, but below the full-screen modal portals (z 1000000).
-    zIndex: 4000,
     padding: "10px 14px",
     background: "rgba(2, 6, 23, 0.95)",
     borderTop: "1px solid rgba(250, 204, 21, 0.28)",
@@ -94,7 +91,7 @@ export function StorageNotice() {
     }
 
     return (
-        <div role="region" aria-label="Data storage notice" style={wrap}>
+        <div className="storage-notice" role="region" aria-label="Data storage notice" style={wrap}>
             <div style={inner}>
                 <p style={text}>
                     Shinobi Journey stores data on your device for sign-in, preferences, and saving your

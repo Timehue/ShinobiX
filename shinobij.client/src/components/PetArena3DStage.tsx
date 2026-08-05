@@ -13,7 +13,7 @@
  * floor with no projection math, and the floor is generated from the very mask
  * the sim paths on — the visible world can never disagree with the gameplay.
  */
-import { Suspense, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
@@ -713,6 +713,30 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
      *  agnostic and reused verbatim from the classic renderer). */
     children: (spawns: Arena3DSpawns) => ReactNode;
 }) {
+    const stageRef = useRef<HTMLDivElement>(null);
+    const [stageWidth, setStageWidth] = useState(1200);
+    const floaterTimersRef = useRef<Set<number>>(new Set());
+    useLayoutEffect(() => {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const measure = () => setStageWidth((current) => {
+            const next = stage.clientWidth || current;
+            return current === next ? current : next;
+        });
+        measure();
+        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+        observer?.observe(stage);
+        return () => {
+            observer?.disconnect();
+        };
+    }, []);
+    useEffect(() => {
+        const floaterTimers = floaterTimersRef.current;
+        return () => {
+            for (const timer of floaterTimers) window.clearTimeout(timer);
+            floaterTimers.clear();
+        };
+    }, []);
     const quality = useMemo(() => petVisualQuality(), []);
     const configs = useMemo(() => {
         const m = new Map<string, PetCombatModelConfig>();
@@ -723,7 +747,7 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
     const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; visual: ProjectileVisual; dur: number; arc: number }>>([]);
     const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
     const [decals, setDecals] = useState<Array<{ id: number; x: number; z: number }>>([]);
-    const spawns = useMemo<Arena3DSpawns>(() => ({
+    const [spawns] = useState<Arena3DSpawns>(() => ({
         spawnFx: (n) => {
             const frames = (n.key ? bundledJutsuFxFrames(n.key) : null) ?? bundledJutsuFxFrames(elementVfxKey(n.element)) ?? bundledJutsuFxFrames("none");
             if (!frames) return;
@@ -742,13 +766,17 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
         spawnFloater: (x, z, text, color, big) => {
             const id = fx3dSeq++;
             setFloaters((arr) => [...arr, { id, pos: [x, 1.5, z], text, color, big }]);
-            window.setTimeout(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 950);
+            const timer = window.setTimeout(() => {
+                floaterTimersRef.current.delete(timer);
+                setFloaters((arr) => arr.filter((f) => f.id !== id));
+            }, 950);
+            floaterTimersRef.current.add(timer);
         },
         spawnDecal: (x, z) => {
             const id = fx3dSeq++;
             setDecals((arr) => [...arr, { id, x, z }].slice(-12));
         },
-    }), []);
+    }));
     const clearFx = () => { setFxList([]); setShots([]); setFloaters([]); setDecals([]); };
 
     // Corner PiP — tap to cycle focus (your blue squad first, then red).
@@ -757,13 +785,13 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
     const pipOn = quality.id !== "low" && pipIds.length > 0;
     const focusId = pipIds[pipIdx % Math.max(1, pipIds.length)] ?? "blue-0";
     const focusPet = roster.find((r) => r.id === focusId);
-    const pipW = Math.round(Math.min(230, Math.max(150, (typeof window !== "undefined" ? window.innerWidth : 1200) * 0.22)));
+    const pipW = Math.round(Math.min(230, Math.max(112, stageWidth * 0.22)));
     const pipH = Math.round(pipW * 0.62);
     const pipStatusRef = useRef<HTMLSpanElement>(null);
     const focusTeamColor = focusId.startsWith("blue") ? "#60a5fa" : "#f87171";
 
     return (
-        <div style={{ position: "absolute", inset: 0 }}>
+        <div ref={stageRef} style={{ position: "absolute", inset: 0 }}>
             {/* shadows="percentage" = PCFShadowMap explicitly — the boolean form picks
                 PCFSoftShadowMap, which three 0.184 deprecates with a PER-FRAME console
                 warning (and silently falls back to PCF anyway). */}

@@ -40,6 +40,9 @@ export default defineConfig({
     },
     projects: [
         { name: 'chromium-layout', use: { browserName: 'chromium' } },
+        { name: 'chromium-dpr125', use: { browserName: 'chromium', deviceScaleFactor: 1.25 } },
+        { name: 'chromium-dpr15', use: { browserName: 'chromium', deviceScaleFactor: 1.5 } },
+        { name: 'chromium-dpr2', use: { browserName: 'chromium', deviceScaleFactor: 2 } },
         { name: 'firefox-layout', use: { browserName: 'firefox' } },
         { name: 'webkit-layout', use: { browserName: 'webkit' } },
     ],

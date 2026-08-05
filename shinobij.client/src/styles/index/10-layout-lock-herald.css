@@ -1,29 +1,4 @@
-/* ===== HARD LOCK 3-COLUMN LAYOUT ===== */
-
-.app-shell {
-    width: 100vw !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
-    min-height: 100dvh !important;
-    overflow-x: hidden !important;
-}
-
-.center-game {
-    position: relative !important;
-    margin-left: 265px !important;
-    margin-right: 255px !important;
-    width: calc(100vw - 520px) !important;
-    max-width: none !important;
-    padding: 0px 0px !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden !important;
-    /* Allow the center column to scroll independently so the world map
-       isn't clipped on short viewports — sidebars stay fixed. */
-    height: 100vh !important;
-    height: 100dvh !important;
-    height: 100dvh !important;
-    overflow-y: auto !important;
-}
+/* The former hard-locked three-column shell was migrated to adaptive-shell.css. */
 
     .center-game .hero,
     .center-game .profile,

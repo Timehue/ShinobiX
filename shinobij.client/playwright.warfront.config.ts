@@ -23,4 +23,10 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
     },
+    projects: [
+        { name: "chromium-dpr1", use: { deviceScaleFactor: 1 } },
+        { name: "chromium-dpr125", use: { deviceScaleFactor: 1.25 } },
+        { name: "chromium-dpr15", use: { deviceScaleFactor: 1.5 } },
+        { name: "chromium-dpr2", use: { deviceScaleFactor: 2 } },
+    ],
 });

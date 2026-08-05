@@ -1518,7 +1518,7 @@ export function PetColiseum({
     return createPortal((
         // Full-screen takeover (like the Tactical Arena) — the duel pops OUT of the
         // page into an immersive fixed overlay instead of a small inline box.
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+        <div className="pet-combat-takeover" style={{ background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
             {/* Keyframes for the announcer pop. The signature cut-in uses the shared
                 .pet-cutin styles + animation from index.css. */}
             <style>{`
@@ -8075,7 +8075,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const selectedOpeningTactic = openingTactic === null ? null : PET_OPENING_TACTICS[openingTactic];
 
     return createPortal((
-        <div data-testid="pet-duel-root" className={mobileQa ? "pet-duel-mobile-qa" : undefined} style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: 200, width: mobileQa ? 390 : "100vw", height: mobileQa ? "min(844px,100vh)" : "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
+        <div data-testid="pet-duel-root" className={mobileQa ? "pet-duel-mobile-qa" : "pet-combat-takeover"} style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: "var(--z-combat)", width: mobileQa ? 390 : undefined, height: mobileQa ? "min(844px,100dvh)" : undefined, overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
             <style>{`
                 @keyframes petDuelFlash { 0% { opacity: 0; } 14% { opacity: var(--fp, 0.4); } 100% { opacity: 0; } }
                 @keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
@@ -9619,7 +9619,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     const winLabel = result.winner === "blue" ? "Blue Team Wins" : result.winner === "red" ? "Red Team Wins" : "Draw";
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
+        <div className="pet-combat-takeover pet-arena-takeover" style={{ backgroundColor: "#05060a" }}>
             <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes arenaFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes arenaBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}`}</style>
             {/* The STAGE. TRUE-3D mode (every pet has an approved GLB): the LoL-style
                 spectator scene owns its own camera/FX and receives the SAME director +
@@ -9674,7 +9674,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             </div>
 
             {/* Scoreboard */}
-            <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: arenaV2 ? 14 : 999, font: "800 20px Inter, system-ui, sans-serif" }}>
+            <div className="pet-arena-scoreboard" style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: arenaV2 ? 14 : 999, font: "800 20px Inter, system-ui, sans-serif" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
                     <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {result.winScore}</span>
@@ -9694,18 +9694,18 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             {/* Captures-only scoring — make the win condition unmistakable (kills don't score). */}
             {/* Dynamic objective line — scroll-spawn countdown / carrier return-progress,
                 updated per-frame via refs by <ArenaObjectiveHud> (no HUD re-render). */}
-            <div style={{ position: "absolute", top: 50, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, pointerEvents: "none" }}>
+            <div className="pet-arena-objective" style={{ position: "absolute", top: 50, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, pointerEvents: "none" }}>
                 <span ref={objTextRef} style={{ padding: "2px 10px", background: "rgba(8,12,24,0.6)", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>📜 Capture the scroll to score — defeating pets only buys time</span>
                 <div ref={objBarWrapRef} style={{ display: "none", width: 150, height: 5, background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                     <div ref={objBarRef} style={{ width: "0%", height: "100%", background: "#60a5fa" }} />
                 </div>
             </div>
 
-            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
+            <div className="pet-arena-controls" style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena{arenaV2 ? " V2" : ""}{use3d ? " · 3D" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
+            <div className="pet-arena-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena{arenaV2 ? " V2" : ""}{use3d ? " · 3D" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>

@@ -68,8 +68,15 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         try { field = new PetParticleField(canvas); } catch { return; }
         vfxFieldRef.current = field;
         const onResize = () => field?.resize();
-        window.addEventListener("resize", onResize);
-        return () => { window.removeEventListener("resize", onResize); field?.dispose(); vfxFieldRef.current = null; };
+        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(onResize);
+        observer?.observe(canvas);
+        if (!observer) window.addEventListener("resize", onResize, { passive: true });
+        return () => {
+            observer?.disconnect();
+            if (!observer) window.removeEventListener("resize", onResize);
+            field?.dispose();
+            vfxFieldRef.current = null;
+        };
     }, []);
     // Elemental sprite-effect overlay (CC0 frames) played on the focal tile for
     // elemental hit/beam/status beats — layered OVER the particle burst. Purely

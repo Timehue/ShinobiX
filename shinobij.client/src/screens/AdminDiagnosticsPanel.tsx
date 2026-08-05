@@ -337,9 +337,9 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
             <p style={{ color: "#9aa", fontSize: "0.85rem", marginTop: 0 }}>
                 Read-only operations tools — assets, battle receipts, audit log, economy, beta telemetry, and player index health.
             </p>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <div className="admin-diagnostics-tabs" role="tablist" aria-label="Diagnostics sections">
                 {(["assets", "receipts", "audit", "economy", "beta", "index"] as const).map((s) => (
-                    <button key={s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
+                    <button key={s} type="button" role="tab" aria-selected={section === s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
                         {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : "Player Index"}
                     </button>
                 ))}
@@ -411,7 +411,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
 
             {section === "receipts" && (
                 <div>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div className="admin-receipt-lookup">
                         <input
                             value={battleId}
                             onChange={(e) => setBattleId(e.target.value)}

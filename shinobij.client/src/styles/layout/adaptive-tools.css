@@ -1,0 +1,90 @@
+/* Responsive authoring/operations surfaces. Kept out of combat and shell CSS. */
+
+.admin-panel-switcher {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+}
+
+.admin-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  min-inline-size: 0;
+}
+
+.admin-grid > *,
+.admin-subpanel,
+.admin-subpanel :where(input, select, textarea) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.admin-diagnostics-tabs {
+  display: flex;
+  gap: var(--sp-1);
+  margin-block-end: var(--sp-2);
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.admin-diagnostics-tabs > button {
+  flex: 0 0 auto;
+  min-block-size: var(--touch-target-min);
+  white-space: nowrap;
+}
+
+.admin-receipt-lookup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-1);
+}
+
+.admin-receipt-lookup > :where(input, button) {
+  min-block-size: var(--touch-target-min);
+}
+
+.vn-dialogue-editor-row {
+  display: grid;
+  grid-template-columns: minmax(84px, 124px) minmax(0, 1fr) auto;
+  gap: var(--sp-1);
+  margin-block-end: var(--sp-1);
+  min-inline-size: 0;
+}
+
+.vn-dialogue-editor-row > input {
+  min-inline-size: 0;
+}
+
+.vn-dialogue-editor-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.vn-dialogue-editor-actions > button {
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+}
+
+.atlas-slot-clear {
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+}
+
+@media (max-width: 680px) {
+  .vn-dialogue-editor-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vn-dialogue-editor-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 559px) {
+  .admin-receipt-lookup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-receipt-lookup > button {
+    inline-size: 100%;
+  }
+}
