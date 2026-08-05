@@ -42,10 +42,10 @@ export const RELEASE_SYSTEM_MATRIX: ReleaseSystemRow[] = [
     },
     {
         system: "Clan, Clan Boss, Village War, Sector War",
-        launchState: "gate",
-        reason: "Social/economy systems can shape the live world and should soft-launch with staff watching.",
+        launchState: "monitor",
+        reason: "These systems are live and server-authoritative, but social/economy effects still require staffed monitoring.",
         risk: "High; duplicated rewards, unclear war state, and low-population imbalance.",
-        requiredBeforeEnable: "Admin runbook, war reward receipt audit, and live operator coverage.",
+        requiredBeforeEnable: "Admin runbook, war reward receipt audit, live operator coverage, and kill switches ready.",
     },
     {
         system: "Weekly Boss",
@@ -95,14 +95,14 @@ const SCREEN_NOTICES: Partial<Record<Screen, PublicBetaNotice>> = {
     villageWar: {
         id: "village-war",
         screen: "villageWar",
-        state: "gate",
+        state: "monitor",
         title: "Village War is a staffed beta system",
         body: "War can reshape rewards and world state. Use it during public beta only when admins can monitor receipts and resolve disputes.",
     },
     villageWarMap: {
         id: "sector-war-map",
         screen: "villageWarMap",
-        state: "gate",
+        state: "monitor",
         title: "Sector War is soft-launched",
         body: "Sector declarations, terrain, mercenaries, and war supply should be monitored before inviting all players into them.",
     },

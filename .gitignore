@@ -443,6 +443,7 @@ scripts/vfx-sources/
 .playwright-mcp/
 shinobij.client/playwright-report/
 shinobij.client/test-results/
+shinobij.client/.playwright-dist-*/
 qa-*.jpeg
 qa-*.png
 

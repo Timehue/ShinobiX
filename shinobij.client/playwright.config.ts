@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 const port = process.env.PLAYWRIGHT_PORT ?? '4173';
 const baseURL = `http://127.0.0.1:${port}`;
+const previewRoot = `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;
 
 export default defineConfig({
     testDir: './e2e',
@@ -28,10 +29,16 @@ export default defineConfig({
         serviceWorkers: 'block',
     },
     webServer: {
-        command: `npm run preview -- --host 127.0.0.1 --port ${port}`,
+        // Vite serves files directly from its output directory. A build in a
+        // parallel task briefly empties dist, which used to blank live pages
+        // and fail image/CSS checks mid-run. Snapshot the certified artifact
+        // first so every browser worker sees one immutable release candidate.
+        command: `node scripts/prepare-e2e-preview.mjs ${previewRoot} && npm run preview -- --host 127.0.0.1 --port ${port} --outDir ${previewRoot}`,
         url: baseURL,
         env: { VITE_SKIP_HTTPS: '1' },
-        reuseExistingServer: !process.env.CI,
+        // Never certify an unrelated dev/preview process that happens to own
+        // the port; the immutable snapshot above is part of the test contract.
+        reuseExistingServer: false,
         timeout: 120_000,
     },
     projects: [

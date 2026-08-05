@@ -105,7 +105,7 @@ rotatable `.glb` for a few dollars total, with the existing key.
 | Beat choreography (deterministic) | [shinobij.client/src/lib/pet-coliseum-scene.ts](../shinobij.client/src/lib/pet-coliseum-scene.ts) |
 | Pose flipbook manifest | [shinobij.client/src/assets/coliseum/pet-poses-manifest.ts](../shinobij.client/src/assets/coliseum/pet-poses-manifest.ts) |
 | Pose webp files | `shinobij.client/public/pet-poses/<id>-<cat>.webp` |
-| Feature flags (`petColiseum.v1`, `petDuel.v1`, `petBloom.v1`) | `shinobij.client/src/components/pet-coliseum-flag.ts` |
+| Relevant flags (`petEvolveCutscene.v1`, `petDuelEngine.v1`, `petBloom.v1`) | `shinobij.client/src/lib/pet-coliseum-flag.ts` |
 | Asset gen scripts | `shinobij.client/scripts/{gen-asset,gen-pet-anim,slice-pet-poses,gen-pet-run,gen-all-pet-poses,finalize-pet-poses,gen-bg}.mjs` |
 | Server (route registration) | [server.ts](../server.ts) · handlers under [api/pet/](../api/pet) |
 
@@ -451,7 +451,7 @@ node scripts/finalize-pet-poses.mjs
 ## 7. Flags, fallbacks, performance, accessibility
 
 - **New flag** `petEvolveCutscene.v1` in
-  `shinobij.client/src/components/pet-coliseum-flag.ts` (default ON once art
+  `shinobij.client/src/lib/pet-coliseum-flag.ts` (default ON once art
   ships). OFF → evolution still happens server-side; client shows a quick
   "Evolved into X!" toast instead of the cinematic.
 - **Bloom** is scoped to the cutscene's own `EffectComposer` (independent of the
@@ -514,7 +514,7 @@ first; art (Phase 4) backfills the visuals.
 - `shinobij.client/src/lib/pet-battle-anim.ts` — `petVisualId()` + thread through
   resolution.
 - `shinobij.client/src/assets/coliseum/pet-poses-manifest.ts` — regenerated.
-- `shinobij.client/src/components/pet-coliseum-flag.ts` — `petEvolveCutscene.v1`.
+- `shinobij.client/src/lib/pet-coliseum-flag.ts` — `petEvolveCutscene.v1`.
 - `shinobij.client/src/screens/PetYard.tsx` — Evolve panel + launch.
 - [server.ts](../server.ts) — register `/api/pet/evolve` (both paths).
 - `server-routes.test.ts` — covers the new route automatically (keep green).

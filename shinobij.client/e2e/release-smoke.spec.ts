@@ -1,9 +1,25 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const sentryBundlePresent = existsSync('dist/assets')
-    && readdirSync('dist/assets').some((name) => /^sentry-vendor-.*\.js$/.test(name));
+let sentryBundlePresent = false;
+let sentryBundleEnabled = false;
+// A lazy Sentry chunk is part of the module graph even when Vite was built
+// without VITE_SENTRY_DSN. Only an enabled build should run the network smoke;
+// otherwise a normal local build would fail while correctly omitting capture.
+test.beforeAll(() => {
+    const port = process.env.PLAYWRIGHT_PORT ?? '4173';
+    const previewRoot = `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;
+    const assetsDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', previewRoot, 'assets');
+    if (!existsSync(assetsDirectory)) return;
+    const assets = readdirSync(assetsDirectory);
+    sentryBundlePresent = assets.some((name) => /^sentry-vendor-.*\.js$/.test(name));
+    sentryBundleEnabled = assets
+        .filter((name) => /^index-.*\.js$/.test(name))
+        .some((name) => /public@example\.invalid/.test(readFileSync(join(assetsDirectory, name), 'utf8')));
+});
 
 test.beforeEach(async ({ page }) => {
     // Vite preview is intentionally static; the real Express server owns this
@@ -136,7 +152,7 @@ test('themed alerts trap focus and restore the invoking control', async ({ page 
 
 test('production error reporting stays lazy and fails open', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-desktop', 'one production-bundle assertion is sufficient');
-    test.skip(!process.env.CI && !sentryBundlePresent, 'local bundle was built without VITE_SENTRY_DSN; CI always exercises the enabled path');
+    test.skip(!process.env.CI && (!sentryBundlePresent || !sentryBundleEnabled), 'local bundle was built without VITE_SENTRY_DSN; CI always exercises the enabled path');
 
     const sentryChunks: string[] = [];
     const envelopes: string[] = [];

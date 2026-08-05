@@ -1058,12 +1058,11 @@ export default defineConfig({
         // runtimePublicAssetsPlugin performs the filtered copy. Leaving Vite's
         // blanket copy enabled would ship multi-gigabyte pet authoring sources.
         copyPublicDir: false,
-        // Slightly bump the warning ceiling — the app bundle is ~1.5 MB
-        // unminified pre-gzip (≈ 420 KB gzipped), which is fine for an
-        // interactive game shell that loads once and lazy-fetches the
-        // route chunks. 700 KB cuts the noise without hiding real
-        // regressions.
-        chunkSizeWarningLimit: 700,
+        // The only chunk above Vite's generic default is the deliberately shared,
+        // lazy Three.js stack. scripts/check-build-size.mjs enforces tighter named
+        // raw + gzip budgets and proves it stays off the startup graph; keep Vite's
+        // advisory ceiling aligned so a clean audited build is warning-free.
+        chunkSizeWarningLimit: 1100,
         rollupOptions: {
             // The app does not use discarded property reads as an effect.
             // Let Rolldown eliminate those reads inside lazy game/vendor code

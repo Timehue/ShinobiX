@@ -18,6 +18,8 @@ describe("release readiness metadata", () => {
         assert.equal(releaseNoticeForScreen("missions"), null);
         assert.equal(releaseNoticeForScreen("weeklyBoss"), null);
         assert.equal(releaseNoticeForScreen("petArena")?.state, "monitor");
+        assert.equal(releaseNoticeForScreen("villageWar")?.state, "monitor");
+        assert.equal(releaseNoticeForScreen("villageWarMap")?.state, "monitor");
         assert.equal(releaseNoticeForScreen("hollowGateShrine")?.state, "desktop");
     });
 
