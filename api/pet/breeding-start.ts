@@ -11,6 +11,7 @@ import { buildSealedBreedingResult, breedingResultKey, deterministicBreedingSess
 import { settlePetBreedingSession, type PetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets, PET_BREEDING_RULES_VERSION } from './_owned-pet.js';
 import { petBreedingEligibility } from './_pet-busy.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
 
 const REQUEST_ID_RE = /^[A-Za-z0-9_-]{16,96}$/;
 
@@ -114,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true, character: nextCharacter, version: written._saveVersion, replayed: Boolean(recovered) };
         }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error, ...(result.message ? { message: result.message } : {}) });
+        if (!result.replayed) captureServerProductEvent('pet_breeding_started', { source: 'breeding_barn' });
         return res.status(200).json({
             ok: true,
             replayed: result.replayed,

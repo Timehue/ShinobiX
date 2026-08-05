@@ -22,6 +22,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
 
 /** Start or recover a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -93,6 +94,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             return { ok: true as const, runId, session, resumed: false };
         }, { failClosed: true, ttlSec: 10 });
+        if (!started.resumed) {
+            const level = Number(char.level ?? 0);
+            captureServerProductEvent('mission_started', {
+                mode: 'combat',
+                contentId: mission.key,
+                levelBand: level < 10 ? 'L1-9' : level < 20 ? 'L10-19' : level < 40 ? 'L20-39' : level < 80 ? 'L40-79' : 'L80-100',
+            });
+        }
         return res.status(200).json(started);
     } catch (err) {
         console.error('[missions/combat-start]', err);

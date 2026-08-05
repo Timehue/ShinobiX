@@ -1,10 +1,11 @@
-import { Suspense, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { type Character } from "../App";
 import { villages } from "../data/sectors";
 import { GameIcon } from "../components/icons/GameIcon";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/legal";
 import { LegalPage } from "./LegalPage";
+import { captureProductEvent } from "../lib/analytics";
 
 const CharacterCreator = lazyWithRetry(() => import("./CharacterCreator").then(m => ({ default: m.CharacterCreator })));
 const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then(m => ({ default: m.PublicLeaderboard })));
@@ -172,6 +173,10 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
         return initialName || notice ? "login" : "main";
     });
 
+    useEffect(() => {
+        if (view === "main") captureProductEvent("landing_viewed", { screenId: "landing", source: "navigation" });
+    }, [view]);
+
     if (view.startsWith("legal:")) {
         return <LegalPage slug={view.slice("legal:".length) as LegalPageSlug} />;
     }
@@ -237,10 +242,22 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
 
     return (
         <LandingMain
-            onOpenCreate={() => setView("create")}
-            onOpenLogin={() => setView("login")}
-            onOpenGuides={() => setView("guides")}
-            onOpenLeaderboard={() => setView("leaderboard")}
+            onOpenCreate={() => {
+                captureProductEvent("character_creation_started", { source: "landing" });
+                setView("create");
+            }}
+            onOpenLogin={() => {
+                captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "login" });
+                setView("login");
+            }}
+            onOpenGuides={() => {
+                captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "guides" });
+                setView("guides");
+            }}
+            onOpenLeaderboard={() => {
+                captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "leaderboard" });
+                setView("leaderboard");
+            }}
         />
     );
 }

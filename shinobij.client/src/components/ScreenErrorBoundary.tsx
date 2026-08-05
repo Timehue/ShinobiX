@@ -15,6 +15,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RecoveryActions } from "./RecoveryActions";
 import { reportError } from "../lib/sentry";
 import { isChunkLoadError, reloadOnceForChunkLoadError } from "../lib/chunk-load-recovery";
+import { captureProductEvent } from "../lib/analytics";
 
 type Props = { children: ReactNode };
 type State = { error: Error | null };
@@ -32,7 +33,11 @@ export class ScreenErrorBoundary extends Component<Props, State> {
             reloadOnceForChunkLoadError(error);
             return;
         }
-        reportError(error, { componentStack: info?.componentStack, scope: "screen" });
+        reportError(error, { componentStack: info?.componentStack, source: "screen" });
+        captureProductEvent("recoverable_ui_error_shown", {
+            source: "screen_boundary",
+            errorCategory: "render_error",
+        });
     }
 
     render(): ReactNode {
