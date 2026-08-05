@@ -1,0 +1,35 @@
+name: Visual regression (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: shinobij.client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install chromium
+      - run: npm run test:e2e:visual
+      - run: npm run test:e2e:visual:size
+      - name: Upload visual diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-diagnostics
+          path: |
+            shinobij.client/test-results/visual
+            shinobij.client/playwright-report
+          if-no-files-found: ignore
