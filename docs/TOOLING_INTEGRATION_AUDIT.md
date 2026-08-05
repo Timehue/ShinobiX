@@ -82,7 +82,7 @@ The root `npm ci` completed successfully with zero reported vulnerabilities. The
 
 ### Load and realtime QA
 
-- `scripts/load-soak.mjs` provisions isolated local-memory accounts, exercises register/login, saves, optimistic conflicts, rate limiting, HTTP heartbeats, save reads, reward claims, ramp and sector spread, p50/p95/p99 latency, generator event-loop lag, and pass/fail output. Its console report is human-readable rather than JSON.
+- `scripts/load-soak.mjs` provisions isolated local-memory accounts, exercises register/login, saves, optimistic conflicts, rate limiting, HTTP heartbeats, save reads, reward claims, ramp and sector spread, p50/p95/p99 latency, and direct game-server `/health` responsiveness. It fails closed on incomplete provisioning, vacuous traffic, health-probe failures, saturation, or unexpected HTTP errors. Its console report is human-readable rather than JSON.
 - `shinobij.client/scripts/staging-load-harness.mjs` produces JSON, has hard remote-target confirmation/production denylisting, bounded time/rate/concurrency/response samples, optional authenticated endpoints, real Socket.IO clients, room presence requests, forced transport interruption, reconnect measurement, generator memory, and release thresholds.
 - The staging harness does not yet ramp socket connections, spread them across sectors, emit ordinary periodic presence after connection, distinguish expected forced disconnects from unexpected churn, or enforce reconnect p95. Those are the scoped improvements. A raw-WebSocket k6 script would not certify Socket.IO and is rejected.
 

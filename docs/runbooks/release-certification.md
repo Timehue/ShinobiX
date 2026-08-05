@@ -1,7 +1,8 @@
 # Fresh-Account Release Certification (P0-6)
 
-The standing answer to *"would a brand-new player's rewards actually survive a
-refresh?"* — asserted against the real server, on every CI run.
+The standing answer to *"would a brand-new player's progression and combat
+settlement actually survive real server boundaries?"* — asserted against the
+real server on every CI run.
 
 ```bash
 npm run certify:release                                   # boot a server and certify
@@ -29,6 +30,8 @@ journey. Each check maps to a failure class from the Phase 0 audits:
 | reward is idempotent | a retry reports `alreadyClaimed` and grants nothing | idempotency contract (P0-2) |
 | stale autosave | a stale write is rejected **409** and the reward is still there afterwards | stale-write clobber |
 | public projection | a foreign reader sees no wallet, no stats, no internal metadata | projection boundary (P0-1) |
+| Academy spar | a fresh player fights the server-owned tutorial opponent, cannot settle early, receives the one-time reward, and cannot replay it | authoritative Solo PvE lifecycle |
+| two-account PvP | two saved players create and reconnect to a server-owned UUIDv4 duel, retry a move idempotently, resolve, reject a loser forging the win outcome, settle both sides, persist the winner reward once, and read participant-gated receipts/history | authoritative PvP lifecycle |
 
 ## What it does NOT cover
 
@@ -39,7 +42,8 @@ boundaries**, not the storage engine.
 
 Point it at a staging deployment with `--url=` to cover those — same checks,
 real storage. It creates two throwaway accounts per run (`certbot…`,
-`certobs…`), so only run it against staging, never production.
+`certobs…`) and completes a reward-bearing PvP duel, so only run it against
+staging, never production.
 
 It is also API-level by design: browser rendering stays with the Playwright
 suite, which runs against a mocked preview and certifies UI, not settlement.
