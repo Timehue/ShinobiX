@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = 'http://127.0.0.1:4173';
+const port = process.env.PLAYWRIGHT_PORT ?? '4173';
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
     testDir: './e2e',
@@ -27,7 +28,7 @@ export default defineConfig({
         serviceWorkers: 'block',
     },
     webServer: {
-        command: 'npm run preview -- --host 127.0.0.1 --port 4173',
+        command: `npm run preview -- --host 127.0.0.1 --port ${port}`,
         url: baseURL,
         env: { VITE_SKIP_HTTPS: '1' },
         reuseExistingServer: !process.env.CI,
