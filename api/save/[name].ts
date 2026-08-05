@@ -1913,9 +1913,13 @@ export function sanitizeCharacterSave(
             char.hospitalizedAt = 0;
         }
     } else if (exHosp && inHosp) {
-        // Preserve the original stamps — don't let the client refresh them.
+        // Preserve the original stamps and the KO itself. The client has an
+        // idle-vitals clock, so a stale or modified client can otherwise send
+        // hospitalized:true with regenerated HP and autosave its way off zero
+        // while it is still admitted.
         char.hospitalizedUntil = exHospUntil || char.hospitalizedUntil;
         char.hospitalizedAt = exHospAt || char.hospitalizedAt;
+        char.hp = 0;
     }
 
     // ─── creatorItems normalization (top-level, persisted) ─────────────────────

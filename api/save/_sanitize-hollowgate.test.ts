@@ -427,6 +427,19 @@ test('hospital: a genuine fresh KO (no recent discharge) is hospitalized with a 
     );
 });
 
+test('hospital: an admitted player cannot autosave regenerated HP', () => {
+    const hospitalizedUntil = Date.now() + 45_000;
+    const hospitalizedAt = Date.now() - 15_000;
+    const out = sanitize(
+        { hp: 29, maxHp: 500, hospitalized: true, hospitalizedUntil, hospitalizedAt },
+        { hp: 0, maxHp: 500, hospitalized: true, hospitalizedUntil, hospitalizedAt },
+    );
+    assert.equal(out.hospitalized, true);
+    assert.equal(out.hp, 0, 'HP stays at zero until a server-authoritative discharge');
+    assert.equal(out.hospitalizedUntil, hospitalizedUntil);
+    assert.equal(out.hospitalizedAt, hospitalizedAt);
+});
+
 test('hospital: a discharge older than the grace window does NOT suppress a later genuine KO', () => {
     const out = sanitize(
         { hospitalized: true },
