@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
-import { CombatInstance } from "../components/CombatInstance";
+import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -24,6 +24,8 @@ import { useBattleTabs } from "../lib/use-battle-tabs";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BattleTabBar } from "../components/BattleTabBar";
+import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
+import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { isImageAvatar } from "../lib/avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
@@ -77,7 +79,7 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 // squad rail, pylons, hazards, or spire chrome to draw.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
-type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; method?: string; image?: string; tags?: Array<{ name?: string }> };
+type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; tags?: Array<{ name?: string }> };
 type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; weaponRange?: number; apCost?: number };
 
 const ORB = 52;             // matches Arena.tsx ORB — orbs centre over the hex
@@ -651,7 +653,8 @@ export function MissionArenaFight({
     }
 
     return (
-        <CombatInstance
+        <ShinobiCombatShell
+            mode="solo"
             className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
@@ -761,6 +764,7 @@ export function MissionArenaFight({
                         </div>
                     </div>
 
+                    <div className="combat-board-stage">
                     <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
@@ -817,6 +821,23 @@ export function MissionArenaFight({
                                     const isFlickerTile = mode === "jutsu" && isMoveJutsu(selJutsu) && rangeTiles.has(i);
                                     const isEnemyTarget = enemy != null && i === enemyPos && enemyInRange && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu) && selJutsu?.target !== "EMPTY_GROUND" && !isMoveJutsu(selJutsu)));
                                     const isSelfTarget = mode === "jutsu" && isSelfCastJutsu(selJutsu) && i === myPos;
+                                    const tileOccupant = i === myPos
+                                        ? "your position"
+                                        : i === enemyPos
+                                            ? `${enemyName} position`
+                                            : companion && i === companion.pos
+                                                ? `${companion.name} position`
+                                                : "empty";
+                                    const tilePurpose = isEnemyTarget || isSelfTarget
+                                        ? "target"
+                                        : isGroundTile
+                                            ? "ground target"
+                                            : isMoveTile || isFlickerTile
+                                                ? "move target"
+                                                : isRangeTile
+                                                    ? "in range"
+                                                    : null;
+                                    const tileLabel = `Tile ${i + 1}, row ${Math.floor(i / w) + 1}, column ${(i % w) + 1}: ${tileOccupant}${tilePurpose ? `, ${tilePurpose}` : ""}`;
                                     const cls = [
                                         "hex-tile",
                                         i === myPos ? "hex-player" : "",
@@ -834,6 +855,7 @@ export function MissionArenaFight({
                                             key={i}
                                             data-tile={i}
                                             className={cls}
+                                            aria-label={tileLabel}
                                             style={{ left: `${left}px`, top: `${top}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                             onClick={() => onTileClick(i)}
                                         >
@@ -846,6 +868,7 @@ export function MissionArenaFight({
                                 })}
                             </div>
                         </div>
+                    </div>
                     </div>
 
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
@@ -916,7 +939,7 @@ export function MissionArenaFight({
                                             <button
                                                 type="button"
                                                 className={`combat-jutsu-button ${armed ? "selected-action" : ""} ${onCd ? "jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || onCd || myAp < Number(j.ap ?? 0)}
+                                                disabled={busy || !myTurn || outOfActions || onCd || myAp < adjustedCombatApCost(myActor?.statuses, Number(j.ap ?? 0))}
                                                 title={`${j.name} | ${j.ap} AP | Range ${j.range}`}
                                                 onClick={() => armJutsu(j)}
                                             >
@@ -924,7 +947,7 @@ export function MissionArenaFight({
                                                 <span className="combat-jutsu-name">{j.name}</span>
                                                 {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                     shows as the corner pip. */}
-                                                <span className="combat-jutsu-info">{j.ap} AP · R{j.range}{onCd ? ` · CD ${cd}` : ""}</span>
+                                                <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} activeCooldown={cd} />
                                             </button>
                                         </div>
                                     );
@@ -1033,6 +1056,6 @@ export function MissionArenaFight({
                     </div>
                 )
             )}
-        </CombatInstance>
+        </ShinobiCombatShell>
     );
 }

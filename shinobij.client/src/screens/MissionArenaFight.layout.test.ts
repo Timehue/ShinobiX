@@ -7,6 +7,7 @@ const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", imp
 const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const combatRestoreCss = readFileSync(new URL("../styles/index/24-combat-mobile-restore.css", import.meta.url), "utf8");
 const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.tsx", import.meta.url), "utf8");
+const shinobiCombatShellSource = readFileSync(new URL("../components/ShinobiCombatShell.tsx", import.meta.url), "utf8");
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const pvpSource = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
 const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
@@ -93,18 +94,25 @@ test("every shinobi fight uses the shared viewport-level combat instance", () =>
         "the shared fight boundary must mount directly under body, outside every menu and page layout",
     );
 
-    for (const [name, source] of [
-        ["mission PvE", missionSource],
-        ["arena PvE", arenaSource],
-        ["session PvP", pvpSource],
-        ["tower PvE/PvP", towerSource],
-    ] as const) {
-        assert.match(source, /<CombatInstance(?:\s|>)/, `${name} must render through CombatInstance`);
+    assert.match(
+        shinobiCombatShellSource,
+        /<CombatInstance(?:\s|>)/,
+        "the shared PvP/Solo presentation shell must retain the viewport-level combat boundary",
+    );
+
+    assert.match(towerSource, /<CombatInstance(?:\s|>)/, "tower PvE/PvP must render through CombatInstance");
+    assert.match(
+        arenaSource,
+        /<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/,
+        "legacy Arena PvE must retain a viewport-level combat boundary",
+    );
+    for (const [name, source] of [["mission PvE", missionSource], ["session PvP", pvpSource]] as const) {
+        assert.match(source, /<ShinobiCombatShell(?:\s|>)/, `${name} must render through ShinobiCombatShell`);
     }
 
     assert.ok(
-        (pvpSource.match(/<CombatInstance(?:\s|>)/g) ?? []).length >= 2,
-        "PvP must use the instance boundary while connecting and after the session loads",
+        (pvpSource.match(/<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/g) ?? []).length >= 2,
+        "PvP must use the instance boundary while connecting and the shared shell after the session loads",
     );
 
     const cssWithoutComments = battleSkinCss.replace(/\/\*[\s\S]*?\*\//g, "");
