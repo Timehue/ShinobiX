@@ -6,10 +6,6 @@
 }
 
 /* Give the main middle screen a tiny breathing space without shifting the side panels. */
-.center-game {
-    padding-top: clamp(8px, 1.3vh, 16px) !important;
-}
-
 /* Make the arena use the available resolution instead of forcing one desktop size. */
 .arena-fullscreen {
     width: 100% !important;
@@ -140,31 +136,6 @@
 
 /* Phone / narrow mobile view. */
 @media (max-width: 800px) {
-    body {
-        overflow-x: hidden !important;
-    }
-
-    .left-profile-card,
-    .sector-banner-panel {
-        display: none !important;
-    }
-
-    .right-menu-panel {
-        display: none !important;
-    }
-
-    .center-game {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-        width: 100vw !important;
-        max-width: 100vw !important;
-        /* No top padding — MobileStatusHUD lives at the top edge with
-           its own safe-area inset. Horizontal padding starts after the
-           HUD via the inner content. Bottom padding clears the fixed
-           bottom nav (handled by the bottom-nav rule). */
-        padding: 0 8px 8px !important;
-    }
-
     /* Slim mobile banner — top chrome is now the persistent
        MobileStatusHUD (sticky bar above), so the banner is
        reduced to a thin atmospheric strip instead of taking
@@ -320,9 +291,6 @@ button.combat-jutsu-button,
 
 /* ===== Adaptive layout sizing ===== */
 :root {
-    --side-rail-w: clamp(190px, 17vw, 260px);
-    --right-menu-w: clamp(190px, 16vw, 255px);
-    --main-gutter: clamp(6px, 1vw, 14px);
     --banner-h: clamp(108px, 15dvh, 170px);
     --sector-side-w: clamp(124px, 15vw, 190px);
     --battle-side-w: clamp(150px, 16vw, 210px);
@@ -332,24 +300,6 @@ button.combat-jutsu-button,
     --battle-board-h: clamp(360px, 50dvh, 640px);
     --jutsu-card-min: clamp(82px, 8.6vw, 118px);
     --jutsu-card-h: clamp(82px, 11vh, 104px);
-}
-
-.sector-banner-panel,
-.left-profile-card {
-    width: var(--side-rail-w) !important;
-}
-
-.right-menu-panel {
-    width: var(--right-menu-w) !important;
-    max-width: var(--right-menu-w) !important;
-}
-
-.center-game {
-    margin-left: calc(var(--side-rail-w) + var(--main-gutter)) !important;
-    margin-right: calc(var(--right-menu-w) + var(--main-gutter)) !important;
-    width: calc(100vw - var(--side-rail-w) - var(--right-menu-w) - (var(--main-gutter) * 2)) !important;
-    min-width: 0 !important;
-    padding-inline: clamp(4px, 0.8vw, 12px) !important;
 }
 
 .journey-banner {
@@ -385,93 +335,7 @@ button.combat-jutsu-button,
     white-space: nowrap !important;
 }
 
-.map-instance,
-.sector-instance-wrap,
-.map-instance .instance-frame {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-}
-
-.sector-instance-wrap,
-.map-instance .instance-frame {
-    /* Fill the available viewport height so the sector/town map is as large as
-       fits and the bottom tile row is always visible — on every desktop height.
-
-       The old `min(952px, calc(100dvh - var(--banner-h) ± Npx))` was wrong two
-       ways on the screens players actually use (measured at 1365×911 and
-       2005×1271, dpr=1): the 952px hard cap left a ~300px dead band at the
-       bottom of tall/ultrawide viewports, and subtracting `--banner-h`
-       over-reserved ~120px of top space that these map screens don't use (their
-       banner collapses to 0). The net was a short, floating map with empty bands
-       above and below. Filling `100dvh − 24px` (≈ the frame's ~16px top offset +
-       a small bottom margin) tracks the viewport: it grows to fill tall screens
-       and shrinks to fit short laptops (768px) without overflow. */
-    height: calc(100dvh - 24px) !important;
-    max-height: calc(100dvh - 24px) !important;
-    min-height: clamp(560px, 76dvh, 872px) !important;
-}
-
-.map-instance .sector-instance-wrap:not(:has(.instance-info)) {
-    grid-template-columns: minmax(0, 1fr) clamp(104px, 12vw, 140px) !important;
-}
-
-.map-instance .sector-instance-wrap:has(.instance-info),
-.sector-instance-wrap {
-    grid-template-columns: minmax(0, 1fr) var(--sector-side-w) !important;
-}
-
-.sector-instance-wrap .instance-info,
-.sector-instance-wrap .instance-actions,
-.map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-info,
-.map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions {
-    width: var(--sector-side-w) !important;
-    min-width: var(--sector-side-w) !important;
-    max-width: var(--sector-side-w) !important;
-}
-
-.map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
-    width: clamp(104px, 12vw, 140px) !important;
-    min-width: clamp(104px, 12vw, 140px) !important;
-    max-width: clamp(104px, 12vw, 140px) !important;
-}
-
-.tile-scene,
-.pixel-map,
-.walkable-sector-map,
-.sector-image-map {
-    min-width: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.sector-instance-wrap .tile-scene {
-    display: grid !important;
-    grid-template-rows: auto minmax(0, 1fr) auto !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    overflow: hidden !important;
-    /* Breathing room so the bottom tile row's player token isn't clipped */
-    padding-bottom: 22px !important;
-}
-
-.pixel-map,
-.walkable-sector-map {
-    aspect-ratio: 1 / 1 !important;
-    /* cap to the tile-scene row height; the 1fr row already shrinks
-       to fit so max-height: 100% is the binding constraint */
-    height: min(100%, calc(100dvh - var(--banner-h) - 40px)) !important;
-    max-height: 100% !important;
-    margin-inline: auto !important;
-}
-
-.sector-image-map {
-    aspect-ratio: auto !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: none !important;
-    min-height: min(76dvh, 820px) !important;
-}
+/* Sector coordinate-stage geometry is owned by layout/adaptive-stages.css. */
 
 .arena-fullscreen {
     min-width: 0 !important;
@@ -551,15 +415,8 @@ button.combat-jutsu-button,
 
 @media (max-width: 1180px) {
     :root {
-        --side-rail-w: clamp(150px, 16vw, 205px);
-        --right-menu-w: clamp(150px, 16vw, 205px);
         --banner-h: clamp(98px, 14dvh, 145px);
         --battle-board-h: clamp(320px, 44dvh, 560px);
-    }
-
-    .left-profile-card {
-        gap: 5px !important;
-        font-size: 0.8rem !important;
     }
 
     .left-profile-avatar {
@@ -576,7 +433,7 @@ button.combat-jutsu-button,
 
 /* The full Next-Goal banner shows only on mobile; on desktop (≥981px) the compact
    copy under the Lv/XP bar in the left-profile rail replaces it (NextGoalPin compact). */
-@media (min-width: 981px) {
+@media (min-width: 980px) {
     .next-goal-pin {
         display: none !important;
     }
@@ -593,22 +450,7 @@ button.combat-jutsu-button,
     }
 }
 
-@media (max-width: 980px) {
-    .sector-banner-panel,
-    .left-profile-card,
-    .right-menu-panel {
-        display: none !important;
-    }
-
-    .center-game {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-        width: 100vw !important;
-        max-width: 100vw !important;
-        /* shorthand padding — overridden on ≤800px to restore nav-bar clearance */
-        padding: clamp(6px, 2vw, 12px) !important;
-    }
-
+@media (max-width: 979px) {
     /* ── Restore bottom clearance for the fixed mobile nav bar.
        This rule MUST live after the ≤980px block above because that block's
        shorthand `padding` overwrites the bottom value set earlier.
@@ -617,11 +459,7 @@ button.combat-jutsu-button,
        shell takes over (23-mobile-shell.css). At 800px this left 801-980px with a
        fixed nav bar and no clearance reserved for it, so the nav sat on top of the
        page's own bottom controls.                                          ── */
-    @media (max-width: 980px) {
-        .center-game {
-            padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
-        }
-
+    @media (max-width: 979px) {
         /* Give the profile card a little extra breathing room at the bottom */
         .profile-page-card {
             padding-bottom: 12px !important;
@@ -649,41 +487,7 @@ button.combat-jutsu-button,
         max-width: 100% !important;
     }
 
-    .sector-instance-wrap,
-    .map-instance .instance-frame,
-    .map-instance .sector-instance-wrap:has(.instance-info),
-    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
-        grid-template-columns: 1fr !important;
-        grid-template-areas:
-            "profile"
-            "scene"
-            "actions" !important;
-        height: auto !important;
-        min-height: 0 !important;
-        overflow: visible !important;
-    }
-
-    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
-        grid-template-areas:
-            "scene"
-            "actions" !important;
-    }
-
-    .sector-instance-wrap .instance-info,
-    .sector-instance-wrap .instance-actions,
-    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-info,
-    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
-    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-    }
-
-    .pixel-map,
-    .walkable-sector-map {
-        height: auto !important;
-        min-height: min(84vw, 560px) !important;
-    }
+    /* Mobile sector layout is owned by layout/adaptive-stages.css. */
 }
 
 /* ── Sector explore: overlay actions panel on the map at tablet/mobile widths ──
@@ -691,52 +495,7 @@ button.combat-jutsu-button,
    the action buttons (Explore, Recover, Leave) below the full-height map and out
    of view. This block overrides just the instance-frame case to keep the map
    full-height and float the actions panel as a translucent overlay instead.      */
-@media (max-width: 980px) {
-    .map-instance .instance-frame {
-        position: relative !important;
-        grid-template-columns: 1fr !important;
-        grid-template-areas: "scene" !important;
-        height: min(92dvh, 920px) !important;
-        min-height: clamp(480px, 70dvh, 760px) !important;
-        overflow: hidden !important;
-    }
-
-    .map-instance .instance-frame > main.tile-scene {
-        grid-area: scene !important;
-        grid-column: 1 !important;
-        display: grid !important;
-        grid-template-rows: auto 1fr !important;
-        height: 100% !important;
-        overflow: hidden !important;
-    }
-
-    .map-instance .instance-frame .sector-image-map {
-        height: 100% !important;
-        min-height: 0 !important;
-    }
-
-    /* Float the action buttons as an overlay in the top-right of the map */
-    .map-instance .instance-frame > aside.instance-actions {
-        position: absolute !important;
-        top: 36px !important;   /* clear the scene-title bar */
-        right: 8px !important;
-        width: clamp(124px, 18vw, 160px) !important;
-        min-width: 120px !important;
-        max-width: 160px !important;
-        max-height: calc(100% - 52px) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        z-index: 20 !important;
-        grid-area: unset !important;
-        grid-column: unset !important;
-        background: rgba(6, 10, 22, 0.92) !important;
-        backdrop-filter: blur(6px) !important;
-        -webkit-backdrop-filter: blur(6px) !important;
-        border-radius: 8px !important;
-        border: 1px solid rgba(250, 204, 21, 0.45) !important;
-        padding: 6px !important;
-    }
-}
+/* Sector-stage layout is owned by layout/adaptive-stages.css. */
 
 /* Desktop complement to the ≤980px tile-scene grid blocks above. Those give
    .map-instance's <main.tile-scene> a `grid-template-rows: auto 1fr` layout so
@@ -748,33 +507,13 @@ button.combat-jutsu-button,
    monitors (measured at 1365×911 and 2005×1271: 11–9 of 12 rows visible). Same
    fix, applied to desktop so all 12 rows always show. Mobile (≤980px) keeps its
    own blocks; this is min-width:981px so the two never overlap. */
-@media (min-width: 981px) {
-    .map-instance .instance-frame > main.tile-scene {
-        display: grid !important;
-        grid-template-rows: auto minmax(0, 1fr) !important;
-        height: 100% !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
-    }
-
-    .map-instance .instance-frame > main.tile-scene > .pixel-map,
-    .map-instance .instance-frame > main.tile-scene > .sector-image-map,
-    .map-instance .instance-frame > main.tile-scene > .walkable-sector-map {
-        min-height: 0 !important;
-        height: 100% !important;
-        max-height: 100% !important;
-    }
-}
+/* Desktop sector-stage sizing is owned by layout/adaptive-stages.css. */
 
 @media (max-width: 560px) {
     :root {
         --battle-board-h: clamp(240px, 34dvh, 320px);
         --jutsu-card-min: 78px;
         --jutsu-card-h: 78px;
-    }
-
-    .center-game {
-        padding: 6px !important;
     }
 
     .journey-banner {

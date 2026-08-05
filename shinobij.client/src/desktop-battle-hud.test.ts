@@ -4,25 +4,29 @@ import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const theme = readFileSync(new URL("./styles/veiled-steel.css", import.meta.url), "utf8");
+const adaptiveShell = readFileSync(new URL("./styles/layout/adaptive-shell.css", import.meta.url), "utf8");
 
 test("active battles hide application navigation chrome", () => {
   assert.ok(
-    app.includes('{screen !== "start" && character && !hideBattleChrome && ('),
-    "RightMenu and MobileNav must not overlay a battle-focus screen",
+    app.includes('{screen !== "start" && character && !hideBattleChrome && !introCinematicActive && ('),
+    "RightMenu and MobileNav must not overlay battle-focus or intro-cinematic screens",
   );
 });
 
-test("desktop PvE battle focus reserves the portaled player HUD", () => {
+test("isolated battles no longer depend on theme-owned desktop gutter math", () => {
   assert.match(
-    theme,
-    /html\[data-vp="lg"\][^\n]+#battle-hud-portal > \.battle-hud-sidebar[^\n]+\.center-game\.battle-focus/,
+    adaptiveShell,
+    /#battle-hud-portal\s*{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s,
+    "the compatibility portal remains a fixed overlay boundary",
   );
-  assert.match(
+  assert.doesNotMatch(
     theme,
-    /html\[data-vp="xl"\][^\n]+#battle-hud-portal > \.battle-hud-sidebar[^\n]+\.center-game\.battle-focus/,
+    /#battle-hud-portal > \.battle-hud-sidebar[^}]*\.center-game\.battle-focus/,
+    "the visual theme must not calculate shell gutters for battle HUDs",
   );
-  assert.ok(
-    theme.includes("width: calc(100% - var(--side-rail-w) - var(--main-gutter)) !important;"),
-    "the focused arena must start after the fixed player HUD instead of underneath it",
+  assert.doesNotMatch(
+    theme,
+    /\.center-game\.battle-focus\s*{[^}]*width:\s*calc\(/s,
+    "battle-focus width belongs to the isolated combat renderer, not the normal shell",
   );
 });

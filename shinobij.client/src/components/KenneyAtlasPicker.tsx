@@ -6,7 +6,7 @@
  * from ../App (same pattern as the other extracted components).
  */
 /* eslint-disable react-hooks/set-state-in-effect */ // matches App.tsx's file-wide suppression; logic moved verbatim
-import { useState, useEffect, Fragment, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, useRef, Fragment, type Dispatch, type SetStateAction } from "react";
 import { gameConfirm } from "./GameAlert";
 import {
     HOLLOW_GATE_ICON_ROLES,
@@ -77,13 +77,17 @@ export function KenneyAtlasPicker({
     const [assignSlot, setAssignSlot] = useState<string>("");
     const [busySlot, setBusySlot] = useState<string>("");
     const [savedToast, setSavedToast] = useState<{ slot: string; ts: number } | null>(null);
+    const imageLoadGenerationRef = useRef(0);
+    const toastTimerRef = useRef<number | null>(null);
 
     // Re-load whenever the URL / tile-size / gap inputs change. Debounce-free
     // since each user action (Load click, dropdown change) updates state.
     useEffect(() => {
         setLoadError("");
+        const generation = ++imageLoadGenerationRef.current;
         const img = new Image();
         img.onload = () => {
+            if (generation !== imageLoadGenerationRef.current) return;
             setAtlas({
                 url: img.src,
                 w: img.naturalWidth,
@@ -101,11 +105,21 @@ export function KenneyAtlasPicker({
             } catch { /* ignore */ }
         };
         img.onerror = () => {
+            if (generation !== imageLoadGenerationRef.current) return;
             setAtlas(null);
             setLoadError(`Couldn't load "${atlasUrlInput}". Drop the PNG into shinobij.client/public/assets/dungeon/ first.`);
         };
         img.src = atlasUrlInput;
+        return () => {
+            imageLoadGenerationRef.current += 1;
+            img.onload = null;
+            img.onerror = null;
+        };
     }, [atlasUrlInput, atlasTileSize, atlasGap]);
+
+    useEffect(() => () => {
+        if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    }, []);
 
     const atlasConfigBar = (
         <div style={{ marginBottom: 10, padding: 10, background: "rgba(15,9,28,0.6)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.25)" }}>
@@ -223,8 +237,13 @@ export function KenneyAtlasPicker({
         const ok = await publishSharedImage(key, url);
         setBusySlot("");
         if (ok) {
-            setSavedToast({ slot: slotId, ts: Date.now() });
-            setTimeout(() => setSavedToast(curr => (curr && curr.ts === Date.now() ? null : curr)), 2500);
+            const ts = Date.now();
+            setSavedToast({ slot: slotId, ts });
+            if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+            toastTimerRef.current = window.setTimeout(() => {
+                toastTimerRef.current = null;
+                setSavedToast(curr => (curr?.ts === ts ? null : curr));
+            }, 2500);
         } else {
             alert(`Saved locally but the KV publish failed — refreshing the page will lose this assignment.`);
         }
@@ -417,6 +436,7 @@ export function KenneyAtlasPicker({
                                                         </div>
                                                         {img && (
                                                             <button
+                                                                className="atlas-slot-clear"
                                                                 disabled={busySlot === s.id}
                                                                 onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
                                                                 style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
@@ -436,7 +456,7 @@ export function KenneyAtlasPicker({
 
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
                 <label>Zoom:</label>
-                <input type="range" min={1} max={6} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+                <input type="range" min={1} max={6} value={zoom} aria-label="Atlas zoom" onChange={(e) => setZoom(Number(e.target.value))} />
                 <span><strong>{zoom}×</strong></span>
                 {hoverCoord && (
                     <span style={{ marginLeft: 12, color: "#a78bfa" }}>
@@ -473,8 +493,8 @@ export function KenneyAtlasPicker({
                     }}
                     onMouseMove={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const px = (e.clientX - rect.left) / zoom;
-                        const py = (e.clientY - rect.top) / zoom;
+                        const px = (e.clientX - rect.left) * (atlas.w / Math.max(1, rect.width));
+                        const py = (e.clientY - rect.top) * (atlas.h / Math.max(1, rect.height));
                         const x = Math.floor(px / stride);
                         const y = Math.floor(py / stride);
                         if (x >= 0 && y >= 0 && x < cols && y < rows) setHoverCoord({ x, y });
@@ -483,8 +503,8 @@ export function KenneyAtlasPicker({
                     onMouseLeave={() => setHoverCoord(null)}
                     onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const px = (e.clientX - rect.left) / zoom;
-                        const py = (e.clientY - rect.top) / zoom;
+                        const px = (e.clientX - rect.left) * (atlas.w / Math.max(1, rect.width));
+                        const py = (e.clientY - rect.top) * (atlas.h / Math.max(1, rect.height));
                         const x = Math.floor(px / stride);
                         const y = Math.floor(py / stride);
                         if (x < 0 || y < 0 || x >= cols || y >= rows) return;

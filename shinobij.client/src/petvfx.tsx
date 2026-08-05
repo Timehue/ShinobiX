@@ -7,6 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./styles/pet-skin.css";
+// Keep the dev harness on the same fitted-stage contract as the production
+// PetArena host; main.tsx imports this after the legacy sheets in the app.
+import "./styles/layout/adaptive-stages.css";
 import { PetArenaBattlefield } from "./components/PetArenaBattlefield";
 import { petFramePace, runPetArenaBattle, runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
