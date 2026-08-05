@@ -7,7 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget, CombatVfxTarget, CombatVfxKey } from './session.js';
 import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
-import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL, SPIRAL_RADIUS } from '../combat-core/constants.js';
+import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL } from '../combat-core/constants.js';
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { adjustedApCost } from '../combat-core/resources.js';
@@ -52,7 +52,13 @@ import {
     tickCombatStatuses,
 } from '../combat-core/statuses.js';
 import type { CombatFxEvent, CombatTag } from '../combat-core/types.js';
-import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
+import {
+    CASTER_WARD_VFX_KEYS as VFX_CASTER_WARD_KEYS,
+    ELEMENTAL_60_VFX_KEYS as VFX_ELEMENTAL_60_KEYS,
+    canonicalJutsuTagNames,
+    semanticJutsuVfx,
+    semanticKeyForJutsuTags,
+} from '../combat-core/jutsu-vfx.js';
 
 // Internal floating-number event before it's mapped to a concrete fighter slot.
 // `self` = the caster / ticking fighter, `opp` = the opponent — resolved to
@@ -165,10 +171,11 @@ import {
     TAG_ALIASES,
     STACKABLE_STATUS,
     CAPPED_AMP_TAGS,
-    GROUND_EFFECT_TAGS,
-    OPPONENT_AFFECTING_TAGS,
 } from './_tags.js';
-import { filledDiskTiles } from './_aoe.js';
+import {
+    createCanonicalGroundEffect,
+    resolveJutsuActionPlan,
+} from '../combat-core/resolve-jutsu-action.js';
 
 // All session writes flow through here so the combat log gets capped
 // + the idempotency token ring buffer is appended before it hits KV.
@@ -282,184 +289,11 @@ function equippedPvpItem(fighter: PvpFighter, itemId?: string, itemName?: string
     ) ?? null;
 }
 
-const VFX_SUPPORT_TAGS = new Set([
-    'Heal',
-    'Shield',
-    'Barrier',
-    'Reflect',
-    'Absorb',
-    'Lifesteal',
-    'Increase Damage Given',
-    'Increase Generals',
-    'Increase Discipline',
-    'Increase Heal',
-    'Decrease Damage Taken',
-    'Debuff Prevent',
-    'Stun Prevent',
-    'Overclock',
-]);
-const VFX_DEBUFF_TAGS = new Set([
-    'Decrease Damage Given',
-    'Increase Damage Taken',
-    'Buff Prevent',
-    'Cleanse Prevent',
-    'Clear Prevent',
-    'Lag',
-    'Recoil',
-]);
-const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag']);
-const VFX_SEAL_TAGS = new Set(['Bloodline Seal', 'Elemental Seal']);
-const VFX_CASTER_WARD_KEYS = new Set<CombatVfxKey>(['heal', 'shield', 'reflect', 'absorb', 'buff', 'cleanse']);
-const VFX_ELEMENTAL_60_KEYS = new Set<CombatVfxKey>(['fire60', 'water60', 'wind60', 'lightning60', 'earth60']);
-
 function vfxTagNames(tags?: JutsuTag[]): string[] {
-    return (tags ?? []).map(tag => normalizeTagName(String(tag.name ?? ''))).filter(Boolean);
-}
-function vfxHas(tags: string[], name: string): boolean {
-    return tags.includes(name);
-}
-function vfxHasAny(tags: string[], names: Iterable<string>): boolean {
-    for (const name of names) if (tags.includes(name)) return true;
-    return false;
-}
-function elementVfxKey(element?: string | null): CombatVfxKey | null {
-    switch (String(element ?? '').trim().toLowerCase()) {
-        case 'fire':
-        case 'flame':
-        case 'ember':
-        case 'ash':
-        case 'smoke':
-        case 'sun':
-        case 'solar':
-            return 'fire';
-        case 'water':
-        case 'ice':
-        case 'frost':
-        case 'snow':
-        case 'mist':
-        case 'steam':
-            return 'water';
-        case 'wind':
-        case 'air':
-        case 'gale':
-            return 'wind';
-        case 'lightning':
-        case 'storm':
-        case 'thunder':
-        case 'shock':
-        case 'plasma':
-        case 'tempest':
-            return 'lightning';
-        case 'earth':
-        case 'stone':
-        case 'rock':
-        case 'sand':
-        case 'mud':
-        case 'wood':
-        case 'plant':
-            return 'earth';
-        case 'blood':
-        case 'crimson':
-            return 'blood';
-        case 'shadow':
-        case 'dark':
-        case 'darkness':
-        case 'void':
-        case 'night':
-        case 'moon':
-        case 'illusion':
-            return 'shadow';
-        case 'poison':
-        case 'venom':
-        case 'toxin':
-        case 'acid':
-            return 'poison';
-        case 'lava':
-        case 'magma':
-        case 'molten':
-            return 'magma';
-        case 'iron':
-        case 'metal':
-        case 'steel':
-        case 'crystal':
-        case 'glass':
-        case 'diamond':
-        case 'magnet':
-            return 'metal';
-        default:
-            return null;
-    }
-}
-function elemental60VfxKey(jutsu: Jutsu): CombatVfxKey | null {
-    if (Number(jutsu.ap) !== 60 || jutsu.target === 'SELF') return null;
-    const selected = sanitizeJutsuVisualEffect(jutsu.visualEffect, jutsu.ap, jutsu.target);
-    if (selected) return selected;
-    switch (String(jutsu.element ?? '').trim().toLowerCase()) {
-        case 'fire': return 'fire60';
-        case 'water': return 'water60';
-        case 'wind': return 'wind60';
-        case 'lightning': return 'lightning60';
-        case 'earth': return 'earth60';
-        default: return null;
-    }
-}
-function disciplineVfxKey(discipline?: string | null): CombatVfxKey | null {
-    switch (String(discipline ?? '').trim().toLowerCase()) {
-        case 'taijutsu': return 'impact';
-        case 'bukijutsu': return 'slash';
-        case 'genjutsu': return 'debuff';
-        default:
-            return null;
-    }
-}
-function keyForJutsuTags(tags: string[], ground = false): CombatVfxKey | null {
-    if (vfxHas(tags, 'Heal')) return 'heal';
-    if (vfxHasAny(tags, VFX_CONTROL_TAGS)) return 'spark';
-    if (vfxHasAny(tags, VFX_SEAL_TAGS)) return 'seal';
-    if (vfxHas(tags, 'Copy')) return 'reflect';
-    if (vfxHas(tags, 'Mirror')) return 'debuff';
-    if (vfxHas(tags, 'Push') || vfxHas(tags, 'Pull')) return 'wind';
-    if (vfxHas(tags, 'Wound')) return 'wound';
-    if (vfxHas(tags, 'Ignition')) return 'burn';
-    if (vfxHas(tags, 'Poison')) return ground ? 'poisonCloud' : 'poison';
-    if (vfxHas(tags, 'Drain') || vfxHas(tags, 'Siphon')) return 'drain';
-    if (vfxHas(tags, 'Pierce')) return 'pierce';
-    if (vfxHasAny(tags, VFX_DEBUFF_TAGS)) return 'debuff';
-    if (vfxHas(tags, 'Barrier') || vfxHas(tags, 'Shield')) return 'shield';
-    if (vfxHas(tags, 'Reflect')) return 'reflect';
-    if (vfxHas(tags, 'Absorb')) return 'absorb';
-    if (vfxHasAny(tags, VFX_SUPPORT_TAGS)) return 'buff';
-    return null;
-}
-function isDamagingVisualJutsu(jutsu: Jutsu): boolean {
-    return Number(jutsu.effectPower ?? 0) > 0 && jutsu.target !== 'SELF' && jutsu.isUtility !== true;
-}
-function jutsuVisualKey(jutsu: Jutsu, opts: { ground?: boolean; heavy?: boolean; ko?: boolean } = {}): CombatVfxKey {
-    const elemental60 = elemental60VfxKey(jutsu);
-    if (elemental60) return elemental60;
-    if (opts.ko) return 'ko';
-    const tags = vfxTagNames(jutsu.tags);
-    const tagKey = keyForJutsuTags(tags, !!opts.ground);
-    const materialKey = elementVfxKey(jutsu.element) ?? disciplineVfxKey(jutsu.type);
-    if (tagKey && !(isDamagingVisualJutsu(jutsu) && VFX_CASTER_WARD_KEYS.has(tagKey))) return tagKey;
-    return materialKey ?? tagKey ?? (opts.heavy ? 'heavy' : 'impact');
-}
-function jutsuVisualAnchor(jutsu: Jutsu, key: CombatVfxKey, opts: { ground?: boolean; area?: boolean } = {}): CombatVfxTarget['anchor'] {
-    const tags = vfxTagNames(jutsu.tags);
-    const method = normalizeJutsuMethod(jutsu.method);
-    if (opts.area || method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL') return 'area';
-    if (opts.ground || jutsu.target === 'EMPTY_GROUND' || method === 'INSTANT_EFFECT') return 'tile';
-    // A Builder selection is a skin. Keep it on the offensive jutsu target even
-    // when the selected art originally belonged to a caster-side support effect.
-    if (sanitizeJutsuVisualEffect(jutsu.visualEffect, jutsu.ap, jutsu.target)) return 'target';
-    if (jutsu.target === 'SELF' || VFX_CASTER_WARD_KEYS.has(key)) return 'caster';
-    if (key === 'buff' && !isDamagingVisualJutsu(jutsu) && vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
-        return 'caster';
-    }
-    return 'target';
+    return canonicalJutsuTagNames(tags);
 }
 function vfxForTagEffect(tags: JutsuTag[] | undefined, intensity: CombatVfxTarget['intensity'] = 'minor'): RelativeVfxEvent[] {
-    const key = keyForJutsuTags(vfxTagNames(tags), false);
+    const key = semanticKeyForJutsuTags(vfxTagNames(tags), false) as CombatVfxKey | null;
     if (!key) return [];
     const selfVisual = VFX_CASTER_WARD_KEYS.has(key);
     return [vfxEvent(selfVisual ? 'self' : 'opp', key, selfVisual ? 'caster' : 'target', intensity)];
@@ -485,9 +319,10 @@ function vfxForJutsu(
     opts: { ground?: boolean; area?: boolean; tiles?: number[]; persistent?: boolean; ko?: boolean; who?: 'self' | 'opp' } = {},
 ): RelativeVfxEvent {
     const measuredIntensity = intensityFromHit(fx, self, opponent, !!opts.ko);
-    const key = jutsuVisualKey(jutsu, { ground: opts.ground || opts.area, heavy: measuredIntensity === 'heavy', ko: opts.ko });
+    const semantic = semanticJutsuVfx(jutsu, { ground: opts.ground || opts.area, area: opts.area, heavy: measuredIntensity === 'heavy', ko: opts.ko });
+    const key = semantic.key as CombatVfxKey;
     const intensity = measuredIntensity === 'finisher' ? measuredIntensity : VFX_ELEMENTAL_60_KEYS.has(key) ? 'heavy' : measuredIntensity;
-    const anchor = jutsuVisualAnchor(jutsu, key, opts);
+    const anchor = semantic.anchor;
     const who = opts.who ?? (anchor === 'caster' ? 'self' : 'opp');
     return vfxEvent(who, key, anchor, intensity, {
         persistent: opts.persistent,
@@ -568,14 +403,6 @@ function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'tar
 function capWoundStacks(f: PvpFighter): PvpFighter {
     const statuses = capCombatStatusStacks(f.statuses, 'Wound', MAX_WOUND_STACKS);
     return statuses === f.statuses ? f : { ...f, statuses: statuses as PvpStatus[] };
-}
-function groundEffectTiles(center: number): number[] {
-    return [center, ...hexNeighbors(center)];
-}
-function groundEffectTags(tags: JutsuTag[]): JutsuTag[] {
-    return tags
-        .map(tag => ({ ...tag, name: normalizeTagName(tag.name) }))
-        .filter(tag => GROUND_EFFECT_TAGS.has(tag.name));
 }
 // Exported for the ground-effect timing test (_combat-tags.test.ts), which pins
 // "a zone applies its tags exactly once per pass and Debuff Prevent blocks it".
@@ -1597,25 +1424,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // fight-create time and is immutable afterwards. No code path
                 // mutates the loadout mid-fight, so per-move re-validation was
                 // pure overhead (~2-5ms in big loadouts).
-                const apCost = jutsu.ap ?? 40;
-                if (!canAct(apCost)) return finish(withRejected(session, `Not enough AP or actions left for ${jutsu.name}.`));
-                if ((myCooldowns[jutsuId] ?? 0) > 0) return finish(withRejected(session, `${jutsu.name} is on cooldown (${myCooldowns[jutsuId]} turn(s) left).`));
-
-                // ── Elemental Seal enforcement ───────────────────────────────────
-                // Elemental Seal blocks the five basic elements only.
-                const BASIC_ELEMENTS = new Set(['Earth', 'Wind', 'Water', 'Lightning', 'Fire']);
-                if (hasStatus(me, 'Elemental Seal', session.round) && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
-                    return finish(await rejectWithLog(`${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`));
+                const plan = resolveJutsuActionPlan({
+                    jutsu,
+                    casterPos: me.pos,
+                    opponentPos: opp.pos,
+                    casterChakra: me.chakra,
+                    casterStamina: me.stamina,
+                    casterStatuses: me.statuses,
+                    round: session.round,
+                    availableAp: myAp,
+                    actionsThisTurn: session.actionsThisTurn,
+                    cooldownRemaining: myCooldowns[jutsuId] ?? 0,
+                    tile,
+                    board: {
+                        width: GRID_W,
+                        height: GRID_H,
+                        unavailableTiles: new Set([opp.pos, ...barrierTiles(me, opp)]),
+                    },
+                });
+                if (!plan.accepted) {
+                    switch (plan.rejection) {
+                        case 'cannot-act':
+                            return finish(withRejected(session, `Not enough AP or actions left for ${jutsu.name}.`));
+                        case 'on-cooldown':
+                            return finish(withRejected(session, `${jutsu.name} is on cooldown (${myCooldowns[jutsuId]} turn(s) left).`));
+                        case 'elementally-sealed':
+                            return finish(await rejectWithLog(`${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`));
+                        case 'no-chakra':
+                            return finish(await rejectWithLog(`${me.name}: not enough chakra for ${jutsu.name} (need ${jutsu.chakraCost ?? 0}).`));
+                        case 'no-stamina':
+                            return finish(await rejectWithLog(`${me.name}: not enough stamina for ${jutsu.name} (need ${jutsu.staminaCost ?? 0}).`));
+                        case 'target-tile-required':
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs a ground tile target.`));
+                        case 'out-of-range':
+                            return finish(await rejectWithLog(`${jutsu.name} is out of range (need ≤${Math.max(0, Number(jutsu.range) || 0)}, distance ${Math.round(distance(me.pos, opp.pos))}).`));
+                        case 'invalid-move-target':
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — destination out of range or occupied.`));
+                        case 'invalid-ground-target':
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — target tile out of range or occupied.`));
+                        case 'ground-effect-needs-supported-tag':
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`));
+                    }
                 }
 
-                const jChakraCost = jutsu.chakraCost ?? 0;
-                const jStaminaCost = jutsu.staminaCost ?? 0;
-                if (jChakraCost > 0 && me.chakra < jChakraCost) {
-                    return finish(await rejectWithLog(`${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`));
-                }
-                if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
-                    return finish(await rejectWithLog(`${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`));
-                }
+                const apCost = plan.apCost;
+                const jChakraCost = plan.chakraCost;
+                const jStaminaCost = plan.staminaCost;
 
                 // combatResourcesV2: Poison feeds on exertion — spending chakra/stamina
                 // to cast deals HP damage scaled by the spend + the caster's active
@@ -1632,25 +1486,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
 
                 const tags = jutsu.tags ?? [];
-                const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
-                const pureMoveJutsu = moveTag && tags.every(t => normalizeTagName(t.name) === 'Move');
-                const groundTarget = jutsu.target === 'EMPTY_GROUND';
-                const needsGroundTile = groundTarget || moveTag;
-                const selfTarget = jutsu.target === 'SELF';
-                // OPPONENT_AFFECTING_TAGS is the shared contract (./_tags); the
-                // client mirrors the exact same set so its targeting decision
-                // (auto-cast vs arm-opponent) agrees with this gate.
-                const affectsOpponent = (jutsu.effectPower ?? 0) > 0 || tags.some(t => OPPONENT_AFFECTING_TAGS.has(normalizeTagName(t.name)));
-                const jutsuMethod = normalizeJutsuMethod(jutsu.method);
-                if (needsGroundTile && tile === undefined) {
-                    return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs a ground tile target.`));
-                }
-                if (!selfTarget && !groundTarget && !moveTag && affectsOpponent) {
-                    const range = Math.max(0, Number(jutsu.range) || 0);
-                    if (range > 0 && distance(me.pos, opp.pos) > range) {
-                        return finish(await rejectWithLog(`${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`));
-                    }
-                }
+                const moveTag = plan.move;
+                const pureMoveJutsu = plan.pureMove;
+                const groundTarget = plan.groundTarget;
+                const jutsuMethod = plan.method;
 
                 // Append the jutsu's flavor line (from the catalog) after the cast
                 // header so PvP players see the same battle-log flavor as PvE.
@@ -1663,37 +1502,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // interaction); others fall back to their own element. Mirrors the
                 // client's weatherElementOf (lib/elements.ts).
                 const jWMult = weatherMultiplier(jutsu.weatherElement ?? jutsu.element, weatherPositiveElement, weatherNegativeElement);
-                const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
+                const cd = plan.cooldown > 0 ? { [jutsuId]: plan.cooldown } : undefined;
 
                 // Ground-target and movement jutsus: choose an open tile in range.
                 // AOE_CIRCLE resolves from the chosen tile and only hits if the opponent
                 // is in the surrounding ring. Pure Move jutsus just relocate the user.
-                if (moveTag && tile !== undefined) {
-                    const destTile = tile;
-                    const range = Math.max(1, Number(jutsu.range) || 4);
-                    if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
-                        return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — destination out of range or occupied.`));
-                    }
+                if (moveTag && plan.targetTile !== undefined) {
+                    const destTile = plan.targetTile;
                     const movedSelf = paySpendPoison({ ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
-                    if (jutsuMethod === 'AOE_SPIRAL') {
+                    if (plan.createsGroundEffect) {
                         // Dash in, then erupt a spiral ground nova centred on the
                         // landing tile. The filled hex disk becomes a
                         // 2-round ground zone carrying this jutsu's ground tags; the
                         // enemy takes the effect immediately if caught inside it and
                         // again each round they stand in the zone.
-                        const zoneTags = groundEffectTags(tags);
-                        if (!zoneTags.length) {
-                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its spiral nova.`));
-                        }
-                        const groundEffect: PvpGroundEffect = {
+                        const groundEffect: PvpGroundEffect = createCanonicalGroundEffect({
                             id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                             owner: role,
                             name: jutsu.name,
-                            tiles: filledDiskTiles(destTile, SPIRAL_RADIUS, GRID_W, GRID_H),
-                            rounds: 2,
-                            tags: zoneTags,
-                        };
+                            plan,
+                        });
                         lines.push(`${jutsu.name} erupts in a spiral, blanketing ${groundEffect.tiles.length} hexes for 2 rounds.`);
                         const spiralGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
                         lines.push(...spiralGround.lines);
@@ -1711,8 +1540,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         );
                         break;
                     }
-                    const ring = hexNeighbors(destTile);
-                    if (jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos)) {
+                    if (jutsuMethod === 'AOE_CIRCLE' && plan.hitsOpponent) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
                         const damageJutsu = { ...jutsu, tags: tags.filter(t => normalizeTagName(t.name) !== 'Move') };
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome, session.round);
@@ -1726,7 +1554,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             undefined,
                             jr.fx,
                             [
-                                vfxForJutsu(damageJutsu, jr.self, jr.opponent, jr.fx, { area: true, tiles: [destTile, ...ring], ko: jr.opponent.hp <= 0, who: 'opp' }),
+                                vfxForJutsu(damageJutsu, jr.self, jr.opponent, jr.fx, { area: true, tiles: plan.footprint, ko: jr.opponent.hp <= 0, who: 'opp' }),
                                 ...reactionVfx(opp, jr.opponent, jr.fx),
                                 ...spendPoisonVfx,
                             ],
@@ -1741,7 +1569,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             undefined,
                             undefined,
                             [
-                                vfxForJutsu(jutsu, movedSelf, opp, undefined, { area: true, tiles: [destTile, ...ring], who: 'opp' }),
+                                vfxForJutsu(jutsu, movedSelf, opp, undefined, { area: true, tiles: plan.footprint, who: 'opp' }),
                                 ...spendPoisonVfx,
                             ],
                         );
@@ -1765,32 +1593,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     break;
                 }
 
-                if (groundTarget && tile !== undefined) {
-                    const targetTile = tile;
-                    const range = Math.max(1, Number(jutsu.range) || 4);
-                    if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
-                        return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — target tile out of range or occupied.`));
-                    }
-                    if (jutsuMethod === 'INSTANT_EFFECT' || jutsuMethod === 'AOE_SPIRAL') {
-                        const zoneTags = groundEffectTags(tags);
-                        if (!zoneTags.length) {
-                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`));
-                        }
-                        // AOE_SPIRAL lays a bigger filled-disk (spiral) footprint;
-                        // INSTANT_EFFECT keeps the tight centre+neighbours zone. (A
-                        // legit AOE_SPIRAL carries the Move tag and resolves in the
-                        // movement branch above; this is the no-dash fallback.)
-                        const zoneTiles = jutsuMethod === 'AOE_SPIRAL'
-                            ? filledDiskTiles(targetTile, SPIRAL_RADIUS, GRID_W, GRID_H)
-                            : groundEffectTiles(targetTile);
-                        const groundEffect: PvpGroundEffect = {
+                if (groundTarget && plan.targetTile !== undefined) {
+                    const targetTile = plan.targetTile;
+                    if (plan.createsGroundEffect) {
+                        const groundEffect: PvpGroundEffect = createCanonicalGroundEffect({
                             id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                             owner: role,
                             name: jutsu.name,
-                            tiles: zoneTiles,
-                            rounds: 2,
-                            tags: zoneTags,
-                        };
+                            plan,
+                        });
                         const paidSelf = paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
                         const instantGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
@@ -1803,14 +1614,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             { groundEffects: [...(session.groundEffects ?? []), groundEffect] },
                             undefined,
                             [
-                                vfxForJutsu(jutsu, paidSelf, instantGround.fighter, undefined, { ground: true, tiles: zoneTiles, persistent: true, who: 'opp' }),
+                                vfxForJutsu(jutsu, paidSelf, instantGround.fighter, undefined, { ground: true, tiles: plan.footprint, persistent: true, who: 'opp' }),
                                 ...spendPoisonVfx,
                             ],
                         );
                         break;
                     }
-                    const ring = hexNeighbors(targetTile);
-                    const catchesOpponent = jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos);
+                    const catchesOpponent = jutsuMethod === 'AOE_CIRCLE' && plan.hitsOpponent;
                     const paidSelf = paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                     if (catchesOpponent) {
                         const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome, session.round);
@@ -1824,7 +1634,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             undefined,
                             jr.fx,
                             [
-                                vfxForJutsu(jutsu, jr.self, jr.opponent, jr.fx, { area: true, tiles: [targetTile, ...ring], ko: jr.opponent.hp <= 0, who: 'opp' }),
+                                vfxForJutsu(jutsu, jr.self, jr.opponent, jr.fx, { area: true, tiles: plan.footprint, ko: jr.opponent.hp <= 0, who: 'opp' }),
                                 ...reactionVfx(opp, jr.opponent, jr.fx),
                                 ...spendPoisonVfx,
                             ],
@@ -1839,7 +1649,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             undefined,
                             undefined,
                             [
-                                vfxForJutsu(jutsu, paidSelf, opp, undefined, { area: jutsuMethod === 'AOE_CIRCLE', tiles: [targetTile, ...ring], who: 'opp' }),
+                                vfxForJutsu(jutsu, paidSelf, opp, undefined, { area: jutsuMethod === 'AOE_CIRCLE', tiles: plan.footprint, who: 'opp' }),
                                 ...spendPoisonVfx,
                             ],
                         );
@@ -2036,7 +1846,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 lines.push(...ir.lines);
                 const iVisualTags = vfxTagNames(iTags);
-                const iVisualKey = keyForJutsuTags(iVisualTags, false) ?? 'buff';
+                const iVisualKey = semanticKeyForJutsuTags(iVisualTags, false) ?? 'buff';
                 const iIntensity = intensityFromHit(ir.fx, irSelf, ir.opponent, ir.opponent.hp <= 0);
                 const iKey: CombatVfxKey = iIntensity === 'finisher' ? 'ko' : iVisualKey;
                 const iVisualSelf = VFX_CASTER_WARD_KEYS.has(iVisualKey);
