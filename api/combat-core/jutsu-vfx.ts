@@ -2,6 +2,8 @@ import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { canonicalTagName } from '../pvp/_tags.js';
 import type { CombatJutsu, CombatTag } from './types.js';
 
+export const MAX_COMBAT_VFX_TILES = 18;
+
 export type CombatVfxSemanticKey =
     | 'fire' | 'fire60' | 'water' | 'water60' | 'wind' | 'wind60'
     | 'lightning' | 'lightning60' | 'earth' | 'earth60' | 'blood'
