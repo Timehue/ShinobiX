@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { clientAnalyticsConfig } from './index';
+import { clientAnalyticsConfig } from './runtime';
 import { dispatchClientPostHogEvent } from './posthog';
 import { createProductEvent } from '../../../../shared/product-analytics';
 
@@ -18,8 +18,10 @@ describe('client product analytics', () => {
 
     it('keeps provider code behind a dynamic import', () => {
         const source = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'analytics', 'index.ts'), 'utf8');
-        assert.match(source, /import\(['"]\.\/posthog['"]\)/);
+        assert.match(source, /import\(['"]\.\/runtime['"]\)/);
         assert.doesNotMatch(source, /^import\s+.+from\s+['"]\.\/posthog['"]/m);
+        const runtime = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'analytics', 'runtime.ts'), 'utf8');
+        assert.match(runtime, /import\(['"]\.\/posthog['"]\)/);
     });
 
     it('dispatches only the already-sanitized anonymous event', async () => {

@@ -90,7 +90,6 @@ export function initSentry(): void {
     window.addEventListener("error", (event) => {
         reportError(browserError(event), {
             source: "window.error",
-            filename: event.filename,
             line: event.lineno,
             column: event.colno,
         });

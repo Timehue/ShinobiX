@@ -17,6 +17,8 @@ import { reportError } from "../lib/sentry";
 import { isChunkLoadError, reloadOnceForChunkLoadError } from "../lib/chunk-load-recovery";
 import { captureProductEvent } from "../lib/analytics";
 
+const PRODUCT_ANALYTICS_ENABLED = import.meta.env.VITE_PRODUCT_ANALYTICS_ENABLED === "1";
+
 type Props = { children: ReactNode };
 type State = { error: Error | null };
 
@@ -34,10 +36,12 @@ export class ScreenErrorBoundary extends Component<Props, State> {
             return;
         }
         reportError(error, { componentStack: info?.componentStack, source: "screen" });
-        captureProductEvent("recoverable_ui_error_shown", {
-            source: "screen_boundary",
-            errorCategory: "render_error",
-        });
+        if (PRODUCT_ANALYTICS_ENABLED) {
+            captureProductEvent("recoverable_ui_error_shown", {
+                source: "screen_boundary",
+                errorCategory: "render_error",
+            });
+        }
     }
 
     render(): ReactNode {
