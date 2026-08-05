@@ -16,6 +16,7 @@ type ShinobiCombatShellProps = {
 export function ShinobiCombatShell({ children, mode, className = "", style }: ShinobiCombatShellProps) {
     return (
         <CombatInstance
+            id="combat"
             className={`shinobi-combat-shell shinobi-combat-shell--${mode}${className ? ` ${className}` : ""}`}
             style={style}
         >
