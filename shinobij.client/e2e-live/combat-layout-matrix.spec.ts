@@ -4,7 +4,9 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
 
 const PHASE = process.env.COMBAT_LAYOUT_CAPTURE_PHASE === 'before' ? 'before' : 'after';
 const STRICT = PHASE === 'after' && process.env.COMBAT_LAYOUT_STRICT !== '0';
-const SCREENSHOT_ROOT = resolve(process.cwd(), '..', 'docs', 'screenshots', 'combat-layout', PHASE);
+const SCREENSHOT_ROOT = process.env.COMBAT_LAYOUT_ARTIFACT_ROOT
+    ? resolve(process.env.COMBAT_LAYOUT_ARTIFACT_ROOT, PHASE)
+    : resolve(process.cwd(), '..', 'docs', 'screenshots', 'combat-layout', PHASE);
 
 const VIEWPORTS = [
     [320, 568], [360, 800], [375, 667], [390, 844], [412, 915], [430, 932],
@@ -259,6 +261,22 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         );
         const style = layoutNode ? getComputedStyle(layoutNode) : null;
         const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
+        const countGridTracks = (template: string) => {
+            let depth = 0;
+            let count = 0;
+            let inTrack = false;
+            for (const character of template.trim()) {
+                if (/\s/.test(character) && depth === 0) {
+                    if (inTrack) count += 1;
+                    inTrack = false;
+                    continue;
+                }
+                inTrack = true;
+                if (character === '(') depth += 1;
+                if (character === ')') depth = Math.max(0, depth - 1);
+            }
+            return count + (inTrack ? 1 : 0);
+        };
         const apTextRects = [...(root?.querySelectorAll<HTMLElement>('.dual-ap-panel > div > strong, .dual-ap-panel > div > small, .dual-ap-panel > .round-timer-display > small, .dual-ap-panel .round-timer-ring') ?? [])]
             .map(rect).filter((value): value is Rect => value !== null);
         const dualApTextOverlap = apTextRects.some((first, index) => apTextRects.slice(index + 1).some((second) => overlap(first, second)));
@@ -279,7 +297,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             dossierFlow,
             gridTemplateColumns: style?.gridTemplateColumns ?? '',
             gridTemplateRows: style?.gridTemplateRows ?? '',
-            mainGridRowCount: (mainStyle?.gridTemplateRows ?? '').trim().split(/\s+/).filter(Boolean).length,
+            mainGridRowCount: countGridTracks(mainStyle?.gridTemplateRows ?? ''),
             mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
             mainGridTemplateRows: mainStyle?.gridTemplateRows ?? '',
             visibleTileCount: tiles.length,
