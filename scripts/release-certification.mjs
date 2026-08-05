@@ -6,8 +6,9 @@
  * a refresh?" It boots the REAL Express server (server.ts — the same handler
  * graph Railway runs), registers a REAL account over HTTP, and walks the
  * reward-critical journey end to end: create → clamp → reject forged currency →
- * sanitize forged progression → earn → refresh → relog → retry → stale autosave.
- * Every assertion maps to a failure class catalogued by the Phase 0 audits.
+ * sanitize forged progression → earn → refresh → relog → retry → stale autosave,
+ * then completes authoritative Solo PvE and two-account PvP lifecycles. Every
+ * assertion maps to a failure class catalogued by the Phase 0 audits.
  *
  * It needs no database and no secrets: the storage layer ships an isolated
  * in-memory backend (SHINOBIX_QA_MEMORY_KV=1 with NODE_ENV=test), so this runs
@@ -475,6 +476,175 @@ async function certify() {
         if (check(advanced.status === 200, `onboarding advanced → ${advanced.status}`)) {
             const late = await api('/api/story/spar-start', { method: 'POST', token, body: { playerName: player } });
             check(late.status === 409, `a spar past the onboarding step is refused → ${late.status}`);
+        }
+    }
+
+    // 12 ── A real two-account PvP lifecycle. Unit tests cover the combat math;
+    // this pins the integration seams that can still regress independently:
+    // authoritative session creation, capability readback/reconnect, move-token
+    // idempotency, terminal receipts, two-sided claims, and durable history.
+    step('two-account PvP lifecycle');
+    const observerToken = otherReg.body.token;
+    const [p1Save, p2Save] = await Promise.all([
+        api(`/api/save/${player}`, { token }),
+        api(`/api/save/${other}`, { token: observerToken }),
+    ]);
+    const clientBattleId = `client-forged-${suffix}`;
+    const createdPvp = await api('/api/pvp/session', {
+        method: 'POST', token,
+        body: {
+            p1Character: p1Save.body.character ?? freshCharacter(player),
+            p2Character: p2Save.body.character ?? freshCharacter(other),
+            battleId: clientBattleId,
+            biome: 'central',
+            weatherPositiveElement: '',
+            weatherNegativeElement: '',
+            baseRewards: true,
+            rewardSector: 0,
+        },
+    });
+    if (check(createdPvp.status === 200 && !!createdPvp.body.battleId, `PvP session created → ${createdPvp.status}`)) {
+        const battleId = String(createdPvp.body.battleId);
+        let pvp = createdPvp.body.session;
+        check(/^pvp-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(battleId),
+            'the battle uses a server-generated UUID v4 capability id');
+        check(battleId !== clientBattleId, 'a client-supplied battle id is ignored');
+        check(pvp?.p1?.name === player && pvp?.p2?.name === other, 'both authoritative saved fighters are sealed into the session');
+        check(pvp?.baseRewards === true, 'the real-player duel is eligible for server-owned base rewards');
+
+        const reconnected = await api(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
+        check(reconnected.status === 200 && reconnected.body.battleId === battleId, `session reconnect/readback succeeds → ${reconnected.status}`);
+        check(reconnected.body.round === pvp?.round && reconnected.body.activePlayer === pvp?.activePlayer,
+            'reconnected state matches the session creation response');
+        pvp = reconnected.body;
+
+        // Apply one normal turn handoff, then replay the exact move token. The
+        // second request must return the same state rather than advancing twice.
+        const firstRole = pvp?.activePlayer;
+        const firstIdentity = firstRole === 'p1'
+            ? { name: player, token }
+            : { name: other, token: observerToken };
+        const handoffToken = `cert-pvp-handoff-${suffix}`;
+        const handedOff = await api('/api/pvp/move', {
+            method: 'POST', token: firstIdentity.token, asName: firstIdentity.name,
+            body: { battleId, role: firstRole, action: 'wait', moveToken: handoffToken, playerName: firstIdentity.name },
+        });
+        if (check(handedOff.status === 200 && handedOff.body.activePlayer !== firstRole,
+            `the active fighter can hand off the turn → ${handedOff.status}`)) {
+            const replayedMove = await api('/api/pvp/move', {
+                method: 'POST', token: firstIdentity.token, asName: firstIdentity.name,
+                body: { battleId, role: firstRole, action: 'wait', moveToken: handoffToken, playerName: firstIdentity.name },
+            });
+            check(replayedMove.status === 200, `the move retry is accepted idempotently → ${replayedMove.status}`);
+            check(
+                replayedMove.body.activePlayer === handedOff.body.activePlayer
+                    && replayedMove.body.round === handedOff.body.round
+                    && replayedMove.body.actionsThisTurn === handedOff.body.actionsThisTurn,
+                'replaying a move token cannot advance the battle twice',
+            );
+            pvp = replayedMove.body;
+        } else if (handedOff.status === 200) {
+            pvp = handedOff.body;
+        }
+
+        // Flee is intentionally a 50% roll. A failed attempt consumes the turn;
+        // pass and let the next fighter try. Repeated failures also drain HP, so
+        // this loop is bounded even in the vanishingly unlikely all-fail case.
+        for (let attempt = 0; attempt < 24 && pvp?.status !== 'done'; attempt++) {
+            const role = pvp.activePlayer;
+            const fighter = role === 'p1'
+                ? { name: player, token }
+                : { name: other, token: observerToken };
+            const fled = await api('/api/pvp/move', {
+                method: 'POST', token: fighter.token, asName: fighter.name,
+                body: {
+                    battleId,
+                    role,
+                    action: 'flee',
+                    moveToken: `cert-pvp-flee-${suffix}-${attempt}`,
+                    playerName: fighter.name,
+                },
+            });
+            if (fled.status !== 200) break;
+            pvp = fled.body;
+            if (pvp.status === 'done') break;
+
+            const passed = await api('/api/pvp/move', {
+                method: 'POST', token: fighter.token, asName: fighter.name,
+                body: {
+                    battleId,
+                    role,
+                    action: 'wait',
+                    moveToken: `cert-pvp-pass-${suffix}-${attempt}`,
+                    playerName: fighter.name,
+                },
+            });
+            if (passed.status !== 200) break;
+            pvp = passed.body;
+        }
+
+        if (check(pvp?.status === 'done' && (pvp?.winner === 'p1' || pvp?.winner === 'p2'),
+            `the duel resolves authoritatively (winner ${pvp?.winner ?? 'missing'})`)) {
+            const winner = pvp.winner === 'p1'
+                ? { name: player, token }
+                : { name: other, token: observerToken };
+            const loser = pvp.winner === 'p1'
+                ? { name: other, token: observerToken }
+                : { name: player, token };
+            const winnerBeforeClaim = await api(`/api/save/${winner.name}`, { token: winner.token });
+            const beforeClaimRyo = Number(winnerBeforeClaim.body.character?.ryo ?? 0);
+            const winnerClaim = await api('/api/pvp/claim-rewards', {
+                method: 'POST', token: winner.token, asName: winner.name,
+                body: { playerName: winner.name, battleId, outcome: 'win' },
+            });
+            check(winnerClaim.status === 200 && winnerClaim.body.ok === true && winnerClaim.body.alreadyClaimed === false,
+                `the recorded winner settles exactly once → ${winnerClaim.status}`);
+            const afterWinnerClaim = await api(`/api/save/${winner.name}`, { token: winner.token });
+            const afterClaimRyo = Number(afterWinnerClaim.body.character?.ryo ?? 0);
+            check(afterClaimRyo > beforeClaimRyo, `the server-owned PvP reward persists to the winner's save (${beforeClaimRyo} → ${afterClaimRyo})`);
+
+            const forgedLoserWin = await api('/api/pvp/claim-rewards', {
+                method: 'POST', token: loser.token, asName: loser.name,
+                body: { playerName: loser.name, battleId, outcome: 'win' },
+            });
+            check(forgedLoserWin.status === 403,
+                `a loser cannot claim the winner outcome → ${forgedLoserWin.status}`);
+
+            const loserClaim = await api('/api/pvp/claim-rewards', {
+                method: 'POST', token: loser.token, asName: loser.name,
+                body: { playerName: loser.name, battleId, outcome: 'loss' },
+            });
+            check(loserClaim.status === 200 && loserClaim.body.ok === true && loserClaim.body.alreadyClaimed === false,
+                `the recorded loser can settle their side → ${loserClaim.status}`);
+
+            const duplicateClaim = await api('/api/pvp/claim-rewards', {
+                method: 'POST', token: winner.token, asName: winner.name,
+                body: { playerName: winner.name, battleId, outcome: 'win' },
+            });
+            const afterDuplicate = await api(`/api/save/${winner.name}`, { token: winner.token });
+            check(duplicateClaim.status === 200 && duplicateClaim.body.alreadyClaimed === true,
+                'replaying the winner claim reports alreadyClaimed');
+            check(Number(afterDuplicate.body.character?.ryo ?? 0) === afterClaimRyo,
+                'replaying the winner claim cannot pay the base reward twice');
+
+            for (const participant of [winner, loser]) {
+                const history = await api('/api/pvp/combat-history?limit=20', {
+                    token: participant.token, asName: participant.name,
+                });
+                check(
+                    history.status === 200 && Array.isArray(history.body.entries)
+                        && history.body.entries.some((entry) => entry?.battleId === battleId),
+                    `${participant.name}'s durable combat history includes the duel`,
+                );
+            }
+
+            const combatLog = await api(`/api/pvp/combat-log?id=${encodeURIComponent(battleId)}`, {
+                token: winner.token, asName: winner.name,
+            });
+            check(combatLog.status === 200 && Array.isArray(combatLog.body.entries) && combatLog.body.entries.length > 0,
+                `the participant can read durable action receipts → ${combatLog.status}`);
+            const anonymousLog = await api(`/api/pvp/combat-log?id=${encodeURIComponent(battleId)}`);
+            check(anonymousLog.status === 401, `durable combat receipts reject anonymous readers → ${anonymousLog.status}`);
         }
     }
 }
