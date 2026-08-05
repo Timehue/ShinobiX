@@ -4008,3 +4008,453 @@ html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > aside {
 html body > .combat-instance.screen-battleTowerFight .tower-board-area {
     min-height: 0 !important;
 }
+
+/* =========================================================================
+   SHINOBI COMBAT SHELL - authoritative responsive composition
+   -------------------------------------------------------------------------
+   One container-aware layout contract for live PvP and server-owned Solo PvE.
+   Width-only app breakpoints remain useful outside combat, but they must not
+   decide whether two dossiers plus the real-aspect board fit a short viewport.
+   ========================================================================= */
+html body > .arena-fullscreen.shinobi-combat-shell {
+    container: shinobi-combat / size;
+    --combat-board-aspect: 1.6214;
+    --combat-gap: clamp(6px, 0.7cqw, 12px);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-layout {
+    position: relative !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-rows: clamp(92px, 15cqh, 124px) minmax(0, 1fr) !important;
+    grid-template-areas:
+        "player opponent"
+        "main main" !important;
+    gap: var(--combat-gap) !important;
+    width: min(100%, 1920px) !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    padding: clamp(6px, 0.8cqw, 12px) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud {
+    display: flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: clamp(6px, 1cqh, 10px) !important;
+    overflow: hidden !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud:first-child {
+    grid-area: player !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud:last-child {
+    grid-area: opponent !important;
+}
+
+/* Compact dossier: resources and turn ownership remain readable; portrait and
+   long status lists yield vertical space to the tactical board. */
+html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-avatar,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-effect-panel,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-hud-meta {
+    display: none !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-mobile-effects {
+    display: flex !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud h3 {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+    grid-area: main !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto minmax(0, 1.55fr) 48px auto auto minmax(104px, 0.65fr) !important;
+    grid-template-areas:
+        "ap"
+        "terrain"
+        "board"
+        "tabs"
+        "notice"
+        "commands"
+        "panel" !important;
+    gap: clamp(4px, 0.65cqh, 8px) !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .arena-top-panel {
+    display: none !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .dual-ap-panel {
+    grid-area: ap !important;
+    min-height: 68px !important;
+    margin: 0 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .twp-strip {
+    grid-area: terrain !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-board-stage {
+    grid-area: board !important;
+    container: combat-board-stage / size;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-board-stage > .hex-battlefield {
+    position: relative !important;
+    align-self: center !important;
+    justify-self: center !important;
+    width: min(100cqw, calc(100cqh * var(--combat-board-aspect))) !important;
+    height: min(100cqh, calc(100cqw / var(--combat-board-aspect))) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    aspect-ratio: var(--combat-board-aspect);
+    overflow: hidden !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .battle-tabbar {
+    grid-area: tabs !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    margin: 0 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .battle-tab {
+    min-width: 0 !important;
+    min-height: 44px !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-action-notice {
+    grid-area: notice !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .shinobi-command-bar {
+    grid-area: commands !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)) !important;
+    gap: 5px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 5px !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .shinobi-command-bar > button {
+    min-width: 0 !important;
+    min-height: 44px !important;
+    height: auto !important;
+    padding: 5px 4px !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-bar,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-text-log {
+    grid-area: panel !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    overflow: hidden auto !important;
+    overscroll-behavior: contain;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-actions .combat-text-log,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-log .shinobi-command-bar,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-log .combat-jutsu-bar {
+    display: none !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-log .combat-text-log {
+    display: block !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-equipped-jutsu-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(82px, 10cqw, 126px), 1fr)) !important;
+    grid-auto-rows: auto !important;
+    align-items: start !important;
+    gap: clamp(5px, 0.6cqw, 9px) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: clamp(5px, 0.7cqw, 9px) !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-card-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 1;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-button {
+    display: grid !important;
+    grid-template-rows: minmax(0, 1fr) auto auto auto auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 4px !important;
+    overflow: hidden !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-thumb {
+    min-height: 0 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-info,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-method-target,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-resources {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: rgba(244, 226, 176, 0.92);
+    font-size: clamp(8px, 0.72cqw, 10px);
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-method-target,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-resources {
+    color: rgba(203, 213, 225, 0.78);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+}
+
+/* PvP chat remains available as a contained overlay instead of stealing a
+   fourth grid column from the board/dossier composition. */
+html body > .arena-fullscreen.shinobi-combat-shell .battle-chat-col {
+    position: absolute !important;
+    z-index: 80 !important;
+    right: var(--combat-gap) !important;
+    bottom: var(--combat-gap) !important;
+    grid-area: unset !important;
+    width: min(320px, calc(100% - 2 * var(--combat-gap))) !important;
+    max-width: calc(100% - 2 * var(--combat-gap)) !important;
+    max-height: min(460px, 70%) !important;
+}
+
+/* Side dossiers are enabled only when the shell has enough usable width AND
+   height. 1280x720 and 1366x768 deliberately remain compact-top layouts. */
+@container shinobi-combat (min-width: 1360px) and (min-height: 820px) {
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-layout {
+        grid-template-columns: clamp(210px, 14cqw, 260px) minmax(0, 1fr) clamp(210px, 14cqw, 260px) !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+        grid-template-areas: "player main opponent" !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud {
+        width: 100% !important;
+        height: 100% !important;
+        padding: clamp(10px, 1cqh, 16px) !important;
+        overflow: hidden auto !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-avatar,
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-effect-panel,
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-hud-meta {
+        display: flex !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-side-hud .combat-mobile-effects {
+        display: none !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+        grid-template-rows: auto auto minmax(0, 1.65fr) 48px auto auto minmax(126px, 0.55fr) !important;
+    }
+}
+
+@container shinobi-combat (max-width: 520px) {
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-layout {
+        padding: 6px !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .dual-ap-panel {
+        min-height: 64px !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+        grid-template-rows: auto auto minmax(0, 1.7fr) 48px auto auto minmax(96px, 0.5fr) !important;
+        gap: 4px !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-equipped-jutsu-grid {
+        grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)) !important;
+    }
+}
+
+/* On the shortest phone tier an armed-action hint or rejection is transient
+   guidance, not another permanent track. Float it in the breathing room above
+   the aspect-locked board so the tactical surface cannot collapse. */
+@container shinobi-combat (max-width: 520px) and (max-height: 700px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-rookie-tip > .combat-main-area {
+        position: relative !important;
+        grid-template-rows: auto auto minmax(0, 1.7fr) 48px auto auto minmax(96px, 0.5fr) !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-action-notice {
+        position: absolute !important;
+        z-index: 70 !important;
+        top: 98px !important;
+        right: 6px !important;
+        left: 6px !important;
+        max-height: 72px !important;
+        overflow: hidden auto !important;
+    }
+}
+
+/* Legacy desktop combat selectors carry html[data-vp] specificity. Repeat the
+   shell's few structural decisions at that altitude so medium desktop tiers
+   cannot resurrect the old width-only three-column/min-height rules. */
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-rows: clamp(92px, 15cqh, 124px) minmax(0, 1fr) !important;
+    grid-template-areas:
+        "player opponent"
+        "main main" !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud {
+    display: flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud:first-child {
+    grid-area: player !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud:last-child {
+    grid-area: opponent !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+    grid-area: main !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto minmax(0, 1.55fr) 48px auto auto minmax(104px, 0.65fr) !important;
+    grid-template-areas:
+        "ap"
+        "terrain"
+        "board"
+        "tabs"
+        "notice"
+        "commands"
+        "panel" !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-board-stage > .hex-battlefield {
+    width: min(100cqw, calc(100cqh * var(--combat-board-aspect))) !important;
+    height: min(100cqh, calc(100cqw / var(--combat-board-aspect))) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-thumb {
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    height: clamp(28px, 4cqw, 44px) !important;
+    min-height: 0 !important;
+    max-height: 44px !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-name {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    font-size: clamp(9px, 0.8cqw, 11px) !important;
+    line-height: 1.1 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
+    margin-left: 8px !important;
+}
+
+@container shinobi-combat (min-width: 800px) and (max-height: 800px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .dual-ap-panel {
+        height: 76px !important;
+        min-height: 76px !important;
+        padding-block: 4px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+        grid-template-rows: 76px auto minmax(0, 2fr) 48px auto auto minmax(96px, 0.4fr) !important;
+    }
+}
+
+@container shinobi-combat (min-width: 1360px) and (min-height: 820px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout {
+        grid-template-columns: clamp(210px, 14cqw, 260px) minmax(0, 1fr) clamp(210px, 14cqw, 260px) !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+        grid-template-areas: "player main opponent" !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-side-hud {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area {
+        grid-template-rows: auto auto minmax(0, 1.65fr) 48px auto auto minmax(126px, 0.55fr) !important;
+    }
+}
