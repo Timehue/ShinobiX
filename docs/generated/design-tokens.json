@@ -1,0 +1,3351 @@
+{
+  "$schema": "https://tr.designtokens.org/format/",
+  "metadata": {
+    "generatedBy": "scripts/export-tooling-handoffs.mjs",
+    "authority": "shinobij.client/src/styles/tokens.css",
+    "tokenCount": 180,
+    "note": "Values preserve CSS var() aliases; resolve aliases inside Figma rather than flattening semantic intent."
+  },
+  "collections": {
+    "ShinobiX Core": {
+      "color": {
+        "accent": {
+          "$value": "var(--gold-500)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--accent",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 231
+            }
+          }
+        },
+        "accent-strong": {
+          "$value": "var(--gold-600)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--accent-strong",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 232
+            }
+          }
+        },
+        "blue-300": {
+          "$value": "#93c5fd",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--blue-300",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 126
+            }
+          }
+        },
+        "blue-400": {
+          "$value": "#60a5fa",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--blue-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 127
+            }
+          }
+        },
+        "blue-500": {
+          "$value": "#3b82f6",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--blue-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 128
+            }
+          }
+        },
+        "border": {
+          "$value": "var(--line)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--border",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 217
+            }
+          }
+        },
+        "border-strong": {
+          "$value": "rgba(148, 163, 184, .45)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--border-strong",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 218
+            }
+          }
+        },
+        "cyan-400": {
+          "$value": "#38bdf8",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--cyan-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 129
+            }
+          }
+        },
+        "cyan-500": {
+          "$value": "#0ea5e9",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--cyan-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 130
+            }
+          }
+        },
+        "danger": {
+          "$value": "var(--sj-danger)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--danger",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 235
+            }
+          }
+        },
+        "gold-2": {
+          "$value": "var(--gold-600)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-2",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 228
+            }
+          }
+        },
+        "gold-200": {
+          "$value": "#fef3c7",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-200",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 105
+            }
+          }
+        },
+        "gold-300": {
+          "$value": "#fde68a",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-300",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 106
+            }
+          }
+        },
+        "gold-400": {
+          "$value": "#fcd34d",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 107
+            }
+          }
+        },
+        "gold-500": {
+          "$value": "var(--sj-gold)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 108
+            }
+          }
+        },
+        "gold-600": {
+          "$value": "#b8843f",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-600",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 109
+            }
+          }
+        },
+        "gold-700": {
+          "$value": "#8f602d",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold-700",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 110
+            }
+          }
+        },
+        "green-300": {
+          "$value": "#86efac",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--green-300",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 120
+            }
+          }
+        },
+        "green-400": {
+          "$value": "#4ade80",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--green-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 121
+            }
+          }
+        },
+        "green-500": {
+          "$value": "#22c55e",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--green-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 122
+            }
+          }
+        },
+        "green-600": {
+          "$value": "#16a34a",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--green-600",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 123
+            }
+          }
+        },
+        "info": {
+          "$value": "var(--sj-info)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--info",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 238
+            }
+          }
+        },
+        "ink": {
+          "$value": "var(--sj-void)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--ink",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 210
+            }
+          }
+        },
+        "line": {
+          "$value": "var(--sj-border-soft)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--line",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 216
+            }
+          }
+        },
+        "panel": {
+          "$value": "color-mix(in srgb, var(--sj-surface-low) 94%, transparent)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--panel",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 211
+            }
+          }
+        },
+        "panel-2": {
+          "$value": "color-mix(in srgb, var(--sj-surface) 95%, transparent)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--panel-2",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 212
+            }
+          }
+        },
+        "paper": {
+          "$value": "#f8ead2",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--paper",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 230
+            }
+          }
+        },
+        "purple-400": {
+          "$value": "#c084fc",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--purple-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 133
+            }
+          }
+        },
+        "purple-500": {
+          "$value": "#a855f7",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--purple-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 134
+            }
+          }
+        },
+        "rarity-common": {
+          "$value": "#87929b",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--rarity-common",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 71
+            }
+          }
+        },
+        "rarity-epic": {
+          "$value": "#8e75aa",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--rarity-epic",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 74
+            }
+          }
+        },
+        "rarity-legendary": {
+          "$value": "#d1a758",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--rarity-legendary",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 75
+            }
+          }
+        },
+        "rarity-mythic": {
+          "$value": "#bd636b",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--rarity-mythic",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 76
+            }
+          }
+        },
+        "rarity-rare": {
+          "$value": "#6d9fbd",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--rarity-rare",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 73
+            }
+          }
+        },
+        "rarity-uncommon": {
+          "$value": "#70aa80",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--rarity-uncommon",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 72
+            }
+          }
+        },
+        "red-300": {
+          "$value": "#fca5a5",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--red-300",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 113
+            }
+          }
+        },
+        "red-400": {
+          "$value": "#f87171",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--red-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 114
+            }
+          }
+        },
+        "red-500": {
+          "$value": "#ef4444",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--red-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 115
+            }
+          }
+        },
+        "red-600": {
+          "$value": "#dc2626",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--red-600",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 116
+            }
+          }
+        },
+        "red-700": {
+          "$value": "#b91c1c",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--red-700",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 117
+            }
+          }
+        },
+        "sj-background": {
+          "$value": "#0d1218",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-background",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 32
+            }
+          }
+        },
+        "sj-border-faint": {
+          "$value": "rgba(221, 230, 236, 0.08)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-border-faint",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 38
+            }
+          }
+        },
+        "sj-border-soft": {
+          "$value": "rgba(221, 230, 236, 0.14)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-border-soft",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 39
+            }
+          }
+        },
+        "sj-border-strong": {
+          "$value": "rgba(221, 230, 236, 0.25)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-border-strong",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 40
+            }
+          }
+        },
+        "sj-danger": {
+          "$value": "#c65359",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-danger",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 56
+            }
+          }
+        },
+        "sj-gold": {
+          "$value": "#d1a758",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-gold",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 47
+            }
+          }
+        },
+        "sj-gold-bright": {
+          "$value": "#e6c477",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-gold-bright",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 48
+            }
+          }
+        },
+        "sj-info": {
+          "$value": "#6d9fbd",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-info",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 57
+            }
+          }
+        },
+        "sj-seal": {
+          "$value": "#a83e45",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-seal",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 51
+            }
+          }
+        },
+        "sj-seal-bright": {
+          "$value": "#cc5960",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-seal-bright",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 52
+            }
+          }
+        },
+        "sj-spirit": {
+          "$value": "#74adbd",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-spirit",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 49
+            }
+          }
+        },
+        "sj-spirit-bright": {
+          "$value": "#a2d4dc",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-spirit-bright",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 50
+            }
+          }
+        },
+        "sj-success": {
+          "$value": "#70aa80",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-success",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 54
+            }
+          }
+        },
+        "sj-surface": {
+          "$value": "#18212b",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-surface",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 34
+            }
+          }
+        },
+        "sj-surface-high": {
+          "$value": "#202c38",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-surface-high",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 35
+            }
+          }
+        },
+        "sj-surface-low": {
+          "$value": "#121820",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-surface-low",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 33
+            }
+          }
+        },
+        "sj-surface-raised": {
+          "$value": "#293744",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-surface-raised",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 36
+            }
+          }
+        },
+        "sj-text-disabled": {
+          "$value": "#56616b",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-text-disabled",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 45
+            }
+          }
+        },
+        "sj-text-muted": {
+          "$value": "#7f8c98",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-text-muted",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 44
+            }
+          }
+        },
+        "sj-text-primary": {
+          "$value": "#f0ede5",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-text-primary",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 42
+            }
+          }
+        },
+        "sj-text-secondary": {
+          "$value": "#b7c0c8",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-text-secondary",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 43
+            }
+          }
+        },
+        "sj-void": {
+          "$value": "#080b0f",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-void",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 31
+            }
+          }
+        },
+        "sj-warning": {
+          "$value": "#d29448",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sj-warning",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 55
+            }
+          }
+        },
+        "slate-100": {
+          "$value": "#f1f5f9",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-100",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 93
+            }
+          }
+        },
+        "slate-200": {
+          "$value": "#e2e8f0",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-200",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 94
+            }
+          }
+        },
+        "slate-300": {
+          "$value": "#cbd5e1",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-300",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 95
+            }
+          }
+        },
+        "slate-400": {
+          "$value": "#94a3b8",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-400",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 96
+            }
+          }
+        },
+        "slate-50": {
+          "$value": "#f8fafc",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-50",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 92
+            }
+          }
+        },
+        "slate-500": {
+          "$value": "#64748b",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-500",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 97
+            }
+          }
+        },
+        "slate-600": {
+          "$value": "#475569",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-600",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 98
+            }
+          }
+        },
+        "slate-700": {
+          "$value": "#334155",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-700",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 99
+            }
+          }
+        },
+        "slate-800": {
+          "$value": "#1e293b",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-800",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 100
+            }
+          }
+        },
+        "slate-900": {
+          "$value": "#0f172a",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-900",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 101
+            }
+          }
+        },
+        "slate-950": {
+          "$value": "#08111f",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--slate-950",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 102
+            }
+          }
+        },
+        "status-control": {
+          "$value": "#a98b6a",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--status-control",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 82
+            }
+          }
+        },
+        "status-negative": {
+          "$value": "var(--sj-danger)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--status-negative",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 80
+            }
+          }
+        },
+        "status-neutral": {
+          "$value": "var(--sj-info)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--status-neutral",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 81
+            }
+          }
+        },
+        "status-positive": {
+          "$value": "var(--sj-success)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--status-positive",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 79
+            }
+          }
+        },
+        "status-shield": {
+          "$value": "var(--sj-spirit)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--status-shield",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 83
+            }
+          }
+        },
+        "success": {
+          "$value": "var(--sj-success)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--success",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 237
+            }
+          }
+        },
+        "surface": {
+          "$value": "var(--panel)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--surface",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 213
+            }
+          }
+        },
+        "surface-2": {
+          "$value": "var(--panel-2)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--surface-2",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 214
+            }
+          }
+        },
+        "surface-3": {
+          "$value": "color-mix(in srgb, var(--sj-background) 97%, transparent)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--surface-3",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 215
+            }
+          }
+        },
+        "text": {
+          "$value": "var(--sj-text-primary)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--text",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 221
+            }
+          }
+        },
+        "text-dim": {
+          "$value": "var(--sj-text-secondary)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--text-dim",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 222
+            }
+          }
+        },
+        "text-muted": {
+          "$value": "var(--sj-text-muted)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--text-muted",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 223
+            }
+          }
+        },
+        "text-on-accent": {
+          "$value": "#1a1205",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--text-on-accent",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 224
+            }
+          }
+        },
+        "village-ashen": {
+          "$value": "#b65b3d",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-ashen",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 61
+            }
+          }
+        },
+        "village-ashen-soft": {
+          "$value": "#d58a55",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-ashen-soft",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 62
+            }
+          }
+        },
+        "village-frost": {
+          "$value": "#6d9ec1",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-frost",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 65
+            }
+          }
+        },
+        "village-frost-soft": {
+          "$value": "#afcadc",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-frost-soft",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 66
+            }
+          }
+        },
+        "village-moon": {
+          "$value": "#71688f",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-moon",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 67
+            }
+          }
+        },
+        "village-moon-soft": {
+          "$value": "#a69fbd",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-moon-soft",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 68
+            }
+          }
+        },
+        "village-storm": {
+          "$value": "#4f91a0",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-storm",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 63
+            }
+          }
+        },
+        "village-storm-soft": {
+          "$value": "#83b8c0",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--village-storm-soft",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 64
+            }
+          }
+        },
+        "warning": {
+          "$value": "var(--sj-warning)",
+          "$type": "color",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--warning",
+              "category": "color",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 239
+            }
+          }
+        }
+      },
+      "other": {
+        "buff": {
+          "$value": "var(--cyan-400)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--buff",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 264
+            }
+          }
+        },
+        "cyan": {
+          "$value": "var(--cyan-400)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--cyan",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 229
+            }
+          }
+        },
+        "damage": {
+          "$value": "var(--red-400)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--damage",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 263
+            }
+          }
+        },
+        "debuff": {
+          "$value": "var(--gold-400)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--debuff",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 265
+            }
+          }
+        },
+        "gold": {
+          "$value": "var(--gold-500)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--gold",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 227
+            }
+          }
+        },
+        "heal": {
+          "$value": "var(--green-400)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--heal",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 262
+            }
+          }
+        },
+        "red": {
+          "$value": "var(--red-700)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--red",
+              "category": "other",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 236
+            }
+          }
+        }
+      },
+      "layout": {
+        "dialog-viewport-margin": {
+          "$value": "clamp(8px, 3vw, 24px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--dialog-viewport-margin",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 258
+            }
+          }
+        },
+        "shell-content-max": {
+          "$value": "1680px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-content-max",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 247
+            }
+          }
+        },
+        "shell-gap": {
+          "$value": "clamp(4px, 0.55vw, 10px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-gap",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 248
+            }
+          }
+        },
+        "shell-left-rail": {
+          "$value": "clamp(176px, 13.25vw, 220px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-left-rail",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 242
+            }
+          }
+        },
+        "shell-left-rail-compact": {
+          "$value": "190px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-left-rail-compact",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 244
+            }
+          }
+        },
+        "shell-left-rail-padding": {
+          "$value": "48px 12px 16px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-left-rail-padding",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 254
+            }
+          }
+        },
+        "shell-mobile-nav-clearance": {
+          "$value": "104px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-mobile-nav-clearance",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 253
+            }
+          }
+        },
+        "shell-mobile-nav-height": {
+          "$value": "66px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-mobile-nav-height",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 252
+            }
+          }
+        },
+        "shell-mobile-page-padding": {
+          "$value": "clamp(6px, 2vw, 12px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-mobile-page-padding",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 251
+            }
+          }
+        },
+        "shell-page-padding-block": {
+          "$value": "clamp(6px, 0.8vw, 12px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-page-padding-block",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 250
+            }
+          }
+        },
+        "shell-page-padding-inline": {
+          "$value": "clamp(6px, 0.8vw, 14px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-page-padding-inline",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 249
+            }
+          }
+        },
+        "shell-rail-content-gap": {
+          "$value": "6px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-rail-content-gap",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 256
+            }
+          }
+        },
+        "shell-rail-font-size": {
+          "$value": "0.86rem",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-rail-font-size",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 257
+            }
+          }
+        },
+        "shell-right-rail": {
+          "$value": "clamp(230px, 16vw, 255px)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-right-rail",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 243
+            }
+          }
+        },
+        "shell-right-rail-collapsed": {
+          "$value": "74px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-right-rail-collapsed",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 246
+            }
+          }
+        },
+        "shell-right-rail-compact": {
+          "$value": "220px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-right-rail-compact",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 245
+            }
+          }
+        },
+        "shell-right-rail-padding": {
+          "$value": "clamp(132px, 17vh, 158px) 10px 12px",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shell-right-rail-padding",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 255
+            }
+          }
+        },
+        "touch-target-min": {
+          "$value": "44px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--touch-target-min",
+              "category": "layout",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 259
+            }
+          }
+        }
+      },
+      "typography": {
+        "font-body": {
+          "$value": "Inter, Geist, \"Segoe UI Variable\", \"Segoe UI\", Arial, sans-serif",
+          "$type": "fontFamily",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--font-body",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 163
+            }
+          }
+        },
+        "font-display": {
+          "$value": "Marcellus, Spectral, \"Noto Serif\", Georgia, serif",
+          "$type": "fontFamily",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--font-display",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 164
+            }
+          }
+        },
+        "font-mono": {
+          "$value": "ui-monospace, \"Cascadia Code\", \"Courier New\", monospace",
+          "$type": "fontFamily",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--font-mono",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 165
+            }
+          }
+        },
+        "fs-2xl": {
+          "$value": "31px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-2xl",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 174
+            }
+          }
+        },
+        "fs-2xs": {
+          "$value": "10px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-2xs",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 167
+            }
+          }
+        },
+        "fs-3xl": {
+          "$value": "clamp(34px, 5vw, 52px)",
+          "$type": "fontFamily",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-3xl",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 175
+            }
+          }
+        },
+        "fs-base": {
+          "$value": "14px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-base",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 170
+            }
+          }
+        },
+        "fs-lg": {
+          "$value": "20px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-lg",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 172
+            }
+          }
+        },
+        "fs-md": {
+          "$value": "16px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-md",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 171
+            }
+          }
+        },
+        "fs-sm": {
+          "$value": "13px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-sm",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 169
+            }
+          }
+        },
+        "fs-xl": {
+          "$value": "25px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-xl",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 173
+            }
+          }
+        },
+        "fs-xs": {
+          "$value": "12px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fs-xs",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 168
+            }
+          }
+        },
+        "fw-black": {
+          "$value": "800",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fw-black",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 183
+            }
+          }
+        },
+        "fw-bold": {
+          "$value": "700",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fw-bold",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 182
+            }
+          }
+        },
+        "fw-medium": {
+          "$value": "600",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fw-medium",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 181
+            }
+          }
+        },
+        "fw-normal": {
+          "$value": "400",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--fw-normal",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 180
+            }
+          }
+        },
+        "lh-base": {
+          "$value": "1.5",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--lh-base",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 178
+            }
+          }
+        },
+        "lh-tight": {
+          "$value": "1.2",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--lh-tight",
+              "category": "typography",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 177
+            }
+          }
+        }
+      },
+      "motion": {
+        "motion-fast": {
+          "$value": "120ms",
+          "$type": "duration",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--motion-fast",
+              "category": "motion",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 86
+            }
+          }
+        },
+        "motion-instant": {
+          "$value": "80ms",
+          "$type": "duration",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--motion-instant",
+              "category": "motion",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 85
+            }
+          }
+        },
+        "motion-normal": {
+          "$value": "180ms",
+          "$type": "duration",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--motion-normal",
+              "category": "motion",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 87
+            }
+          }
+        },
+        "motion-scene": {
+          "$value": "400ms",
+          "$type": "duration",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--motion-scene",
+              "category": "motion",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 89
+            }
+          }
+        },
+        "motion-slow": {
+          "$value": "280ms",
+          "$type": "duration",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--motion-slow",
+              "category": "motion",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 88
+            }
+          }
+        }
+      },
+      "radius": {
+        "r-full": {
+          "$value": "50%",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-full",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 160
+            }
+          }
+        },
+        "r-lg": {
+          "$value": "12px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-lg",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 157
+            }
+          }
+        },
+        "r-md": {
+          "$value": "8px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-md",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 156
+            }
+          }
+        },
+        "r-pill": {
+          "$value": "999px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-pill",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 159
+            }
+          }
+        },
+        "r-sm": {
+          "$value": "6px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-sm",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 155
+            }
+          }
+        },
+        "r-xl": {
+          "$value": "16px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-xl",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 158
+            }
+          }
+        },
+        "r-xs": {
+          "$value": "4px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--r-xs",
+              "category": "radius",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 154
+            }
+          }
+        }
+      },
+      "shadow": {
+        "shadow-inset-top": {
+          "$value": "inset 0 1px 0 rgba(255,255,255,.06)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shadow-inset-top",
+              "category": "shadow",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 189
+            }
+          }
+        },
+        "shadow-lg": {
+          "$value": "0 18px 50px rgba(0,0,0,.42)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shadow-lg",
+              "category": "shadow",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 188
+            }
+          }
+        },
+        "shadow-md": {
+          "$value": "0 10px 24px rgba(0,0,0,.18)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shadow-md",
+              "category": "shadow",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 187
+            }
+          }
+        },
+        "shadow-sm": {
+          "$value": "0 1px 2px rgba(0,0,0,.25)",
+          "$type": "string",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--shadow-sm",
+              "category": "shadow",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 186
+            }
+          }
+        }
+      },
+      "spacing": {
+        "sp-0": {
+          "$value": "0",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-0",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 139
+            }
+          }
+        },
+        "sp-1": {
+          "$value": "4px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-1",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 140
+            }
+          }
+        },
+        "sp-10": {
+          "$value": "40px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-10",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 147
+            }
+          }
+        },
+        "sp-12": {
+          "$value": "48px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-12",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 148
+            }
+          }
+        },
+        "sp-16": {
+          "$value": "64px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-16",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 149
+            }
+          }
+        },
+        "sp-2": {
+          "$value": "8px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-2",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 141
+            }
+          }
+        },
+        "sp-20": {
+          "$value": "80px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-20",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 150
+            }
+          }
+        },
+        "sp-24": {
+          "$value": "96px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-24",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 151
+            }
+          }
+        },
+        "sp-3": {
+          "$value": "12px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-3",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 142
+            }
+          }
+        },
+        "sp-4": {
+          "$value": "16px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-4",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 143
+            }
+          }
+        },
+        "sp-5": {
+          "$value": "20px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-5",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 144
+            }
+          }
+        },
+        "sp-6": {
+          "$value": "24px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-6",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 145
+            }
+          }
+        },
+        "sp-8": {
+          "$value": "32px",
+          "$type": "dimension",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--sp-8",
+              "category": "spacing",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 146
+            }
+          }
+        }
+      },
+      "z-index": {
+        "z-background": {
+          "$value": "-1",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-background",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 192
+            }
+          }
+        },
+        "z-base": {
+          "$value": "1",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-base",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 193
+            }
+          }
+        },
+        "z-combat": {
+          "$value": "2000",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-combat",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 202
+            }
+          }
+        },
+        "z-combat-hud": {
+          "$value": "2100",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-combat-hud",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 203
+            }
+          }
+        },
+        "z-drawer": {
+          "$value": "700",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-drawer",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 198
+            }
+          }
+        },
+        "z-mobile-nav": {
+          "$value": "400",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-mobile-nav",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 196
+            }
+          }
+        },
+        "z-modal": {
+          "$value": "1100",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-modal",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 200
+            }
+          }
+        },
+        "z-notice": {
+          "$value": "500",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-notice",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 197
+            }
+          }
+        },
+        "z-overlay": {
+          "$value": "1000",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-overlay",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 199
+            }
+          }
+        },
+        "z-rail": {
+          "$value": "200",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-rail",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 195
+            }
+          }
+        },
+        "z-sticky": {
+          "$value": "100",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-sticky",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 194
+            }
+          }
+        },
+        "z-toast": {
+          "$value": "1200",
+          "$type": "number",
+          "$extensions": {
+            "com.shinobix": {
+              "cssVariable": "--z-toast",
+              "category": "z-index",
+              "source": "shinobij.client/src/styles/tokens.css",
+              "line": 201
+            }
+          }
+        }
+      }
+    }
+  },
+  "breakpoints": {
+    "canonical": {
+      "xs": {
+        "description": "below 560px",
+        "maxExclusivePx": 560,
+        "source": "shinobij.client/src/styles/tokens.css"
+      },
+      "sm": {
+        "description": "560px through 979px",
+        "minPx": 560,
+        "maxPx": 979,
+        "source": "shinobij.client/src/styles/tokens.css"
+      },
+      "md": {
+        "description": "980px through 1179px",
+        "minPx": 980,
+        "maxPx": 1179,
+        "source": "shinobij.client/src/styles/tokens.css"
+      },
+      "lg": {
+        "description": "1180px through 1399px",
+        "minPx": 1180,
+        "maxPx": 1399,
+        "source": "shinobij.client/src/styles/tokens.css"
+      },
+      "xl": {
+        "description": "1400px through 2199px",
+        "minPx": 1400,
+        "maxPx": 2199,
+        "source": "shinobij.client/src/styles/tokens.css"
+      },
+      "xxl": {
+        "description": "2200px and above",
+        "minPx": 2200,
+        "source": "shinobij.client/src/styles/tokens.css"
+      }
+    },
+    "observedQueries": [
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 0,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 745
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 350,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 1083
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 380,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
+            "line": 349
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 420,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 2108
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 1054
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 460,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 3037
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 480,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/HuntEncounterCard.css",
+            "line": 276
+          },
+          {
+            "source": "shinobij.client/src/components/IncomingChallengeModal.css",
+            "line": 174
+          },
+          {
+            "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
+            "line": 129
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 38
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 758
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-skin.css",
+            "line": 1229
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 1816
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 520,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/card-pack-opening.css",
+            "line": 1059
+          },
+          {
+            "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
+            "line": 1515
+          },
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 240
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 304
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 638
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1544
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 559,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 315
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 208
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-tools.css",
+            "line": 82
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 560,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/PetLadder.css",
+            "line": 127
+          },
+          {
+            "source": "shinobij.client/src/screens/ProfessionPicker.css",
+            "line": 741
+          },
+          {
+            "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
+            "line": 304
+          },
+          {
+            "source": "shinobij.client/src/styles/index/06-combat-core.css",
+            "line": 525
+          },
+          {
+            "source": "shinobij.client/src/styles/index/06-combat-core.css",
+            "line": 630
+          },
+          {
+            "source": "shinobij.client/src/styles/index/15-territory-panels.css",
+            "line": 846
+          },
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 512
+          },
+          {
+            "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
+            "line": 1123
+          },
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 1419
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1403
+          },
+          {
+            "source": "shinobij.client/src/styles/patreon-skin.css",
+            "line": 105
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 910
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1142
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 590,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 1095
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 600,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2802
+          },
+          {
+            "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
+            "line": 977
+          },
+          {
+            "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
+            "line": 1702
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 620,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 176
+          },
+          {
+            "source": "shinobij.client/src/styles/ui.css",
+            "line": 188
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 620,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
+            "line": 249
+          },
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 709
+          },
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 935
+          },
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 950
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-home.css",
+            "line": 262
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 640,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/HunterBoard.apex.css",
+            "line": 128
+          },
+          {
+            "source": "shinobij.client/src/styles/guides-skin.css",
+            "line": 243
+          },
+          {
+            "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
+            "line": 89
+          },
+          {
+            "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
+            "line": 2601
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 680,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 883
+          },
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 1089
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 680,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 1271
+          },
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 1259
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-tools.css",
+            "line": 72
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 2982
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 700,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic-preview.css",
+            "line": 112
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 1140
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 1627
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 720,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/character-creator/character-creator.css",
+            "line": 677
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-skin.css",
+            "line": 112
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-skin.css",
+            "line": 635
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 740,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 2255
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "height",
+        "valuePx": 760,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2299
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 760,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2552
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2770
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 3793
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4353
+          },
+          {
+            "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
+            "line": 598
+          },
+          {
+            "source": "shinobij.client/src/styles/index/06-combat-core.css",
+            "line": 755
+          },
+          {
+            "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
+            "line": 557
+          },
+          {
+            "source": "shinobij.client/src/styles/index/33-hollow-gate-cinematic.css",
+            "line": 221
+          },
+          {
+            "source": "shinobij.client/src/styles/index/34-hollow-gate-combat-director.css",
+            "line": 158
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 164
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-skin.css",
+            "line": 1119
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 768,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 336
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 780,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
+            "line": 860
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 800,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/world-map-charting.css",
+            "line": 109
+          },
+          {
+            "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
+            "line": 126
+          },
+          {
+            "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
+            "line": 1174
+          },
+          {
+            "source": "shinobij.client/src/screens/ProfessionPicker.css",
+            "line": 728
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 145
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 2255
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 2384
+          },
+          {
+            "source": "shinobij.client/src/styles/central-skin.css",
+            "line": 238
+          },
+          {
+            "source": "shinobij.client/src/styles/index/02-world-map.css",
+            "line": 361
+          },
+          {
+            "source": "shinobij.client/src/styles/index/06-combat-core.css",
+            "line": 1622
+          },
+          {
+            "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
+            "line": 293
+          },
+          {
+            "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
+            "line": 419
+          },
+          {
+            "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
+            "line": 207
+          },
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 138
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 745
+          },
+          {
+            "source": "shinobij.client/src/styles/index/25-mobile-profile-tabs.css",
+            "line": 13
+          },
+          {
+            "source": "shinobij.client/src/styles/index/27-mobile-polish-fixes.css",
+            "line": 5
+          },
+          {
+            "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
+            "line": 107
+          },
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 883
+          },
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 1039
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 307
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 1177
+          },
+          {
+            "source": "shinobij.client/src/styles/start-skin.css",
+            "line": 609
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 884
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1087
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1291
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1437
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1652
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1712
+          },
+          {
+            "source": "shinobij.client/src/styles/village-war-map-skin.css",
+            "line": 98
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 801,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
+            "line": 860
+          },
+          {
+            "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
+            "line": 91
+          },
+          {
+            "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
+            "line": 1089
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1583
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1778
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 820,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/PetLadder.css",
+            "line": 23
+          },
+          {
+            "source": "shinobij.client/src/styles/index/20-clan-town-hall-v5.css",
+            "line": 237
+          },
+          {
+            "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
+            "line": 692
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 860,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/06-combat-core.css",
+            "line": 1567
+          },
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 1418
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1693
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-skin.css",
+            "line": 878
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 2959
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 900,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2419
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 900,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/02-world-map.css",
+            "line": 770
+          },
+          {
+            "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
+            "line": 178
+          },
+          {
+            "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
+            "line": 931
+          },
+          {
+            "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
+            "line": 1105
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1316
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-home.css",
+            "line": 249
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 857
+          },
+          {
+            "source": "shinobij.client/src/styles/training-skin.css",
+            "line": 251
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 901,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1735
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 920,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 687
+          },
+          {
+            "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
+            "line": 934
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 979,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 453
+          },
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 462
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 10
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 81
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 391
+          },
+          {
+            "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
+            "line": 867
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 959
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 200
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 126
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 176
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 261
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 874
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1271
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1636
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 980,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/world-map-charting.css",
+            "line": 147
+          },
+          {
+            "source": "shinobij.client/src/features/character-creator/character-creator.css",
+            "line": 659
+          },
+          {
+            "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
+            "line": 947
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 980,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 436
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 193
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1012
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1072
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 981,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/05-pet-yard.css",
+            "line": 14
+          },
+          {
+            "source": "shinobij.client/src/styles/index/05-pet-yard.css",
+            "line": 30
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1023,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 191
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 1653
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 2186
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 3406
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 3956
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 25
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 420
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 558
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 582
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 914
+          },
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 38
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1024,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/App.css",
+            "line": 66
+          },
+          {
+            "source": "shinobij.client/src/App.css",
+            "line": 81
+          },
+          {
+            "source": "shinobij.client/src/App.css",
+            "line": 92
+          },
+          {
+            "source": "shinobij.client/src/App.css",
+            "line": 101
+          },
+          {
+            "source": "shinobij.client/src/App.css",
+            "line": 140
+          },
+          {
+            "source": "shinobij.client/src/App.css",
+            "line": 161
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 1024,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 1298
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 1625
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 2756
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 3344
+          },
+          {
+            "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
+            "line": 827
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1040,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 2945
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1100,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2265
+          },
+          {
+            "source": "shinobij.client/src/styles/index/06-combat-core.css",
+            "line": 1607
+          },
+          {
+            "source": "shinobij.client/src/styles/index/07-combat-skin-battle-log.css",
+            "line": 318
+          },
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 113
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1066
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1072
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 1101,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2299
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 2419
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1120,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1735
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1150,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
+            "line": 564
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1179,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 193
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1180,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
+            "line": 416
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 1130
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 1280,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/15-territory-panels.css",
+            "line": 833
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1360,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 1625
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 3344
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 1500,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1430
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1646
+          }
+        ]
+      }
+    ]
+  }
+}

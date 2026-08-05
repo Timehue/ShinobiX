@@ -1,0 +1,3369 @@
+{
+  "schemaVersion": "shinobix.economy-model.v1",
+  "generatedBy": "scripts/export-tooling-handoffs.mjs",
+  "authority": "server-authoritative source modules listed on every flow; generated artifacts are read-only handoffs",
+  "currencies": [
+    "ryo",
+    "fateShards",
+    "boneCharms",
+    "auraStones",
+    "auraDust",
+    "honorSeals",
+    "mythicSeals",
+    "hollowShards",
+    "warResources",
+    "territoryControlScrolls",
+    "statPoints"
+  ],
+  "dailyCaps": {
+    "missions": 20,
+    "huntsBase": 20
+  },
+  "faucets": [
+    {
+      "system": "combat-mission",
+      "id": "combat-e-drill",
+      "currency": "ryo",
+      "amount": 10,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-e-drill",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-d-errand",
+      "currency": "ryo",
+      "amount": 20,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-d-errand",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-c-patrol",
+      "currency": "ryo",
+      "amount": 60,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-c-patrol",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-b-escort",
+      "currency": "ryo",
+      "amount": 125,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-b-escort",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-a-hunt",
+      "currency": "ryo",
+      "amount": 250,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-a-hunt",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-s-crisis",
+      "currency": "ryo",
+      "amount": 600,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "combat-mission",
+      "id": "combat-s-crisis",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-wild-boar",
+      "currency": "ryo",
+      "amount": 60,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-wild-boar",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-wild-boar",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-forest-hawk",
+      "currency": "ryo",
+      "amount": 60,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-forest-hawk",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-forest-hawk",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-frost-wolf",
+      "currency": "ryo",
+      "amount": 160,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-frost-wolf",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-frost-wolf",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ash-lizard",
+      "currency": "ryo",
+      "amount": 160,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ash-lizard",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ash-lizard",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-shadow-panther",
+      "currency": "ryo",
+      "amount": 340,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-shadow-panther",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-shadow-panther",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-shadow-panther",
+      "currency": "boneCharms",
+      "amount": 1,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ironback-bear",
+      "currency": "ryo",
+      "amount": 340,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ironback-bear",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ironback-bear",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ironback-bear",
+      "currency": "boneCharms",
+      "amount": 1,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ember-drake",
+      "currency": "ryo",
+      "amount": 750,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ember-drake",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ember-drake",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ember-drake",
+      "currency": "boneCharms",
+      "amount": 2,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ember-drake",
+      "currency": "auraDust",
+      "amount": 20,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-moon-serpent",
+      "currency": "ryo",
+      "amount": 750,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-moon-serpent",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-moon-serpent",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-moon-serpent",
+      "currency": "boneCharms",
+      "amount": 2,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-moon-serpent",
+      "currency": "auraDust",
+      "amount": 20,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ancient-chakra-beast",
+      "currency": "ryo",
+      "amount": 1800,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ancient-chakra-beast",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ancient-chakra-beast",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ancient-chakra-beast",
+      "currency": "boneCharms",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ancient-chakra-beast",
+      "currency": "auraDust",
+      "amount": 40,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-ancient-chakra-beast",
+      "currency": "fateShards",
+      "amount": 1,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-worldstorm-dragon",
+      "currency": "ryo",
+      "amount": 1800,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-worldstorm-dragon",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-worldstorm-dragon",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-worldstorm-dragon",
+      "currency": "boneCharms",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-worldstorm-dragon",
+      "currency": "auraDust",
+      "amount": 40,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "hunt-worldstorm-dragon",
+      "currency": "fateShards",
+      "amount": 1,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-d-supply-trail",
+      "currency": "ryo",
+      "amount": 75,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-d-supply-trail",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-d-supply-trail",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-c-border-scout",
+      "currency": "ryo",
+      "amount": 190,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-c-border-scout",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-c-border-scout",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-b-enemy-cache",
+      "currency": "ryo",
+      "amount": 420,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-b-enemy-cache",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-b-enemy-cache",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-b-enemy-cache",
+      "currency": "boneCharms",
+      "amount": 1,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-a-black-route",
+      "currency": "ryo",
+      "amount": 900,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-a-black-route",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-a-black-route",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-a-black-route",
+      "currency": "boneCharms",
+      "amount": 2,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-a-black-route",
+      "currency": "auraDust",
+      "amount": 20,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-s-shadow-front",
+      "currency": "ryo",
+      "amount": 2100,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-s-shadow-front",
+      "currency": "statPoints",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": "Daily checklist progression; XP fields are legacy display data."
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-s-shadow-front",
+      "currency": "territoryControlScrolls",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-s-shadow-front",
+      "currency": "boneCharms",
+      "amount": 3,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-s-shadow-front",
+      "currency": "auraDust",
+      "amount": 45,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "field-mission",
+      "id": "fetch-s-shadow-front",
+      "currency": "fateShards",
+      "amount": 1,
+      "cadence": "per daily claim",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-trial",
+      "currency": "xp",
+      "amount": 40,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-trial",
+      "currency": "ryo",
+      "amount": 30,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-trial",
+      "currency": "stamina",
+      "amount": 5,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-checklist",
+      "currency": "xp",
+      "amount": 150,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-checklist",
+      "currency": "ryo",
+      "amount": 120,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-checklist",
+      "currency": "stamina",
+      "amount": 10,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "academy",
+      "id": "academy-checklist",
+      "currency": "fateShards",
+      "amount": 2,
+      "cadence": "once per account",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "daily-login",
+      "id": "level-scaled-ryo",
+      "currency": "ryo",
+      "amount": "500+100*level (cap 8000)",
+      "cadence": "daily",
+      "authority": "api/player/_daily-login.ts",
+      "notes": ""
+    },
+    {
+      "system": "daily-login",
+      "id": "streak-shards",
+      "currency": "fateShards",
+      "amount": 5,
+      "cadence": "every 7 streak days",
+      "authority": "api/player/_daily-login.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-crate",
+      "id": "legendary-war-crate",
+      "currency": "ryo",
+      "amount": 500,
+      "cadence": "per crate",
+      "authority": "api/inventory/_war-crate.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-crate",
+      "id": "legendary-war-crate",
+      "currency": "honorSeals",
+      "amount": 10,
+      "cadence": "per crate",
+      "authority": "api/inventory/_war-crate.ts",
+      "notes": ""
+    },
+    {
+      "system": "territory",
+      "id": "controlled-sector-daily",
+      "currency": "warResources",
+      "amount": 25,
+      "cadence": "per controlled sector/day",
+      "authority": "api/_war-economy.ts",
+      "notes": ""
+    },
+    {
+      "system": "territory",
+      "id": "controlled-sector-daily",
+      "currency": "honorSeals",
+      "amount": 1,
+      "cadence": "per controlled sector/day",
+      "authority": "api/_war-economy.ts",
+      "notes": ""
+    }
+  ],
+  "sinks": [
+    {
+      "system": "shop",
+      "id": "ancient-pet-treat",
+      "currency": "ryo",
+      "amount": 520,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "ash-wrapped-tanto",
+      "currency": "ryo",
+      "amount": 220,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common hand"
+    },
+    {
+      "system": "shop",
+      "id": "ashen-dragon-katana",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic hand"
+    },
+    {
+      "system": "shop",
+      "id": "ashen-leaf-saber",
+      "currency": "ryo",
+      "amount": 480,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare hand"
+    },
+    {
+      "system": "shop",
+      "id": "ashglass-katana",
+      "currency": "ryo",
+      "amount": 1050,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic hand"
+    },
+    {
+      "system": "shop",
+      "id": "black-lotus-dagger",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "blue-thread-dagger",
+      "currency": "ryo",
+      "amount": 420,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare hand"
+    },
+    {
+      "system": "shop",
+      "id": "bulwark-chest",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary body"
+    },
+    {
+      "system": "shop",
+      "id": "bulwark-crown",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary head"
+    },
+    {
+      "system": "shop",
+      "id": "bulwark-feet",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary feet"
+    },
+    {
+      "system": "shop",
+      "id": "bulwark-gloves",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "bulwark-legs",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary legs"
+    },
+    {
+      "system": "shop",
+      "id": "bulwark-waist",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary waist"
+    },
+    {
+      "system": "shop",
+      "id": "chain-obi",
+      "currency": "ryo",
+      "amount": 320,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare waist"
+    },
+    {
+      "system": "shop",
+      "id": "chakra-ring",
+      "currency": "ryo",
+      "amount": 600,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare aura"
+    },
+    {
+      "system": "shop",
+      "id": "cloth-hood",
+      "currency": "ryo",
+      "amount": 120,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common head"
+    },
+    {
+      "system": "shop",
+      "id": "cloth-pants",
+      "currency": "ryo",
+      "amount": 105,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common legs"
+    },
+    {
+      "system": "shop",
+      "id": "cloth-robe",
+      "currency": "ryo",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common body"
+    },
+    {
+      "system": "shop",
+      "id": "cloth-sandals",
+      "currency": "ryo",
+      "amount": 75,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common feet"
+    },
+    {
+      "system": "shop",
+      "id": "cloth-sash",
+      "currency": "ryo",
+      "amount": 90,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common waist"
+    },
+    {
+      "system": "shop",
+      "id": "collar-amber",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-amethyst",
+      "currency": "fateShards",
+      "amount": 200,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-azure",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-crimson",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-emerald",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-inferno",
+      "currency": "fateShards",
+      "amount": 80,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-rose",
+      "currency": "fateShards",
+      "amount": 120,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-tidal",
+      "currency": "fateShards",
+      "amount": 120,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-verdant",
+      "currency": "fateShards",
+      "amount": 80,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "collar-void",
+      "currency": "fateShards",
+      "amount": 300,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "consum-cleansing-incense",
+      "currency": "ryo",
+      "amount": 1120,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon item"
+    },
+    {
+      "system": "shop",
+      "id": "consum-lifeline-elixir",
+      "currency": "ryo",
+      "amount": 1440,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "consum-phantom-charm",
+      "currency": "ryo",
+      "amount": 960,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon item"
+    },
+    {
+      "system": "shop",
+      "id": "consum-second-wind",
+      "currency": "ryo",
+      "amount": 1600,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "consum-smoke-pellet",
+      "currency": "ryo",
+      "amount": 960,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon item"
+    },
+    {
+      "system": "shop",
+      "id": "consum-thornmail-oil",
+      "currency": "ryo",
+      "amount": 1280,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "cracked-bone-dagger",
+      "currency": "ryo",
+      "amount": 235,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common hand"
+    },
+    {
+      "system": "shop",
+      "id": "crimson-chest",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary body"
+    },
+    {
+      "system": "shop",
+      "id": "crimson-crown",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary head"
+    },
+    {
+      "system": "shop",
+      "id": "crimson-feet",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary feet"
+    },
+    {
+      "system": "shop",
+      "id": "crimson-gloves",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "crimson-legs",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary legs"
+    },
+    {
+      "system": "shop",
+      "id": "crimson-waist",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary waist"
+    },
+    {
+      "system": "shop",
+      "id": "eclipse-fang-dagger",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic hand"
+    },
+    {
+      "system": "shop",
+      "id": "elderbranch-katana",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "elemental-pet-treat",
+      "currency": "ryo",
+      "amount": 260,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "embercoil-scythe",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "evo-stone-ascension",
+      "currency": "fateShards",
+      "amount": 400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "evo-stone-awakening",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "frostbite-cleaver",
+      "currency": "ryo",
+      "amount": 980,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic hand"
+    },
+    {
+      "system": "shop",
+      "id": "frostfang-oathblade",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "glacier-king-cleaver",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic hand"
+    },
+    {
+      "system": "shop",
+      "id": "golden-apple",
+      "currency": "fateShards",
+      "amount": 20,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "iron-fang-knuckles",
+      "currency": "ryo",
+      "amount": 510,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare hand"
+    },
+    {
+      "system": "shop",
+      "id": "iron-kabuto",
+      "currency": "ryo",
+      "amount": 400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare head"
+    },
+    {
+      "system": "shop",
+      "id": "ironwall-chest",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary body"
+    },
+    {
+      "system": "shop",
+      "id": "ironwall-crown",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary head"
+    },
+    {
+      "system": "shop",
+      "id": "ironwall-feet",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary feet"
+    },
+    {
+      "system": "shop",
+      "id": "ironwall-gloves",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "ironwall-legs",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary legs"
+    },
+    {
+      "system": "shop",
+      "id": "ironwall-waist",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary waist"
+    },
+    {
+      "system": "shop",
+      "id": "item-attack-pill",
+      "currency": "ryo",
+      "amount": 320,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "item-defense-pill",
+      "currency": "ryo",
+      "amount": 320,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "item-smoke-bomb",
+      "currency": "ryo",
+      "amount": 360,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare item"
+    },
+    {
+      "system": "shop",
+      "id": "leather-belt",
+      "currency": "ryo",
+      "amount": 210,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon waist"
+    },
+    {
+      "system": "shop",
+      "id": "leather-headband",
+      "currency": "ryo",
+      "amount": 270,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon head"
+    },
+    {
+      "system": "shop",
+      "id": "legendary-chest",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary body"
+    },
+    {
+      "system": "shop",
+      "id": "legendary-crown",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary head"
+    },
+    {
+      "system": "shop",
+      "id": "legendary-feet",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary feet"
+    },
+    {
+      "system": "shop",
+      "id": "legendary-gloves",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "legendary-legs",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary legs"
+    },
+    {
+      "system": "shop",
+      "id": "legendary-waist",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary waist"
+    },
+    {
+      "system": "shop",
+      "id": "mirror-chest",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary body"
+    },
+    {
+      "system": "shop",
+      "id": "mirror-crown",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary head"
+    },
+    {
+      "system": "shop",
+      "id": "mirror-feet",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary feet"
+    },
+    {
+      "system": "shop",
+      "id": "mirror-gloves",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "mirror-legs",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary legs"
+    },
+    {
+      "system": "shop",
+      "id": "mirror-waist",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary waist"
+    },
+    {
+      "system": "shop",
+      "id": "mistfang-tanto",
+      "currency": "ryo",
+      "amount": 450,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare hand"
+    },
+    {
+      "system": "shop",
+      "id": "moonshadow-needleblade",
+      "currency": "ryo",
+      "amount": 900,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic hand"
+    },
+    {
+      "system": "shop",
+      "id": "padded-leggings",
+      "currency": "ryo",
+      "amount": 240,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon legs"
+    },
+    {
+      "system": "shop",
+      "id": "pet-treat",
+      "currency": "ryo",
+      "amount": 80,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common item"
+    },
+    {
+      "system": "shop",
+      "id": "potion-rejuvenation",
+      "currency": "ryo",
+      "amount": 1800,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare potion"
+    },
+    {
+      "system": "shop",
+      "id": "pve-apex-predator-fang",
+      "currency": "ryo",
+      "amount": 9600,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-avengers-pendant",
+      "currency": "ryo",
+      "amount": 7200,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-bloodbond-totem",
+      "currency": "ryo",
+      "amount": 8000,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-frenzy-claw",
+      "currency": "ryo",
+      "amount": 5600,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-guardians-blessing",
+      "currency": "ryo",
+      "amount": 5600,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-hunters-bond-harness",
+      "currency": "ryo",
+      "amount": 4800,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-loyal-companion-bell",
+      "currency": "ryo",
+      "amount": 4800,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-pack-alpha-crest",
+      "currency": "ryo",
+      "amount": 8800,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-predators-fang",
+      "currency": "ryo",
+      "amount": 7200,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pve-sanguine-charm",
+      "currency": "ryo",
+      "amount": 6400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-aegis-pendant",
+      "currency": "fateShards",
+      "amount": 120,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-arena-champion-regalia",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-berserkers-muzzle",
+      "currency": "fateShards",
+      "amount": 110,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-bloodthirster-fang",
+      "currency": "fateShards",
+      "amount": 140,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-executioners-talon",
+      "currency": "fateShards",
+      "amount": 140,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-final-bastion-charm",
+      "currency": "fateShards",
+      "amount": 140,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-ironhide-barding",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-spiked-war-harness",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-tortoise-shell-plating",
+      "currency": "fateShards",
+      "amount": 110,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "pvp-venomfang-bit",
+      "currency": "fateShards",
+      "amount": 130,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
+      "id": "rare-chest-plate",
+      "currency": "ryo",
+      "amount": 500,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare body"
+    },
+    {
+      "system": "shop",
+      "id": "rare-greaves",
+      "currency": "ryo",
+      "amount": 360,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare legs"
+    },
+    {
+      "system": "shop",
+      "id": "rare-tabi",
+      "currency": "ryo",
+      "amount": 300,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare feet"
+    },
+    {
+      "system": "shop",
+      "id": "reinforced-vest",
+      "currency": "ryo",
+      "amount": 330,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon body"
+    },
+    {
+      "system": "shop",
+      "id": "riverbone-spear",
+      "currency": "ryo",
+      "amount": 430,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare hand"
+    },
+    {
+      "system": "shop",
+      "id": "rookie-chain-sickle",
+      "currency": "ryo",
+      "amount": 210,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common hand"
+    },
+    {
+      "system": "shop",
+      "id": "rustfang-kunai",
+      "currency": "ryo",
+      "amount": 225,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common hand"
+    },
+    {
+      "system": "shop",
+      "id": "sennin-chest",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary body"
+    },
+    {
+      "system": "shop",
+      "id": "sennin-crown",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary head"
+    },
+    {
+      "system": "shop",
+      "id": "sennin-feet",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary feet"
+    },
+    {
+      "system": "shop",
+      "id": "sennin-legs",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary legs"
+    },
+    {
+      "system": "shop",
+      "id": "sennin-waist",
+      "currency": "fateShards",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary waist"
+    },
+    {
+      "system": "shop",
+      "id": "shinobi-boots",
+      "currency": "ryo",
+      "amount": 195,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon feet"
+    },
+    {
+      "system": "shop",
+      "id": "shinobi-vest",
+      "currency": "ryo",
+      "amount": 180,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common body"
+    },
+    {
+      "system": "shop",
+      "id": "spirit-leech-wakizashi",
+      "currency": "ryo",
+      "amount": 850,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic hand"
+    },
+    {
+      "system": "shop",
+      "id": "stormcoil-kusarigama",
+      "currency": "ryo",
+      "amount": 950,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "epic hand"
+    },
+    {
+      "system": "shop",
+      "id": "tempest-fang-blade",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary hand"
+    },
+    {
+      "system": "shop",
+      "id": "thrown-senbon",
+      "currency": "ryo",
+      "amount": 400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare thrown"
+    },
+    {
+      "system": "shop",
+      "id": "thrown-serpent-dust",
+      "currency": "ryo",
+      "amount": 400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "rare thrown"
+    },
+    {
+      "system": "shop",
+      "id": "thrown-shuriken",
+      "currency": "ryo",
+      "amount": 400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common thrown"
+    },
+    {
+      "system": "shop",
+      "id": "training-katana",
+      "currency": "ryo",
+      "amount": 240,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common hand"
+    },
+    {
+      "system": "shop",
+      "id": "void-leech-nodachi",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic hand"
+    },
+    {
+      "system": "shop",
+      "id": "worldsplitter-katana",
+      "currency": "fateShards",
+      "amount": 100,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic hand"
+    },
+    {
+      "system": "bloodline-forge",
+      "id": "B Rank",
+      "currency": "boneCharms",
+      "amount": 100,
+      "cadence": "per forge",
+      "authority": "api/bloodlines/_forge.ts",
+      "notes": ""
+    },
+    {
+      "system": "bloodline-forge",
+      "id": "A Rank",
+      "currency": "auraStones",
+      "amount": 100,
+      "cadence": "per forge",
+      "authority": "api/bloodlines/_forge.ts",
+      "notes": ""
+    },
+    {
+      "system": "bloodline-forge",
+      "id": "S Rank",
+      "currency": "mythicSeals",
+      "amount": 100,
+      "cadence": "per forge",
+      "authority": "api/bloodlines/_forge.ts",
+      "notes": ""
+    },
+    {
+      "system": "hollow-key-forge",
+      "id": "hollowShards",
+      "currency": "hollowShards",
+      "amount": 80,
+      "cadence": "per key",
+      "authority": "api/hollow-gate/_forge-key.ts",
+      "notes": ""
+    },
+    {
+      "system": "hollow-key-forge",
+      "id": "dungeonKeys",
+      "currency": "dungeonKeys",
+      "amount": 5,
+      "cadence": "per key",
+      "authority": "api/hollow-gate/_forge-key.ts",
+      "notes": ""
+    },
+    {
+      "system": "hollow-key-forge",
+      "id": "fateShards",
+      "currency": "fateShards",
+      "amount": 10,
+      "cadence": "per key",
+      "authority": "api/hollow-gate/_forge-key.ts",
+      "notes": ""
+    },
+    {
+      "system": "profile",
+      "id": "profileRespec",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per action",
+      "authority": "api/profile/_settlement.ts",
+      "notes": ""
+    },
+    {
+      "system": "profile",
+      "id": "statRespec",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per action",
+      "authority": "api/save/_stat-entitlement.ts",
+      "notes": ""
+    },
+    {
+      "system": "profile",
+      "id": "customTitle",
+      "currency": "fateShards",
+      "amount": 10,
+      "cadence": "per action",
+      "authority": "api/profile/_settlement.ts",
+      "notes": ""
+    },
+    {
+      "system": "profile",
+      "id": "titleStyle",
+      "currency": "fateShards",
+      "amount": 40,
+      "cadence": "per action",
+      "authority": "api/profile/_settlement.ts",
+      "notes": ""
+    },
+    {
+      "system": "profile",
+      "id": "titleIcon",
+      "currency": "fateShards",
+      "amount": 25,
+      "cadence": "per action",
+      "authority": "api/profile/_settlement.ts",
+      "notes": ""
+    },
+    {
+      "system": "festival",
+      "id": "black-market-pull",
+      "currency": "ryo",
+      "amount": 50000,
+      "cadence": "per pull",
+      "authority": "api/festival/_black-market.ts",
+      "notes": ""
+    },
+    {
+      "system": "festival",
+      "id": "sunscar-fate-die",
+      "currency": "fateShards",
+      "amount": 25,
+      "cadence": "per roll",
+      "authority": "api/festival/_sunscar.ts",
+      "notes": ""
+    },
+    {
+      "system": "craft",
+      "id": "named-forge",
+      "currency": "ryo",
+      "amount": 1000,
+      "cadence": "per forge",
+      "authority": "api/craft/_named.ts",
+      "notes": ""
+    },
+    {
+      "system": "kage",
+      "id": "declare-challenge",
+      "currency": "honorSeals",
+      "amount": 500,
+      "cadence": "per challenge",
+      "authority": "api/village/_kage-challenge.ts",
+      "notes": ""
+    },
+    {
+      "system": "shrine",
+      "id": "communal-offering",
+      "currency": "ryo",
+      "amount": "10-250000",
+      "cadence": "per offering",
+      "authority": "shared/shrines.ts",
+      "notes": "Pure sink; no payout."
+    },
+    {
+      "system": "war",
+      "id": "declare-war",
+      "currency": "warResources",
+      "amount": 800,
+      "cadence": "per declaration",
+      "authority": "api/_war-economy.ts",
+      "notes": ""
+    },
+    {
+      "system": "war",
+      "id": "sector-war",
+      "currency": "warResources",
+      "amount": 250,
+      "cadence": "per sector war",
+      "authority": "api/_war-economy.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-ronin",
+      "currency": "warResources",
+      "amount": 60,
+      "cadence": "per hire",
+      "authority": "api/_war-economy.ts",
+      "notes": "level 75"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-reaver",
+      "currency": "warResources",
+      "amount": 110,
+      "cadence": "per hire",
+      "authority": "api/_war-economy.ts",
+      "notes": "level 80"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-shadow",
+      "currency": "warResources",
+      "amount": 170,
+      "cadence": "per hire",
+      "authority": "api/_war-economy.ts",
+      "notes": "level 85"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-oni",
+      "currency": "warResources",
+      "amount": 280,
+      "cadence": "per hire",
+      "authority": "api/_war-economy.ts",
+      "notes": "level 95"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-warlord",
+      "currency": "warResources",
+      "amount": 420,
+      "cadence": "per hire",
+      "authority": "api/_war-economy.ts",
+      "notes": "level 100"
+    }
+  ],
+  "shopItems": [
+    {
+      "id": "ancient-pet-treat",
+      "name": "Ancient Treats",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 520,
+      "currency": "ryo"
+    },
+    {
+      "id": "ash-wrapped-tanto",
+      "name": "Ash-Wrapped Tanto",
+      "rarity": "common",
+      "slot": "hand",
+      "levelReq": 1,
+      "baseCost": 220,
+      "currency": "ryo"
+    },
+    {
+      "id": "ashen-dragon-katana",
+      "name": "Ashen Dragon Katana",
+      "rarity": "mythic",
+      "slot": "hand",
+      "levelReq": 55,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "ashen-leaf-saber",
+      "name": "Ashen Leaf Saber",
+      "rarity": "rare",
+      "slot": "hand",
+      "levelReq": 10,
+      "baseCost": 480,
+      "currency": "ryo"
+    },
+    {
+      "id": "ashglass-katana",
+      "name": "Ashglass Katana",
+      "rarity": "epic",
+      "slot": "hand",
+      "levelReq": 25,
+      "baseCost": 1050,
+      "currency": "ryo"
+    },
+    {
+      "id": "black-lotus-dagger",
+      "name": "Black Lotus Dagger",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "blue-thread-dagger",
+      "name": "Blue Thread Dagger",
+      "rarity": "rare",
+      "slot": "hand",
+      "levelReq": 10,
+      "baseCost": 420,
+      "currency": "ryo"
+    },
+    {
+      "id": "bulwark-chest",
+      "name": "Eternal Bulwark's Mantle",
+      "rarity": "legendary",
+      "slot": "body",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "bulwark-crown",
+      "name": "Eternal Bulwark's Crown",
+      "rarity": "legendary",
+      "slot": "head",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "bulwark-feet",
+      "name": "Eternal Bulwark's Sabatons",
+      "rarity": "legendary",
+      "slot": "feet",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "bulwark-gloves",
+      "name": "Eternal Bulwark's Gauntlets",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "bulwark-legs",
+      "name": "Eternal Bulwark's Greaves",
+      "rarity": "legendary",
+      "slot": "legs",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "bulwark-waist",
+      "name": "Eternal Bulwark's Obi",
+      "rarity": "legendary",
+      "slot": "waist",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "chain-obi",
+      "name": "Chain Obi",
+      "rarity": "rare",
+      "slot": "waist",
+      "levelReq": 20,
+      "baseCost": 320,
+      "currency": "ryo"
+    },
+    {
+      "id": "chakra-ring",
+      "name": "Chakra Ring",
+      "rarity": "rare",
+      "slot": "aura",
+      "levelReq": 1,
+      "baseCost": 600,
+      "currency": "ryo"
+    },
+    {
+      "id": "cloth-hood",
+      "name": "Cloth Hood",
+      "rarity": "common",
+      "slot": "head",
+      "levelReq": 1,
+      "baseCost": 120,
+      "currency": "ryo"
+    },
+    {
+      "id": "cloth-pants",
+      "name": "Cloth Pants",
+      "rarity": "common",
+      "slot": "legs",
+      "levelReq": 1,
+      "baseCost": 105,
+      "currency": "ryo"
+    },
+    {
+      "id": "cloth-robe",
+      "name": "Cloth Robe",
+      "rarity": "common",
+      "slot": "body",
+      "levelReq": 1,
+      "baseCost": 150,
+      "currency": "ryo"
+    },
+    {
+      "id": "cloth-sandals",
+      "name": "Cloth Sandals",
+      "rarity": "common",
+      "slot": "feet",
+      "levelReq": 1,
+      "baseCost": 75,
+      "currency": "ryo"
+    },
+    {
+      "id": "cloth-sash",
+      "name": "Cloth Sash",
+      "rarity": "common",
+      "slot": "waist",
+      "levelReq": 1,
+      "baseCost": 90,
+      "currency": "ryo"
+    },
+    {
+      "id": "collar-amber",
+      "name": "Sunflare Collar",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 50,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-amethyst",
+      "name": "Twilight Collar",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 200,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-azure",
+      "name": "Skywarden Collar",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 50,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-crimson",
+      "name": "Emberheart Collar",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 50,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-emerald",
+      "name": "Thornwood Collar",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 50,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-inferno",
+      "name": "Wildfire Collar",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 80,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-rose",
+      "name": "Blossom Collar",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 120,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-tidal",
+      "name": "Riptide Collar",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 120,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-verdant",
+      "name": "Meadowlight Collar",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 80,
+      "currency": "fateShards"
+    },
+    {
+      "id": "collar-void",
+      "name": "Voidpulse Collar",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 300,
+      "currency": "fateShards"
+    },
+    {
+      "id": "consum-cleansing-incense",
+      "name": "Cleansing Incense",
+      "rarity": "uncommon",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 1120,
+      "currency": "ryo"
+    },
+    {
+      "id": "consum-lifeline-elixir",
+      "name": "Lifeline Elixir",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 1440,
+      "currency": "ryo"
+    },
+    {
+      "id": "consum-phantom-charm",
+      "name": "Phantom Charm",
+      "rarity": "uncommon",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 960,
+      "currency": "ryo"
+    },
+    {
+      "id": "consum-second-wind",
+      "name": "Second Wind",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 1600,
+      "currency": "ryo"
+    },
+    {
+      "id": "consum-smoke-pellet",
+      "name": "Smoke Pellet",
+      "rarity": "uncommon",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 960,
+      "currency": "ryo"
+    },
+    {
+      "id": "consum-thornmail-oil",
+      "name": "Thornmail Oil",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 1280,
+      "currency": "ryo"
+    },
+    {
+      "id": "cracked-bone-dagger",
+      "name": "Cracked Bone Dagger",
+      "rarity": "common",
+      "slot": "hand",
+      "levelReq": 1,
+      "baseCost": 235,
+      "currency": "ryo"
+    },
+    {
+      "id": "crimson-chest",
+      "name": "Crimson Tide Mantle",
+      "rarity": "legendary",
+      "slot": "body",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "crimson-crown",
+      "name": "Crimson Tide Crown",
+      "rarity": "legendary",
+      "slot": "head",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "crimson-feet",
+      "name": "Crimson Tide Sabatons",
+      "rarity": "legendary",
+      "slot": "feet",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "crimson-gloves",
+      "name": "Crimson Tide Gauntlets",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "crimson-legs",
+      "name": "Crimson Tide Greaves",
+      "rarity": "legendary",
+      "slot": "legs",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "crimson-waist",
+      "name": "Crimson Tide Obi",
+      "rarity": "legendary",
+      "slot": "waist",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "eclipse-fang-dagger",
+      "name": "Eclipse Fang Dagger",
+      "rarity": "mythic",
+      "slot": "hand",
+      "levelReq": 55,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "elderbranch-katana",
+      "name": "Elderbranch Katana",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "elemental-pet-treat",
+      "name": "Elemental Treats",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 260,
+      "currency": "ryo"
+    },
+    {
+      "id": "embercoil-scythe",
+      "name": "Embercoil Scythe",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "evo-stone-ascension",
+      "name": "Ascension Stone",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 400,
+      "currency": "fateShards"
+    },
+    {
+      "id": "evo-stone-awakening",
+      "name": "Awakening Stone",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "frostbite-cleaver",
+      "name": "Frostbite Cleaver",
+      "rarity": "epic",
+      "slot": "hand",
+      "levelReq": 25,
+      "baseCost": 980,
+      "currency": "ryo"
+    },
+    {
+      "id": "frostfang-oathblade",
+      "name": "Frostfang Oathblade",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "glacier-king-cleaver",
+      "name": "Glacier King Cleaver",
+      "rarity": "mythic",
+      "slot": "hand",
+      "levelReq": 55,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "golden-apple",
+      "name": "Golden Apple",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 20,
+      "currency": "fateShards"
+    },
+    {
+      "id": "iron-fang-knuckles",
+      "name": "Iron Fang Knuckles",
+      "rarity": "rare",
+      "slot": "hand",
+      "levelReq": 10,
+      "baseCost": 510,
+      "currency": "ryo"
+    },
+    {
+      "id": "iron-kabuto",
+      "name": "Iron Kabuto",
+      "rarity": "rare",
+      "slot": "head",
+      "levelReq": 20,
+      "baseCost": 400,
+      "currency": "ryo"
+    },
+    {
+      "id": "ironwall-chest",
+      "name": "Ironwall Mantle",
+      "rarity": "legendary",
+      "slot": "body",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "ironwall-crown",
+      "name": "Ironwall Crown",
+      "rarity": "legendary",
+      "slot": "head",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "ironwall-feet",
+      "name": "Ironwall Sabatons",
+      "rarity": "legendary",
+      "slot": "feet",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "ironwall-gloves",
+      "name": "Ironwall Gauntlets",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "ironwall-legs",
+      "name": "Ironwall Greaves",
+      "rarity": "legendary",
+      "slot": "legs",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "ironwall-waist",
+      "name": "Ironwall Obi",
+      "rarity": "legendary",
+      "slot": "waist",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "item-attack-pill",
+      "name": "Attack Pill",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 320,
+      "currency": "ryo"
+    },
+    {
+      "id": "item-defense-pill",
+      "name": "Defense Pill",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 320,
+      "currency": "ryo"
+    },
+    {
+      "id": "item-smoke-bomb",
+      "name": "Smoke Bomb",
+      "rarity": "rare",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 360,
+      "currency": "ryo"
+    },
+    {
+      "id": "leather-belt",
+      "name": "Leather Belt",
+      "rarity": "uncommon",
+      "slot": "waist",
+      "levelReq": 5,
+      "baseCost": 210,
+      "currency": "ryo"
+    },
+    {
+      "id": "leather-headband",
+      "name": "Leather Headband",
+      "rarity": "uncommon",
+      "slot": "head",
+      "levelReq": 5,
+      "baseCost": 270,
+      "currency": "ryo"
+    },
+    {
+      "id": "legendary-chest",
+      "name": "Void Sovereign's Mantle",
+      "rarity": "legendary",
+      "slot": "body",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "legendary-crown",
+      "name": "Void Sovereign's Crown",
+      "rarity": "legendary",
+      "slot": "head",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "legendary-feet",
+      "name": "Void Sovereign's Sabatons",
+      "rarity": "legendary",
+      "slot": "feet",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "legendary-gloves",
+      "name": "Void Sovereign's Gauntlets",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "legendary-legs",
+      "name": "Void Sovereign's Greaves",
+      "rarity": "legendary",
+      "slot": "legs",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "legendary-waist",
+      "name": "Void Sovereign's Obi",
+      "rarity": "legendary",
+      "slot": "waist",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mirror-chest",
+      "name": "Mirror Soul Mantle",
+      "rarity": "legendary",
+      "slot": "body",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mirror-crown",
+      "name": "Mirror Soul Crown",
+      "rarity": "legendary",
+      "slot": "head",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mirror-feet",
+      "name": "Mirror Soul Sabatons",
+      "rarity": "legendary",
+      "slot": "feet",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mirror-gloves",
+      "name": "Mirror Soul Gauntlets",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mirror-legs",
+      "name": "Mirror Soul Greaves",
+      "rarity": "legendary",
+      "slot": "legs",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mirror-waist",
+      "name": "Mirror Soul Obi",
+      "rarity": "legendary",
+      "slot": "waist",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "mistfang-tanto",
+      "name": "Mistfang Tanto",
+      "rarity": "rare",
+      "slot": "hand",
+      "levelReq": 10,
+      "baseCost": 450,
+      "currency": "ryo"
+    },
+    {
+      "id": "moonshadow-needleblade",
+      "name": "Moonshadow Needleblade",
+      "rarity": "epic",
+      "slot": "hand",
+      "levelReq": 25,
+      "baseCost": 900,
+      "currency": "ryo"
+    },
+    {
+      "id": "padded-leggings",
+      "name": "Padded Leggings",
+      "rarity": "uncommon",
+      "slot": "legs",
+      "levelReq": 5,
+      "baseCost": 240,
+      "currency": "ryo"
+    },
+    {
+      "id": "pet-treat",
+      "name": "Treats",
+      "rarity": "common",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 80,
+      "currency": "ryo"
+    },
+    {
+      "id": "potion-rejuvenation",
+      "name": "Rejuvenation Potion",
+      "rarity": "rare",
+      "slot": "potion",
+      "levelReq": 1,
+      "baseCost": 1800,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-apex-predator-fang",
+      "name": "Apex Predator Fang",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 9600,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-avengers-pendant",
+      "name": "Avenger's Pendant",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 7200,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-bloodbond-totem",
+      "name": "Bloodbond Totem",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 8000,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-frenzy-claw",
+      "name": "Frenzy Claw",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 5600,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-guardians-blessing",
+      "name": "Guardian's Blessing",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 5600,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-hunters-bond-harness",
+      "name": "Hunter's Bond Harness",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 4800,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-loyal-companion-bell",
+      "name": "Loyal Companion Bell",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 4800,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-pack-alpha-crest",
+      "name": "Pack Alpha Crest",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 8800,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-predators-fang",
+      "name": "Predator's Fang",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 7200,
+      "currency": "ryo"
+    },
+    {
+      "id": "pve-sanguine-charm",
+      "name": "Sanguine Charm",
+      "rarity": "epic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 6400,
+      "currency": "ryo"
+    },
+    {
+      "id": "pvp-aegis-pendant",
+      "name": "Aegis Pendant",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 120,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-arena-champion-regalia",
+      "name": "Arena Champion's Regalia",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-berserkers-muzzle",
+      "name": "Berserker's Muzzle",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 110,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-bloodthirster-fang",
+      "name": "Bloodthirster Fang",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 140,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-executioners-talon",
+      "name": "Executioner's Talon",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 140,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-final-bastion-charm",
+      "name": "Final Bastion Charm",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 140,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-ironhide-barding",
+      "name": "Ironhide Barding",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-spiked-war-harness",
+      "name": "Spiked War Harness",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-tortoise-shell-plating",
+      "name": "Tortoise Shell Plating",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 110,
+      "currency": "fateShards"
+    },
+    {
+      "id": "pvp-venomfang-bit",
+      "name": "Venomfang Bit",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 130,
+      "currency": "fateShards"
+    },
+    {
+      "id": "rare-chest-plate",
+      "name": "Rare Chest Plate",
+      "rarity": "rare",
+      "slot": "body",
+      "levelReq": 20,
+      "baseCost": 500,
+      "currency": "ryo"
+    },
+    {
+      "id": "rare-greaves",
+      "name": "Rare Greaves",
+      "rarity": "rare",
+      "slot": "legs",
+      "levelReq": 20,
+      "baseCost": 360,
+      "currency": "ryo"
+    },
+    {
+      "id": "rare-tabi",
+      "name": "Rare Tabi",
+      "rarity": "rare",
+      "slot": "feet",
+      "levelReq": 20,
+      "baseCost": 300,
+      "currency": "ryo"
+    },
+    {
+      "id": "reinforced-vest",
+      "name": "Reinforced Vest",
+      "rarity": "uncommon",
+      "slot": "body",
+      "levelReq": 5,
+      "baseCost": 330,
+      "currency": "ryo"
+    },
+    {
+      "id": "riverbone-spear",
+      "name": "Riverbone Spear",
+      "rarity": "rare",
+      "slot": "hand",
+      "levelReq": 10,
+      "baseCost": 430,
+      "currency": "ryo"
+    },
+    {
+      "id": "rookie-chain-sickle",
+      "name": "Rookie Chain Sickle",
+      "rarity": "common",
+      "slot": "hand",
+      "levelReq": 1,
+      "baseCost": 210,
+      "currency": "ryo"
+    },
+    {
+      "id": "rustfang-kunai",
+      "name": "Rustfang Kunai",
+      "rarity": "common",
+      "slot": "hand",
+      "levelReq": 1,
+      "baseCost": 225,
+      "currency": "ryo"
+    },
+    {
+      "id": "sennin-chest",
+      "name": "Sennin God's Mantle",
+      "rarity": "legendary",
+      "slot": "body",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "sennin-crown",
+      "name": "Sennin God's Crown",
+      "rarity": "legendary",
+      "slot": "head",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "sennin-feet",
+      "name": "Sennin God's Sandals",
+      "rarity": "legendary",
+      "slot": "feet",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "sennin-legs",
+      "name": "Sennin God's Greaves",
+      "rarity": "legendary",
+      "slot": "legs",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "sennin-waist",
+      "name": "Sennin God's Obi",
+      "rarity": "legendary",
+      "slot": "waist",
+      "levelReq": 40,
+      "baseCost": 150,
+      "currency": "fateShards"
+    },
+    {
+      "id": "shinobi-boots",
+      "name": "Shinobi Boots",
+      "rarity": "uncommon",
+      "slot": "feet",
+      "levelReq": 5,
+      "baseCost": 195,
+      "currency": "ryo"
+    },
+    {
+      "id": "shinobi-vest",
+      "name": "Shinobi Vest",
+      "rarity": "common",
+      "slot": "body",
+      "levelReq": 1,
+      "baseCost": 180,
+      "currency": "ryo"
+    },
+    {
+      "id": "spirit-leech-wakizashi",
+      "name": "Spirit Leech Wakizashi",
+      "rarity": "epic",
+      "slot": "hand",
+      "levelReq": 25,
+      "baseCost": 850,
+      "currency": "ryo"
+    },
+    {
+      "id": "stormcoil-kusarigama",
+      "name": "Stormcoil Kusarigama",
+      "rarity": "epic",
+      "slot": "hand",
+      "levelReq": 25,
+      "baseCost": 950,
+      "currency": "ryo"
+    },
+    {
+      "id": "tempest-fang-blade",
+      "name": "Tempest Fang Blade",
+      "rarity": "legendary",
+      "slot": "hand",
+      "levelReq": 40,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "thrown-senbon",
+      "name": "Senbon",
+      "rarity": "rare",
+      "slot": "thrown",
+      "levelReq": 1,
+      "baseCost": 400,
+      "currency": "ryo"
+    },
+    {
+      "id": "thrown-serpent-dust",
+      "name": "Serpent Dust",
+      "rarity": "rare",
+      "slot": "thrown",
+      "levelReq": 1,
+      "baseCost": 400,
+      "currency": "ryo"
+    },
+    {
+      "id": "thrown-shuriken",
+      "name": "Shuriken",
+      "rarity": "common",
+      "slot": "thrown",
+      "levelReq": 1,
+      "baseCost": 400,
+      "currency": "ryo"
+    },
+    {
+      "id": "training-katana",
+      "name": "Training Katana",
+      "rarity": "common",
+      "slot": "hand",
+      "levelReq": 1,
+      "baseCost": 240,
+      "currency": "ryo"
+    },
+    {
+      "id": "void-leech-nodachi",
+      "name": "Void Leech Nodachi",
+      "rarity": "mythic",
+      "slot": "hand",
+      "levelReq": 55,
+      "baseCost": 100,
+      "currency": "fateShards"
+    },
+    {
+      "id": "worldsplitter-katana",
+      "name": "Worldsplitter Katana",
+      "rarity": "mythic",
+      "slot": "hand",
+      "levelReq": 55,
+      "baseCost": 100,
+      "currency": "fateShards"
+    }
+  ],
+  "petBreeding": {
+    "authority": [
+      "api/pet/_breeding.ts",
+      "api/pet/_owned-pet.ts",
+      "api/pet/_pet-busy.ts",
+      "shared/shrines.ts"
+    ],
+    "rulesVersion": 2,
+    "minimumParentLevel": 50,
+    "durationMs": 86400000,
+    "usesPerPet": {
+      "min": 5,
+      "max": 10
+    },
+    "speciesPercent": {
+      "parent1": 45,
+      "parent2": 45,
+      "sameElementSameTier": 9,
+      "randomNonStandard": 1
+    },
+    "chromaticPercent": 0.05,
+    "apexTraitPercent": 0.5
+  },
+  "war": {
+    "poolCap": 5000,
+    "structureMaintenance": {
+      "base": 2,
+      "exponent": 1.25,
+      "formula": "round(base * level^exponent)"
+    },
+    "tax": {
+      "exemptionRyo": 5000,
+      "dailyCapRyo": 250000,
+      "catchupDaysMax": 3,
+      "burnShare": 0.5
+    },
+    "crate": {
+      "ryo": 500,
+      "honorSeals": 10,
+      "dungeonKeyChance": 0.35
+    }
+  },
+  "shrines": {
+    "count": 6,
+    "minOfferingRyo": 10,
+    "maxOfferingRyo": 250000,
+    "tiers": [
+      {
+        "name": "Dormant",
+        "at": 0
+      },
+      {
+        "name": "Kindled",
+        "at": 25000
+      },
+      {
+        "name": "Blessed",
+        "at": 100000
+      },
+      {
+        "name": "Radiant",
+        "at": 500000
+      },
+      {
+        "name": "Mythic",
+        "at": 2000000
+      }
+    ]
+  },
+  "notes": [
+    "Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.",
+    "Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints per the authoritative daily checklist.",
+    "Custom/admin content and probabilistic/event rewards are intentionally excluded unless represented by a stable server constant."
+  ]
+}
