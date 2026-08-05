@@ -197,14 +197,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // The standing instruction resumes here: drain a screen off the graph before
 // raising this again. Measure with the CI-equivalent build above rather than a
 // bare `npm run build`, which under-reports and will keep producing red pushes.
-// 2026-08-05: 7.225 -> 7.255 MB. The adaptive PvE/PvP HUD restores readable
-// status trays and card targets across compact desktop, full desktop, and the
-// 150%-zoom equivalent layout. The exact CI-environment build measures
-// 7,234,293 B of budgeted product JS/CSS. The change remains in combat's lazy
-// presentation chunk; entry, initial raw/gzip, per-file CSS, and per-chunk
-// gates remain unchanged and green. The ceiling leaves 20,707 B of measured
-// variance without weakening any startup-performance guard.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_255_000;
+// 2026-08-05: 7.225 -> 7.245 MB. The portrait/mobile PvE + PvP HUD restoration
+// re-establishes the fighter | timer | fighter composition across phones and
+// portrait tablets. Before budgeting it, the repeated high-specificity selector
+// was drained behind the shared #combat application boundary (about 3.2 KB
+// saved). The exact CI-equivalent product graph is 7,226,921 B, leaving 18,079 B
+// of measured variance. Startup remains inside the unchanged independent gates
+// at 1.36 MB raw / 362.7 KB gzip, and the 3D stack now has its own tighter raw,
+// gzip, and startup-isolation gates below.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_245_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -219,6 +220,13 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 385_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
+// Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
+// shared lazy vendor chunk. Guard both transfer size and cache footprint more
+// tightly than the generic per-chunk ceiling, and keep the stack off startup.
+// 2026-08-05 production build: 1,039,022 B raw / 274,197 B gzip.
+const THREE_VENDOR_FAIL_BYTES = 1_100_000;
+const THREE_VENDOR_GZIP_FAIL_BYTES = 300_000;
+const THREE_VENDOR_RE = /^assets\/three-vendor-[^/]+\.js$/;
 
 function walk(dir) {
     const out = [];
@@ -260,6 +268,7 @@ const css = withRel.filter((file) => file.rel.endsWith('.css'));
 const jsCssTotal = [...js, ...css].reduce((sum, file) => sum + file.size, 0);
 const failures = [];
 const sentryChunks = js.filter((file) => SENTRY_VENDOR_RE.test(file.rel));
+const threeChunks = js.filter((file) => THREE_VENDOR_RE.test(file.rel));
 const budgetedJsCssTotal = [
     ...js.filter((file) => !SENTRY_VENDOR_RE.test(file.rel)),
     ...css,
@@ -271,6 +280,17 @@ if (sentryChunks.length > 1) failures.push(`expected at most one lazy Sentry ven
 for (const file of sentryChunks) {
     if (file.size > SENTRY_VENDOR_FAIL_BYTES) {
         failures.push(`${file.rel} is ${fmt(file.size)}; lazy Sentry threshold is ${fmt(SENTRY_VENDOR_FAIL_BYTES)}`);
+    }
+}
+if (threeChunks.length !== 1) failures.push(`expected exactly one shared Three.js vendor chunk; found ${threeChunks.length}`);
+for (const file of threeChunks) {
+    const gzipBytes = gzipSync(readFileSync(file.path), { level: 9 }).length;
+    console.log(`[sizecheck] Lazy Three.js vendor: ${fmt(file.size)} raw / ${fmt(gzipBytes)} gzip.`);
+    if (file.size > THREE_VENDOR_FAIL_BYTES) {
+        failures.push(`${file.rel} is ${fmt(file.size)}; Three.js vendor threshold is ${fmt(THREE_VENDOR_FAIL_BYTES)}`);
+    }
+    if (gzipBytes > THREE_VENDOR_GZIP_FAIL_BYTES) {
+        failures.push(`${file.rel} is ${fmt(gzipBytes)} gzip; Three.js vendor gzip threshold is ${fmt(THREE_VENDOR_GZIP_FAIL_BYTES)}`);
     }
 }
 for (const file of js) {
@@ -296,6 +316,9 @@ try {
     console.log(`[sizecheck] Initial JS/CSS graph: ${fmt(initialRaw)} raw / ${fmt(initialGzip)} gzip across ${initialFiles.length} files.`);
     if (initialRefs.some((rel) => SENTRY_VENDOR_RE.test(rel))) {
         failures.push('lazy Sentry vendor is referenced by index.html and would delay healthy-player startup');
+    }
+    if (initialRefs.some((rel) => THREE_VENDOR_RE.test(rel))) {
+        failures.push('lazy Three.js vendor is referenced by index.html and would delay startup');
     }
     if (entryFile && entryFile.size > ENTRY_JS_FAIL_BYTES) {
         failures.push(`${entryFile.rel} is ${fmt(entryFile.size)}; entry JS threshold is ${fmt(ENTRY_JS_FAIL_BYTES)}`);
@@ -324,4 +347,5 @@ if (failures.length) {
 }
 
 const sentryNote = sentryChunks.length ? `; lazy Sentry: ${fmt(sentryChunks[0].size)}` : '';
-console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${fmt(budgetedJsCssTotal)}; all emitted: ${fmt(jsCssTotal)}${sentryNote}.`);
+const threeNote = threeChunks.length ? `; lazy Three.js: ${fmt(threeChunks[0].size)}` : '';
+console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${fmt(budgetedJsCssTotal)}; all emitted: ${fmt(jsCssTotal)}${sentryNote}${threeNote}.`);

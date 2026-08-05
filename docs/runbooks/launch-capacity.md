@@ -18,7 +18,13 @@ broadcasts, and duplicate the in-process cron jobs. Going multi-instance is a
 real project — Redis-backed presence + a Socket.IO Redis adapter + cron leader
 election — not a launch-week dial.
 
-## Measured capacity
+## Superseded historical measurement (do not use for launch)
+
+The figures below predate the 2026-08-05 harness correction. The old clock
+started before provisioning, so large runs received less traffic time than
+requested, and its “event-loop” sampler measured the load-generator process,
+not the separately spawned game server. Keep the endpoint figures only as
+historical context; they are not current launch evidence.
 
 `npm run soak` boots the real server and drives N virtual players through a
 realistic mix (autosave, heartbeat, save read, reward claim), each from its own
@@ -42,11 +48,26 @@ substantial headroom at 500 players.
 Save-version conflicts ran at **0.1%** (13 of 11,752) — the optimistic-
 concurrency guard firing only on genuine races, which is exactly right.
 
+## Corrected automated local gate
+
+`npm run soak:smoke` now runs in CI after the built-server certification. The
+steady-state clock starts only after every requested account is provisioned,
+and an uncached `/health` probe measures responsiveness of the game process
+throughout the run. The corrected 2026-08-05 local baseline carried all 24/24
+players through 176 measured gameplay calls with zero unexpected errors;
+gameplay endpoint p99 was at most 24ms and server-health p99 was 6ms.
+
+The harness fails on incomplete provisioning, zero measured traffic, failed
+health probes, server-health p99 above 250ms, gameplay endpoint p99 above 2s,
+or unexpected HTTP errors. This is a regression gate, not a production
+capacity claim.
+
 ## What this measurement does NOT cover
 
-The local run uses the in-memory storage backend, so it measures the event
-loop, handler cost, auth CPU and lock contention — **not Postgres**. The
-database is the other half and is the more likely first bottleneck at scale.
+The local run uses the in-memory storage backend, so it measures server
+responsiveness, handler cost, auth CPU and lock contention — **not Postgres,
+Railway CPU/RSS, or server-side event-loop delay**. The database and hosting
+container are the other half and are the more likely first bottlenecks at scale.
 
 **Before launch, re-run against staging:**
 
@@ -60,7 +81,10 @@ count.
 
 ## Reading the output
 
-- **Event-loop p99 > 250ms** → the server is saturating; nothing else matters.
+- **Server `/health` p99 > 250ms** → the game process is not responsive enough
+  under the requested traffic; the harness fails.
+- **Worst gameplay endpoint p99 > 2s** → a route is saturated even if shallow
+  health remains responsive; the harness fails.
 - **429s on autosave** are the `save-burst` limiter (1 write / 3s / player)
   doing its job, not failures.
 - **409s** are the version guard; a few percent is healthy, a large fraction
@@ -77,4 +101,5 @@ count.
    `scrypt` password verification is ~100ms of blocking CPU per call — the
    token-first auth path is what keeps that off the hot path).
 3. Run the staging soak at your expected peak, then at 1.5× it.
-4. Watch event-loop lag and Postgres pool saturation during the first live hours.
+4. Watch Railway CPU/RSS, server event-loop lag, and Postgres pool saturation
+   during the first live hours; those host-side signals are not exposed publicly.

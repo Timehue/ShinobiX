@@ -15,7 +15,7 @@
  *
  * ── Read the results honestly ───────────────────────────────────────────────
  * Against a LOCAL server this uses the in-memory storage backend, so it
- * measures the Node event loop, the handler code, auth CPU, and lock
+ * measures server responsiveness, the handler code, auth CPU, and lock
  * contention — NOT Postgres. That is genuinely useful (the scrypt password
  * path is ~100ms of BLOCKING single-threaded work, and lock contention is
  * storage-independent), but the database is the other half of the picture.
@@ -252,16 +252,40 @@ async function waitForHealth(timeoutMs = 60_000) {
     return false;
 }
 
-/** Event-loop lag: the truest signal that a single-threaded server is saturating. */
-function watchEventLoopLag() {
+/**
+ * Probe the game process itself. A timer in this load-generator process only
+ * measures the generator's event loop, not the separately spawned server. A
+ * fast, uncached /health round trip measures whether the server can accept and
+ * complete work while gameplay traffic is in flight (and also works against
+ * staging, where the server is not our child process).
+ */
+function watchServerResponsiveness() {
     const samples = [];
-    let last = performance.now();
-    const timer = setInterval(() => {
-        const now = performance.now();
-        samples.push(Math.max(0, now - last - 100));
-        last = now;
-    }, 100);
-    return { samples, stop: () => clearInterval(timer) };
+    let failures = 0;
+    let stopped = false;
+    const task = (async () => {
+        while (!stopped) {
+            const cycleStarted = performance.now();
+            try {
+                const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2_000) });
+                samples.push(performance.now() - cycleStarted);
+                if (!response.ok) failures += 1;
+            } catch {
+                samples.push(2_000);
+                failures += 1;
+            }
+            const remaining = 100 - (performance.now() - cycleStarted);
+            if (!stopped && remaining > 0) await sleep(remaining);
+        }
+    })();
+    return {
+        samples,
+        get failures() { return failures; },
+        async stop() {
+            stopped = true;
+            await task;
+        },
+    };
 }
 
 async function main() {
@@ -274,11 +298,7 @@ async function main() {
     }
 
     console.log(`[soak] ${PLAYERS} virtual players, ${SECONDS}s soak, ${RAMP_SECONDS}s ramp → ${BASE}`);
-    if (!EXTERNAL_URL) console.log('[soak] NOTE: local run uses the in-memory backend — this measures the event loop and handler cost, not Postgres.');
-
-    const lag = watchEventLoopLag();
-    const stopAt = Date.now() + RAMP_SECONDS * 1_000 + SECONDS * 1_000;
-    const rampStepMs = (RAMP_SECONDS * 1_000) / Math.max(1, PLAYERS);
+    if (!EXTERNAL_URL) console.log('[soak] NOTE: local run uses the in-memory backend — this measures server responsiveness and handler cost, not Postgres.');
 
     // ── Setup: provision accounts (measured separately) ─────────────────────
     const setupStarted = performance.now();
@@ -293,9 +313,15 @@ async function main() {
     const setupS = (performance.now() - setupStarted) / 1_000;
     console.log(`[soak] provisioned ${sessions.length}/${PLAYERS} accounts in ${setupS.toFixed(0)}s`);
     if (sessions.length < PLAYERS) {
-        console.log(`[soak] NOTE: ${PLAYERS - sessions.length} account(s) could not be created (per-IP signup limit — a load-generator artifact, not a server fault).`);
+        console.log(`[soak] ATTENTION: ${PLAYERS - sessions.length} requested account(s) could not be created; the requested concurrency was not reached.`);
     }
 
+    // Provisioning is setup, not part of the steady-state window. Starting the
+    // clock before account creation shortened large runs and could leave no
+    // measured play time at all when signup hashing took longer than the soak.
+    const responsiveness = watchServerResponsiveness();
+    const stopAt = Date.now() + RAMP_SECONDS * 1_000 + SECONDS * 1_000;
+    const rampStepMs = (RAMP_SECONDS * 1_000) / Math.max(1, PLAYERS);
     const started = performance.now();
     const players = [];
     for (const session of sessions) {
@@ -304,10 +330,10 @@ async function main() {
     }
     await Promise.all(players);
     const elapsedS = (performance.now() - started) / 1_000;
-    lag.stop();
+    await responsiveness.stop();
 
     // ── Report ──────────────────────────────────────────────────────────────
-    console.log(`\n[soak] ${PLAYERS} players over ${elapsedS.toFixed(0)}s\n`);
+    console.log(`\n[soak] ${sessions.length}/${PLAYERS} requested players over ${elapsedS.toFixed(0)}s\n`);
     const rows = [...stats.values()].sort((a, b) => b.n - a.n);
     const pad = (s, n) => String(s).padEnd(n);
     const padL = (s, n) => String(s).padStart(n);
@@ -338,20 +364,24 @@ async function main() {
         console.log(`  ${pad(s.label, 22)} ${dist}`);
     }
 
-    const lagSorted = [...lag.samples].sort((a, b) => a - b);
-    const lagP99 = percentile(lagSorted, 99);
-    console.log(`\n[soak] event-loop lag  p50 ${percentile(lagSorted, 50).toFixed(0)}ms  p95 ${percentile(lagSorted, 95).toFixed(0)}ms  p99 ${lagP99.toFixed(0)}ms`);
+    const responseSorted = [...responsiveness.samples].sort((a, b) => a - b);
+    const responseP99 = percentile(responseSorted, 99);
+    console.log(`\n[soak] server health latency  p50 ${percentile(responseSorted, 50).toFixed(0)}ms  p95 ${percentile(responseSorted, 95).toFixed(0)}ms  p99 ${responseP99.toFixed(0)}ms`);
     console.log(`[soak] ${totalCalls} calls, ${totalErrors} errors, ${(totalCalls / elapsedS).toFixed(1)} req/s`);
 
     // ── Verdict ─────────────────────────────────────────────────────────────
-    // Event-loop lag is the metric that matters for a single-threaded,
-    // single-instance server: once the loop is behind, EVERY player feels it.
+    // Server responsiveness is the saturation signal that matters for a
+    // single-instance server: once health round trips stall, every player is
+    // waiting on the same process. Endpoint p99 below catches route-local cost.
     const verdict = [];
+    if (sessions.length !== PLAYERS) verdict.push(`only ${sessions.length}/${PLAYERS} requested players were provisioned`);
+    if (totalCalls === 0) verdict.push('no steady-state requests were measured');
+    if (responsiveness.failures > 0) verdict.push(`${responsiveness.failures} server health probe failures`);
     if (totalErrors > 0) verdict.push(`${totalErrors} unexpected errors`);
-    if (lagP99 > 250) verdict.push(`event-loop p99 lag ${lagP99.toFixed(0)}ms (saturating)`);
+    if (responseP99 > 250) verdict.push(`server health p99 latency ${responseP99.toFixed(0)}ms (saturating)`);
     if (worstP99 > 2_000) verdict.push(`worst endpoint p99 ${worstP99.toFixed(0)}ms`);
     if (verdict.length === 0) {
-        console.log(`\n[soak] PASS — ${PLAYERS} concurrent players carried with headroom.`);
+        console.log(`\n[soak] PASS — ${sessions.length} concurrent players carried with headroom.`);
     } else {
         console.log(`\n[soak] ATTENTION — ${verdict.join('; ')}`);
     }
@@ -363,7 +393,10 @@ async function main() {
         }
         server.child.kill();
     }
-    process.exitCode = totalErrors > 0 ? 1 : 0;
+    // Every verdict condition is release-significant. Previously the harness
+    // exited non-zero only for HTTP errors, so severe latency saturation still
+    // appeared green to CI even while the report said ATTENTION.
+    process.exitCode = verdict.length > 0 ? 1 : 0;
 }
 
 await main();

@@ -125,42 +125,6 @@ export function setPetDuelEngineEnabled(on: boolean): void {
 }
 
 /*
- * CINEMATIC coliseum engine flag — the redesigned combat AI (lib/pet-duel-cinematic.ts).
- * When ON, CASUAL coliseum duels (Pet Arena 1v1 + 2v2 PvE / clan-war, dungeon pet fights)
- * resolve with the new context-steering + utility-AI engine: pets KITE, reposition,
- * circle, dodge telegraphs (speed-gated), and their ROLE / ELEMENT-matchup / STATS /
- * equipped ITEMS drive a distinct fighting style — instead of the old orbit-then-lunge.
- * Emits the same DuelResult contract so the whole PetColiseumDuel renderer + spectacle
- * layer is reused. When OFF, casual duels fall back to the previous planted engine
- * (pet-duel-sim.ts, plantedMotion=true).
- *
- * RANKED / ladder / sector-war are NOT affected — they stay on pet-duel-sim.ts
- * (plantedMotion=false, server-mirrored + parity-tested) until this engine is
- * balance-signed-off and promoted (its own future step).
- *
- * STALE — this flag is VESTIGIAL: nothing reads petColiseumCinematicEnabled() any
- * more, the cinematic engine is the casual coliseum unconditionally, and setting
- * it to "0" is NOT a rollback. Its old claim that the casual reward is "keyed only
- * off the win/loss string, so the swap is reward-safe" is also no longer true: as
- * of the §9.6 input-log replay the server resolves the casual PvE reward on this
- * very engine, so the client's win/loss string is not what pays out.
- * Per-device: localStorage.setItem("petColiseumCinematic.v1","1"|"0").
- */
-const CINEMATIC_KEY = "petColiseumCinematic.v1";
-
-export function petColiseumCinematicEnabled(): boolean {
-    try {
-        const v = localStorage.getItem(CINEMATIC_KEY);
-        if (v === "0") return false;   // explicit kill-switch → old planted engine
-        return true;                   // DEFAULT ON — the redesigned engine is the casual coliseum
-    } catch { return true; }
-}
-
-export function setPetColiseumCinematicEnabled(on: boolean): void {
-    try { localStorage.setItem(CINEMATIC_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
-}
-
-/*
  * Tactical Pet Arena "V2" ruleset — now the LIVE arena experience (the excitement
  * pass; see the pet-arena-excitement plan). V2 runs: a rising-threat enraging Warden
  * (real damage + shield-pierce + aftershock), an OVERDRIVE momentum meter that combat
