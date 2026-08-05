@@ -188,7 +188,7 @@ const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => 
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave } from "./lib/screen-guards";
+import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, shouldRedirectToHospital } from "./lib/screen-guards";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { mergePlayerRoster } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
@@ -3350,7 +3350,7 @@ export default function App() {
                     const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
                     const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
-                    target = restoreScreenForSave(persisted, inHollowGateRun);
+                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized);
                     if (inHollowGateRun) {
                         try {
                             localStorage.removeItem("shinobix:towerRunId");
@@ -5144,6 +5144,13 @@ export default function App() {
             activeDungeonEvent: !!activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle: !!pendingPetBattleOpponent,
         });
     }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
+
+    // Server-owned defeat settlement can update the character while a PvE host
+    // is still mounted. Once that fight is resolved, always enter the Hospital:
+    // admitted vitals intentionally stay at zero and cannot recover elsewhere.
+    useEffect(() => {
+        if (shouldRedirectToHospital(!!character?.hospitalized, screen, inBattleRef.current)) setScreen("hospital");
+    }, [character?.hospitalized, screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
 
     // Pop history and navigate to the previous screen. The same locks as
     // navigate() apply — can't back-out of an active battle or hospital

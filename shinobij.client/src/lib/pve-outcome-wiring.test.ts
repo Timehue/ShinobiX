@@ -31,15 +31,9 @@ test("the arena shell reports the outcome on ANY resolution, not just a win", ()
     assert.doesNotMatch(effect, /winner === "squad"/, "a LOSS must report too — that is the whole point");
 });
 
-test("abandoning an unresolved fight requires a terminal server forfeit before unmounting", () => {
-    // Walking out of a fight you are losing must not be cheaper than finishing
-    // it. The server scores an unresolved session as a defeat, but only if the
-    // client tells it the player left.
-    const leave = arena.slice(arena.indexOf("async function abandonFight"), arena.indexOf("async function abandonFight") + 1800);
-    assert.match(leave, /result\.session\.status !== "done"/, "abandonFight must refuse to hide an active session");
-    assert.match(leave, /outcomeFn/, "abandonFight must report the forfeit");
-    assert.match(leave, /outcomeReportedRef\.current = true/, "and must not double-report a run already settled");
-    assert.match(arena, /send\(\{ type: "flee" \}\)/, "Flee must submit its own probabilistic action instead of unmounting");
+test("Flee is the shared PvE shell's only player-facing combat exit", () => {
+    assert.match(arena, /send\(\{ type: "flee" \}\)/, "Flee must submit its server-owned probabilistic action");
+    assert.doesNotMatch(arena, /<span>Abandon<\/span>|function abandonFight|transport\.forfeit/, "the redundant guaranteed-loss abandon path must stay out of the shared PvE HUD");
 });
 
 test("every mode on the shared arena shell passes the outcome reporter", () => {

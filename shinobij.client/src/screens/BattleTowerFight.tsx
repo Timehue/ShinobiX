@@ -285,6 +285,7 @@ export function BattleTowerFight({
 
     const activeId = session.turnQueue[session.activeIndex];
     const activeActor = session.actors.find(a => a.id === activeId);
+    const summonedCompanion = session.actors.find(a => (a.character as Record<string, unknown> | undefined)?.companion === true && a.hp > 0);
     const myTurn = session.status === "active" && !!activeActor && activeActor.ai === false && ownedByMe(activeActor.ownerSlug) && activeActor.hp > 0;
     const myActor = activeActor && ownedByMe(activeActor.ownerSlug) ? activeActor : null;
     const bossId = session.phaseState?.bossId;
@@ -1030,6 +1031,18 @@ export function BattleTowerFight({
                                 disabled={busy || cleanseCd > 0 || session.activeAp < 60}>
                                 <span>Cleanse</span><small>60 AP | CD {cleanseCd}</small>
                             </button>
+                            {(session.pendingCompanion || summonedCompanion) && (
+                                <button
+                                    onClick={() => void send({ type: "summon" })}
+                                    disabled={busy || !session.pendingCompanion || !!summonedCompanion}
+                                    title={summonedCompanion
+                                        ? `${summonedCompanion.name} is already on the field`
+                                        : `Summon ${session.pendingCompanion?.name ?? "your active pet"}`}
+                                >
+                                    <span>Summon Pet</span>
+                                    <small>{summonedCompanion?.name ?? session.pendingCompanion?.name ?? "Active pet"}</small>
+                                </button>
+                            )}
                             <button onClick={() => void send({ type: "wait" })} disabled={busy}>
                                 <span>End Turn</span><small>Pass</small>
                             </button>
