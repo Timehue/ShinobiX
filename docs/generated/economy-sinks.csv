@@ -1,0 +1,150 @@
+system,id,currency,amount,cadence,authority,notes
+shop,ancient-pet-treat,ryo,520,per unit,api/pvp/_item-catalog.ts,epic item
+shop,ash-wrapped-tanto,ryo,220,per unit,api/pvp/_item-catalog.ts,common hand
+shop,ashen-dragon-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
+shop,ashen-leaf-saber,ryo,480,per unit,api/pvp/_item-catalog.ts,rare hand
+shop,ashglass-katana,ryo,1050,per unit,api/pvp/_item-catalog.ts,epic hand
+shop,black-lotus-dagger,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,blue-thread-dagger,ryo,420,per unit,api/pvp/_item-catalog.ts,rare hand
+shop,bulwark-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
+shop,bulwark-crown,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary head
+shop,bulwark-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
+shop,bulwark-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,bulwark-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
+shop,bulwark-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
+shop,chain-obi,ryo,320,per unit,api/pvp/_item-catalog.ts,rare waist
+shop,chakra-ring,ryo,600,per unit,api/pvp/_item-catalog.ts,rare aura
+shop,cloth-hood,ryo,120,per unit,api/pvp/_item-catalog.ts,common head
+shop,cloth-pants,ryo,105,per unit,api/pvp/_item-catalog.ts,common legs
+shop,cloth-robe,ryo,150,per unit,api/pvp/_item-catalog.ts,common body
+shop,cloth-sandals,ryo,75,per unit,api/pvp/_item-catalog.ts,common feet
+shop,cloth-sash,ryo,90,per unit,api/pvp/_item-catalog.ts,common waist
+shop,collar-amber,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-amethyst,fateShards,200,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,collar-azure,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-crimson,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-emerald,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-inferno,fateShards,80,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-rose,fateShards,120,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,collar-tidal,fateShards,120,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,collar-verdant,fateShards,80,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-void,fateShards,300,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,consum-cleansing-incense,ryo,1120,per unit,api/pvp/_item-catalog.ts,uncommon item
+shop,consum-lifeline-elixir,ryo,1440,per unit,api/pvp/_item-catalog.ts,rare item
+shop,consum-phantom-charm,ryo,960,per unit,api/pvp/_item-catalog.ts,uncommon item
+shop,consum-second-wind,ryo,1600,per unit,api/pvp/_item-catalog.ts,rare item
+shop,consum-smoke-pellet,ryo,960,per unit,api/pvp/_item-catalog.ts,uncommon item
+shop,consum-thornmail-oil,ryo,1280,per unit,api/pvp/_item-catalog.ts,rare item
+shop,cracked-bone-dagger,ryo,235,per unit,api/pvp/_item-catalog.ts,common hand
+shop,crimson-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
+shop,crimson-crown,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary head
+shop,crimson-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
+shop,crimson-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,crimson-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
+shop,crimson-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
+shop,eclipse-fang-dagger,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
+shop,elderbranch-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,elemental-pet-treat,ryo,260,per unit,api/pvp/_item-catalog.ts,rare item
+shop,embercoil-scythe,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,evo-stone-ascension,fateShards,400,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,evo-stone-awakening,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,frostbite-cleaver,ryo,980,per unit,api/pvp/_item-catalog.ts,epic hand
+shop,frostfang-oathblade,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,glacier-king-cleaver,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
+shop,golden-apple,fateShards,20,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,iron-fang-knuckles,ryo,510,per unit,api/pvp/_item-catalog.ts,rare hand
+shop,iron-kabuto,ryo,400,per unit,api/pvp/_item-catalog.ts,rare head
+shop,ironwall-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
+shop,ironwall-crown,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary head
+shop,ironwall-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
+shop,ironwall-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,ironwall-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
+shop,ironwall-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
+shop,item-attack-pill,ryo,320,per unit,api/pvp/_item-catalog.ts,rare item
+shop,item-defense-pill,ryo,320,per unit,api/pvp/_item-catalog.ts,rare item
+shop,item-smoke-bomb,ryo,360,per unit,api/pvp/_item-catalog.ts,rare item
+shop,leather-belt,ryo,210,per unit,api/pvp/_item-catalog.ts,uncommon waist
+shop,leather-headband,ryo,270,per unit,api/pvp/_item-catalog.ts,uncommon head
+shop,legendary-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
+shop,legendary-crown,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary head
+shop,legendary-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
+shop,legendary-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,legendary-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
+shop,legendary-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
+shop,mirror-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
+shop,mirror-crown,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary head
+shop,mirror-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
+shop,mirror-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,mirror-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
+shop,mirror-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
+shop,mistfang-tanto,ryo,450,per unit,api/pvp/_item-catalog.ts,rare hand
+shop,moonshadow-needleblade,ryo,900,per unit,api/pvp/_item-catalog.ts,epic hand
+shop,padded-leggings,ryo,240,per unit,api/pvp/_item-catalog.ts,uncommon legs
+shop,pet-treat,ryo,80,per unit,api/pvp/_item-catalog.ts,common item
+shop,potion-rejuvenation,ryo,1800,per unit,api/pvp/_item-catalog.ts,rare potion
+shop,pve-apex-predator-fang,ryo,9600,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-avengers-pendant,ryo,7200,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-bloodbond-totem,ryo,8000,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-frenzy-claw,ryo,5600,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-guardians-blessing,ryo,5600,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-hunters-bond-harness,ryo,4800,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-loyal-companion-bell,ryo,4800,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-pack-alpha-crest,ryo,8800,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-predators-fang,ryo,7200,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-sanguine-charm,ryo,6400,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pvp-aegis-pendant,fateShards,120,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,pvp-arena-champion-regalia,fateShards,150,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,pvp-berserkers-muzzle,fateShards,110,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,pvp-bloodthirster-fang,fateShards,140,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,pvp-executioners-talon,fateShards,140,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,pvp-final-bastion-charm,fateShards,140,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,pvp-ironhide-barding,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,pvp-spiked-war-harness,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,pvp-tortoise-shell-plating,fateShards,110,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,pvp-venomfang-bit,fateShards,130,per unit,api/pvp/_item-catalog.ts,mythic item
+shop,rare-chest-plate,ryo,500,per unit,api/pvp/_item-catalog.ts,rare body
+shop,rare-greaves,ryo,360,per unit,api/pvp/_item-catalog.ts,rare legs
+shop,rare-tabi,ryo,300,per unit,api/pvp/_item-catalog.ts,rare feet
+shop,reinforced-vest,ryo,330,per unit,api/pvp/_item-catalog.ts,uncommon body
+shop,riverbone-spear,ryo,430,per unit,api/pvp/_item-catalog.ts,rare hand
+shop,rookie-chain-sickle,ryo,210,per unit,api/pvp/_item-catalog.ts,common hand
+shop,rustfang-kunai,ryo,225,per unit,api/pvp/_item-catalog.ts,common hand
+shop,sennin-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
+shop,sennin-crown,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary head
+shop,sennin-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
+shop,sennin-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
+shop,sennin-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
+shop,shinobi-boots,ryo,195,per unit,api/pvp/_item-catalog.ts,uncommon feet
+shop,shinobi-vest,ryo,180,per unit,api/pvp/_item-catalog.ts,common body
+shop,spirit-leech-wakizashi,ryo,850,per unit,api/pvp/_item-catalog.ts,epic hand
+shop,stormcoil-kusarigama,ryo,950,per unit,api/pvp/_item-catalog.ts,epic hand
+shop,tempest-fang-blade,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
+shop,thrown-senbon,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
+shop,thrown-serpent-dust,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
+shop,thrown-shuriken,ryo,400,per unit,api/pvp/_item-catalog.ts,common thrown
+shop,training-katana,ryo,240,per unit,api/pvp/_item-catalog.ts,common hand
+shop,void-leech-nodachi,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
+shop,worldsplitter-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
+bloodline-forge,B Rank,boneCharms,100,per forge,api/bloodlines/_forge.ts,
+bloodline-forge,A Rank,auraStones,100,per forge,api/bloodlines/_forge.ts,
+bloodline-forge,S Rank,mythicSeals,100,per forge,api/bloodlines/_forge.ts,
+hollow-key-forge,hollowShards,hollowShards,80,per key,api/hollow-gate/_forge-key.ts,
+hollow-key-forge,dungeonKeys,dungeonKeys,5,per key,api/hollow-gate/_forge-key.ts,
+hollow-key-forge,fateShards,fateShards,10,per key,api/hollow-gate/_forge-key.ts,
+profile,profileRespec,fateShards,50,per action,api/profile/_settlement.ts,
+profile,statRespec,fateShards,50,per action,api/save/_stat-entitlement.ts,
+profile,customTitle,fateShards,10,per action,api/profile/_settlement.ts,
+profile,titleStyle,fateShards,40,per action,api/profile/_settlement.ts,
+profile,titleIcon,fateShards,25,per action,api/profile/_settlement.ts,
+festival,black-market-pull,ryo,50000,per pull,api/festival/_black-market.ts,
+festival,sunscar-fate-die,fateShards,25,per roll,api/festival/_sunscar.ts,
+craft,named-forge,ryo,1000,per forge,api/craft/_named.ts,
+kage,declare-challenge,honorSeals,500,per challenge,api/village/_kage-challenge.ts,
+shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.
+war,declare-war,warResources,800,per declaration,api/_war-economy.ts,
+war,sector-war,warResources,250,per sector war,api/_war-economy.ts,
+war-mercenary,merc-ronin,warResources,60,per hire,api/_war-economy.ts,level 75
+war-mercenary,merc-reaver,warResources,110,per hire,api/_war-economy.ts,level 80
+war-mercenary,merc-shadow,warResources,170,per hire,api/_war-economy.ts,level 85
+war-mercenary,merc-oni,warResources,280,per hire,api/_war-economy.ts,level 95
+war-mercenary,merc-warlord,warResources,420,per hire,api/_war-economy.ts,level 100
