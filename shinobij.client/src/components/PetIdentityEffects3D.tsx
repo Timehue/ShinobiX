@@ -614,15 +614,16 @@ export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#
     quality: PetVisualQualityConfig;
     elementColor?: string;
 }) {
-    const identity = config.visualId.startsWith("starter-fire")
+    const identityVisualId = config.identityVisualId ?? config.visualId;
+    const identity = identityVisualId.startsWith("starter-fire")
         ? <EmberNinjaIdentity config={config} frame={frame} quality={quality} />
-        : config.visualId.startsWith("starter-water")
+        : identityVisualId.startsWith("starter-water")
             ? <AquaSpiritIdentity config={config} frame={frame} quality={quality} />
-            : config.visualId.startsWith("starter-wind")
+            : identityVisualId.startsWith("starter-wind")
                 ? <WindRaptorIdentity config={config} frame={frame} quality={quality} />
-                : config.visualId.startsWith("starter-lightning")
+                : identityVisualId.startsWith("starter-lightning")
                     ? <LightningHoundIdentity config={config} frame={frame} quality={quality} />
-                    : config.visualId.startsWith("starter-earth")
+                    : identityVisualId.startsWith("starter-earth")
                         ? <EarthGuardianIdentity config={config} frame={frame} quality={quality} />
                         : null;
     return (
