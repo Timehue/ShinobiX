@@ -2,7 +2,7 @@
 
 Status: authoritative contract, 2026-08-04  
 ShinobiX baseline: `5c699ccf0eca7837494a64a8fd96df41bd101439`  
-the third-party reference reference inspected read-only: `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`
+Third-party shinobi RPG reference inspected read-only: `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`
 
 ## Contract
 
@@ -79,7 +79,7 @@ balance adjustment must be added to the registry with a test and rationale.
 
 ## Reference implementation findings
 
-The the third-party reference reference was used only for behavioral and proportion research.
+The third-party reference was used only for behavioral and proportion research.
 Its useful structural ideas are independent combat regions (timer, battlefield,
 actions, timeline/log), map sizing that preserves the real board aspect ratio,
 tabbed secondary information, and persisted presentation preferences. No source,
