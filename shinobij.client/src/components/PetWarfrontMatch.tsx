@@ -3288,9 +3288,15 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // production build always keeps the frame governor active; without this QA
     // seam, software WebGL correctly sheds DPR before a matrix runner can record
     // the requested device scale factor.
-    const fixedQaDpr = import.meta.env.DEV
-        && typeof window !== "undefined"
-        && new URLSearchParams(window.location.search).get("wfperf") === "fixed";
+    const qaPerfMode = import.meta.env.DEV && typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("wfperf")
+        : null;
+    const fixedQaDpr = qaPerfMode === "fixed" || qaPerfMode === "geometry";
+    // Geometry automation validates DPR, containment, and pointer ownership;
+    // it does not need a continuously animated battle behind those assertions.
+    // Demand rendering preserves the real R3F canvas and controls while avoiding
+    // minutes of SwiftShader long tasks across the four serial DPR projects.
+    const geometryQa = qaPerfMode === "geometry";
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [adaptivePressure, setAdaptivePressure] = useState<WarfrontAdaptivePressure>(0);
@@ -3644,16 +3650,37 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         <div ref={stageRef} className="pet-combat-takeover pet-warfront-takeover" style={{ backgroundColor: "#05060a" }}>
             <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes wfLoad{from{transform:translateX(-10%);opacity:.55}to{transform:translateX(120%);opacity:1}}@keyframes wfFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes wfFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes wfBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}22%{transform:translate(-50%,-50%) scale(1)}84%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}@keyframes wfShine{0%{transform:translateX(-140%) skewX(-18deg)}60%,100%{transform:translateX(260%) skewX(-18deg)}}@keyframes wfTilePulse{0%,100%{box-shadow:0 0 6px rgba(251,113,133,0.35)}50%{box-shadow:0 0 20px rgba(251,113,133,0.95)}}@keyframes wfIntro{0%{opacity:0;transform:scale(0.94)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.02)}}@keyframes wfEndIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
             <div className="pet-warfront-canvas-stage" style={{ position: "absolute", inset: 0 }}>
-                <Canvas dpr={canvasDpr} shadows={quality.id === "high" && adaptivePressure === 0 ? "percentage" : false} camera={{ fov: A3D_FOV, near: 0.5, far: 160, position: [0, 20, 24] }} gl={{ antialias: true }}>
+                <Canvas
+                    dpr={canvasDpr}
+                    frameloop={geometryQa ? "demand" : "always"}
+                    shadows={!geometryQa && quality.id === "high" && adaptivePressure === 0 ? "percentage" : false}
+                    camera={{ fov: A3D_FOV, near: 0.5, far: 160, position: [0, 20, 24] }}
+                    gl={{ antialias: true }}
+                >
+                    {geometryQa ? (
+                        <>
+                            {/* DPR/alignment automation has separate lifecycle coverage for
+                                the complete scene. Keep a real R3F/WebGL canvas and the real
+                                pointer controls without constructing every scene asset four
+                                times in serial software-renderer projects. */}
+                            <color attach="background" args={[spec.voidColor]} />
+                            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                                <planeGeometry args={[48, 28]} />
+                                <meshBasicMaterial color={spec.groundLight} />
+                            </mesh>
+                            <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
+                        </>
+                    ) : (
+                        <>
                     <color attach="background" args={[spec.voidColor]} />
                     <fog attach="fog" args={[spec.fogColor, 26, 64]} />
                     {/* Warm key + cool fill: the warm/cool contrast that makes
                         painted environments read as LIT instead of flat. */}
                     <hemisphereLight args={[spec.skyLight, spec.groundLight, 1.15]} />
                     <directionalLight position={[-12, 10, -9]} intensity={0.5} color="#7ea8c4" />
-                    {quality.dynamicPetLight && adaptivePressure === 0 && <pointLight position={[0, 2.6, 0]} color={spec.breachGlow} intensity={3.4} distance={18} decay={2} />}
+                    {!geometryQa && quality.dynamicPetLight && adaptivePressure === 0 && <pointLight position={[0, 2.6, 0]} color={spec.breachGlow} intensity={3.4} distance={18} decay={2} />}
                     <directionalLight
-                        position={[10, 17, 7]} intensity={1.85} color={spec.sunColor} castShadow={quality.modelShadows && adaptivePressure === 0}
+                        position={[10, 17, 7]} intensity={1.85} color={spec.sunColor} castShadow={!geometryQa && quality.modelShadows && adaptivePressure === 0}
                         shadow-mapSize-width={quality.id === "high" ? 2048 : 1024} shadow-mapSize-height={quality.id === "high" ? 2048 : 1024}
                         shadow-camera-left={-24} shadow-camera-right={24} shadow-camera-top={15} shadow-camera-bottom={-15} shadow-camera-far={60}
                     />
@@ -3703,14 +3730,14 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                         <Shot3D key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} durationMs={sh.dur} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />
                     ))}
                     {floaters.map((f) => (<Floater3D key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
-                    <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />
+                    {!geometryQa && <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />}
                     <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} focusPetRef={focusPetRef} />
                     <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
                     <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} playbackRate={safePlaybackRate} />
                     {!fixedQaDpr && <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />}
                     <WfDirector result={result} clockRef={clock} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} camViewRef={camView} onEnd={() => setEnded(true)} />
                     <WfHudWriter result={result} clock={clock} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} momentumRef={momentumRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} buffRef={buffRef} campsRef={campsRef} phaseOverlayRef={phaseOverlayRef} />
-                    {multiCamOn && (
+                    {!geometryQa && multiCamOn && (
                         <WfMultiCam
                             result={result}
                             clock={clock}
@@ -3726,6 +3753,8 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                             selectedRef={focusPetRef}
                             camViewRef={camView}
                         />
+                    )}
+                        </>
                     )}
                 </Canvas>
             </div>

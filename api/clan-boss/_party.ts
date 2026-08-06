@@ -12,12 +12,16 @@ import {
     CLAN_BOSS_SOLO_FALLBACK_MS,
 } from '../../shared/clan-boss-operation.js';
 import { kv } from '../_storage.js';
-import { withKvLock } from '../_lock.js';
-import { safeName } from '../_utils.js';
+import { makeKvLockPrimitives, withKvLock, withLockCore } from '../_lock.js';
+import { clanBareSlug, safeName } from '../_utils.js';
+import type { KvLike } from '../_storage.js';
 
 export const CLAN_BOSS_PARTY_TTL = 2 * 60 * 60;
+export const CLAN_BOSS_PARTY_REGISTRY_KEY = 'clan-boss:party-registry:v1';
+export const CLAN_BOSS_PARTY_SWEEP_CURSOR_KEY = 'clan-boss:party-registry:sweep-cursor';
 const PARTY_RECEIPT_CAP = 80;
 const INVITE_CAP = 20;
+const REGISTRY_PAGE_MAX = 500;
 
 type PartyReceipt = {
     actor: string;
@@ -27,6 +31,20 @@ type PartyReceipt = {
 };
 
 export type StoredParty = ClanBossParty & { receipts?: PartyReceipt[] };
+
+export type PartyRegistryEntry = {
+    clanRegistryKey: string;
+    createdAt: number;
+    updatedAt: number;
+    status: ClanBossParty['status'];
+};
+
+export type PartyRegistryPage = {
+    ids: string[];
+    total: number;
+    cursor: string | null;
+    nextCursor: string | null;
+};
 
 export type PartyPlayerContext = {
     slug: string;
@@ -43,6 +61,57 @@ export type PartyMutationResult =
 export const partyKey = (id: string) => `clan-boss:party:${id}`;
 export const partyPlayerKey = (slug: string) => `clan-boss:party-player:${slug}`;
 export const partyInviteKey = (slug: string) => `clan-boss:party-invites:${slug}`;
+export const partyClanRegistryKey = (clanName: string) => `clan-boss:party-registry:clan:${clanBareSlug(clanName)}`;
+
+function registryEntry(party: StoredParty): PartyRegistryEntry {
+    return {
+        clanRegistryKey: partyClanRegistryKey(party.clanName),
+        createdAt: party.createdAt,
+        updatedAt: party.updatedAt,
+        status: party.status,
+    };
+}
+
+/**
+ * Registry writes are secondary indexes over the TTL-owned party record. They
+ * must never turn an already-committed party mutation into a client-visible
+ * failure: a retry could then replay its receipt without repairing the index.
+ * The finder keeps a migration fallback, and the scheduled reconciler repairs
+ * either index from the authoritative party record.
+ */
+export async function registerPartyRecord(party: StoredParty, store: KvLike = kv): Promise<boolean> {
+    const entry = registryEntry(party);
+    try {
+        await Promise.all([
+            store.hset(CLAN_BOSS_PARTY_REGISTRY_KEY, { [party.id]: entry }),
+            store.hset(entry.clanRegistryKey, { [party.id]: { createdAt: party.createdAt, updatedAt: party.updatedAt, status: party.status } }),
+        ]);
+        return true;
+    } catch (error) {
+        console.error('[clan-boss/party] registry update failed:', error instanceof Error ? error.message : String(error));
+        return false;
+    }
+}
+
+function pageIds(ids: string[], cursor: string | null, limit: number): PartyRegistryPage {
+    const ordered = [...new Set(ids)].sort();
+    const start = cursor ? ordered.findIndex((id) => id > cursor) : 0;
+    const offset = start < 0 ? ordered.length : start;
+    const page = ordered.slice(offset, offset + limit);
+    const nextCursor = offset + page.length < ordered.length ? page.at(-1) ?? null : null;
+    return { ids: page, total: ordered.length, cursor, nextCursor };
+}
+
+export async function listRegisteredPartyIds(input: {
+    cursor?: string | null;
+    limit?: number;
+    store?: KvLike;
+} = {}): Promise<PartyRegistryPage> {
+    const store = input.store ?? kv;
+    const limit = Math.max(1, Math.min(REGISTRY_PAGE_MAX, Math.floor(Number(input.limit) || 100)));
+    const ids = await store.hkeys(CLAN_BOSS_PARTY_REGISTRY_KEY);
+    return pageIds(ids, input.cursor ?? null, limit);
+}
 
 export function clanBossPartiesEnabled(): boolean {
     return process.env.DISABLE_CLAN_BOSS_PARTIES !== '1';
@@ -207,14 +276,20 @@ export async function loadParty(id: string): Promise<StoredParty | null> {
 
 export async function saveParty(party: StoredParty): Promise<void> {
     await kv.set(partyKey(party.id), party, { ex: CLAN_BOSS_PARTY_TTL });
+    await registerPartyRecord(party);
 }
 
-export async function activePartyForPlayer(slug: string): Promise<StoredParty | null> {
-    const index = await kv.get<{ partyId?: string }>(partyPlayerKey(slug));
-    if (!index?.partyId) return null;
-    const party = await loadParty(index.partyId);
-    if (!party || !party.members.some((member) => member.slug === slug) || (!isOpenStatus(party.status) && party.status !== 'starting' && party.status !== 'active' && party.status !== 'completed')) {
-        await kv.del(partyPlayerKey(slug)).catch(() => 0);
+export async function activePartyForPlayer(slug: string, clearLegacyIndex = false): Promise<StoredParty | null> {
+    const index = await kv.get<string | { partyId?: string }>(partyPlayerKey(slug));
+    const indexedPartyId = typeof index === 'string' ? index : index?.partyId;
+    if (!indexedPartyId) return null;
+    const party = await loadParty(indexedPartyId);
+    if (!party || !party.members.some((member) => member.slug === slug) || (!isOpenStatus(party.status) && party.status !== 'starting' && party.status !== 'active')) {
+        if (typeof index === 'string') await kv.delIfEqual(partyPlayerKey(slug), indexedPartyId).catch(() => false);
+        // Object-valued indices predate compare-and-delete. Only a caller that
+        // already owns this player's index lock may remove one; otherwise its
+        // short TTL is safer than racing a newly created party index.
+        else if (clearLegacyIndex) await kv.del(partyPlayerKey(slug)).catch(() => 0);
         return null;
     }
     return party;
@@ -230,12 +305,12 @@ export async function createParty(input: {
 }): Promise<StoredParty> {
     const now = input.now ?? Date.now();
     return withKvLock(partyPlayerKey(input.player.slug), async () => {
-        const existing = await activePartyForPlayer(input.player.slug);
+        const existing = await activePartyForPlayer(input.player.slug, true);
         if (existing && existing.status !== 'completed') return existing;
         if (existing?.status === 'completed') await kv.del(partyPlayerKey(input.player.slug));
         const party = createPartyRecord({ ...input, now });
         await saveParty(party);
-        await kv.set(partyPlayerKey(input.player.slug), { partyId: party.id }, { ex: CLAN_BOSS_PARTY_TTL });
+        await kv.set(partyPlayerKey(input.player.slug), party.id, { ex: CLAN_BOSS_PARTY_TTL });
         return party;
     }, { failClosed: true });
 }
@@ -274,14 +349,38 @@ export async function mutateParty(input: {
     }, { failClosed: true });
 }
 
-export async function indexPartyMembers(party: StoredParty): Promise<void> {
-    await Promise.all(party.members.map((member) => kv.set(partyPlayerKey(member.slug), { partyId: party.id }, { ex: CLAN_BOSS_PARTY_TTL })));
+async function ensurePartyPlayerIndex(slug: string, partyId: string, store: KvLike): Promise<boolean> {
+    const key = partyPlayerKey(slug);
+    try {
+        return await withLockCore(key, async () => {
+            const value = await store.get<string | { partyId?: string }>(key);
+            const currentPartyId = typeof value === 'string' ? value : value?.partyId;
+            // A different binding is newer authority. Repairing a stale live
+            // party must never pull the player back out of that newer party.
+            if (currentPartyId && currentPartyId !== partyId) return false;
+            await store.set(key, partyId, { ex: CLAN_BOSS_PARTY_TTL });
+            return true;
+        }, makeKvLockPrimitives(store), { failClosed: true });
+    } catch {
+        // Secondary-index repair is retryable by heartbeat/the leased sweep;
+        // never fail an already-committed party mutation on lock contention.
+        return false;
+    }
 }
 
-export async function clearPartyMemberIndices(party: StoredParty, except: string[] = []): Promise<void> {
+export async function indexPartyMembers(party: StoredParty, store: KvLike = kv): Promise<void> {
+    await Promise.all(party.members.map((member) => ensurePartyPlayerIndex(member.slug, party.id, store)));
+}
+
+export async function clearPartyPlayerIndex(slug: string, expectedPartyId: string, store: KvLike = kv): Promise<boolean> {
+    return store.delIfEqual(partyPlayerKey(slug), expectedPartyId);
+}
+
+export async function clearPartyMemberIndices(party: StoredParty, except: string[] = [], store: KvLike = kv): Promise<void> {
     const keep = new Set(except);
-    const keys = party.members.filter((member) => !keep.has(member.slug)).map((member) => partyPlayerKey(member.slug));
-    if (keys.length) await kv.del(...keys).catch(() => 0);
+    await Promise.all(party.members
+        .filter((member) => !keep.has(member.slug))
+        .map((member) => clearPartyPlayerIndex(member.slug, party.id, store).catch(() => false)));
 }
 
 export async function addPartyInvitation(slug: string, partyId: string): Promise<void> {
@@ -303,7 +402,7 @@ export async function removePartyInvitation(slug: string, partyId: string): Prom
 }
 
 async function loadPartyList(ids: string[]): Promise<StoredParty[]> {
-    const parties = await Promise.all([...new Set(ids)].slice(0, 40).map((id) => loadParty(id)));
+    const parties = await Promise.all([...new Set(ids)].slice(0, 200).map((id) => loadParty(id)));
     return parties.filter((party): party is StoredParty => !!party);
 }
 
@@ -311,8 +410,18 @@ export async function partyEnvelope(player: PartyPlayerContext, now = Date.now()
     const own = await activePartyForPlayer(player.slug);
     const inviteIds = (await kv.get<string[]>(partyInviteKey(player.slug))) ?? [];
     const invitations = (await loadPartyList(inviteIds)).filter((party) => isOpenStatus(party.status) && party.clanName === player.clanName && party.invitedSlugs.includes(player.slug));
-    const keys = await kv.keys('clan-boss:party:cbp-*').catch(() => [] as string[]);
-    const publicParties = (await loadPartyList(keys.map((key) => key.slice('clan-boss:party:'.length))))
+    const clanRegistry = await kv.hgetall<Record<string, { createdAt?: number }>>(partyClanRegistryKey(player.clanName)).catch(() => null);
+    let candidateIds = Object.entries(clanRegistry ?? {})
+        .sort((a, b) => Number(a[1]?.createdAt ?? 0) - Number(b[1]?.createdAt ?? 0) || a[0].localeCompare(b[0]))
+        .map(([id]) => id);
+    // Rolling-deploy bridge: parties created before the registry shipped are
+    // discovered once through the legacy scan. Any subsequent save/heartbeat
+    // registers them, so this path naturally disappears as live lobbies move.
+    if (candidateIds.length === 0) {
+        const keys = await kv.keys('clan-boss:party:cbp-*').catch(() => [] as string[]);
+        candidateIds = keys.map((key) => key.slice('clan-boss:party:'.length));
+    }
+    const publicParties = (await loadPartyList(candidateIds))
         .filter((party) => party.clanName === player.clanName && party.visibility === 'public' && isOpenStatus(party.status) && party.members.length < CLAN_BOSS_PARTY_MAX)
         .sort((a, b) => a.createdAt - b.createdAt)
         .slice(0, 12);
@@ -349,9 +458,10 @@ export function queueParty(party: StoredParty, actor: string, now: number): Part
 }
 
 export async function heartbeatParty(partyId: string, slug: string, now = Date.now()): Promise<StoredParty | null> {
-    return withKvLock(partyKey(partyId), async () => {
+    const next = await withKvLock(partyKey(partyId), async () => {
         const party = await loadParty(partyId);
         if (!party) return null;
+        if (party.status === 'completed' || party.status === 'disbanded' || party.status === 'expired') return party;
         let found = false;
         const members = party.members.map((member) => {
             if (member.slug !== slug) return member;
@@ -363,6 +473,13 @@ export async function heartbeatParty(partyId: string, slug: string, now = Date.n
         await saveParty(next);
         return next;
     });
+    // Keep the party -> player lock order out of the party critical section.
+    // A join takes the player lock before the party lock, so nesting them here
+    // would otherwise create an avoidable inverse-order contention cycle.
+    if (next && next.status !== 'completed' && next.status !== 'disbanded' && next.status !== 'expired') {
+        await indexPartyMembers(next);
+    }
+    return next;
 }
 
 export async function preparePartyStart(input: {
@@ -447,6 +564,92 @@ export async function completeParty(partyId: string, runId: string, now = Date.n
         if (party.status === 'completed') return party;
         const next: StoredParty = { ...party, status: 'completed', completedAt: now, version: party.version + 1, updatedAt: now };
         await saveParty(next);
+        await clearPartyMemberIndices(next);
         return next;
     }, { failClosed: true });
+}
+
+export type PartyRegistrySweepResult = {
+    scanned: number;
+    repaired: number;
+    discovered: number;
+    removed: number;
+    terminalIndicesCleared: number;
+    total: number;
+    cursor: string | null;
+    nextCursor: string | null;
+};
+
+/**
+ * Bounded semantic cleanup for the non-expiring registry hashes. Party rows
+ * remain TTL-owned and are never deleted here. Missing rows lose only stale
+ * registry fields; live rows repair their clan registry and member indices;
+ * terminal rows release member indices so players can form again immediately.
+ */
+export async function reconcileClanBossPartyRegistry(input: {
+    cursor?: string | null;
+    limit?: number;
+    store?: KvLike;
+} = {}): Promise<PartyRegistrySweepResult> {
+    const store = input.store ?? kv;
+    const entries = (await store.hgetall<Record<string, PartyRegistryEntry>>(CLAN_BOSS_PARTY_REGISTRY_KEY)) ?? {};
+    const page = pageIds(Object.keys(entries), input.cursor ?? null, Math.max(1, Math.min(REGISTRY_PAGE_MAX, Math.floor(Number(input.limit) || 250))));
+    let repaired = 0;
+    let removed = 0;
+    let terminalIndicesCleared = 0;
+    for (const id of page.ids) {
+        const party = await store.get<StoredParty>(partyKey(id));
+        if (!party) {
+            const clanRegistryKey = entries[id]?.clanRegistryKey;
+            await store.hdel(CLAN_BOSS_PARTY_REGISTRY_KEY, id);
+            if (clanRegistryKey) await store.hdel(clanRegistryKey, id);
+            removed += 1;
+            continue;
+        }
+        const expected = registryEntry(party);
+        const current = entries[id];
+        if (!current || current.clanRegistryKey !== expected.clanRegistryKey || current.updatedAt !== expected.updatedAt || current.status !== expected.status) {
+            await Promise.all([
+                store.hset(CLAN_BOSS_PARTY_REGISTRY_KEY, { [id]: expected }),
+                store.hset(expected.clanRegistryKey, { [id]: { createdAt: party.createdAt, updatedAt: party.updatedAt, status: party.status } }),
+            ]);
+            if (current?.clanRegistryKey && current.clanRegistryKey !== expected.clanRegistryKey) await store.hdel(current.clanRegistryKey, id);
+            repaired += 1;
+        }
+        if (party.status === 'completed' || party.status === 'disbanded' || party.status === 'expired') {
+            const cleared = await Promise.all(party.members.map((member) => clearPartyPlayerIndex(member.slug, party.id, store)));
+            terminalIndicesCleared += cleared.filter(Boolean).length;
+        } else {
+            await indexPartyMembers(party, store);
+        }
+    }
+    return { scanned: page.ids.length, repaired, discovered: 0, removed, terminalIndicesCleared, total: page.total, cursor: page.cursor, nextCursor: page.nextCursor };
+}
+
+export async function sweepClanBossPartyRegistry(store: KvLike = kv): Promise<PartyRegistrySweepResult> {
+    const cursor = await store.get<string>(CLAN_BOSS_PARTY_SWEEP_CURSOR_KEY);
+    const result = await reconcileClanBossPartyRegistry({ cursor, limit: 250, store });
+    if (result.nextCursor) await store.set(CLAN_BOSS_PARTY_SWEEP_CURSOR_KEY, result.nextCursor, { ex: CLAN_BOSS_PARTY_TTL });
+    else {
+        await store.del(CLAN_BOSS_PARTY_SWEEP_CURSOR_KEY);
+        // A failed best-effort registry write cannot be found by walking that
+        // same registry. At the end of each bounded cycle, reconcile up to one
+        // page of authoritative TTL-owned party rows that are missing entirely.
+        // This keeps the secondary index self-healing without deleting party data.
+        const [liveKeys, registeredIds] = await Promise.all([
+            store.keys('clan-boss:party:cbp-*'),
+            store.hkeys(CLAN_BOSS_PARTY_REGISTRY_KEY),
+        ]);
+        const registered = new Set(registeredIds);
+        const missingIds = liveKeys
+            .map((key) => key.slice('clan-boss:party:'.length))
+            .filter((id) => !registered.has(id))
+            .sort()
+            .slice(0, 250);
+        for (const id of missingIds) {
+            const party = await store.get<StoredParty>(partyKey(id));
+            if (party && await registerPartyRecord(party, store)) result.discovered += 1;
+        }
+    }
+    return result;
 }

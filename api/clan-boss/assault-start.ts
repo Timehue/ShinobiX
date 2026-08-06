@@ -16,8 +16,7 @@ import { stampTurnClock } from '../towers/_tower-mp.js';
 import { loadAssault, saveAssault, selectClanBossParty } from './_assault.js';
 import { activatePartyStart, clanBossPartiesEnabled, loadParty, preparePartyStart, reopenPartyStart } from './_party.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { sealPveDifficultyBand } from '../_pve-band-seal.js';
-import { sealPveAiMastery } from '../_pve-ai-mastery.js';
+import { configureClanBossEncounter } from './_encounter-config.js';
 import {
     CB_ASSAULT_HP_CAP, CB_MAX_PARTY, clanBossAttemptsLeft,
     clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
@@ -168,8 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now: reserved.receipt.at });
             // Override the boss's HP to the SHARED pool (capped per assault) so it's
             // the persistent clan boss being chipped, not a fresh chunk.
-            const bossActor = session.actors.find(a => a.id === session!.phaseState.bossId);
-            if (bossActor) { bossActor.hp = bossHp; bossActor.maxHp = bossHp; }
+            configureClanBossEncounter(session, floor, bossHp);
             // Arm the standard-PvE hit guard. MUST precede startRound/runAiUntilHuman,
             // and MUST follow the shared-pool HP override above so it never touches
             // the persistent clan-boss HP.
@@ -178,10 +176,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // (authoritative, chipped across assaults) and the floor is already
             // party-scaled, so a level-keyed multiplier here would both corrupt the
             // pool and double-dip.
-            sealPveDifficultyBand(session, { mode: 'CLAN_BOSS', scaleHp: false, scaleStats: false });
             // Give the AI its jutsu mastery — without this it casts at 30% (step C).
             // Must follow the guard above, and precede startRound like it.
-            sealPveAiMastery(session, { mode: 'CLAN_BOSS' });
             startRound(session);
             runAiUntilHuman(session, floor, makeRng(seed));
             stampTurnClock(session, reserved.receipt.at);

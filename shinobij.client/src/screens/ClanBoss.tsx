@@ -204,6 +204,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             </div>
 
             <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Most assaults are expected to chip the persistent pool; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
+            <p className="hint operation-score-note">Operation settlement applies profession XP, clan points, and sector pressure immediately. Qualified personal Ryo and Fate Shards are paid once by the existing weekly settlement after the campaign ends.</p>
 
             <h4>Clan Standings</h4>
             {!view.standings?.length ? <p className="hint">No clan has struck yet.</p> : <div className="operation-standings">{view.standings.map((standing) => <div key={standing.clanName} className={standing.clanName === clan.clanName ? "is-mine" : ""}><span>#{standing.rank}</span><strong>{standing.clanName}{standing.killed ? " · cleared" : ""}</strong><span>{standing.score.toLocaleString()} pts</span></div>)}</div>}

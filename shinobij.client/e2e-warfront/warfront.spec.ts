@@ -93,14 +93,10 @@ test("the WebGL canvas survives a recoverable context-loss cycle", async ({ page
 });
 
 test("Warfront preserves renderer and overlay alignment across device scale factors", async ({ page }, testInfo) => {
-    // SwiftShader/WebGL input dispatch can exceed six minutes at high or
-    // fractional DPR on contended CI hosts; the assertions are deterministic
-    // once the stage is responsive, so give the real renderer/input path
-    // enough headroom without weakening any interaction assertion.
-    test.setTimeout(480_000);
+    test.setTimeout(120_000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(`${warfrontUrl}&petQuality=high&wfperf=fixed`);
+    await page.goto(`${warfrontUrl}&petQuality=high&wfperf=geometry`);
     await expect(page.getByRole("status")).toBeHidden({ timeout: 30_000 });
     const stage = page.locator(".pet-warfront-canvas-stage");
     const canvas = stage.locator("canvas").first();

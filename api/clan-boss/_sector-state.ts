@@ -17,6 +17,14 @@ export type ClanBossSectorState = {
 };
 
 export const sectorStateKey = (weekId: string) => `clan-boss:sector-state:${weekId}`;
+export const SECTOR_PRESSURE_MILESTONES = [75, 50, 25, 0] as const;
+
+/** Returns the single herald threshold crossed by a bounded operation update. */
+export function sectorPressureMilestone(before: number, after: number): number | undefined {
+    const safeBefore = Math.max(0, Math.min(100, before));
+    const safeAfter = Math.max(0, Math.min(safeBefore, after));
+    return SECTOR_PRESSURE_MILESTONES.find((milestone) => safeBefore > milestone && safeAfter <= milestone);
+}
 
 export function newSectorState(weekId: string, boss: ClanBossDef, now = Date.now()): ClanBossSectorState {
     return {
@@ -49,7 +57,7 @@ export async function applyOperationPressure(input: {
     damage: number;
     contributions: Record<string, ClanBossContributionResult>;
     now?: number;
-}): Promise<{ state: ClanBossSectorState; reducedBy: number; replayed: boolean }> {
+}): Promise<{ state: ClanBossSectorState; reducedBy: number; replayed: boolean; crossedMilestone?: number }> {
     const key = sectorStateKey(input.weekId);
     return withKvLock(key, async () => {
         const current = (await kv.get<ClanBossSectorState>(key)) ?? newSectorState(input.weekId, input.boss, input.now);
@@ -63,6 +71,11 @@ export async function applyOperationPressure(input: {
             runReceipts: [input.runId, ...current.runReceipts].slice(0, 500),
         };
         await kv.set(key, next, { ex: 9 * 24 * 60 * 60 });
-        return { state: next, reducedBy, replayed: false };
+        return {
+            state: next,
+            reducedBy,
+            replayed: false,
+            crossedMilestone: sectorPressureMilestone(current.pressure, next.pressure),
+        };
     }, { failClosed: true });
 }

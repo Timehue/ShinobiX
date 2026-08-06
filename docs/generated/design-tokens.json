@@ -2288,6 +2288,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 479,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 5379
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 480,
         "occurrences": [
           {
@@ -2833,7 +2844,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5379
+            "line": 5408
           }
         ]
       },
@@ -2997,7 +3008,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5379
+            "line": 5408
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",

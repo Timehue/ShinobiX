@@ -35,7 +35,7 @@ import { pathToFileURL } from 'node:url';
 // RATE-walls like regen (don't yield to more power).
 const POWER = Math.max(0.5, Number(process.env.POWER) || 1);
 // ── KNOBS: the assumed power of a maxed, geared endgame player ────────────────
-const KNOBS = {
+export const KNOBS = {
     maxHp: 12000,          // maxed L100 HP with HP gear
     maxChakra: 2200, maxStamina: 2200,
     stat: 2500,            // every offense/defense composite at the statFactor-cap plateau
@@ -52,7 +52,7 @@ const KNOBS = {
     ] as Record<string, unknown>[],
 };
 
-function gearedSquad(n: number): SquadMemberInput[] {
+export function gearedSquad(n: number): SquadMemberInput[] {
     const S = KNOBS.stat;
     const stats: Record<string, number> = {
         taijutsuOffense: S, taijutsuDefense: S, bukijutsuOffense: S, bukijutsuDefense: S,
@@ -115,7 +115,7 @@ function smartSquadAction(session: TowerSession, actor: TowerActor): TowerAction
     }
     return { actorId: actor.id, type: 'wait' };
 }
-function runFloorSmart(session: TowerSession, floor: TowerFloor, rng: () => number): void {
+export function runFloorSmart(session: TowerSession, floor: TowerFloor, rng: () => number): void {
     if (session.turnQueue.length === 0) startRound(session);
     const GUARD = (MAX_ROUNDS + 2) * (session.actors.length + 2) * (MAX_ACTIONS + 2) + 256;
     let guard = 0;
