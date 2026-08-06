@@ -21,6 +21,9 @@ import {
     abandonSectorWar,
     SECTOR_WAR_IDLE_TIMEOUT_MS,
     SECTOR_WAR_MAX_DURATION_MS,
+    isGarrisonAssaultable,
+    garrisonSwing,
+    GARRISON_UNLOCK_IDLE_MS,
     type SectorWarSession,
 } from './_sector-war.js';
 import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_MAX_SWING_FRACTION, SECTOR_CONTROL_HP_ABSOLUTE_MAX } from './_war-state.js';
@@ -237,6 +240,79 @@ describe('sector-war: contest expiry', () => {
         assert.ok(SECTOR_WAR_IDLE_TIMEOUT_MS < SECTOR_WAR_MAX_DURATION_MS);
         // And a sector war must resolve well inside a village war's 14 days (§17.6).
         assert.ok(SECTOR_WAR_MAX_DURATION_MS < 14 * DAY);
+    });
+});
+
+describe('sector-war: garrison fallback (the liveness gap)', () => {
+    const HOUR = 60 * 60 * 1000;
+
+    it('stays LOCKED while the defence is still turning up', () => {
+        assert.equal(isGarrisonAssaultable(fresh(), NOW), false, 'a brand-new siege has no garrison yet');
+        assert.equal(isGarrisonAssaultable(fresh(), NOW + GARRISON_UNLOCK_IDLE_MS - 1), false);
+    });
+
+    it('unlocks once no LIVE battle has landed for the idle window', () => {
+        assert.equal(isGarrisonAssaultable(fresh(), NOW + GARRISON_UNLOCK_IDLE_MS), true);
+    });
+
+    it('a real defender fighting RE-LOCKS it — a village that defends never meets it', () => {
+        // A live battle at the 3h mark resets the clock.
+        const fought = applySectorBattleResult(fresh(), true, { now: NOW + 3 * HOUR, swing: SWING_VILLAGER_V_VILLAGER }).session;
+        assert.equal(fought.lastLiveBattleAt, NOW + 3 * HOUR);
+        assert.equal(isGarrisonAssaultable(fought, NOW + 3 * HOUR + HOUR), false, 'locked again for the window');
+        assert.equal(isGarrisonAssaultable(fought, NOW + 3 * HOUR + GARRISON_UNLOCK_IDLE_MS), true);
+    });
+
+    it('a garrison assault keeps the siege alive but does NOT re-lock itself', () => {
+        // Otherwise one assault would buy the defence another two hours for free.
+        const t = NOW + GARRISON_UNLOCK_IDLE_MS;
+        const after = applySectorBattleResult(fresh(), true, { now: t, swing: 3, garrisonBattle: true }).session;
+        assert.equal(after.updatedAt, t, 'siege stays alive (idle-expiry clock refreshed)');
+        assert.equal(after.lastLiveBattleAt, undefined, 'live clock untouched');
+        assert.equal(isGarrisonAssaultable(after, t + 1), true, 'still assaultable');
+    });
+
+    it('a mercenary attack likewise does not count as a live defence', () => {
+        const t = NOW + GARRISON_UNLOCK_IDLE_MS;
+        const after = applySectorBattleResult(fresh(), true, { now: t, swing: 5, mercBattle: true }).session;
+        assert.equal(after.lastLiveBattleAt, undefined);
+    });
+
+    it('only Combat sectors have a garrison', () => {
+        for (const wc of ['card', 'pet'] as const) {
+            assert.equal(isGarrisonAssaultable(fresh(wc), NOW + GARRISON_UNLOCK_IDLE_MS), false, wc);
+        }
+    });
+
+    it('a captured or lapsed contest has nothing left to assault', () => {
+        const flipped: SectorWarSession = { ...fresh(), flipped: true };
+        assert.equal(isGarrisonAssaultable(flipped, NOW + GARRISON_UNLOCK_IDLE_MS), false);
+        const expired = applyLazySectorWarExpiry(fresh(), NOW + SECTOR_WAR_IDLE_TIMEOUT_MS).session;
+        assert.equal(isGarrisonAssaultable(expired, NOW + SECTOR_WAR_IDLE_TIMEOUT_MS + 1), false);
+    });
+
+    it('unlocks BEFORE the siege would lapse, so the fallback is reachable', () => {
+        // If the garrison unlocked after the idle-expiry, an unopposed siege would
+        // simply die instead of ever offering the fallback.
+        assert.ok(GARRISON_UNLOCK_IDLE_MS < SECTOR_WAR_IDLE_TIMEOUT_MS);
+    });
+
+    it('is worth less than beating a real defender, but never nothing', () => {
+        const real = cappedSectorSwing(SWING_ANBU_V_VILLAGER, SECTOR_CONTROL_HP_MAX);
+        const garrison = garrisonSwing(SWING_ANBU_V_VILLAGER, SECTOR_CONTROL_HP_MAX);
+        assert.ok(garrison < real, 'live defence must stay the faster path');
+        assert.ok(garrison >= 1, 'a won assault always counts for something');
+        assert.equal(garrisonSwing(1, SECTOR_CONTROL_HP_MAX), 1, 'floors at 1, never a no-op');
+    });
+
+    it('respects the per-fight cap like any other swing', () => {
+        assert.ok(garrisonSwing(SWING_KAGE_V_KAGE, SECTOR_CONTROL_HP_MAX) <= CAP);
+    });
+
+    it('round-trips the live-battle stamp through storage', () => {
+        const fought = applySectorBattleResult(fresh(), true, { now: NOW + HOUR, swing: 5 }).session;
+        const n = normalizeSectorWarSession(JSON.parse(JSON.stringify(fought)));
+        assert.equal(n?.lastLiveBattleAt, NOW + HOUR);
     });
 });
 
