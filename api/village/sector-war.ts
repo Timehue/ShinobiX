@@ -4,7 +4,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
 import { isWarVillage } from '../_war-map-sectors.js';
 import { heldSectorsForVillage } from '../_war-held-sectors.js';
 import {
@@ -162,6 +162,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             default: return res.status(400).json({ error: 'Unknown action.' });
         }
     } catch (err) {
+        // Lock contention is an ORDINARY, retryable outcome here, not a fault: two
+        // attackers hitting the same sector, or one player retrying quickly, both
+        // land on the same contest lock. Every failClosed path in this file can
+        // raise it, so translate once — surfacing it as a 500 told the player the
+        // server was broken and gave them nothing to act on. Matches the
+        // convention in api/admin/legacy.ts.
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'That sector is busy right now — try again in a moment.' });
+        }
         console.error('[village/sector-war]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
@@ -488,8 +497,12 @@ async function doGarrison(req: VercelRequest, res: VercelResponse, identity: Ide
     if (!saveChar) return res.status(404).json({ error: 'Character not found.' });
     const sealed = sealTowerFighter(saveChar, save ?? null, saveChar, null);
 
-    // The garrison stands at the level of the sector it holds: the defending
-    // village's own strength, floored so a sector is never a free walk-over.
+    // The garrison is fielded at the ATTACKER's own level (floored), so a siege is
+    // always a fair fight: a high-level attacker can't farm an undefended low-level
+    // village's sectors trivially, and a low-level one isn't walled out of a sector
+    // held by veterans. Scaling to the defending village's roster would need a
+    // village→members index that doesn't exist, and would make the fallback swing
+    // wildly with who happens to be in the village.
     const garrisonLevel = Math.max(GARRISON_MIN_LEVEL, Math.floor(Number(saveChar.level) || GARRISON_MIN_LEVEL));
     const seed = (now ^ (sector * 2654435761)) >>> 0;
     const fight = resolveMercBattle({
