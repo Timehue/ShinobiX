@@ -151,6 +151,7 @@ const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen"
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
 const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
+const ClanWarPetBattle = lazyWithRetry(() => import("./screens/ClanWarPetBattle").then(m => ({ default: m.ClanWarPetBattle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
@@ -2257,9 +2258,12 @@ export default function App() {
             }
             case "pet1v1":
             case "pet2v2":
-                // PetArena reads sessionStorage on mount (Phase D) to
-                // configure the opponent + deterministic seed.
-                setScreen("petArena");
+                // SERVER-AUTHORITATIVE: both sides field a pet through
+                // /api/clan/war/pet, the server runs the deterministic duel and
+                // finalizes the challenge, and this screen replays it. Nothing is
+                // reported from the client — /api/clan/war/report refuses pet
+                // results outright.
+                setScreen("clanWarPet");
                 break;
             case "tilecards": {
                 // Chronicle Showdown joins idempotently from the battle screen. The
@@ -2456,6 +2460,7 @@ export default function App() {
     function isBattleFlowScreen(screenSnapshot: Screen = screenRef.current): boolean {
         return BATTLE_SCREENS.has(screenSnapshot)
             || screenSnapshot === "sectorPet"
+            || screenSnapshot === "clanWarPet"
             || isPresenceBattleActive(screenSnapshot);
     }
 
@@ -7173,6 +7178,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorCard" && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorPet" && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}

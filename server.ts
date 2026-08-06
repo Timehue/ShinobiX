@@ -178,6 +178,7 @@ import clanWarDeclareHandler   from './api/clan/war/declare.js';
 import clanWarChallengeHandler from './api/clan/war/challenge.js';
 import clanWarReportHandler    from './api/clan/war/report.js';
 import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
+import clanWarPetHandler from './api/clan/war/pet.js';
 // Card Clash — free-play PvP (open matchmaking + server-authoritative match)
 import cardClashQueueHandler   from './api/card-clash/queue.js';
 import cardClashMatchHandler   from './api/card-clash/match.js';
@@ -1215,6 +1216,10 @@ route('/clan/war/declare',   clanWarDeclareHandler);
 route('/clan/war/challenge', clanWarChallengeHandler);
 route('/clan/war/report',    clanWarReportHandler);
 route('/clan/war/tilecards', clanWarTilecardsHandler);
+// Server-authoritative clan-war PET battle: both sides field a pet, the server runs
+// the deterministic duel and finalizes the challenge. /clan/war/report refuses
+// client-reported pet results.
+route('/clan/war/pet', clanWarPetHandler);
 
 // ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
 route('/card-clash/queue', cardClashQueueHandler);

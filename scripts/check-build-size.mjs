@@ -205,7 +205,24 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // of measured variance. Startup remains inside the unchanged independent gates
 // at 1.36 MB raw / 362.7 KB gzip, and the 3D stack now has its own tighter raw,
 // gzip, and startup-isolation gates below.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_245_000;
+// 2026-08-06: 7.245 -> 7.265 MB. Clan-war pet modes (pet1v1 / pet2v2) became
+// SERVER-AUTHORITATIVE: they were the last client-reported clan-war outcome, and
+// the report path's 15-minute auto-confirm let one player finalize their own
+// claimed win unilaterally. The new screen fields a pet, polls, and replays the
+// duel the server already resolved. DRAINED FIRST, per the standing instruction
+// above: the new screen and the existing SectorWarPetBattle were the same screen
+// twice over, so the picker / submit / poll / replay shell moved into the shared
+// components/PetDuelReplayScreen and both became thin config wrappers — that gave
+// back 2,583 B of the 6,008 B the feature added (and fixed refresh-resume on the
+// sector duel, which used to strand a returning player on the picker). The
+// remaining 1,554 B is the endpoint client + config. The exact CI-equivalent
+// product graph is 7,246,554 B, leaving 18,446 B of measured variance — in line
+// with the ~18 KB the previous entry held. Startup gates are untouched and green
+// at 1.37 MB raw / 363.4 KB gzip.
+// The standing instruction still applies: drain a screen off the graph before
+// raising this again, and measure with the CI-equivalent build (VITE_SENTRY_DSN
+// set) rather than a bare `npm run build`, which under-reports.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_265_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -4,8 +4,8 @@ import { cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
-import { awardClanPointsToPlayerSave } from '../../_clan-points.js';
 import { awardWarEndClanXp } from './_war-xp.js';
+import { awardFinalizedWarPoints } from './_war-points.js';
 import type { PvpSession } from '../../pvp/session.js';
 import {
     applyFinalResult,
@@ -89,93 +89,6 @@ function playerOnFromSide(playerName: string, ch: { fromPlayer: string; fromPlay
         || (ch.fromPlayer2 ?? '').toLowerCase() === n;
 }
 
-function challengeParticipants(ch: ClanChallenge): string[] {
-    return [...new Set([
-        ch.fromPlayer,
-        ch.fromPlayer2,
-        ch.acceptedPlayer,
-        ch.acceptedPlayer2,
-    ].filter((name): name is string => typeof name === 'string' && name.trim().length > 0).map((name) => name.toLowerCase()))];
-}
-
-function challengeWinners(ch: ClanChallenge): string[] {
-    if (ch.result === 'from-wins') return [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[];
-    if (ch.result === 'to-wins') return [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[];
-    return [];
-}
-
-function challengeParticipantsForClan(war: ClanWar, ch: ClanChallenge, clan: string): string[] {
-    const defenderClan = war.clans.find(c => c !== ch.fromClan) ?? '';
-    if (ch.fromClan === clan) return [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[];
-    if (defenderClan === clan) return [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[];
-    return [];
-}
-
-type WarPointEvent = {
-    source: 'clanWarParticipation' | 'clanWarWin';
-    amount: number;
-    metadata: Record<string, unknown>;
-};
-
-function addWarPointEvent(events: Map<string, WarPointEvent[]>, player: string, event: WarPointEvent): void {
-    const key = player.toLowerCase();
-    if (!key) return;
-    events.set(key, [...(events.get(key) ?? []), event]);
-}
-
-async function applyWarPointEvents(player: string, events: WarPointEvent[]): Promise<Record<string, unknown> | undefined> {
-    let character: Record<string, unknown> | undefined;
-    for (const event of events) {
-        const award = await awardClanPointsToPlayerSave(player, event.source, event.amount, event.metadata);
-        if (award.found) character = award.character;
-    }
-    return character;
-}
-
-async function awardFinalizedWarPoints(body: Record<string, unknown>, actorName: string): Promise<Record<string, unknown> | undefined> {
-    if (body.tentative) return undefined;
-    const war = body.war as ClanWar | undefined;
-    const challenge = body.challenge as ClanChallenge | undefined;
-    if (!war || !challenge || challenge.status !== 'completed' || !challenge.result || challenge.result === 'draw') return undefined;
-
-    const events = new Map<string, WarPointEvent[]>();
-    for (const participant of challengeParticipants(challenge)) {
-        addWarPointEvent(events, participant, {
-            source: 'clanWarParticipation',
-            amount: 25,
-            metadata: { eventId: `war:${war.id}:${challenge.id}:participation:${participant}`, warId: war.id, challengeId: challenge.id },
-        });
-    }
-    for (const winner of challengeWinners(challenge)) {
-        addWarPointEvent(events, winner, {
-            source: 'clanWarWin',
-            amount: 25,
-            metadata: { eventId: `war:${war.id}:${challenge.id}:challenge-win:${winner}`, warId: war.id, challengeId: challenge.id },
-        });
-    }
-    if (body.warEnded && war.winnerClan) {
-        const warWinnerParticipants = new Set<string>();
-        for (const completed of war.completedChallenges ?? []) {
-            if (completed.status !== 'completed' || completed.result === 'draw') continue;
-            for (const player of challengeParticipantsForClan(war, completed, war.winnerClan)) {
-                warWinnerParticipants.add(player.toLowerCase());
-            }
-        }
-        for (const winner of warWinnerParticipants) {
-            addWarPointEvent(events, winner, {
-                source: 'clanWarWin',
-                amount: 75,
-                metadata: { eventId: `war:${war.id}:victory:${winner}`, warId: war.id, winnerClan: war.winnerClan },
-            });
-        }
-    }
-
-    const actorEvents = actorName ? events.get(actorName) : undefined;
-    const otherEntries = [...events.entries()].filter(([name]) => name !== actorName);
-    await Promise.allSettled(otherEntries.map(([name, playerEvents]) => applyWarPointEvents(name, playerEvents)));
-    return actorEvents ? await applyWarPointEvents(actorName, actorEvents) : undefined;
-}
-
 // applyFinalResult moved to _storage.ts so the tilecards endpoint
 // can share the same HP/MVP/cooldown logic. Clan-XP-on-settle lives in
 // ./_war-xp.ts (awardWarEndClanXp), shared with the tilecards finalize path.
@@ -219,6 +132,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const ch = war.pendingChallenges.find(c => c.id === challengeId);
             if (!ch) return { status: 404 as const, body: { error: 'Challenge not found or already completed.' } };
             if (ch.status !== 'accepted') return { status: 409 as const, body: { error: 'Challenge has not been accepted yet.' } };
+
+            // Pet modes are SERVER-RESOLVED (api/clan/war/pet.ts runs the same
+            // deterministic duel engine the client renders) and finalize themselves.
+            // A client-reported pet result is never accepted — this used to be the
+            // last client-trusted clan-war outcome, and the 15-minute auto-confirm
+            // let one player finalize their own claim unilaterally. Admin keeps the
+            // manual override for dispute resolution.
+            if (!identity.admin && (ch.mode === 'pet1v1' || ch.mode === 'pet2v2')) {
+                return { status: 409 as const, body: { error: 'Pet battles are settled by the server when both sides send their pets — there is nothing to report.' } };
+            }
 
             // Participant check (admin bypasses for both phases).
             if (!identity.admin && !isParticipant(identity.name, ch)) {
