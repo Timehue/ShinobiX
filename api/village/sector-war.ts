@@ -25,6 +25,7 @@ import {
     recordSectorWarBattleOutcome,
     canDeclareSectorWar,
     newSectorWarBattleToken,
+    sectorDeclareLockKey,
     isSectorWarActive,
     abandonSectorWar,
     isGarrisonAssaultable,
@@ -226,18 +227,30 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const out = await withKvLock(atkKey, async () => {
         const rec = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(atkKey)) ?? undefined);
         if (rec.warResources < cost) return { ok: false as const, cost };
-        const contestRes = await withKvLock(sectorWarKey(id), async () => {
-            const exist = await loadSectorWar(id);
-            if (exist && !exist.flipped) return { created: false as const, session: exist };
+        // Lock the SECTOR, not the contest id — see sectorDeclareLockKey. Re-check
+        // for a live contest INSIDE it, so a rival village that opened one since our
+        // pre-check is seen rather than double-opened alongside.
+        const contestRes = await withKvLock(sectorDeclareLockKey(sector), async () => {
+            const live = await activeContestOnSector(sector);
+            if (live) {
+                return live.attackerVillage === village
+                    ? { created: false as const, session: live }          // our own — idempotent re-declare
+                    : { created: false as const, session: live, taken: true as const };
+            }
             const s = newSectorWarSession({ sector, attackerVillage: village, defenderVillage: defender, winCondition, now: Date.now(), controlHpMax });
             await saveSectorWar(s);
             return { created: true as const, session: s };
         }, { failClosed: true });
+        if (!contestRes.created && contestRes.taken) return { ok: false as const, taken: true as const, cost: 0 };
         if (!contestRes.created) return { ok: true as const, cost: 0, contest: contestRes.session, alreadyOpen: true };
         await kv.set(atkKey, { ...rec, warResources: rec.warResources - cost });
         return { ok: true as const, cost, contest: contestRes.session, alreadyOpen: false };
     }, { failClosed: true });
 
+    if (!out.ok && out.taken) {
+        // A rival village won the race for this sector inside the lock. No WR was spent.
+        return res.status(409).json({ error: declineMessage('already-contested') });
+    }
     if (!out.ok) return res.status(400).json({ error: `Declaring this sector war costs ${out.cost} War Resources.` });
     // Telemetry (best-effort): the WR actually spent declaring (0 when re-opening an
     // already-active contest, so no event). Never blocks the declare.

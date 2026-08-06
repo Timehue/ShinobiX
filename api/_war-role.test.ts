@@ -31,3 +31,29 @@ describe('war-role: sectorControlSwing = winner.win + loser.loss', () => {
         assert.equal(sectorControlSwing(ROLE_VILLAGER, ROLE_VILLAGER, 0), 1);    // floored to >= 1
     });
 });
+
+// The seat is read from the AUTHORITATIVE `village:kage:<slug>` row. It used to be
+// taken from the `game:village-state:<slug>` MIRROR, which only refreshes on a
+// validated villageState write — so a genuinely seated Kage fought at VILLAGER
+// weight (5, not 30) until some member's next save rehydrated it. Confirmed live
+// on a real seated Kage before the fix. The two keys slug differently, which is
+// what made the bug easy to miss: dashes here, punctuation stripped there.
+describe('war-role: the Kage seat key', () => {
+    it('hyphenates spaces, matching every other Kage power', () => {
+        // api/village/_kage-settle.ts kageKey + world-state.ts isSeatedKageOf.
+        const expected = 'village:kage:ashen-leaf-village';
+        assert.equal(`village:kage:${'Ashen Leaf Village'.toLowerCase().replace(/\s+/g, '-')}`, expected);
+    });
+
+    it('is NOT the village-state slug, which strips punctuation entirely', () => {
+        const seat = `village:kage:${'Ashen Leaf Village'.toLowerCase().replace(/\s+/g, '-')}`;
+        const mirror = `game:village-state:${'Ashen Leaf Village'.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        assert.notEqual(seat, mirror);
+        assert.equal(mirror, 'game:village-state:ashenleafvillage');
+    });
+
+    it('a Kage swing is worth 6x a villager, which is what the bug silently cost', () => {
+        assert.equal(sectorControlSwing(ROLE_KAGE, ROLE_VILLAGER), 30);
+        assert.equal(sectorControlSwing(ROLE_VILLAGER, ROLE_VILLAGER), 5);
+    });
+});

@@ -24,6 +24,7 @@ import {
     isGarrisonAssaultable,
     garrisonSwing,
     GARRISON_UNLOCK_IDLE_MS,
+    sectorDeclareLockKey,
     type SectorWarSession,
 } from './_sector-war.js';
 import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_MAX_SWING_FRACTION, SECTOR_CONTROL_HP_ABSOLUTE_MAX } from './_war-state.js';
@@ -508,5 +509,33 @@ describe('sector-war: applyContestBattleByWinner (Card by-side mapping)', () => 
     });
     it('a draw leaves Control HP untouched (null outcome)', () => {
         assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW, swing: SWING_KAGE_V_KAGE }), null);
+    });
+});
+
+describe('sector-war: the declare lock is SECTOR-scoped, not contest-scoped', () => {
+    it('gives every would-be attacker on a sector the SAME lock key', () => {
+        // A contest id embeds the attacker (`<sector>:<attacker>-vs-<defender>`), so
+        // locking on it let two villages declare on one sector concurrently — each
+        // took a different lock and both passed the one-contest-per-sector pre-check.
+        const a = sectorWarKey(sectorWarId(26, 'Moonshadow Village', 'Frostfang Village'));
+        const b = sectorWarKey(sectorWarId(26, 'Stormveil Village', 'Frostfang Village'));
+        assert.notEqual(a, b, 'contest keys differ per attacker — the original race');
+        assert.equal(
+            sectorDeclareLockKey(26),
+            sectorDeclareLockKey(26),
+            'the declare lock is the same for every attacker on that sector',
+        );
+    });
+
+    it('keeps different sectors independent, so sieges do not serialise globally', () => {
+        assert.notEqual(sectorDeclareLockKey(26), sectorDeclareLockKey(27));
+    });
+
+    it('does not collide with the contest record key', () => {
+        assert.notEqual(sectorDeclareLockKey(26), sectorWarKey(sectorWarId(26, 'A Village', 'B Village')));
+    });
+
+    it('clamps a nonsense sector rather than minting a stray lock scope', () => {
+        assert.equal(sectorDeclareLockKey(-5), sectorDeclareLockKey(1));
     });
 });
