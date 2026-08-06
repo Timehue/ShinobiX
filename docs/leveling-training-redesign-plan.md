@@ -555,8 +555,12 @@ real recommendation.
 - Anti-cheat pattern to copy: `docs/auth-and-anti-cheat-patterns.md`;
   `expedition-start`/`report-pet-event`, `raid-start`/`report-raid`.
 
-**External reference model:**
-- `app/src/libs/train.ts` — tier efficiency/multiplier, energy.
-- `app/src/server/api/routers/train.ts` — the `stopTraining` mutation.
-- `app/src/libs/profile.ts` — level curve, caps, pools, soft-cap.
-- `app/drizzle/constants.ts` — `USER_CAPS`, `MAX_STATS_CAP`, tier list, daily cap.
+**External reference model** (capability shapes only — a third-party game was read
+for how these systems tend to be structured; no code, schema, formula, content or
+file layout from it is reproduced here):
+- Training tiers carry an efficiency/speed multiplier and consume an energy pool.
+- Stopping training is a discrete server action, not a client-side timer readout.
+- The profile layer owns the level curve, per-stat caps, resource pools and a
+  soft-cap above which gains taper.
+- Global caps (a per-stat ceiling, a total-stat ceiling, the tier list and a daily
+  cap) live in one shared constants module rather than at each call site.

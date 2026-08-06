@@ -8,7 +8,7 @@ Certified code SHA: `35db1c78f443fa8c6b22a86f35916523d9623c2f`
 
 Starting ShinobiX SHA: `5c699ccf0eca7837494a64a8fd96df41bd101439`
 
-Read-only the third-party reference reference SHA: `(reference removed)`
+Read-only third-party shinobi RPG reference SHA: `(reference removed)`
 
 The starting task worktree was clean. Concurrent adaptive-shell and pet-arena
 changes appeared later in the shared desktop workspace; none of those files was
