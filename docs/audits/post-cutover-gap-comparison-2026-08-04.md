@@ -3,7 +3,7 @@
 Date: 2026-08-04
 ShinobiX baseline: `b815be4fe0088735df444fd7a1464c5e0c3bfa48`
 ShinobiX comparison point: `4b53964abf13fe5a1a792d1d3b5871d0d1e5fb27`
-the third-party reference reference: `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`
+Third-party shinobi RPG reference: `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`
 
 The reference SHA was fetched from `origin/main` immediately before this pass.
 This is a capability comparison only. No reference implementation, formula,
@@ -11,14 +11,12 @@ schema, content, asset, or writing was copied.
 
 ## Source evidence
 
-the third-party reference's central server combat is visible in
-`app/src/server/api/routers/combat.ts`, `app/src/libs/combat/actions.ts`, and
-`app/src/libs/combat/process.ts`. Its data-driven AI schema/executor are in
-`app/src/validators/ai.ts` and `app/src/libs/combat/ai_v2.ts`. Ranked rules,
-raids, clans/villages/Kage, world sectors, and persistent battle records are
-represented by `app/src/libs/ranked_pvp.ts`,
-`app/src/server/api/routers/raids.ts`, the clan/village/Kage routers, and
-`app/drizzle/schema.ts`.
+The reference resolves combat centrally on its server through a single unified
+combat model, and drives enemy behavior from a data-defined AI schema with its
+own executor rather than from per-encounter code. It also carries ranked rules,
+raids, clans/villages/leadership, world sectors, and persistent battle records.
+Only those capability shapes were noted; the reference's file layout, code,
+schemas, formulas, content, and writing are deliberately not reproduced here.
 
 ShinobiX evidence is the executable runtime inventory plus the referenced
 files in the table below. “Implemented but unverified” means real code and tests

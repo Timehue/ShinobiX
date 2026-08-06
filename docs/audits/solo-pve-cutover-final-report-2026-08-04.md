@@ -23,7 +23,7 @@ containing this report is supplied by `git rev-parse HEAD` in the Codex handoff.
 A Git commit cannot embed its own content-derived object ID in a tracked file,
 so the handoff SHA, not the comparison SHA above, is the final branch tip.
 
-## 3. Reference the third-party reference SHA
+## 3. Third-party shinobi RPG reference SHA
 
 `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`, fetched from the reference
 repository's `origin/main` immediately before the comparison. The review used
