@@ -15,10 +15,11 @@ import { withKvLock } from './_lock.js';
 import { safeName } from './_utils.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_MERC } from './_war-role.js';
-import { sectorWarKey, applySectorBattleResult } from './_sector-war.js';
-import { loadSectorWar, saveSectorWar, deleteSectorWar, listActiveSectorWars } from './_sector-war-store.js';
+import { defenderPointsMultiplier } from './_war-structures.js';
+import { sectorWarKey, applySectorWarBattle, recordSectorWarBattleOutcome } from './_sector-war.js';
+import { loadSectorWar, saveSectorWar, listActiveSectorWars } from './_sector-war-store.js';
 import { sectorWarDamageMultiplier } from './_war-structures.js';
-import { captureSectorForVillage, applyMercVillageWarDamage, listActiveVillageWars } from './world-state.js';
+import { applyMercVillageWarDamage, listActiveVillageWars } from './world-state.js';
 import { sealTowerFighter } from './towers/_seal.js';
 import { resolveMercBattle, type MercBattleResult } from './towers/_merc-fighters.js';
 import { claimMercFromBand } from './_war-merc.js';
@@ -30,8 +31,8 @@ import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 
 export interface MercDeployResult {
     winner: 'merc' | 'player' | 'stall';
-    captured: boolean;
-    controlHp: number;
+    attackerPoints: number;
+    defenderPoints: number;
     mercsRemaining: number;
 }
 
@@ -99,38 +100,52 @@ export async function deployOneMerc(args: {
     if (!resolved) return null;
     const { battle, mercsRemaining } = resolved;
 
-    // Apply to the contest Control HP under its lock.
-    let captured = false;
-    let controlHp = 0;
+    // Score the war under its lock. A merc win adds attacker points at villager
+    // weight; the defending PLAYER's rank sets the rest of the kill value — a Kage
+    // who falls to a merc is a full bounty, a Kage who repels one scores more
+    // (at the reduced merc-repel fraction; §17.6). Sectors never flip mid-war —
+    // settlement compares the tallies when the 72 hours close.
+    let attackerPoints = 0;
+    let defenderPoints = 0;
     if (battle.mercWon || battle.playerWon) {
-        // The merc fights as a villager; the defending PLAYER's rank sets the rest of
-        // the swing — a Kage who repels a merc heals more, a Kage who falls to one
-        // loses more (§17.6). Player win regens at the reduced merc fraction.
         const playerRole = await sectorWarRoleOf(args.targetPlayer);
         const result = await withKvLock(sectorWarKey(args.contestId), async () => {
             const live = await loadSectorWar(args.contestId);
-            if (!live || live.flipped) return { captured: false, controlHp: 0 };
-            const atkRecord = normalizeVillageWarRecord(args.village, (await kv.get<Record<string, unknown>>(villageWarKey(args.village))) ?? undefined);
-            const academyMult = sectorWarDamageMultiplier(atkRecord);
-            const swing = battle.mercWon
-                ? sectorControlSwing(ROLE_MERC, playerRole, academyMult)
-                : sectorControlSwing(playerRole, ROLE_MERC, academyMult);
-            const outcome = applySectorBattleResult(live, battle.mercWon, { now: args.now, swing, mercBattle: true });
-            if (outcome.captured) {
-                await captureSectorForVillage(live.sector, args.village, args.now);
-                await deleteSectorWar(live.id);
-            } else {
-                await saveSectorWar(outcome.session);
-            }
-            return { captured: outcome.captured, controlHp: outcome.session.controlHp };
+            if (!live) return null;
+            const [atkRaw, defRaw] = await Promise.all([
+                kv.get<Record<string, unknown>>(villageWarKey(args.village)),
+                kv.get<Record<string, unknown>>(villageWarKey(live.defenderVillage)),
+            ]);
+            const atkRecord = normalizeVillageWarRecord(args.village, atkRaw ?? undefined);
+            const defRecord = normalizeVillageWarRecord(live.defenderVillage, defRaw ?? undefined);
+            const roleSwing = battle.mercWon
+                ? sectorControlSwing(ROLE_MERC, playerRole)
+                : sectorControlSwing(playerRole, ROLE_MERC);
+            const outcome = applySectorWarBattle(live, battle.mercWon, {
+                now: args.now,
+                roleSwing,
+                attackerMult: sectorWarDamageMultiplier(atkRecord),
+                defenderMult: defenderPointsMultiplier(defRecord),
+                // A merc kill is the band's, not a player's (exempt from the player
+                // cap — bounded by the WR economy); a repel is the defender's.
+                by: battle.mercWon ? '' : args.targetPlayer,
+                mercBattle: true,
+            });
+            const recorded = recordSectorWarBattleOutcome(outcome, {
+                battleId: `merc:${args.contestId}:${args.now}`,
+                attackerWon: battle.mercWon,
+                by: battle.mercWon ? '' : args.targetPlayer,
+                at: args.now,
+            });
+            await saveSectorWar(recorded.session);
+            return { attackerPoints: recorded.session.attackerPoints, defenderPoints: recorded.session.defenderPoints };
         }, { failClosed: true });
-        captured = result.captured;
-        controlHp = result.controlHp;
-        if (captured) {
-            void recordWarEcoEvent({ eventId: `merc-capture:${args.contestId}:${args.now}`, village: args.village, kind: 'sector.capture', amount: 1, meta: `sector:${args.sector}` });
+        if (result) {
+            attackerPoints = result.attackerPoints;
+            defenderPoints = result.defenderPoints;
         }
     }
-    return { winner: battle.winner, captured, controlHp, mercsRemaining };
+    return { winner: battle.winner, attackerPoints, defenderPoints, mercsRemaining };
 }
 
 // Per-win damage a merc lands on the ENEMY village's war HP in a village war.

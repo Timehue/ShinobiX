@@ -24,8 +24,9 @@ export interface MercEngageResult {
     ok?: boolean;
     context?: "sector" | "village";
     winner?: "merc" | "player" | "stall";
-    captured?: boolean;
-    controlHp?: number;
+    /** Sector context: the war's kill-point tallies after this engagement. */
+    attackerPoints?: number;
+    defenderPoints?: number;
     enemyWarHp?: number | null;
     mercsRemaining?: number;
     error?: string;

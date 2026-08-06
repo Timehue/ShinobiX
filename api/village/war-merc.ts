@@ -155,5 +155,5 @@ async function doMercAttack(req: VercelRequest, res: VercelResponse, identity: I
     // same path the autonomous tick uses. Null = the caller's band is spent.
     const r = await deployOneMerc({ village, tierId, hirer: playerName, sector, targetPlayer, contestId: contest.id, mercLevel: tier.level, now });
     if (!r) return res.status(409).json({ error: 'You have no active mercenary band of that tier to deploy.' });
-    return res.status(200).json({ ok: true, winner: r.winner, captured: r.captured, controlHp: r.controlHp, mercsRemaining: r.mercsRemaining });
+    return res.status(200).json({ ok: true, winner: r.winner, attackerPoints: r.attackerPoints, defenderPoints: r.defenderPoints, mercsRemaining: r.mercsRemaining });
 }

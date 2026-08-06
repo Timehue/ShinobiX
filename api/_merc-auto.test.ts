@@ -30,7 +30,7 @@ test('runMercAutoDeploy skips card/flipped sieges + empty village wars (nothing 
         listVillageWars: async () => [],
         onlineNames: () => [],
         onlineAll: () => [],
-        deploy: async () => { sectorDeploys++; return { winner: 'merc', captured: false, controlHp: 100, mercsRemaining: 1 }; },
+        deploy: async () => { sectorDeploys++; return { winner: 'merc', attackerPoints: 5, defenderPoints: 0, mercsRemaining: 1 }; },
         deployVillage: async () => { villageDeploys++; return { winner: 'merc', enemyWarHp: 100, mercsRemaining: 1 }; },
     });
     assert.equal(r.enabled, true);

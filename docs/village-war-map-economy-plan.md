@@ -923,48 +923,31 @@ fighter from a level + archetype — here it's a squad of them). Rules:
   battle difficulty/terrain.
 
 ### 17.6 Sector Control HP — how a sector war actually resolves (owner ask)
-A sector war isn't a single battle — each sector has its own **Control HP** bar (its
-defensive health), and the attacker grinds it down through repeated **win‑condition
-battles** until it breaks and flips. Sized to be **short** vs the village war's 5,000 HP:
+A sector war is a fixed **72-hour scored war** for one sector *(reworked
+2026‑08‑06, owner decision — replaces the Control‑HP count‑down siege)*. Both
+sides' **kill tallies count UP** for the whole window; when the clock runs out
+the higher tally takes the sector:
 
-- **Control HP default 100** per sector (`SECTOR_CONTROL_HP_MAX`, tunable; Watchtower
-  raises it). *Updated 2026‑08‑06 — see the note below.*
-- A won battle of the sector's type deals a **role‑scaled swing**, not a flat chunk:
-  `winner.win + loser.loss` from the rank ladder (`api/_war-role.ts`, mirroring the
-  village‑war table — Kage 30/−50, Elder 20/−20, ANBU 15/−0, villager 5/−0), boosted by
-  the attacker's War Academy. A **defender win holds the line** — no loss, plus a regen of
-  **half the swing** so an active defense outlasts a half‑hearted siege.
-- **No single fight may move more than 20%** of the bar
-  (`SECTOR_CONTROL_MAX_SWING_FRACTION`), so a siege is always at least **5 fights**.
-- Resulting cost to take one sector: **20 wins** for rank‑and‑file (~28 fights at a
-  realistic 80% win rate), **7** for ANBU, **5** where leadership fights. Rank matters
-  enormously; nobody flips a sector in one duel.
-
-- **Conquest pacing brakes (2026‑08‑06):** a village may be ATTACKING at most
-  **2 sectors at once** (`MAX_ACTIVE_ATTACK_SIEGES`), and a **failed** siege
-  (idle‑lapsed or called off — not a capture) puts that sector on a **24h
-  re‑siege cooldown** for that attacker (`SECTOR_RESIEGE_COOLDOWN_SEC`; the
-  stamped terminal record's TTL is the clock). Without these, a banked 5,000‑WR
-  pool could open sieges on all 8 enemy home sectors at once and garrison‑grind
-  a village off the map in a single overnight; full conquest is now a campaign
-  of at least 4 sequential waves that the defence can wake up to.
-
-> **Tuning note (2026‑08‑06).** The original flat model above (600 HP, ~150/win, ~4 wins)
-> was replaced by the role ladder, but the bar was left at 2,000 — so a villager beating a
-> villager swung 5 and a sector cost **400 straight wins** (~550 at an 80% win rate), and a
-> full‑tier mercenary band moved it 1.25%. The bar was rescaled to 100 and the per‑fight
-> cap added. Sessions and record cells persisted under the old bar clamp down on read
-> (`normalizeSectorWarSession` / `normalizeVillageWarRecord`), so live sieges migrate
-> rather than stranding.
-- At **0 HP the sector flips to the attacker and resets to full** under the new owner (it
-  must then be defended afresh). **Lose the sector war and the sector is the winner's and
-  stays the winner's** — captures persist (owner ruling, §17.1).
-- Both **live players and hired merc squads** (Combat sectors) deal Control‑HP damage on
-  wins; **terrain + defender home advantage** make each attacker win harder to get.
-- The bar is the siege‑progress UI, gives defenders a window to rally, and makes "shorter
-  than a village war" concrete (~4 battles, not a 14‑day HP grind). It is **separate** from
-  the village‑war 5,000‑HP pool and the war‑ground's 1,000 HP — a sector at full Control HP
-  simply reads "secure."
+- **Duration 72h** (`SECTOR_WAR_DURATION_MS`), visible to both sides from the
+  declare. Battles after the whistle score nothing; settlement runs lazily from
+  the war‑map status poll (seconds) with the daily pass as backstop.
+- **Points = role‑weighted kills**: `winner.win + loser.loss` from the rank
+  ladder, **uncapped per fight** — a villager felling the enemy Kage scores the
+  full 55; leadership kills are bounties and fielding leadership is a risk. The
+  attacker's **War Academy** multiplies attacker points, the defender's
+  **Watchtower** multiplies defender points (both +1.5%/level).
+- **Attacker strictly ahead → the sector flips** (`captureSectorForVillage`).
+  **Defender ahead OR TIED → the defence holds** — holding ground beats
+  matching it. An abandoned war is a concession regardless of score.
+- **Anti‑farm caps:** one player may score at most
+  `SECTOR_WAR_PLAYER_POINTS_CAP` (200) per war — breadth beats one farmed
+  matchup; the **garrison** yields half‑weight points up to
+  `GARRISON_POINTS_CAP` (50) per war — enough that an absent defence loses,
+  never enough to outrun one that shows up. Repelling a merc scores ×0.25.
+- Both **live players and hired merc squads** (Combat sectors) score on wins;
+  **terrain + defender home advantage** make each attacker win harder to get.
+- Conquest pacing brakes (2 concurrent attacks, 24h re‑siege cooldown on a
+  failed war) apply unchanged.
 
 *(Reuse note: this mirrors the existing `warGroundHp` pattern (`api/world-state.ts`) but
 applied per home sector, with damage driven by win‑condition battle outcomes instead of raw
