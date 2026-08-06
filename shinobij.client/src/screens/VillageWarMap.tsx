@@ -7,6 +7,7 @@ import { visiblePoll } from "../lib/poll";
 import {
     fetchWarMap,
     declareSectorWar,
+    abandonSectorWar,
     setSectorWinCondition,
     setSectorTerrain,
     upgradeWarStructure,
@@ -303,6 +304,16 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             {canDeclare && (
                                                 <button className="vwm-declare" disabled={!!busy} onClick={() => act(`dec-${sec.sector}`, () => declareSectorWar(character.name, myVillage, sec.sector))}>
                                                     Declare War
+                                                </button>
+                                            )}
+                                            {contest && isKage && contest.attackerVillage === myVillage && (
+                                                <button
+                                                    className="vwm-declare"
+                                                    disabled={!!busy}
+                                                    title="End this siege. The War Resources you spent declaring are not refunded."
+                                                    onClick={() => act(`aband-${sec.sector}`, () => abandonSectorWar(character.name, sec.sector))}
+                                                >
+                                                    Call Off Siege
                                                 </button>
                                             )}
                                             {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (

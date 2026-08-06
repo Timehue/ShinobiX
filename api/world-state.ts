@@ -18,6 +18,7 @@ import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
 import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
 import { heldSectorsForVillage } from './_war-held-sectors.js';
+import { activeSectorWarsForVillage } from './_sector-war-store.js';
 import {
     validateWarBattle,
     warBattleDeclineMessage,
@@ -1055,6 +1056,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 for (const v of war.villages) {
                                     if (await villageHasActiveWar(v)) {
                                         return { status: 409 as const, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
+                                    }
+                                }
+                                // 3b. Village war and sector wars are MUTUALLY EXCLUSIVE
+                                //     (§17.6). canDeclareSectorWar already blocks a sector
+                                //     war while a village war runs; this is the other
+                                //     direction, which was missing — a Kage could open a
+                                //     village war on top of live sieges. The attacking Kage
+                                //     can clear their own with the sector-war `abandon`
+                                //     action, and an idle siege lapses on its own.
+                                if (villageWarEnabled()) {
+                                    for (const v of war.villages) {
+                                        const sieges = await activeSectorWarsForVillage(v);
+                                        if (sieges.length) {
+                                            return { status: 409 as const, body: { error: `${v} has ${sieges.length} active sector war${sieges.length === 1 ? '' : 's'}. Sector wars and a village war cannot run at the same time — finish or call them off first.` } };
+                                        }
                                     }
                                 }
                                 // 4. Cost. Village War Map (enabled): fund the
