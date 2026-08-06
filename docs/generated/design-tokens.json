@@ -2255,7 +2255,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 349
+            "line": 292
           }
         ]
       },
@@ -2357,6 +2357,10 @@
         "valuePx": 559,
         "occurrences": [
           {
+            "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
+            "line": 64
+          },
+          {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
             "line": 315
           },
@@ -2385,7 +2389,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 304
+            "line": 249
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -2825,6 +2829,17 @@
       {
         "direction": "min",
         "axis": "width",
+        "valuePx": 800,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 5379
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
         "valuePx": 801,
         "occurrences": [
           {
@@ -2977,6 +2992,14 @@
         "valuePx": 979,
         "occurrences": [
           {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 5098
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 5379
+          },
+          {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
             "line": 453
           },
@@ -3003,6 +3026,10 @@
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
             "line": 959
+          },
+          {
+            "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
+            "line": 58
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
