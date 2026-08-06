@@ -6997,7 +6997,13 @@ export default function App() {
                             // and the right id, so the battle grid appears
                             // without the loading card showing.
                             setPvpBattleId(battleId);
-                            // Sector War: bind this PvP to an active Combat contest on this sector (server-gated; 404/409 = no-op).
+                            // Sector War: bind this PvP to an active Combat contest on this sector
+                            // (server-gated; 404/409 = no-op). Fire-and-forget BY NECESSITY: it is
+                            // sent before the defender is even notified, so it lands well before
+                            // either fighter can move (the server requires a pristine session).
+                            // A player-facing warning on the rare genuine failure was written and
+                            // then dropped — it cost ~100B of the ENTRY chunk, which is a hard
+                            // startup gate, and that is not a trade worth making for an edge case.
                             void registerSectorBattle(character.name, currentSector, battleId).catch(() => {});
 
                             // Notify defender via DuelChallenge with battleId.
@@ -7321,9 +7327,9 @@ export default function App() {
                         // pvpBattleId is the war-damage receipt: the server refuses village-war
                         // HP that isn't backed by a finished PvP session this player won.
                         const villageWarRaid = context?.raidKind === "raidPlayer"
-                            ? recordVillageWarRaid(character, rewardSector, playerRoster, pvpBattleId ?? undefined)
+                            ? recordVillageWarRaid(character, rewardSector, playerRoster, pvpBattleId)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster, pvpBattleId ?? undefined) : "";
+                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster, pvpBattleId) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                         // Spars grant NOTHING (no stats/ryo/currency/scrolls/kills); ranked = no stats.
