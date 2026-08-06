@@ -15,6 +15,8 @@
 
 import {
     SECTOR_CONTROL_HP_MAX,
+    SECTOR_CONTROL_HP_ABSOLUTE_MAX,
+    SECTOR_CONTROL_MAX_SWING_FRACTION,
     WIN_CONDITIONS,
     type WinCondition,
 } from './_war-state.js';
@@ -106,7 +108,7 @@ export function newSectorWarSession(args: {
 export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): SectorWarSession | null {
     if (!raw || typeof raw !== 'object') return null;
     if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage) return null;
-    const max = clampInt(raw.controlHpMax ?? SECTOR_CONTROL_HP_MAX, 1, SECTOR_CONTROL_HP_MAX * 4);
+    const max = clampInt(raw.controlHpMax ?? SECTOR_CONTROL_HP_MAX, 1, SECTOR_CONTROL_HP_ABSOLUTE_MAX);
     const appliedBattles = Array.isArray(raw.appliedBattles)
         ? raw.appliedBattles.filter((entry): entry is SectorWarBattleReceipt => !!entry && typeof entry.battleId === 'string')
             .slice(0, SECTOR_WAR_BATTLE_RECEIPT_CAP)
@@ -162,11 +164,31 @@ export function recordSectorWarBattleOutcome(
 }
 
 // A defender WIN heals the sector's hold by this fraction of the fight's role
-// swing — half, so defending genuinely slows a siege but the attacker keeps the
-// initiative and wars still resolve in a day or two (§17.6). A repelled AI
-// MERCENARY heals only MERC_DEFENDER_REGEN_FRACTION (a lower-stakes attack).
+// swing — HALF, so trading wins 1:1 still nets the attacker ground and a siege
+// always converges, while an active defense roughly doubles what it costs (§17.6).
+// A repelled AI MERCENARY heals only MERC_DEFENDER_REGEN_FRACTION (a lower-stakes
+// attack). With the 2026-08-06 bar of 100, rank-and-file take a sector in 20 wins
+// (~28 fights at an 80% win rate) — see SECTOR_CONTROL_HP_MAX for the full table.
 export const DEFENDER_HEAL_FRACTION = 0.5;
 export const MERC_DEFENDER_REGEN_FRACTION = 0.25;
+
+/**
+ * Clamp one fight's role-scaled swing to SECTOR_CONTROL_MAX_SWING_FRACTION of the
+ * sector's bar, so the top of the role ladder stays decisive without letting a
+ * single duel end a siege. A Kage felling a Kage swings 80 raw against a 100-HP
+ * sector; capped at 20 it still takes a sector 4× faster than rank-and-file do,
+ * but the siege is always at least 5 fights.
+ *
+ * The floor of 1 is kept from the uncapped path: a resolved fight is never a
+ * no-op, however lopsided the ranks. Pure.
+ */
+export function cappedSectorSwing(rawSwing: number, controlHpMax: number): number {
+    const swing = Math.max(0, Math.floor(Number(rawSwing) || 0));
+    if (swing <= 0) return 0;
+    const max = Math.max(1, Math.floor(Number(controlHpMax) || 0));
+    const cap = Math.max(1, Math.floor(max * SECTOR_CONTROL_MAX_SWING_FRACTION));
+    return Math.min(swing, cap);
+}
 
 /** Apply one resolved win-condition battle to a sector-war session (§17.6).
  *  Attacker win → −`swing` Control HP (flip + freeze at 0). Defender win → HEAL the
@@ -183,7 +205,7 @@ export function applySectorBattleResult(
     if (session.flipped) {
         return { session, captured: false, hpDealt: 0, hpRegen: 0 };
     }
-    const swing = Math.max(0, Math.floor(Number(opts.swing) || 0));
+    const swing = cappedSectorSwing(opts.swing, session.controlHpMax);
     const next: SectorWarSession = { ...session, updatedAt: opts.now };
     if (attackerWon) {
         const before = next.controlHp;

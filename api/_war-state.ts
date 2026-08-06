@@ -41,15 +41,37 @@ export const STRUCTURE_KEYS: readonly StructureKey[] = [
 export type Terrain = 'forest' | 'snow' | 'volcano' | 'shadow' | 'central';
 export const TERRAINS: readonly Terrain[] = ['forest', 'snow', 'volcano', 'shadow', 'central'];
 
-// §17.6 — a sector's hold. Sized as a "shorter village war": at a village-wide
-// ~20-30 fights/hour it takes a day or two of sustained pressure to drain a fully
-// held sector, since each fight only moves it by a role-scaled swing (api/_war-role
-// sectorControlSwing) — NOT a flat chunk. Watchtower raises this cap.
-export const SECTOR_CONTROL_HP_MAX = 2000;
-// Legacy flat tuning — retained for back-compat/imports; the live model is the
-// role-scaled swing (api/_war-role) applied by each win-condition resolve.
-export const SECTOR_CONTROL_HP_PER_WIN = 150;
-export const SECTOR_CONTROL_HP_DEFENDER_REGEN = 50;
+// §17.6 — a sector's hold. Each fight moves it by a ROLE-SCALED swing
+// (api/_war-role sectorControlSwing = winner.win + loser.loss), NOT a flat chunk.
+//
+// TUNING (2026-08-06). This was 2000 while a villager beating a villager swings 5
+// — 400 straight wins to take one sector, and ~550 at a realistic 80% win rate.
+// That number came from an earlier model where a win was a flat 150 chunk of a
+// 600 bar (~4 wins); when the flat chunk was replaced by the role ladder the bar
+// was never rescaled, so the pacing was off by two orders of magnitude and a
+// full-tier mercenary band moved a sector by 1.25%.
+//
+// At 100, with the per-fight cap below, a sector costs:
+//     villager beats villager   swing  5  → 20 wins (~28 fights at an 80% win rate)
+//     ANBU beats villager       swing 15  →  7 wins
+//     Elder / Kage vs villager  swing 20* →  5 wins
+//     any fight involving a Kage swing 20* →  5 wins
+//   (* capped — see SECTOR_CONTROL_MAX_SWING_FRACTION)
+// So rank still matters enormously (leadership takes a sector 4× faster) but no
+// single fight can ever end a siege, and a sector is a session's work rather
+// than a month's. Watchtower raises this cap.
+export const SECTOR_CONTROL_HP_MAX = 100;
+
+/** No single resolved fight may move a sector's Control HP by more than this
+ *  fraction of its bar. Guarantees a siege is always at least 5 fights, so the
+ *  top of the role ladder (a Kage felling a Kage swings 80 raw) stays decisive
+ *  without letting one duel flip a sector outright. */
+export const SECTOR_CONTROL_MAX_SWING_FRACTION = 0.2;
+
+/** Hard ceiling on a stored `controlHpMax`, so a session written under an older,
+ *  much larger bar migrates down instead of keeping a stale multi-thousand hold.
+ *  Sized above the maximum Watchtower boost (+15%) with room for future tuning. */
+export const SECTOR_CONTROL_HP_ABSOLUTE_MAX = Math.round(SECTOR_CONTROL_HP_MAX * 1.5);
 
 export interface SectorWarState {
     winCondition: WinCondition;   // defender's chosen contest type
