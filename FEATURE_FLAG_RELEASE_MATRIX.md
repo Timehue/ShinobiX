@@ -1,6 +1,6 @@
 # Feature Flag Release Matrix
 
-Updated: August 4, 2026
+Updated: August 5, 2026
 
 | System | Launch State | Reason | Risk | Required Before Enable |
 | --- | --- | --- | --- | --- |
@@ -12,6 +12,7 @@ Updated: August 4, 2026
 | Endless Tower | Enable with warning | Repeatable PvE goal with server-owned actions, recovery, and settlement. | Medium | Monitor reward pacing and long sessions. |
 | Clan Hall | Enable with warning | Useful social loop. | Medium | Admin support for clan disputes. |
 | Clan Boss | Enabled by default/admin monitored | `server.ts` force-sets `ENABLE_CLAN_BOSS=1` unless `DISABLE_CLAN_BOSS=1`. | High | Storage/reward receipt review and staff coverage; `DISABLE_CLAN_BOSS=1` kill switch ready. |
+| Clan Boss Operations | Enabled with Clan Boss/admin monitored | Server-owned 1–4 player clan parties seal legal loadouts into the existing N-actor Tower encounter; `DISABLE_CLAN_BOSS_PARTIES=1` preserves the legacy solo-compatible assault path. | High | Stage create/invite/ready/start/reconnect/settle/retry; review queue and AFK aggregates; keep the party kill switch ready. |
 | Weekly Boss | Monitor | Server-owned Solo score attack; contribution is derived from the authoritative boss-HP delta. Legacy client damage reports return HTTP 410 unconditionally. | Low | Monitor attempts and settlement receipts. |
 | Village War Map | Enabled by default/staffed | High-impact world/economy system; `server.ts` force-sets `ENABLE_VILLAGE_WAR=1` unless `DISABLE_VILLAGE_WAR=1`. | High | Admin runbook and reward audit; `DISABLE_VILLAGE_WAR=1` kill switch ready. |
 | Sector Wars | Soft-launch/staffed | Territory, terrain, mercenaries, and supply affect live world. | High | Low-population balance review and receipt monitoring. |
@@ -34,6 +35,7 @@ Updated: August 4, 2026
 - `DISABLE_WEEKLY_BOSS_GUARD=1`: emergency switch for new Weekly Boss guard cycles.
 - `DISABLE_VILLAGE_WAR=1`: emergency switch for Village War.
 - `DISABLE_CLAN_BOSS=1`: emergency switch for Clan Boss.
+- `DISABLE_CLAN_BOSS_PARTIES=1`: disable party/finder endpoints and return Clan Boss starts to the compatible solo path without disabling the weekly boss.
 - `ENABLE_PLAYER_AI_IMAGE_GENERATION=1`: enable only with moderation, budget monitoring, and abuse response.
 
 `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE` and
