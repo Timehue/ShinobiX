@@ -8,7 +8,14 @@ function json(route: Route, body: unknown, status = 200) {
 
 async function installDeterministicRuntime(page: Page) {
     await page.addInitScript((fixedNow) => {
-        Date.now = () => fixedNow;
+        const NativeDate = Date;
+        class FixedDate extends NativeDate {
+            constructor(...args: ConstructorParameters<typeof Date>) {
+                super(args.length === 0 ? fixedNow : args[0]);
+            }
+            static now() { return fixedNow; }
+        }
+        globalThis.Date = FixedDate as DateConstructor;
         localStorage.setItem('shinobix:storage-notice-ack', '1');
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
     }, FIXED_NOW);
@@ -82,7 +89,9 @@ test('authenticated Central Hub shell', async ({ page }) => {
             genjutsuOffense: 18, genjutsuDefense: 18,
             ninjutsuOffense: 24, ninjutsuDefense: 22,
         },
-        hp: 150, maxHp: 150, chakra: 180, maxChakra: 180, stamina: 140, maxStamina: 140,
+        // Use the stat-derived full pools so passive regeneration cannot move a
+        // visual baseline by one pixel/second while the page settles.
+        hp: 1600, maxHp: 1600, chakra: 2000, maxChakra: 2000, stamina: 2000, maxStamina: 2000,
         onboardingStep: 'done', inventory: [], itemStacks: [], equipment: {}, pets: [],
         jutsuMastery: [], equippedJutsuIds: [], pendingCombatMissionClaims: [],
         storyProgress: 9, storyVillage: 'Ember', storyTraits: [],

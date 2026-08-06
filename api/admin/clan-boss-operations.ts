@@ -6,7 +6,15 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { recordAudit } from '../_audit.js';
 import { readSession } from '../towers/_tower-store.js';
-import { clearPartyMemberIndices, clanBossPartiesEnabled, loadParty, partyKey, saveParty } from '../clan-boss/_party.js';
+import {
+    clearPartyMemberIndices,
+    clanBossPartiesEnabled,
+    listRegisteredPartyIds,
+    loadParty,
+    partyKey,
+    registerPartyRecord,
+    saveParty,
+} from '../clan-boss/_party.js';
 
 const RECOVERY_REASONS = new Set(['session-missing', 'stuck-starting', 'operator-request']);
 
@@ -17,11 +25,31 @@ function ageBucket(ms: number): string {
     return 'over-15m';
 }
 
-async function operationSnapshot() {
+async function operationSnapshot(input: { cursor?: string | null; limit?: number } = {}) {
     const now = Date.now();
-    const keys = await kv.keys('clan-boss:party:cbp-*');
-    const parties = (await Promise.all(keys.slice(0, 500).map((key) => loadParty(key.slice('clan-boss:party:'.length)))))
+    let registry = await listRegisteredPartyIds({ cursor: input.cursor, limit: input.limit ?? 100 });
+    let legacyFallback = false;
+    if (registry.total === 0) {
+        // Rolling-deploy bridge for parties minted before the registry existed.
+        // Register the bounded legacy page as it is observed; subsequent pages
+        // and requests use the durable cursor contract below.
+        const keys = await kv.keys('clan-boss:party:cbp-*');
+        const ids = keys.map((key) => key.slice('clan-boss:party:'.length)).sort();
+        const limit = Math.max(1, Math.min(500, Math.floor(Number(input.limit) || 100)));
+        const start = input.cursor ? ids.findIndex((id) => id > input.cursor!) : 0;
+        const offset = start < 0 ? ids.length : start;
+        const pageIds = ids.slice(offset, offset + limit);
+        registry = {
+            ids: pageIds,
+            total: ids.length,
+            cursor: input.cursor ?? null,
+            nextCursor: offset + pageIds.length < ids.length ? pageIds.at(-1) ?? null : null,
+        };
+        legacyFallback = true;
+    }
+    const parties = (await Promise.all(registry.ids.map((id) => loadParty(id))))
         .filter((party) => !!party);
+    if (legacyFallback) await Promise.all(parties.map((party) => registerPartyRecord(party)));
     const rows = await Promise.all(parties.map(async (party) => {
         const needsSession = party.status === 'active' || party.status === 'starting';
         const session = party.runId && needsSession ? await readSession(party.runId) : null;
@@ -44,11 +72,21 @@ async function operationSnapshot() {
         generatedAt: now,
         feature: { clanBossEnabled: process.env.ENABLE_CLAN_BOSS === '1', partiesEnabled: clanBossPartiesEnabled() },
         totals: {
+            scope: registry.nextCursor || registry.cursor ? 'page' : 'all',
+            registryTotal: registry.total,
             parties: rows.length,
             byStatus,
             publicQueued: rows.filter((row) => row.status === 'queued' && row.visibility === 'public').length,
             missingSessions: rows.filter((row) => row.missingSession).length,
             staleMembers: rows.reduce((sum, row) => sum + row.staleMembers, 0),
+        },
+        page: {
+            cursor: registry.cursor,
+            nextCursor: registry.nextCursor,
+            limit: Math.max(1, Math.min(500, Math.floor(Number(input.limit) || 100))),
+            returned: rows.length,
+            registryTotal: registry.total,
+            legacyFallback,
         },
         parties: rows.sort((a, b) => a.status.localeCompare(b.status) || a.partyId.localeCompare(b.partyId)),
     };
@@ -62,8 +100,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!enforceRateLimit(req, res, 'admin-clan-boss-operations', req.method === 'GET' ? 60 : 10, 60_000)) return;
     try {
         if (req.method === 'GET') {
+            const cursor = typeof req.query.cursor === 'string' && /^cbp-[a-f0-9]{32}$/i.test(req.query.cursor)
+                ? req.query.cursor
+                : null;
+            const limit = Math.max(1, Math.min(500, Math.floor(Number(req.query.limit) || 100)));
             res.setHeader('Cache-Control', 'no-store');
-            return res.status(200).json({ ok: true, ...(await operationSnapshot()) });
+            return res.status(200).json({ ok: true, ...(await operationSnapshot({ cursor, limit })) });
         }
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const partyId = String(body.partyId ?? '');
