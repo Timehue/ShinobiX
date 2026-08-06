@@ -19,7 +19,8 @@ import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { sectorBenefitSeals } from './_war-economy.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
-import { WAR_VILLAGES, homeSectorsForVillage } from './_war-map-sectors.js';
+import { WAR_VILLAGES } from './_war-map-sectors.js';
+import { loadHeldSectorCounts, type HeldSectorCounts, type HeldSectorStore } from './_war-held-sectors.js';
 import {
     normalizeVillageWarRecord,
     stepVillageWarDay,
@@ -45,15 +46,24 @@ function utcDateString(now: number): string {
     return new Date(now).toISOString().slice(0, 10);
 }
 
-// Phase 1: no sector captures exist yet, so a village controls exactly its 8 home
-// sectors. (Phase 4 replaces this with held-home + occupied-enemy once the
-// sector-war engine tracks ownership.)
-function sectorsControlledForVillage(village: string): number {
-    return homeSectorsForVillage(village).length;
+// Sectors a village CURRENTLY controls, read from the authoritative
+// `world:territory:<sector>.ownerVillage` rows (api/_war-held-sectors.ts) — held
+// home sectors PLUS any enemy land it occupies, which is what makes conquest pay
+// and losing ground bite. This used to return the static 8-entry home table, so
+// every village earned the same flat income no matter who held what.
+function sectorsControlledForVillage(village: string, counts: HeldSectorCounts): number {
+    return Math.max(0, Math.floor(counts[village] ?? 0));
 }
 
 // Minimal injectable surfaces so the pass is unit-testable with an in-memory store.
-type WarStore = { get<T = unknown>(key: string): Promise<T | null>; set(key: string, value: unknown): Promise<unknown> };
+type WarStore = {
+    get<T = unknown>(key: string): Promise<T | null>;
+    set(key: string, value: unknown): Promise<unknown>;
+    // Optional territory-scan surface (HeldSectorStore). Loose on purpose so the
+    // live `kv` satisfies it structurally; a test store may omit both.
+    keys?(pattern: string): Promise<string[]>;
+    mget?(...keys: string[]): Promise<unknown[]>;
+};
 type LockRunner = <T>(key: string, fn: () => Promise<T>) => Promise<T>;
 
 export interface VillageWarDailyResult {
@@ -66,7 +76,15 @@ export interface VillageWarDailyResult {
 /** Run the daily pass across all villages. Default deps use the live kv + lock;
  *  tests inject an in-memory store + passthrough lock and `enabled: true`. */
 export async function runVillageWarDailyPass(
-    deps: { store?: WarStore; lock?: LockRunner; now?: number; enabled?: boolean; isAtWar?: (village: string) => Promise<boolean> } = {},
+    deps: {
+        store?: WarStore;
+        lock?: LockRunner;
+        now?: number;
+        enabled?: boolean;
+        isAtWar?: (village: string) => Promise<boolean>;
+        /** Override the live held-sector counts (tests inject a fixed table). */
+        heldSectors?: HeldSectorCounts;
+    } = {},
 ): Promise<VillageWarDailyResult> {
     const enabled = deps.enabled ?? (process.env.ENABLE_VILLAGE_WAR === '1');
     if (!enabled) return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0 };
@@ -84,12 +102,19 @@ export async function runVillageWarDailyPass(
     });
     const now = deps.now ?? Date.now();
     const today = utcDateString(now);
+    // One territory scan for the whole pass — the WR + seal faucet both scale with it.
+    const heldSectors = deps.heldSectors
+        ?? await loadHeldSectorCounts(
+            typeof store.keys === 'function' && typeof store.mget === 'function'
+                ? (store as HeldSectorStore)
+                : undefined,
+        );
 
     let ran = 0;
     let sealsAccrued = 0;
     for (const village of WAR_VILLAGES) {
         const key = villageWarKey(village);
-        const sectors = sectorsControlledForVillage(village);
+        const sectors = sectorsControlledForVillage(village, heldSectors);
         try {
             let ranThisVillage = false;
             await lock(key, async () => {

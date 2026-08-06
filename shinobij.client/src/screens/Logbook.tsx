@@ -190,7 +190,7 @@ export function Logbook({
             }
             updateCharacter(settled.character);
             onServerVersion?.(settled.saveVersion);
-            const war = applyVillageWarMissionDamage(settled.character);
+            const war = applyVillageWarMissionDamage(settled.character, settled.warMissionToken);
             alert(war.note);
         } finally {
             setWarMissionPending(false);
