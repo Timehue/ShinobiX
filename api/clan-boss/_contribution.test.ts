@@ -48,4 +48,3 @@ describe('Clan Boss contribution projection', () => {
         assert.equal(output.b.active, false);
     });
 });
-

@@ -19,4 +19,3 @@ describe('Clan Boss sector pressure', () => {
         assert.equal(operationPressureReduction(1_000_000, { a: active, b: active, c: active, d: active }), 8);
     });
 });
-
