@@ -1,186 +1,86 @@
-/* Four-horizon guidance and the server-owned Clan Boss operation shell. */
-.activity-spine-heading,
-.activity-card-topline,
-.operation-lobby-heading,
-.operation-comms-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+/* Activity Spine and the server-owned Clan Boss operation shell. */
+.activity-spine-heading,.activity-card-topline,.operation-lobby-heading,.operation-comms-status,
+.operation-finder-row,.operation-member,.operation-invite-row,.operation-member-identity {
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
 }
-.activity-spine h3,
-.activity-horizon h4,
-.operation-lobby h4,
-.operation-lobby h5,
-.clan-boss-operation h3,
-.clan-boss-operation h4 { margin: 0; }
-.activity-spine-returner,
-.operation-population,
-.operation-queue-badge {
-    border: 1px solid #338c9d;
-    border-radius: 999px;
-    padding: 4px 8px;
-    color: #67e8f9;
-    font-size: .7rem;
-    font-weight: 800;
+.activity-spine h3,.activity-horizon h4,.operation-lobby h4,.operation-lobby h5,
+.clan-boss-operation h3,.clan-boss-operation h4 { margin:0; }
+.activity-spine-returner,.operation-population,.operation-queue-badge {
+    border:1px solid #338c9d;border-radius:99px;padding:4px 8px;color:#67e8f9;font-size:.7rem;font-weight:800;
 }
-.activity-spine-grid,
-.operation-world-context {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+.activity-spine-grid,.operation-world-context { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+.activity-horizon { min-width:0;border-left:2px solid #64748b;padding-left:9px; }
+.activity-horizon-now { border-color:#facc15; }
+.activity-horizon-this-week { border-color:#c084fc; }
+.activity-horizon-long-term { border-color:#34d399; }
+.activity-horizon h4 { margin-bottom:7px;color:var(--slate-200);font-size:.76rem;text-transform:uppercase; }
+.activity-card,.operation-world-context>div,.operation-preparation,.operation-lobby,.operation-comms {
+    padding:9px;border:1px solid #334155;border-radius:9px;background:#02060f9e;
 }
-.activity-horizon { min-width: 0; border-left: 2px solid #64748b; padding-left: 9px; }
-.activity-horizon-now { border-color: #facc15; }
-.activity-horizon-this-week { border-color: #c084fc; }
-.activity-horizon-long-term { border-color: #34d399; }
-.activity-horizon h4 { margin-bottom: 7px; color: var(--slate-200); font-size: .76rem; text-transform: uppercase; }
-.activity-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 0;
-    margin-bottom: 8px;
-    padding: 9px;
-    border: 1px solid #334155;
-    border-radius: 9px;
-    background: #02060f9e;
+.activity-card { display:flex;flex-direction:column;gap:6px;min-width:0;margin-bottom:8px; }
+.activity-card.is-complete { border-color:#238364; }
+.activity-card.is-blocked { border-color:#7f3540; }
+.activity-card-topline { align-items:flex-start; }
+.activity-card-topline span,.operation-finder-row span,.operation-member small,
+.operation-world-context span,.operation-world-context small,.operation-comms-status span,.operation-latest-ping {
+    color:var(--text-dim);font-size:.7rem;
 }
-.activity-card.is-complete { border-color: #238364; }
-.activity-card.is-blocked { border-color: #7f3540; }
-.activity-card-topline { align-items: flex-start; }
-.activity-card-topline span { flex: none; color: #67e8f9; font-size: .68rem; }
-.activity-card p,
-.activity-card small { margin: 0; color: var(--slate-300); font-size: .72rem; line-height: 1.35; }
-.activity-card .activity-card-blocker { color: #fca5a5; }
-.activity-spine-loading,
-.activity-spine-error { min-height: 72px; color: var(--slate-300); }
-.activity-spine-error { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
-
-.activity-card button,
-.activity-spine-error button,
-.operation-lobby button,
-.operation-rejoin,
-.operation-comms button,
-.operation-error button {
-    min-height: 44px;
-    padding: 7px 10px;
-    border: 1px solid var(--slate-600);
-    border-radius: 8px;
-    background: var(--slate-900);
-    color: var(--slate-200);
-    cursor: pointer;
+.activity-card p,.activity-card small,.operation-lobby p,.operation-preparation p,.operation-score-note {
+    margin:0;color:var(--slate-300);font-size:.75rem;line-height:1.4;
 }
-.activity-card button { align-self: flex-start; border-color: #806719; color: #fde68a; font-weight: 800; }
-.activity-card button:disabled,
-.operation-lobby button:disabled { color: var(--text-dim); cursor: not-allowed; opacity: .62; }
-.activity-card button:focus-visible,
-.operation-lobby button:focus-visible,
-.operation-comms button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 2px; }
-
-.clan-boss-operation { display: flex; flex-direction: column; gap: 12px; }
-.clan-boss-operation .clan-raid-boss { margin-bottom: 0; }
-.clan-boss-operation .enemy-bar { background: #0b1220; }
-.clan-boss-operation .enemy-bar > span { background: var(--danger); }
-.clan-boss-operation .enemy-bar > span.is-defeated { background: var(--text-muted); }
-.operation-world-context > div,
-.operation-preparation {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 10px;
-    border: 1px solid #30445f;
-    border-radius: 9px;
-    background: #0f172a9e;
+.activity-card .activity-card-blocker { color:#fca5a5; }
+.activity-spine-loading,.activity-spine-error { min-height:72px;color:var(--slate-300); }
+.activity-spine-error { display:flex;flex-direction:column;align-items:flex-start;gap:7px; }
+.activity-card button,.activity-spine-error button,.operation-lobby button,.operation-rejoin,
+.operation-comms button,.operation-error button {
+    min-height:44px;padding:7px 10px;border:1px solid var(--slate-600);border-radius:8px;
+    background:var(--slate-900);color:var(--slate-200);cursor:pointer;
 }
-.operation-world-context span,
-.operation-world-context small { color: var(--text-dim); font-size: .7rem; }
-.operation-lobby {
-    padding: 12px;
-    border: 1px solid #6b467e;
-    border-radius: 12px;
-    background: #1f102e80;
+.activity-card button { align-self:flex-start;color:#fde68a;font-weight:800; }
+.activity-card button:disabled,.operation-lobby button:disabled { color:var(--text-dim);cursor:not-allowed;opacity:.62; }
+.activity-card button:focus-visible,.operation-lobby button:focus-visible,.operation-comms button:focus-visible {
+    outline:3px solid #67e8f9;outline-offset:2px;
 }
-.operation-lobby-heading { align-items: flex-start; margin-bottom: 10px; }
-.operation-lobby p,
-.operation-preparation p,
-.operation-score-note { margin: 4px 0 0; color: var(--slate-300); font-size: .78rem; line-height: 1.45; }
-.operation-finder-list,
-.operation-roster,
-.operation-standings { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.operation-finder-row,
-.operation-member,
-.operation-standings > div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 9px;
-    min-width: 0;
-    padding: 8px;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    background: #02060f80;
+.clan-boss-operation { display:flex;flex-direction:column;gap:12px; }
+.clan-boss-operation .clan-raid-boss { margin-bottom:0; }
+.operation-world-context>div,.operation-preparation { display:flex;flex-direction:column;gap:3px; }
+.operation-lobby { padding:12px;border-color:#6b467e; }
+.operation-lobby-heading { align-items:flex-start;margin-bottom:10px; }
+.operation-finder-list,.operation-roster,.operation-standings {
+    display:flex;flex-direction:column;gap:6px;margin-top:10px;
 }
-.operation-finder-row > div,
-.operation-member-identity > div { display: flex; flex-direction: column; min-width: 0; }
-.operation-finder-row span,
-.operation-member small { color: var(--text-dim); font-size: .7rem; overflow-wrap: anywhere; }
-.operation-invite-row,
-.operation-member-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.operation-invite-row .operation-finder-row,
-.operation-member-identity { flex: 1 1 auto; }
-.operation-presence.is-online,
-.operation-ready.is-ready,
-.operation-state-message.is-complete { color: #6ee7b7; }
-.operation-presence.is-stale { color: #fbbf24; }
-.operation-ready.is-not-ready { color: #fca5a5; }
-.operation-ready { flex: none; font-size: .72rem; font-weight: 800; }
-.operation-member-actions,
-.operation-primary-actions,
-.operation-create-actions,
-.operation-invite-grid,
-.operation-pings { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.operation-primary-actions .operation-start,
-.operation-rejoin { border-color: #ad4848; background: #5d1111; color: #fecaca; font-weight: 800; }
-.operation-standings > div strong { flex: 1 1 auto; }
-.operation-standings > div.is-mine { border-color: #806719; }
-
-.operation-comms {
-    position: sticky;
-    top: 6px;
-    z-index: 8;
-    margin-bottom: 8px;
-    padding: 8px;
-    border: 1px solid #338c9d;
-    border-radius: 10px;
-    background: #02060ff0;
+.operation-finder-row,.operation-member,.operation-standings>div {
+    min-width:0;padding:8px;border:1px solid #334155;border-radius:8px;
 }
-.operation-comms-status { align-items: flex-start; }
-.operation-comms-status span,
-.operation-latest-ping { color: var(--slate-300); font-size: .7rem; }
-.operation-pings { margin-top: 6px; }
-.operation-latest-ping { margin-top: 5px; }
-
-@media (max-width: 979px) {
-    .activity-spine-grid,
-    .operation-world-context { grid-template-columns: 1fr; }
-    .operation-member { align-items: flex-start; flex-wrap: wrap; }
-    .operation-member-actions { flex: 1 0 100%; margin-top: 0; }
-    .operation-primary-actions > button,
-    .operation-create-actions > button { flex: 1 1 180px; }
+.operation-finder-row>div,.operation-member-identity>div { display:flex;flex-direction:column;min-width:0; }
+.operation-finder-row span,.operation-member small { overflow-wrap:anywhere; }
+.operation-invite-row,.operation-member-identity { justify-content:flex-start;min-width:0; }
+.operation-invite-row .operation-finder-row,.operation-member-identity,.operation-standings>div strong { flex:1 1 auto; }
+.operation-presence.is-online,.operation-ready.is-ready,.operation-state-message.is-complete { color:#6ee7b7; }
+.operation-presence.is-stale { color:#fbbf24; }
+.operation-ready.is-not-ready { color:#fca5a5; }
+.operation-ready { flex:none;font-size:.72rem;font-weight:800; }
+.operation-member-actions,.operation-primary-actions,.operation-create-actions,.operation-invite-grid,.operation-pings {
+    display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;
 }
-@media (max-width: 559px) {
-    .activity-spine-heading,
-    .operation-lobby-heading,
-    .operation-comms-status { align-items: flex-start; flex-direction: column; }
-    .operation-finder-row { align-items: flex-start; }
-    .operation-invite-row { flex-direction: column; }
-    .operation-invite-grid { display: grid; grid-template-columns: 1fr; }
-    .operation-lobby button,
-    .operation-rejoin,
-    .operation-comms button { min-height: 44px; }
+.operation-primary-actions .operation-start,.operation-rejoin { border-color:#ad4848;color:#fecaca;font-weight:800; }
+.operation-standings>div.is-mine { border-color:#806719; }
+.operation-comms { position:sticky;top:6px;z-index:8;margin-bottom:8px;border-color:#338c9d; }
+.operation-comms-status { align-items:flex-start; }
+.operation-pings { margin-top:6px; }
+.operation-latest-ping { margin-top:5px; }
+@media (max-width:979px) {
+    .activity-spine-grid,.operation-world-context { grid-template-columns:1fr; }
+    .operation-member { align-items:flex-start;flex-wrap:wrap; }
+    .operation-member-actions { flex:1 0 100%;margin-top:0; }
+    .operation-primary-actions>button,.operation-create-actions>button { flex:1 1 180px; }
 }
-@media (prefers-reduced-motion: reduce) {
-    .operation-lobby *,
-    .activity-spine * { scroll-behavior: auto; transition: none; }
+@media (max-width:559px) {
+    .activity-spine-heading,.operation-lobby-heading,.operation-comms-status { align-items:flex-start;flex-direction:column; }
+    .operation-finder-row { align-items:flex-start; }
+    .operation-invite-row { flex-direction:column; }
+    .operation-invite-grid { display:grid;grid-template-columns:1fr; }
+}
+@media (prefers-reduced-motion:reduce) {
+    .operation-lobby *,.activity-spine * { scroll-behavior:auto;transition:none; }
 }
