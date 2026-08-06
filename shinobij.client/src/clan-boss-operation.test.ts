@@ -25,6 +25,26 @@ describe("Clan Boss operation client contract", () => {
         assert.match(lobby, /No offline player will be replaced or presented as AI/);
     });
 
+    it("keeps the party kill switch on the explicit server-owned solo path", () => {
+        assert.match(api, /response\.status === 404[\s\S]*parties-disabled/);
+        assert.match(boss, /errorCode === "parties-disabled"/);
+        assert.match(boss, /Solo Compatibility/);
+        assert.match(boss, /startClanBossAssault\(character\.name, party\?\.id, party\?\.version/);
+    });
+
+    it("distinguishes an intentional party-route 404 from an outage at runtime", async () => {
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async () => new Response('{"error":"Not found."}', { status: 404, headers: { "content-type": "application/json" } });
+        try {
+            const { fetchClanBossParty } = await import("./lib/clan-boss-api");
+            const result = await fetchClanBossParty("solo-check");
+            assert.equal(result?.errorCode, "parties-disabled");
+            assert.equal(result?.party, null);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
     it("exposes honest population, ready, reconnect, bounded fallback, and tactical pings", () => {
         assert.match(lobby, /real current population/i);
         assert.match(lobby, /Seal Loadout & Ready/);

@@ -89,22 +89,10 @@ have current evidence.
 - [ ] hashed assets immutable
 - [ ] fixed media cache sane
 
-## Clan Boss Manual Staging
+## Clan Boss Operation Manual Staging
 
-- [ ] enable `ENABLE_CLAN_BOSS=1`
-- [ ] seed clan
-- [ ] open Clan Boss UI
-- [ ] start solo assault
-- [ ] start party assault
-- [ ] use normal jutsu
-- [ ] use bloodline jutsu
-- [ ] use custom jutsu
-- [ ] use weapon
-- [ ] use throwable
-- [ ] use potion
-- [ ] use combat item
-- [ ] win/wipe/timeout
-- [ ] settle twice
-- [ ] verify standings
-- [ ] verify inventory deduction
-- [ ] verify weekly reward once-only
+- [ ] Leave `DISABLE_CLAN_BOSS` unset; `server.ts` enables the weekly boss by default.
+- [ ] Deploy initially with `DISABLE_CLAN_BOSS_PARTIES=1` and pass the solo-compatibility and admin-diagnostics gate.
+- [ ] Remove only `DISABLE_CLAN_BOSS_PARTIES` on disposable staging, confirm diagnostics report parties enabled, and execute `docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md` in full.
+- [ ] Archive evidence for the 1-, 2-, and 4-player, Postgres, reconnect, response-loss, concurrent-settlement, loadout, expiry, admin, packet, duration, viewport, support, and AFK cases.
+- [ ] Approve a staffed party rollout only after every runbook case passes; retain `DISABLE_CLAN_BOSS_PARTIES=1` as the party-only rollback.
