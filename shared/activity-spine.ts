@@ -21,4 +21,3 @@ export type ActivitySpine = {
     returningPlayer: boolean;
     horizons: Record<ActivityHorizon, ActivitySpineItem[]>;
 };
-
