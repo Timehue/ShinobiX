@@ -23,6 +23,7 @@ import {
     normalizeSectorWarBattleToken,
     isSectorWarActive,
     applyLazySectorWarExpiry,
+    SECTOR_RESIEGE_COOLDOWN_SEC,
     SECTOR_WAR_TOKEN_TTL_MS,
     type SectorWarSession,
     type SectorWarBattleToken,
@@ -40,8 +41,12 @@ export async function loadSectorWar(id: string): Promise<SectorWarSession | null
     return raw ? normalizeSectorWarSession(raw) : null;
 }
 
-export async function saveSectorWar(session: SectorWarSession): Promise<void> {
-    await kv.set(sectorWarKey(session.id), session);
+export async function saveSectorWar(session: SectorWarSession, ttlSeconds?: number): Promise<void> {
+    if (ttlSeconds && ttlSeconds > 0) {
+        await kv.set(sectorWarKey(session.id), session, { ex: Math.ceil(ttlSeconds) } as never);
+    } else {
+        await kv.set(sectorWarKey(session.id), session);
+    }
 }
 
 export async function deleteSectorWar(id: string): Promise<void> {
@@ -99,17 +104,17 @@ export async function sweepExpiredSectorWars(now: number = Date.now()): Promise<
         const { session, changed } = applyLazySectorWarExpiry(s, now);
         if (!changed) continue;
         try {
-            // Keep a short-lived stamped record so a client polling mid-expiry sees
-            // WHY the siege ended, then let it fall out of the keyspace on its own.
-            await kv.set(sectorWarKey(session.id), session, { ex: EXPIRED_SECTOR_WAR_TTL_SEC } as never);
+            // Keep the stamped record for exactly the re-siege cooldown: while it
+            // lingers, the same attacker cannot re-declare this sector (the declare
+            // gate reads it), and when it ages out the cooldown ends with it.
+            await saveSectorWar(session, SECTOR_RESIEGE_COOLDOWN_SEC);
             retired++;
         } catch { /* best-effort hygiene — the readers already filter it out */ }
     }
     return retired;
 }
 
-/** How long an expired contest record lingers before it disappears. */
-const EXPIRED_SECTOR_WAR_TTL_SEC = 24 * 60 * 60;
+
 
 // ── Single-use battle token ──
 

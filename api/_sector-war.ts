@@ -493,8 +493,30 @@ export type SectorWarDeclineReason =
     | 'mutual-exclusion-attacker'
     | 'mutual-exclusion-defender'
     | 'already-contested'
+    | 'siege-limit'
+    | 'siege-cooldown'
     | 'win-condition-unavailable'
     | 'insufficient-wr';
+
+/**
+ * How many sieges one village may be ATTACKING at once.
+ *
+ * Without this cap the total cost of conquest collapsed: the WR pool banks to
+ * 5,000, a declare is 250, so a village could open sieges on ALL 8 enemy home
+ * sectors at once and — with the 2h garrison window — grind an entire village
+ * off the map in one overnight, for 2,000 WR and zero enemy interaction. Two
+ * concurrent fronts keeps multi-sector pressure a real strategy while making
+ * full conquest a CAMPAIGN of sequential sieges the defence can wake up to,
+ * not a single night.
+ */
+export const MAX_ACTIVE_ATTACK_SIEGES = 2;
+
+/** After a FAILED siege (idle-lapsed or called off — not a capture), the same
+ *  attacker cannot re-declare on that sector until the stamped record ages out.
+ *  This is also the TTL those terminal records carry, so the lingering record IS
+ *  the cooldown clock — no extra key. Mirrors the village war's rematch
+ *  cooldown, scaled to the sector war's shorter rhythm. */
+export const SECTOR_RESIEGE_COOLDOWN_SEC = 24 * 60 * 60;
 
 export interface SectorWarDeclareCheck {
     attackerVillage: string;
@@ -510,6 +532,10 @@ export interface SectorWarDeclareCheck {
     contestAlreadyActive: boolean;
     attackerWr: number;
     attackerSectorsHeld: number;
+    /** Sieges this village is ALREADY attacking (MAX_ACTIVE_ATTACK_SIEGES cap). */
+    attackerActiveSieges?: number;
+    /** A prior FAILED siege by this attacker on this sector is still in cooldown. */
+    priorFailedSiegeActive?: boolean;
     /** which win-conditions are wired this build (v1 = Combat only). Defaults to ['combat']. */
     allowedWinConditions?: readonly WinCondition[];
 }
@@ -533,6 +559,8 @@ export function canDeclareSectorWar(c: SectorWarDeclareCheck): SectorWarDeclareR
     if (c.attackerInActiveVillageWar) return { ok: false, error: 'mutual-exclusion-attacker' };
     if (c.defenderInActiveVillageWar) return { ok: false, error: 'mutual-exclusion-defender' };
     if (c.contestAlreadyActive) return { ok: false, error: 'already-contested' };
+    if (Math.floor(Number(c.attackerActiveSieges) || 0) >= MAX_ACTIVE_ATTACK_SIEGES) return { ok: false, error: 'siege-limit' };
+    if (c.priorFailedSiegeActive) return { ok: false, error: 'siege-cooldown' };
     const allowed = c.allowedWinConditions ?? (['combat'] as readonly WinCondition[]);
     if (!allowed.includes(c.winCondition)) return { ok: false, error: 'win-condition-unavailable' };
     const cost = discountedWrCost(SECTOR_WAR_WR, c.attackerSectorsHeld);

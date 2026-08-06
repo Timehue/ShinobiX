@@ -25,6 +25,8 @@ import {
     garrisonSwing,
     GARRISON_UNLOCK_IDLE_MS,
     sectorDeclareLockKey,
+    MAX_ACTIVE_ATTACK_SIEGES,
+    SECTOR_RESIEGE_COOLDOWN_SEC,
     type SectorWarSession,
 } from './_sector-war.js';
 import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_MAX_SWING_FRACTION, SECTOR_CONTROL_HP_ABSOLUTE_MAX } from './_war-state.js';
@@ -537,5 +539,61 @@ describe('sector-war: the declare lock is SECTOR-scoped, not contest-scoped', ()
 
     it('clamps a nonsense sector rather than minting a stray lock scope', () => {
         assert.equal(sectorDeclareLockKey(-5), sectorDeclareLockKey(1));
+    });
+});
+
+describe('sector-war: conquest pacing brakes (the "siege cost too low" fix)', () => {
+    const base = {
+        attackerVillage: 'Moonshadow Village',
+        defenderVillage: 'Frostfang Village',
+        sector: 26,
+        sectorOwnerVillage: 'Frostfang Village',
+        winCondition: 'combat' as const,
+        attackerInActiveVillageWar: false,
+        defenderInActiveVillageWar: false,
+        contestAlreadyActive: false,
+        attackerWr: 5000,
+        attackerSectorsHeld: 8,
+    };
+
+    it('caps a village at MAX_ACTIVE_ATTACK_SIEGES fronts', () => {
+        assert.equal(canDeclareSectorWar({ ...base, attackerActiveSieges: MAX_ACTIVE_ATTACK_SIEGES - 1 }).ok, true);
+        const r = canDeclareSectorWar({ ...base, attackerActiveSieges: MAX_ACTIVE_ATTACK_SIEGES });
+        assert.equal(r.ok, false);
+        assert.equal(!r.ok && r.error, 'siege-limit');
+    });
+
+    it('closes the overnight-conquest hole: a banked WR pool can no longer open 8 fronts', () => {
+        // Before the cap: 5,000 banked WR ÷ 250 = every enemy home sector besieged at
+        // once, then garrison-ground off the map in one 2h-idle window. Now the WR
+        // pool stops mattering past two concurrent fronts.
+        let open = 0;
+        for (let i = 0; i < 8; i++) {
+            if (canDeclareSectorWar({ ...base, attackerActiveSieges: open }).ok) open++;
+        }
+        assert.equal(open, MAX_ACTIVE_ATTACK_SIEGES);
+    });
+
+    it('a FAILED siege puts that sector on re-siege cooldown for this attacker', () => {
+        const r = canDeclareSectorWar({ ...base, priorFailedSiegeActive: true });
+        assert.equal(r.ok, false);
+        assert.equal(!r.ok && r.error, 'siege-cooldown');
+    });
+
+    it('defending sieges do not consume the attack cap (the count is the caller\'s)', () => {
+        // The endpoint filters to attackerVillage === village before counting; the
+        // pure gate just enforces whatever count it is handed.
+        assert.equal(canDeclareSectorWar({ ...base, attackerActiveSieges: 0 }).ok, true);
+    });
+
+    it('the cooldown equals the terminal-record TTL — one clock, no second key', () => {
+        assert.equal(SECTOR_RESIEGE_COOLDOWN_SEC, 24 * 60 * 60);
+    });
+
+    it('worst-case conquest is now a multi-day campaign, not one night', () => {
+        // 8 sectors ÷ 2 concurrent fronts, each needing its own 2h garrison window
+        // at minimum — and every failed attempt costs 250 WR plus a day's cooldown.
+        const sequentialWaves = Math.ceil(8 / MAX_ACTIVE_ATTACK_SIEGES);
+        assert.ok(sequentialWaves >= 4);
     });
 });

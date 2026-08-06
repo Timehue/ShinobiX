@@ -27,6 +27,8 @@ import {
     newSectorWarBattleToken,
     sectorDeclareLockKey,
     isSectorWarActive,
+    MAX_ACTIVE_ATTACK_SIEGES,
+    SECTOR_RESIEGE_COOLDOWN_SEC,
     abandonSectorWar,
     isGarrisonAssaultable,
     garrisonSwing,
@@ -41,6 +43,7 @@ import {
     mintSectorWarToken,
     loadSectorWarToken,
     getSectorOwnerVillage,
+    activeSectorWarsForVillage,
 } from '../_sector-war-store.js';
 import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
@@ -114,6 +117,8 @@ function declineStatus(e: SectorWarDeclineReason): number {
         case 'mutual-exclusion-attacker':
         case 'mutual-exclusion-defender':
         case 'already-contested':
+        case 'siege-limit':
+        case 'siege-cooldown':
             return 409;
         default:
             return 400;
@@ -128,6 +133,8 @@ function declineMessage(e: SectorWarDeclineReason, cost?: number): string {
         case 'mutual-exclusion-attacker': return 'Your village is in a village war — finish it before running sector wars.';
         case 'mutual-exclusion-defender': return 'The defending village is in a village war and cannot be sector-warred.';
         case 'already-contested': return 'That sector already has an active sector war.';
+        case 'siege-limit': return `Your village is already attacking ${MAX_ACTIVE_ATTACK_SIEGES} sectors — finish or call one off before opening another front.`;
+        case 'siege-cooldown': return 'Your last siege on that sector just failed — the defenders are dug in. Try again tomorrow.';
         case 'win-condition-unavailable': return 'That sector’s win-condition is not available yet.';
         case 'insufficient-wr': return `Declaring this sector war costs ${cost ?? 0} War Resources.`;
         default: return 'Cannot declare a sector war on that sector.';
@@ -195,13 +202,19 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const attackerSectorsHeld = await heldSectorsForVillage(village);
 
     const atkKey = villageWarKey(village);
-    const [attackerInWar, defenderInWar, existing, atkRecord, defRaw] = await Promise.all([
+    const contestId = sectorWarId(sector, village, defender);
+    const [attackerInWar, defenderInWar, existing, atkRecord, defRaw, mySieges, priorRecord] = await Promise.all([
         villageHasActiveWar(village),
         isWarVillage(defender) ? villageHasActiveWar(defender) : Promise.resolve(false),
         activeContestOnSector(sector),
         kv.get<Record<string, unknown>>(atkKey),
         isWarVillage(defender) ? kv.get<Record<string, unknown>>(villageWarKey(defender)) : Promise.resolve(null),
+        activeSectorWarsForVillage(village).then((all) => all.filter((c) => c.attackerVillage === village).length),
+        loadSectorWar(contestId),
     ]);
+    // A lingering FAILED record (expired/abandoned, not a capture) for this exact
+    // attacker+sector is the re-siege cooldown — its TTL is the clock.
+    const priorFailedSiegeActive = !!priorRecord && !priorRecord.flipped && !!priorRecord.expiredAt;
     const attackerRecord = normalizeVillageWarRecord(village, atkRecord ?? undefined);
     const defenderRecord = isWarVillage(defender) ? normalizeVillageWarRecord(defender, defRaw ?? undefined) : null;
     const winCondition = (defenderRecord?.sectors[String(sector)]?.winCondition ?? 'combat') as WinCondition;
@@ -218,11 +231,13 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         contestAlreadyActive: !!existing,
         attackerWr: attackerRecord.warResources,
         attackerSectorsHeld,
+        attackerActiveSieges: mySieges,
+        priorFailedSiegeActive,
         allowedWinConditions: WIRED_WIN_CONDITIONS,
     });
     if (!check.ok) return res.status(declineStatus(check.error)).json({ error: declineMessage(check.error, check.cost) });
 
-    const id = sectorWarId(sector, village, defender);
+    const id = contestId;
     const cost = check.cost;
     const out = await withKvLock(atkKey, async () => {
         const rec = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(atkKey)) ?? undefined);
@@ -591,7 +606,9 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
         const fresh = await loadSectorWar(contest.id);
         if (!fresh || !isSectorWarActive(fresh, Date.now())) return { ok: false as const };
         const { session, changed } = abandonSectorWar(fresh, Date.now());
-        if (changed) await saveSectorWar(session);
+        // The stamped record carries the re-siege cooldown TTL. (It previously had
+        // NO ttl here, so an abandoned siege lingered in the keyspace forever.)
+        if (changed) await saveSectorWar(session, SECTOR_RESIEGE_COOLDOWN_SEC);
         return { ok: true as const, session };
     }, { failClosed: true });
 
