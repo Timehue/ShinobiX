@@ -207,7 +207,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 <span>WR Pool <b>{myView.warResources}</b>/{myView.warResourcesCap}{myView.dormant && <em className="vwm-dormant"> · dormant</em>}</span>
                                 <span>Treasury Seals <b>{myView.treasurySeals}</b></span>
                                 <span>Sectors held <b>{myView.sectorsHeld}</b></span>
-                                <span>Tax <b>{myView.taxRatePct}%</b></span>
+                                <span title={myView.kageSeated === false ? "No Kage is seated, so your village collects no tax." : "Daily tax on your ryo. Holding more sectors lowers it."}>Tax <b>{myView.taxRatePct}%</b>{myView.kageSeated === false && <> (no Kage)</>}</span>
                                 <span>Upkeep <b>{myView.upkeepWr}</b> WR/day</span>
                                 <span>+{myView.wrPerSector} WR/sector</span>
                             </div>

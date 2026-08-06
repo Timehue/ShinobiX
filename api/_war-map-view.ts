@@ -54,8 +54,11 @@ export interface VillageWarMapView {
     dormant: boolean;
     wrPerSector: number;
     sectorsHeld: number;
-    /** Effective daily tax rate (tier × Treasury-Vault softening), as a percentage. */
+    /** Effective daily tax rate (tier × Treasury-Vault softening), as a percentage.
+     *  Forced to 0 while the village has no seated Kage — see `kageSeated`. */
     taxRatePct: number;
+    /** Whether a player currently holds the Kage seat. No Kage → no tax. */
+    kageSeated: boolean;
     sectors: SectorConfigView[];
 }
 
@@ -70,6 +73,9 @@ export function villageWarMapView(args: {
     record: VillageWarRecord;
     treasurySeals: number;
     sectorsHeld: number;
+    /** Whether the village has a seated Kage. Omitted = treated as seated, so
+     *  existing callers keep their behaviour. */
+    kageSeated?: boolean;
 }): VillageWarMapView {
     const { village, record } = args;
     const treasurySeals = Math.max(0, Math.floor(Number(args.treasurySeals) || 0));
@@ -89,7 +95,12 @@ export function villageWarMapView(args: {
         };
     });
 
-    const taxRatePct = round2(taxRateForSectors(sectorsHeld) * taxRateMultiplier(record) * 100);
+    // Mirror api/_war-tax-apply.ts exactly: no seated Kage forces the rate to zero,
+    // so what the War Map DISPLAYS is always what a player is actually CHARGED.
+    const kageSeated = args.kageSeated !== false;
+    const taxRatePct = kageSeated
+        ? round2(taxRateForSectors(sectorsHeld) * taxRateMultiplier(record) * 100)
+        : 0;
 
     return {
         village,
@@ -104,6 +115,7 @@ export function villageWarMapView(args: {
         wrPerSector: round2(wrPerSector(record)),
         sectorsHeld,
         taxRatePct,
+        kageSeated,
         sectors,
     };
 }

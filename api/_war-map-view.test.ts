@@ -50,3 +50,40 @@ describe('war-map-view: villageWarMapView', () => {
         assert.ok(v.upkeepWr > 0);                     // upkeep owed reflects built levels
     });
 });
+
+describe('war-map view: tax rate mirrors the charge', () => {
+    it('shows 0% and flags the empty seat when no Kage is seated', () => {
+        const v = villageWarMapView({
+            village: 'Frostfang Village',
+            record: normalizeVillageWarRecord('Frostfang Village'),
+            treasurySeals: 0,
+            sectorsHeld: 0,          // the heaviest tier
+            kageSeated: false,
+        });
+        assert.equal(v.taxRatePct, 0, 'a leaderless village displays no tax');
+        assert.equal(v.kageSeated, false);
+    });
+
+    it('shows the real tier once a Kage holds the seat', () => {
+        const v = villageWarMapView({
+            village: 'Frostfang Village',
+            record: normalizeVillageWarRecord('Frostfang Village'),
+            treasurySeals: 0,
+            sectorsHeld: 0,
+            kageSeated: true,
+        });
+        assert.equal(v.taxRatePct, 5);
+        assert.equal(v.kageSeated, true);
+    });
+
+    it('treats an omitted seat as seated, so existing callers are unchanged', () => {
+        const v = villageWarMapView({
+            village: 'Frostfang Village',
+            record: normalizeVillageWarRecord('Frostfang Village'),
+            treasurySeals: 0,
+            sectorsHeld: 0,
+        });
+        assert.equal(v.taxRatePct, 5);
+        assert.equal(v.kageSeated, true);
+    });
+});
