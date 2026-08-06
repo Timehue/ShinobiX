@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { newSectorState, operationPressureReduction } from './_sector-state.js';
+import { newSectorState, operationPressureReduction, sectorPressureMilestone } from './_sector-state.js';
 import { CLAN_BOSSES } from './_storage.js';
 
 describe('Clan Boss sector pressure', () => {
@@ -17,5 +17,13 @@ describe('Clan Boss sector pressure', () => {
         assert.equal(operationPressureReduction(10_000, { a: inactive }), 0);
         assert.ok(operationPressureReduction(10_000, { a: active }) > 0);
         assert.equal(operationPressureReduction(1_000_000, { a: active, b: active, c: active, d: active }), 8);
+    });
+
+    it('reports only a newly crossed bounded herald milestone', () => {
+        assert.equal(sectorPressureMilestone(80, 75), 75);
+        assert.equal(sectorPressureMilestone(75, 70), undefined);
+        assert.equal(sectorPressureMilestone(3, 0), 0);
+        assert.equal(sectorPressureMilestone(52, 52), undefined);
+        assert.equal(sectorPressureMilestone(20, 25), undefined);
     });
 });

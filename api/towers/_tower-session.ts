@@ -322,7 +322,9 @@ export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
             dmgMult: p.ascension.dmgMult,
             modifierStack: p.ascension.modifierStack,
             ...(typeof extraPhaseThreshold === 'number' ? { extraPhaseThreshold } : {}),
-            ...(typeof p.regenFlatCap === 'number' ? { regenFlatCap: p.regenFlatCap } : {}),
         } : {}),
+        // Authored regen caps also protect non-Spire encounters (notably the
+        // solo-capable Clan Boss) from a binary percentage-heal wall.
+        ...(typeof p.regenFlatCap === 'number' ? { regenFlatCap: p.regenFlatCap } : {}),
     };
 }

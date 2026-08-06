@@ -412,7 +412,10 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         id: CLAN_BOSS_FLOOR_BASE + 2, name: 'The Fallen Kage', biome: 'shadow', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
-        boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen', targetMode: 'support', strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 4 } },
+        // The operation can be entered solo. Cap regeneration below a competent
+        // solo player's per-round pressure so the low-population fallback always
+        // banks progress instead of hitting a binary percentage-heal wall.
+        boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen', regenFlatCap: 150, targetMode: 'support', strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 4 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
     },

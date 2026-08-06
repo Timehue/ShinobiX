@@ -166,6 +166,8 @@ type LayoutMeasurement = {
     firstJutsuCenterVisibleAndHit: boolean;
     firstJutsuCenterHit: string | null;
     firstJutsu: Rect | null;
+    firstJutsuLabel: string | null;
+    actionScroll: { scrollTop: number; clientHeight: number; scrollHeight: number } | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
     boardActionOverlap: boolean;
@@ -311,6 +313,12 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             firstJutsuCenterVisibleAndHit,
             firstJutsuCenterHit: firstJutsuHit instanceof HTMLElement ? firstJutsuHit.className : firstJutsuHit?.nodeName ?? null,
             firstJutsu: firstJutsuRect,
+            firstJutsuLabel: firstJutsu?.getAttribute('aria-label') ?? firstJutsu?.textContent?.trim().slice(0, 80) ?? null,
+            actionScroll: actionNode ? {
+                scrollTop: (actionNode as HTMLElement).scrollTop,
+                clientHeight: (actionNode as HTMLElement).clientHeight,
+                scrollHeight: (actionNode as HTMLElement).scrollHeight,
+            } : null,
             tileCenterBounds,
             minCommandTouchTarget: commandButtons.length ? Math.min(...commandButtons.map((value) => Math.min(value.width, value.height))) : null,
             boardActionOverlap: overlap(boardRect, actionRect),
@@ -438,7 +446,10 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.dualApTextOverlap, `${label} AP/timer labels overlap`).toBe(false);
         expect(current.minCommandTouchTarget ?? 0, `${label} touch target`).toBeGreaterThanOrEqual(44);
         expect(current.actions?.height ?? 0, `${label} selected action panel height`).toBeGreaterThanOrEqual(44);
-        expect(current.firstJutsuCenterVisibleAndHit, `${label} first jutsu center inaccessible; hit=${current.firstJutsuCenterHit}`).toBe(true);
+        expect(
+            current.firstJutsuCenterVisibleAndHit,
+            `${label} first jutsu center inaccessible; hit=${current.firstJutsuCenterHit}; action=${current.firstJutsuLabel}; rect=${JSON.stringify(current.firstJutsu)}; scroll=${JSON.stringify(current.actionScroll)}`,
+        ).toBe(true);
         expect(
             current.board?.height ?? 0,
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,

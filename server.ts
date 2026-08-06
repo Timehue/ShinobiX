@@ -1655,7 +1655,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
-const server = createServer(app);
+export const server = createServer(app);
 _httpServer = server; // expose to gracefulShutdown (drain-before-exit on restart/crash)
 // Phase 2/Step 3: attach the Socket.IO realtime layer to the SAME HTTP server
 // (registers the sweep→presence:gone listener). No-op when DISABLE_REALTIME=1;

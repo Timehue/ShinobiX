@@ -27,10 +27,12 @@ import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
 import { withScheduledJobLease } from './_job-lease.js';
+import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
 const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
+const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
@@ -46,13 +48,16 @@ const LEASE_TTL = {
     era: 20 * 60 * 60,
     mercAuto: 9 * 60,
     settlementReconciliation: 4 * 60,
+    clanBossPartySweep: 4 * 60,
 } as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
 let _interval: ReturnType<typeof setInterval> | null = null;
 let _mercInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementInterval: ReturnType<typeof setInterval> | null = null;
+let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementScanRunning = false;
+let _clanBossPartySweepRunning = false;
 
 async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>): Promise<T | null> {
     const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true });
@@ -77,6 +82,27 @@ async function fireSettlementReconciliation(includeLegacyScan = false): Promise<
         console.error('[cron-scheduler] durable-settlement reconciliation threw:', (err as Error).message);
     } finally {
         _settlementScanRunning = false;
+    }
+}
+
+async function fireClanBossPartySweep(): Promise<void> {
+    if (_clanBossPartySweepRunning) return;
+    _clanBossPartySweepRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'clan-boss-party-sweep',
+            () => sweepClanBossPartyRegistry(),
+            { ttlSec: LEASE_TTL.clanBossPartySweep, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
+        if (result.repaired > 0 || result.discovered > 0 || result.removed > 0 || result.terminalIndicesCleared > 0) {
+            console.log(`[cron-scheduler] clan-boss party registry: scanned ${result.scanned}/${result.total}, repaired ${result.repaired}, discovered ${result.discovered}, removed ${result.removed}, released ${result.terminalIndicesCleared} terminal indices.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] clan-boss party sweep threw:', (err as Error).message);
+    } finally {
+        _clanBossPartySweepRunning = false;
     }
 }
 
@@ -195,6 +221,11 @@ export function startSnapshotCron(): void {
             console.log('[cron-scheduler] durable-settlement reconciliation disabled via DISABLE_SETTLEMENT_RECONCILIATION=1');
         }
     }
+    if (!_clanBossPartySweepInterval) {
+        _clanBossPartySweepInterval = setInterval(() => void fireClanBossPartySweep(), CLAN_BOSS_PARTY_SWEEP_TICK_MS);
+        _clanBossPartySweepInterval.unref?.();
+        void fireClanBossPartySweep();
+    }
     const snapshotDisabled = process.env.DISABLE_SNAPSHOT_CRON === '1';
     if (snapshotDisabled) {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
@@ -236,5 +267,7 @@ export function stopSnapshotCron(): void {
     if (_interval) { clearInterval(_interval); _interval = null; }
     if (_mercInterval) { clearInterval(_mercInterval); _mercInterval = null; }
     if (_settlementInterval) { clearInterval(_settlementInterval); _settlementInterval = null; }
+    if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     _settlementScanRunning = false;
+    _clanBossPartySweepRunning = false;
 }

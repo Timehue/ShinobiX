@@ -407,6 +407,15 @@ test('real built client records a flee without queueing a mission reward', async
     } finally {
         navigationInProgress = false;
     }
+    // A failed flee can legitimately end in a KO. The server then redirects
+    // the refreshed client to Hospital until the authoritative admission timer
+    // releases the player. Exercise that real recovery path instead of assuming
+    // every flee leaves enough HP to return directly to Mission Hall.
+    const hospital = page.getByRole('heading', { name: 'Village Hospital' });
+    if (await hospital.isVisible().catch(() => false)) {
+        await expect(hospital).toBeHidden({ timeout: 70_000 });
+        await page.goto('/#/missions', { waitUntil: 'networkidle' });
+    }
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
     let outcomeRequestCount = 0;
     let resolveLostOutcome!: (body: Record<string, unknown>) => void;

@@ -106,11 +106,21 @@ type ClanBossOperationsSnapshot = {
     generatedAt: number;
     feature: { clanBossEnabled: boolean; partiesEnabled: boolean };
     totals: {
+        scope?: "all" | "page";
+        registryTotal?: number;
         parties: number;
         byStatus: Record<string, number>;
         publicQueued: number;
         missingSessions: number;
         staleMembers: number;
+    };
+    page?: {
+        cursor: string | null;
+        nextCursor: string | null;
+        limit: number;
+        returned: number;
+        registryTotal: number;
+        legacyFallback: boolean;
     };
     parties: ClanBossOperationRow[];
 };
@@ -328,13 +338,16 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
     // Clan Boss operation health and narrowly scoped pre-start recovery.
     const [operations, setOperations] = useState<ClanBossOperationsSnapshot | null>(null);
     const [operationsStatus, setOperationsStatus] = useState("");
+    const [operationsCursor, setOperationsCursor] = useState<string | null>(null);
     const [recoveryReason, setRecoveryReason] = useState("session-missing");
     const [recoveringPartyId, setRecoveringPartyId] = useState("");
     const loadOperations = useCallback(async () => {
         if (!adminPw) return;
         setOperationsStatus("Loading...");
         try {
-            const r = await fetch("/api/admin/clan-boss-operations", { headers: { "x-admin-password": adminPw } });
+            const params = new URLSearchParams({ limit: "100" });
+            if (operationsCursor) params.set("cursor", operationsCursor);
+            const r = await fetch(`/api/admin/clan-boss-operations?${params}`, { headers: { "x-admin-password": adminPw } });
             const data = await r.json();
             if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
             setOperations(data as ClanBossOperationsSnapshot);
@@ -342,7 +355,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
         } catch (e) {
             setOperationsStatus(`X ${(e as Error).message}`);
         }
-    }, [adminPw]);
+    }, [adminPw, operationsCursor]);
     useEffect(() => { if (section === "operations") void loadOperations(); }, [section, loadOperations]);
 
     const recoverOperation = useCallback(async (party: ClanBossOperationRow) => {
@@ -363,14 +376,14 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
-            setOperations(data as ClanBossOperationsSnapshot);
+            await loadOperations();
             setOperationsStatus(`Recovered ${party.partyId}; audit entry recorded.`);
         } catch (e) {
             setOperationsStatus(`X ${(e as Error).message}`);
         } finally {
             setRecoveringPartyId("");
         }
-    }, [adminPw, recoveryReason]);
+    }, [adminPw, loadOperations, recoveryReason]);
 
     // Public player index health.
     const [indexHealth, setIndexHealth] = useState<PlayerIndexHealth | null>(null);
@@ -742,9 +755,25 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                     {operations && (
                         <div style={box}>
                             <strong>Clan Boss operation health</strong>
-                            <p>Boss {operations.feature.clanBossEnabled ? "enabled" : "disabled"}; parties {operations.feature.partiesEnabled ? "enabled" : "solo compatibility"}; {operations.totals.parties} tracked; {operations.totals.publicQueued} queued; {operations.totals.missingSessions} missing sessions; {operations.totals.staleMembers} stale members.</p>
+                            <p>Boss {operations.feature.clanBossEnabled ? "enabled" : "disabled"}; parties {operations.feature.partiesEnabled ? "enabled" : "solo compatibility"}; showing {operations.totals.parties} of {operations.totals.registryTotal ?? operations.page?.registryTotal ?? operations.totals.parties} tracked; {operations.totals.publicQueued} queued; {operations.totals.missingSessions} missing sessions; {operations.totals.staleMembers} stale members on this page.</p>
                             <p>{Object.entries(operations.totals.byStatus).sort().map(([status, count]) => `${status}: ${count}`).join(" · ") || "No status rows"}</p>
                             <p>Recovery is limited to pre-start parties. Active combat and reward values cannot be changed here.</p>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                                <button
+                                    type="button"
+                                    disabled={!operationsCursor}
+                                    onClick={() => setOperationsCursor(null)}
+                                >First page</button>
+                                <button
+                                    type="button"
+                                    disabled={!operations.page?.nextCursor}
+                                    onClick={() => {
+                                        if (!operations.page?.nextCursor) return;
+                                        setOperationsCursor(operations.page.nextCursor);
+                                    }}
+                                >Next page</button>
+                                <small>{operations.page?.legacyFallback ? "Migrating legacy party index" : `Page size ${operations.page?.limit ?? operations.totals.parties}`}</small>
+                            </div>
                             {operations.parties.length === 0 ? <p>No tracked parties.</p> : operations.parties.map((party) => (
                                 <div key={party.partyId} style={{ borderTop: "1px solid #2a2a36", padding: "8px 0", ...mono }}>
                                     <div>{party.partyId} · {party.status} · {party.readyCount}/{party.memberCount} ready · {party.visibility} · v{party.version} · {party.ageBucket}</div>

@@ -5,6 +5,7 @@ import { CLAN_BOSS_PARTY_MAX } from '../../shared/clan-boss-operation.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
 import { clanBossWeekId, loadClanBossWeek, resolveClanBossDef } from './_storage.js';
 import {
@@ -13,14 +14,16 @@ import {
     addPartyMember,
     canClaimPartyLeadership,
     clanBossPartiesEnabled,
+    CLAN_BOSS_PARTY_TTL,
     clearPartyMemberIndices,
+    clearPartyPlayerIndex,
     createParty,
     heartbeatParty,
     indexPartyMembers,
     loadPartyPlayerContext,
     mutateParty,
-    partyEnvelope,
     partyPlayerKey,
+    partyEnvelope,
     partyView,
     queueParty,
     removePartyInvitation,
@@ -98,18 +101,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fingerprint = mutationFingerprint(body);
 
         if (action === 'join') {
-            const own = await activePartyForPlayer(player.slug);
-            if (own && own.id !== partyId) return res.status(409).json({ error: 'Leave your current party before joining another.', errorCode: 'already-in-party', party: partyView(own) });
-            const result = await mutateParty({
-                partyId, actor: player.slug, requestId, expectedVersion, fingerprint,
-                mutate: (party, now) => {
-                    const invited = party.invitedSlugs.includes(player.slug);
-                    if (party.visibility !== 'public' && !invited) return { ok: false, status: 403, code: 'invite-required', error: 'That private party requires an invitation.', party };
-                    return addPartyMember(party, player, now);
-                },
-            });
+            // Serialize the active-party check, membership mutation, and index
+            // publication on this player. Without the player-key lock, two
+            // simultaneous joins to different parties could both observe no
+            // active party and leave the player present in both rosters.
+            const result = await withKvLock(partyPlayerKey(player.slug), async () => {
+                const own = await activePartyForPlayer(player.slug, true);
+                if (own && own.id !== partyId) return { ok: false as const, status: 409, code: 'already-in-party', error: 'Leave your current party before joining another.', party: own };
+                const joined = await mutateParty({
+                    partyId, actor: player.slug, requestId, expectedVersion, fingerprint,
+                    mutate: (party, now) => {
+                        const invited = party.invitedSlugs.includes(player.slug);
+                        if (party.visibility !== 'public' && !invited) return { ok: false, status: 403, code: 'invite-required', error: 'That private party requires an invitation.', party };
+                        return addPartyMember(party, player, now);
+                    },
+                });
+                if (joined.ok) await kv.set(partyPlayerKey(player.slug), joined.party.id, { ex: CLAN_BOSS_PARTY_TTL });
+                return joined;
+            }, { failClosed: true });
             if (!result.ok) return res.status(result.status).json({ error: result.error, errorCode: result.code, party: result.party ? partyView(result.party) : null });
-            await indexPartyMembers(result.party);
             await removePartyInvitation(player.slug, partyId);
             captureServerProductEvent('clan_boss_party_state_changed', { partySizeBucket: String(result.party.members.length), stateCategory: 'joined' });
             return res.status(200).json(await partyEnvelope(player));
@@ -197,8 +207,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const target = safeName(String(body.target ?? ''));
         if (action === 'invite' && target) await addPartyInvitation(target, partyId);
         if (action === 'decline') await removePartyInvitation(player.slug, partyId);
-        if (action === 'leave') await kv.del(partyPlayerKey(player.slug)).catch(() => 0);
-        if (action === 'kick' && target) await kv.del(partyPlayerKey(target)).catch(() => 0);
+        if (action === 'leave') await clearPartyPlayerIndex(player.slug, partyId).catch(() => false);
+        if (action === 'kick' && target) await clearPartyPlayerIndex(target, partyId).catch(() => false);
         if (result.party.status === 'disbanded') await clearPartyMemberIndices(result.party);
         else await indexPartyMembers(result.party);
         if (!result.replayed && action !== 'heartbeat' && action !== 'ping') {
