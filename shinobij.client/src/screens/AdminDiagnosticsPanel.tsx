@@ -730,77 +730,29 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
 
             {section === "operations" && (
                 <div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <button onClick={() => void loadOperations()} disabled={!adminPw}>Refresh</button>
-                        <label style={{ color: "#9aa", fontSize: "0.85rem" }}>
-                            Recovery reason
-                            <select value={recoveryReason} onChange={(e) => setRecoveryReason(e.target.value)} style={{ marginLeft: 6 }}>
-                                <option value="session-missing">Session missing</option>
-                                <option value="stuck-starting">Stuck starting</option>
-                                <option value="operator-request">Operator request</option>
-                            </select>
-                        </label>
-                        {operationsStatus && <span style={{ color: operationsStatus.startsWith("X ") ? "#f88" : "#9fd" }}>{operationsStatus}</span>}
-                    </div>
-
+                    <button onClick={() => void loadOperations()} disabled={!adminPw}>Refresh</button>{" "}
+                    <label>Recovery reason {" "}
+                        <select value={recoveryReason} onChange={(e) => setRecoveryReason(e.target.value)}>
+                            <option value="session-missing">Session missing</option>
+                            <option value="stuck-starting">Stuck starting</option>
+                            <option value="operator-request">Operator request</option>
+                        </select>
+                    </label>
+                    {operationsStatus && <p>{operationsStatus}</p>}
                     {operations && (
-                        <>
-                            <div style={box}>
-                                <strong>Clan Boss operation health</strong>
-                                <div style={{ marginTop: 6 }}>
-                                    <span style={pill}>boss: {operations.feature.clanBossEnabled ? "enabled" : "disabled"}</span>
-                                    <span style={pill}>parties: {operations.feature.partiesEnabled ? "enabled" : "solo compatibility"}</span>
-                                    <span style={pill}>parties tracked: {operations.totals.parties}</span>
-                                    <span style={pill}>public queued: {operations.totals.publicQueued}</span>
-                                    <span style={pill}>missing sessions: {operations.totals.missingSessions}</span>
-                                    <span style={pill}>stale members: {operations.totals.staleMembers}</span>
+                        <div style={box}>
+                            <strong>Clan Boss operation health</strong>
+                            <p>Boss {operations.feature.clanBossEnabled ? "enabled" : "disabled"}; parties {operations.feature.partiesEnabled ? "enabled" : "solo compatibility"}; {operations.totals.parties} tracked; {operations.totals.publicQueued} queued; {operations.totals.missingSessions} missing sessions; {operations.totals.staleMembers} stale members.</p>
+                            <p>{Object.entries(operations.totals.byStatus).sort().map(([status, count]) => `${status}: ${count}`).join(" · ") || "No status rows"}</p>
+                            <p>Recovery is limited to pre-start parties. Active combat and reward values cannot be changed here.</p>
+                            {operations.parties.length === 0 ? <p>No tracked parties.</p> : operations.parties.map((party) => (
+                                <div key={party.partyId} style={{ borderTop: "1px solid #2a2a36", padding: "8px 0", ...mono }}>
+                                    <div>{party.partyId} · {party.status} · {party.readyCount}/{party.memberCount} ready · {party.visibility} · v{party.version} · {party.ageBucket}</div>
+                                    <small>Session {party.hasRunId ? (party.missingSession ? "missing" : "linked") : "not started"}; {party.staleMembers} stale</small>{" "}
+                                    {["forming", "queued", "starting"].includes(party.status) && <button type="button" onClick={() => void recoverOperation(party)} disabled={!adminPw || recoveringPartyId === party.partyId}>{recoveringPartyId === party.partyId ? "Recovering..." : "Confirm recovery disband"}</button>}
                                 </div>
-                                <div style={{ marginTop: 6 }}>
-                                    {Object.entries(operations.totals.byStatus).sort().map(([status, count]) => (
-                                        <span key={status} style={pill}>{status}: {count}</span>
-                                    ))}
-                                </div>
-                                <div style={{ color: "#9aa", fontSize: "0.8rem", marginTop: 6 }}>Generated {fmtTime(operations.generatedAt)}</div>
-                            </div>
-
-                            <div style={box}>
-                                <strong>Party states</strong>
-                                <p style={{ color: "#9aa", fontSize: "0.8rem" }}>
-                                    Recovery is limited to forming, queued, or stuck-starting parties. Active combat and reward values cannot be changed here.
-                                </p>
-                                {operations.parties.length === 0 && <span style={{ color: "#9aa" }}>No tracked parties.</span>}
-                                <div style={{ maxHeight: 360, overflow: "auto" }}>
-                                    {operations.parties.map((party) => {
-                                        const recoverable = ["forming", "queued", "starting"].includes(party.status);
-                                        return (
-                                            <div key={party.partyId} style={{ borderBottom: "1px solid #2a2a36", padding: "8px 0", ...mono }}>
-                                                <div>
-                                                    <span style={{ color: "#8cf" }}>{party.partyId}</span>{" "}
-                                                    <span style={pill}>{party.status}</span>
-                                                    <span style={pill}>{party.readyCount}/{party.memberCount} ready</span>
-                                                    <span style={pill}>{party.visibility}</span>
-                                                    <span style={pill}>v{party.version}</span>
-                                                    <span style={pill}>{party.ageBucket}</span>
-                                                </div>
-                                                <div style={{ color: party.missingSession ? "#f99" : "#9aa", marginTop: 4 }}>
-                                                    session: {party.hasRunId ? (party.missingSession ? "missing" : "linked") : "not started"}; stale members: {party.staleMembers}
-                                                </div>
-                                                {recoverable && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => void recoverOperation(party)}
-                                                        disabled={!adminPw || recoveringPartyId === party.partyId}
-                                                        style={{ marginTop: 6 }}
-                                                    >
-                                                        {recoveringPartyId === party.partyId ? "Recovering..." : "Confirm recovery disband"}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </>
+                            ))}
+                        </div>
                     )}
                 </div>
             )}
