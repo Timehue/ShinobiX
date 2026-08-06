@@ -10,6 +10,7 @@ import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_prog
 import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_breeding-requirements.js';
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
 import { kv } from '../_storage.js';
+import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
@@ -73,7 +74,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const effectiveMs = Math.max(60_000, Math.floor(durationMs * Math.max(0.5, 1 - speedPct / 100)));
                     const mult = PET_TRAINING_DURATIONS.get(durationMs)! * (workingPet.trait === 'Loyal' ? 1.5 : 1) * (petHappiness(workingPet) >= 80 ? 1.15 : petHappiness(workingPet) >= 50 ? 1.05 : 1);
                     const masteryXp = character.profession === 'petTamer' ? masteryBonus(character.profession, character.masterySpec, 'petTrainXpPct') : 0;
-                    const sealedXp = Math.max(15, Math.round(45 * mult * (1 + masteryXp / 100) * (focus === 'bond' ? 1.35 : 1)));
+                    // Village war MORALE at the SEAL. Pet training is server-settled,
+                    // so the client-side multiplier this used to rely on had no seam
+                    // to act on and the whole XP half of both morale windows was inert.
+                    const petMorale = await moraleForCharacter(character, now);
+                    const sealedXp = applyMoraleToGain(
+                        Math.max(15, Math.round(45 * mult * (1 + masteryXp / 100) * (focus === 'bond' ? 1.35 : 1))),
+                        petMorale.xpMult,
+                    );
                     nextPet = { ...workingPet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
                 }
             } else if (action === 'complete-training') {
