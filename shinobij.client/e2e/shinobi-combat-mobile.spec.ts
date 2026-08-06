@@ -175,9 +175,11 @@ for (const mode of ["solo", "pvp"] as const) {
             await expect(dossier.locator(".combat-effect-panel").first()).toBeHidden();
             await expect(statusStrip).toBeVisible();
             await expect(statusStrip.locator(".cme-chip").first()).toContainText("Guard");
-            expect(await statusStrip.evaluate((strip) => strip.scrollWidth)).toBeLessThanOrEqual(
-                await statusStrip.evaluate((strip) => strip.clientWidth + 1),
-            );
+            const statusWidths = await statusStrip.evaluate((strip) => ({
+                content: strip.scrollWidth,
+                viewport: strip.clientWidth,
+            }));
+            expect(statusWidths.content).toBeLessThanOrEqual(statusWidths.viewport + 1);
 
             const cards = page.locator(".combat-jutsu-card-wrap");
             const firstCard = await cards.first().boundingBox();

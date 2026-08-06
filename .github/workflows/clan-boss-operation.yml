@@ -1,0 +1,100 @@
+name: Clan Boss operation certification
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/clan-boss-operation.yml'
+      - '.env.example'
+      - 'FEATURE_FLAG_RELEASE_MATRIX.md'
+      - 'RELEASE_CHECKLIST.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'server.ts'
+      - 'api/admin/clan-boss-operations.ts'
+      - 'api/clan-boss/**'
+      - 'api/combat-adapters/clanBossAdapter.ts'
+      - 'api/cron/_clan-boss-weekly*'
+      - 'api/cron/_scheduler.ts'
+      - 'api/player/_activity-spine*'
+      - 'api/player/activity-spine.ts'
+      - 'api/towers/**'
+      - 'shared/activity-spine.ts'
+      - 'shared/clan-boss-operation.ts'
+      - 'shared/product-analytics.ts'
+      - 'shinobij.client/src/clan-boss-operation.test.ts'
+      - 'shinobij.client/src/components/ActivitySpine.tsx'
+      - 'shinobij.client/src/components/ClanBoss*.tsx'
+      - 'shinobij.client/src/lib/clan-boss-api.ts'
+      - 'shinobij.client/src/screens/AdminDiagnosticsPanel.tsx'
+      - 'shinobij.client/src/screens/ClanBoss.tsx'
+      - 'shinobij.client/src/styles/index/36-clan-boss-operation.css'
+      - 'scripts/clan-boss-balance-sim*'
+      - 'scripts/clan-boss-operation-certification.ts'
+      - 'scripts/player-facing-utf8.test.mjs'
+      - 'docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md'
+      - 'docs/MMO_ROUNDNESS_IMPLEMENTATION_REPORT.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/clan-boss-operation.yml'
+      - '.env.example'
+      - 'FEATURE_FLAG_RELEASE_MATRIX.md'
+      - 'RELEASE_CHECKLIST.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'server.ts'
+      - 'api/admin/clan-boss-operations.ts'
+      - 'api/clan-boss/**'
+      - 'api/combat-adapters/clanBossAdapter.ts'
+      - 'api/cron/_clan-boss-weekly*'
+      - 'api/cron/_scheduler.ts'
+      - 'api/player/_activity-spine*'
+      - 'api/player/activity-spine.ts'
+      - 'api/towers/**'
+      - 'shared/activity-spine.ts'
+      - 'shared/clan-boss-operation.ts'
+      - 'shared/product-analytics.ts'
+      - 'shinobij.client/src/clan-boss-operation.test.ts'
+      - 'shinobij.client/src/components/ActivitySpine.tsx'
+      - 'shinobij.client/src/components/ClanBoss*.tsx'
+      - 'shinobij.client/src/lib/clan-boss-api.ts'
+      - 'shinobij.client/src/screens/AdminDiagnosticsPanel.tsx'
+      - 'shinobij.client/src/screens/ClanBoss.tsx'
+      - 'shinobij.client/src/styles/index/36-clan-boss-operation.css'
+      - 'scripts/clan-boss-balance-sim*'
+      - 'scripts/clan-boss-operation-certification.ts'
+      - 'scripts/player-facing-utf8.test.mjs'
+      - 'docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md'
+      - 'docs/MMO_ROUNDNESS_IMPLEMENTATION_REPORT.md'
+
+concurrency:
+  group: clan-boss-operation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build server
+        run: npm run build:server
+
+      - name: Certify Clan Boss operation
+        run: npm run certify:clan-boss-operation
+
+      - name: Audit Clan Boss balance
+        run: npm run audit:clan-boss-balance
