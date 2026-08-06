@@ -96,6 +96,8 @@ export type WarMissionResult = {
     completed?: number;
     character?: Character;
     saveVersion?: number;
+    /** Single-use token authorizing this mission's village-war HP damage. */
+    warMissionToken?: string;
     error?: string;
 };
 
@@ -113,9 +115,11 @@ export async function claimWarMissionServer(playerName: string, missionIndex: nu
             body: JSON.stringify({ playerName, missionIndex }),
         });
         const data = await response.json().catch(() => null) as
-            { completed?: number; character?: Character; _saveVersion?: number; error?: string } | null;
+            { completed?: number; character?: Character; _saveVersion?: number; warMissionToken?: string; error?: string } | null;
         if (!response.ok || !data?.character) return { error: data?.error || 'war-mission-failed' };
-        return { completed: data.completed, character: data.character, saveVersion: data._saveVersion };
+        // Single-use token authorizing the mission's war-HP damage on the
+        // world-state write (the server won't accept unbacked war damage).
+        return { completed: data.completed, character: data.character, saveVersion: data._saveVersion, warMissionToken: data.warMissionToken };
     } catch {
         return { error: 'offline' };
     }

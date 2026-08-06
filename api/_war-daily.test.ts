@@ -96,7 +96,21 @@ function memStore() {
         m,
         get: async <T = unknown>(k: string): Promise<T | null> => (m.has(k) ? (m.get(k) as T) : null),
         set: async (k: string, v: unknown) => { m.set(k, v); return 'OK'; },
+        // Territory-scan surface (HeldSectorStore) so the daily pass reads held
+        // sectors from THIS store and never touches live storage in unit tests.
+        keys: async (pattern: string): Promise<string[]> => {
+            const prefix = pattern.endsWith('*') ? pattern.slice(0, -1) : pattern;
+            return [...m.keys()].filter((k) => k.startsWith(prefix));
+        },
+        mget: async (...keys: string[]): Promise<unknown[]> => keys.map((k) => (m.has(k) ? m.get(k) : null)),
     };
+}
+
+/** Seed `world:territory:<sector>` ownership rows into a memStore. */
+function seedTerritory(store: ReturnType<typeof memStore>, owners: Record<number, string>) {
+    for (const [sector, ownerVillage] of Object.entries(owners)) {
+        store.m.set(`world:territory:${sector}`, { sector: Number(sector), ownerVillage });
+    }
 }
 const passthroughLock = <T>(_k: string, fn: () => Promise<T>) => fn();
 
@@ -106,6 +120,44 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         const r = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: false });
         assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0 });
         assert.equal(store.m.size, 0);
+    });
+
+    it('scales the WR + seal faucet to sectors ACTUALLY held, not the home table', async () => {
+        // Frostfang has been pushed down to 2 sectors; Moonshadow occupies 11
+        // (its own 8 + 3 conquered). Income must follow the live territory rows.
+        const store = memStore();
+        const owners: Record<number, string> = {};
+        for (const s of [26, 27]) owners[s] = 'Frostfang Village';
+        for (const s of [17, 18, 19, 20, 21, 22, 23, 24, 28, 29, 30]) owners[s] = 'Moonshadow Village';
+        seedTerritory(store, owners);
+
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
+        assert.equal(r.enabled, true);
+
+        const frost = store.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
+        const moon = store.m.get(villageWarKey('Moonshadow Village')) as VillageWarRecord;
+        assert.equal(frost.warResources, 50, '2 sectors × 25 WR');
+        assert.equal(moon.warResources, 275, '11 sectors × 25 WR — conquest pays, uncapped');
+
+        // A village holding nothing earns nothing (it also stops paying upkeep it can't afford).
+        const ashen = store.m.get(villageWarKey('Ashen Leaf Village')) as VillageWarRecord;
+        assert.equal(ashen.warResources, 0, 'holds no sectors → no faucet');
+
+        // Seals mirror the same count: 2 + 11 + 0 + 0.
+        assert.equal(r.sealsAccrued, 13);
+        const frostTreasury = store.m.get('game:village-state:frostfangvillage') as { treasury?: { honorSeals?: number } };
+        assert.equal(frostTreasury.treasury?.honorSeals, 2);
+    });
+
+    it('falls back to the home-sector baseline when territory is unseeded', async () => {
+        // No world:territory:* rows at all = the pre-launch/unseeded world. The
+        // faucet must NOT silently switch off world-wide.
+        const store = memStore();
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
+        assert.equal(r.sealsAccrued, 32, '4 villages × 8 home sectors');
+        for (const v of WAR_VILLAGES) {
+            assert.equal((store.m.get(villageWarKey(v)) as VillageWarRecord).warResources, 200);
+        }
     });
 
     it('processes all 4 villages and is idempotent across same-day runs', async () => {

@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, setSafeRecordValue } from '../_utils.js';
+import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
+import { loadHeldSectorCounts } from '../_war-held-sectors.js';
 import { villageWarMapView, type VillageWarMapView } from '../_war-map-view.js';
 import { listActiveSectorWars } from '../_sector-war-store.js';
 
@@ -34,23 +35,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
-        const [warRaws, stateRaws, contests, territoryKeys] = await Promise.all([
+        // Held-sector counts come from the SHARED helper (api/_war-held-sectors.ts)
+        // that the daily WR faucet and the comeback discount also read, so the count
+        // this screen displays can never drift from the one the server charges on.
+        const [warRaws, stateRaws, contests, heldCount] = await Promise.all([
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(`${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`))),
             listActiveSectorWars(),
-            kv.keys(`${TERRITORY_KEY_PREFIX}*`),
+            loadHeldSectorCounts(),
         ]);
-
-        // Server-authoritative held-sector count per village (mirrors the
-        // territory scan in api/village/claim-map-control.ts) → drives the tax tier.
-        const territories = territoryKeys.length
-            ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
-            : [];
-        const heldCount: Record<string, number> = {};
-        for (const t of territories) {
-            const owner = String(t.ownerVillage ?? '').trim();
-            if (owner) setSafeRecordValue(heldCount, owner, (heldCount[owner] ?? 0) + 1);
-        }
 
         const villages: VillageWarMapView[] = WAR_VILLAGES.map((v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);

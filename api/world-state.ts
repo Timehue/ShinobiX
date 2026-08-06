@@ -17,6 +17,18 @@ import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js'
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
 import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
+import { heldSectorsForVillage } from './_war-held-sectors.js';
+import {
+    validateWarBattle,
+    warBattleDeclineMessage,
+    warBattleReceiptKey,
+    WAR_BATTLE_RECEIPT_TTL_SEC,
+    warMissionTokenKey,
+    normalizeWarMissionToken,
+    warMissionTokenAuthorizes,
+    type WarBattleShape,
+    type WarMissionToken,
+} from './_war-battle-receipt.js';
 import { kageKey } from './village/_kage-settle.js';
 
 function villageWarEnabled(): boolean {
@@ -89,6 +101,57 @@ function utcDayIndex(ms: number): number {
 
 function normalizeVillageKey(village: string): string {
     return village.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** A player's SAVED village (never a request body). '' when unknown. */
+async function villageOfPlayer(playerName: string | undefined | null): Promise<string> {
+    const name = safeName(String(playerName ?? ''));
+    if (!name) return '';
+    try {
+        const save = await kv.get<{ character?: { village?: string } }>(`save:${name}`);
+        return String(save?.character?.village ?? '').trim();
+    } catch {
+        return '';
+    }
+}
+
+/** Total village-war HP a write is claiming to deal: every village-HP drop plus
+ *  the war-ground drain. Rises are ignored (they're capped separately). */
+function warDamageClaimed(existing: VillageWar, incoming: VillageWar): number {
+    let total = 0;
+    for (const village of existing.villages) {
+        const prev = Number(existing.hp?.[village] ?? VILLAGE_WAR_HP_MAX);
+        const next = Number(incoming.hp?.[village] ?? prev);
+        if (Number.isFinite(prev) && Number.isFinite(next) && prev > next) total += prev - next;
+    }
+    const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
+    const nextGround = Number(incoming.warGroundHp ?? prevGround);
+    if (Number.isFinite(prevGround) && Number.isFinite(nextGround) && prevGround > nextGround) {
+        total += prevGround - nextGround;
+    }
+    return total;
+}
+
+/**
+ * The earned precondition for the war-ground capture bonus — the one damage source
+ * with no PvP battle behind it by design.
+ *
+ * Either the sector is currently ground to 0 HP, or it has already flipped to the
+ * capturing village. Both cost the same work: the territory endpoint only lets
+ * ownership change once a sector reaches 0 HP, and a 20,000-HP sector takes 20
+ * capped raid writes to break. Accepting either state makes this independent of
+ * whether the client posts its ownership-reset write before or after the war write.
+ */
+async function warGroundCaptureEarned(war: VillageWar, village: string): Promise<boolean> {
+    const sector = Math.floor(Number(war.warGroundSector) || 0);
+    if (!sector) return false;
+    try {
+        const territory = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${sector}`);
+        if (Number(territory?.hp ?? TERRITORY_HP_MAX) <= 0) return true;
+        return !!village && String(territory?.ownerVillage ?? '').trim() === village;
+    } catch {
+        return false;
+    }
 }
 
 async function isSeatedKageOf(playerName: string, village: string): Promise<boolean> {
@@ -794,7 +857,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (newHp < prevHp - TERRITORY_HP_MAX_DELTA_PER_REQUEST) {
                             return res.status(400).json({ error: `HP can only drop by ${TERRITORY_HP_MAX_DELTA_PER_REQUEST} per request.` });
                         }
-                        if (newHp > prevHp + TERRITORY_HP_MAX_REPAIR_PER_REQUEST) {
+                        // A CAPTURE resets the sector to full HP in the same write
+                        // that flips the owner — "freshly secured", mirroring what
+                        // captureSectorForVillage does on the sector-war path. That
+                        // is a legitimate jump from 0 to max, so it is exempt from
+                        // the incremental repair cap (which otherwise 400'd the
+                        // capture write and left the sector pinned at 0 HP, letting
+                        // the war-ground capture bonus be re-claimed indefinitely).
+                        // Everything else still rebuilds a step at a time.
+                        const isCaptureReset =
+                            (matchesClan || matchesVillage) &&
+                            prevHp <= 0 &&
+                            newHp <= TERRITORY_HP_MAX &&
+                            ((!!claimingClan && claimingClan !== String(prev?.ownerClan ?? '').trim()) ||
+                             (!!claimingVillage && claimingVillage !== String(prev?.ownerVillage ?? '').trim()));
+                        if (!isCaptureReset && newHp > prevHp + TERRITORY_HP_MAX_REPAIR_PER_REQUEST) {
                             return res.status(400).json({ error: `HP can only rise by ${TERRITORY_HP_MAX_REPAIR_PER_REQUEST} per request.` });
                         }
                         // Raiders may not increase HP (only defenders / owners may rebuild).
@@ -992,7 +1069,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 //    never create a war for free.
                                 if (villageWarEnabled()) {
                                     const warKey = villageWarKey(actorVillage);
-                                    const sectorsHeld = homeSectorsForVillage(actorVillage).length;
+                                    const sectorsHeld = await heldSectorsForVillage(actorVillage);
                                     const wr = await withKvLock(warKey, async () => {
                                         const rec = normalizeVillageWarRecord(actorVillage, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
                                         const cost = discountedWrCost(DECLARE_WAR_WR, sectorsHeld);
@@ -1116,8 +1193,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 if (prevGround - nextGround > VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST) {
                                     return { status: 400 as const, body: { error: `War ground HP can drop by at most ${VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST} per request.` } };
                                 }
+
+                                // ── BATTLE RECEIPT (anti-cheat) ──────────────
+                                // Damage must be BACKED by a real, finished,
+                                // server-owned PvP session that this player won
+                                // against the enemy village. Without this the
+                                // whole ledger was client-asserted: 50 POSTs with
+                                // no fighting drained a village to 0 and unlocked
+                                // the treasury spoils + war crate.
+                                //
+                                // THREE authorized sources, one per path the client
+                                // actually uses — anything else is refused:
+                                //   (a) a won PvP battle (`battleId`), consumed
+                                //       against a per-battle damage budget;
+                                //   (b) the war-ground capture bonus, which has no
+                                //       battle behind it by design — it is earned by
+                                //       grinding the war-ground SECTOR to 0 HP through
+                                //       the territory endpoint, and the flag must
+                                //       actually be flipping to this village;
+                                //   (c) a settled daily war mission, via the single-use
+                                //       token /api/village/war-mission mints once it has
+                                //       verified the raid count against stored state.
+                                const claimedDamage = warDamageClaimed(existing, war);
+                                if (claimedDamage > 0) {
+                                    const capturingGround =
+                                        String(war.capturedBy ?? '').trim() === actorVillage &&
+                                        String(existing.capturedBy ?? '').trim() !== actorVillage;
+                                    const groundAuthorized = capturingGround
+                                        && await warGroundCaptureEarned(existing, actorVillage);
+
+                                    // (c) a settled daily war mission — /api/village/war-mission
+                                    // verified the raid count against stored state and minted a
+                                    // token sealing the damage. Spent atomically here.
+                                    let missionAuthorized = false;
+                                    const missionTokenId = String((body as Record<string, unknown>)?.warMissionToken ?? '').trim();
+                                    if (!groundAuthorized && missionTokenId) {
+                                        const tokenKey = warMissionTokenKey(missionTokenId);
+                                        const token = normalizeWarMissionToken(await kv.get<Partial<WarMissionToken>>(tokenKey));
+                                        if (warMissionTokenAuthorizes(token, {
+                                            actorName: identity.name,
+                                            actorVillage,
+                                            claimedDamage,
+                                            now: Date.now(),
+                                        })) {
+                                            // Delete FIRST so a concurrent replay of the same
+                                            // token can't also pass.
+                                            await kv.del(tokenKey);
+                                            missionAuthorized = true;
+                                        }
+                                    }
+
+                                    if (!groundAuthorized && !missionAuthorized) {
+                                        const battleId = String((body as Record<string, unknown>)?.battleId ?? '').trim();
+                                        if (!battleId) {
+                                            return { status: 403 as const, body: { error: warBattleDeclineMessage('missing-battle-id') } };
+                                        }
+                                        const receiptKey = warBattleReceiptKey(existing.id, battleId);
+                                        const battle = await kv.get<WarBattleShape>(`pvp:${battleId}`);
+                                        const [p1Village, p2Village, spentRaw] = await Promise.all([
+                                            villageOfPlayer(battle?.p1?.name),
+                                            villageOfPlayer(battle?.p2?.name),
+                                            kv.get<number>(receiptKey),
+                                        ]);
+                                        const check = validateWarBattle({
+                                            battle,
+                                            actorName: identity.name,
+                                            actorVillage,
+                                            warVillages: existing.villages,
+                                            p1Village,
+                                            p2Village,
+                                            warStartedAt: warEffectiveStartMs(existing),
+                                            budgetSpent: Number(spentRaw) || 0,
+                                        });
+                                        if (!check.ok) {
+                                            return { status: 403 as const, body: { error: warBattleDeclineMessage(check.reason) } };
+                                        }
+                                        if (claimedDamage > check.budgetRemaining) {
+                                            return { status: 403 as const, body: { error: warBattleDeclineMessage('battle-budget-spent') } };
+                                        }
+                                        // Spend the budget BEFORE the write lands, inside the
+                                        // war lock, so a replay of the same battle can't
+                                        // double-bank. Best-effort TTL refresh is fine —
+                                        // the war itself is capped at 14 days.
+                                        await kv.set(
+                                            receiptKey,
+                                            (Number(spentRaw) || 0) + claimedDamage,
+                                            { ex: WAR_BATTLE_RECEIPT_TTL_SEC } as never,
+                                        );
+                                    }
+                                }
                             }
-                        } catch {
+                        } catch (receiptErr) {
+                            console.error('[world-state] war damage verification failed', receiptErr);
                             return { status: 500 as const, body: { error: 'Unable to verify war participation.' } };
                         }
                     }

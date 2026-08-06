@@ -5,7 +5,8 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { isWarVillage, homeSectorsForVillage } from '../_war-map-sectors.js';
+import { isWarVillage } from '../_war-map-sectors.js';
+import { heldSectorsForVillage } from '../_war-held-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
 import { wrMercTierById, WR_MERC_TIERS, mercBandSize } from '../_war-economy.js';
 import { mercHireCost, addOrRefreshLease, MERC_LEASE_MS } from '../_war-merc.js';
@@ -86,9 +87,9 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
     }
 
     const now = Date.now();
-    // Phase-1 approximation (mirrors sector-war declare): the comeback discount is
-    // keyed on home-sector count until live held-count tracking lands.
-    const sectorsHeld = homeSectorsForVillage(village).length;
+    // Live held count from the authoritative territory rows, so a village pushed
+    // off the map actually gets the comeback discount on mercenaries.
+    const sectorsHeld = await heldSectorsForVillage(village);
     const key = villageWarKey(village);
     const out = await withKvLock(key, async () => {
         const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(key)) ?? undefined);

@@ -412,10 +412,10 @@ export function loadVillageWar(villageA: string, villageB: string): VillageWar |
     return null;
 }
 
-function saveVillageWar(war: VillageWar) {
+function saveVillageWar(war: VillageWar, battleId?: string, warMissionToken?: string) {
     const normalized = normalizeVillageWar({ ...war, updatedAt: Date.now() });
     sharedVillageWarCache[normalized.id] = normalized;
-    persistSharedWorldState("war", normalized);
+    persistSharedWorldState("war", normalized, battleId, warMissionToken);
     return normalized;
 }
 
@@ -527,7 +527,7 @@ function villageWarLossPenalty(character: Character, clanMemberCount = 0) {
     return 0;
 }
 
-function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number) {
+function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number, battleId?: string, warMissionToken?: string) {
     const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
     const ended = nextHp <= 0;
     const winnerVillage = ended ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage;
@@ -542,7 +542,7 @@ function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: 
         endedAt: ended ? Date.now() : war.endedAt,
         warCrateId: war.warCrateId ?? `war-crate-${war.id}`,
     });
-    saveVillageWar(next);
+    saveVillageWar(next, battleId, warMissionToken);
     // On war end, append to both villages' warRecords and post end-of-war
     // notices so the village board reflects the outcome. Each village
     // gets its own POV ("won vs X" / "lost to X"). Idempotent — guarded
@@ -592,7 +592,7 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
     }
 }
 
-export function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = []) {
+export function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = [], battleId?: string) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
     // No war damage during the pre-war pending window — the server
@@ -624,12 +624,12 @@ export function recordVillageWarPvp(winner: Character, loser: Character, sector?
             homeBonus = true;
         }
     }
-    const updated = applyVillageWarDamage(war, loser.village, damage);
+    const updated = applyVillageWarDamage(war, loser.village, damage, battleId);
     const tag = homeBonus ? " [Home Defender +15%]" : "";
     return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
-export function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = []) {
+export function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = [], battleId?: string) {
     // Union return shape: every early return must declare the same
     // keys (with undefined values where needed) so the success path's
     // `warCrateId: string` access compiles against the inferred union.
@@ -664,7 +664,7 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
         ...war,
         warGroundHp: Math.max(0, war.warGroundHp - damage),
     });
-    next = applyVillageWarDamage(next, enemyVillage, damage);
+    next = applyVillageWarDamage(next, enemyVillage, damage, battleId);
     let captureNote = "";
     // B (tug of war): the war ground is a contestable, recurring objective.
     // When warGroundHp hits 0, fire the capture event — but instead of
@@ -681,15 +681,15 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
                 capturedAt: Date.now(),
                 warGroundHp: 500, // reset for the next push from the other side
             });
-            next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE);
+            next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE, battleId);
             captureNote = next.capturedBy === character.village && (war.capturedBy && war.capturedBy !== character.village)
                 ? ` War ground RECAPTURED by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`
                 : ` War ground captured by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
         } else {
-            saveVillageWar(next);
+            saveVillageWar(next, battleId);
         }
     } else {
-        saveVillageWar(next);
+        saveVillageWar(next, battleId);
     }
     const today = currentDateKey();
     const sameDay = character.villageWarMissionDate === today;
@@ -749,7 +749,7 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
  * `claimPendingWarCrates` already claims it through /api/village/claim-war-crate
  * on the next sweep, which is the only path that can actually deliver it.
  */
-export function applyVillageWarMissionDamage(character: Character): { ok: boolean; note: string } {
+export function applyVillageWarMissionDamage(character: Character, warMissionToken?: string): { ok: boolean; note: string } {
     // No gate here: /api/village/war-mission already validated the raid count
     // and the claim order against STORED state, and has committed the reward by
     // the time this runs. Re-checking would refuse every time, because the
@@ -757,7 +757,10 @@ export function applyVillageWarMissionDamage(character: Character): { ok: boolea
     const war = activeVillageWarsFor(character.village)[0];
     const enemyVillage = war?.villages.find(village => village !== character.village);
     if (!war || !enemyVillage) return { ok: false, note: "Your village is not in an active war." };
-    const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
+    // The HP half is authorized by the single-use token /api/village/war-mission
+    // minted when it verified the raid count — the world-state write refuses
+    // unbacked war damage.
+    const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE, undefined, warMissionToken);
     const wonWar = Boolean(updatedWar.endedAt && updatedWar.winnerVillage === character.village);
     return {
         ok: true,
@@ -1239,12 +1242,16 @@ function normalizeSectorTerritory(sector: number, data?: Partial<SectorTerritory
     };
 }
 
-function persistSharedWorldState(kind: "territory" | "war", payload: SectorTerritory | VillageWar) {
+// `battleId` is the war-damage RECEIPT: the server refuses village-war HP damage
+// that isn't backed by a finished PvP session this player won against the enemy
+// village (api/_war-battle-receipt.ts). Every damage path runs off a real battle,
+// so the id is always available at the call site — it just has to be forwarded.
+function persistSharedWorldState(kind: "territory" | "war", payload: SectorTerritory | VillageWar, battleId?: string, warMissionToken?: string) {
     if (typeof fetch === "undefined") return;
     fetch(WORLD_STATE_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(kind === "territory" ? { kind, territory: payload } : { kind, war: payload }),
+        body: JSON.stringify(kind === "territory" ? { kind, territory: payload } : { kind, war: payload, battleId, warMissionToken }),
     }).catch(() => {
         // The local cache already reflects the action; the next successful refresh will reconcile shared state.
     });
