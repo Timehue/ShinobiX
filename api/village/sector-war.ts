@@ -12,7 +12,7 @@ import {
     villageWarKey,
     type WinCondition,
 } from '../_war-state.js';
-import { sectorControlHpMax, sectorWarDamageMultiplier } from '../_war-structures.js';
+import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
 import { sealTowerFighter } from '../towers/_seal.js';
 import { resolveMercBattle } from '../towers/_merc-fighters.js';
@@ -20,7 +20,7 @@ import {
     sectorWarId,
     sectorWarKey,
     newSectorWarSession,
-    applySectorBattleResult,
+    applySectorWarBattle,
     findSectorWarBattleReceipt,
     recordSectorWarBattleOutcome,
     canDeclareSectorWar,
@@ -31,7 +31,6 @@ import {
     SECTOR_RESIEGE_COOLDOWN_SEC,
     abandonSectorWar,
     isGarrisonAssaultable,
-    garrisonSwing,
     GARRISON_UNLOCK_IDLE_MS,
     type SectorWarDeclineReason,
 } from '../_sector-war.js';
@@ -45,7 +44,8 @@ import {
     getSectorOwnerVillage,
     activeSectorWarsForVillage,
 } from '../_sector-war-store.js';
-import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
+import { villageHasActiveWar, seedHomeSectorOwnership } from '../world-state.js';
+import { settleDueSectorWars } from '../_sector-war-settle.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
@@ -194,6 +194,11 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         return res.status(403).json({ error: 'Only the seated Kage can declare a sector war.' });
     }
 
+    // Settle anything whose 72 hours just closed BEFORE reading ownership: a due
+    // war on this very sector may be about to flip it, and declaring over an
+    // unsettled record would erase a finished war's verdict.
+    await settleDueSectorWars();
+
     const defender = await getSectorOwnerVillage(sector);
     if (!defender) return res.status(409).json({ error: 'That sector has no current owner — it must be seeded first.' });
 
@@ -218,7 +223,6 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const attackerRecord = normalizeVillageWarRecord(village, atkRecord ?? undefined);
     const defenderRecord = isWarVillage(defender) ? normalizeVillageWarRecord(defender, defRaw ?? undefined) : null;
     const winCondition = (defenderRecord?.sectors[String(sector)]?.winCondition ?? 'combat') as WinCondition;
-    const controlHpMax = defenderRecord ? sectorControlHpMax(defenderRecord) : undefined;
 
     const check = canDeclareSectorWar({
         attackerVillage: village,
@@ -252,7 +256,7 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
                     ? { created: false as const, session: live }          // our own — idempotent re-declare
                     : { created: false as const, session: live, taken: true as const };
             }
-            const s = newSectorWarSession({ sector, attackerVillage: village, defenderVillage: defender, winCondition, now: Date.now(), controlHpMax });
+            const s = newSectorWarSession({ sector, attackerVillage: village, defenderVillage: defender, winCondition, now: Date.now() });
             await saveSectorWar(s);
             return { created: true as const, session: s };
         }, { failClosed: true });
@@ -423,34 +427,24 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         }
         const prior = findSectorWarBattleReceipt(contest, battleId);
         if (prior) {
-            return {
-                ok: true as const,
-                replayed: true,
-                outcome: {
-                    session: contest,
-                    captured: prior.captured,
-                    hpDealt: prior.hpDealt,
-                    hpRegen: prior.hpRegen,
-                },
-            };
+            return { ok: true as const, replayed: true, awarded: prior.points, session: contest };
         }
-        if (contest.flipped) return { ok: false as const, error: 'contest-closed' as const };
-        const atkRecord = normalizeVillageWarRecord(token.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage))) ?? undefined);
-        const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
-        const outcome = applySectorBattleResult(contest, attackerWon, { now: Date.now(), swing });
-        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon, at: Date.now() });
-        if (outcome.captured) {
-            // Flip the sector's persistent owner (territory lock, nested) BEFORE
-            // closing the contest, so the capture + flip commit under one lock
-            // scope. Re-running is idempotent (ownerVillage already set).
-            await captureSectorForVillage(token.sector, token.attackerVillage, Date.now());
-            // Telemetry (best-effort): a sector flipped to the attacker.
-            void recordWarEcoEvent({ eventId: `capture:${id}`, village: token.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${token.sector}` });
-        }
-        // Persist the Control-HP mutation and its run receipt together. Flipped
-        // contests remain as inert audit records instead of deleting the receipt.
+        // Score the kill. Sectors never flip mid-war -- settlement compares the
+        // tallies when the 72 hours close (api/_sector-war-settle.ts).
+        const [atkRaw, defRaw] = await Promise.all([
+            kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage)),
+            kv.get<Record<string, unknown>>(villageWarKey(token.defenderVillage)),
+        ]);
+        const outcome = applySectorWarBattle(contest, attackerWon, {
+            now: Date.now(),
+            roleSwing: sectorControlSwing(winnerRole, loserRole),
+            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(token.attackerVillage, atkRaw ?? undefined)),
+            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(token.defenderVillage, defRaw ?? undefined)),
+            by: winnerName,
+        });
+        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon, by: winnerName, at: Date.now() });
         await saveSectorWar(recorded.session);
-        return { ok: true as const, replayed: false, outcome: { ...outcome, session: recorded.session } };
+        return { ok: true as const, replayed: false, awarded: outcome.awarded, session: recorded.session };
     }, { failClosed: true });
 
     if (!result.ok) {
@@ -464,11 +458,11 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     if (!result.replayed && legacyEnabled() && winnerName) {
         await bumpLegacyStats(winnerName, {
             warPvpKills: 1,
-            // Flat war-contribution points per validated war battle (control-HP
-            // swings are tiny numbers — using them raw made every
-            // warContribution floor unreachable; verification finding).
+            // Flat war-contribution points per validated war battle (role swings
+            // are small numbers — using them raw made every warContribution floor
+            // unreachable; verification finding). Sector captures are settlement's
+            // business now, not any single battle's.
             warContribution: 2000,
-            ...(attackerWon && result.outcome.captured ? { sectorCaptures: 1 } : {}),
             ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
         });
         await bumpEraContribution('warBattles');
@@ -476,11 +470,10 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     return res.status(200).json({
         ok: true,
         attackerWon,
-        captured: result.outcome.captured,
-        controlHp: result.outcome.captured ? 0 : result.outcome.session.controlHp,
-        controlHpMax: result.outcome.session.controlHpMax,
-        hpDealt: result.outcome.hpDealt,
-        hpRegen: result.outcome.hpRegen,
+        points: result.awarded,
+        attackerPoints: result.session.attackerPoints,
+        defenderPoints: result.session.defenderPoints,
+        endsAt: result.session.endsAt,
     });
 }
 
@@ -542,35 +535,44 @@ async function doGarrison(req: VercelRequest, res: VercelResponse, identity: Ide
         now,
     });
     // The attacker is the sealed "player" side, so playerWon = the garrison fell.
-    // A stall is a genuine draw: neither chips nor regens.
+    // A stall is a genuine draw: nothing scores.
     if (fight.winner === 'stall') {
-        return res.status(200).json({ ok: true, outcome: 'stall', controlHp: contest.controlHp, controlHpMax: contest.controlHpMax });
+        return res.status(200).json({ ok: true, outcome: 'stall', attackerPoints: contest.attackerPoints, defenderPoints: contest.defenderPoints, endsAt: contest.endsAt });
     }
     const attackerWon = fight.playerWon;
 
-    const [winnerRole, loserRole] = attackerWon
-        ? [await sectorWarRoleOf(playerName), ROLE_VILLAGER]
-        : [ROLE_VILLAGER, await sectorWarRoleOf(playerName)];
+    // A fallen garrison is worth a villager kill; an attacker who LOSES to the
+    // garrison scores the DEFENCE points for the hold (the garrison "kills" at
+    // villager weight too). The half-weight fraction and the war-wide garrison
+    // cap are applied inside applySectorWarBattle.
+    const attackerRole = await sectorWarRoleOf(playerName);
+    const [winnerRole, loserRole] = attackerWon ? [attackerRole, ROLE_VILLAGER] : [ROLE_VILLAGER, attackerRole];
 
     const battleId = `garrison:${contest.id}:${playerName}:${now}`;
     const result = await withKvLock(sectorWarKey(contest.id), async () => {
         const fresh = await loadSectorWar(contest.id);
         if (!fresh || !isSectorWarActive(fresh, Date.now())) return { ok: false as const };
         if (findSectorWarBattleReceipt(fresh, battleId)) return { ok: false as const };
-        const atkRecord = normalizeVillageWarRecord(fresh.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage))) ?? undefined);
-        const raw = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
-        const outcome = applySectorBattleResult(fresh, attackerWon, {
+        const [atkRaw, defRaw] = await Promise.all([
+            kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage)),
+            kv.get<Record<string, unknown>>(villageWarKey(fresh.defenderVillage)),
+        ]);
+        const outcome = applySectorWarBattle(fresh, attackerWon, {
             now: Date.now(),
-            swing: garrisonSwing(raw, fresh.controlHpMax),
-            garrisonBattle: true,
+            roleSwing: sectorControlSwing(winnerRole, loserRole),
+            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
+            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
+            // Attacker win: the points are the PLAYER's (their cap applies on top
+            // of the garrison cap). Garrison win: the AI scored, nobody's cap.
+            by: attackerWon ? playerName : '',
+            garrisonBattle: attackerWon,
+            mercBattle: !attackerWon,
         });
-        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon, at: Date.now() });
-        if (outcome.captured) {
-            await captureSectorForVillage(fresh.sector, fresh.attackerVillage, Date.now());
-            void recordWarEcoEvent({ eventId: `capture:${fresh.id}`, village: fresh.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${fresh.sector}` });
-        }
+        const recorded = recordSectorWarBattleOutcome(outcome, {
+            battleId, attackerWon, by: attackerWon ? playerName : '', garrison: attackerWon, at: Date.now(),
+        });
         await saveSectorWar(recorded.session);
-        return { ok: true as const, outcome: { ...outcome, session: recorded.session } };
+        return { ok: true as const, awarded: outcome.awarded, session: recorded.session };
     }, { failClosed: true });
 
     if (!result.ok) return res.status(409).json({ error: 'That sector war is no longer active.' });
@@ -578,11 +580,10 @@ async function doGarrison(req: VercelRequest, res: VercelResponse, identity: Ide
         ok: true,
         outcome: attackerWon ? 'attacker' : 'garrison',
         attackerWon,
-        captured: result.outcome.captured,
-        controlHp: result.outcome.captured ? 0 : result.outcome.session.controlHp,
-        controlHpMax: result.outcome.session.controlHpMax,
-        hpDealt: result.outcome.hpDealt,
-        hpRegen: result.outcome.hpRegen,
+        points: result.awarded,
+        attackerPoints: result.session.attackerPoints,
+        defenderPoints: result.session.defenderPoints,
+        endsAt: result.session.endsAt,
         rounds: fight.rounds,
     });
 }
@@ -620,6 +621,10 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
 
 // ── status (read-only) ─────────────────────────────────────────────────────────
 async function doStatus(_req: VercelRequest, res: VercelResponse, body: Record<string, unknown>) {
+    // The war map polls this every 15s, which makes it the near-instant
+    // settlement path: a war whose 72 hours just closed flips (or holds) within
+    // one poll of someone looking at it. The daily pass is only the backstop.
+    await settleDueSectorWars();
     const sector = Math.floor(Number(body.sector) || 0);
     if (sector) {
         const [ownerVillage, contest] = await Promise.all([getSectorOwnerVillage(sector), activeContestOnSector(sector)]);

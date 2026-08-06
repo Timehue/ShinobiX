@@ -2,7 +2,7 @@
  * Village War Map — the per-village war-state record schema, defaults, and
  * normalizer (Phase 0, pure). Stored at `shared:village-war:<slug>` once wired:
  * the village's WR pool, its 6 structures, its 8 home sectors (each with a
- * win-condition, terrain, and Control HP), dormancy, mercenary leases, and the
+ * win-condition and terrain), dormancy, mercenary leases, and the
  * daily-pass stamp. Plan §7, §8, §17.
  *
  * IO-free; nothing reads/writes this yet (villageWarMap.v1 OFF). The normalizer
@@ -41,42 +41,9 @@ export const STRUCTURE_KEYS: readonly StructureKey[] = [
 export type Terrain = 'forest' | 'snow' | 'volcano' | 'shadow' | 'central';
 export const TERRAINS: readonly Terrain[] = ['forest', 'snow', 'volcano', 'shadow', 'central'];
 
-// §17.6 — a sector's hold. Each fight moves it by a ROLE-SCALED swing
-// (api/_war-role sectorControlSwing = winner.win + loser.loss), NOT a flat chunk.
-//
-// TUNING (2026-08-06). This was 2000 while a villager beating a villager swings 5
-// — 400 straight wins to take one sector, and ~550 at a realistic 80% win rate.
-// That number came from an earlier model where a win was a flat 150 chunk of a
-// 600 bar (~4 wins); when the flat chunk was replaced by the role ladder the bar
-// was never rescaled, so the pacing was off by two orders of magnitude and a
-// full-tier mercenary band moved a sector by 1.25%.
-//
-// At 100, with the per-fight cap below, a sector costs:
-//     villager beats villager   swing  5  → 20 wins (~28 fights at an 80% win rate)
-//     ANBU beats villager       swing 15  →  7 wins
-//     Elder / Kage vs villager  swing 20* →  5 wins
-//     any fight involving a Kage swing 20* →  5 wins
-//   (* capped — see SECTOR_CONTROL_MAX_SWING_FRACTION)
-// So rank still matters enormously (leadership takes a sector 4× faster) but no
-// single fight can ever end a siege, and a sector is a session's work rather
-// than a month's. Watchtower raises this cap.
-export const SECTOR_CONTROL_HP_MAX = 100;
-
-/** No single resolved fight may move a sector's Control HP by more than this
- *  fraction of its bar. Guarantees a siege is always at least 5 fights, so the
- *  top of the role ladder (a Kage felling a Kage swings 80 raw) stays decisive
- *  without letting one duel flip a sector outright. */
-export const SECTOR_CONTROL_MAX_SWING_FRACTION = 0.2;
-
-/** Hard ceiling on a stored `controlHpMax`, so a session written under an older,
- *  much larger bar migrates down instead of keeping a stale multi-thousand hold.
- *  Sized above the maximum Watchtower boost (+15%) with room for future tuning. */
-export const SECTOR_CONTROL_HP_ABSOLUTE_MAX = Math.round(SECTOR_CONTROL_HP_MAX * 1.5);
-
 export interface SectorWarState {
     winCondition: WinCondition;   // defender's chosen contest type
     terrain: Terrain;             // leader-set terrain (defaults to the biome)
-    controlHp: number;            // 0..SECTOR_CONTROL_HP_MAX
 }
 
 export interface MercLease {
@@ -113,8 +80,7 @@ function asTerrain(v: unknown, fallback: Terrain): Terrain {
     return (TERRAINS as readonly string[]).includes(v as string) ? (v as Terrain) : fallback;
 }
 
-/** A fresh war-state for a village: empty WR, all structures L0, every home
- *  sector secure (full Control HP), biome terrain. Win-conditions default to a
+/** A fresh war-state for a village: empty WR, all structures L0, biome terrain. Win-conditions default to a
  *  valid, diverse spread that alternates Combat / Pet (4 each) — Pet's server
  *  sim is now wired (api/village/sector-pet), so it is a first-class default.
  *  Card remains a Kage-selectable option but is not a default. The max-7
@@ -128,7 +94,6 @@ export function defaultVillageWarRecord(village: string): VillageWarRecord {
         sectors[String(s)] = {
             winCondition: i % 2 === 0 ? 'combat' : 'pet',
             terrain: biome,
-            controlHp: SECTOR_CONTROL_HP_MAX,
         };
     });
     return { warResources: 0, structures, sectors, mercLeases: [], dormant: false, lastWarPassDate: '', terrainSetBy: {} };
@@ -159,7 +124,6 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             base.sectors[key] = {
                 winCondition: asWinCondition(r.winCondition),
                 terrain: asTerrain(r.terrain, base.sectors[key].terrain),
-                controlHp: clampInt(r.controlHp, 0, SECTOR_CONTROL_HP_MAX),
             };
         }
     }

@@ -114,13 +114,13 @@ function seedTerritory(store: ReturnType<typeof memStore>, owners: Record<number
 }
 const passthroughLock = <T>(_k: string, fn: () => Promise<T>) => fn();
 /** The live sweep scans real storage; unit tests stub it out. */
-const noSweep = async () => 0;
+const noSweep = async (): Promise<unknown[]> => [];
 
 describe('runVillageWarDailyPass (orchestration)', () => {
     it('no-ops when disabled (default OFF)', async () => {
         const store = memStore();
         const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: false });
-        assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsExpired: 0 });
+        assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0 });
         assert.equal(store.m.size, 0);
     });
 

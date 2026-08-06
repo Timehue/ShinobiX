@@ -5,7 +5,7 @@ import {
     structureUpgradeCost,
     effectiveLevel,
     villageWarHpMax,
-    sectorControlHpMax,
+    defenderPointsMultiplier,
     mercCostMultiplier,
     sectorWarDamageMultiplier,
     wrPerSector,
@@ -17,7 +17,7 @@ import {
     resetPerWarStructures,
     PER_WAR_STRUCTURE_KEYS,
 } from './_war-structures.js';
-import { defaultVillageWarRecord, STRUCTURE_KEYS, SECTOR_CONTROL_HP_MAX, type VillageWarRecord } from './_war-state.js';
+import { defaultVillageWarRecord, STRUCTURE_KEYS, type VillageWarRecord } from './_war-state.js';
 import { VILLAGE_STRUCTURE_MAX_LEVEL } from './_war-economy.js';
 
 function rec(levels: Partial<Record<string, number>> = {}, dormant = false): VillageWarRecord {
@@ -50,8 +50,8 @@ describe('war-structures: effects (dormancy-aware)', () => {
         assert.equal(villageWarHpMax(rec({ ramparts: 10 }, true)), 5000); // dormant → no bonus
     });
     it('Watchtower raises sector Control HP', () => {
-        assert.equal(sectorControlHpMax(rec()), SECTOR_CONTROL_HP_MAX);
-        assert.equal(sectorControlHpMax(rec({ watchtower: 10 })), Math.round(SECTOR_CONTROL_HP_MAX * 1.15));
+        assert.equal(defenderPointsMultiplier(rec()), 1);
+        assert.equal(defenderPointsMultiplier(rec({ watchtower: 10 })), 1.15);  // +15% defender points at L10
     });
     it('Barracks discount mercenary cost; War Academy boosts sector-war damage', () => {
         assert.ok(Math.abs(mercCostMultiplier(rec({ barracks: 10 })) - 0.85) < 1e-9);

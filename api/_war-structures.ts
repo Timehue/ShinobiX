@@ -21,7 +21,6 @@ import {
 } from './_war-economy.js';
 import {
     STRUCTURE_KEYS,
-    SECTOR_CONTROL_HP_MAX,
     type StructureKey,
     type VillageWarRecord,
 } from './_war-state.js';
@@ -43,9 +42,9 @@ export interface StructureDef {
 // Per-level effect magnitudes. All bounded so L10 ≈ ±15% (or +5 WR/sector). §7.
 export const STRUCTURE_DEFS: Record<StructureKey, StructureDef> = {
     ramparts: { key: 'ramparts', name: 'Ramparts', perLevel: 1.5, unit: '%', description: '+1.5% village war HP per level (raises the 5,000 cap).' },
-    watchtower: { key: 'watchtower', name: 'Watchtower', perLevel: 1.5, unit: '%', description: '+1.5% sector Control HP per level (slower to capture).' },
+    watchtower: { key: 'watchtower', name: 'Watchtower', perLevel: 1.5, unit: '%', description: '+1.5% defender war-points per level (your kills count for more when defending a sector).' },
     barracks: { key: 'barracks', name: 'Barracks', perLevel: 1.5, unit: '%', description: '-1.5% mercenary WR cost per level.' },
-    warAcademy: { key: 'warAcademy', name: 'War Academy', perLevel: 1.5, unit: '%', description: '+1.5% sector-war damage per level.' },
+    warAcademy: { key: 'warAcademy', name: 'War Academy', perLevel: 1.5, unit: '%', description: '+1.5% attacker war-points per level (your kills count for more when attacking a sector).' },
     supplyDepot: { key: 'supplyDepot', name: 'Supply Depot', perLevel: 0.5, unit: 'wr', description: '+0.5 War Resources per controlled sector per level.' },
     treasuryVault: { key: 'treasuryVault', name: 'Treasury Vault', perLevel: 3, unit: 'mult', description: '-3% of the daily tax rate per level (softer tax).' },
 };
@@ -119,8 +118,8 @@ export function villageWarHpMax(record: VillageWarRecord): number {
     return Math.round(BASE_VILLAGE_WAR_HP_MAX * (1 + STRUCTURE_DEFS.ramparts.perLevel / 100 * effectiveLevel(record, 'ramparts')));
 }
 /** Sector Control HP cap after Watchtower (Phase 4 sector war reads this). */
-export function sectorControlHpMax(record: VillageWarRecord): number {
-    return Math.round(SECTOR_CONTROL_HP_MAX * (1 + STRUCTURE_DEFS.watchtower.perLevel / 100 * effectiveLevel(record, 'watchtower')));
+export function defenderPointsMultiplier(record: VillageWarRecord): number {
+    return 1 + STRUCTURE_DEFS.watchtower.perLevel / 100 * effectiveLevel(record, 'watchtower');
 }
 /** Multiplier on a mercenary's WR cost after Barracks (Phase 5 reads this). */
 export function mercCostMultiplier(record: VillageWarRecord): number {

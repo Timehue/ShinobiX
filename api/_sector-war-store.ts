@@ -22,8 +22,6 @@ import {
     normalizeSectorWarSession,
     normalizeSectorWarBattleToken,
     isSectorWarActive,
-    applyLazySectorWarExpiry,
-    SECTOR_RESIEGE_COOLDOWN_SEC,
     SECTOR_WAR_TOKEN_TTL_MS,
     type SectorWarSession,
     type SectorWarBattleToken,
@@ -87,31 +85,20 @@ export async function activeSectorWarsForVillage(village: string, now: number = 
     return all.filter((s) => s.attackerVillage === name || s.defenderVillage === name);
 }
 
-/**
- * Stamp lapsed contests and clear them out. Idempotent hygiene, run once a day
- * from the village-war pass — the readers above already ignore expired records, so
- * this only keeps the keyspace tidy and leaves a durable reason on the way out.
- * Returns how many it retired.
- */
-export async function sweepExpiredSectorWars(now: number = Date.now()): Promise<number> {
+/** Every war whose 72 hours have elapsed but whose verdict is not yet stamped.
+ *  A dumb read — SETTLEMENT (locks, the territory flip, telemetry) lives in
+ *  api/_sector-war-settle.ts, which cannot be here: world-state.ts imports this
+ *  store, so importing captureSectorForVillage back would be a cycle. */
+export async function listUnsettledDueSectorWars(now: number = Date.now()): Promise<SectorWarSession[]> {
     const keys = await kv.keys(`${SECTOR_WAR_PREFIX}*`);
-    if (!keys.length) return 0;
+    if (!keys.length) return [];
     const raws = await kv.mget<Partial<SectorWarSession>[]>(...keys);
-    let retired = 0;
+    const out: SectorWarSession[] = [];
     for (const raw of raws) {
         const s = raw ? normalizeSectorWarSession(raw) : null;
-        if (!s) continue;
-        const { session, changed } = applyLazySectorWarExpiry(s, now);
-        if (!changed) continue;
-        try {
-            // Keep the stamped record for exactly the re-siege cooldown: while it
-            // lingers, the same attacker cannot re-declare this sector (the declare
-            // gate reads it), and when it ages out the cooldown ends with it.
-            await saveSectorWar(session, SECTOR_RESIEGE_COOLDOWN_SEC);
-            retired++;
-        } catch { /* best-effort hygiene — the readers already filter it out */ }
+        if (s && !s.flipped && !s.expiredAt && now >= s.endsAt) out.push(s);
     }
-    return retired;
+    return out;
 }
 
 

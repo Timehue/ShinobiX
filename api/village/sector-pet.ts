@@ -5,11 +5,10 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
-import { sectorWarDamageMultiplier } from '../_war-structures.js';
+import { sectorWarDamageMultiplier, defenderPointsMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import { applyContestBattleByWinner, findSectorWarBattleReceipt, recordSectorWarBattleOutcome, sectorWarKey } from '../_sector-war.js';
 import { loadSectorWar, saveSectorWar } from '../_sector-war-store.js';
-import { captureSectorForVillage } from '../world-state.js';
 import { runDoctrineDuel, parseDoctrine } from '../_pet-sim/pet-duel-doctrine.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
@@ -96,15 +95,22 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<void
         const contest = await loadSectorWar(session.sectorWarId);
         if (!contest) return;
         const battleId = `pet:${session.sectorWarId}:${session.createdAt}`;
-        if (findSectorWarBattleReceipt(contest, battleId) || contest.flipped) return;
-        const atkRecord = normalizeVillageWarRecord(session.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage))) ?? undefined);
-        const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
-        const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', { now: Date.now(), swing });
-        if (!outcome) return; // draw — Control HP untouched
-        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon: session.winner === 'p1', at: Date.now() });
-        if (outcome.captured) {
-            await captureSectorForVillage(session.sector, session.attackerVillage, Date.now());
-        }
+        if (findSectorWarBattleReceipt(contest, battleId)) return;
+        const [atkRaw, defRaw] = await Promise.all([
+            kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage)),
+            kv.get<Record<string, unknown>>(villageWarKey(session.defenderVillage)),
+        ]);
+        const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? (session.p2?.name ?? '') : '';
+        const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', {
+            now: Date.now(),
+            roleSwing: sectorControlSwing(winnerRole, loserRole),
+            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(session.attackerVillage, atkRaw ?? undefined)),
+            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(session.defenderVillage, defRaw ?? undefined)),
+            by: winnerName,
+        });
+        if (!outcome) return; // draw — nothing scores
+        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon: session.winner === 'p1', by: winnerName, at: Date.now() });
+        // Sectors never flip mid-war — settlement compares the tallies at 72h.
         await saveSectorWar(recorded.session);
     }, { failClosed: true });
 }

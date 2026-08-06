@@ -140,7 +140,7 @@ async function doEngage(req: VercelRequest, res: VercelResponse, identity: Ident
         if (!band.contestId) return res.status(409).json({ error: 'No active siege on this sector.' });
         const r = await deployOneMerc({ village: band.village, tierId: band.tierId, hirer: band.hirer, sector, targetPlayer: playerName, contestId: band.contestId, mercLevel: band.level, now });
         if (!r) return res.status(409).json({ error: 'That mercenary band is spent or just attacked you.' });
-        return res.status(200).json({ ok: true, context: 'sector', winner: r.winner, captured: r.captured, controlHp: r.controlHp, mercsRemaining: r.mercsRemaining });
+        return res.status(200).json({ ok: true, context: 'sector', winner: r.winner, attackerPoints: r.attackerPoints, defenderPoints: r.defenderPoints, mercsRemaining: r.mercsRemaining });
     }
 
     const r = await deployMercVillageWar({ village: band.village, enemyVillage: viewerVillage, tierId: band.tierId, hirer: band.hirer, sector, targetPlayer: playerName, mercLevel: band.level, now });
