@@ -368,8 +368,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (serverNow() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
         }
-        // -10% pet training XP while the village is "demoralized" from a war loss,
-        // and +Mentor mastery bonus (PvE/utility). Combined into one XP multiplier.
+        // NOTE: pet training completion is SERVER-SETTLED (runPetProgress), so the
+        // village war-morale XP multiplier is not applied on this path — see
+        // lib/war-debuff.ts. Only the jutsu-time half of morale is live today.
         const focus = selectedPet.training.type;
         petTrainingBusyRef.current = true;
         setPetTrainingBusy(true);
