@@ -3,6 +3,11 @@
 ###############################################################################
 * text=auto
 
+# Generated tooling handoffs are compared byte-for-byte by the freshness gate.
+# Keep them LF on Windows as well as CI so checkout alone cannot make them stale.
+docs/generated/*.json text eol=lf
+docs/generated/*.csv text eol=lf
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #
