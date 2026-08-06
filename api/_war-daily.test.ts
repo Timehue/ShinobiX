@@ -113,12 +113,14 @@ function seedTerritory(store: ReturnType<typeof memStore>, owners: Record<number
     }
 }
 const passthroughLock = <T>(_k: string, fn: () => Promise<T>) => fn();
+/** The live sweep scans real storage; unit tests stub it out. */
+const noSweep = async () => 0;
 
 describe('runVillageWarDailyPass (orchestration)', () => {
     it('no-ops when disabled (default OFF)', async () => {
         const store = memStore();
-        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: false });
-        assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0 });
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: false });
+        assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsExpired: 0 });
         assert.equal(store.m.size, 0);
     });
 
@@ -131,7 +133,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         for (const s of [17, 18, 19, 20, 21, 22, 23, 24, 28, 29, 30]) owners[s] = 'Moonshadow Village';
         seedTerritory(store, owners);
 
-        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true });
         assert.equal(r.enabled, true);
 
         const frost = store.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
@@ -153,7 +155,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         // No world:territory:* rows at all = the pre-launch/unseeded world. The
         // faucet must NOT silently switch off world-wide.
         const store = memStore();
-        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true });
         assert.equal(r.sealsAccrued, 32, '4 villages × 8 home sectors');
         for (const v of WAR_VILLAGES) {
             assert.equal((store.m.get(villageWarKey(v)) as VillageWarRecord).warResources, 200);
@@ -162,7 +164,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
 
     it('processes all 4 villages and is idempotent across same-day runs', async () => {
         const store = memStore();
-        const first = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
+        const first = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true });
         assert.equal(first.enabled, true);
         assert.equal(first.processed, WAR_VILLAGES.length);
         assert.equal(first.ran, 4);
@@ -179,7 +181,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         assert.equal(frostTreasury.treasury?.honorSeals, 8);
 
         // Same-day re-run: nothing changes (WR or seals).
-        const second = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
+        const second = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true });
         assert.equal(second.ran, 0);
         assert.equal(second.sealsAccrued, 0);
         for (const v of WAR_VILLAGES) {
@@ -190,8 +192,8 @@ describe('runVillageWarDailyPass (orchestration)', () => {
 
     it('accrues again on the next day', async () => {
         const store = memStore();
-        await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW, enabled: true });
-        const nextDay = await runVillageWarDailyPass({ store, lock: passthroughLock, now: NOW + 24 * 3600 * 1000, enabled: true });
+        await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true });
+        const nextDay = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW + 24 * 3600 * 1000, enabled: true });
         assert.equal(nextDay.ran, 4);
         const rec = store.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
         assert.equal(rec.warResources, 400); // 200 + 200
@@ -205,7 +207,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
 
         const peaceStore = memStore();
         peaceStore.m.set(villageWarKey('Frostfang Village'), seed());
-        await runVillageWarDailyPass({ store: peaceStore, lock: passthroughLock, now: NOW, enabled: true, isAtWar: async () => false });
+        await runVillageWarDailyPass({ store: peaceStore, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true, isAtWar: async () => false });
         const atPeace = peaceStore.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
         assert.equal(atPeace.structures.ramparts, 0);   // per-war wiped
         assert.equal(atPeace.structures.watchtower, 0);  // per-war wiped
@@ -213,7 +215,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
 
         const warStore = memStore();
         warStore.m.set(villageWarKey('Frostfang Village'), seed());
-        await runVillageWarDailyPass({ store: warStore, lock: passthroughLock, now: NOW, enabled: true, isAtWar: async () => true });
+        await runVillageWarDailyPass({ store: warStore, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true, isAtWar: async () => true });
         const atWar = warStore.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
         assert.equal(atWar.structures.ramparts, 8);   // held while at war
         assert.equal(atWar.structures.watchtower, 6);

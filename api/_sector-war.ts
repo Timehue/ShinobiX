@@ -38,9 +38,22 @@ export interface SectorWarSession {
     updatedAt: number;
     /** true once the sector has been captured (Control HP hit 0) */
     flipped: boolean;
+    /** Set when the siege ended WITHOUT a capture — the defender held. Once set the
+     *  contest is inert: it accepts no battles and no longer occupies the sector. */
+    expiredAt?: number;
+    expiredReason?: SectorWarExpiryReason;
     /** Durable once receipts for combat/card/pet outcomes applied to Control HP. */
     appliedBattles?: SectorWarBattleReceipt[];
 }
+
+/** Why a siege ended without taking the sector. */
+export type SectorWarExpiryReason =
+    /** Nobody fought it for SECTOR_WAR_IDLE_TIMEOUT_MS — an abandoned siege. */
+    | 'idle'
+    /** Ran the full SECTOR_WAR_MAX_DURATION_MS without breaking the hold. */
+    | 'timeout'
+    /** The attacking Kage called it off. */
+    | 'abandoned';
 
 export interface SectorWarBattleReceipt {
     battleId: string;
@@ -124,6 +137,14 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): Secto
         startedAt: Math.floor(Number(raw.startedAt) || 0),
         updatedAt: Math.floor(Number(raw.updatedAt) || 0),
         flipped: raw.flipped === true,
+        ...(Number(raw.expiredAt) > 0
+            ? {
+                expiredAt: Math.floor(Number(raw.expiredAt)),
+                expiredReason: (raw.expiredReason === 'idle' || raw.expiredReason === 'abandoned'
+                    ? raw.expiredReason
+                    : 'timeout') as SectorWarExpiryReason,
+            }
+            : {}),
         ...(appliedBattles.length ? { appliedBattles } : {}),
     };
 }
@@ -202,7 +223,9 @@ export function applySectorBattleResult(
     attackerWon: boolean,
     opts: { now: number; swing: number; mercBattle?: boolean },
 ): SectorBattleOutcome {
-    if (session.flipped) {
+    // A captured OR lapsed contest is inert — a battle registered before the siege
+    // timed out must not still chip a sector the defender has already held.
+    if (session.flipped || session.expiredAt) {
         return { session, captured: false, hpDealt: 0, hpRegen: 0 };
     }
     const swing = cappedSectorSwing(opts.swing, session.controlHpMax);
@@ -218,6 +241,70 @@ export function applySectorBattleResult(
     const heal = Math.max(0, Math.floor(swing * (opts.mercBattle ? MERC_DEFENDER_REGEN_FRACTION : DEFENDER_HEAL_FRACTION)));
     next.controlHp = Math.min(next.controlHpMax, before + heal);
     return { session: next, captured: false, hpDealt: 0, hpRegen: next.controlHp - before };
+}
+
+// ── Expiry ─────────────────────────────────────────────────────────────────────
+/*
+ * A sector-war contest used to live forever. Nothing decayed it, no action called
+ * it off, and `listActiveSectorWars` filtered only on `flipped` — so one declare
+ * held its sector hostage permanently under the one-contest-per-sector rule, and
+ * kept its village flagged "at war" in the daily pass, which meant the per-war
+ * Ramparts/Watchtower never reset at peace. Both village wars and clan wars
+ * already auto-finalize at 14 days; sector wars had no equivalent.
+ *
+ * Two clocks, mirroring the lazy-expiry pattern used by applyLazyClanWarExpiry:
+ * an IDLE timeout that releases an abandoned siege quickly, and a hard cap so
+ * even a contested one resolves. Expiry is a DEFENDER HOLD — the sector does not
+ * change hands, and the attacker does not get their WR back (a failed siege is
+ * meant to cost something, which is also what stops declare-spam).
+ */
+
+/** No battle applied for this long → the siege is abandoned and the sector frees up. */
+export const SECTOR_WAR_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+/** Hard cap on a single siege, well inside the village war's 14 days (§17.6 sizes
+ *  a sector war as the SHORTER conflict). */
+export const SECTOR_WAR_MAX_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Whether a contest has run out of time, and why. Pure. `updatedAt` advances on
+ *  every applied battle, so it doubles as the last-activity stamp. */
+export function sectorWarExpiry(
+    session: Pick<SectorWarSession, 'startedAt' | 'updatedAt' | 'flipped' | 'expiredAt'>,
+    now: number,
+): { expired: boolean; reason?: SectorWarExpiryReason } {
+    if (session.flipped) return { expired: false };
+    if (session.expiredAt) return { expired: true, reason: 'timeout' };
+    const startedAt = Math.floor(Number(session.startedAt) || 0);
+    const lastActivity = Math.max(startedAt, Math.floor(Number(session.updatedAt) || 0));
+    if (startedAt > 0 && now - startedAt >= SECTOR_WAR_MAX_DURATION_MS) return { expired: true, reason: 'timeout' };
+    if (lastActivity > 0 && now - lastActivity >= SECTOR_WAR_IDLE_TIMEOUT_MS) return { expired: true, reason: 'idle' };
+    return { expired: false };
+}
+
+/** True while a contest still holds its sector and can take battles. */
+export function isSectorWarActive(
+    session: Pick<SectorWarSession, 'startedAt' | 'updatedAt' | 'flipped' | 'expiredAt'> | null | undefined,
+    now: number,
+): boolean {
+    if (!session || session.flipped || session.expiredAt) return false;
+    return !sectorWarExpiry(session, now).expired;
+}
+
+/** Stamp a lapsed contest so the record itself records the hold. Idempotent, pure —
+ *  mirrors applyLazyClanWarExpiry, so the caller persists only when `changed`. */
+export function applyLazySectorWarExpiry(
+    session: SectorWarSession,
+    now: number,
+): { session: SectorWarSession; changed: boolean } {
+    if (session.flipped || session.expiredAt) return { session, changed: false };
+    const { expired, reason } = sectorWarExpiry(session, now);
+    if (!expired) return { session, changed: false };
+    return { session: { ...session, expiredAt: now, expiredReason: reason ?? 'timeout' }, changed: true };
+}
+
+/** End a siege on the attacking Kage's own order. Pure; idempotent. */
+export function abandonSectorWar(session: SectorWarSession, now: number): { session: SectorWarSession; changed: boolean } {
+    if (session.flipped || session.expiredAt) return { session, changed: false };
+    return { session: { ...session, expiredAt: now, expiredReason: 'abandoned' }, changed: true };
 }
 
 // ── Storage keys ──
