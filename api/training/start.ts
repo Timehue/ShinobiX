@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { TRAINING_TIERS } from '../_training-config.js';
+import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { activeTrainingBlocksStart, normalizeActiveTrainingSession, trustedTrainingRewards, TRAINING_TOKEN_TTL_SECONDS } from './_session.js';
 
@@ -104,7 +105,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Seal inside the lock, from the LOCKED save: the growth bonus
             // (village/elder/clan) and the era dial are server-derived — the
             // client body contributes nothing to the amount.
-            const { sealedGain, sealedXp, bonusPct } = trustedTrainingRewards(tier, character);
+            const trusted = trustedTrainingRewards(tier, character);
+            // Village war MORALE, applied at the SEAL — this is the only seam that
+            // works, because the gain is sealed here and paid out verbatim at
+            // completion. A demoralized village trains slower and a triumphant one
+            // faster; read from authoritative village-state, never the client.
+            const morale = await moraleForCharacter(character, startedAt);
+            const sealedGain = applyMoraleToGain(trusted.sealedGain, morale.xpMult);
+            const sealedXp = applyMoraleToGain(trusted.sealedXp, morale.xpMult);
+            const bonusPct = trusted.bonusPct;
             const tokenId = randomUUID().replace(/-/g, '');
             const expiresAt = startedAt + TOKEN_TTL_SECONDS * 1000;
             const activeTraining = {
@@ -117,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(`training-active:${playerName}`, activeTraining, { ex: TOKEN_TTL_SECONDS });
             const nextCharacter = { ...character, stamina: stamina - tier.staminaCost };
             const written = await writeVersionedPlayerSave(saveKey, { ...record, activeTraining }, nextCharacter);
-            return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion, sealedGain, sealedXp, bonusPct };
+            return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion, sealedGain, sealedXp, bonusPct, morale: morale.morale };
         }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
 

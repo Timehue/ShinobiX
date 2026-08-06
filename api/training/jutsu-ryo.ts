@@ -9,6 +9,7 @@ import { advanceQueuedJutsuRyoTraining, cancelQueuedJutsuRyoTraining, queueJutsu
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { loadAdminJutsuObjects, type AdminJutsu } from '../_admin-jutsu-catalog.js';
 import { characterMayUseJutsu } from '../pvp/_bloodline-gate.js';
+import { moraleForCharacter } from '../_war-morale.js';
 
 const JUTSU_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9-]{12,80}$/;
@@ -36,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const [id, jutsu] of await loadAdminJutsuObjects()) adminJutsuById.set(id.toLowerCase(), jutsu);
         }
         const adminJutsuIds = new Set(adminJutsuById.keys());
-        const result = await mutatePlayerSave<Record<string, unknown>>(playerName, ({ record, character }) => {
+        const result = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ record, character }) => {
             const receipts = Array.isArray(character.redeemedJutsuTrainingActions) ? (character.redeemedJutsuTrainingActions as Receipt[]).slice(-127) : [];
             if (receipts.some((entry) => entry?.requestId === requestId)) return { ok: true as const, character, recordPatch: { activeJutsuTraining: record.activeJutsuTraining ?? null }, value: { activeJutsuTraining: record.activeJutsuTraining ?? null, replayed: true, cost: 0, refund: 0 } };
             let changed;
@@ -63,12 +64,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!def || typeof def !== 'object') return false;
                 return !characterMayUseJutsu(character, record, { id: jutsuId, element: (def as Record<string, unknown>).element });
             };
+            // Village war MORALE, resolved SERVER-SIDE from village-state — a
+            // demoralized village trains jutsu slower and a triumphant one faster,
+            // independently of the client-reported bonus (which is separately clamped).
+            const jutsuMorale = await moraleForCharacter(character, Date.now());
             if (action === 'start') {
                 if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
                 const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase(); if (!JUTSU_ID.test(jutsuId)) return { ok: false as const, status: 400, error: 'invalid-jutsu-id' };
                 if (!jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                 if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
-                changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), body.trainingBonusPct);
+                changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), body.trainingBonusPct, jutsuMorale.jutsuTimeMult);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
                 if (!active || active.serverToken !== String(body.serverToken ?? '')) return { ok: false as const, status: 409, error: 'invalid-or-legacy-jutsu-training' };
@@ -76,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
                     if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                     if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
-                    changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), body.trainingBonusPct);
+                    changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), body.trainingBonusPct, jutsuMorale.jutsuTimeMult);
                 } else if (action === 'cancel-queue') {
                     changed = cancelQueuedJutsuRyoTraining(character, active);
                 } else if (action === 'advance') {
