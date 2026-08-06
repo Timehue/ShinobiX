@@ -26,6 +26,8 @@ export interface VillageWarMapView {
     wrPerSector: number;
     sectorsHeld: number;
     taxRatePct: number;
+    /** No seated Kage → the rate is forced to 0 (mirrors api/_war-tax-apply.ts). */
+    kageSeated?: boolean;
     sectors: SectorConfigView[];
 }
 
