@@ -75,15 +75,11 @@ export const LeftProfileCard = memo(function LeftProfileCard({
             {/* Daily Briefing — once-per-day login notice board. Self-gating
                 (level 5+, once per UTC day) and portal-rendered to <body>, so it
                 appears full-screen on desktop AND mobile even though this host
-                card is CSS-hidden on mobile. Hosted here (rather than App.tsx)
-                because this card already receives character + both training
-                timers, keeping App.tsx within its line budget. */}
+                card is CSS-hidden on mobile. */}
             <DailyBriefingModal
                 character={character}
                 updateCharacter={updateCharacter}
                 navigate={setScreen}
-                activeTraining={activeTraining}
-                activeJutsuTraining={activeJutsuTraining}
             />
             {/* Global progression overlays — both portal to <body>, so they show
                 full-screen on desktop AND mobile even though this host card is

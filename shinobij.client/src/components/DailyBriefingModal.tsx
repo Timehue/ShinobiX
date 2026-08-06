@@ -3,11 +3,10 @@
  * when they return for the day. It:
  *   • auto-collects the server-authoritative login-streak reward (ryo daily,
  *     +5 Fate Shards every 7th consecutive day) and shows what was granted,
- *   • recommends the most impactful next action (smart priority engine),
- *   • reminds the player of their stat / jutsu / pet training timers,
+ *   • presents one server-authored four-horizon Activity Spine,
  *   • reports every active war in the world (village + clan), even ones the
  *     player isn't part of, click-through to the relevant screen,
- *   • surfaces today's daily-mission/hunt slots and unread mail.
+ *   • preserves rank objectives and collective world context.
  *
  * Dismiss (✕ / backdrop / "Enter the village") hides it until the next UTC day
  * via a localStorage date stamp. Renders nothing when there's nothing to show
@@ -20,14 +19,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
-import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
-import { currentDateKey, formatPetTimer } from "../lib/utils";
-import { dailyMissionsCompleted, hasDailyMissionSlot, dailyHuntsCompleted } from "../lib/character-progress";
-import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT } from "../constants/game";
+import { currentDateKey } from "../lib/utils";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
-import { getUnreadMail, subscribeUnreadMail } from "../lib/mail-unread";
 import { useSharedNow } from "../lib/use-shared-now";
-import { petDisplayName } from "../lib/pet";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
@@ -50,14 +44,10 @@ export function DailyBriefingModal({
     character,
     updateCharacter,
     navigate,
-    activeTraining,
-    activeJutsuTraining,
 }: {
     character: Character;
     updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void;
     navigate: (s: Screen) => void;
-    activeTraining: ActiveTraining | null;
-    activeJutsuTraining: ActiveJutsuTraining | null;
 }) {
     const now = useSharedNow(); // ticks once a second so the training countdowns stay live
     const legacyAvailable = useLegacyAvailability();
@@ -77,10 +67,7 @@ export function DailyBriefingModal({
     // lastLoginRewardDate tells us if it was already collected earlier today.
     const [claim, setClaim] = useState<DailyLoginResult | null>(null);
     const [claiming, setClaiming] = useState(false);
-    const [unread, setUnread] = useState(getUnreadMail());
     const claimingRef = useRef(false);
-
-    useEffect(() => subscribeUnreadMail(setUnread), []);
 
     // World news (Legacy system): the top high/mythic moments in the login
     // briefing (handoff §Server Announcements: "Login news panel"). Empty and
@@ -173,10 +160,6 @@ export function DailyBriefingModal({
     const shardCountdown = claim
         ? claim.daysUntilShardBonus
         : (STREAK_SHARD_INTERVAL - (streak % STREAK_SHARD_INTERVAL)) % STREAK_SHARD_INTERVAL;
-
-    const statTimer = activeTraining && now < activeTraining.endsAt ? activeTraining : null;
-    const jutsuTimer = activeJutsuTraining && now < activeJutsuTraining.endsAt ? activeJutsuTraining : null;
-    const petTimers = (character.pets ?? []).filter((p) => p.training && now < p.training.endsAt);
 
     const wars = worldReport(now);
 
@@ -277,62 +260,6 @@ export function DailyBriefingModal({
                                     </div>
                                 </section>
                             )}
-
-                            <div className="db-grid">
-                                {/* ── Training timers ───────────────────────── */}
-                                <section className="db-section">
-                                    <h3>Your training</h3>
-                                    <ul className="db-list">
-                                        <li className="db-list-row">
-                                            <span className="db-list-key">💪 Stats</span>
-                                            {statTimer
-                                                ? <span className="db-list-val">{formatPetTimer(statTimer.endsAt - now)}</span>
-                                                : <button type="button" className="db-list-go" onClick={() => go("training")}>Idle — start ›</button>}
-                                        </li>
-                                        <li className="db-list-row">
-                                            <span className="db-list-key">⚡ Jutsu</span>
-                                            {jutsuTimer
-                                                ? <span className="db-list-val">{formatPetTimer(jutsuTimer.endsAt - now)}</span>
-                                                : <button type="button" className="db-list-go" onClick={() => go("jutsuTraining")}>Idle — start ›</button>}
-                                        </li>
-                                        <li className="db-list-row">
-                                            <span className="db-list-key">🐾 Pets</span>
-                                            {petTimers.length
-                                                ? <span className="db-list-val">{petTimers.length === 1
-                                                    ? `${petDisplayName(petTimers[0])} · ${formatPetTimer(petTimers[0].training!.endsAt - now)}`
-                                                    : `${petTimers.length} training`}</span>
-                                                : <button type="button" className="db-list-go" onClick={() => go("pets")}>
-                                                    {(character.pets?.length ?? 0) ? "Idle — start ›" : "Get a pet ›"}
-                                                  </button>}
-                                        </li>
-                                    </ul>
-                                </section>
-
-                                {/* ── Today ─────────────────────────────────── */}
-                                <section className="db-section">
-                                    <h3>Today</h3>
-                                    <ul className="db-list">
-                                        <li className="db-list-row">
-                                            <span className="db-list-key">📜 Missions</span>
-                                            <button type="button" className="db-list-go" onClick={() => go("missions")}>
-                                                {dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT} ›
-                                            </button>
-                                        </li>
-                                        <li className="db-list-row">
-                                            <span className="db-list-key">🎯 Hunts</span>
-                                            <button type="button" className="db-list-go" onClick={() => go("hunting")}>
-                                                {dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT} ›
-                                            </button>
-                                        </li>
-                                        <li className="db-list-row">
-                                            <span className="db-list-key">📬 Mail</span>
-                                            <button type="button" className="db-list-go" onClick={() => go("messages")}>
-                                                {unread > 0 ? `${unread} unread ›` : "Inbox ›"}
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </section>
-                            </div>
 
                             {/* ── Era effort strip (server-wide progress at a glance) ── */}
                             {activeEra && (() => {
