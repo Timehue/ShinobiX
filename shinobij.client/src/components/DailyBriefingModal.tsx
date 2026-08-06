@@ -6,7 +6,7 @@
  *   • presents one server-authored four-horizon Activity Spine,
  *   • reports every active war in the world (village + clan), even ones the
  *     player isn't part of, click-through to the relevant screen,
- *   • preserves rank objectives and collective world context.
+ *   • preserves collective world context without duplicating the Logbook.
  *
  * Dismiss (✕ / backdrop / "Enter the village") hides it until the next UTC day
  * via a localStorage date stamp. Renders nothing when there's nothing to show
@@ -23,10 +23,8 @@ import { currentDateKey } from "../lib/utils";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { useSharedNow } from "../lib/use-shared-now";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
-import { currentLogbookObjective } from "../lib/logbook-objectives";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
-import { loadVillageState } from "../lib/world-state";
 import { worldReport } from "../lib/daily-briefing";
 import { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
 import briefingBg from "../assets/daily-briefing.webp";
@@ -163,18 +161,6 @@ export function DailyBriefingModal({
 
     const wars = worldReport(now);
 
-    // The rank exam / Academy checklist the player is currently working toward.
-    // Kage standing (Special Jonin) is the only env fact the pure helper needs;
-    // the rest of the requirement progress comes straight off the save.
-    const objective = currentLogbookObjective(character, {
-        isKage: character.level >= 80
-            && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
-    });
-    const objIncomplete = objective ? objective.requirements.filter((r) => r.progress < r.target) : [];
-    const objDone = objective ? objective.requirements.length - objIncomplete.length : 0;
-    const objTotal = objective ? objective.requirements.length : 0;
-    const objPct = objTotal ? Math.round((objDone / objTotal) * 100) : 0;
-
     return (
         <Modal open={shouldShow} onClose={close} bare ariaLabel="Daily Briefing" size="lg" className="daily-briefing-modal-shell">
             <div
@@ -222,44 +208,6 @@ export function DailyBriefingModal({
                             </div>
 
                             <ActivitySpine playerName={character.name} onNavigate={go} />
-
-                            {/* ── Current logbook objective ─────────────────── */}
-                            {objective && (
-                                <section className="db-section">
-                                    <h3>Logbook</h3>
-                                    <div className="db-objective">
-                                        <div className="db-objective-head">
-                                            <span className="db-objective-title">{objective.title}</span>
-                                            <span className="db-objective-count">{objDone}/{objTotal} done</span>
-                                        </div>
-                                        <div className="mission-progress db-objective-bar"><span style={{ width: `${objPct}%` }} /></div>
-                                        {objIncomplete.length === 0 ? (
-                                            <p className="db-objective-ready">
-                                                {objective.kind === "academy"
-                                                    ? "✓ All goals met — claim your reward in the Logbook"
-                                                    : "✓ All requirements met — pass it in your Logbook"}
-                                            </p>
-                                        ) : (
-                                            <ul className="db-list db-objective-reqs">
-                                                {objIncomplete.slice(0, 3).map((r) => (
-                                                    <li className="db-list-row" key={r.label}>
-                                                        <span className="db-list-key">○ {r.label}</span>
-                                                        <span className="db-list-val">
-                                                            {r.target === 1 ? "To do" : `${Math.min(r.progress, r.target)}/${r.target}`}
-                                                        </span>
-                                                    </li>
-                                                ))}
-                                                {objIncomplete.length > 3 && (
-                                                    <li className="db-list-row"><span className="db-list-key">+{objIncomplete.length - 3} more</span></li>
-                                                )}
-                                            </ul>
-                                        )}
-                                        <button type="button" className="db-list-go db-objective-cta" onClick={() => go("logbook")}>
-                                            View in Logbook ›
-                                        </button>
-                                    </div>
-                                </section>
-                            )}
 
                             {/* ── Era effort strip (server-wide progress at a glance) ── */}
                             {activeEra && (() => {
