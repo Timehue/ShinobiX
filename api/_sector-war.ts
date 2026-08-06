@@ -42,6 +42,10 @@ export interface SectorWarSession {
      *  contest is inert: it accepts no battles and no longer occupies the sector. */
     expiredAt?: number;
     expiredReason?: SectorWarExpiryReason;
+    /** When a LIVE-player battle last resolved on this contest. Drives the garrison
+     *  fallback: a defence that stops turning up leaves only its garrison. Distinct
+     *  from `updatedAt`, which any battle (garrison assaults included) refreshes. */
+    lastLiveBattleAt?: number;
     /** Durable once receipts for combat/card/pet outcomes applied to Control HP. */
     appliedBattles?: SectorWarBattleReceipt[];
 }
@@ -145,6 +149,7 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): Secto
                     : 'timeout') as SectorWarExpiryReason,
             }
             : {}),
+        ...(Number(raw.lastLiveBattleAt) > 0 ? { lastLiveBattleAt: Math.floor(Number(raw.lastLiveBattleAt)) } : {}),
         ...(appliedBattles.length ? { appliedBattles } : {}),
     };
 }
@@ -221,7 +226,7 @@ export function cappedSectorSwing(rawSwing: number, controlHpMax: number): numbe
 export function applySectorBattleResult(
     session: SectorWarSession,
     attackerWon: boolean,
-    opts: { now: number; swing: number; mercBattle?: boolean },
+    opts: { now: number; swing: number; mercBattle?: boolean; garrisonBattle?: boolean },
 ): SectorBattleOutcome {
     // A captured OR lapsed contest is inert — a battle registered before the siege
     // timed out must not still chip a sector the defender has already held.
@@ -229,7 +234,15 @@ export function applySectorBattleResult(
         return { session, captured: false, hpDealt: 0, hpRegen: 0 };
     }
     const swing = cappedSectorSwing(opts.swing, session.controlHpMax);
-    const next: SectorWarSession = { ...session, updatedAt: opts.now };
+    // A battle between REAL players refreshes the live clock, which re-locks the
+    // garrison. AI battles (mercenary, garrison) refresh `updatedAt` only — they
+    // keep the siege alive without pretending a defence turned up.
+    const aiBattle = !!opts.mercBattle || !!opts.garrisonBattle;
+    const next: SectorWarSession = {
+        ...session,
+        updatedAt: opts.now,
+        ...(aiBattle ? {} : { lastLiveBattleAt: opts.now }),
+    };
     if (attackerWon) {
         const before = next.controlHp;
         next.controlHp = Math.max(0, before - swing);
@@ -305,6 +318,57 @@ export function applyLazySectorWarExpiry(
 export function abandonSectorWar(session: SectorWarSession, now: number): { session: SectorWarSession; changed: boolean } {
     if (session.flipped || session.expiredAt) return { session, changed: false };
     return { session: { ...session, expiredAt: now, expiredReason: 'abandoned' }, changed: true };
+}
+
+// ── Garrison fallback (the liveness gap) ──────────────────────────────────────
+/*
+ * Every win-condition needs a live ONLINE enemy: Combat needs a real two-fighter
+ * PvP session, Card is interactive, Pet needs the defender to answer, and even a
+ * mercenary may only be aimed at a defending-village member. At a small
+ * population that left a contested sector unplayable for long stretches — an
+ * attacker could declare, pay the WR, and then simply have nobody to fight.
+ *
+ * A sector is not actually empty, though: it is HELD. So when the defence stops
+ * turning up, what is left is its GARRISON — a server-built AI defence the
+ * attacker can grind down instead of being blocked outright.
+ *
+ * The unlock keys off `lastLiveBattleAt`, NOT `updatedAt`: a garrison assault is
+ * still a battle and refreshes `updatedAt` (so grinding a garrison keeps the siege
+ * from lapsing), but it must not refresh the LIVE clock, or one assault would
+ * re-lock the garrison for another two hours. The moment a real defender fights,
+ * the live clock moves and the garrison locks again — so a village that shows up
+ * to defend never faces the fallback at all.
+ */
+
+/** How long a contest must go without a LIVE-player battle before the defending
+ *  sector's garrison can be assaulted. */
+export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
+
+/** A garrison win is worth less than beating a real defender, so live defence
+ *  always remains the faster way to take a sector. */
+export const GARRISON_SWING_FRACTION = 0.5;
+
+/** Whether the sector's garrison is currently assaultable. Pure. */
+export function isGarrisonAssaultable(
+    session: Pick<SectorWarSession, 'startedAt' | 'updatedAt' | 'flipped' | 'expiredAt' | 'lastLiveBattleAt' | 'winCondition'>,
+    now: number,
+): boolean {
+    // Only the Combat win-condition has a garrison — Card and Pet are contests of
+    // decks and standing orders, which an AI holding ground does not field.
+    if (session.winCondition !== 'combat') return false;
+    if (!isSectorWarActive(session, now)) return false;
+    const lastLive = Math.max(
+        Math.floor(Number(session.lastLiveBattleAt) || 0),
+        Math.floor(Number(session.startedAt) || 0),
+    );
+    return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
+}
+
+/** The Control-HP swing one garrison assault is worth, from the attacker's
+ *  role-scaled swing. Floors at 1 so a won assault always counts. Pure. */
+export function garrisonSwing(rawSwing: number, controlHpMax: number): number {
+    const scaled = Math.floor(Math.max(0, Number(rawSwing) || 0) * GARRISON_SWING_FRACTION);
+    return cappedSectorSwing(Math.max(1, scaled), controlHpMax);
 }
 
 // ── Storage keys ──

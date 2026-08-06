@@ -40,6 +40,21 @@ export interface SectorWarContest {
     controlHp: number;
     controlHpMax: number;
     flipped: boolean;
+    /** When a live-player battle last resolved — drives the garrison unlock. */
+    lastLiveBattleAt?: number;
+    startedAt?: number;
+}
+
+/** ~2h with no live-player battle unlocks the sector's garrison. MUST match
+ *  api/_sector-war.ts GARRISON_UNLOCK_IDLE_MS. */
+export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
+
+/** Mirror of api/_sector-war.ts isGarrisonAssaultable for the button's enabled
+ *  state. The server re-checks it — this only avoids offering a rejected click. */
+export function garrisonAssaultable(c: SectorWarContest, now: number = Date.now()): boolean {
+    if (c.winCondition !== "combat" || c.flipped) return false;
+    const lastLive = Math.max(Number(c.lastLiveBattleAt ?? 0) || 0, Number(c.startedAt ?? 0) || 0);
+    return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
 }
 
 export interface WarMapResponse {
@@ -118,6 +133,12 @@ export function declareSectorWar(playerName: string, village: string, sector: nu
  *  declaring is not refunded. An untouched siege also lapses on its own after 24h. */
 export function abandonSectorWar(playerName: string, sector: number) {
     return postJson("/api/village/sector-war", { action: "abandon", playerName, sector });
+}
+/** Assault the sector's AI garrison. Unlocks only after the contest has gone
+ *  ~2h with no live-player battle; a real defender fighting re-locks it. The
+ *  fight is resolved SERVER-SIDE (headless, can't be faked). */
+export function assaultSectorGarrison(playerName: string, sector: number) {
+    return postJson("/api/village/sector-war", { action: "garrison", playerName, sector });
 }
 export function sectorWarStatus(playerName: string, sector?: number) {
     return postJson("/api/village/sector-war", { action: "status", playerName, sector });

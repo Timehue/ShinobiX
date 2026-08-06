@@ -13,7 +13,9 @@ import {
     type WinCondition,
 } from '../_war-state.js';
 import { sectorControlHpMax, sectorWarDamageMultiplier } from '../_war-structures.js';
-import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
+import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
+import { sealTowerFighter } from '../towers/_seal.js';
+import { resolveMercBattle } from '../towers/_merc-fighters.js';
 import {
     sectorWarId,
     sectorWarKey,
@@ -25,6 +27,9 @@ import {
     newSectorWarBattleToken,
     isSectorWarActive,
     abandonSectorWar,
+    isGarrisonAssaultable,
+    garrisonSwing,
+    GARRISON_UNLOCK_IDLE_MS,
     type SectorWarDeclineReason,
 } from '../_sector-war.js';
 import {
@@ -54,6 +59,12 @@ import { bumpEraContribution } from '../_era.js';
  *   - resolve : reads the AUTHORITATIVE finished pvp:<battleId> (never a client claim),
  *               applies the win/loss to Control HP (War-Academy-boosted), and on
  *               capture flips world:territory:<sector>.ownerVillage to the attacker.
+ *   - garrison: the LIVENESS fallback — once a Combat contest has gone
+ *               GARRISON_UNLOCK_IDLE_MS without a live-player battle, an attacker may
+ *               assault the sector's AI garrison instead of being blocked by an absent
+ *               defence. Resolved HEADLESS by the towers engine over the attacker's
+ *               sealed save, so the client can neither report nor influence it.
+ *   - abandon : the attacking Kage calls off their own siege.
  *   - status  : read-only — the owner + active contest for a sector (or all contests).
  *   - seed    : admin — one-time idempotent seed of home-sector ownership (Phase 4d).
  *
@@ -67,6 +78,9 @@ import { bumpEraContribution } from '../_era.js';
 // Combat here, Card via /village/sector-card, Pet via /village/sector-pet (the
 // deterministic pet engine ported to api/pet-sim, Phase 7).
 const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
+
+/** A garrison never stands below this level — a held sector is never a free walk. */
+const GARRISON_MIN_LEVEL = 40;
 
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 type ReadBattle = {
@@ -141,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'declare': return await doDeclare(req, res, identity, playerName, body);
             case 'attack': return await doAttack(req, res, identity, playerName, body);
             case 'resolve': return await doResolve(req, res, identity, playerName, body);
+            case 'garrison': return await doGarrison(req, res, identity, playerName, body);
             case 'abandon': return await doAbandon(req, res, identity, playerName, body);
             case 'status': return await doStatus(req, res, body);
             case 'seed': return await doSeed(res, identity);
@@ -429,6 +444,105 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         controlHpMax: result.outcome.session.controlHpMax,
         hpDealt: result.outcome.hpDealt,
         hpRegen: result.outcome.hpRegen,
+    });
+}
+
+// ── garrison (assault the sector's AI defence when no defender turns up) ──────
+// The liveness fallback (§17.6). Every win-condition needs a live online enemy,
+// so at a small population a contested sector could sit unplayable — an attacker
+// pays the WR to declare and then has nobody to fight. A held sector is not empty
+// though: what remains when the defence stops showing up is its GARRISON.
+//
+// SERVER-AUTHORITATIVE: the fight is resolved headless by the towers engine over
+// the attacker's SEALED save (the same path a mercenary attack uses), so the
+// outcome cannot be reported or influenced by the client. Unlocks only after
+// GARRISON_UNLOCK_IDLE_MS with no LIVE battle, and a single real defender turning
+// up re-locks it — a village that defends never meets the garrison at all.
+async function doGarrison(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
+    const sector = Math.floor(Number(body.sector) || 0);
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-war-garrison', 12, 60_000, identity.name))) return;
+
+    const contest = await activeContestOnSector(sector);
+    if (!contest) return res.status(409).json({ error: 'No active sector war on that sector.' });
+    if (contest.winCondition !== 'combat') {
+        return res.status(409).json({ error: 'Only a Combat sector has a garrison to assault.' });
+    }
+
+    // Must be an attacker; the defence has no garrison to assault on its own sector.
+    if (!identity.admin && (await villageOf(playerName)) !== contest.attackerVillage) {
+        return res.status(403).json({ error: 'Only the attacking village can assault the garrison.' });
+    }
+
+    const now = Date.now();
+    if (!isGarrisonAssaultable(contest, now)) {
+        const lastLive = Math.max(contest.lastLiveBattleAt ?? 0, contest.startedAt);
+        const mins = Math.max(1, Math.ceil((GARRISON_UNLOCK_IDLE_MS - (now - lastLive)) / 60_000));
+        return res.status(409).json({
+            error: `The defence is still contesting this sector — the garrison can be assaulted in ${mins} min if no defender fights.`,
+        });
+    }
+
+    // Seal the attacker's own combat snapshot from their save (never the body).
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const saveChar = (save?.character ?? null) as Record<string, unknown> | null;
+    if (!saveChar) return res.status(404).json({ error: 'Character not found.' });
+    const sealed = sealTowerFighter(saveChar, save ?? null, saveChar, null);
+
+    // The garrison stands at the level of the sector it holds: the defending
+    // village's own strength, floored so a sector is never a free walk-over.
+    const garrisonLevel = Math.max(GARRISON_MIN_LEVEL, Math.floor(Number(saveChar.level) || GARRISON_MIN_LEVEL));
+    const seed = (now ^ (sector * 2654435761)) >>> 0;
+    const fight = resolveMercBattle({
+        playerName,
+        playerSlug: playerName,
+        playerSealedChar: sealed,
+        mercLevel: garrisonLevel,
+        seed,
+        now,
+    });
+    // The attacker is the sealed "player" side, so playerWon = the garrison fell.
+    // A stall is a genuine draw: neither chips nor regens.
+    if (fight.winner === 'stall') {
+        return res.status(200).json({ ok: true, outcome: 'stall', controlHp: contest.controlHp, controlHpMax: contest.controlHpMax });
+    }
+    const attackerWon = fight.playerWon;
+
+    const [winnerRole, loserRole] = attackerWon
+        ? [await sectorWarRoleOf(playerName), ROLE_VILLAGER]
+        : [ROLE_VILLAGER, await sectorWarRoleOf(playerName)];
+
+    const battleId = `garrison:${contest.id}:${playerName}:${now}`;
+    const result = await withKvLock(sectorWarKey(contest.id), async () => {
+        const fresh = await loadSectorWar(contest.id);
+        if (!fresh || !isSectorWarActive(fresh, Date.now())) return { ok: false as const };
+        if (findSectorWarBattleReceipt(fresh, battleId)) return { ok: false as const };
+        const atkRecord = normalizeVillageWarRecord(fresh.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage))) ?? undefined);
+        const raw = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
+        const outcome = applySectorBattleResult(fresh, attackerWon, {
+            now: Date.now(),
+            swing: garrisonSwing(raw, fresh.controlHpMax),
+            garrisonBattle: true,
+        });
+        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon, at: Date.now() });
+        if (outcome.captured) {
+            await captureSectorForVillage(fresh.sector, fresh.attackerVillage, Date.now());
+            void recordWarEcoEvent({ eventId: `capture:${fresh.id}`, village: fresh.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${fresh.sector}` });
+        }
+        await saveSectorWar(recorded.session);
+        return { ok: true as const, outcome: { ...outcome, session: recorded.session } };
+    }, { failClosed: true });
+
+    if (!result.ok) return res.status(409).json({ error: 'That sector war is no longer active.' });
+    return res.status(200).json({
+        ok: true,
+        outcome: attackerWon ? 'attacker' : 'garrison',
+        attackerWon,
+        captured: result.outcome.captured,
+        controlHp: result.outcome.captured ? 0 : result.outcome.session.controlHp,
+        controlHpMax: result.outcome.session.controlHpMax,
+        hpDealt: result.outcome.hpDealt,
+        hpRegen: result.outcome.hpRegen,
+        rounds: fight.rounds,
     });
 }
 
