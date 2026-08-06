@@ -14,23 +14,18 @@
  */
 import { useState, useEffect } from "react";
 
+// Both windows are now applied SERVER-SIDE (api/_war-morale.ts) at the point each
+// reward is sealed: stat training (api/training/start.ts sealedGain), pet training
+// (api/pet/progress.ts sealedXp), and jutsu training time (api/training/jutsu-ryo.ts,
+// as its OWN duration multiplier — folding it into the client-reported bonus meant
+// the debuff could only shave an existing bonus and did nothing to a player without
+// one). These constants are the DISPLAY mirror; KEEP THEM IN SYNC with that file.
+//
 // ── Loser: "demoralized" ──
-// ⚠ BOTH of these are WEAKER than they read, and the numbers alone will mislead:
-//   · xpMult has NO live consumer. Its only caller was collectPetTraining's
-//     xpMult, and pet-training completion is now SERVER-SETTLED via runPetProgress,
-//     so nothing passes it. Reviving it means applying morale in the pet-progress
-//     endpoint.
-//   · jutsuTimeMult can only ever SHAVE AN EXISTING BONUS, never slow training
-//     below baseline: api/training/_jutsu-ryo.ts jutsuRyoTrainingDuration clamps
-//     the bonus to [0, 60] server-side, so a player with no training bonus feels
-//     the "+20%" not at all. Making it bite needs that clamp to allow negatives —
-//     a real balance change to a shipped mechanic, not a silent fix.
-export const WAR_DEBUFF_TRAINING_XP_MULT = 0.9; // -10% — INERT, see above
-export const WAR_DEBUFF_JUTSU_TIME_MULT = 1.2;  // shaves up to 20 off an existing bonus
+export const WAR_DEBUFF_TRAINING_XP_MULT = 0.9; // -10% stat / pet training gain
+export const WAR_DEBUFF_JUTSU_TIME_MULT = 1.2;  // +20% jutsu training time
 
 // ── Winner: "triumphant" ──
-// The buff side DOES bite: it ADDS to the training bonus, which the server accepts
-// up to its 60 cap. So a victory is currently felt more reliably than a defeat.
 // Deliberately gentler than the debuff on the jutsu axis (-10% time against the
 // loser's +20%): a win should feel real without letting the victor snowball into
 // the next war on top of the spoils they already took.

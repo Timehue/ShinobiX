@@ -444,9 +444,9 @@ export function JutsuTrainingHall({
     const lockedElementCount = allJutsus.length - availableJutsus.length;
     const [selectedJutsuId, setSelectedJutsuId] = useState(availableJutsus[0]?.id ?? "");
     const [now, setNow] = useState(Date.now());
-    // Village war morale: a loss slows jutsu training, a WIN speeds it up. The
-    // same multiplier carries both — jutsuTimeMult is >1 when demoralized and <1
-    // when triumphant, so the bonus arithmetic below is unchanged.
+    // Village war morale, for DISPLAY only. The server applies it itself as a
+    // separate duration multiplier (api/_war-morale.ts → api/training/jutsu-ryo.ts),
+    // so it must NOT be folded into the bonus we send or it would count twice.
     const warMorale = useVillageWarMorale(character.village);
     const jutsuTrainingBonus = getJutsuTrainingSpeedBonus(character) + getActiveAuraSphereBonuses(character).jutsuTrainingSpeedPercent + getActiveAuraSphereBonuses(character).jutsuXpPercent;
     // Ryo training tops out at the Hall cap (30) but never above the player's rank
@@ -503,7 +503,7 @@ export function JutsuTrainingHall({
 
         const cost = jutsuTrainingCost(mastery.level);
         if (mastery.level > 0 && character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
-        const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: Math.max(0, jutsuTrainingBonus + (1 - warMorale.jutsuTimeMult) * 100) });
+        const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: jutsuTrainingBonus });
         if (!result.character) return alert(result.error || 'Jutsu training could not be started.');
         updateCharacter(result.character);
         setActiveJutsuTraining(result.activeJutsuTraining ?? null);
@@ -578,7 +578,7 @@ export function JutsuTrainingHall({
             serverToken: activeJutsuTraining.serverToken,
             jutsuId: selectedJutsu.id,
             label: selectedJutsu.name,
-            trainingBonusPct: Math.max(0, jutsuTrainingBonus + (1 - warMorale.jutsuTimeMult) * 100),
+            trainingBonusPct: jutsuTrainingBonus,
         });
         if (!result.character) return alert(result.error || 'The jutsu queue could not be saved.');
         updateCharacter(result.character);
