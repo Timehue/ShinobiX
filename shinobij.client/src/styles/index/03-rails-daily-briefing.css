@@ -199,35 +199,6 @@
     color: var(--text-dim);
 }
 
-/* Two-column grid (training + today) */
-.db-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.db-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; }
-.db-list-key { color: var(--slate-200); }
-.db-list-val { color: #67e8f9; font-weight: 700; font-variant-numeric: tabular-nums; }
-.db-list-go {
-    min-height: 32px;
-    background: none;
-    border: none;
-    padding: 6px 0;
-    color: var(--gold-400);
-    font-weight: 700;
-    font-size: 0.85rem;
-    cursor: pointer;
-}
-.db-list-go:hover { text-decoration: underline; }
-
-/* Current logbook objective */
-.db-objective { display: flex; flex-direction: column; gap: 8px; }
-.db-objective-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.db-objective-title { font-weight: 700; font-size: 0.92rem; color: #f1f5f9; }
-.db-objective-count { flex: 0 0 auto; font-size: 0.78rem; font-weight: 700; color: #67e8f9; font-variant-numeric: tabular-nums; }
-.db-objective-bar { margin: 0; }
-.db-objective-reqs { gap: 5px; }
-.db-objective-reqs .db-list-key { color: var(--slate-300); font-size: 0.82rem; }
-.db-objective-reqs .db-list-val { color: var(--text-dim); font-weight: 600; }
-.db-objective-ready { margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--green-400); }
-.db-objective-cta { align-self: flex-start; margin-top: 2px; }
-
 /* World report */
 .db-wars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .db-wars > li { min-width: 0; }
