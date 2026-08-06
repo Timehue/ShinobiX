@@ -54,4 +54,3 @@ export async function awardOperationProfessionXp(input: {
         return { awarded, xp, rank, character: nextCharacter };
     }, { failClosed: true });
 }
-

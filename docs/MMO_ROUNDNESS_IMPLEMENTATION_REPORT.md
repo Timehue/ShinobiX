@@ -1,8 +1,8 @@
 # ShinobiX MMO Roundness Implementation Report
 
-Date: August 5, 2026  
-Branch: `codex/aaa-mmo-roundness`  
-ShinobiX base: `0960a192cfc383bd05a6c6d004c88b12b2754384`  
+Date: August 5, 2026
+Branch: `codex/aaa-mmo-roundness`
+ShinobiX base: `0960a192cfc383bd05a6c6d004c88b12b2754384`
 Behavioral reference inspected read-only: TheNinjaRPG `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`
 
 This report accompanies the evidence-first audit in `docs/MMO_ROUNDNESS_AUDIT.md`. The delivered slice upgrades the existing weekly Clan Boss into a server-owned 1–4 human-player Shinobi Operation. It does not introduce a new ordinary-combat engine, a new currency, a new backend, or a parallel boss menu.
