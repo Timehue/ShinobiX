@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
 import { loadHeldSectorCounts } from '../_war-held-sectors.js';
+import { isVillageKageSeated } from '../_war-tax-apply.js';
 import { villageWarMapView, type VillageWarMapView } from '../_war-map-view.js';
 import { listActiveSectorWars } from '../_sector-war-store.js';
 
@@ -38,18 +39,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Held-sector counts come from the SHARED helper (api/_war-held-sectors.ts)
         // that the daily WR faucet and the comeback discount also read, so the count
         // this screen displays can never drift from the one the server charges on.
-        const [warRaws, stateRaws, contests, heldCount] = await Promise.all([
+        const [warRaws, stateRaws, contests, heldCount, kageSeats] = await Promise.all([
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(`${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`))),
             listActiveSectorWars(),
             loadHeldSectorCounts(),
+            // The seat drives the tax rate (no Kage → 0%), so it has to be read here
+            // too or the displayed rate would diverge from the charged one.
+            Promise.all(WAR_VILLAGES.map((v) => isVillageKageSeated(v))),
         ]);
 
         const villages: VillageWarMapView[] = WAR_VILLAGES.map((v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);
             const treasury = (stateRaws[i]?.treasury ?? {}) as Record<string, unknown>;
             const treasurySeals = Number(treasury.honorSeals) || 0;
-            return villageWarMapView({ village: v, record, treasurySeals, sectorsHeld: heldCount[v] ?? 0 });
+            return villageWarMapView({ village: v, record, treasurySeals, sectorsHeld: heldCount[v] ?? 0, kageSeated: kageSeats[i] });
         });
 
         return res.status(200).json({ ok: true, enabled: true, villages, contests });

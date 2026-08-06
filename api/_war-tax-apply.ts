@@ -34,9 +34,38 @@ import { heldSectorsForVillage } from './_war-held-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from './_war-state.js';
 import { taxRateMultiplier } from './_war-structures.js';
 import { isWarVillage } from './_war-map-sectors.js';
+import { kageKey } from './village/_kage-settle.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
+
+/**
+ * Is a player currently seated as this village's Kage?
+ *
+ * Reads the AUTHORITATIVE `village:kage:<slug>` row, not the lagging
+ * `game:village-state` mirror — same rule world-state.ts isSeatedKageOf follows,
+ * and every other Kage power already reads.
+ *
+ * NO KAGE, NO TAX: the tax is the cost of being governed. Half of it funds the
+ * village treasury, which only a seated Kage can spend (structures, war
+ * declarations, mercenaries), so charging it while the seat is empty would take
+ * ryo from players for a war chest nobody can use. A leaderless village pays
+ * nothing until someone takes the seat.
+ *
+ * This is not a loophole worth farming: an unseated village also cannot declare a
+ * village war or a sector war, set terrain or win-conditions, upgrade a structure,
+ * or hire a mercenary — every one of those is Kage-gated. Dodging the tax means
+ * forfeiting the entire war toolkit.
+ */
+export async function isVillageKageSeated(village: string): Promise<boolean> {
+    try {
+        const row = await kv.get<{ seatedKage?: string }>(kageKey(village));
+        return !!String(row?.seatedKage ?? '').trim();
+    } catch {
+        // Fail SAFE for the player: if the seat cannot be read, do not charge.
+        return false;
+    }
+}
 
 /** Village tax is ON by default; `DISABLE_VILLAGE_TAX=1` is the kill switch.
  *  Safe to ship on: every village starts holding its full 8 home sectors, which
@@ -58,6 +87,8 @@ export interface VillageTaxResult {
     toBurn: number;
     toTreasury: number;
     rateSectors: number;    // sectors the village held (what set the tier)
+    /** false when the village has no seated Kage — the rate is forced to 0. */
+    kageSeated: boolean;
     ryo: number;            // balances AFTER the debit — the client adopts these
     bankRyo: number;
     /** The save version this debit produced, so the caller can echo it straight
@@ -65,8 +96,8 @@ export interface VillageTaxResult {
     _saveVersion?: number;
 }
 
-const NOT_APPLIED = (ryo = 0, bankRyo = 0): VillageTaxResult =>
-    ({ applied: false, taxed: 0, toBurn: 0, toTreasury: 0, rateSectors: 0, ryo, bankRyo });
+const NOT_APPLIED = (ryo = 0, bankRyo = 0, kageSeated = false): VillageTaxResult =>
+    ({ applied: false, taxed: 0, toBurn: 0, toTreasury: 0, rateSectors: 0, kageSeated, ryo, bankRyo });
 
 /**
  * Assess and collect the day's tax for one player.
@@ -95,12 +126,16 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
         if (!isWarVillage(village)) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0);
 
         // Village-scoped inputs, read once before taking the save lock.
-        const [sectorsControlled, warRaw] = await Promise.all([
+        const [sectorsControlled, warRaw, kageSeated] = await Promise.all([
             heldSectorsForVillage(village),
             kv.get<Record<string, unknown>>(villageWarKey(village)),
+            isVillageKageSeated(village),
         ]);
         const record = normalizeVillageWarRecord(village, warRaw ?? undefined);
-        const rateMultiplier = taxRateMultiplier(record);
+        // No seated Kage forces the rate to zero. applyPlayerTax still STAMPS the
+        // day, so a leaderless stretch accrues no arrears the village gets billed
+        // for the moment someone finally takes the seat.
+        const rateMultiplier = kageSeated ? taxRateMultiplier(record) : 0;
 
         // Currency path → failClosed, and the date stamp is re-read inside the lock
         // so two concurrent calls can't both debit.
@@ -136,7 +171,7 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
             return applied;
         }, { failClosed: true });
 
-        if (!outcome) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0);
+        if (!outcome) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0, kageSeated);
 
         // Credit the village treasury with its half. Separate lock, taken AFTER the
         // save lock is released (order save → village-state, and nothing takes them
@@ -171,6 +206,7 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
             toBurn: outcome.toBurn,
             toTreasury: outcome.toTreasury,
             rateSectors: sectorsControlled,
+            kageSeated,
             ryo: outcome.nextRyo,
             bankRyo: outcome.nextBankRyo,
             _saveVersion: savedVersion,

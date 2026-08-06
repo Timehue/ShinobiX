@@ -83,6 +83,47 @@ describe('village tax: the rate a player is actually charged', () => {
     });
 });
 
+describe('village tax: no Kage seated, no tax', () => {
+    const rich = { ryo: 1_000_000, bankRyo: 0, level: 50, lastTaxDate: '' };
+
+    it('charges nothing while the Kage seat is empty, even at the worst tier', () => {
+        // A leaderless village is modelled as rateMultiplier 0, the same shape the
+        // Treasury Vault uses — nobody can spend the treasury, so nobody funds it.
+        const out = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY, rateMultiplier: 0 });
+        assert.equal(out.taxed, false);
+        assert.equal(out.nextRyo, rich.ryo);
+        assert.equal(out.toTreasury, 0);
+        assert.equal(out.toBurn, 0);
+    });
+
+    it('still STAMPS the day, so no arrears build up while the seat is empty', () => {
+        // This is the load-bearing half: without the stamp, seating a Kage would
+        // immediately bill everyone for up to 3 ungoverned days of catch-up.
+        const out = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY, rateMultiplier: 0 });
+        assert.equal(out.nextLastTaxDate, TODAY);
+    });
+
+    it('a leaderless stretch is not billed retroactively once a Kage is seated', () => {
+        // Day 1..3 leaderless (stamped, untaxed), then a Kage takes the seat.
+        let last = '';
+        for (const day of ['2026-08-03', '2026-08-04', '2026-08-05']) {
+            const untaxed = applyPlayerTax({ ...rich, lastTaxDate: last }, { sectorsControlled: 0, today: day, rateMultiplier: 0 });
+            assert.equal(untaxed.taxed, false, `${day} untaxed`);
+            last = untaxed.nextLastTaxDate;
+        }
+        const governed = applyPlayerTax({ ...rich, lastTaxDate: last }, { sectorsControlled: 0, today: TODAY });
+        // One day owed, not three — the stamps closed out the ungoverned stretch.
+        const oneDay = Math.floor((rich.ryo - TAX_EXEMPTION_RYO) * 0.05);
+        assert.equal(governed.owed, oneDay);
+    });
+
+    it('resumes charging normally the day a Kage takes the seat', () => {
+        const seated = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY, rateMultiplier: 1 });
+        assert.equal(seated.taxed, true);
+        assert.ok(seated.toTreasury > 0, 'the treasury a Kage can actually spend gets funded');
+    });
+});
+
 describe('village tax: debit mechanics', () => {
     it('takes wallet first, then bank', () => {
         const out = applyPlayerTax({ ryo: 10_000, bankRyo: 1_000_000, level: 50, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
