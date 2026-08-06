@@ -166,6 +166,22 @@ export async function validateVillageStateWrite(
         }
     }
 
+    // ── warWinBuffUntil (victor's morale buff) ──────────────────────
+    // Set ONLY by the server at war settlement (api/world-state.ts). The guard
+    // runs the OPPOSITE way to the debuff above: a debuff is dodged by shortening
+    // it, a buff is stolen by EXTENDING it — so pin to the previous value if a
+    // write tries to raise it, and let a client clear its own buff harmlessly.
+    {
+        const prevUntil = Number(prev.warWinBuffUntil ?? 0) || 0;
+        const inUntil = Number(incoming.warWinBuffUntil ?? prevUntil) || 0;
+        if (!ctx.isAdmin && inUntil > prevUntil) {
+            next.warWinBuffUntil = prevUntil;
+            suppressed.push('warWinBuffUntil increase (server-set only)');
+        } else {
+            next.warWinBuffUntil = inUntil;
+        }
+    }
+
     // ── treasury ────────────────────────────────────────────────────
     // For each currency: positive deltas are bounded by per-call max;
     // negative deltas (withdrawals) require seatedKage.

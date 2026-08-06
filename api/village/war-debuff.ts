@@ -5,10 +5,16 @@ import { cors } from '../_utils.js';
 /*
  * /api/village/war-debuff — GET ?village=<name>
  *
- * Returns the village's active "demoralized" debuff expiry (set on the loser's
- * village-state at war settlement, api/world-state.ts). 0 when none / expired.
- * Read by Training.tsx + PetYard.tsx to apply the -10% training XP / +20% jutsu
- * training time. Public + briefly cached (the value changes only at war-end).
+ * Returns the village's current war MORALE window: the loser's "demoralized"
+ * debuff and the winner's buff, both stamped on the village-state at war
+ * settlement (api/world-state.ts settleVillageWar). 0 when none / expired.
+ *
+ * `warWinBuffUntil` had been stamped since the winner-buff phase but was never
+ * served, so nothing could read it and winning a war granted nothing while
+ * losing one cost the whole village three days. Both are returned here now; the
+ * client resolves whichever settled MOST RECENTLY (see lib/war-debuff.ts).
+ *
+ * Public + briefly cached (the values change only at war-end).
  */
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -23,7 +29,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const village = typeof req.query.village === 'string' ? req.query.village : '';
     if (!village) return res.status(400).json({ error: 'Missing village.' });
     const state = await kv.get<Record<string, unknown>>(villageStateKey(village));
-    const until = Number(state?.warLossDebuffUntil ?? 0) || 0;
+    const now = Date.now();
+    const live = (v: unknown): number => {
+        const until = Number(v ?? 0) || 0;
+        return until > now ? until : 0;
+    };
     res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
-    return res.status(200).json({ warLossDebuffUntil: until > Date.now() ? until : 0 });
+    return res.status(200).json({
+        warLossDebuffUntil: live(state?.warLossDebuffUntil),
+        warWinBuffUntil: live(state?.warWinBuffUntil),
+    });
 }

@@ -165,3 +165,47 @@ describe('validateVillageStateWrite — Hollow Gate 30-day timed unlock', () => 
         assert.equal(posts.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 0);
     });
 });
+
+// War morale stamps are set ONLY by settleVillageWar. The two guards run in
+// OPPOSITE directions: a debuff is dodged by shortening it, a buff is stolen by
+// extending it.
+describe('validateVillageStateWrite — war morale stamps', () => {
+    const NOW = Date.UTC(2026, 7, 6, 12, 0, 0);
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('blocks a client EXTENDING its victory buff', async () => {
+        const prev = { warWinBuffUntil: NOW + DAY };
+        const { next, suppressed } = await validateVillageStateWrite(prev, { warWinBuffUntil: NOW + 400 * DAY }, villager, null);
+        assert.equal(next.warWinBuffUntil, NOW + DAY, 'pinned to the server value');
+        assert.ok(suppressed.some((s) => s.includes('warWinBuffUntil')));
+    });
+
+    it('blocks a client GRANTING itself a buff it never earned', async () => {
+        const { next, suppressed } = await validateVillageStateWrite({}, { warWinBuffUntil: NOW + 30 * DAY }, villager, null);
+        assert.equal(next.warWinBuffUntil, 0);
+        assert.ok(suppressed.some((s) => s.includes('warWinBuffUntil')));
+    });
+
+    it('lets a client clear its own buff (harmless) and re-assert it unchanged', async () => {
+        const prev = { warWinBuffUntil: NOW + DAY };
+        const cleared = await validateVillageStateWrite(prev, { warWinBuffUntil: 0 }, villager, null);
+        assert.equal(cleared.next.warWinBuffUntil, 0);
+        const same = await validateVillageStateWrite(prev, { warWinBuffUntil: NOW + DAY }, villager, null);
+        assert.equal(same.next.warWinBuffUntil, NOW + DAY);
+        assert.equal(same.suppressed.some((s) => s.includes('warWinBuffUntil')), false);
+    });
+
+    it('still blocks a client SHORTENING its defeat debuff', async () => {
+        const prev = { warLossDebuffUntil: NOW + 3 * DAY };
+        const { next, suppressed } = await validateVillageStateWrite(prev, { warLossDebuffUntil: 0 }, villager, null);
+        assert.equal(next.warLossDebuffUntil, NOW + 3 * DAY);
+        assert.ok(suppressed.some((s) => s.includes('warLossDebuffUntil')));
+    });
+
+    it('admin may set either stamp (settlement / support tooling)', async () => {
+        const prev = { warWinBuffUntil: NOW, warLossDebuffUntil: NOW + 3 * DAY };
+        const { next } = await validateVillageStateWrite(prev, { warWinBuffUntil: NOW + 3 * DAY, warLossDebuffUntil: 0 }, admin, null);
+        assert.equal(next.warWinBuffUntil, NOW + 3 * DAY);
+        assert.equal(next.warLossDebuffUntil, 0);
+    });
+});
