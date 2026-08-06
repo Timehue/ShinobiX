@@ -199,6 +199,7 @@ import { builtinAis, balanceExistingAiProfiles, buildBasicCombatAiRules } from "
 import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
+import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
@@ -1660,6 +1661,10 @@ export default function App() {
     // sharedClanWarCache; ClanHall fires its own claim too once clanData
     // is loaded.
     useWarRewardClaims(character, setCharacter, worldStateVersion, clanWarStateVersion);
+    // Daily village tax — a ryo sink that scales with how much ground your village
+    // has LOST. Server-idempotent per UTC day; the debit must be adopted here
+    // because ryo is client-owned in the save ledger.
+    useVillageTax(character, setCharacter, (version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }, gameToast);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
     // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).

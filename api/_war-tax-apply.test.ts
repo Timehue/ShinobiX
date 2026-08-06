@@ -1,0 +1,137 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { villageTaxEnabled, utcDateString } from './_war-tax-apply.js';
+import { applyPlayerTax } from './_war-tax.js';
+import { computeTax, TAX_EXEMPTION_RYO, TAX_BURN_SHARE, TAX_DAILY_CAP_RYO } from './_war-economy.js';
+
+const TODAY = '2026-08-06';
+
+function withEnv(vars: Record<string, string | undefined>, fn: () => void) {
+    const prev: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(vars)) {
+        prev[k] = process.env[k];
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+    try { fn(); } finally {
+        for (const [k, v] of Object.entries(prev)) {
+            if (v === undefined) delete process.env[k]; else process.env[k] = v;
+        }
+    }
+}
+
+describe('village tax: the gate', () => {
+    it('is ON by default once the war system is enabled', () => {
+        withEnv({ ENABLE_VILLAGE_WAR: '1', DISABLE_VILLAGE_TAX: undefined }, () => {
+            assert.equal(villageTaxEnabled(), true);
+        });
+    });
+
+    it('has a dedicated kill switch', () => {
+        withEnv({ ENABLE_VILLAGE_WAR: '1', DISABLE_VILLAGE_TAX: '1' }, () => {
+            assert.equal(villageTaxEnabled(), false);
+        });
+    });
+
+    it('rides the whole system’s kill switch too', () => {
+        withEnv({ ENABLE_VILLAGE_WAR: undefined, DISABLE_VILLAGE_TAX: undefined }, () => {
+            assert.equal(villageTaxEnabled(), false);
+        });
+    });
+});
+
+describe('village tax: the rate a player is actually charged', () => {
+    const rich = { ryo: 1_000_000, bankRyo: 0, level: 50, lastTaxDate: '' };
+
+    it('is ZERO for a village holding all 8 of its sectors', () => {
+        // This is why shipping the tax on is safe: every village starts at 8.
+        const out = applyPlayerTax(rich, { sectorsControlled: 8, today: TODAY });
+        assert.equal(out.taxed, false);
+        assert.equal(out.nextRyo, rich.ryo);
+    });
+
+    it('bites hardest on a village conquered to nothing', () => {
+        const half = applyPlayerTax(rich, { sectorsControlled: 6, today: TODAY });   // 1%
+        const routed = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY }); // 5%
+        assert.ok(routed.owed > half.owed, 'losing ground must cost more');
+        assert.equal(routed.owed, Math.floor((rich.ryo - TAX_EXEMPTION_RYO) * 0.05));
+    });
+
+    it('applies the Treasury-Vault discount, so the charge matches the War Map display', () => {
+        const full = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY });
+        const vaulted = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY, rateMultiplier: 0.7 });
+        assert.ok(vaulted.owed < full.owed);
+        assert.equal(vaulted.owed, Math.floor((rich.ryo - TAX_EXEMPTION_RYO) * 0.05 * 0.7));
+    });
+
+    it('a maxed Treasury Vault can zero the tax outright', () => {
+        const out = applyPlayerTax(rich, { sectorsControlled: 0, today: TODAY, rateMultiplier: 0 });
+        assert.equal(out.taxed, false);
+    });
+
+    it('leaves Academy Students completely alone — no debit, no write', () => {
+        const student = applyPlayerTax({ ryo: 5_000_000, bankRyo: 0, level: 5, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
+        assert.equal(student.taxed, false);
+        assert.equal(student.noWrite, true, 'not even a date stamp');
+        assert.equal(student.nextRyo, 5_000_000);
+    });
+
+    it('never touches wealth under the exemption', () => {
+        const poor = applyPlayerTax({ ryo: TAX_EXEMPTION_RYO, bankRyo: 0, level: 50, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
+        assert.equal(poor.taxed, false);
+        assert.equal(poor.nextRyo, TAX_EXEMPTION_RYO);
+    });
+});
+
+describe('village tax: debit mechanics', () => {
+    it('takes wallet first, then bank', () => {
+        const out = applyPlayerTax({ ryo: 10_000, bankRyo: 1_000_000, level: 50, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
+        assert.equal(out.fromWallet, 10_000, 'wallet drained first');
+        assert.ok(out.fromBank > 0, 'remainder comes out of the bank');
+        assert.equal(out.nextRyo, 0);
+        assert.equal(out.fromWallet + out.fromBank, out.owed);
+    });
+
+    it('cannot push a player negative when they cannot cover it', () => {
+        const out = applyPlayerTax({ ryo: 6_000, bankRyo: 0, level: 50, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
+        assert.ok(out.nextRyo >= 0 && out.nextBankRyo >= 0);
+        assert.equal(out.fromWallet + out.fromBank, Math.min(out.owed, 6_000));
+    });
+
+    it('splits what was ACTUALLY collected, not what was owed', () => {
+        // Owed far exceeds the balance, so burn+treasury must sum to the debit.
+        const out = applyPlayerTax({ ryo: 20_000, bankRyo: 0, level: 50, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
+        const debited = out.fromWallet + out.fromBank;
+        assert.equal(out.toBurn + out.toTreasury, debited);
+        assert.equal(out.toBurn, Math.round(debited * TAX_BURN_SHARE));
+    });
+
+    it('is idempotent within a UTC day', () => {
+        const first = applyPlayerTax({ ryo: 1_000_000, bankRyo: 0, level: 50, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
+        assert.equal(first.taxed, true);
+        const second = applyPlayerTax(
+            { ryo: first.nextRyo, bankRyo: first.nextBankRyo, level: 50, lastTaxDate: first.nextLastTaxDate },
+            { sectorsControlled: 0, today: TODAY },
+        );
+        assert.equal(second.taxed, false, 'same day = no second debit');
+        assert.equal(second.nextRyo, first.nextRyo);
+    });
+
+    it('caps catch-up so a returning player is not wiped out', () => {
+        const away = applyPlayerTax({ ryo: 100_000_000, bankRyo: 0, level: 50, lastTaxDate: '2026-01-01' }, { sectorsControlled: 0, today: TODAY });
+        const perDay = Math.min(Math.floor((100_000_000 - TAX_EXEMPTION_RYO) * 0.05), TAX_DAILY_CAP_RYO);
+        assert.equal(away.owed, perDay * 3, 'months away still only owes the 3-day cap');
+    });
+
+    it('honours the per-day ryo cap for the very wealthy', () => {
+        const t = computeTax({ ryo: 1_000_000_000, bankRyo: 0, sectors: 0, level: 50, daysOwed: 1 });
+        assert.equal(t.owed, TAX_DAILY_CAP_RYO);
+    });
+});
+
+describe('utcDateString', () => {
+    it('formats a UTC day key', () => {
+        assert.equal(utcDateString(Date.UTC(2026, 7, 6, 23, 59, 0)), '2026-08-06');
+        assert.equal(utcDateString(Date.UTC(2026, 7, 7, 0, 0, 0)), '2026-08-07');
+    });
+});

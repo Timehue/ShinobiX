@@ -51,7 +51,7 @@ export interface PlayerTaxOutcome {
  *  date. Reads `ryo`, `bankRyo`, `level`, `lastTaxDate`. */
 export function applyPlayerTax(
     char: { ryo?: number; bankRyo?: number; level?: number; lastTaxDate?: string },
-    opts: { sectorsControlled: number; today: string },
+    opts: { sectorsControlled: number; today: string; rateMultiplier?: number },
 ): PlayerTaxOutcome {
     const ryo = Math.max(0, Math.floor(Number(char.ryo) || 0));
     const bankRyo = Math.max(0, Math.floor(Number(char.bankRyo) || 0));
@@ -73,7 +73,7 @@ export function applyPlayerTax(
     const daysOwed = daysSince(last, opts.today);
     if (daysOwed <= 0) return stamped; // same day / clock skew
 
-    const tax = computeTax({ ryo, bankRyo, sectors: opts.sectorsControlled, level, daysOwed });
+    const tax = computeTax({ ryo, bankRyo, sectors: opts.sectorsControlled, level, daysOwed, rateMultiplier: opts.rateMultiplier });
     if (tax.owed <= 0) return stamped; // 0% tier (full control) or under the exemption
 
     const fromWallet = Math.min(ryo, tax.owed);
