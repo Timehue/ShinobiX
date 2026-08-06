@@ -156,20 +156,28 @@ Static responsive and accessibility contracts are automated. An authenticated br
 
 ## 10. Verification evidence
 
-### Automated results recorded before the final documentation pass
+### Final automated results
 
 | Gate | Exact result |
 | --- | --- |
 | Clean full root test suite after implementation | 4,986 passed, 0 failed across 752 suites. |
-| Focused party/contribution/profession/sector/activity contracts | 54 passed, 0 failed before the final client drain; the final complete suite is the release authority. |
+| Focused party/contribution/profession/sector/activity contracts | 54 passed, 0 failed before the final client drain; all contracts were also included in the final 4,986-test pass. |
 | Save-version focused coverage | 14 passed, 0 failed. |
 | Clean client ESLint | Passed. |
 | Clean client production build | Passed. |
 | Server TypeScript build | Passed. |
 | Distribution verification | Passed: server 95.9 KB, client 284.8 MB, no authoring sources. |
-| Client-size ratchet | Passed after product drain; unchanged threshold 7,245,000 bytes. |
-
-The final release-gate rerun and any environment-gated Playwright outcomes are recorded in the commit handoff/final response. Failed, skipped, or unrun browser/load checks are not represented as passes.
+| Client-size ratchet | Passed at 7,241,865 budgeted bytes against the unchanged 7,245,000-byte threshold; initial graph 1.37 MB raw / 363.3 KB gzip. The optional CI Sentry environment could not be injected under the desktop command policy, so CI remains the instrumented authority. |
+| Release certification | Passed 82/82 against the built Express server and isolated in-memory backend. |
+| Deployment / rollback | Both passed; one Railway replica, `node dist/server.js`, `/health`, and no destructive rollback statements. |
+| Mission eligibility / release assets | Passed; 65 achievement references, 165 badge PNGs, and 21 Pet Home WebPs verified. |
+| Tooling handoffs | Passed after making generated JSON/CSV line endings deterministic on Windows. |
+| Root / client production dependency audits | Both passed with 0 vulnerabilities. |
+| `test:e2e` | 86 passed, 75 project-filtered/skipped, 0 failed across Chromium, Firefox, WebKit, 360×640, 390×844, and 768×1024 projects. |
+| `test:e2e:visual` | 4 passed, 0 failed. |
+| `test:e2e:visual:size` | Passed: 4 files, 2,634,130 bytes under the 3,145,728-byte cap. |
+| `test:e2e:live` | 8 passed, 1 skipped, 1 failed. Existing mobile Solo-PvE at 375×667 reports the first jutsu center intercepted by `combat-layout has-rookie-tip`; desktop live, registration/relogin, mission recovery, flee, and mobile PvP passed. The operation CSS is scoped and does not alter ordinary combat. |
+| `test:e2e:warfront` | Timed out after 904 seconds with no test summary or assertion output; status is unverified. The local port/process cleaned up. |
 
 ### Code and contract evidence
 
@@ -184,13 +192,13 @@ The final release-gate rerun and any environment-gated Playwright outcomes are r
 - Focused tests: `api/clan-boss/_party.test.ts`, `_contribution.test.ts`, `_profession.test.ts`, `_sector-state.test.ts`, `api/player/_activity-spine.test.ts`, `shinobij.client/src/clan-boss-operation.test.ts`
 - Rollout: `FEATURE_FLAG_RELEASE_MATRIX.md`
 
-No generated screenshots are included. Producing cosmetic screenshots without authenticated deterministic party/run fixtures would not prove the reconnect, settlement, or authority properties of this slice.
+The repository's four stable visual baselines remain in `shinobij.client/e2e-visual/__snapshots__`, and the full preview matrix passed. No operation-specific screenshots are claimed: the available browser harness does not provide deterministic authenticated multi-member party/run fixtures, and cosmetic screenshots would not prove reconnect, settlement, or authority.
 
 ## 11. Acceptance-scenario status
 
 | Scenario | Status and evidence |
 | --- | --- |
-| New-player direction | Server activity tests cover onboarding priority and blockers; existing onboarding remains unchanged. No fresh-account browser run was performed. |
+| New-player direction | Server activity tests cover onboarding priority and blockers; the preview journey and live registration/relogin passed. Existing Academy remains unchanged. |
 | Midgame direction | Activity tests cover level 35 and explicit solo/social/economy/long-term choices. |
 | Low-population formation | Party tests cover one-player queue, real counts, and two-minute fallback; client contract forbids presenting offline players as AI. |
 | Full cooperative operation | Start/settle code binds the server party to N-actor Tower and role-inclusive settlement; clean full suite passed. A multi-browser manual playthrough remains staging work. |
@@ -198,7 +206,7 @@ No generated screenshots are included. Producing cosmetic screenshots without au
 | Lost settlement response | Existing run banking plus start/party/profession/sector receipts are retry-safe; duplicate banking tests pass. No packet-drop browser fixture was added. |
 | World consequence | Sector tests prove canonical metadata, active-contribution requirement, per-run cap, receipt replay, and no territory mutation. |
 | Economy loop | Existing hunt/Crafter/consumable path is surfaced; profession XP and modern reward thresholds are tested. |
-| Mobile | Responsive source contracts and build/lint pass. Manual viewport/zoom screenshots remain unverified. |
+| Mobile | Responsive source contracts plus the broad compact/mobile/tablet preview matrix pass. The live suite separately exposed an existing 375×667 Solo-PvE jutsu hit-target defect; operation-specific authenticated screenshots and manual zoom checks remain unverified. |
 | Administration | Full-admin route and client guard require reason, confirmation, version, safe status, lock, and audit. No credentialed browser smoke was performed. |
 
 ## 12. Before/after scorecard
@@ -235,7 +243,7 @@ Scores use a conservative 1–5 evidence scale, where 5 means coherent, operatio
 6. Sector pressure is contextual and weekly only. It does not yet change missions, hunts, profession contracts, village projects, services, or NPC reactions.
 7. Village purpose gains shared world context but no direct village contribution ledger in this slice. Clan purpose received the complete connection.
 8. Weekly personal rewards are still distributed through the existing weekly Clan Boss authority, not immediately by each operation result. This avoids a new faucet but makes the reward timing less immediate.
-9. Browser screenshots, multi-client reconnect, packet-loss settlement, full viewport/zoom matrix, live admin credentials, and a disposable-staging load run remain unverified. They must be completed before describing the slice as fully production-certified.
+9. Operation screenshots, multi-client reconnect, packet-loss settlement, every requested zoom state, live admin credentials, and a disposable-staging load run remain unverified. The general preview matrix passed, but the live gate has one existing 375×667 Solo-PvE hit-target failure and the Warfront DPR gate timed out. These outcomes prevent describing the whole product as fully production-certified.
 
 ## 14. Deferred backlog, ordered by player value and risk
 
