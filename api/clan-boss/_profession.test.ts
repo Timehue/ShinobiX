@@ -18,4 +18,3 @@ describe('operation profession XP', () => {
         assert.equal(operationProfessionXp('unknown', base), 0);
     });
 });
-

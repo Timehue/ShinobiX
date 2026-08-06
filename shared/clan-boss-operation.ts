@@ -103,4 +103,3 @@ export type ClanBossContributionResult = ClanBossContribution & {
     survived: boolean;
     threshold: 'none' | 'field' | 'veteran' | 'elite';
 };
-
