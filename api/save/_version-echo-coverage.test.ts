@@ -33,6 +33,11 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  */
 const ECHOES_VERSION = new Set([
     '_anbu-infiltration-store.ts',
+    // Daily village tax. The debit runs in this helper; its only caller,
+    // village/tax.ts, re-reads the record and echoes `_saveVersion`, which the
+    // client adopts along with the new balances — mandatory here, because ryo is
+    // client-owned and an unadopted debit would be undone by the next autosave.
+    '_war-tax-apply.ts',
     'admin/content-publish.ts',
     'bank/claim-interest.ts',
     'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
