@@ -5,7 +5,8 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { isWarVillage, homeSectorsForVillage } from '../_war-map-sectors.js';
+import { isWarVillage } from '../_war-map-sectors.js';
+import { heldSectorsForVillage } from '../_war-held-sectors.js';
 import {
     normalizeVillageWarRecord,
     villageWarKey,
@@ -161,6 +162,10 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const defender = await getSectorOwnerVillage(sector);
     if (!defender) return res.status(409).json({ error: 'That sector has no current owner — it must be seeded first.' });
 
+    // Live held count (NOT the static home table) so the comeback discount can
+    // actually fire for a village that has been pushed off the map.
+    const attackerSectorsHeld = await heldSectorsForVillage(village);
+
     const atkKey = villageWarKey(village);
     const [attackerInWar, defenderInWar, existing, atkRecord, defRaw] = await Promise.all([
         villageHasActiveWar(village),
@@ -184,7 +189,7 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         defenderInActiveVillageWar: defenderInWar,
         contestAlreadyActive: !!existing,
         attackerWr: attackerRecord.warResources,
-        attackerSectorsHeld: homeSectorsForVillage(village).length,
+        attackerSectorsHeld,
         allowedWinConditions: WIRED_WIN_CONDITIONS,
     });
     if (!check.ok) return res.status(declineStatus(check.error)).json({ error: declineMessage(check.error, check.cost) });

@@ -7307,10 +7307,12 @@ export default function App() {
                             }).catch(() => {});
                         }
                         if (!isFriendlyDuel && pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: b.balances.ryo } : c); gameToast(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
+                        // pvpBattleId is the war-damage receipt: the server refuses village-war
+                        // HP that isn't backed by a finished PvP session this player won.
                         const villageWarRaid = context?.raidKind === "raidPlayer"
-                            ? recordVillageWarRaid(character, rewardSector, playerRoster)
+                            ? recordVillageWarRaid(character, rewardSector, playerRoster, pvpBattleId ?? undefined)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
+                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster, pvpBattleId ?? undefined) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                         // Spars grant NOTHING (no stats/ryo/currency/scrolls/kills); ranked = no stats.
