@@ -112,6 +112,11 @@ export async function fetchWarMap(): Promise<WarMapResponse> {
 export function declareSectorWar(playerName: string, village: string, sector: number) {
     return postJson("/api/village/sector-war", { action: "declare", playerName, village, sector });
 }
+/** Call off a siege your village is running. Attacking Kage only; the WR spent
+ *  declaring is not refunded. An untouched siege also lapses on its own after 24h. */
+export function abandonSectorWar(playerName: string, sector: number) {
+    return postJson("/api/village/sector-war", { action: "abandon", playerName, sector });
+}
 export function sectorWarStatus(playerName: string, sector?: number) {
     return postJson("/api/village/sector-war", { action: "status", playerName, sector });
 }

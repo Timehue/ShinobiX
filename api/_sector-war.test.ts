@@ -15,6 +15,12 @@ import {
     canDeclareSectorWar,
     applyContestBattleByWinner,
     cappedSectorSwing,
+    isSectorWarActive,
+    sectorWarExpiry,
+    applyLazySectorWarExpiry,
+    abandonSectorWar,
+    SECTOR_WAR_IDLE_TIMEOUT_MS,
+    SECTOR_WAR_MAX_DURATION_MS,
     type SectorWarSession,
 } from './_sector-war.js';
 import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_MAX_SWING_FRACTION, SECTOR_CONTROL_HP_ABSOLUTE_MAX } from './_war-state.js';
@@ -134,6 +140,103 @@ describe('sector-war: pacing (the numbers a siege actually costs)', () => {
         // A 5-merc warlord band fights at villager weight (ROLE_MERC).
         const band = 5 * SWING_VILLAGER_V_VILLAGER;
         assert.ok(band / SECTOR_CONTROL_HP_MAX >= 0.2, 'a top-tier hire must be worth its WR');
+    });
+});
+
+describe('sector-war: contest expiry', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('a fresh contest is active', () => {
+        assert.equal(isSectorWarActive(fresh(), NOW), true);
+        assert.equal(sectorWarExpiry(fresh(), NOW).expired, false);
+    });
+
+    it('lapses once nobody has fought it for the idle timeout', () => {
+        const s = fresh();
+        assert.equal(isSectorWarActive(s, NOW + SECTOR_WAR_IDLE_TIMEOUT_MS - 1), true);
+        const e = sectorWarExpiry(s, NOW + SECTOR_WAR_IDLE_TIMEOUT_MS);
+        assert.equal(e.expired, true);
+        assert.equal(e.reason, 'idle');
+    });
+
+    it('a battle refreshes the idle clock — an ACTIVE siege is not reaped', () => {
+        // updatedAt advances on every applied battle, so it doubles as last-activity.
+        const fought = applySectorBattleResult(fresh(), true, { now: NOW + 20 * 60 * 60 * 1000, swing: SWING_VILLAGER_V_VILLAGER }).session;
+        assert.equal(isSectorWarActive(fought, NOW + 30 * 60 * 60 * 1000), true, 'still live 10h after the last fight');
+    });
+
+    it('hits the hard cap even while being actively fought', () => {
+        const grinding: SectorWarSession = { ...fresh(), updatedAt: NOW + 3 * DAY };
+        const e = sectorWarExpiry(grinding, NOW + SECTOR_WAR_MAX_DURATION_MS);
+        assert.equal(e.expired, true);
+        assert.equal(e.reason, 'timeout');
+    });
+
+    it('a captured contest never "expires" — it was already decided', () => {
+        const flipped: SectorWarSession = { ...fresh(), flipped: true };
+        assert.equal(sectorWarExpiry(flipped, NOW + 30 * DAY).expired, false);
+        assert.equal(isSectorWarActive(flipped, NOW), false, 'but it is not active either');
+    });
+
+    it('applyLazySectorWarExpiry stamps a lapsed contest exactly once', () => {
+        const first = applyLazySectorWarExpiry(fresh(), NOW + SECTOR_WAR_IDLE_TIMEOUT_MS);
+        assert.equal(first.changed, true);
+        assert.equal(first.session.expiredReason, 'idle');
+        assert.equal(first.session.expiredAt, NOW + SECTOR_WAR_IDLE_TIMEOUT_MS);
+        // Re-running is inert — no re-stamp, same reference.
+        const second = applyLazySectorWarExpiry(first.session, NOW + 10 * DAY);
+        assert.equal(second.changed, false);
+        assert.equal(second.session, first.session);
+    });
+
+    it('leaves a live contest untouched', () => {
+        const r = applyLazySectorWarExpiry(fresh(), NOW + 1000);
+        assert.equal(r.changed, false);
+        assert.equal(r.session.expiredAt, undefined);
+    });
+
+    it('an expired contest can no longer take Control-HP damage', () => {
+        const expired = applyLazySectorWarExpiry(fresh(), NOW + SECTOR_WAR_IDLE_TIMEOUT_MS).session;
+        const out = applySectorBattleResult(expired, true, { now: NOW + SECTOR_WAR_IDLE_TIMEOUT_MS + 1, swing: SWING_KAGE_V_KAGE });
+        assert.equal(out.hpDealt, 0);
+        assert.equal(out.captured, false);
+        assert.equal(out.session, expired, 'unchanged reference — the defender held');
+    });
+
+    it('the attacking Kage can call a siege off, and it stays off', () => {
+        const a = abandonSectorWar(fresh(), NOW + 60_000);
+        assert.equal(a.changed, true);
+        assert.equal(a.session.expiredReason, 'abandoned');
+        assert.equal(isSectorWarActive(a.session, NOW + 60_000), false);
+        // Idempotent — a second call-off does nothing.
+        assert.equal(abandonSectorWar(a.session, NOW + 120_000).changed, false);
+    });
+
+    it('a captured sector cannot be retroactively abandoned', () => {
+        const flipped: SectorWarSession = { ...fresh(), flipped: true };
+        assert.equal(abandonSectorWar(flipped, NOW).changed, false);
+    });
+
+    it('round-trips the expiry stamp through storage normalization', () => {
+        const expired = applyLazySectorWarExpiry(fresh(), NOW + SECTOR_WAR_IDLE_TIMEOUT_MS).session;
+        const n = normalizeSectorWarSession(JSON.parse(JSON.stringify(expired)));
+        assert.equal(n?.expiredAt, expired.expiredAt);
+        assert.equal(n?.expiredReason, 'idle');
+        assert.equal(isSectorWarActive(n, NOW + SECTOR_WAR_IDLE_TIMEOUT_MS), false);
+    });
+
+    it('defaults an unrecognised stored reason rather than trusting the blob', () => {
+        const n = normalizeSectorWarSession({
+            sector: 8, attackerVillage: 'A', defenderVillage: 'B',
+            winCondition: 'combat', expiredAt: NOW, expiredReason: 'hax' as never,
+        } as never);
+        assert.equal(n?.expiredReason, 'timeout');
+    });
+
+    it('the idle timeout is comfortably shorter than the hard cap', () => {
+        assert.ok(SECTOR_WAR_IDLE_TIMEOUT_MS < SECTOR_WAR_MAX_DURATION_MS);
+        // And a sector war must resolve well inside a village war's 14 days (§17.6).
+        assert.ok(SECTOR_WAR_MAX_DURATION_MS < 14 * DAY);
     });
 });
 

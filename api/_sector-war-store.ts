@@ -21,6 +21,8 @@ import {
     sectorWarTokenKey,
     normalizeSectorWarSession,
     normalizeSectorWarBattleToken,
+    isSectorWarActive,
+    applyLazySectorWarExpiry,
     SECTOR_WAR_TOKEN_TTL_MS,
     type SectorWarSession,
     type SectorWarBattleToken,
@@ -46,25 +48,68 @@ export async function deleteSectorWar(id: string): Promise<void> {
     await kv.del(sectorWarKey(id));
 }
 
-/** Every non-flipped contest currently on the board (small scan; mirrors the
- *  territory scan in api/village/claim-map-control.ts). */
-export async function listActiveSectorWars(): Promise<SectorWarSession[]> {
+/** Every contest still LIVE on the board — not captured, and not timed out
+ *  (small scan; mirrors the territory scan in api/village/claim-map-control.ts).
+ *
+ *  Filtering on expiry here is what stops a stale declare from holding its sector
+ *  forever under the one-contest-per-sector rule, and from keeping its village
+ *  permanently "at war" in the daily pass. This is a pure read — `sweepExpiredSectorWars`
+ *  (run from the daily pass) is what actually stamps and clears the records. */
+export async function listActiveSectorWars(now: number = Date.now()): Promise<SectorWarSession[]> {
     const keys = await kv.keys(`${SECTOR_WAR_PREFIX}*`);
     if (!keys.length) return [];
     const raws = await kv.mget<Partial<SectorWarSession>[]>(...keys);
     const out: SectorWarSession[] = [];
     for (const raw of raws) {
         const s = raw ? normalizeSectorWarSession(raw) : null;
-        if (s && !s.flipped) out.push(s);
+        if (s && isSectorWarActive(s, now)) out.push(s);
     }
     return out;
 }
 
 /** The active contest on a given sector, if any (a sector hosts at most one). */
-export async function activeContestOnSector(sector: number): Promise<SectorWarSession | null> {
-    const all = await listActiveSectorWars();
+export async function activeContestOnSector(sector: number, now: number = Date.now()): Promise<SectorWarSession | null> {
+    const all = await listActiveSectorWars(now);
     return all.find((s) => s.sector === sector) ?? null;
 }
+
+/** Every contest a village is currently attacking or defending. Used to enforce
+ *  the village-war ↔ sector-war mutual exclusion in BOTH directions. */
+export async function activeSectorWarsForVillage(village: string, now: number = Date.now()): Promise<SectorWarSession[]> {
+    const name = String(village ?? '').trim();
+    if (!name) return [];
+    const all = await listActiveSectorWars(now);
+    return all.filter((s) => s.attackerVillage === name || s.defenderVillage === name);
+}
+
+/**
+ * Stamp lapsed contests and clear them out. Idempotent hygiene, run once a day
+ * from the village-war pass — the readers above already ignore expired records, so
+ * this only keeps the keyspace tidy and leaves a durable reason on the way out.
+ * Returns how many it retired.
+ */
+export async function sweepExpiredSectorWars(now: number = Date.now()): Promise<number> {
+    const keys = await kv.keys(`${SECTOR_WAR_PREFIX}*`);
+    if (!keys.length) return 0;
+    const raws = await kv.mget<Partial<SectorWarSession>[]>(...keys);
+    let retired = 0;
+    for (const raw of raws) {
+        const s = raw ? normalizeSectorWarSession(raw) : null;
+        if (!s) continue;
+        const { session, changed } = applyLazySectorWarExpiry(s, now);
+        if (!changed) continue;
+        try {
+            // Keep a short-lived stamped record so a client polling mid-expiry sees
+            // WHY the siege ended, then let it fall out of the keyspace on its own.
+            await kv.set(sectorWarKey(session.id), session, { ex: EXPIRED_SECTOR_WAR_TTL_SEC } as never);
+            retired++;
+        } catch { /* best-effort hygiene — the readers already filter it out */ }
+    }
+    return retired;
+}
+
+/** How long an expired contest record lingers before it disappears. */
+const EXPIRED_SECTOR_WAR_TTL_SEC = 24 * 60 * 60;
 
 // ── Single-use battle token ──
 

@@ -23,6 +23,8 @@ import {
     recordSectorWarBattleOutcome,
     canDeclareSectorWar,
     newSectorWarBattleToken,
+    isSectorWarActive,
+    abandonSectorWar,
     type SectorWarDeclineReason,
 } from '../_sector-war.js';
 import {
@@ -139,6 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'declare': return await doDeclare(req, res, identity, playerName, body);
             case 'attack': return await doAttack(req, res, identity, playerName, body);
             case 'resolve': return await doResolve(req, res, identity, playerName, body);
+            case 'abandon': return await doAbandon(req, res, identity, playerName, body);
             case 'status': return await doStatus(req, res, body);
             case 'seed': return await doSeed(res, identity);
             default: return res.status(400).json({ error: 'Unknown action.' });
@@ -361,6 +364,11 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         if (!contest || token.createdAt < contest.startedAt) {
             return { ok: false as const, error: 'contest-closed' as const };
         }
+        // A siege that timed out (or was called off) while this battle was being
+        // fought is a defender hold — it can no longer take Control-HP damage.
+        if (!isSectorWarActive(contest, Date.now())) {
+            return { ok: false as const, error: 'contest-closed' as const };
+        }
         const prior = findSectorWarBattleReceipt(contest, battleId);
         if (prior) {
             return {
@@ -422,6 +430,35 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         hpDealt: result.outcome.hpDealt,
         hpRegen: result.outcome.hpRegen,
     });
+}
+
+// ── abandon (the attacking Kage calls off their own siege) ────────────────────
+// The counterpart to the village war's "call peace". Without it a Kage who
+// mis-declared had to wait out the idle timeout before that sector — or a village
+// war — could be opened again. Only the ATTACKER may withdraw: letting a defender
+// dismiss a siege would be free defence.
+async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
+    const sector = Math.floor(Number(body.sector) || 0);
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-war-abandon', 10, 60_000, identity.name))) return;
+
+    const contest = await activeContestOnSector(sector);
+    if (!contest) return res.status(409).json({ error: 'No active sector war on that sector.' });
+    if (!identity.admin && !(await isSeatedKage(contest.attackerVillage, playerName))) {
+        return res.status(403).json({ error: 'Only the attacking village’s seated Kage can call off a sector war.' });
+    }
+
+    const out = await withKvLock(sectorWarKey(contest.id), async () => {
+        const fresh = await loadSectorWar(contest.id);
+        if (!fresh || !isSectorWarActive(fresh, Date.now())) return { ok: false as const };
+        const { session, changed } = abandonSectorWar(fresh, Date.now());
+        if (changed) await saveSectorWar(session);
+        return { ok: true as const, session };
+    }, { failClosed: true });
+
+    if (!out.ok) return res.status(409).json({ error: 'That sector war is already over.' });
+    // The WR spent declaring is NOT refunded — a called-off siege still cost the
+    // village, which is what keeps declare-spam from being free.
+    return res.status(200).json({ ok: true, sector, contest: out.session });
 }
 
 // ── status (read-only) ─────────────────────────────────────────────────────────
