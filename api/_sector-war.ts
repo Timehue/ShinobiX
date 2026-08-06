@@ -377,6 +377,19 @@ export function sectorWarKey(id: string): string {
     return `shared:sector-war:${id}`;
 }
 
+/**
+ * Lock scope for OPENING a contest on a sector.
+ *
+ * Keyed on the SECTOR, deliberately — not on the contest id. A contest id embeds
+ * the attacker slug (`<sector>:<attacker>-vs-<defender>`), so two different
+ * villages declaring on the same sector take two DIFFERENT contest locks and both
+ * pass the one-contest-per-sector check, which is only a pre-check outside any
+ * lock. This key is what makes every would-be attacker on a sector serialize.
+ */
+export function sectorDeclareLockKey(sector: number): string {
+    return `sector-war-declare:${clampInt(sector, 1, MAX_WILD_SECTOR)}`;
+}
+
 /** Map a finished win-condition battle by WINNER SIDE onto a contest, where p1 is
  *  the attacker side and p2 the defender side (the sector-card session enforces
  *  that): p1 win → attacker chip, p2 win → defender regen, draw → no Control-HP

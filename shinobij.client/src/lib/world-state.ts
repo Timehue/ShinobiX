@@ -412,7 +412,7 @@ export function loadVillageWar(villageA: string, villageB: string): VillageWar |
     return null;
 }
 
-function saveVillageWar(war: VillageWar, battleId?: string, warMissionToken?: string) {
+function saveVillageWar(war: VillageWar, battleId?: string | null, warMissionToken?: string) {
     const normalized = normalizeVillageWar({ ...war, updatedAt: Date.now() });
     sharedVillageWarCache[normalized.id] = normalized;
     persistSharedWorldState("war", normalized, battleId, warMissionToken);
@@ -527,7 +527,7 @@ function villageWarLossPenalty(character: Character, clanMemberCount = 0) {
     return 0;
 }
 
-function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number, battleId?: string, warMissionToken?: string) {
+function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number, battleId?: string | null, warMissionToken?: string) {
     const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
     const ended = nextHp <= 0;
     const winnerVillage = ended ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage;
@@ -592,7 +592,7 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
     }
 }
 
-export function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = [], battleId?: string) {
+export function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = [], battleId?: string | null) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
     // No war damage during the pre-war pending window — the server
@@ -629,7 +629,7 @@ export function recordVillageWarPvp(winner: Character, loser: Character, sector?
     return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
-export function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = [], battleId?: string) {
+export function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = [], battleId?: string | null) {
     // Union return shape: every early return must declare the same
     // keys (with undefined values where needed) so the success path's
     // `warCrateId: string` access compiles against the inferred union.
@@ -1246,7 +1246,7 @@ function normalizeSectorTerritory(sector: number, data?: Partial<SectorTerritory
 // that isn't backed by a finished PvP session this player won against the enemy
 // village (api/_war-battle-receipt.ts). Every damage path runs off a real battle,
 // so the id is always available at the call site — it just has to be forwarded.
-function persistSharedWorldState(kind: "territory" | "war", payload: SectorTerritory | VillageWar, battleId?: string, warMissionToken?: string) {
+function persistSharedWorldState(kind: "territory" | "war", payload: SectorTerritory | VillageWar, battleId?: string | null, warMissionToken?: string) {
     if (typeof fetch === "undefined") return;
     fetch(WORLD_STATE_API, {
         method: "POST",

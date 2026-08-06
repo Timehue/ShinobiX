@@ -32,6 +32,12 @@ const VILLAGE_STATE_PREFIX = 'game:village-state:';
 function villageStateKey(village: string): string {
     return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
+/** The AUTHORITATIVE seated-Kage row (`village:kage:<slug>`, spaces → dashes) —
+ *  the one every Kage power reads. Note the slug differs from villageStateKey's:
+ *  that one strips punctuation entirely, this one hyphenates. */
+function kageSeatKey(village: string): string {
+    return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
+}
 
 interface SaveShape { character?: { rankTitle?: string; storyTitle?: string; village?: string } }
 interface VillageStateShape { seatedKage?: string; anbuAppointees?: string[] }
@@ -49,8 +55,23 @@ export async function sectorWarRoleOf(playerName: string): Promise<RoleWeights> 
         if (!ch) return ROLE_VILLAGER;
         const title = `${ch.rankTitle ?? ''} ${ch.storyTitle ?? ''}`.toLowerCase();
         const village = String(ch.village ?? '');
-        const vs = village ? await kv.get<VillageStateShape>(villageStateKey(village)) : null;
-        if (vs?.seatedKage?.trim().toLowerCase() === name || title.includes('kage')) return ROLE_KAGE;
+        // The seat comes from the AUTHORITATIVE `village:kage:` row; ANBU appointees
+        // only exist on the village-state, so that is still read for them.
+        //
+        // This used to take the Kage from `game:village-state:<slug>.seatedKage`, a
+        // LAGGING MIRROR that only refreshes on a validated villageState write. A
+        // genuinely seated Kage therefore fought at VILLAGER weight (swing 5 instead
+        // of 30 — a sector costs 20 wins instead of 5) until some member's next save
+        // rehydrated it, and a just-dethroned one kept Kage weight. Observed live on
+        // a real seated Kage. world-state.ts isSeatedKageOf documents the same trap.
+        const [seat, vs] = village
+            ? await Promise.all([
+                kv.get<VillageStateShape>(kageSeatKey(village)),
+                kv.get<VillageStateShape>(villageStateKey(village)),
+            ])
+            : [null, null];
+        const seatedKage = String(seat?.seatedKage ?? '').trim().toLowerCase();
+        if (seatedKage === name || title.includes('kage')) return ROLE_KAGE;
         if (title.includes('first elder') || title.includes('second elder') || title.includes('third elder') || title.includes('village elder')) return ROLE_ELDER;
         const anbu = Array.isArray(vs?.anbuAppointees) && vs!.anbuAppointees!.some((a) => String(a).trim().toLowerCase() === name);
         if (anbu || title.includes('anbu')) return ROLE_ANBU;
