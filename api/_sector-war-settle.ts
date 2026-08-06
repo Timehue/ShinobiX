@@ -1,0 +1,96 @@
+/*
+ * Sector-war SETTLEMENT — the IO half of the 72-hour scored war.
+ *
+ * The pure verdict lives in api/_sector-war.ts settleSectorWar: when the window
+ * closes, attacker strictly ahead → the sector flips; defender ahead or tied →
+ * the defence held. This module applies that verdict durably:
+ *
+ *   · flip  → captureSectorForVillage (the world:territory owner change the WR
+ *             faucet and tax tier key off) + sector.capture telemetry. The
+ *             settled record persists WITHOUT a ttl as an inert audit row.
+ *   · hold  → the record is stamped 'defended' and saved WITH the re-siege
+ *             cooldown TTL, so the lingering record IS the attacker's cooldown.
+ *
+ * Called LAZILY from the endpoint's hot paths (the war-map status poll, declare)
+ * so a finished war settles within seconds of a player looking at it, and from
+ * the daily village-war pass as the backstop for wars nobody is watching. Both
+ * paths converge on the same per-war lock, so double-settlement is impossible.
+ *
+ * Lives in its own module because of an import cycle: world-state.ts imports the
+ * sector-war STORE (activeSectorWarsForVillage, for the village-war mutual
+ * exclusion), so the store cannot import captureSectorForVillage back. This file
+ * sits above both. Underscore-prefixed → a helper, not a route.
+ */
+
+import { withKvLock } from './_lock.js';
+import { settleSectorWar, sectorWarKey, SECTOR_RESIEGE_COOLDOWN_SEC } from './_sector-war.js';
+import { loadSectorWar, saveSectorWar, listUnsettledDueSectorWars } from './_sector-war-store.js';
+import { captureSectorForVillage } from './world-state.js';
+import { recordWarEcoEvent } from './_war-telemetry.js';
+
+export interface SectorWarSettlement {
+    id: string;
+    sector: number;
+    attackerVillage: string;
+    defenderVillage: string;
+    attackerWon: boolean;
+    attackerPoints: number;
+    defenderPoints: number;
+}
+
+/** Settle every war whose 72 hours are up. Returns what was settled. Never
+ *  throws — a settlement hiccup must not break the caller's own path; an
+ *  unsettled war is simply retried by the next poll or the daily pass. */
+export async function settleDueSectorWars(now: number = Date.now()): Promise<SectorWarSettlement[]> {
+    let due;
+    try {
+        due = await listUnsettledDueSectorWars(now);
+    } catch {
+        return [];
+    }
+    const settled: SectorWarSettlement[] = [];
+    for (const war of due) {
+        try {
+            const outcome = await withKvLock(sectorWarKey(war.id), async () => {
+                // Re-load inside the lock: another caller may have settled it already.
+                const fresh = await loadSectorWar(war.id);
+                if (!fresh) return null;
+                const verdict = settleSectorWar(fresh, now);
+                if (!verdict.changed) return null;
+                if (verdict.attackerWon) {
+                    // Flip BEFORE persisting the verdict, inside the war lock (the
+                    // territory write takes its own nested lock; order war → territory,
+                    // same as every other capture path).
+                    await captureSectorForVillage(fresh.sector, fresh.attackerVillage, now);
+                    await saveSectorWar(verdict.session);
+                } else {
+                    // A defended hold carries the attacker's re-siege cooldown as its TTL.
+                    await saveSectorWar(verdict.session, SECTOR_RESIEGE_COOLDOWN_SEC);
+                }
+                return verdict;
+            }, { failClosed: true });
+            if (!outcome) continue;
+            if (outcome.attackerWon) {
+                void recordWarEcoEvent({
+                    eventId: `capture:${war.id}`,
+                    village: war.attackerVillage,
+                    kind: 'sector.capture',
+                    amount: 1,
+                    meta: `sector:${war.sector}`,
+                });
+            }
+            settled.push({
+                id: war.id,
+                sector: war.sector,
+                attackerVillage: war.attackerVillage,
+                defenderVillage: war.defenderVillage,
+                attackerWon: outcome.attackerWon,
+                attackerPoints: outcome.session.attackerPoints,
+                defenderPoints: outcome.session.defenderPoints,
+            });
+        } catch {
+            // Contended or storage blip — the war stays due and settles on a later pass.
+        }
+    }
+    return settled;
+}

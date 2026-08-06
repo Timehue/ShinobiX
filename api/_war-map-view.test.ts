@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { normalizeVillageWarRecord, SECTOR_CONTROL_HP_MAX } from './_war-state.js';
+import { normalizeVillageWarRecord } from './_war-state.js';
 import { villageWarMapView } from './_war-map-view.js';
 
 function recordWith(structures: Record<string, number> = {}, warResources = 0, dormant = false) {
@@ -22,14 +22,12 @@ describe('war-map-view: villageWarMapView', () => {
         assert.equal(v.sectors.length, 8);
         assert.equal(v.sectors[0].sector, 17);
         assert.equal(v.sectors[0].alias, 'MS-1');
-        assert.equal(v.sectors[0].controlHpMax, SECTOR_CONTROL_HP_MAX);  // no Watchtower
         assert.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/pet
         assert.equal(v.sectors[1].winCondition, 'pet');
     });
 
     it('reflects Watchtower (Control HP cap) and Supply Depot (WR/sector)', () => {
         const v = villageWarMapView({ village: 'Moonshadow Village', record: recordWith({ watchtower: 10, supplyDepot: 10 }), treasurySeals: 50, sectorsHeld: 8 });
-        assert.equal(v.sectors[0].controlHpMax, Math.round(SECTOR_CONTROL_HP_MAX * 1.15));  // +15% at Watchtower L10
         assert.equal(v.wrPerSector, 30);               // 25 + 0.5×10
         assert.equal(v.treasurySeals, 50);
         assert.equal(v.structures.watchtower, 10);
@@ -45,7 +43,6 @@ describe('war-map-view: villageWarMapView', () => {
     it('suspends Control-HP/WR bonuses while dormant but still owes upkeep', () => {
         const v = villageWarMapView({ village: 'Moonshadow Village', record: recordWith({ ramparts: 5, watchtower: 5, supplyDepot: 5 }, 0, true), treasurySeals: 0, sectorsHeld: 8 });
         assert.equal(v.dormant, true);
-        assert.equal(v.sectors[0].controlHpMax, SECTOR_CONTROL_HP_MAX);  // Watchtower suspended
         assert.equal(v.wrPerSector, 25);               // Supply Depot suspended
         assert.ok(v.upkeepWr > 0);                     // upkeep owed reflects built levels
     });

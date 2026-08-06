@@ -4,6 +4,7 @@ import "../styles/village-war-map-skin.css";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
+import { useSharedNow } from "../lib/use-shared-now";
 import {
     fetchWarMap,
     declareSectorWar,
@@ -69,6 +70,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [showInfo, setShowInfo] = useState(false);
 
     const myVillage = (character.village ?? "").trim();
+    // Shared ticking clock — reading it in render is pure (react-hooks/purity),
+    // and the war countdowns tick in sync with every other timer in the app.
+    const nowTick = useSharedNow();
 
     useEffect(() => {
         let alive = true;
@@ -264,8 +268,8 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     <button
                                                         disabled={!!busy || !(deployTarget[t.id] ?? "").trim() || !sectorSel}
                                                         onClick={() => act(`deploy-${t.id}`, async () => {
-                                                            const r = (await deployMerc(character.name, myVillage, t.id, sectorSel, (deployTarget[t.id] ?? "").trim())) as { winner?: string; captured?: boolean; controlHp?: number; mercsRemaining?: number };
-                                                            setMercMsg(r.captured ? `⚑ Captured sector ${sectorSel}!` : `Sector ${sectorSel}: ${r.winner ?? "?"} won — Control HP ${r.controlHp ?? "?"}, ${r.mercsRemaining ?? 0} merc(s) left.`);
+                                                            const r = (await deployMerc(character.name, myVillage, t.id, sectorSel, (deployTarget[t.id] ?? "").trim())) as { winner?: string; attackerPoints?: number; defenderPoints?: number; mercsRemaining?: number };
+                                                            setMercMsg(`Sector ${sectorSel}: ${r.winner ?? "?"} won — war score ${r.attackerPoints ?? "?"} : ${r.defenderPoints ?? "?"}, ${r.mercsRemaining ?? 0} merc(s) left.`);
                                                             await loadMercs();
                                                         })}
                                                     >Deploy</button>
@@ -289,7 +293,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     const contest = contestBySector[sec.sector];
                                     const mine = v.village === myVillage && isKage;
                                     const canDeclare = isKage && owner !== myVillage && !contest;
-                                    const pct = contest ? Math.round((contest.controlHp / Math.max(1, contest.controlHpMax)) * 100) : 100;
+                                    const totalPts = contest ? contest.attackerPoints + contest.defenderPoints : 0;
+                                    const pct = contest ? (totalPts > 0 ? Math.round((contest.attackerPoints / totalPts) * 100) : 50) : 0;
+                                    const hoursLeft = contest ? Math.max(0, Math.ceil((contest.endsAt - nowTick) / 3_600_000)) : 0;
                                     return (
                                         <div key={sec.sector} className="vwm-sector" style={{ borderColor: villageAccent(owner) }}>
                                             <div className="vwm-sector-head">
@@ -298,9 +304,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             </div>
                                             <div className="vwm-sector-meta">{WINCON_IMAGES[sec.winCondition] && <img src={WINCON_IMAGES[sec.winCondition]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", marginRight: 3, borderRadius: 3 }} />}{sec.winCondition} · {TERRAIN_IMAGES[sec.terrain] && <img src={TERRAIN_IMAGES[sec.terrain]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", margin: "0 3px", borderRadius: 3 }} />}{sec.terrain}</div>
                                             {contest && (
-                                                <div className="vwm-control" title={`${contest.attackerVillage} besieging`}>
-                                                    <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.defenderVillage) }} /></div>
-                                                    <small>{contest.controlHp}/{contest.controlHpMax}</small>
+                                                <div className="vwm-control" title={`${contest.attackerVillage} attacking — most points when the clock runs out takes the sector (tie: defender holds)`}>
+                                                    <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.attackerVillage) }} /></div>
+                                                    <small>⚔ {contest.attackerPoints} : {contest.defenderPoints} 🛡 · {hoursLeft}h left</small>
                                                 </div>
                                             )}
                                             {canDeclare && (
@@ -369,7 +375,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     <span style={{ color: villageAccent(c.attackerVillage) }}>{c.attackerVillage}</span>
                                     <span> → sector {c.sector} → </span>
                                     <span style={{ color: villageAccent(c.defenderVillage) }}>{c.defenderVillage}</span>
-                                    <span className="vwm-contest-meta"> · {c.winCondition} · {c.controlHp}/{c.controlHpMax} HP</span>
+                                    <span className="vwm-contest-meta"> · {c.winCondition} · ⚔ {c.attackerPoints} : {c.defenderPoints} 🛡 · {Math.max(0, Math.ceil((c.endsAt - nowTick) / 3_600_000))}h left</span>
                                 </div>
                             ))}
                         </div>

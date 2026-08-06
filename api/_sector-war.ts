@@ -1,28 +1,36 @@
 /*
- * Village War Map — the sector-war contest model (Phase 4a, pure). §17.2 / §17.6
+ * Village War Map — the sector-war contest model (pure). §17.2 / §17.6
  *
- * A sector war is a short, win-condition-driven fight for ONE sector, separate
- * from the all-out village war (api/world-state.ts). The attacking village wins
- * battles of the sector's defender-chosen win-condition (Combat / Card [/ Pet]);
- * each attacker win chips the sector's Control HP, each defender win holds the
- * line (+regen), and at 0 the sector flips to the attacker. Persistent ownership
- * is `world:territory:<sector>.ownerVillage` (the field map-control reads); the
- * live flip + battle wiring lands in Phase 4b/4c.
+ * A sector war is a fixed **72-hour scored war** for ONE sector, separate from
+ * the all-out village war (api/world-state.ts). The attacking Kage declares (WR
+ * cost), and for the next 72 hours every resolved battle of the sector's
+ * win-condition adds ROLE-WEIGHTED KILL POINTS to the winner's side — the tally
+ * counts UP, unlike the village war's count-down HP. When the window closes, the
+ * higher tally takes the sector: attacker ahead → the sector flips; defender
+ * ahead OR TIED → the defence holds (holding ground must beat matching it).
  *
- * This module is the pure heart: the session shape, its normalizer, and the
- * Control-HP transform a resolved battle applies. IO-free.
+ * This replaced the Control-HP count-down siege (2026-08-06, owner decision).
+ * The scheduled window is what fixes the old model's real flaw at a small
+ * population: a continuous siege could open at 3am against nobody, needed
+ * garrison/expiry/idle machinery to stay playable, and could resolve before the
+ * defence ever logged in. A 72h window everyone can see turns a war into an
+ * event both villages can actually show up to.
+ *
+ * Persistent ownership is `world:territory:<sector>.ownerVillage` (the field
+ * map-control and the WR faucet read); the flip happens at SETTLEMENT
+ * (api/_sector-war-settle.ts), never mid-war.
+ *
+ * This module is the pure heart: the session shape, its normalizer, the scoring
+ * transform a resolved battle applies, and settlement. IO-free.
  */
 
-import {
-    SECTOR_CONTROL_HP_MAX,
-    SECTOR_CONTROL_HP_ABSOLUTE_MAX,
-    SECTOR_CONTROL_MAX_SWING_FRACTION,
-    WIN_CONDITIONS,
-    type WinCondition,
-} from './_war-state.js';
+import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { isWarVillage, isWarSector } from './_war-map-sectors.js';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
+
+/** How long a sector war runs. Fixed and visible to both sides from declare. */
+export const SECTOR_WAR_DURATION_MS = 72 * 60 * 60 * 1000;
 
 export interface SectorWarSession {
     /** stable id: `<sector>:<attackerSlug>-vs-<defenderSlug>` */
@@ -32,48 +40,69 @@ export interface SectorWarSession {
     defenderVillage: string;
     /** the defender's chosen contest type for this sector */
     winCondition: WinCondition;
-    controlHp: number;
-    controlHpMax: number;
+    /** Kill-point tallies. Count UP; compared at settlement. */
+    attackerPoints: number;
+    defenderPoints: number;
     startedAt: number;
+    /** startedAt + SECTOR_WAR_DURATION_MS — battles after this score nothing. */
+    endsAt: number;
     updatedAt: number;
-    /** true once the sector has been captured (Control HP hit 0) */
+    /** true once SETTLEMENT awarded the sector to the attacker. */
     flipped: boolean;
-    /** Set when the siege ended WITHOUT a capture — the defender held. Once set the
-     *  contest is inert: it accepts no battles and no longer occupies the sector. */
+    /** Set when the war ended WITHOUT a flip — the defender held (or the attacker
+     *  conceded). Once set the contest is inert. */
     expiredAt?: number;
     expiredReason?: SectorWarExpiryReason;
-    /** When a LIVE-player battle last resolved on this contest. Drives the garrison
-     *  fallback: a defence that stops turning up leaves only its garrison. Distinct
-     *  from `updatedAt`, which any battle (garrison assaults included) refreshes. */
+    /** When a LIVE-player battle last resolved. Drives the garrison fallback:
+     *  distinct from `updatedAt`, which AI battles refresh too. */
     lastLiveBattleAt?: number;
-    /** Durable once receipts for combat/card/pet outcomes applied to Control HP. */
+    /** Durable receipts for every scored battle (idempotence + the score caps). */
     appliedBattles?: SectorWarBattleReceipt[];
 }
 
-/** Why a siege ended without taking the sector. */
+/** Why a war ended without the attacker taking the sector. */
 export type SectorWarExpiryReason =
-    /** Nobody fought it for SECTOR_WAR_IDLE_TIMEOUT_MS — an abandoned siege. */
-    | 'idle'
-    /** Ran the full SECTOR_WAR_MAX_DURATION_MS without breaking the hold. */
-    | 'timeout'
+    /** The 72h window closed with the defender ahead or tied. */
+    | 'defended'
     /** The attacking Kage called it off. */
     | 'abandoned';
 
 export interface SectorWarBattleReceipt {
     battleId: string;
     attackerWon: boolean;
-    captured: boolean;
-    hpDealt: number;
-    hpRegen: number;
-    controlHp: number;
+    /** Points this battle awarded (after fractions and caps). */
+    points: number;
+    /** Winner's canonical name — feeds the per-player score cap. '' for AI. */
+    by: string;
+    /** True when the points came from a garrison assault (feeds the garrison cap). */
+    garrison?: boolean;
     at: number;
 }
 
 export const SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
 
+// ── Score caps (anti-farm) ─────────────────────────────────────────────────────
+/** Max points ONE PLAYER may score in one war. Count-up scoring is farmable by a
+ *  colluding pair trading kills for 72 hours; the cap bounds any single account's
+ *  contribution and rewards breadth over one farmed matchup (a Kage-weight kill
+ *  is 30-80 points, so this is roughly 3-8 top-value kills or ~40 villager ones). */
+export const SECTOR_WAR_PLAYER_POINTS_CAP = 200;
+/** Max points the GARRISON may yield an attacker across the whole war. Enough
+ *  that a defence which never shows up loses (defender 0 < garrison lead), never
+ *  enough to outrun a defence that turns up — ~10 villager kills' worth. */
+export const GARRISON_POINTS_CAP = 50;
+/** Garrison kills score at half weight — live defence stays the better target. */
+export const GARRISON_POINTS_FRACTION = 0.5;
+/** Repelling an AI mercenary scores the defender a quarter weight (lower stakes
+ *  than beating a real raider). */
+export const MERC_REPEL_POINTS_FRACTION = 0.25;
+
 function clampInt(n: unknown, lo: number, hi: number): number {
     const v = Math.floor(Number(n) || 0);
     return Math.max(lo, Math.min(hi, v));
+}
+function nonNeg(n: unknown): number {
+    return Math.max(0, Math.floor(Number(n) || 0));
 }
 function asWinCondition(v: unknown): WinCondition {
     return (WIN_CONDITIONS as readonly string[]).includes(v as string) ? (v as WinCondition) : 'combat';
@@ -95,58 +124,81 @@ export function sectorWarId(sector: number, attacker: string, defender: string):
     return `${clampInt(sector, 1, MAX_WILD_SECTOR)}:${slug(attacker)}-vs-${slug(defender)}`;
 }
 
-/** A fresh sector-war session at full Control HP. `controlHpMax` lets the caller
- *  pass the defender's Watchtower-boosted cap (api/_war-structures.sectorControlHpMax);
- *  defaults to the base. */
+/** A fresh 72-hour war at 0 : 0. */
 export function newSectorWarSession(args: {
     sector: number;
     attackerVillage: string;
     defenderVillage: string;
     winCondition: WinCondition;
     now: number;
-    controlHpMax?: number;
 }): SectorWarSession {
-    const max = clampInt(args.controlHpMax ?? SECTOR_CONTROL_HP_MAX, 1, SECTOR_CONTROL_HP_MAX * 4);
     return {
         id: sectorWarId(args.sector, args.attackerVillage, args.defenderVillage),
         sector: clampInt(args.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: args.attackerVillage,
         defenderVillage: args.defenderVillage,
         winCondition: asWinCondition(args.winCondition),
-        controlHp: max,
-        controlHpMax: max,
+        attackerPoints: 0,
+        defenderPoints: 0,
         startedAt: args.now,
+        endsAt: args.now + SECTOR_WAR_DURATION_MS,
         updatedAt: args.now,
         flipped: false,
     };
 }
 
-/** Normalize a session loaded from storage — clamp HP, validate the win-condition. */
-export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): SectorWarSession | null {
+/** Normalize a session loaded from storage.
+ *
+ * MIGRATION: a record written under the retired Control-HP model (has
+ * `controlHp`/`controlHpMax`, no `endsAt`) converts in place — the damage the
+ * attacker had already dealt becomes their score, the defender starts at 0, and
+ * the 72h clock runs from the original start. Its legacy receipts keep their
+ * battleIds (replay-idempotence) with points mapped from the old hp fields and
+ * an empty `by` (exempt from the per-player cap — attribution wasn't recorded). */
+export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
+    controlHp?: unknown; controlHpMax?: unknown;
+}): SectorWarSession | null {
     if (!raw || typeof raw !== 'object') return null;
     if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage) return null;
-    const max = clampInt(raw.controlHpMax ?? SECTOR_CONTROL_HP_MAX, 1, SECTOR_CONTROL_HP_ABSOLUTE_MAX);
+    const startedAt = Math.floor(Number(raw.startedAt) || 0);
+    const legacy = raw.endsAt === undefined && raw.controlHpMax !== undefined;
+    const legacyDamage = legacy
+        ? Math.max(0, nonNeg(raw.controlHpMax) - nonNeg(raw.controlHp))
+        : 0;
     const appliedBattles = Array.isArray(raw.appliedBattles)
-        ? raw.appliedBattles.filter((entry): entry is SectorWarBattleReceipt => !!entry && typeof entry.battleId === 'string')
+        ? raw.appliedBattles
+            .filter((entry): entry is SectorWarBattleReceipt => !!entry && typeof (entry as { battleId?: unknown }).battleId === 'string')
+            .map((entry) => {
+                const e = entry as SectorWarBattleReceipt & { hpDealt?: unknown; hpRegen?: unknown };
+                return {
+                    battleId: e.battleId,
+                    attackerWon: e.attackerWon === true,
+                    points: e.points !== undefined ? nonNeg(e.points) : nonNeg(e.hpDealt) + nonNeg(e.hpRegen),
+                    by: typeof e.by === 'string' ? e.by : '',
+                    ...(e.garrison ? { garrison: true } : {}),
+                    at: Math.floor(Number(e.at) || 0),
+                } as SectorWarBattleReceipt;
+            })
             .slice(0, SECTOR_WAR_BATTLE_RECEIPT_CAP)
         : [];
+    const legacyReason = raw.expiredReason as unknown;
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
         sector: clampInt(raw.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: String(raw.attackerVillage),
         defenderVillage: String(raw.defenderVillage),
         winCondition: asWinCondition(raw.winCondition),
-        controlHp: clampInt(raw.controlHp ?? max, 0, max),
-        controlHpMax: max,
-        startedAt: Math.floor(Number(raw.startedAt) || 0),
+        attackerPoints: legacy ? legacyDamage : nonNeg(raw.attackerPoints),
+        defenderPoints: nonNeg(raw.defenderPoints),
+        startedAt,
+        endsAt: raw.endsAt !== undefined ? Math.floor(Number(raw.endsAt) || 0) : startedAt + SECTOR_WAR_DURATION_MS,
         updatedAt: Math.floor(Number(raw.updatedAt) || 0),
         flipped: raw.flipped === true,
         ...(Number(raw.expiredAt) > 0
             ? {
                 expiredAt: Math.floor(Number(raw.expiredAt)),
-                expiredReason: (raw.expiredReason === 'idle' || raw.expiredReason === 'abandoned'
-                    ? raw.expiredReason
-                    : 'timeout') as SectorWarExpiryReason,
+                // Legacy 'idle'/'timeout' records read as defended holds.
+                expiredReason: (legacyReason === 'abandoned' ? 'abandoned' : 'defended') as SectorWarExpiryReason,
             }
             : {}),
         ...(Number(raw.lastLiveBattleAt) > 0 ? { lastLiveBattleAt: Math.floor(Number(raw.lastLiveBattleAt)) } : {}),
@@ -154,30 +206,134 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): Secto
     };
 }
 
+/** True while the war is running and battles can still score. */
+export function isSectorWarActive(
+    session: Pick<SectorWarSession, 'flipped' | 'expiredAt' | 'endsAt'> | null | undefined,
+    now: number,
+): boolean {
+    if (!session || session.flipped || session.expiredAt) return false;
+    return now < Math.floor(Number(session.endsAt) || 0);
+}
+
+// ── Scoring ────────────────────────────────────────────────────────────────────
+
 export interface SectorBattleOutcome {
     session: SectorWarSession;
-    captured: boolean;    // the sector flipped THIS battle
-    hpDealt: number;      // Control HP removed (attacker win) — 0 on a defended battle
-    hpRegen: number;      // Control HP restored (defender win)
+    /** Points actually awarded (after fractions and caps; 0 when fully capped). */
+    awarded: number;
+    /** Which tally the points landed on. */
+    side: 'attacker' | 'defender' | 'none';
 }
 
 export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: string): SectorWarBattleReceipt | null {
     return session.appliedBattles?.find((entry) => entry.battleId === battleId) ?? null;
 }
 
+/** Points a named player has already scored in this war (per-player cap input). */
+export function playerPointsInWar(session: SectorWarSession, by: string): number {
+    const name = String(by ?? '').trim().toLowerCase();
+    if (!name) return 0;
+    return (session.appliedBattles ?? [])
+        .filter((r) => r.by.toLowerCase() === name)
+        .reduce((sum, r) => sum + nonNeg(r.points), 0);
+}
+
+/** Points the garrison has already yielded in this war (garrison cap input). */
+export function garrisonPointsInWar(session: SectorWarSession): number {
+    return (session.appliedBattles ?? [])
+        .filter((r) => r.garrison)
+        .reduce((sum, r) => sum + nonNeg(r.points), 0);
+}
+
+/**
+ * Score one resolved battle. §17.6 (72h scored model)
+ *
+ * `roleSwing` is the raw kill value from the rank ladder (api/_war-role
+ * sectorControlSwing with NO structure multiplier — winner.win + loser.loss).
+ * Structure multipliers ride per SIDE: the attacker's War Academy boosts attacker
+ * points, the defender's Watchtower boosts defender points. UNCAPPED per fight —
+ * with no HP bar to one-shot, a villager felling the enemy Kage scoring the full
+ * 55 is the point (leadership kills are bounties, fielding leadership is a risk).
+ *
+ * Fractions and caps:
+ *   · garrisonBattle → GARRISON_POINTS_FRACTION, then the war-wide GARRISON cap.
+ *   · mercBattle + defender win → MERC_REPEL_POINTS_FRACTION.
+ *   · `by` (the winner) → SECTOR_WAR_PLAYER_POINTS_CAP across the war ('' = AI,
+ *     exempt — mercs are bounded by the WR economy, the garrison by its own cap).
+ *
+ * A terminal or past-end session scores nothing. A live-player battle refreshes
+ * `lastLiveBattleAt` (re-locks the garrison); AI battles refresh `updatedAt` only.
+ * Pure — the caller persists.
+ */
+export function applySectorWarBattle(
+    session: SectorWarSession,
+    attackerWon: boolean,
+    opts: {
+        now: number;
+        roleSwing: number;
+        attackerMult?: number;
+        defenderMult?: number;
+        by?: string;
+        garrisonBattle?: boolean;
+        mercBattle?: boolean;
+    },
+): SectorBattleOutcome {
+    if (session.flipped || session.expiredAt || opts.now >= session.endsAt) {
+        return { session, awarded: 0, side: 'none' };
+    }
+    const aiBattle = !!opts.mercBattle || !!opts.garrisonBattle;
+    const next: SectorWarSession = {
+        ...session,
+        updatedAt: opts.now,
+        ...(aiBattle ? {} : { lastLiveBattleAt: opts.now }),
+    };
+
+    const sideMult = attackerWon
+        ? Math.max(0, Number(opts.attackerMult ?? 1) || 1)
+        : Math.max(0, Number(opts.defenderMult ?? 1) || 1);
+    let points = Math.round(nonNeg(opts.roleSwing) * sideMult);
+    if (opts.garrisonBattle && attackerWon) {
+        points = Math.floor(points * GARRISON_POINTS_FRACTION);
+        points = Math.min(points, Math.max(0, GARRISON_POINTS_CAP - garrisonPointsInWar(session)));
+    }
+    if (opts.mercBattle && !attackerWon) {
+        points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
+    }
+    const by = String(opts.by ?? '').trim();
+    if (by) {
+        points = Math.min(points, Math.max(0, SECTOR_WAR_PLAYER_POINTS_CAP - playerPointsInWar(session, by)));
+    }
+    if (points <= 0) return { session: next, awarded: 0, side: 'none' };
+
+    if (attackerWon) next.attackerPoints = session.attackerPoints + points;
+    else next.defenderPoints = session.defenderPoints + points;
+    return { session: next, awarded: points, side: attackerWon ? 'attacker' : 'defender' };
+}
+
+/** Map a finished win-condition battle by WINNER SIDE onto the war, where p1 is
+ *  the attacker side and p2 the defender side (the card/pet sessions enforce
+ *  that). Draw → nothing scores (returns null). */
+export function applyContestBattleByWinner(
+    session: SectorWarSession,
+    winner: 'p1' | 'p2' | 'draw',
+    opts: { now: number; roleSwing: number; attackerMult?: number; defenderMult?: number; by?: string },
+): SectorBattleOutcome | null {
+    if (winner !== 'p1' && winner !== 'p2') return null;
+    return applySectorWarBattle(session, winner === 'p1', opts);
+}
+
 export function recordSectorWarBattleOutcome(
     outcome: SectorBattleOutcome,
-    args: { battleId: string; attackerWon: boolean; at: number },
+    args: { battleId: string; attackerWon: boolean; by?: string; garrison?: boolean; at: number },
 ): { session: SectorWarSession; receipt: SectorWarBattleReceipt } {
     const prior = findSectorWarBattleReceipt(outcome.session, args.battleId);
     if (prior) return { session: outcome.session, receipt: prior };
     const receipt: SectorWarBattleReceipt = {
         battleId: args.battleId,
         attackerWon: args.attackerWon,
-        captured: outcome.captured,
-        hpDealt: outcome.hpDealt,
-        hpRegen: outcome.hpRegen,
-        controlHp: outcome.session.controlHp,
+        points: outcome.awarded,
+        by: String(args.by ?? '').trim(),
+        ...(args.garrison ? { garrison: true } : {}),
         at: args.at,
     };
     return {
@@ -189,168 +345,59 @@ export function recordSectorWarBattleOutcome(
     };
 }
 
-// A defender WIN heals the sector's hold by this fraction of the fight's role
-// swing — HALF, so trading wins 1:1 still nets the attacker ground and a siege
-// always converges, while an active defense roughly doubles what it costs (§17.6).
-// A repelled AI MERCENARY heals only MERC_DEFENDER_REGEN_FRACTION (a lower-stakes
-// attack). With the 2026-08-06 bar of 100, rank-and-file take a sector in 20 wins
-// (~28 fights at an 80% win rate) — see SECTOR_CONTROL_HP_MAX for the full table.
-export const DEFENDER_HEAL_FRACTION = 0.5;
-export const MERC_DEFENDER_REGEN_FRACTION = 0.25;
+// ── Settlement ─────────────────────────────────────────────────────────────────
 
 /**
- * Clamp one fight's role-scaled swing to SECTOR_CONTROL_MAX_SWING_FRACTION of the
- * sector's bar, so the top of the role ladder stays decisive without letting a
- * single duel end a siege. A Kage felling a Kage swings 80 raw against a 100-HP
- * sector; capped at 20 it still takes a sector 4× faster than rank-and-file do,
- * but the siege is always at least 5 fights.
- *
- * The floor of 1 is kept from the uncapped path: a resolved fight is never a
- * no-op, however lopsided the ranks. Pure.
+ * Settle a war whose 72 hours are up. Attacker STRICTLY ahead → the sector flips;
+ * defender ahead OR TIED → the defence held (holding ground beats matching it).
+ * The territory flip itself is IO and lives in api/_sector-war-settle.ts — this
+ * only stamps the verdict. Idempotent; a still-running war is untouched. Pure.
  */
-export function cappedSectorSwing(rawSwing: number, controlHpMax: number): number {
-    const swing = Math.max(0, Math.floor(Number(rawSwing) || 0));
-    if (swing <= 0) return 0;
-    const max = Math.max(1, Math.floor(Number(controlHpMax) || 0));
-    const cap = Math.max(1, Math.floor(max * SECTOR_CONTROL_MAX_SWING_FRACTION));
-    return Math.min(swing, cap);
-}
-
-/** Apply one resolved win-condition battle to a sector-war session (§17.6).
- *  Attacker win → −`swing` Control HP (flip + freeze at 0). Defender win → HEAL the
- *  hold by `swing` × DEFENDER_HEAL_FRACTION (capped at max), or × the smaller
- *  MERC_DEFENDER_REGEN_FRACTION when the attacker was a mercenary (opts.mercBattle).
- *  `swing` is the caller's role-scaled, War-Academy-boosted value
- *  (api/_war-role sectorControlSwing = winner.win + loser.loss). Already-flipped
- *  sessions are inert. Pure. */
-export function applySectorBattleResult(
-    session: SectorWarSession,
-    attackerWon: boolean,
-    opts: { now: number; swing: number; mercBattle?: boolean; garrisonBattle?: boolean },
-): SectorBattleOutcome {
-    // A captured OR lapsed contest is inert — a battle registered before the siege
-    // timed out must not still chip a sector the defender has already held.
-    if (session.flipped || session.expiredAt) {
-        return { session, captured: false, hpDealt: 0, hpRegen: 0 };
-    }
-    const swing = cappedSectorSwing(opts.swing, session.controlHpMax);
-    // A battle between REAL players refreshes the live clock, which re-locks the
-    // garrison. AI battles (mercenary, garrison) refresh `updatedAt` only — they
-    // keep the siege alive without pretending a defence turned up.
-    const aiBattle = !!opts.mercBattle || !!opts.garrisonBattle;
-    const next: SectorWarSession = {
-        ...session,
-        updatedAt: opts.now,
-        ...(aiBattle ? {} : { lastLiveBattleAt: opts.now }),
-    };
-    if (attackerWon) {
-        const before = next.controlHp;
-        next.controlHp = Math.max(0, before - swing);
-        const captured = next.controlHp <= 0;
-        next.flipped = captured;
-        return { session: next, captured, hpDealt: before - next.controlHp, hpRegen: 0 };
-    }
-    const before = next.controlHp;
-    const heal = Math.max(0, Math.floor(swing * (opts.mercBattle ? MERC_DEFENDER_REGEN_FRACTION : DEFENDER_HEAL_FRACTION)));
-    next.controlHp = Math.min(next.controlHpMax, before + heal);
-    return { session: next, captured: false, hpDealt: 0, hpRegen: next.controlHp - before };
-}
-
-// ── Expiry ─────────────────────────────────────────────────────────────────────
-/*
- * A sector-war contest used to live forever. Nothing decayed it, no action called
- * it off, and `listActiveSectorWars` filtered only on `flipped` — so one declare
- * held its sector hostage permanently under the one-contest-per-sector rule, and
- * kept its village flagged "at war" in the daily pass, which meant the per-war
- * Ramparts/Watchtower never reset at peace. Both village wars and clan wars
- * already auto-finalize at 14 days; sector wars had no equivalent.
- *
- * Two clocks, mirroring the lazy-expiry pattern used by applyLazyClanWarExpiry:
- * an IDLE timeout that releases an abandoned siege quickly, and a hard cap so
- * even a contested one resolves. Expiry is a DEFENDER HOLD — the sector does not
- * change hands, and the attacker does not get their WR back (a failed siege is
- * meant to cost something, which is also what stops declare-spam).
- */
-
-/** No battle applied for this long → the siege is abandoned and the sector frees up. */
-export const SECTOR_WAR_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
-/** Hard cap on a single siege, well inside the village war's 14 days (§17.6 sizes
- *  a sector war as the SHORTER conflict). */
-export const SECTOR_WAR_MAX_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
-
-/** Whether a contest has run out of time, and why. Pure. `updatedAt` advances on
- *  every applied battle, so it doubles as the last-activity stamp. */
-export function sectorWarExpiry(
-    session: Pick<SectorWarSession, 'startedAt' | 'updatedAt' | 'flipped' | 'expiredAt'>,
-    now: number,
-): { expired: boolean; reason?: SectorWarExpiryReason } {
-    if (session.flipped) return { expired: false };
-    if (session.expiredAt) return { expired: true, reason: 'timeout' };
-    const startedAt = Math.floor(Number(session.startedAt) || 0);
-    const lastActivity = Math.max(startedAt, Math.floor(Number(session.updatedAt) || 0));
-    if (startedAt > 0 && now - startedAt >= SECTOR_WAR_MAX_DURATION_MS) return { expired: true, reason: 'timeout' };
-    if (lastActivity > 0 && now - lastActivity >= SECTOR_WAR_IDLE_TIMEOUT_MS) return { expired: true, reason: 'idle' };
-    return { expired: false };
-}
-
-/** True while a contest still holds its sector and can take battles. */
-export function isSectorWarActive(
-    session: Pick<SectorWarSession, 'startedAt' | 'updatedAt' | 'flipped' | 'expiredAt'> | null | undefined,
-    now: number,
-): boolean {
-    if (!session || session.flipped || session.expiredAt) return false;
-    return !sectorWarExpiry(session, now).expired;
-}
-
-/** Stamp a lapsed contest so the record itself records the hold. Idempotent, pure —
- *  mirrors applyLazyClanWarExpiry, so the caller persists only when `changed`. */
-export function applyLazySectorWarExpiry(
+export function settleSectorWar(
     session: SectorWarSession,
     now: number,
-): { session: SectorWarSession; changed: boolean } {
-    if (session.flipped || session.expiredAt) return { session, changed: false };
-    const { expired, reason } = sectorWarExpiry(session, now);
-    if (!expired) return { session, changed: false };
-    return { session: { ...session, expiredAt: now, expiredReason: reason ?? 'timeout' }, changed: true };
+): { session: SectorWarSession; changed: boolean; attackerWon: boolean } {
+    if (session.flipped) return { session, changed: false, attackerWon: true };
+    if (session.expiredAt) return { session, changed: false, attackerWon: false };
+    if (now < session.endsAt) return { session, changed: false, attackerWon: false };
+    const attackerWon = session.attackerPoints > session.defenderPoints;
+    const next: SectorWarSession = attackerWon
+        ? { ...session, flipped: true, updatedAt: now }
+        : { ...session, expiredAt: now, expiredReason: 'defended', updatedAt: now };
+    return { session: next, changed: true, attackerWon };
 }
 
-/** End a siege on the attacking Kage's own order. Pure; idempotent. */
+/** End a war early on the attacking Kage's own order — a concession; the
+ *  defender holds regardless of the score. Pure; idempotent. */
 export function abandonSectorWar(session: SectorWarSession, now: number): { session: SectorWarSession; changed: boolean } {
     if (session.flipped || session.expiredAt) return { session, changed: false };
-    return { session: { ...session, expiredAt: now, expiredReason: 'abandoned' }, changed: true };
+    return { session: { ...session, expiredAt: now, expiredReason: 'abandoned', updatedAt: now }, changed: true };
 }
 
 // ── Garrison fallback (the liveness gap) ──────────────────────────────────────
 /*
  * Every win-condition needs a live ONLINE enemy: Combat needs a real two-fighter
  * PvP session, Card is interactive, Pet needs the defender to answer, and even a
- * mercenary may only be aimed at a defending-village member. At a small
- * population that left a contested sector unplayable for long stretches — an
- * attacker could declare, pay the WR, and then simply have nobody to fight.
+ * mercenary may only be aimed at a defending-village member. If the defence never
+ * logs in during the 72 hours, the attacker would be unable to score AT ALL — and
+ * a 0:0 tie is a defender hold, so a wholly absent defence would keep its sector.
  *
- * A sector is not actually empty, though: it is HELD. So when the defence stops
- * turning up, what is left is its GARRISON — a server-built AI defence the
- * attacker can grind down instead of being blocked outright.
- *
+ * So when the defence stops turning up, what remains is the sector's GARRISON — a
+ * server-built AI defence the attacker can beat for (capped, half-weight) points.
  * The unlock keys off `lastLiveBattleAt`, NOT `updatedAt`: a garrison assault is
- * still a battle and refreshes `updatedAt` (so grinding a garrison keeps the siege
- * from lapsing), but it must not refresh the LIVE clock, or one assault would
- * re-lock the garrison for another two hours. The moment a real defender fights,
- * the live clock moves and the garrison locks again — so a village that shows up
- * to defend never faces the fallback at all.
+ * still a battle and refreshes `updatedAt`, but it must not refresh the LIVE
+ * clock, or one assault would re-lock the garrison for another two hours. The
+ * moment a real defender fights, the live clock moves and the garrison locks —
+ * a village that shows up to defend never faces the fallback at all.
  */
 
-/** How long a contest must go without a LIVE-player battle before the defending
+/** How long a war must go without a LIVE-player battle before the defending
  *  sector's garrison can be assaulted. */
 export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
 
-/** A garrison win is worth less than beating a real defender, so live defence
- *  always remains the faster way to take a sector. */
-export const GARRISON_SWING_FRACTION = 0.5;
-
 /** Whether the sector's garrison is currently assaultable. Pure. */
 export function isGarrisonAssaultable(
-    session: Pick<SectorWarSession, 'startedAt' | 'updatedAt' | 'flipped' | 'expiredAt' | 'lastLiveBattleAt' | 'winCondition'>,
+    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'winCondition'>,
     now: number,
 ): boolean {
     // Only the Combat win-condition has a garrison — Card and Pet are contests of
@@ -364,15 +411,8 @@ export function isGarrisonAssaultable(
     return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
 }
 
-/** The Control-HP swing one garrison assault is worth, from the attacker's
- *  role-scaled swing. Floors at 1 so a won assault always counts. Pure. */
-export function garrisonSwing(rawSwing: number, controlHpMax: number): number {
-    const scaled = Math.floor(Math.max(0, Number(rawSwing) || 0) * GARRISON_SWING_FRACTION);
-    return cappedSectorSwing(Math.max(1, scaled), controlHpMax);
-}
-
 // ── Storage keys ──
-/** The persistent Control-HP siege record for an active contest. */
+/** The persistent scored-war record for a contest. */
 export function sectorWarKey(id: string): string {
     return `shared:sector-war:${id}`;
 }
@@ -390,40 +430,22 @@ export function sectorDeclareLockKey(sector: number): string {
     return `sector-war-declare:${clampInt(sector, 1, MAX_WILD_SECTOR)}`;
 }
 
-/** Map a finished win-condition battle by WINNER SIDE onto a contest, where p1 is
- *  the attacker side and p2 the defender side (the sector-card session enforces
- *  that): p1 win → attacker chip, p2 win → defender regen, draw → no Control-HP
- *  change (returns null). Combat resolves attacker-vs-defender by village instead
- *  and calls applySectorBattleResult directly; this is the by-side path Card uses. */
-export function applyContestBattleByWinner(
-    session: SectorWarSession,
-    winner: 'p1' | 'p2' | 'draw',
-    opts: { now: number; swing: number },
-): SectorBattleOutcome | null {
-    if (winner !== 'p1' && winner !== 'p2') return null; // draw → neither chip nor heal
-    return applySectorBattleResult(session, winner === 'p1', opts);
-}
+// ── Single-use battle token (Combat) ──────────────────────────────────────────
 
-// ── Per-battle authorization token (mint-on-attack, single-use on resolve) ──
-// The server mints this when a sector-war battle is launched, sealing the
-// contest context (sector + the two villages + the win-condition) so the resolve
-// step never trusts the client for who fought whom or for which sector. Deleting
-// it on use makes a battle count exactly once — the single-use-token pattern from
-// docs/auth-and-anti-cheat-patterns.md applied to territory captures.
 export const SECTOR_WAR_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h — a battle is short
 
 export interface SectorWarBattleToken {
-    battleId: string;          // the pvp:<battleId> (or card session id) this authorizes
-    sectorWarId: string;       // the contest it feeds
+    battleId: string;
+    sectorWarId: string;
     sector: number;
     attackerVillage: string;
     defenderVillage: string;
-    registeredBy: string;    // safeName of whoever registered the battle (audit / future contribution)
+    registeredBy: string;
     winCondition: WinCondition;
-    p1Name?: string;
-    p2Name?: string;
-    p1Village?: string;
-    p2Village?: string;
+    p1Name: string;
+    p2Name: string;
+    p1Village: string;
+    p2Village: string;
     createdAt: number;
     expiresAt: number;
 }
@@ -440,24 +462,24 @@ export function newSectorWarBattleToken(args: {
     defenderVillage: string;
     registeredBy: string;
     winCondition: WinCondition;
-    p1Name?: string;
-    p2Name?: string;
-    p1Village?: string;
-    p2Village?: string;
+    p1Name: string;
+    p2Name: string;
+    p1Village: string;
+    p2Village: string;
     now: number;
 }): SectorWarBattleToken {
     return {
-        battleId: String(args.battleId),
-        sectorWarId: String(args.sectorWarId),
-        sector: clampInt(args.sector, 1, MAX_WILD_SECTOR),
+        battleId: args.battleId,
+        sectorWarId: args.sectorWarId,
+        sector: args.sector,
         attackerVillage: args.attackerVillage,
         defenderVillage: args.defenderVillage,
         registeredBy: args.registeredBy,
         winCondition: asWinCondition(args.winCondition),
-        ...(args.p1Name ? { p1Name: args.p1Name } : {}),
-        ...(args.p2Name ? { p2Name: args.p2Name } : {}),
-        ...(args.p1Village ? { p1Village: args.p1Village } : {}),
-        ...(args.p2Village ? { p2Village: args.p2Village } : {}),
+        p1Name: args.p1Name,
+        p2Name: args.p2Name,
+        p1Village: args.p1Village,
+        p2Village: args.p2Village,
         createdAt: args.now,
         expiresAt: args.now + SECTOR_WAR_TOKEN_TTL_MS,
     };
@@ -465,8 +487,7 @@ export function newSectorWarBattleToken(args: {
 
 export function normalizeSectorWarBattleToken(raw: Partial<SectorWarBattleToken>): SectorWarBattleToken | null {
     if (!raw || typeof raw !== 'object') return null;
-    if (!raw.battleId || !raw.sectorWarId) return null;
-    if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage) return null;
+    if (!raw.battleId || !raw.sectorWarId || !raw.attackerVillage || !raw.defenderVillage) return null;
     return {
         battleId: String(raw.battleId),
         sectorWarId: String(raw.sectorWarId),
@@ -475,16 +496,17 @@ export function normalizeSectorWarBattleToken(raw: Partial<SectorWarBattleToken>
         defenderVillage: String(raw.defenderVillage),
         registeredBy: String(raw.registeredBy ?? ''),
         winCondition: asWinCondition(raw.winCondition),
-        ...(raw.p1Name ? { p1Name: String(raw.p1Name) } : {}),
-        ...(raw.p2Name ? { p2Name: String(raw.p2Name) } : {}),
-        ...(raw.p1Village ? { p1Village: String(raw.p1Village) } : {}),
-        ...(raw.p2Village ? { p2Village: String(raw.p2Village) } : {}),
+        p1Name: String(raw.p1Name ?? ''),
+        p2Name: String(raw.p2Name ?? ''),
+        p1Village: String(raw.p1Village ?? ''),
+        p2Village: String(raw.p2Village ?? ''),
         createdAt: Math.floor(Number(raw.createdAt) || 0),
         expiresAt: Math.floor(Number(raw.expiresAt) || 0),
     };
 }
 
-// ── Declare eligibility (pure; the endpoint fetches the inputs) ── §17.1
+// ── The declare gate ──────────────────────────────────────────────────────────
+
 export type SectorWarDeclineReason =
     | 'self'
     | 'not-war-village'
@@ -499,19 +521,17 @@ export type SectorWarDeclineReason =
     | 'insufficient-wr';
 
 /**
- * How many sieges one village may be ATTACKING at once.
+ * How many wars one village may be ATTACKING at once.
  *
  * Without this cap the total cost of conquest collapsed: the WR pool banks to
- * 5,000, a declare is 250, so a village could open sieges on ALL 8 enemy home
- * sectors at once and — with the 2h garrison window — grind an entire village
- * off the map in one overnight, for 2,000 WR and zero enemy interaction. Two
- * concurrent fronts keeps multi-sector pressure a real strategy while making
- * full conquest a CAMPAIGN of sequential sieges the defence can wake up to,
- * not a single night.
+ * 5,000, a declare is 250, so a village could open wars on ALL 8 enemy home
+ * sectors at once. Two concurrent fronts keeps multi-sector pressure a real
+ * strategy while making full conquest a CAMPAIGN of sequential wars the defence
+ * can wake up to, not a single burst.
  */
 export const MAX_ACTIVE_ATTACK_SIEGES = 2;
 
-/** After a FAILED siege (idle-lapsed or called off — not a capture), the same
+/** After a FAILED war (defended or called off — not a capture), the same
  *  attacker cannot re-declare on that sector until the stamped record ages out.
  *  This is also the TTL those terminal records carry, so the lingering record IS
  *  the cooldown clock — no extra key. Mirrors the village war's rematch
@@ -528,15 +548,14 @@ export interface SectorWarDeclareCheck {
     winCondition: WinCondition;
     attackerInActiveVillageWar: boolean;
     defenderInActiveVillageWar: boolean;
-    /** an unflipped contest already exists for this sector */
+    /** an active contest already exists for this sector */
     contestAlreadyActive: boolean;
     attackerWr: number;
     attackerSectorsHeld: number;
-    /** Sieges this village is ALREADY attacking (MAX_ACTIVE_ATTACK_SIEGES cap). */
+    /** Wars this village is ALREADY attacking (MAX_ACTIVE_ATTACK_SIEGES cap). */
     attackerActiveSieges?: number;
-    /** A prior FAILED siege by this attacker on this sector is still in cooldown. */
+    /** A prior FAILED war by this attacker on this sector is still in cooldown. */
     priorFailedSiegeActive?: boolean;
-    /** which win-conditions are wired this build (v1 = Combat only). Defaults to ['combat']. */
     allowedWinConditions?: readonly WinCondition[];
 }
 
@@ -544,11 +563,6 @@ export type SectorWarDeclareResult =
     | { ok: true; cost: number }
     | { ok: false; error: SectorWarDeclineReason; cost?: number };
 
-/** Whether `attacker` may open a sector war on `sector` (currently held by
- *  `defender`), and the WR cost after the comeback discount. Pure — the endpoint
- *  resolves ownership / village-war status / the WR pool and passes them in
- *  (§17.1: 250 WR, mutual-exclusive with a village war, multiple only vs
- *  different villages). */
 export function canDeclareSectorWar(c: SectorWarDeclareCheck): SectorWarDeclareResult {
     const attacker = String(c.attackerVillage);
     const defender = String(c.defenderVillage);

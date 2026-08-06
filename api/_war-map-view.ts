@@ -21,7 +21,6 @@ import {
     type Terrain,
 } from './_war-state.js';
 import {
-    sectorControlHpMax,
     wrPerSector,
     taxRateMultiplier,
 } from './_war-structures.js';
@@ -39,7 +38,6 @@ export interface SectorConfigView {
     winCondition: WinCondition;
     terrain: Terrain;
     /** Watchtower-boosted Control-HP cap (the "secure" value when uncontested). */
-    controlHpMax: number;
 }
 
 export interface VillageWarMapView {
@@ -82,7 +80,6 @@ export function villageWarMapView(args: {
     const sectorsHeld = Math.max(0, Math.floor(Number(args.sectorsHeld) || 0));
     const biome = isWarVillage(village) ? VILLAGE_BIOME[village as WarVillage] : 'central';
     const home = homeSectorsForVillage(village);
-    const controlHpMax = sectorControlHpMax(record);
 
     const sectors: SectorConfigView[] = home.map((s) => {
         const cfg = record.sectors[String(s)];
@@ -91,7 +88,6 @@ export function villageWarMapView(args: {
             alias: sectorAlias(s),
             winCondition: cfg?.winCondition ?? 'combat',
             terrain: cfg?.terrain ?? (biome as Terrain),
-            controlHpMax,
         };
     });
 

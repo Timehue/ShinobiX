@@ -10,7 +10,6 @@ export interface SectorConfigView {
     alias?: string;
     winCondition: WinCondition;
     terrain: string;
-    controlHpMax: number;
 }
 
 export interface VillageWarMapView {
@@ -37,8 +36,11 @@ export interface SectorWarContest {
     attackerVillage: string;
     defenderVillage: string;
     winCondition: WinCondition;
-    controlHp: number;
-    controlHpMax: number;
+    /** Kill-point tallies — they count UP; most points when the 72h close wins. */
+    attackerPoints: number;
+    defenderPoints: number;
+    /** When the war's 72 hours end and the tallies are compared. */
+    endsAt: number;
     flipped: boolean;
     /** When a live-player battle last resolved — drives the garrison unlock. */
     lastLiveBattleAt?: number;
@@ -53,6 +55,7 @@ export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
  *  state. The server re-checks it — this only avoids offering a rejected click. */
 export function garrisonAssaultable(c: SectorWarContest, now: number = Date.now()): boolean {
     if (c.winCondition !== "combat" || c.flipped) return false;
+    if (now >= (Number(c.endsAt) || 0)) return false; // the whistle has gone
     const lastLive = Math.max(Number(c.lastLiveBattleAt ?? 0) || 0, Number(c.startedAt ?? 0) || 0);
     return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
 }
@@ -181,7 +184,7 @@ export function listMercs(playerName: string, village: string) {
 }
 /** Deploy one merc from the band at an enemy-village defender on a contested
  *  sector. The fight resolves SERVER-SIDE (auto, deterministic, can't be faked);
- *  returns { winner, captured, controlHp, mercsRemaining }. */
+ *  returns { winner, attackerPoints, defenderPoints, mercsRemaining }. */
 export function deployMerc(playerName: string, village: string, tierId: string, sector: number, targetPlayer: string) {
     return postJson("/api/village/war-merc", { action: "attack", playerName, village, tierId, sector, targetPlayer });
 }

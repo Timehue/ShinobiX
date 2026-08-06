@@ -30,7 +30,8 @@ import {
 } from './_war-state.js';
 import { resetPerWarStructures, wrPerSector } from './_war-structures.js';
 import { activeVillageWarEnemiesOf } from './world-state.js';
-import { listActiveSectorWars, sweepExpiredSectorWars } from './_sector-war-store.js';
+import { listActiveSectorWars } from './_sector-war-store.js';
+import { settleDueSectorWars } from './_sector-war-settle.js';
 
 /** The existing village-treasury key (seal accrual target). Same slug as the
  *  war-state key and api/village/claim-daily-agenda.ts. */
@@ -71,8 +72,8 @@ export interface VillageWarDailyResult {
     processed: number;
     ran: number;
     sealsAccrued: number;
-    /** Sieges retired this pass (idle / timed out). */
-    sectorWarsExpired: number;
+    /** 72h wars whose verdicts this pass stamped (flips + defended holds). */
+    sectorWarsSettled: number;
 }
 
 /** Run the daily pass across all villages. Default deps use the live kv + lock;
@@ -86,12 +87,12 @@ export async function runVillageWarDailyPass(
         isAtWar?: (village: string) => Promise<boolean>;
         /** Override the live held-sector counts (tests inject a fixed table). */
         heldSectors?: HeldSectorCounts;
-        /** Retire lapsed sector-war contests. Injectable so tests stay off live storage. */
-        sweepSectorWars?: (now: number) => Promise<number>;
+        /** Settle due 72h wars. Injectable so tests stay off live storage. */
+        sweepSectorWars?: (now: number) => Promise<unknown[]>;
     } = {},
 ): Promise<VillageWarDailyResult> {
     const enabled = deps.enabled ?? (process.env.ENABLE_VILLAGE_WAR === '1');
-    if (!enabled) return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsExpired: 0 };
+    if (!enabled) return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0 };
 
     const store: WarStore = deps.store ?? kv;
     const lock: LockRunner = deps.lock ?? ((key, fn) => withKvLock(key, fn, { failClosed: true }));
@@ -172,14 +173,14 @@ export async function runVillageWarDailyPass(
             console.error(`[village-war] daily pass failed for ${village}:`, (err as Error).message);
         }
     }
-    // Retire lapsed sieges (idle > 24h, or past the 3-day cap). The readers already
-    // ignore expired contests, so this is hygiene + a durable reason on the record;
-    // doing it AFTER the per-village pass keeps a sweep failure from costing income.
-    let sectorWarsExpired = 0;
+    // Settle any 72h wars whose window closed while nobody was watching — the
+    // endpoint's status poll settles the watched ones within seconds; this is the
+    // backstop. AFTER the per-village pass so a settle failure never costs income.
+    let sectorWarsSettled = 0;
     try {
-        sectorWarsExpired = await (deps.sweepSectorWars ?? sweepExpiredSectorWars)(now);
+        sectorWarsSettled = (await (deps.sweepSectorWars ?? settleDueSectorWars)(now)).length;
     } catch (err) {
-        console.error('[village-war] sector-war expiry sweep failed:', (err as Error).message);
+        console.error('[village-war] sector-war settlement sweep failed:', (err as Error).message);
     }
-    return { enabled: true, processed: WAR_VILLAGES.length, ran, sealsAccrued, sectorWarsExpired };
+    return { enabled: true, processed: WAR_VILLAGES.length, ran, sealsAccrued, sectorWarsSettled };
 }

@@ -10,7 +10,6 @@ import {
     canSetTerrain,
     terrainSetCountFor,
     STRUCTURE_KEYS,
-    SECTOR_CONTROL_HP_MAX,
     MAX_SECTORS_PER_WIN_CONDITION,
 } from './_war-state.js';
 import { WR_POOL_CAP, VILLAGE_STRUCTURE_MAX_LEVEL } from './_war-economy.js';
@@ -26,7 +25,6 @@ describe('war-state: default record', () => {
         assert.equal(Object.keys(r.sectors).length, 8);
         for (const s of HOME_SECTORS['Frostfang Village']) {
             const cell = r.sectors[String(s)];
-            assert.equal(cell.controlHp, SECTOR_CONTROL_HP_MAX);
             assert.ok(cell.winCondition === 'combat' || cell.winCondition === 'pet'); // Combat / Pet default spread
             assert.equal(cell.terrain, 'snow'); // Frostfang biome default
         }
@@ -49,7 +47,6 @@ describe('war-state: normalize', () => {
         assert.equal(r.warResources, WR_POOL_CAP);
         assert.equal(r.structures.ramparts, VILLAGE_STRUCTURE_MAX_LEVEL);
         assert.equal(r.structures.watchtower, 0);
-        assert.equal(r.sectors['9'].controlHp, SECTOR_CONTROL_HP_MAX);
         assert.equal(r.sectors['9'].winCondition, 'card');
         assert.equal(r.sectors['9'].terrain, 'forest');
     });
@@ -59,19 +56,7 @@ describe('war-state: normalize', () => {
             sectors: { '9': { winCondition: 'pet', terrain: 'volcano', controlHp: 60 }, '99': { winCondition: 'card' } } as never,
         });
         assert.equal(Object.keys(r.sectors).length, 8);        // all home sectors present
-        assert.equal(r.sectors['9'].controlHp, 60);            // provided value kept
-        assert.equal(r.sectors['10'].controlHp, SECTOR_CONTROL_HP_MAX); // missing → default
         assert.equal(r.sectors['99'], undefined);              // foreign sector dropped
-    });
-
-    it('migrates a stored Control HP written under the old, much larger bar', () => {
-        // Sectors persisted before the 2026-08-06 rescale carry values in the
-        // thousands. They must clamp down to the current bar rather than leaving a
-        // sector that needs hundreds of wins to take.
-        const r = normalizeVillageWarRecord('Ashen Leaf Village', {
-            sectors: { '9': { winCondition: 'combat', terrain: 'volcano', controlHp: 2000 } } as never,
-        });
-        assert.equal(r.sectors['9'].controlHp, SECTOR_CONTROL_HP_MAX);
     });
 
     it('bad win-condition / terrain fall back to safe defaults', () => {
