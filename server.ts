@@ -115,6 +115,7 @@ import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
 import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
+import villageTaxHandler from './api/village/tax.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import villageWarMissionHandler from './api/village/war-mission.js';
 import warClaimRewardHandler from './api/war/claim-reward.js';
@@ -1169,6 +1170,9 @@ route('/village/anbu-infiltration', anbuInfiltrationHandler);
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
 route('/village/war-map', villageWarMapHandler);
+// Daily village tax (the ryo sink). Idempotent per UTC day via the server-owned
+// lastTaxDate stamp; DISABLE_VILLAGE_TAX=1 is the kill switch.
+route('/village/tax', villageTaxHandler);
 // War crate — server-authoritative claim of a village-war-win Legendary War
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.

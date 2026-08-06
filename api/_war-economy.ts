@@ -126,12 +126,17 @@ const ZERO_TAX: TaxComputation = { taxable: 0, rate: 0, owed: 0, toBurn: 0, toTr
  *  Students, a zero tier (full-8 village), or a non-positive base. */
 export function computeTax(args: {
     ryo: number; bankRyo: number; sectors: number; level: number; daysOwed: number;
+    /** Treasury-Vault discount (api/_war-structures taxRateMultiplier). Defaults to
+     *  1. Passing it here keeps the rate the player is CHARGED identical to the one
+     *  the War Map displays, which reads the same multiplier. */
+    rateMultiplier?: number;
 }): TaxComputation {
     const level = Math.floor(Number(args.level) || 0);
     if (level < TAX_MIN_RANK_LEVEL) return ZERO_TAX;            // Academy exempt
     const days = Math.max(0, Math.min(TAX_CATCHUP_DAYS_MAX, Math.floor(Number(args.daysOwed) || 0)));
     if (days <= 0) return ZERO_TAX;
-    const rate = taxRateForSectors(args.sectors);
+    const mult = Math.max(0, Number(args.rateMultiplier ?? 1) || 0);
+    const rate = taxRateForSectors(args.sectors) * mult;
     if (rate <= 0) return { ...ZERO_TAX, rate, days };          // full-control reward: 0%
     const wealth = clampNonNegInt(args.ryo) + clampNonNegInt(args.bankRyo);
     const taxable = Math.max(0, wealth - TAX_EXEMPTION_RYO);
