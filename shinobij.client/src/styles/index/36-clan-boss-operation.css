@@ -1,7 +1,7 @@
-/* Activity Spine and the server-owned Clan Boss operation shell. */
+/* Four-horizon guidance and the server-owned Clan Boss operation shell. */
 .activity-spine-heading,.activity-card-topline,.operation-lobby-heading,.operation-comms-status,
 .operation-finder-row,.operation-member,.operation-invite-row,.operation-member-identity {
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
 }
 .activity-spine h3,.activity-horizon h4,.operation-lobby h4,.operation-lobby h5,
 .clan-boss-operation h3,.clan-boss-operation h4 { margin:0; }
@@ -16,12 +16,11 @@
 .activity-horizon h4 { margin-bottom:7px;font-size:.76rem;text-transform:uppercase; }
 .activity-card,.operation-world-context>div,.operation-preparation,.operation-lobby,.operation-comms,
 .operation-finder-row,.operation-member,.operation-standings>div {
-    padding:9px;border:1px solid #334155;border-radius:9px;background:#02060f9e;
+    padding:8px;border:1px solid #334155;border-radius:8px;
 }
 .activity-card { display:flex;flex-direction:column;gap:6px;min-width:0;margin-bottom:8px; }
 .activity-card.is-complete { border-color:#238364; }
 .activity-card.is-blocked { border-color:#7f3540; }
-.activity-card-topline { align-items:flex-start; }
 .activity-card p,.activity-card small,.operation-lobby p,.operation-preparation p,.operation-score-note {
     margin:0;color:var(--slate-300);font-size:.75rem;line-height:1.4;
 }
@@ -32,7 +31,6 @@
 .operation-comms button,.operation-error button { min-height:44px; }
 .activity-card button { align-self:flex-start; }
 .clan-boss-operation { display:flex;flex-direction:column;gap:12px; }
-.clan-boss-operation .clan-raid-boss { margin-bottom:0; }
 .operation-world-context>div,.operation-preparation,.operation-finder-row>div,.operation-member-identity>div {
     display:flex;flex-direction:column;min-width:0;
 }
@@ -41,7 +39,7 @@
 .operation-finder-list,.operation-roster,.operation-standings {
     display:flex;flex-direction:column;gap:6px;margin-top:10px;
 }
-.operation-finder-row,.operation-member,.operation-standings>div { min-width:0;padding:8px; }
+.operation-finder-row,.operation-member,.operation-standings>div { min-width:0; }
 .operation-finder-row span,.operation-member small,.operation-world-context span,.operation-world-context small,
 .operation-comms-status span,.operation-latest-ping { color:var(--text-dim);font-size:.7rem;overflow-wrap:anywhere; }
 .operation-invite-row,.operation-member-identity { justify-content:flex-start;min-width:0; }
@@ -52,23 +50,23 @@
 .operation-member-actions,.operation-primary-actions,.operation-create-actions,.operation-invite-grid,.operation-pings {
     display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;
 }
-.operation-primary-actions .operation-start,.operation-rejoin { border-color:#ad4848;color:#fecaca; }
+.operation-rejoin,.operation-primary-actions .operation-start { border-color:#ad4848;color:#fecaca; }
 .operation-standings>div.is-mine { border-color:#806719; }
 .operation-comms { position:sticky;top:6px;z-index:8;margin-bottom:8px;border-color:#338c9d; }
 .operation-pings { margin-top:6px; }
 .operation-latest-ping { margin-top:5px; }
-@media (max-width:979px) {
+@media (max-width: 979px) {
     .activity-spine-grid,.operation-world-context { grid-template-columns:1fr; }
     .operation-member { align-items:flex-start;flex-wrap:wrap; }
     .operation-member-actions { flex:1 0 100%;margin-top:0; }
     .operation-primary-actions>button,.operation-create-actions>button { flex:1 1 180px; }
 }
-@media (max-width:559px) {
+@media (max-width: 559px) {
     .activity-spine-heading,.operation-lobby-heading,.operation-comms-status { align-items:flex-start;flex-direction:column; }
     .operation-finder-row { align-items:flex-start; }
     .operation-invite-row { flex-direction:column; }
     .operation-invite-grid { display:grid;grid-template-columns:1fr; }
 }
-@media (prefers-reduced-motion:reduce) {
+@media (prefers-reduced-motion: reduce) {
     .operation-lobby *,.activity-spine * { scroll-behavior:auto;transition:none; }
 }
