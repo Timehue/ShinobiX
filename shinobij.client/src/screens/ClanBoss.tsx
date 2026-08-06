@@ -117,13 +117,15 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
 
     const start = useCallback(() => {
         const party = partyState?.party;
-        if (!party || busy || party.leaderSlug !== playerSlug || !party.canStart) return;
+        const soloCompatibility = partyState?.errorCode === "parties-disabled";
+        if (busy || (!party && !soloCompatibility) || (party && (party.leaderSlug !== playerSlug || !party.canStart))) return;
         setBusy(true);
         setFlash("");
-        if (!startRequestRef.current || startRequestRef.current.partyVersion !== party.version) {
-            startRequestRef.current = { partyVersion: party.version, id: requestId() };
+        const partyVersion = party?.version ?? -1;
+        if (!startRequestRef.current || startRequestRef.current.partyVersion !== partyVersion) {
+            startRequestRef.current = { partyVersion, id: requestId() };
         }
-        void startClanBossAssault(character.name, party.id, party.version, startRequestRef.current.id, hostLoadout)
+        void startClanBossAssault(character.name, party?.id, party?.version, startRequestRef.current.id, hostLoadout)
             .then((result) => {
                 if ("error" in result) {
                     setFlash(result.error);
@@ -135,7 +137,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                 setFight({ runId: result.runId, session: result.session });
             })
             .finally(() => setBusy(false));
-    }, [busy, character.name, hostLoadout, load, partyState?.party, playerSlug]);
+    }, [busy, character.name, hostLoadout, load, partyState?.errorCode, partyState?.party, playerSlug]);
 
     if (fight) {
         return (
@@ -170,6 +172,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     const portrait = boss ? BOSS_PORTRAITS[boss.id] : undefined;
     const hpPct = Math.max(0, Math.min(100, (clan.pool / clan.poolMax) * 100));
     const daysLeft = view.endsAt ? Math.max(0, Math.ceil((view.endsAt - Date.now()) / 86_400_000)) : 0;
+    const soloCompatibility = partyState?.errorCode === "parties-disabled";
 
     return (
         <div className="summary-box clan-raid clan-boss-operation">
@@ -195,7 +198,8 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             {flash ? <p className="clan-raid-flash" role="status">{flash}</p> : null}
             {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>Rejoin your accepted operation</button> : null}
 
-            {!clan.killed && partyState ? <ClanBossPartyLobby envelope={partyState} playerSlug={playerSlug} clanmates={clanmates} busy={busy} onAction={act} onStart={start} /> : null}
+            {!clan.killed && partyState && !soloCompatibility ? <ClanBossPartyLobby envelope={partyState} playerSlug={playerSlug} clanmates={clanmates} busy={busy} onAction={act} onStart={start} /> : null}
+            {!clan.killed && soloCompatibility ? <section className="operation-lobby"><h4>Solo Compatibility</h4><p>Party operations are temporarily disabled. The weekly boss remains available through the server-owned solo path.</p><button type="button" className="operation-start" disabled={busy || clan.myAttemptsLeft <= 0} onClick={start}>{busy ? "Starting…" : clan.myAttemptsLeft > 0 ? `Start Solo Assault (${clan.myAttemptsLeft} left)` : "No assaults left this week"}</button></section> : null}
             {!partyState ? <div className="operation-error" role="status"><p>The party service is offline. Existing combat remains recoverable; party changes are paused.</p><button type="button" onClick={() => void load()}>Retry Party Service</button></div> : null}
 
             <div className="operation-preparation">

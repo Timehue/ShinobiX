@@ -1,11 +1,28 @@
 # ShinobiX MMO Roundness Implementation Report
 
-Date: August 5, 2026
-Branch: `codex/aaa-mmo-roundness`
-ShinobiX base: `0960a192cfc383bd05a6c6d004c88b12b2754384`
+Date: August 6, 2026 (post-merge closeout update)
+Branch: `codex/post-merge-release-closeout`
+Current `origin/main` base: `cdecc459447c391407f269852cff1f9da59b3251`
+Merged operation head verified at task start: `74198d9bad0813038cabf15edb2b7ddc6a575910`
 Behavioral reference inspected read-only: a third-party shinobi RPG at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`
 
 This report accompanies the evidence-first audit in `docs/MMO_ROUNDNESS_AUDIT.md`. The delivered slice upgrades the existing weekly Clan Boss into a server-owned 1–4 human-player Shinobi Operation. It does not introduce a new ordinary-combat engine, a new currency, a new backend, or a parallel boss menu.
+
+## Post-merge release closeout
+
+At closeout start, both a fresh `git fetch --prune origin main` and `git ls-remote origin refs/heads/main` returned the expected `74198d9bad0813038cabf15edb2b7ddc6a575910`. The existing workspace contained unrelated untracked `output/` and `tools/` directories, so certification ran in a new clean linked worktree and did not modify them. During the run, `origin/main` advanced through `0474a2dd0` and `cdecc4594`; those commits change documentation only. The closeout branch was rebased onto the new current main, and `git diff 74198d9..cdecc4594` confirms no runtime, package, workflow, or test-source delta in those two upstream commits.
+
+Closeout changes are release-confidence work only:
+
+- Correct the corrupt en dashes in `api/player/_activity-spine.ts` and three existing corrupt middle-dot labels in player-facing pet source.
+- Add `scripts/player-facing-utf8.test.mjs`, scanning only text extensions under `api/player`, `shared`, and `shinobij.client/src` for common `â€“`, `â€”`, `â€™`, `â€œ`, `â€`, `Ã`, and `Â` mojibake families. Assets, dependencies, build output, and generated distributions are outside the scan.
+- Make `npm test` install the clean client dependency tree it discovers, eliminating the hidden requirement that another CI step populate `shinobij.client/node_modules` first.
+- Add the path-filtered `.github/workflows/clan-boss-operation.yml` gate for Clan Boss, Tower, Activity Spine, shared operation contracts, client operation surfaces, admin/cron adapters, and the two operation certification scripts. It runs `npm ci`, `npm run build:server`, `npm run certify:clan-boss-operation`, and `npm run audit:clan-boss-balance`.
+- Make one transient combat-layout width assertion atomic so a WebKit re-render cannot detach the locator between two reads. This changes test code only.
+- Repair the party-only kill-switch handoff discovered in the second-pass wiring audit: an intentional party-route 404 now produces a truthful `Solo Compatibility` state and starts only the server-owned one-human path. The real-HTTP certification covers duplicate start, one attempt, one actor, terminal play, and idempotent settlement with parties disabled.
+- Add the executable disposable-staging procedure in `docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md`.
+
+No gameplay, boss phase, combat formula, contribution formula, currency, persistence backend, balance constant, analytics enablement, or size limit changed.
 
 ## 1. Outcome and selection rationale
 
@@ -144,10 +161,11 @@ Properties are categorical and bounded: horizon, mode, state category, party-siz
 
 Recommended staged rollout:
 
-1. Deploy with the full Clan Boss enabled and `DISABLE_CLAN_BOSS_PARTIES=1`; verify legacy solo compatibility and admin visibility.
-2. Enable parties on disposable staging; exercise 1-, 2-, and 4-player create/ready/start/reconnect/settle/retry flows.
-3. Enable for beta under staffed monitoring; watch queue-wait, abandonment, contribution category, missing-session, and stale-member aggregates.
-4. Roll back party behavior with `DISABLE_CLAN_BOSS_PARTIES=1`; use full `DISABLE_CLAN_BOSS=1` only for settlement or weekly-state risk.
+1. Deploy the candidate with the full Clan Boss enabled and `DISABLE_CLAN_BOSS_PARTIES=1`.
+2. Verify the legacy-compatible solo start/reconnect/settle path and credentialed admin diagnostics while parties remain disabled.
+3. Remove only `DISABLE_CLAN_BOSS_PARTIES` on disposable staging and complete `docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md` with real Postgres and 1-, 2-, and 4-player human parties.
+4. Enable parties in the intended staffed environment only after every staging row has evidence; watch queue wait, abandonment, contribution category, missing-session, and stale-member aggregates.
+5. Retain `DISABLE_CLAN_BOSS_PARTIES=1` as the party-only kill switch. Use `DISABLE_CLAN_BOSS=1` only for settlement-authority or weekly-state risk.
 
 ## 9. Mobile and accessibility
 
@@ -164,27 +182,33 @@ Static responsive and accessibility contracts are automated. The real built-clie
 
 ### Final automated results
 
-| Gate | Exact result |
+After the command-order dependency described below was closed, the required chain was restarted from clean installs and passed on the current main-derived tree. The local host was Windows with Node 24.15.0; repository CI and the new operation workflow use Node 22, so the first hosted Linux/Node 22 workflow run remains an external confirmation rather than a claimed local result.
+
+| Exact command | Closeout result |
 | --- | --- |
-| Broad root discovery | The completed run passed 4,946 tests and surfaced 15 failures: four stale source-wiring guards were corrected and pass in the 40/40 guard rerun; the other 11 were client worker-load failures under the Windows-locked partial `node_modules`, and those exact files pass 46/46 in the clean client worktree. A single-worktree all-green rerun is therefore not claimed. |
-| Final focused cross-cutting contracts | 56 passed, 0 failed across party pagination/reconciliation/index safety, PvE guard/mastery wiring, authored encounter configuration, and deterministic balance ratchets. |
-| Save-version focused coverage | 14 passed, 0 failed. |
-| Clan Boss real-HTTP operation certification | Passed 110/110 against the real Express server and in-memory QA store: 1/2/4 members, ready conflicts/retries, every-member reconnect, real Tower actions, duplicate starts, concurrent settle, and terminal index release. |
-| Clan Boss deterministic balance audit | Passed across 12 seeds per boss and 1/2/4-player parties. Solo parties removed 65.2–77.7% average HP; full parties cleared every boss in 7.5–9.1 average rounds; two-player clear rates were 92–100%. This is offline balance evidence, not human-duration evidence. |
-| Clean client ESLint / production build | Passed in the isolated installed worktree after every final TSX/CSS change. The main worktree's dependency refresh hit a Windows `EPERM` lock on the native Rolldown binding, so no destructive retry was attempted. |
-| Server TypeScript build | Passed. |
-| Distribution verification | The server build passed in the main worktree and the final client build passed in the isolated worktree. The earlier combined distribution verification passed, but it was not re-claimed after the main client dependency lock. |
-| Client-size ratchet | Passed at 7,243,458 budgeted bytes against the unchanged 7,245,000-byte threshold with a dummy Sentry DSN enabled; initial graph 1.37 MB raw / 363.3 KB gzip. This is only 1,542 bytes of raw-budget headroom, so the next feature must drain or split product code rather than raise the ratchet. |
-| Release certification | Passed 82/82 against the built Express server and isolated in-memory backend. |
-| Deployment / rollback | Both passed; one Railway replica, `node dist/server.js`, `/health`, and no destructive rollback statements. |
-| Mission eligibility / release assets | Passed; 65 achievement references, 165 badge PNGs, and 21 Pet Home WebPs verified. |
-| Tooling handoffs | Passed after regenerating the design-token artifact for the new 479px boundary; the economy artifacts remained byte-identical. |
-| Root / client production dependency audits | Both passed with 0 vulnerabilities. |
-| `test:e2e` | 86 passed, 75 project-filtered/skipped, 0 failed across Chromium, Firefox, WebKit, 360×640, 390×844, and 768×1024 projects. |
-| `test:e2e:visual` | 4 passed, 0 failed. |
-| `test:e2e:visual:size` | Passed: 4 files, 2,634,130 bytes under the 3,145,728-byte cap. |
-| `test:e2e:live` | 9 passed, 1 intentional project skip, 0 failed in 3.8 minutes. Desktop/mobile combat matrices, registration/relogin, mission recovery, and the real Hospital discharge branch after a failed flee all passed. |
-| `test:e2e:warfront` | 8 passed, 16 expected project/fixture skips, 0 failed in 2.7 minutes. All four DPR/alignment projects passed through a real demand-rendered R3F geometry seam; the full scene's functional and context-loss coverage remained active. |
+| `npm ci` | Passed from the repository root: 174 packages, 0 vulnerabilities. |
+| `npm test` | Final second-pass run passed 5,001/5,001 tests in 755 suites. The first ordered closeout run exposed that root discovery imports client test files before the later client install; the new `pretest` performs `npm ci --prefix shinobij.client`, and the full root suite now passes from a clean dependency state. |
+| `CI=1 VITE_SENTRY_DSN=https://public@example.invalid/1 VITE_SENTRY_RELEASE=ci VITE_BUILD_COMMIT=cdecc459447c391407f269852cff1f9da59b3251 npm run build` | Final second-pass build passed server build, clean client install/build, distribution verification, and the unchanged size check. Budgeted client code is 7,238,390 bytes against the unchanged 7,245,000-byte ceiling: 6,610 bytes of headroom. The excluded Sentry chunk is 84,545 bytes; all JS/CSS totals 7,322,935 bytes. |
+| `npm run certify:release` | Passed 82/82 against the built Express server and isolated in-memory backend. |
+| `npm run certify:clan-boss-operation` | Two consecutive final second-pass runs passed a stable 75/75 against the real Express routes and in-memory QA store. The fixed scenario assertions cover 1/2/4 members, ready conflicts/retries, duplicate start, every-member reconnect, authoritative Tower actions, concurrent settlement, terminal index cleanup, and the party-disabled solo-compatible start/action/settlement path; variable combat-turn counts no longer make the headline total drift. |
+| `npm run audit:clan-boss-balance` | Passed 12 deterministic seeds per boss for 1/2/4-player parties. Solo parties removed 65.2–77.7% average HP, two-player clear rates were 92–100%, and four-player parties cleared every boss in 7.5–9.1 average rounds. This is offline balance evidence, not human-duration evidence. |
+| `npm run soak:smoke` | Passed 24/24 scenarios and 169 calls with 0 errors at 9.9 requests/second against the isolated in-memory store. This is a bounded smoke, not a production or Postgres load test. |
+| `npm run check:deployment` | Passed: one replica, `node dist/server.js`, and `/health`. |
+| `npm run check:rollback-readiness` | Passed with `ok: true`, no failed checks, and no destructive rollback statements. |
+| `npm run test:backup` | Passed 11/11. |
+| `npm run test:mission-eligibility` | Passed. |
+| `npm run test:release-assets` | Passed: 65 achievement references, 165 badge PNGs, and 21 Pet Home WebPs. |
+| `npm run check:tooling-handoffs` | Passed; generated handoff artifacts are current. |
+| `npm audit --omit=dev --audit-level=high` | Passed at the root with 0 vulnerabilities. |
+| `cd shinobij.client && npm ci` | Passed: 319 packages, 0 vulnerabilities. |
+| `npm run lint` | Passed. Babel reported only the pre-existing large-file deoptimization warning for `PetColiseum.tsx`. |
+| `npm run build` | Passed the standalone client production build. The CI-instrumented root build above is the artifact used for the final CI-mode browser runs. |
+| `CI=1 npm run test:e2e` | Passed 87 tests, with 74 project-filtered skips and no retries, across desktop Chromium/Firefox/WebKit, compact Chromium, 390×844 Chromium/WebKit, and tablet Chromium. The final run used the CI-instrumented build and its required dummy Sentry values. |
+| `npm run test:e2e:live` | Passed 9 tests with 1 intentional project skip. |
+| `CI=1 npm run test:e2e:warfront` | Passed 8 tests with 16 expected project/fixture skips. |
+| `npm audit --omit=dev --audit-level=high` (client) | Passed with 0 vulnerabilities. |
+
+The initial non-CI six-worker browser probes exposed two test-environment issues: a re-render could detach the mobile combat width locator between two reads, and a reused preview server could leave the Warfront bundle without the expected DPR build settings. The width read is now atomic; the required clean CI-mode runs above used fresh builds/servers and passed without retries. No product behavior or budget was changed for either issue.
 
 ### Code and contract evidence
 
@@ -197,7 +221,10 @@ Static responsive and accessibility contracts are automated. The real built-clie
 - Player experience: `shinobij.client/src/components/ActivitySpine.tsx`, `shinobij.client/src/components/ClanBossPartyLobby.tsx`, `shinobij.client/src/components/ClanBossOperationComms.tsx`, `shinobij.client/src/screens/ClanBoss.tsx`
 - Admin: `api/admin/clan-boss-operations.ts`, `shinobij.client/src/screens/AdminDiagnosticsPanel.tsx`
 - Focused tests: `api/clan-boss/_party.test.ts`, `_contribution.test.ts`, `_profession.test.ts`, `_sector-state.test.ts`, `api/player/_activity-spine.test.ts`, `shinobij.client/src/clan-boss-operation.test.ts`
-- Rollout: `FEATURE_FLAG_RELEASE_MATRIX.md`
+- Encoding guard: `scripts/player-facing-utf8.test.mjs`
+- Dedicated CI gate: `.github/workflows/clan-boss-operation.yml`
+- Disposable-staging runbook: `docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md`
+- Rollout authority: `FEATURE_FLAG_RELEASE_MATRIX.md`
 
 The repository's four stable visual baselines remain in `shinobij.client/e2e-visual/__snapshots__`, and the full preview matrix passed. No operation-specific screenshots are claimed: the available browser harness does not provide deterministic authenticated multi-member party/run fixtures, and cosmetic screenshots would not prove reconnect, settlement, or authority.
 
@@ -208,13 +235,13 @@ The repository's four stable visual baselines remain in `shinobij.client/e2e-vis
 | New-player direction | Server activity tests cover onboarding priority and blockers; the preview journey and live registration/relogin passed. Existing Academy remains unchanged. |
 | Midgame direction | Activity tests cover level 35 and explicit solo/social/economy/long-term choices. |
 | Low-population formation | Party tests cover one-player queue, real counts, and two-minute fallback; client contract forbids presenting offline players as AI. |
-| Full cooperative operation | The real Express HTTP certification creates, readies, starts, reconnects, and settles 1-, 2-, and 4-player parties against the actual Tower action route. A multi-browser human playthrough remains staging work. |
-| Reconnect | The HTTP certification refreshes every accepted member, rediscovers the same active run, and proves that a lost ready response replays without duplicating state. Deliberate packet loss against staging remains outstanding. |
-| Lost settlement response | Real HTTP settle retries and concurrent settles bank once; start, party, profession, and sector projections remain receipt-protected. External packet shaping was not used. |
+| Full cooperative operation | The stable 75/75 real Express HTTP certification creates, readies, starts, reconnects, and settles 1-, 2-, and 4-player parties against the actual Tower action route, then proves the party-disabled one-human compatibility path through idempotent settlement. A multi-browser human playthrough against disposable-staging Postgres remains outstanding and is specified in the staging runbook. |
+| Reconnect | The HTTP certification refreshes every accepted member, rediscovers the same active run, and proves that a lost ready response replays without duplicating state. Deliberate packet interruption and every-member browser reconnect against staging remain outstanding. |
+| Lost start/settlement response | Real HTTP duplicate-start, settle-retry, and concurrent-settle contracts bank once; start, party, profession, and sector projections remain receipt-protected. Forward-then-drop packet tests against staging remain outstanding. |
 | World consequence | Sector tests prove canonical metadata, active-contribution requirement, per-run cap, one-time 75/50/25/0 herald milestones, receipt replay, and no territory mutation. |
 | Economy loop | Existing hunt/Crafter/consumable path is surfaced; profession XP and modern reward thresholds are tested. |
-| Mobile | Responsive contracts and the built-client combat matrix pass across desktop/mobile projects; the 375×667 jutsu hit-target defect is fixed and visually inspected. Operation-specific authenticated screenshots and every manual zoom state remain unverified. |
-| Administration | Full-admin route and client guard require reason, confirmation, version, safe status, lock, and audit. No credentialed browser smoke was performed. |
+| Mobile | Responsive contracts and the built-client combat matrix pass across desktop/mobile projects. Operation-specific authenticated checks at 390×844, 1440×900, and 150% zoom remain staging work. |
+| Administration | Full-admin route and client guard require reason, confirmation, version, safe status, lock, and audit. Credentialed diagnostics and safe-disband staging smoke remain outstanding. |
 
 ## 12. Before/after scorecard
 
@@ -243,16 +270,16 @@ Scores use a conservative 1–5 evidence scale, where 5 means coherent, operatio
 ## 13. Known limitations and residual risks
 
 1. Contribution records immediate authoritative state deltas around each accepted human action. Damage or support caused later by environmental ticks/AI continuation is not always attributable to the originating player. Interrupts, revives, and add-control are not separate score axes yet.
-2. The four retained authored bosses provide enrage, adds, regeneration, and bulwark mechanics, but this pass did not build a new multi-phase objective encounter. Expected 8–15 minute duration was not measured with live 1-, 2-, and 4-player staging groups.
+2. The four retained authored bosses provide enrage, adds, regeneration, and bulwark mechanics, but this pass did not build a new multi-phase objective encounter. Actual human duration against the player-facing 10–20 minute commitment was not measured with live 1-, 2-, and 4-player staging groups.
 3. The operation uses HTTP/KV polling and the existing Tower action protocol. Hermetic HTTP concurrency/reconnect certification passes, but no disposable-staging Postgres, cross-replica, packet-shaping, or production load test was run.
 4. Sector pressure now produces one-time village-chat Herald reactions, but it still does not alter missions, hunts, profession contracts, village projects, services, ownership, or ranked power. Any deeper consequence needs a separate balance/economy contract.
 5. Village purpose gains shared world reaction but no direct village contribution or reward ledger in this slice. Clan purpose received the complete progression connection.
 6. Weekly personal Ryo and Fate Shards intentionally remain in the existing once-only weekly settlement rather than each operation result. The UI now states this timing explicitly; changing it would create a new payout cadence and needs an economy decision.
-7. Operation-specific authenticated screenshots, every requested zoom state, live admin credentials, real human 8–15 minute duration, and a disposable-staging run remain unverified. The hermetic protocol, general visual, live-combat, and Warfront gates do not replace those external checks.
+7. Operation-specific authenticated viewport checks, 150% zoom, live admin credentials, human duration, support attribution, AFK exclusion, and the disposable-staging run remain unverified. The hermetic protocol, general browser, live-combat, and Warfront gates do not replace those external checks.
 
 ## 14. Deferred backlog, ordered by player value and risk
 
-1. **Disposable-staging certification** — run the proven 1/2/4-player protocol against Postgres and cross-replica conditions with packet shaping, then capture authenticated lobby/entry/result/admin viewport evidence and measure human 8–15 minute duration. Highest release-confidence value, low product risk.
+1. **Disposable-staging certification** — execute `docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md` against real Postgres with packet interruption, then capture authenticated lobby/entry/result/admin viewport evidence and measure human duration against the advertised 10–20 minute commitment. Highest release-confidence value, low product risk.
 2. **Deeper sector consequence contract** — let bounded weekly pressure influence a rotating mission/hunt/profession contract or village project without ownership power or essential lockout. High world-cohesion value, medium economy/balance risk.
 3. **Contribution attribution v2** — carry source ownership through delayed statuses, adds, prevented damage, interrupts, and revives; keep caps and role-neutral thresholds. Medium player-fairness value, medium combat risk.
 4. **Featured-window scheduling and population forecast** — concentrate the small beta population without creating another queue or faking estimates. Medium social value, low-to-medium operations risk.
