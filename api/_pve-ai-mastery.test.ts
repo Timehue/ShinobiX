@@ -227,7 +227,7 @@ describe('step C wiring', () => {
     const read = (f: string) => readFileSync(join(root, f), 'utf8');
 
     const EXPECT: Array<[string, string]> = [
-        ['api/clan-boss/assault-start.ts', "mode: 'CLAN_BOSS'"],
+        ['api/clan-boss/_encounter-config.ts', "mode: 'CLAN_BOSS'"],
     ];
     for (const [file, marker] of EXPECT) {
         it(`${file} seals AI mastery`, () => {
@@ -258,15 +258,26 @@ describe('step C wiring', () => {
     it('mastery is sealed AFTER the guard, and before the first AI turn', () => {
         // The owner ruling in order form: the guard must bound the uplift, and
         // both must precede the inline startRound in the tower-style handlers.
-        for (const file of ['api/towers/start.ts', 'api/clan-boss/assault-start.ts']) {
-            const src = read(file);
-            const guard = src.indexOf('sealPveDifficultyBand(session');
-            const mastery = src.indexOf('sealPveAiMastery(session');
-            const start = src.indexOf('startRound(session)');
-            assert.ok(guard > 0 && mastery > 0 && start > 0, `${file}: fixture check — all three present`);
-            assert.ok(guard < mastery, `${file}: the guard must be sealed before mastery`);
-            assert.ok(mastery < start, `${file}: mastery must be sealed before the first AI turn`);
-        }
+        const tower = read('api/towers/start.ts');
+        const towerGuard = tower.indexOf('sealPveDifficultyBand(session');
+        const towerMastery = tower.indexOf('sealPveAiMastery(session');
+        const towerStart = tower.indexOf('startRound(session)');
+        assert.ok(towerGuard > 0 && towerMastery > 0 && towerStart > 0, 'api/towers/start.ts: fixture check — all three present');
+        assert.ok(towerGuard < towerMastery, 'api/towers/start.ts: the guard must be sealed before mastery');
+        assert.ok(towerMastery < towerStart, 'api/towers/start.ts: mastery must be sealed before the first AI turn');
+
+        // Clan Boss deliberately centralizes its HP deadline, guard, and mastery
+        // invariants. Pin both the internal seal order and the call before combat.
+        const config = read('api/clan-boss/_encounter-config.ts');
+        const configGuard = config.indexOf('sealPveDifficultyBand(session');
+        const configMastery = config.indexOf('sealPveAiMastery(session');
+        assert.ok(configGuard > 0 && configMastery > 0, 'Clan Boss encounter config: fixture check — both seals present');
+        assert.ok(configGuard < configMastery, 'Clan Boss encounter config: the guard must be sealed before mastery');
+        const clanBoss = read('api/clan-boss/assault-start.ts');
+        const configure = clanBoss.indexOf('configureClanBossEncounter(session');
+        const start = clanBoss.indexOf('startRound(session)');
+        assert.ok(configure > 0 && start > 0, 'Clan Boss start: fixture check — config and first turn present');
+        assert.ok(configure < start, 'Clan Boss encounter config must run before the first AI turn');
     });
 
     it('the weekly boss and Anbu Vault stay deliberately unarmed', () => {

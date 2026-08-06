@@ -211,7 +211,7 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
     })();
     const EXPECT: Array<[string, string]> = [
         ['api/towers/start.ts', "mode: 'TOWER'"],
-        ['api/clan-boss/assault-start.ts', "mode: 'CLAN_BOSS'"],
+        ['api/clan-boss/_encounter-config.ts', "mode: 'CLAN_BOSS'"],
     ];
 
     for (const [file, marker] of EXPECT) {
@@ -238,13 +238,19 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
         // Both call startRound + runAiUntilHuman inline at start. Sealing after
         // that point would leave the opening enemy turn unguarded — a bug no
         // unit test on the helper could see.
-        for (const file of ['api/towers/start.ts', 'api/clan-boss/assault-start.ts']) {
-            const src = readFileSync(join(root, file), 'utf8');
-            const seal = src.indexOf('sealPveDifficultyBand(session');
-            const start = src.indexOf('startRound(session)');
-            assert.ok(seal > 0 && start > 0, `${file}: fixture check — both calls present`);
-            assert.ok(seal < start, `${file}: the seal must precede startRound`);
-        }
+        const tower = readFileSync(join(root, 'api/towers/start.ts'), 'utf8');
+        const towerSeal = tower.indexOf('sealPveDifficultyBand(session');
+        const towerStart = tower.indexOf('startRound(session)');
+        assert.ok(towerSeal > 0 && towerStart > 0, 'api/towers/start.ts: fixture check — both calls present');
+        assert.ok(towerSeal < towerStart, 'api/towers/start.ts: the seal must precede startRound');
+
+        // Clan Boss applies the guard inside its operation-specific encounter
+        // configurator, so the handler-level ordering guard follows that call.
+        const clanBoss = readFileSync(join(root, 'api/clan-boss/assault-start.ts'), 'utf8');
+        const configure = clanBoss.indexOf('configureClanBossEncounter(session');
+        const clanBossStart = clanBoss.indexOf('startRound(session)');
+        assert.ok(configure > 0 && clanBossStart > 0, 'api/clan-boss/assault-start.ts: fixture check — config and start present');
+        assert.ok(configure < clanBossStart, 'api/clan-boss/assault-start.ts: the encounter config must precede startRound');
     });
 
     it('the weekly boss and Anbu Vault stay deliberately unarmed', () => {

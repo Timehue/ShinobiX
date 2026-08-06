@@ -165,6 +165,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        if (sector?.crossedMilestone !== undefined && boss) {
+            const milestone = sector.crossedMilestone;
+            const gate = await kv.set(`clan-boss:sector-herald:${assault.weekId}:${milestone}`, '1', { nx: true, ex: 9 * 24 * 60 * 60 }).catch(() => null);
+            if (gate === 'OK') {
+                const secured = 100 - milestone;
+                await announce({
+                    type: 'clan_boss_sector_pressure',
+                    importance: 'high',
+                    title: `${sector.state.sectorName} is ${secured}% secured`,
+                    message: milestone > 0
+                        ? `Village heralds report that coordinated operations against ${boss.name} have forced the weekly threat down to ${milestone}%.`
+                        : `Village heralds report that coordinated operations have fully stabilized the sector against ${boss.name} for this campaign.`,
+                    meta: { weekId: assault.weekId, bossId: boss.id, sectorId: boss.sectorId, pressure: milestone },
+                });
+            }
+        }
+
         const activeCount = Object.values(contributions).filter((entry) => entry.active).length;
         const strongestThreshold = Object.values(contributions).some((entry) => entry.threshold === 'elite')
             ? 'elite'
@@ -198,6 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             professionAwards,
             sectorState: sector?.state,
             sectorPressureReducedBy: sector?.reducedBy ?? 0,
+            sectorPressureMilestone: sector?.crossedMilestone,
             character: awardedCharacter,
             _saveVersion: Number(finalPlayerRecord?._saveVersion) || undefined,
         });

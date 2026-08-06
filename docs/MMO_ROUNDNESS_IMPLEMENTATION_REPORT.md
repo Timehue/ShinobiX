@@ -76,6 +76,9 @@ The client supplies intent only: action name, target, visibility, ping kind, exp
 | `clan-boss:party:<cbp-id>` | Clan Boss party service | Two-hour TTL refreshed on mutation/heartbeat; versioned state and last 80 actor/request receipts. |
 | `clan-boss:party-player:<slug>` | Clan Boss party service | Two-hour member lookup index; deleted when membership is no longer valid. |
 | `clan-boss:party-invites:<slug>` | Clan Boss party service | Two-hour invite index, capped at 20 entries. |
+| `clan-boss:party-registry:v1` | Clan Boss party service | Best-effort global hash index used for cursor pagination and reconciliation; party rows remain authoritative. |
+| `clan-boss:party-registry:clan:<clan-slug>` | Clan Boss party service | Best-effort per-clan hash index for finder queries, with legacy-scan migration fallback. |
+| `clan-boss:party-registry:sweep-cursor` | Clan Boss scheduler | Cursor for bounded reconciliation passes; no reward authority. |
 
 Party state is intentionally ephemeral. Accepted operation binding moves to the durable/retryable Tower and Clan Boss settlement authorities. Terminal party summaries remain only for the TTL window and cannot pay rewards.
 
@@ -100,7 +103,7 @@ Modern weekly personal rewards use those role-neutral thresholds: active contrib
 
 Profession XP is 50–150 per active run. Healer weights healing/shielding/cleanse; Vanguard weights damage/objectives and retains its existing rank multiplier; Pet Tamer weights objectives/survival. XP uses existing profession fields and rank thresholds, so no parallel progression or currency was added.
 
-Sector pressure begins at 100 each week and a contributing run reduces it by at most eight. The formula requires positive damage and an active contributor. Pressure is visible context and never changes ownership, travel, essential progression, shops, or ranked-PvP power. This is intentionally an anti-snowball world consequence, not a territorial buff.
+Sector pressure begins at 100 each week and a contributing run reduces it by at most eight. The formula requires positive damage and an active contributor. Crossing 75, 50, 25, or 0 emits one idempotent World Herald announcement through the existing village-chat broadcast path. Pressure never changes ownership, travel, essential progression, shops, or ranked-PvP power. This is intentionally an anti-snowball world consequence, not a territorial buff.
 
 The preparation loop uses existing hunt drops, Crafter recipes, consumable inventory, ryo, Fate Shards, Bone Charms, clan XP, and clan treasury settlement. No new faucet, material, token, shared-loot dispute, or player-controlled loot assignment was introduced.
 
@@ -114,7 +117,10 @@ The preparation loop uses existing hunt drops, Crafter recipes, consumable inven
 - Settlement rereads the final caller save and echoes its current save version so a stale client autosave cannot silently overwrite the award.
 - Membership changes clear ready state; clients cannot carry an old legal snapshot into a changed roster.
 - Leadership recovery is limited to a real member after the leader has been stale for 45 seconds.
-- Parties cap at four, public results/admin scans are bounded, invite/receipt histories are capped, and ephemeral keys expire.
+- Player membership indices use atomic compare-and-delete so stale terminal cleanup cannot erase a newer party binding.
+- Party joins serialize the active-party check, roster mutation, and index publication on the joining player's key; live reconciliation refuses to overwrite a different, newer binding.
+- A leased scheduler reconciles up to 250 registered parties every five minutes, removes stale secondary-index rows, repairs missing member/clan/global indices, releases terminal indices, and discovers authoritative TTL party rows missed by a failed registry write.
+- Parties cap at four, public results/admin pages are bounded, invite/receipt histories are capped, and authoritative party rows expire.
 - AFK participants must take an accepted action and cross a contribution threshold.
 - Admin recovery requires full-admin permission, explicit browser confirmation, canonical reason, exact party version, a fail-closed lock, and an audit entry. Active sessions and reward values are immutable there.
 - `DISABLE_CLAN_BOSS_PARTIES=1` disables the party/finder route and restores the compatible solo start path. `DISABLE_CLAN_BOSS=1` remains the complete Clan Boss kill switch.
@@ -132,7 +138,7 @@ Properties are categorical and bounded: horizon, mode, state category, party-siz
 
 ## 8. Admin and live operations
 
-`GET /api/admin/clan-boss-operations` shows kill-switch status, party totals/statuses, public queues, stale-member counts, missing sessions, versions, ages, readiness, and session binding for up to 500 parties.
+`GET /api/admin/clan-boss-operations` shows kill-switch status, registry totals, page totals/statuses, public queues, stale-member counts, missing sessions, versions, ages, readiness, and session binding through cursor pages of up to 500 parties. The Admin Diagnostics UI exposes first/next navigation and distinguishes page counts from registry totals.
 
 `POST /api/admin/clan-boss-operations` supports one recovery action: versioned disband of a forming, queued, or stuck-starting party. It cannot alter active combat, contribution, currency, rewards, profession XP, sector pressure, or settled history. The Admin Diagnostics Clan Boss tab exposes the same aggregate health and guarded recovery.
 
@@ -152,7 +158,7 @@ Recommended staged rollout:
 - Readiness, status, contribution, and boss state use text in addition to color. Connection uses both text/labels and a symbol.
 - Reduced-motion preference disables operation/activity transitions. Combat audio remains governed by the existing mute/audio controls.
 
-Static responsive and accessibility contracts are automated. An authenticated browser fixture was not available for a trustworthy screenshot matrix of the live lobby/operation states, so this report does not claim manual proof at 360×640 through ultrawide or every requested zoom level.
+Static responsive and accessibility contracts are automated. The real built-client Solo-PvE matrix covers compact portrait through desktop, including the corrected 375×667 short-phone action row. An authenticated browser fixture is still not available for a trustworthy screenshot matrix of every live operation lobby state, so this report does not claim every requested zoom level.
 
 ## 10. Verification evidence
 
@@ -160,24 +166,25 @@ Static responsive and accessibility contracts are automated. An authenticated br
 
 | Gate | Exact result |
 | --- | --- |
-| Clean full root test suite after implementation | 4,986 passed, 0 failed across 752 suites. |
-| Focused party/contribution/profession/sector/activity contracts | 54 passed, 0 failed before the final client drain; all contracts were also included in the final 4,986-test pass. |
+| Broad root discovery | The completed run passed 4,946 tests and surfaced 15 failures: four stale source-wiring guards were corrected and pass in the 40/40 guard rerun; the other 11 were client worker-load failures under the Windows-locked partial `node_modules`, and those exact files pass 46/46 in the clean client worktree. A single-worktree all-green rerun is therefore not claimed. |
+| Final focused cross-cutting contracts | 56 passed, 0 failed across party pagination/reconciliation/index safety, PvE guard/mastery wiring, authored encounter configuration, and deterministic balance ratchets. |
 | Save-version focused coverage | 14 passed, 0 failed. |
-| Clean client ESLint | Passed. |
-| Clean client production build | Passed. |
+| Clan Boss real-HTTP operation certification | Passed 110/110 against the real Express server and in-memory QA store: 1/2/4 members, ready conflicts/retries, every-member reconnect, real Tower actions, duplicate starts, concurrent settle, and terminal index release. |
+| Clan Boss deterministic balance audit | Passed across 12 seeds per boss and 1/2/4-player parties. Solo parties removed 65.2–77.7% average HP; full parties cleared every boss in 7.5–9.1 average rounds; two-player clear rates were 92–100%. This is offline balance evidence, not human-duration evidence. |
+| Clean client ESLint / production build | Passed in the isolated installed worktree after every final TSX/CSS change. The main worktree's dependency refresh hit a Windows `EPERM` lock on the native Rolldown binding, so no destructive retry was attempted. |
 | Server TypeScript build | Passed. |
-| Distribution verification | Passed: server 95.9 KB, client 284.8 MB, no authoring sources. |
-| Client-size ratchet | Passed at 7,241,865 budgeted bytes against the unchanged 7,245,000-byte threshold; initial graph 1.37 MB raw / 363.3 KB gzip. The optional CI Sentry environment could not be injected under the desktop command policy, so CI remains the instrumented authority. |
+| Distribution verification | The server build passed in the main worktree and the final client build passed in the isolated worktree. The earlier combined distribution verification passed, but it was not re-claimed after the main client dependency lock. |
+| Client-size ratchet | Passed at 7,243,458 budgeted bytes against the unchanged 7,245,000-byte threshold with a dummy Sentry DSN enabled; initial graph 1.37 MB raw / 363.3 KB gzip. This is only 1,542 bytes of raw-budget headroom, so the next feature must drain or split product code rather than raise the ratchet. |
 | Release certification | Passed 82/82 against the built Express server and isolated in-memory backend. |
 | Deployment / rollback | Both passed; one Railway replica, `node dist/server.js`, `/health`, and no destructive rollback statements. |
 | Mission eligibility / release assets | Passed; 65 achievement references, 165 badge PNGs, and 21 Pet Home WebPs verified. |
-| Tooling handoffs | Passed after making generated JSON/CSV line endings deterministic on Windows. |
+| Tooling handoffs | Passed after regenerating the design-token artifact for the new 479px boundary; the economy artifacts remained byte-identical. |
 | Root / client production dependency audits | Both passed with 0 vulnerabilities. |
 | `test:e2e` | 86 passed, 75 project-filtered/skipped, 0 failed across Chromium, Firefox, WebKit, 360×640, 390×844, and 768×1024 projects. |
 | `test:e2e:visual` | 4 passed, 0 failed. |
 | `test:e2e:visual:size` | Passed: 4 files, 2,634,130 bytes under the 3,145,728-byte cap. |
-| `test:e2e:live` | 8 passed, 1 skipped, 1 failed. Existing mobile Solo-PvE at 375×667 reports the first jutsu center intercepted by `combat-layout has-rookie-tip`; desktop live, registration/relogin, mission recovery, flee, and mobile PvP passed. The operation CSS is scoped and does not alter ordinary combat. |
-| `test:e2e:warfront` | Timed out after 904 seconds with no test summary or assertion output; status is unverified. The local port/process cleaned up. |
+| `test:e2e:live` | 9 passed, 1 intentional project skip, 0 failed in 3.8 minutes. Desktop/mobile combat matrices, registration/relogin, mission recovery, and the real Hospital discharge branch after a failed flee all passed. |
+| `test:e2e:warfront` | 8 passed, 16 expected project/fixture skips, 0 failed in 2.7 minutes. All four DPR/alignment projects passed through a real demand-rendered R3F geometry seam; the full scene's functional and context-loss coverage remained active. |
 
 ### Code and contract evidence
 
@@ -201,12 +208,12 @@ The repository's four stable visual baselines remain in `shinobij.client/e2e-vis
 | New-player direction | Server activity tests cover onboarding priority and blockers; the preview journey and live registration/relogin passed. Existing Academy remains unchanged. |
 | Midgame direction | Activity tests cover level 35 and explicit solo/social/economy/long-term choices. |
 | Low-population formation | Party tests cover one-player queue, real counts, and two-minute fallback; client contract forbids presenting offline players as AI. |
-| Full cooperative operation | Start/settle code binds the server party to N-actor Tower and role-inclusive settlement; clean full suite passed. A multi-browser manual playthrough remains staging work. |
-| Reconnect | Active party lookup, heartbeats, pending-run discovery, rejoin UI, and stale-leader recovery are implemented and structurally tested. A forced-network browser scenario remains staging work. |
-| Lost settlement response | Existing run banking plus start/party/profession/sector receipts are retry-safe; duplicate banking tests pass. No packet-drop browser fixture was added. |
-| World consequence | Sector tests prove canonical metadata, active-contribution requirement, per-run cap, receipt replay, and no territory mutation. |
+| Full cooperative operation | The real Express HTTP certification creates, readies, starts, reconnects, and settles 1-, 2-, and 4-player parties against the actual Tower action route. A multi-browser human playthrough remains staging work. |
+| Reconnect | The HTTP certification refreshes every accepted member, rediscovers the same active run, and proves that a lost ready response replays without duplicating state. Deliberate packet loss against staging remains outstanding. |
+| Lost settlement response | Real HTTP settle retries and concurrent settles bank once; start, party, profession, and sector projections remain receipt-protected. External packet shaping was not used. |
+| World consequence | Sector tests prove canonical metadata, active-contribution requirement, per-run cap, one-time 75/50/25/0 herald milestones, receipt replay, and no territory mutation. |
 | Economy loop | Existing hunt/Crafter/consumable path is surfaced; profession XP and modern reward thresholds are tested. |
-| Mobile | Responsive source contracts plus the broad compact/mobile/tablet preview matrix pass. The live suite separately exposed an existing 375×667 Solo-PvE jutsu hit-target defect; operation-specific authenticated screenshots and manual zoom checks remain unverified. |
+| Mobile | Responsive contracts and the built-client combat matrix pass across desktop/mobile projects; the 375×667 jutsu hit-target defect is fixed and visually inspected. Operation-specific authenticated screenshots and every manual zoom state remain unverified. |
 | Administration | Full-admin route and client guard require reason, confirmation, version, safe status, lock, and audit. No credentialed browser smoke was performed. |
 
 ## 12. Before/after scorecard
@@ -227,7 +234,7 @@ Scores use a conservative 1–5 evidence scale, where 5 means coherent, operatio
 | Economy | 3 | 4 | Existing hunt → Crafter → consumable → operation loop is explained and authoritative. |
 | Professions | 2 | 4 | Existing profession identity gains bounded role-aware operation XP. |
 | Low-population viability | 2 | 4 | 1–4 scale, truthful counts, two-minute fallback, no fabricated actors. |
-| Mobile UX | 3 | 3 | Responsive/touch contracts implemented; full manual viewport matrix is still outstanding. |
+| Mobile UX | 3 | 4 | Responsive/touch contracts plus the built-client compact/mobile/tablet combat matrix pass; exhaustive manual zoom remains staging work. |
 | Accessibility | 3 | 4 | Textual states, semantics, focus authority, touch targets, reflow, and reduced motion. |
 | Reliability | 3 | 4 | Version locks, receipts, fail-closed settlement, TTLs, reconnect, and stale-save defense. |
 | Live operations | 3 | 4 | Aggregate diagnostics, kill switches, bounded recovery, audit, and rollout matrix. |
@@ -237,24 +244,19 @@ Scores use a conservative 1–5 evidence scale, where 5 means coherent, operatio
 
 1. Contribution records immediate authoritative state deltas around each accepted human action. Damage or support caused later by environmental ticks/AI continuation is not always attributable to the originating player. Interrupts, revives, and add-control are not separate score axes yet.
 2. The four retained authored bosses provide enrage, adds, regeneration, and bulwark mechanics, but this pass did not build a new multi-phase objective encounter. Expected 8–15 minute duration was not measured with live 1-, 2-, and 4-player staging groups.
-3. The operation uses HTTP/KV polling and the existing Tower action protocol. The existing Socket.IO load harness was not extended because this party flow does not use Socket.IO. No production load test was run.
-4. Party cleanup primarily relies on the two-hour KV TTL plus index cleanup on observed invalid state. There is no separate scheduled party sweeper.
-5. Admin enumeration is intentionally capped at 500 live party keys; larger scale would need indexed pagination before raising the one-replica scaling boundary.
-6. Sector pressure is contextual and weekly only. It does not yet change missions, hunts, profession contracts, village projects, services, or NPC reactions.
-7. Village purpose gains shared world context but no direct village contribution ledger in this slice. Clan purpose received the complete connection.
-8. Weekly personal rewards are still distributed through the existing weekly Clan Boss authority, not immediately by each operation result. This avoids a new faucet but makes the reward timing less immediate.
-9. Operation screenshots, multi-client reconnect, packet-loss settlement, every requested zoom state, live admin credentials, and a disposable-staging load run remain unverified. The general preview matrix passed, but the live gate has one existing 375×667 Solo-PvE hit-target failure and the Warfront DPR gate timed out. These outcomes prevent describing the whole product as fully production-certified.
+3. The operation uses HTTP/KV polling and the existing Tower action protocol. Hermetic HTTP concurrency/reconnect certification passes, but no disposable-staging Postgres, cross-replica, packet-shaping, or production load test was run.
+4. Sector pressure now produces one-time village-chat Herald reactions, but it still does not alter missions, hunts, profession contracts, village projects, services, ownership, or ranked power. Any deeper consequence needs a separate balance/economy contract.
+5. Village purpose gains shared world reaction but no direct village contribution or reward ledger in this slice. Clan purpose received the complete progression connection.
+6. Weekly personal Ryo and Fate Shards intentionally remain in the existing once-only weekly settlement rather than each operation result. The UI now states this timing explicitly; changing it would create a new payout cadence and needs an economy decision.
+7. Operation-specific authenticated screenshots, every requested zoom state, live admin credentials, real human 8–15 minute duration, and a disposable-staging run remain unverified. The hermetic protocol, general visual, live-combat, and Warfront gates do not replace those external checks.
 
 ## 14. Deferred backlog, ordered by player value and risk
 
-1. **Deterministic multi-client staging certification** — add authenticated fixtures for 1/2/4-player ready/start/refresh/settle/lost-response flows, then capture the activity/lobby/entry/result/admin viewport matrix. Highest release-confidence value, low product risk.
-2. **Operation-specific hermetic load/reconnect harness** — drive the HTTP party and Tower protocols through ramp, queue, readiness, forced reconnect, settle, and TTL cleanup; define evidence-based single-replica triggers. High reliability value, medium engineering risk.
-3. **Deeper sector consequence contract** — let bounded weekly pressure influence a rotating mission/hunt/profession contract or village project without ownership power or essential lockout. High world-cohesion value, medium economy/balance risk.
-4. **Contribution attribution v2** — carry source ownership through delayed statuses, adds, prevented damage, interrupts, and revives; keep caps and role-neutral thresholds. Medium player-fairness value, medium combat risk.
-5. **Featured-window scheduling and population forecast** — concentrate the small beta population without creating another queue or faking estimates. Medium social value, low-to-medium operations risk.
-6. **Party lifecycle index/sweeper** — add a bounded party registry and hermetic cleanup/reconciliation job before population makes key scans material. Medium reliability value, low risk.
-7. **Village reaction layer** — news/herald/project acknowledgment for sector pressure and clan clears, with no new reward ledger. Medium world-believability value, low economy risk.
-8. **Additional authored operation phases** — only after contribution and staging telemetry prove the base loop; teach one mechanic at a time. Medium content value, high balance/QA cost.
+1. **Disposable-staging certification** — run the proven 1/2/4-player protocol against Postgres and cross-replica conditions with packet shaping, then capture authenticated lobby/entry/result/admin viewport evidence and measure human 8–15 minute duration. Highest release-confidence value, low product risk.
+2. **Deeper sector consequence contract** — let bounded weekly pressure influence a rotating mission/hunt/profession contract or village project without ownership power or essential lockout. High world-cohesion value, medium economy/balance risk.
+3. **Contribution attribution v2** — carry source ownership through delayed statuses, adds, prevented damage, interrupts, and revives; keep caps and role-neutral thresholds. Medium player-fairness value, medium combat risk.
+4. **Featured-window scheduling and population forecast** — concentrate the small beta population without creating another queue or faking estimates. Medium social value, low-to-medium operations risk.
+5. **Additional authored operation phases** — only after contribution and staging telemetry prove the base loop; teach one mechanic at a time. Medium content value, high balance/QA cost.
 
 ## 15. Intentional non-changes
 
