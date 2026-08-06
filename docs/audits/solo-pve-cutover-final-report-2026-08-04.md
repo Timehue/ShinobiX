@@ -23,7 +23,7 @@ containing this report is supplied by `git rev-parse HEAD` in the Codex handoff.
 A Git commit cannot embed its own content-derived object ID in a tracked file,
 so the handoff SHA, not the comparison SHA above, is the final branch tip.
 
-## 3. Reference TheNinjaRPG SHA
+## 3. Third-party shinobi RPG reference SHA
 
 `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`, fetched from the reference
 repository's `origin/main` immediately before the comparison. The review used
@@ -323,7 +323,7 @@ than silently rewritten as current. Dead Weekly Boss client-damage flag text and
 code were removed. Live GitHub issue reconciliation correctly keeps #8, #12,
 and #13 open while noting their local implementation pending review/merge.
 
-## 27. Updated comparison against TheNinjaRPG
+## 27. Updated comparison against the third-party reference
 
 `docs/audits/post-cutover-gap-comparison-2026-08-04.md` compares capabilities at
 the implementation SHA without copying the reference. ShinobiX now has an

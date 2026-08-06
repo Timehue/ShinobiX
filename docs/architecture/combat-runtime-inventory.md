@@ -1,7 +1,7 @@
 # Combat Runtime Inventory
 
 Baseline: ShinobiX `b815be4fe0088735df444fd7a1464c5e0c3bfa48` on 2026-08-04.
-Reference only: TheNinjaRPG `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`.
+Reference only: a third-party shinobi RPG at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`.
 
 This is the executable-truth matrix for the solo-PvE cutover. The companion
 machine inventory lives in `scripts/combat-runtime-inventory.mjs`; its test

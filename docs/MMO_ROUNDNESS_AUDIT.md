@@ -4,7 +4,7 @@ Audit date: 2026-08-05
 
 Product repository baseline: `0960a192cfc383bd05a6c6d004c88b12b2754384`
 
-Behavioral reference: `theninjarpg/theninjarpg` at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869` (read-only; no copied code, prose, assets, or schemas)
+Behavioral reference: a third-party shinobi RPG at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869` (read-only; no copied code, prose, assets, or schemas)
 
 ## Executive finding
 
