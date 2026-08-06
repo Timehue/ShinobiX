@@ -56,12 +56,22 @@ describe('war-state: normalize', () => {
 
     it('fills any missing home sectors and ignores foreign/unknown sectors', () => {
         const r = normalizeVillageWarRecord('Ashen Leaf Village', {
-            sectors: { '9': { winCondition: 'pet', terrain: 'volcano', controlHp: 300 }, '99': { winCondition: 'card' } } as never,
+            sectors: { '9': { winCondition: 'pet', terrain: 'volcano', controlHp: 60 }, '99': { winCondition: 'card' } } as never,
         });
         assert.equal(Object.keys(r.sectors).length, 8);        // all home sectors present
-        assert.equal(r.sectors['9'].controlHp, 300);           // provided value kept
+        assert.equal(r.sectors['9'].controlHp, 60);            // provided value kept
         assert.equal(r.sectors['10'].controlHp, SECTOR_CONTROL_HP_MAX); // missing → default
         assert.equal(r.sectors['99'], undefined);              // foreign sector dropped
+    });
+
+    it('migrates a stored Control HP written under the old, much larger bar', () => {
+        // Sectors persisted before the 2026-08-06 rescale carry values in the
+        // thousands. They must clamp down to the current bar rather than leaving a
+        // sector that needs hundreds of wins to take.
+        const r = normalizeVillageWarRecord('Ashen Leaf Village', {
+            sectors: { '9': { winCondition: 'combat', terrain: 'volcano', controlHp: 2000 } } as never,
+        });
+        assert.equal(r.sectors['9'].controlHp, SECTOR_CONTROL_HP_MAX);
     });
 
     it('bad win-condition / terrain fall back to safe defaults', () => {

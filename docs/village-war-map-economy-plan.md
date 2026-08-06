@@ -927,10 +927,26 @@ A sector war isn't a single battle — each sector has its own **Control HP** ba
 defensive health), and the attacker grinds it down through repeated **win‑condition
 battles** until it breaks and flips. Sized to be **short** vs the village war's 5,000 HP:
 
-- **Control HP default 600** per sector (tunable; well under the war‑ground's 1,000).
-- A won battle of the sector's type deals **~150 HP** to it → **~4 wins to flip** (scale by
-  margin/level if desired). A **defender win holds the line** — no loss, plus a small
-  **+50 regen** so an active defense outlasts a half‑hearted siege.
+- **Control HP default 100** per sector (`SECTOR_CONTROL_HP_MAX`, tunable; Watchtower
+  raises it). *Updated 2026‑08‑06 — see the note below.*
+- A won battle of the sector's type deals a **role‑scaled swing**, not a flat chunk:
+  `winner.win + loser.loss` from the rank ladder (`api/_war-role.ts`, mirroring the
+  village‑war table — Kage 30/−50, Elder 20/−20, ANBU 15/−0, villager 5/−0), boosted by
+  the attacker's War Academy. A **defender win holds the line** — no loss, plus a regen of
+  **half the swing** so an active defense outlasts a half‑hearted siege.
+- **No single fight may move more than 20%** of the bar
+  (`SECTOR_CONTROL_MAX_SWING_FRACTION`), so a siege is always at least **5 fights**.
+- Resulting cost to take one sector: **20 wins** for rank‑and‑file (~28 fights at a
+  realistic 80% win rate), **7** for ANBU, **5** where leadership fights. Rank matters
+  enormously; nobody flips a sector in one duel.
+
+> **Tuning note (2026‑08‑06).** The original flat model above (600 HP, ~150/win, ~4 wins)
+> was replaced by the role ladder, but the bar was left at 2,000 — so a villager beating a
+> villager swung 5 and a sector cost **400 straight wins** (~550 at an 80% win rate), and a
+> full‑tier mercenary band moved it 1.25%. The bar was rescaled to 100 and the per‑fight
+> cap added. Sessions and record cells persisted under the old bar clamp down on read
+> (`normalizeSectorWarSession` / `normalizeVillageWarRecord`), so live sieges migrate
+> rather than stranding.
 - At **0 HP the sector flips to the attacker and resets to full** under the new owner (it
   must then be defended afresh). **Lose the sector war and the sector is the winner's and
   stays the winner's** — captures persist (owner ruling, §17.1).
