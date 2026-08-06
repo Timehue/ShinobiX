@@ -44,7 +44,7 @@ export type ClanBossStartResult =
     | { runId: string; session: TowerSession; replayed?: boolean; boss?: { id: string; name: string; icon: string } }
     | { error: string; status?: number };
 
-export async function startClanBossAssault(hostName: string, partyId: string, expectedVersion: number, requestId: string, hostLoadout?: TowerHostLoadout): Promise<ClanBossStartResult> {
+export async function startClanBossAssault(hostName: string, partyId: string | undefined, expectedVersion: number | undefined, requestId: string, hostLoadout?: TowerHostLoadout): Promise<ClanBossStartResult> {
     try {
         const r = await fetch("/api/clan-boss/assault-start", {
             method: "POST", headers: { "Content-Type": "application/json" },
@@ -59,6 +59,7 @@ export async function startClanBossAssault(hostName: string, partyId: string, ex
 export async function fetchClanBossParty(playerName: string): Promise<ClanBossPartyEnvelope | null> {
     try {
         const response = await fetch(`/api/clan-boss/party?player=${encodeURIComponent(playerName)}`);
+        if (response.status === 404) return { ok: false, errorCode: "parties-disabled", serverNow: Date.now(), party: null, invitations: [], publicParties: [], population: { publicParties: 0, openSeats: 0 } };
         if (!response.ok) return null;
         return await response.json() as ClanBossPartyEnvelope;
     } catch { return null; }

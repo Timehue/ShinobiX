@@ -86,10 +86,10 @@ function certificationCharacter(name: string, clan: string): Json {
     };
 }
 
-async function registerPlayers(count: number, clan: string, kv: Json): Promise<Player[]> {
+async function registerPlayers(count: number, clan: string, kv: Json, prefix = `op${count}p`): Promise<Player[]> {
     const players: Player[] = [];
     for (let index = 0; index < count; index += 1) {
-        const name = `op${count}p${index}${SUFFIX}`.slice(0, 20);
+        const name = `${prefix}${index}${SUFFIX}`.slice(0, 20);
         const password = `Operation-${index}-${SUFFIX}A1!`;
         const registered = await http('/api/player-auth', { method: 'POST', body: { action: 'register', name, password } });
         if (!check(registered.status === 200 && typeof registered.body.token === 'string', `${name} registers with token auth`)) continue;
@@ -187,17 +187,25 @@ async function runScenario(size: 1 | 2 | 4, kv: Json): Promise<void> {
         const acted = await http('/api/towers/action', {
             method: 'POST', token: owner.token, body: { runId, playerName: owner.name, type: 'wait' },
         });
-        if (!check(acted.status === 200 && acted.body.applied === true, `${owner.name} submits authoritative action ${actions + 1}`)) return;
+        if (acted.status !== 200 || acted.body.applied !== true) {
+            check(false, `${owner.name} submits authoritative action ${actions + 1}`);
+            return;
+        }
         session = acted.body.session;
         actions += 1;
         if (actions % 2 === 0 && session.status === 'active') {
             const reconnecting = players[reconnects % players.length]!;
             const refreshed = await http(`/api/towers/state?runId=${encodeURIComponent(runId)}&playerName=${encodeURIComponent(reconnecting.name)}`, { token: reconnecting.token });
-            if (!check(refreshed.status === 200 && refreshed.body.session?.runId === runId, `${reconnecting.name} refreshes the shared run`)) return;
+            if (refreshed.status !== 200 || refreshed.body.session?.runId !== runId) {
+                check(false, `${reconnecting.name} refreshes the shared run`);
+                return;
+            }
             session = refreshed.body.session;
             reconnects += 1;
         }
     }
+    check(actions > 0, `${actions} authoritative human action(s) are accepted`);
+    check(reconnects > 0, `${reconnects} active-run refresh(es) converge`);
     if (!check(session?.status === 'done', `real Tower engine reaches a terminal state after ${actions} human actions`)) return;
 
     const settlements = await Promise.all(players.slice(0, Math.min(2, players.length)).map((player) =>
@@ -207,6 +215,60 @@ async function runScenario(size: 1 | 2 | 4, kv: Json): Promise<void> {
 
     const after = await partyGet(players[0]!);
     check(after.status === 200 && after.body.party === null, 'terminal settlement releases the player→party index');
+}
+
+async function runSoloCompatibility(kv: Json): Promise<void> {
+    scenario = 'party-disabled solo compatibility';
+    const previous = process.env.DISABLE_CLAN_BOSS_PARTIES;
+    process.env.DISABLE_CLAN_BOSS_PARTIES = '1';
+    try {
+        const clan = `Solo Compatibility ${SUFFIX}`;
+        const players = await registerPlayers(1, clan, kv, 'opsolo');
+        const player = players[0];
+        if (!check(Boolean(player), 'solo player is seeded')) return;
+
+        const disabledParty = await partyGet(player!);
+        check(disabledParty.status === 404, 'party endpoint is hidden by the party-only kill switch');
+        const before = await http(`/api/clan-boss/get?player=${encodeURIComponent(player!.name)}`, { token: player!.token });
+        const attemptsBefore = Number(before.body.myClan?.myAttemptsLeft);
+        if (!check(before.status === 200 && Number.isFinite(attemptsBefore), 'weekly Clan Boss remains readable while parties are disabled')) return;
+
+        const startBody = { hostName: player!.name, requestId: requestId('solo-start'), hostLoadout: {} };
+        const starts = await Promise.all([
+            http('/api/clan-boss/assault-start', { method: 'POST', token: player!.token, body: startBody }),
+            http('/api/clan-boss/assault-start', { method: 'POST', token: player!.token, body: startBody }),
+        ]);
+        if (!check(starts.every((result) => result.status === 200), 'duplicate solo starts both resolve successfully')) return;
+        const runId = String(starts[0]!.body.runId ?? '');
+        if (!check(runId.startsWith('cboss-') && starts[1]!.body.runId === runId, 'solo retry reserves exactly one run')) return;
+        let session = starts[0]!.body.session as Json;
+        check(session.actors.filter((actor: Json) => actor.ownerSlug).length === 1, 'solo run seals exactly one human actor');
+
+        const afterStart = await http(`/api/clan-boss/get?player=${encodeURIComponent(player!.name)}`, { token: player!.token });
+        check(Number(afterStart.body.myClan?.myAttemptsLeft) === attemptsBefore - 1, 'solo retry consumes exactly one weekly attempt');
+        let actions = 0;
+        while (session?.status === 'active' && actions < 180) {
+            const acted = await http('/api/towers/action', {
+                method: 'POST', token: player!.token, body: { runId, playerName: player!.name, type: 'wait' },
+            });
+            if (acted.status !== 200 || acted.body.applied !== true) {
+                check(false, `solo player submits authoritative action ${actions + 1}`);
+                return;
+            }
+            session = acted.body.session;
+            actions += 1;
+        }
+        check(actions > 0, `${actions} authoritative solo action(s) are accepted`);
+        if (!check(session?.status === 'done', `solo Tower run reaches a terminal state after ${actions} human actions`)) return;
+
+        const settled = await http('/api/clan-boss/assault-settle', { method: 'POST', token: player!.token, body: { runId, playerName: player!.name } });
+        const replayed = await http('/api/clan-boss/assault-settle', { method: 'POST', token: player!.token, body: { runId, playerName: player!.name } });
+        check(settled.status === 200 && settled.body.ok === true, 'solo result settles successfully');
+        check(replayed.status === 200 && replayed.body.alreadySettled === true, 'solo settlement retry is idempotent');
+    } finally {
+        if (previous === undefined) delete process.env.DISABLE_CLAN_BOSS_PARTIES;
+        else process.env.DISABLE_CLAN_BOSS_PARTIES = previous;
+    }
 }
 
 async function main(): Promise<void> {
@@ -225,6 +287,7 @@ async function main(): Promise<void> {
             weekId, bossId: 'oni-warlord', spawnedAt: now - 1_000, endsAt: now + 24 * 60 * 60 * 1000,
         });
         for (const size of [1, 2, 4] as const) await runScenario(size, kv);
+        await runSoloCompatibility(kv);
     } catch (error) {
         check(false, error instanceof Error ? error.stack ?? error.message : String(error));
     } finally {
