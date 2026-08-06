@@ -1,26 +1,70 @@
-# Handoff — Generic AI-Fight Migration + PvE difficulty authority
+# ⛔ SUPERSEDED — Generic AI-Fight Migration (historical)
 
-Rewritten 2026-08-03 after pushing steps 3d, 4 and the PvE-defeat pass to `main`.
-Updated later the same day with step 5 subsystems 1–2. Read this first.
+> **This migration is COMPLETE. Do not plan from this document.**
+>
+> It finished on `main` via the **`codex/solo-pve-cutover`** workstream
+> (`b815be4fe`..`4b53964ab`, 2026-08-04/06), which generalised the whole thing
+> into an `api/solo-pve/` runtime and cut over **every** mode this file still
+> describes as pending.
+>
+> **Live documents, in this order:**
+> - `docs/SERVER_COMBAT_MIGRATION_PLAN.md` — the authority boundary: which modes
+>   are `solo-pve` versus Tower / PvP / Pet.
+> - `docs/audits/solo-pve-cutover-final-report-2026-08-04.md` — per-mode evidence.
+> - `docs/architecture/combat-runtime-inventory.md` and
+>   `combat-runtime-boundaries.md` — route ownership and recovery.
+>
+> What is still worth reading HERE: the traps below. They are lessons, not a
+> work queue.
 
-## Where main is (2026-08-03, latest pass)
+## ⚠ Read this before trusting ANY handoff, including this one
 
-`main` is **aa42320ad**. The five commits of this pass, oldest first:
+This file cost a later session a full rebuild of work that was already live.
+It said, in bold, that "the only unfinished thing is the Endless client half" —
+and `origin/main` still pointed at this document's own commit (`74e2177e6`), so
+it read as current. Main was **71 commits ahead on another branch** and the
+feature had shipped. That session rebuilt it from scratch, gates and all, before
+noticing.
 
-| SHA | What | State |
-|---|---|---|
-| `ede2f1c5c` | Step 5 subsystem 1 — Academy spar fought on the server | ✅ CI+CodeQL green, DEPLOYED |
-| `632b6da19` | Tower reward channels pay CATALOG floors only (live leak) | ✅ green, DEPLOYED |
-| `c624e7a5d` | Unblock red main — `brace-expansion` advisory | ✅ green, DEPLOYED |
-| `aa0d19a88` | Step 5 subsystem 2 **server half** — sealed Endless waves | ✅ green, DEPLOYED, INERT |
-| `aa42320ad` | Certify the spar by actually playing it | CI in flight at handoff time |
+**A handoff SHA matching `origin/main` proves the DOCUMENT is unchanged. It
+proves nothing about the WORK.** Run `git fetch origin main && git log --oneline
+<handoff-sha>..origin/main` and read it before acting on any "next step".
 
-Production was last seen serving `aa0d19a88`. Gates on each: `npm test`
-4740/4740, both tscs, client lint 0, root build (sizecheck PASS), and
-`certify:release` — now **47/47**, up from 28.
+## Where things actually landed
 
-**Start here:** the only unfinished thing is the Endless client half. See
-"Next: subsystem 2's client half" below — it has the exact call sites.
+The authority boundary now (from `SERVER_COMBAT_MIGRATION_PLAN.md`):
+
+| Runtime | Owns |
+|---|---|
+| `api/solo-pve/*` | every one-human/one-AI shinobi fight: catalog + published AI, hunts, ambushes, guards, wanderers, all built-in combat missions, **Academy sparring**, story battles, normal **Endless**, Hollow Gate shinobi combat, **Weekly Boss**, **ANBU** |
+| `api/towers/*` | genuine party / N-actor encounters only: Battle Towers, Endless **Spire**, Clan Boss |
+| `api/pvp/*` | player-versus-player |
+| Pet / Card | independent runtimes |
+
+Mode bindings seal owner, mode identity, derived enemy, reward fingerprint, Solo
+session id, expiry and settlement state — so each mode's economy stays separate
+from the combat runtime, and Solo / Tower / PvP / Pet evidence cannot
+cross-settle.
+
+The pieces this handoff's own pass contributed all survive inside that runtime,
+adapted rather than replaced: `api/story/_academy-spar.ts` (constants,
+eligibility, binding), `validateSealedStoryRun`, the Endless wave modules
+(`_wave-opponent.ts`, `_wave-session.ts`, `wave-start.ts`), and the
+`isCatalogFloorRun` guard in `api/towers/_tower-store.ts`.
+
+⚠ **Endless shipped on a DIFFERENT design than the "next steps" below sketch.**
+No launch bus, no host component. `use-endless-tower-actions` holds an
+`EndlessServerFight` and calls `startEndlessWave`; a lazily-loaded
+`screens/EndlessTowerFight.tsx` renders it; the settle is `action:'settle'`,
+which reports a **loss** as well as a win; and the local Arena fallback was
+removed outright. Regen-versus-attrition is handled in `screen-guards.ts` via
+`case "endlessTower": return s.endlessBattleActive`.
+
+⚠ **The local fallbacks are gone, by design.** `applyAcademySparSettlement` now
+requires the sealed opponent id exactly and no longer accepts
+`temp-academy-spar-*`; per the plan, "no rewarding path falls back to a locally
+resolved shinobi fight". The `playLocally` degrade described further down no
+longer exists — do not reintroduce it expecting the old contract.
 
 ### Three traps this pass, worth reading before you touch anything
 
@@ -182,7 +226,11 @@ balance change. Very likely why some server PvE reads as limp.
    is bounded throughput — no worse than today's fake-a-win.
 4. Scope is: finish the AI-fight migration.
 
-## Next, in order
+## ~~Next, in order~~ — ALL DONE (historical)
+
+⛔ Every item below shipped, and the ones that were still open when this was
+written were finished by the `codex/solo-pve-cutover` workstream. Nothing here is
+a task. See "Where things actually landed" at the top.
 
 ### ~~A. Wire the four AI-behaviour helpers~~ — DONE
 
@@ -597,11 +645,17 @@ generic AI fight in every way that matters there.
 which had been duplicated across the build-root boundary for a long time with
 nothing holding the copies together.
 
-#### ▶ NEXT: subsystem 2's client half — the exact call sites
+#### ✅ DONE (not next) — subsystem 2's client half
 
-Nothing else in step 5 is started. This is a refactor of a LIVE loop, so a
-half-finished state strands a run mid-tower. Do it in one pass, with the local
-fallback intact throughout.
+⛔ **This section is the one that caused the duplicate rebuild described at the
+top of this file.** Endless shipped on `codex/solo-pve-cutover` (`b15c97277`),
+on a different design: no bus, no host, `EndlessServerFight` +
+`screens/EndlessTowerFight.tsx`, `action:'settle'` reporting losses too, and no
+local fallback. The call sites below are STALE — both `App.tsx:4431` and
+`use-endless-tower-actions.ts:43` have since changed shape.
+
+Kept only as a record of what the plan was before the cutover generalised it.
+The line-budget and resume-path warnings still describe real constraints.
 
 - **`shinobij.client/src/App.tsx:4431`** — `useEndlessTowerActions({...})`.
   `prepareOpponent: pickRandomEndlessAi` (App.tsx ~5172) picks + scales locally;
