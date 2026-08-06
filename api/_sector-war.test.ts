@@ -14,9 +14,10 @@ import {
     normalizeSectorWarBattleToken,
     canDeclareSectorWar,
     applyContestBattleByWinner,
+    cappedSectorSwing,
     type SectorWarSession,
 } from './_sector-war.js';
-import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_HP_DEFENDER_REGEN } from './_war-state.js';
+import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_MAX_SWING_FRACTION, SECTOR_CONTROL_HP_ABSOLUTE_MAX } from './_war-state.js';
 
 const NOW = Date.UTC(2026, 5, 29, 4, 0, 0);
 
@@ -39,19 +40,32 @@ describe('sector-war: id + session shape', () => {
         assert.equal(s.sector, 8);
     });
     it('honors a Watchtower-boosted Control HP cap', () => {
-        const s = newSectorWarSession({ sector: 8, attackerVillage: 'A Village', defenderVillage: 'B Village', winCondition: 'card', now: NOW, controlHpMax: 690 });
-        assert.equal(s.controlHpMax, 690);
-        assert.equal(s.controlHp, 690);
+        const s = newSectorWarSession({ sector: 8, attackerVillage: 'A Village', defenderVillage: 'B Village', winCondition: 'card', now: NOW, controlHpMax: 115 });
+        assert.equal(s.controlHpMax, 115);
+        assert.equal(s.controlHp, 115);
     });
 });
 
 describe('sector-war: normalize', () => {
     it('clamps Control HP into [0, max] and validates the win-condition', () => {
-        const s = normalizeSectorWarSession({ sector: 8, attackerVillage: 'A', defenderVillage: 'B', winCondition: 'hax' as never, controlHp: 99999, controlHpMax: 600 });
+        const s = normalizeSectorWarSession({ sector: 8, attackerVillage: 'A', defenderVillage: 'B', winCondition: 'hax' as never, controlHp: 99999, controlHpMax: 115 });
         assert.ok(s);
-        assert.equal(s!.controlHp, 600);
+        assert.equal(s!.controlHp, 115);
         assert.equal(s!.winCondition, 'combat');
     });
+    it('migrates an in-flight session written under the old, much larger bar', () => {
+        // A siege opened before the 2026-08-06 rescale stored controlHpMax 2000.
+        // It must clamp to the current absolute ceiling instead of leaving a live
+        // contest that needs hundreds of wins to finish.
+        const s = normalizeSectorWarSession({
+            sector: 8, attackerVillage: 'A', defenderVillage: 'B',
+            winCondition: 'combat', controlHp: 1800, controlHpMax: 2000,
+        } as never);
+        assert.ok(s);
+        assert.ok(s!.controlHpMax <= SECTOR_CONTROL_HP_ABSOLUTE_MAX, 'bar migrated down');
+        assert.ok(s!.controlHp <= s!.controlHpMax, 'current HP stays inside the migrated bar');
+    });
+
     it('rejects a malformed / self-targeting session', () => {
         assert.equal(normalizeSectorWarSession(null as never), null);
         assert.equal(normalizeSectorWarSession({ attackerVillage: 'A', defenderVillage: 'A' } as never), null);
@@ -59,51 +73,129 @@ describe('sector-war: normalize', () => {
     });
 });
 
+// The role-ladder swings the live resolves actually produce (api/_war-role
+// sectorControlSwing = winner.win + loser.loss).
+const SWING_VILLAGER_V_VILLAGER = 5;    // 5 + 0
+const SWING_ANBU_V_VILLAGER = 15;       // 15 + 0
+const SWING_KAGE_V_KAGE = 80;           // 30 + 50 — the top of the ladder
+const CAP = Math.floor(SECTOR_CONTROL_HP_MAX * SECTOR_CONTROL_MAX_SWING_FRACTION);
+
+describe('sector-war: per-fight swing cap', () => {
+    it('leaves an ordinary role swing untouched', () => {
+        assert.equal(cappedSectorSwing(SWING_VILLAGER_V_VILLAGER, SECTOR_CONTROL_HP_MAX), 5);
+        assert.equal(cappedSectorSwing(SWING_ANBU_V_VILLAGER, SECTOR_CONTROL_HP_MAX), 15);
+    });
+
+    it('caps the top of the ladder so one duel can never flip a sector', () => {
+        assert.equal(cappedSectorSwing(SWING_KAGE_V_KAGE, SECTOR_CONTROL_HP_MAX), CAP);
+        assert.ok(CAP < SECTOR_CONTROL_HP_MAX, 'a single fight cannot cover the whole bar');
+    });
+
+    it('scales the cap with the sector bar (Watchtower raises both)', () => {
+        assert.equal(cappedSectorSwing(999, 200), 40);
+        assert.equal(cappedSectorSwing(999, 50), 10);
+    });
+
+    it('never turns a real fight into a no-op, however lopsided', () => {
+        assert.equal(cappedSectorSwing(1, 1), 1);
+        assert.equal(cappedSectorSwing(3, 2), 1);
+        assert.equal(cappedSectorSwing(0, SECTOR_CONTROL_HP_MAX), 0);
+        assert.equal(cappedSectorSwing(-50, SECTOR_CONTROL_HP_MAX), 0);
+    });
+});
+
+describe('sector-war: pacing (the numbers a siege actually costs)', () => {
+    /** Wins needed to flip a full sector at a constant swing, attacker winning every fight. */
+    function winsToFlip(swing: number): number {
+        let s = fresh();
+        for (let i = 1; i <= 500; i++) {
+            const out = applySectorBattleResult(s, true, { now: NOW, swing });
+            s = out.session;
+            if (out.captured) return i;
+        }
+        return Infinity;
+    }
+
+    it('costs rank-and-file a real but achievable siege', () => {
+        const wins = winsToFlip(SWING_VILLAGER_V_VILLAGER);
+        assert.equal(wins, 20);
+        // Guard the regression this tuning fixed: it used to be 400.
+        assert.ok(wins <= 40, `villager siege must stay a session's work, got ${wins}`);
+    });
+
+    it('rewards fielding leadership without trivialising the siege', () => {
+        assert.equal(winsToFlip(SWING_ANBU_V_VILLAGER), 7);
+        const kage = winsToFlip(SWING_KAGE_V_KAGE);
+        assert.equal(kage, 5, 'the cap floors any siege at 5 fights');
+        assert.ok(kage < winsToFlip(SWING_VILLAGER_V_VILLAGER), 'rank must still matter');
+    });
+
+    it('a full mercenary band moves a sector meaningfully', () => {
+        // A 5-merc warlord band fights at villager weight (ROLE_MERC).
+        const band = 5 * SWING_VILLAGER_V_VILLAGER;
+        assert.ok(band / SECTOR_CONTROL_HP_MAX >= 0.2, 'a top-tier hire must be worth its WR');
+    });
+});
+
 describe('sector-war: applySectorBattleResult', () => {
     it('an attacker win chips Control HP by the role-scaled swing', () => {
-        const out = applySectorBattleResult(fresh(), true, { now: NOW, swing: 55 });
-        assert.equal(out.hpDealt, 55);
-        assert.equal(out.session.controlHp, SECTOR_CONTROL_HP_MAX - 55);
+        const out = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
+        assert.equal(out.hpDealt, 15);
+        assert.equal(out.session.controlHp, SECTOR_CONTROL_HP_MAX - 15);
         assert.equal(out.captured, false);
+    });
+
+    it('clamps a huge swing to the per-fight cap before applying it', () => {
+        const out = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_KAGE_V_KAGE });
+        assert.equal(out.hpDealt, CAP);
+        assert.equal(out.session.controlHp, SECTOR_CONTROL_HP_MAX - CAP);
     });
 
     it('flips the sector when Control HP drains to 0', () => {
         let s = fresh();
         let captured = false;
-        // swing 500 → 4 wins drain a full 2000 pool to 0.
-        for (let i = 0; i < 4; i++) {
-            const out = applySectorBattleResult(s, true, { now: NOW, swing: 500 });
+        // Capped swing 20 → 5 wins drain a full 100 pool to 0.
+        for (let i = 0; i < 5; i++) {
+            const out = applySectorBattleResult(s, true, { now: NOW, swing: SWING_KAGE_V_KAGE });
             s = out.session;
             captured = out.captured;
         }
         assert.equal(s.controlHp, 0);
         assert.equal(s.flipped, true);
-        assert.equal(captured, true); // flipped on the 4th
+        assert.equal(captured, true); // flipped on the 5th
     });
 
     it('a defender win HEALS half the swing (capped at max)', () => {
-        // chip 200, then a defender win with swing 80 heals floor(80 * 0.5) = 40.
-        const chipped = applySectorBattleResult(fresh(), true, { now: NOW, swing: 200 }).session;
-        const d1 = applySectorBattleResult(chipped, false, { now: NOW, swing: 80 });
-        assert.equal(d1.hpRegen, 40);
-        assert.equal(d1.session.controlHp, SECTOR_CONTROL_HP_MAX - 200 + 40);
+        // chip twice (30), then a defender win with swing 15 heals floor(15 * 0.5) = 7.
+        let s = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_ANBU_V_VILLAGER }).session;
+        s = applySectorBattleResult(s, true, { now: NOW, swing: SWING_ANBU_V_VILLAGER }).session;
+        const d1 = applySectorBattleResult(s, false, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
+        assert.equal(d1.hpRegen, 7);
+        assert.equal(d1.session.controlHp, SECTOR_CONTROL_HP_MAX - 30 + 7);
         // From full, a defender win cannot exceed the cap.
-        const atMax = applySectorBattleResult(fresh(), false, { now: NOW, swing: 80 });
+        const atMax = applySectorBattleResult(fresh(), false, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
         assert.equal(atMax.session.controlHp, SECTOR_CONTROL_HP_MAX);
         assert.equal(atMax.hpRegen, 0);
     });
 
+    it('a defender win never fully undoes an attacker win (a siege keeps ground)', () => {
+        const chipped = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
+        const healed = applySectorBattleResult(chipped.session, false, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
+        assert.ok(healed.hpRegen < chipped.hpDealt, 'trading wins 1:1 must still favour the attacker');
+    });
+
     it('a player repelling a MERCENARY heals only the merc fraction of the swing', () => {
-        const chipped = applySectorBattleResult(fresh(), true, { now: NOW, swing: 300 }).session;
-        const merc = applySectorBattleResult(chipped, false, { now: NOW, swing: 80, mercBattle: true });
-        assert.equal(merc.hpRegen, Math.floor(80 * MERC_DEFENDER_REGEN_FRACTION)); // 20
-        const normal = applySectorBattleResult(chipped, false, { now: NOW, swing: 80 });
-        assert.equal(normal.hpRegen, Math.floor(80 * 0.5)); // 40 — a real player win heals more
+        let s = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_KAGE_V_KAGE }).session;
+        s = applySectorBattleResult(s, true, { now: NOW, swing: SWING_KAGE_V_KAGE }).session;
+        const merc = applySectorBattleResult(s, false, { now: NOW, swing: SWING_KAGE_V_KAGE, mercBattle: true });
+        assert.equal(merc.hpRegen, Math.floor(CAP * MERC_DEFENDER_REGEN_FRACTION)); // 5
+        const normal = applySectorBattleResult(s, false, { now: NOW, swing: SWING_KAGE_V_KAGE });
+        assert.equal(normal.hpRegen, Math.floor(CAP * 0.5)); // 10 — a real player win heals more
     });
 
     it('an already-flipped session is inert', () => {
         const flipped: SectorWarSession = { ...fresh(), controlHp: 0, flipped: true };
-        const out = applySectorBattleResult(flipped, true, { now: NOW + 1000, swing: 100 });
+        const out = applySectorBattleResult(flipped, true, { now: NOW + 1000, swing: SWING_KAGE_V_KAGE });
         assert.equal(out.captured, false);
         assert.equal(out.hpDealt, 0);
         assert.equal(out.session, flipped); // unchanged reference
@@ -112,15 +204,15 @@ describe('sector-war: applySectorBattleResult', () => {
 
 describe('sector-war: durable applied-battle receipts', () => {
     it('records the Control-HP mutation and battle receipt in one session', () => {
-        const outcome = applySectorBattleResult(fresh(), true, { now: NOW, swing: 55 });
+        const outcome = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
         const recorded = recordSectorWarBattleOutcome(outcome, { battleId: 'pvp-123', attackerWon: true, at: NOW });
-        assert.equal(recorded.session.controlHp, SECTOR_CONTROL_HP_MAX - 55);
-        assert.equal(recorded.receipt.hpDealt, 55);
+        assert.equal(recorded.session.controlHp, SECTOR_CONTROL_HP_MAX - 15);
+        assert.equal(recorded.receipt.hpDealt, 15);
         assert.equal(findSectorWarBattleReceipt(recorded.session, 'pvp-123'), recorded.receipt);
     });
 
     it('returns the original receipt without appending a duplicate', () => {
-        const firstOutcome = applySectorBattleResult(fresh(), true, { now: NOW, swing: 55 });
+        const firstOutcome = applySectorBattleResult(fresh(), true, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
         const first = recordSectorWarBattleOutcome(firstOutcome, { battleId: 'pvp-123', attackerWon: true, at: NOW });
         const replayOutcome = applySectorBattleResult(first.session, true, { now: NOW + 1, swing: 999 });
         const replay = recordSectorWarBattleOutcome(replayOutcome, { battleId: 'pvp-123', attackerWon: true, at: NOW + 1 });
@@ -130,7 +222,7 @@ describe('sector-war: durable applied-battle receipts', () => {
     });
 
     it('normalizes and retains battle receipts for retry recovery', () => {
-        const outcome = applySectorBattleResult(fresh(), false, { now: NOW, swing: 80 });
+        const outcome = applySectorBattleResult(fresh(), false, { now: NOW, swing: SWING_ANBU_V_VILLAGER });
         const recorded = recordSectorWarBattleOutcome(outcome, { battleId: 'card-123', attackerWon: false, at: NOW });
         const normalized = normalizeSectorWarSession(JSON.parse(JSON.stringify(recorded.session)));
         assert.equal(normalized?.appliedBattles?.[0]?.battleId, 'card-123');
@@ -222,19 +314,20 @@ describe('sector-war: applyContestBattleByWinner (Card by-side mapping)', () => 
         });
     }
     it('p1 (attacker) win chips Control HP by the swing', () => {
-        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, swing: 55 });
+        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, swing: SWING_ANBU_V_VILLAGER });
         assert.ok(out);
-        assert.equal(out!.hpDealt, 55);
-        assert.equal(out!.session.controlHp, SECTOR_CONTROL_HP_MAX - 55);
+        assert.equal(out!.hpDealt, 15);
+        assert.equal(out!.session.controlHp, SECTOR_CONTROL_HP_MAX - 15);
     });
     it('p2 (defender) win heals half the swing (held line)', () => {
-        const chipped = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, swing: 200 })!.session;
-        const out = applyContestBattleByWinner(chipped, 'p2', { now: NOW, swing: 80 });
+        let chipped = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, swing: SWING_ANBU_V_VILLAGER })!.session;
+        chipped = applyContestBattleByWinner(chipped, 'p1', { now: NOW, swing: SWING_ANBU_V_VILLAGER })!.session;
+        const out = applyContestBattleByWinner(chipped, 'p2', { now: NOW, swing: SWING_ANBU_V_VILLAGER });
         assert.ok(out);
-        assert.equal(out!.hpRegen, 40); // floor(80 * 0.5)
-        assert.equal(out!.session.controlHp, SECTOR_CONTROL_HP_MAX - 200 + 40);
+        assert.equal(out!.hpRegen, 7); // floor(15 * 0.5)
+        assert.equal(out!.session.controlHp, SECTOR_CONTROL_HP_MAX - 30 + 7);
     });
     it('a draw leaves Control HP untouched (null outcome)', () => {
-        assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW, swing: 100 }), null);
+        assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW, swing: SWING_KAGE_V_KAGE }), null);
     });
 });
