@@ -940,6 +940,15 @@ battles** until it breaks and flips. Sized to be **short** vs the village war's 
   realistic 80% win rate), **7** for ANBU, **5** where leadership fights. Rank matters
   enormously; nobody flips a sector in one duel.
 
+- **Conquest pacing brakes (2026‑08‑06):** a village may be ATTACKING at most
+  **2 sectors at once** (`MAX_ACTIVE_ATTACK_SIEGES`), and a **failed** siege
+  (idle‑lapsed or called off — not a capture) puts that sector on a **24h
+  re‑siege cooldown** for that attacker (`SECTOR_RESIEGE_COOLDOWN_SEC`; the
+  stamped terminal record's TTL is the clock). Without these, a banked 5,000‑WR
+  pool could open sieges on all 8 enemy home sectors at once and garrison‑grind
+  a village off the map in a single overnight; full conquest is now a campaign
+  of at least 4 sequential waves that the defence can wake up to.
+
 > **Tuning note (2026‑08‑06).** The original flat model above (600 HP, ~150/win, ~4 wins)
 > was replaced by the role ladder, but the bar was left at 2,000 — so a villager beating a
 > villager swung 5 and a sector cost **400 straight wins** (~550 at an 80% win rate), and a
