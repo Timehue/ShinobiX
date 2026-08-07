@@ -9,7 +9,7 @@ Origin: the 2026-06-21 audit (collector-depth theme):
 > "Define a role-counter web for the pet auto-battler: ensure each native
 > role/archetype has a clear counter, surface the matchup in the team-picker, and
 > add a guard test asserting the counter table is cyclic (no dominant role).
-> Counters are why competitive Pokémon stays deep with a fixed roster."
+> Counters are why competitive the leading creature-battler stays deep with a fixed roster."
 
 ## What already exists (don't rebuild)
 

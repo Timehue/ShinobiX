@@ -99,7 +99,7 @@ authoritative leaderboard — then apply it to all four competitive systems. Rig
 now none of them reset or pay out over time, so the ladders ossify and there's
 nothing to climb *toward*. This is the highest retention leverage in the whole
 audit. *(Peers: ranked seasons/tiers/decay/rewards are universal — League,
-Apex, Hero Wars guild seasons, GW2 WvW 2-week seasons, Tacticus 6-wars/season
+Apex, Hero Wars guild seasons, a major MMO WvW 2-week seasons, Tacticus 6-wars/season
 leagues.)*
 
 ### FM-2 — Enemy variety: elite affixes + a bestiary
@@ -110,7 +110,7 @@ additive changes multiply perceived depth everywhere:
   etc.) onto elite/boss encounters, reusing the existing combat-tag system.
 - **A bestiary screen** built off the *already-saved* `defeatedAiIds`, with
   kill-count tiers, lore, and drop info (and optionally a small per-type combat
-  bonus). *(Peers: D3/D4 elite affixes; PoE map modifiers; Terraria/Diablo
+  bonus). *(Peers: D3/D4 elite affixes; a deep action RPG map modifiers; Terraria/a leading action RPG
   Immortal bestiaries.)*
 
 ### FM-3 — Turn on dormant systems
@@ -147,8 +147,8 @@ Instantly makes all 5 elements matter. *Highly balance-sensitive — tune small.
 that *generates* ryo daily), and thin sinks → stockpiling/inflation. Add sink
 verbs: a sell/market tax, a gear-repair or named-forge re-roll cost, achievement/
 prestige cosmetic sinks. Pairs naturally with FM-1 (season cosmetics) and the
-gear-upgrade loop below. *(Peers: AH cuts are among the largest MMO sinks; PoE
-currency-as-crafting; Albion global discount.)*
+gear-upgrade loop below. *(Peers: AH cuts are among the largest MMO sinks; a deep action RPG
+currency-as-crafting; a sandbox MMO global discount.)*
 
 ### Structural decision to make early
 **Territory is clan-scoped; war is village-scoped — they barely interact.** The
@@ -226,7 +226,7 @@ upgrades" are actually **per-character** buffs unrelated to the village; village
 differ only in lore prose; no alliances/diplomacy; map control gives only a flat
 personal daily currency drip.
 
-- **High** — Held territory buffs the whole village (DAoC Relic model): village
+- **High** — Held territory buffs the whole village (a classic MMO Relic model): village
   sector count grants a shared passive, surfaced on the village screen. Turns map
   control into a strategic stake. *M, ⚠️*
 - **High** — Convert `warSupply` into a real war sink (logistics loop): spend it
@@ -426,13 +426,13 @@ Decide the territory↔village structural question first.
 ## Appendix — peers referenced
 
 Seasons/ladders: League ranked seasons, Apex ranked & decay, Hero Wars/Wild Rift
-guild seasons, GW2 WvW, Tacticus Guild War leagues. Combat depth: NinjaManager &
-Tenno (elemental triangles), Ninpocho (bloodline-as-trained-stat). PvE: Diablo
-3/4 elite affixes, Path of Exile map modifiers, AFK Arena King's Tower, New World
-phased bosses, Terraria/Diablo Immortal bestiaries. Missions/dispatch: Torn Duke
-missions & Jobs, Ninja Saga mission ranks, AFK Arena Bounty/Abyssal dispatch.
+guild seasons, a major MMO WvW, Tacticus Guild War leagues. Combat depth: NinjaManager &
+a live-service shooter (elemental triangles), a sibling shinobi RPG (bloodline-as-trained-stat). PvE: a leading action RPG
+3/4 elite affixes, a deep action RPG map modifiers, a leading idle RPG King's Tower, New World
+phased bosses, Terraria/a leading action RPG Immortal bestiaries. Missions/dispatch: Torn Duke
+missions & Jobs, a rival shinobi browser game's mission ranks, a leading idle RPG Bounty/Abyssal dispatch.
 Pets: Temtem/Coromon (IV/EV & Potential), Cassette Beasts & SMT (fusion),
-Summoners War/Epic Seven (ascension), IdleOn (collection passives). Economy:
-PoE (currency-as-crafting, affixes), Albion (sink design), Diablo/Warframe
-(paragon/prestige). Guild/territory: GW2 guild halls, Travian build trees, DAoC
+a leading gacha RPG/a leading gacha RPG (ascension), IdleOn (collection passives). Economy:
+a deep action RPG (currency-as-crafting, affixes), a sandbox MMO (sink design), a leading action RPG/a live-service shooter
+(paragon/prestige). Guild/territory: a major MMO guild halls, a browser strategy game build trees, a classic MMO
 relics, Foxhole logistics.
