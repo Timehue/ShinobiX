@@ -8,7 +8,7 @@ import { bumpSaveVersion } from './save/_save-version.js';
 import { bumpLegacyStats } from './_legacy-track.js';
 import { bumpEraContribution } from './_era.js';
 import { announce } from './_announce.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { weeklyBossGuardEnabled } from './_release-flags.js';
 import { weeklyBossEnemyTemplate } from './_authoritative-pve.js';
 import { loadAdminCombatContent } from './_admin-content.js';
@@ -69,6 +69,57 @@ type WeeklyBossRewardEntry = {
     gotKey: boolean;
     isMvp: boolean;
 };
+
+export function applyWeeklyBossReward(
+    character: Record<string, unknown>,
+    weekKey: string,
+    aiId: string,
+    entry: Pick<WeeklyBossRewardEntry, 'name' | 'ryo' | 'gotCore' | 'gotKey'>,
+    now = Date.now(),
+): { character: Record<string, unknown>; alreadyApplied: boolean } {
+    const receiptId = `weeklyboss_${createHash('sha256').update(`${weekKey}:${entry.name}`).digest('hex').slice(0, 32)}`;
+    const fingerprint = `weekly-boss:${weekKey}:${aiId}`;
+    const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
+    if (inspected.status === 'replay') return { character, alreadyApplied: true };
+    if (inspected.status !== 'fresh') throw new Error(`weekly-boss-receipt-${inspected.status}`);
+
+    const inventory = Array.isArray(character.inventory) ? [...(character.inventory as string[])] : [];
+    if (entry.gotCore) inventory.push(WEEKLY_BOSS_CORE_ID);
+    if (entry.gotKey) inventory.push(DUNGEON_KEY_ID);
+    const leveled = applyDerivedLevel({
+        ...character,
+        unspentStats: Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + WEEKLY_BOSS_STAT_POINTS,
+    } as unknown as XpCharacter) as unknown as Record<string, unknown>;
+    const credited = {
+        ...character,
+        unspentStats: leveled.unspentStats,
+        level: leveled.level,
+        maxHp: leveled.maxHp,
+        maxChakra: leveled.maxChakra,
+        maxStamina: leveled.maxStamina,
+        hp: leveled.hp,
+        chakra: leveled.chakra,
+        stamina: leveled.stamina,
+        rankTitle: leveled.rankTitle,
+        ryo: Math.max(0, Number(character.ryo ?? 0)) + entry.ryo,
+        inventory,
+        weeklyBossKills: {
+            ...(character.weeklyBossKills && typeof character.weeklyBossKills === 'object'
+                ? character.weeklyBossKills as Record<string, unknown>
+                : {}),
+            [weekKey]: aiId,
+        },
+    };
+    return {
+        character: appendSettlementReceipt(credited, inspected.receipts, {
+            requestId: receiptId,
+            fingerprint,
+            value: { weekKey, ryo: entry.ryo, gotCore: entry.gotCore, gotKey: entry.gotKey },
+            settledAt: now,
+        }),
+        alreadyApplied: false,
+    };
+}
 
 export type WeeklyBossState = {
     weekKey: string;
@@ -364,7 +415,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
         await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
         summary = computed;
         finalBoss = updated;
-    });
+    }, { failClosed: true });
 
     if (!summary) return finalBoss;
 
@@ -387,84 +438,39 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 const saveKey = `save:${entry.name}`;
                 const fresh = await kv.get<Record<string, unknown>>(saveKey);
                 const freshChar = fresh?.character as Record<string, unknown> | undefined;
-                if (!fresh || !freshChar) return true; // no save → nothing to credit; count as done
+                if (!fresh || !freshChar) return { complete: true, newlyApplied: false }; // no save → nothing to credit; count as done
 
-                // EXACTLY-ONCE GATE (audit #25). Two concurrent distribute
-                // passes (e.g. two GETs after expiry) both iterate the frozen
-                // summary; without this an entry could be paid twice. Reserve a
-                // per-(week,player) receipt with NX — only the first pass wins
-                // the reservation and applies the credit. The receipt key
-                // embeds weekKey so it's scoped to this boss spawn and self-
-                // expires. On credit-write failure we roll the reservation back
-                // so a later run can retry. TTL outlives any realistic retry
-                // window (boss lifetime is 72h; 35d is generous + self-cleaning).
-                const receiptKey = `weekly-boss-credit:${weekKey}:${entry.name}`;
-                const reserved = await kv.set(receiptKey, '1', { nx: true, ex: 35 * 24 * 60 * 60 });
-                if (!reserved) return true; // already credited by another pass
-
-                try {
-                    const currentInventory = Array.isArray(freshChar.inventory)
-                        ? [...(freshChar.inventory as string[])]
-                        : [];
-                    if (entry.gotCore) currentInventory.push(WEEKLY_BOSS_CORE_ID);
-                    if (entry.gotKey) currentInventory.push(DUNGEON_KEY_ID);
-                    // Character XP is retired: every contributor gets a flat
-                    // once-per-week stat-pool grant (the weekly-boss spine
-                    // grant, +10 — outside the daily checklist, exactly-once by
-                    // the same receipt that gates this whole credit), then the
-                    // rise-only derived-level recompute picks up the ledger move.
-                    const leveled = applyDerivedLevel({
-                        ...freshChar,
-                        unspentStats: Math.max(0, Math.floor(Number(freshChar.unspentStats) || 0)) + WEEKLY_BOSS_STAT_POINTS,
-                    } as unknown as XpCharacter) as unknown as Record<string, unknown>;
-                    const updated = {
-                        ...fresh,
-                        character: {
-                            ...freshChar,
-                            unspentStats: leveled.unspentStats,
-                            level: leveled.level,
-                            maxHp: leveled.maxHp,
-                            maxChakra: leveled.maxChakra,
-                            maxStamina: leveled.maxStamina,
-                            // A level-up refills vitals to the NEW maxima. Copying
-                            // only the maxima would leave a contributor who levelled
-                            // here sitting at old-hp/new-maxHp — every other grant
-                            // site spreads `leveled` wholesale and refills.
-                            hp: leveled.hp,
-                            chakra: leveled.chakra,
-                            stamina: leveled.stamina,
-                            rankTitle: leveled.rankTitle,
-                            ryo: Math.max(0, Number(freshChar.ryo ?? 0)) + entry.ryo,
-                            inventory: currentInventory,
-                            weeklyBossKills: {
-                                ...(freshChar.weeklyBossKills && typeof freshChar.weeklyBossKills === 'object'
-                                    ? freshChar.weeklyBossKills as Record<string, unknown>
-                                    : {}),
-                                [weekKey]: finalBoss.aiId,
-                            },
-                        },
-                    };
-                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
-                    return true;
-                } catch (creditErr) {
-                    // Roll back the reservation so the next run re-credits.
-                    await kv.del(receiptKey).catch(() => undefined);
-                    throw creditErr;
-                }
-            });
-            if (did) {
+                // Exactly-once is proven by a receipt committed in the same
+                // save write as the payout. A separate NX reservation is not
+                // sufficient: a process stop between that reservation and this
+                // write permanently burns the reward.
+                // Character XP is retired: contributors receive a flat weekly
+                // stat-pool grant. The helper commits that grant, items, ryo,
+                // and its idempotency receipt in this one player-save write.
+                const applied = applyWeeklyBossReward(freshChar, weekKey, finalBoss.aiId, entry);
+                if (applied.alreadyApplied) return { complete: true, newlyApplied: false };
+                const updated = {
+                    ...fresh,
+                    character: applied.character,
+                };
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
+                return { complete: true, newlyApplied: true };
+            }, { failClosed: true });
+            if (did.complete) {
                 newlyCredited.push(entry.name);
                 // Legacy tracking (ENABLE_LEGACY): the weekly boss is the live
                 // source for boss/event legacy proof — contribution damage,
                 // top-10 placements, event participation, and (for the MVP) a
                 // server-history first-clear. Rides the exactly-once receipt
                 // above; best-effort by design.
-                await bumpLegacyStats(entry.name, {
-                    bossContribution: Math.max(0, Math.floor(entry.damage ?? 0)),
-                    eventCompletions: 1,
-                    ...(entry.rank <= 10 ? { weeklyBossTop10: 1, eliteKills: 5 } : {}),
-                    ...(entry.isMvp ? { firstClears: 1 } : {}),
-                });
+                if (did.newlyApplied) {
+                    await bumpLegacyStats(entry.name, {
+                        bossContribution: Math.max(0, Math.floor(entry.damage ?? 0)),
+                        eventCompletions: 1,
+                        ...(entry.rank <= 10 ? { weeklyBossTop10: 1, eliteKills: 5 } : {}),
+                        ...(entry.isMvp ? { firstClears: 1 } : {}),
+                    });
+                }
             }
         } catch (err) {
             // Leave this player OUT of creditedPlayers so a later run retries.
@@ -488,7 +494,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
             };
             await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
             finalBoss = updated;
-        });
+        }, { failClosed: true });
     }
 
     return finalBoss;
@@ -533,9 +539,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // returns null → the guard 409s → the reset branch is never reached.
             if (kind === 'reset') {
                 if (!identity.admin) return res.status(403).json({ error: 'Admin only.' });
-                const fresh = await buildFreshBossState(isoWeekKey());
+                const fresh = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
+                    const next = await buildFreshBossState(isoWeekKey());
+                    if (next) await kv.set(WEEKLY_BOSS_STATE_KEY, next);
+                    return next;
+                }, { failClosed: true });
                 if (!fresh) return res.status(409).json({ error: 'No AI available for reset.' });
-                await kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
                 // Herald the spawn server-wide: the world news feed AND a World
                 // Herald line in every village chat (importance 'high' always
                 // lands + broadcasts). Best-effort — announce() never throws into
@@ -544,7 +553,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     type: 'weekly_boss',
                     importance: 'high',
                     title: `⚔️ Weekly Boss: ${fresh.bossName ?? 'A great enemy'} has appeared!`,
-                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo and XP. Enter the hunt via Central Hub → Weekly Boss.`,
+                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo, and stat points. Enter the hunt via Central Hub → Weekly Boss.`,
                     meta: { aiId: fresh.aiId, weekKey: fresh.weekKey, expiresAt: fresh.expiresAt },
                 });
                 return res.status(200).json({ boss: fresh });

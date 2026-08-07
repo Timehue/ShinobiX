@@ -24,12 +24,14 @@ export function HealerHub({
     setScreen,
     onBack,
     playerRoster,
+    onServerVersion,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     setScreen: (s: Screen) => void;
     onBack: () => void;
     playerRoster: PlayerRecord[];
+    onServerVersion?: (version: number | undefined) => void;
 }) {
     const healerRank = character.professionRank ?? 1;
 
@@ -57,7 +59,7 @@ export function HealerHub({
                 🏥 Go to the Village Hospital
             </button>
 
-            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} />
+            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
 
             <div style={{ marginTop: "1.5rem" }}>
                 <DailyProfessionMissions character={character} />

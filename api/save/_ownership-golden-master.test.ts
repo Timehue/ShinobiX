@@ -33,7 +33,7 @@ import { sanitizeCharacterSave, buildPublicSaveDTO, combatProjection, isAdminCon
 const SNAPSHOT_PATH = join(process.cwd(), 'api', 'save', '_ownership-golden-master.snapshot.json');
 const UPDATE = process.env.UPDATE_OWNERSHIP_SNAPSHOTS === '1';
 
-function withStrictLedger<T>(value: '1' | undefined, run: () => T): T {
+function withStrictLedger<T>(value: '1' | '0' | undefined, run: () => T): T {
     const previous = process.env.STRICT_RAW_SAVE_LEDGER;
     if (value === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
     else process.env.STRICT_RAW_SAVE_LEDGER = value;
@@ -215,17 +215,17 @@ function adminSlotSave(): { incoming: Record<string, unknown>; existing: Record<
 
 function runScenarios(): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    out['existing-player-autosave.nonstrict'] = withStrictLedger(undefined,
+    out['existing-player-autosave.nonstrict'] = withStrictLedger('0',
         () => sanitizeCharacterSave(incomingAutosave(), storedSave()));
     out['existing-player-autosave.strict'] = withStrictLedger('1',
         () => sanitizeCharacterSave(incomingAutosave(), storedSave()));
-    out['first-save.nonstrict'] = withStrictLedger(undefined,
+    out['first-save.nonstrict'] = withStrictLedger('0',
         () => sanitizeCharacterSave(firstSaveAttempt(), null));
     out['first-save.strict'] = withStrictLedger('1',
         () => sanitizeCharacterSave(firstSaveAttempt(), null));
     {
         const { incoming, existing } = adminSlotSave();
-        out['admin-content-slot-save.nonstrict'] = withStrictLedger(undefined,
+        out['admin-content-slot-save.nonstrict'] = withStrictLedger('0',
             () => sanitizeCharacterSave(incoming, existing, { adminContentSlot: true }));
     }
     out['public-dto.base'] = buildPublicSaveDTO(storedSave(), { combat: false });
@@ -256,7 +256,7 @@ describe('ownership golden master — full-output snapshots', () => {
 
 // ── Scenario assertions (explicit ownership rules the snapshots encode) ─────
 
-const autosaveOut = () => withStrictLedger(undefined, () => sanitizeCharacterSave(incomingAutosave(), storedSave()));
+const autosaveOut = () => withStrictLedger('0', () => sanitizeCharacterSave(incomingAutosave(), storedSave()));
 const charOf = (save: Record<string, unknown>) => save.character as Record<string, unknown>;
 
 describe('server-ledger fields survive a tampered autosave (scenarios 13/16)', () => {
@@ -346,7 +346,7 @@ describe('creator/authored content boundaries (scenarios 17/18)', () => {
 
     it('strips personal forged items from an admin content slot instead of reviving them', () => {
         const { incoming, existing } = adminSlotSave();
-        const out = withStrictLedger(undefined, () => sanitizeCharacterSave(incoming, existing, { adminContentSlot: true }));
+        const out = withStrictLedger('0', () => sanitizeCharacterSave(incoming, existing, { adminContentSlot: true }));
         const items = out.creatorItems as Array<Record<string, unknown>>;
         assert.ok(!items.some((i) => i.id === FORGED_ID), 'forged gear must never publish from an admin slot');
         assert.ok(items.some((i) => i.id === 'admin-blade'), 'authored admin content is kept');
@@ -382,7 +382,7 @@ describe('unknown-field behavior (scenarios 19/20)', () => {
 
 describe('first-save clamps (scenario 1)', () => {
     it('clamps a tampered first save to the canonical baseline', () => {
-        const out = withStrictLedger(undefined, () => sanitizeCharacterSave(firstSaveAttempt(), null));
+        const out = withStrictLedger('0', () => sanitizeCharacterSave(firstSaveAttempt(), null));
         const c = charOf(out);
         assert.equal(c.ryo, 100, 'first-save ryo is the baseline');
         assert.equal(c.bankRyo, 0);
@@ -449,7 +449,7 @@ describe('strict-ledger flag parity (scenarios 6/7)', () => {
             (s.character as Record<string, unknown>).ryo = 5_500; // +500 gain
             return s;
         };
-        const soft = withStrictLedger(undefined, () => sanitizeCharacterSave(gainSave(), storedSave()));
+        const soft = withStrictLedger('0', () => sanitizeCharacterSave(gainSave(), storedSave()));
         assert.equal(charOf(soft).ryo, 5_000, 'flag absent: generic saves cannot originate ryo');
         const strict = withStrictLedger('1', () => sanitizeCharacterSave(gainSave(), storedSave()));
         assert.equal(charOf(strict).ryo, 5_000, 'strict: ryo is fully server-owned');

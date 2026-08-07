@@ -45,16 +45,18 @@ export function Professions({
     setScreen,
     onBack,
     playerRoster,
+    onServerVersion,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     setScreen: (s: Screen) => void;
     onBack: () => void;
     playerRoster: PlayerRecord[];
+    onServerVersion?: (version: number | undefined) => void;
 }) {
     // Chosen → route straight to that profession's hub.
     if (character.profession === "healer") {
-        return <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} />;
+        return <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} onServerVersion={onServerVersion} />;
     }
     if (character.profession === "vanguard") {
         return <VanguardHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;

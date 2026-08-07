@@ -4,9 +4,9 @@ import { sanitizeCharacterSave } from './[name].js';
 
 /*
  * Always-on equipment boundary (enforceEquipmentOwnership): even with
- * STRICT_RAW_SAVE_LEDGER off (the production default today), an equipped id
- * must exist somewhere the player can hold it — the stored backpack/equipment
- * or the incoming backpack — and slots/dupes are structurally validated.
+ * with STRICT_RAW_SAVE_LEDGER disabled, an equipped id must already exist in
+ * the stored backpack/equipment; incoming inventory is not an ownership proof.
+ * Slots and duplicate placements are structurally validated as well.
  * Also pins the weaponElements server-ledger rule (attunements cannot be
  * client-forged).
  */
@@ -15,7 +15,7 @@ const wrap = (character: Record<string, unknown>, extra: Record<string, unknown>
 
 function withoutStrictLedger<T>(run: () => T): T {
     const previous = process.env.STRICT_RAW_SAVE_LEDGER;
-    delete process.env.STRICT_RAW_SAVE_LEDGER;
+    process.env.STRICT_RAW_SAVE_LEDGER = '0';
     try {
         return run();
     } finally {
@@ -55,13 +55,14 @@ describe('equipment ownership boundary (non-strict mode)', () => {
         assert.equal((out.equipment as Record<string, unknown>).body, 'shinobi-vest');
     });
 
-    it('accepts a buy → equip landing in one POST (incoming backpack counts)', () => {
+    it('rejects a receiptless buy → equip landing in one POST', () => {
         const stored = baseChar();
         const out = sanitize(baseChar({
             inventory: ['rustfang-kunai', 'shinobi-vest'],
             equipment: { body: 'shinobi-vest' },
         }), stored);
-        assert.equal((out.equipment as Record<string, unknown>).body, 'shinobi-vest');
+        assert.deepEqual(out.inventory, ['rustfang-kunai']);
+        assert.deepEqual(out.equipment, {});
     });
 
     it('collapses duplicate ids and canonical-slot aliases', () => {
@@ -129,5 +130,24 @@ describe('weaponElements is server-owned', () => {
         const stored = baseChar();
         const out = sanitize(baseChar({ weaponElements: { 'worldsplitter-katana': 'Fire' } }), stored);
         assert.equal(out.weaponElements, undefined, 'no stored attunement → the field is deleted');
+    });
+});
+
+describe('equipment ownership boundary (flag absent)', () => {
+    it('still rejects a receiptless incoming buy-to-equip', () => {
+        const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+        delete process.env.STRICT_RAW_SAVE_LEDGER;
+        try {
+            const stored = baseChar();
+            const out = sanitizeCharacterSave(wrap(baseChar({
+                inventory: ['rustfang-kunai', 'shinobi-vest'],
+                equipment: { body: 'shinobi-vest' },
+            })), wrap(stored)).character as Record<string, unknown>;
+            assert.deepEqual(out.inventory, ['rustfang-kunai']);
+            assert.deepEqual(out.equipment, {});
+        } finally {
+            if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+            else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+        }
     });
 });

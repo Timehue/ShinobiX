@@ -19,14 +19,14 @@ import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
  * repeatedly (#17 credit-without-debit on the shared pool).
  *
  * This endpoint credits the FIXED treasury amounts under the village-state lock,
- * at most once per player per UTC day, gated by a server-side NX idempotency
- * marker. What this closes for the treasury is the arbitrary-amount + repeat
- * vectors (the credit-without-debit hole #17 is about).
+ * at most once per player per UTC day. The claim receipt is committed in the
+ * same village-state write as the credit, so an interrupted request can retry
+ * without burning the reward or applying it twice.
  *
  * It ALSO credits the player's own fixed PERSONAL reward (audit #7 / Stage 3
  * Phase 2): +750 ryo, +1 boneCharm, +8 honorSeals (Vanguard only). That credit
  * runs under lock:save:<name> (the same lock the autosave takes) with its OWN
- * NX day-marker placed atomically inside the lock — exactly-once, failClosed →
+ * in-save day receipt committed with the reward — exactly-once, failClosed →
  * 503/retry — so the player save can no longer be raced and a crafted client
  * can no longer claim the personal reward repeatedly or inflate it. The client
  * still adds the returned `granted` delta to its OWN balance (preserving
@@ -50,7 +50,6 @@ const AGENDA_TREASURY = { honorSeals: 15, ryo: 1500, boneCharms: 2 } as const;
 // fateShards line is nonVanguardShardSubstitute(8) = floor(8/25) = 0, so there
 // is no fateShard grant here — omitting it is a zero-balance change.
 const AGENDA_PERSONAL = { ryo: 750, boneCharms: 1, honorSeals: 8 } as const;
-const CLAIM_MARKER_TTL_SEC = 2 * 24 * 60 * 60; // 2 days — comfortably past one UTC day
 const AUDIT_LOG_PREFIX = 'audit:village-agenda-claim:';
 
 function villageSlug(name: string): string {
@@ -62,6 +61,54 @@ function num(v: unknown): number {
 }
 function utcDate(): string {
     return new Date().toISOString().slice(0, 10);
+}
+
+export function applyAgendaPersonalReward(char: Record<string, unknown>, date: string) {
+    if (char.claimedVillageAgendaDate === date) {
+        return {
+            character: char,
+            alreadyClaimed: true,
+            granted: { ryo: 0, boneCharms: 0, honorSeals: 0 },
+        };
+    }
+    const granted = {
+        ryo: AGENDA_PERSONAL.ryo,
+        boneCharms: AGENDA_PERSONAL.boneCharms,
+        honorSeals: char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0,
+    };
+    return {
+        character: {
+            ...char,
+            ryo: num(char.ryo) + granted.ryo,
+            boneCharms: num(char.boneCharms) + granted.boneCharms,
+            honorSeals: num(char.honorSeals) + granted.honorSeals,
+            claimedVillageAgendaDate: date,
+            villageMerit: meritNum(char.villageMerit) + MERIT_DAILY_AGENDA,
+        },
+        alreadyClaimed: false,
+        granted,
+    };
+}
+
+export function applyAgendaTreasuryReward(state: Record<string, unknown>, claimId: string) {
+    const claimDate = claimId.slice(0, 10);
+    const receipts = Array.isArray(state.agendaClaimReceipts)
+        ? (state.agendaClaimReceipts as unknown[]).filter((value): value is string =>
+            typeof value === 'string' && value.startsWith(`${claimDate}:`))
+        : [];
+    const treasury = (state.treasury ?? {}) as Record<string, unknown>;
+    if (receipts.includes(claimId)) return { state, treasury, alreadyClaimed: true };
+    const nextTreasury = {
+        ...treasury,
+        honorSeals: num(treasury.honorSeals) + AGENDA_TREASURY.honorSeals,
+        ryo: num(treasury.ryo) + AGENDA_TREASURY.ryo,
+        boneCharms: num(treasury.boneCharms) + AGENDA_TREASURY.boneCharms,
+    };
+    return {
+        state: { ...state, treasury: nextTreasury, agendaClaimReceipts: [...receipts, claimId] },
+        treasury: nextTreasury,
+        alreadyClaimed: false,
+    };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -121,47 +168,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── PERSONAL reward (audit #7 / Stage 3 Phase 2) ───────────────────────
         // Credit the player's OWN fixed agenda reward under lock:save:<name> (the
-        // same lock the autosave takes — option A) with its OWN NX day-marker
-        // placed atomically inside the lock: exactly-once, and a contention abort
-        // (failClosed → 503) leaves nothing placed for a clean retry (the
-        // claim-rewards pattern). Done BEFORE the treasury credit so a personal
-        // 503 can't burn the treasury day-marker. The client adds the returned
+        // same lock the autosave takes) with its in-save day receipt. The reward
+        // and receipt share one write, and a contention abort leaves both absent
+        // for a clean retry. Done BEFORE the treasury credit so a personal 503
+        // cannot leave a partial personal payout. The client adds the returned
         // `granted` delta to its OWN balance (not the absolute — so concurrent ryo
         // gains elsewhere survive) and re-asserts via autosave; the two converge.
-        const personalMarker = `agenda-personal:${playerName.toLowerCase()}:${date}`;
         let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; balances: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
         try {
             const out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { error: 'no-save' as const };
-                const seals = char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0;
-                const placed = await kv.set(personalMarker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
-                if (placed !== 'OK') {
-                    return {
-                        alreadyClaimed: true,
-                        granted: { ryo: 0, boneCharms: 0, honorSeals: 0 },
-                        balances: { ryo: num(char.ryo), boneCharms: num(char.boneCharms), honorSeals: num(char.honorSeals) },
-                        saveVersion: Number(rec._saveVersion ?? 0),
-                    };
-                }
-                const granted = { ryo: AGENDA_PERSONAL.ryo, boneCharms: AGENDA_PERSONAL.boneCharms, honorSeals: seals };
-                const nextChar = {
-                    ...char,
-                    ryo: num(char.ryo) + granted.ryo,
-                    boneCharms: num(char.boneCharms) + granted.boneCharms,
-                    honorSeals: num(char.honorSeals) + granted.honorSeals,
-                    // Personal Village Merit toward a Kage challenge (server-owned;
-                    // once/day via the NX marker above). See _village-merit.ts.
-                    villageMerit: meritNum(char.villageMerit) + MERIT_DAILY_AGENDA,
-                };
+                const applied = applyAgendaPersonalReward(char, date);
+                const nextChar = applied.character;
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
-                await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
+                if (!applied.alreadyClaimed) await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
                 return {
-                    alreadyClaimed: false,
-                    granted,
+                    alreadyClaimed: applied.alreadyClaimed,
+                    granted: applied.granted,
                     balances: { ryo: num(nextChar.ryo), boneCharms: num(nextChar.boneCharms), honorSeals: num(nextChar.honorSeals) },
-                    saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0),
+                    saveVersion: applied.alreadyClaimed
+                        ? Number(rec._saveVersion ?? 0)
+                        : Number((next as Record<string, unknown>)._saveVersion ?? 0),
                 };
             }, { failClosed: true });
             if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
@@ -171,45 +200,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(503).json({ error: 'Could not credit your daily reward — please retry.' });
         }
 
-        // One treasury credit per player per UTC day. NX reserve = authoritative
-        // idempotency; if the marker already exists, the treasury half was claimed
-        // today (the personal half above is gated independently by its own marker).
-        const claimKey = `agenda-claimed:${slug}:${playerName.toLowerCase()}:${date}`;
-        const reserved = await kv.set(claimKey, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
-        if (reserved !== 'OK') {
-            const state = await kv.get<Record<string, unknown>>(villageStateKey);
-            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}), personal, _saveVersion: personal.saveVersion });
-        }
-
-        // NOT failClosed (unlike the donate/transfer/collect endpoints): the NX
-        // marker above is the authoritative once-per-day idempotency guard and
-        // it's already consumed at this point. Throwing on lock contention would
-        // burn the marker without crediting → the player loses the day's reward.
-        // Falling through to run the fixed-amount credit unlocked is the safer
-        // choice; the only racy writers to this treasury (other agenda claims /
-        // donations) are themselves serialized, so the window is negligible.
-        const treasury = await withKvLock(villageStateKey, async () => {
+        // One treasury credit per player per UTC day. The bounded claim-ID list
+        // lives in the village state and is written atomically with the treasury
+        // increase. If the personal write completed before an interruption, a
+        // retry skips it and safely finishes this half.
+        const claimId = `${date}:${playerName.toLowerCase()}`;
+        const treasuryOutcome = await withKvLock(villageStateKey, async () => {
             const state = (await kv.get<Record<string, unknown>>(villageStateKey)) ?? {};
-            const prevT = (state.treasury ?? {}) as Record<string, unknown>;
-            const nextT = {
-                ...prevT,
-                honorSeals: num(prevT.honorSeals) + AGENDA_TREASURY.honorSeals,
-                ryo: num(prevT.ryo) + AGENDA_TREASURY.ryo,
-                boneCharms: num(prevT.boneCharms) + AGENDA_TREASURY.boneCharms,
-            };
-            await kv.set(villageStateKey, { ...state, treasury: nextT });
-            return nextT;
-        });
+            const applied = applyAgendaTreasuryReward(state, claimId);
+            if (!applied.alreadyClaimed) await kv.set(villageStateKey, applied.state);
+            return { alreadyClaimed: applied.alreadyClaimed, treasury: applied.treasury };
+        }, { failClosed: true });
+        const treasury = treasuryOutcome.treasury;
 
         await kv.set(`${AUDIT_LOG_PREFIX}${slug}:${Date.now()}`, {
             ts: Date.now(),
             actor: identity.admin ? 'admin' : identity.name,
             village,
             player: playerName,
-            granted: AGENDA_TREASURY,
+            granted: treasuryOutcome.alreadyClaimed ? { honorSeals: 0, ryo: 0, boneCharms: 0 } : AGENDA_TREASURY,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
-        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY, personal, _saveVersion: personal.saveVersion });
+        return res.status(200).json({
+            ok: true,
+            alreadyClaimed: treasuryOutcome.alreadyClaimed && personal.alreadyClaimed,
+            treasuryAlreadyClaimed: treasuryOutcome.alreadyClaimed,
+            personalAlreadyClaimed: personal.alreadyClaimed,
+            treasury,
+            granted: treasuryOutcome.alreadyClaimed ? { honorSeals: 0, ryo: 0, boneCharms: 0 } : AGENDA_TREASURY,
+            personal,
+            _saveVersion: personal.saveVersion,
+        });
     } catch (err) {
         console.error('[village/claim-daily-agenda]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -370,7 +370,9 @@ export type Character = {
     weaponElements?: Record<string, string>;
     claimedAwakenings?: string[];
     redeemedAwakeningActions?: string[];
-    activeDungeonRun?: { token: string; startedAt: number } | null;
+    activeDungeonRun?: { token: string; startedAt: number; entry?: "free" | "key" } | null;
+    serverFreeDungeonProbeDate?: string;
+    serverFreeDungeonProbesToday?: number;
     redeemedDungeonRuns?: string[];
     redeemedHollowGateRuns?: string[];
     boneCharms: number;

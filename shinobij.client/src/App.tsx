@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
+import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, gamePasswordPrompt } from "./components/GameAlert";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
@@ -17,6 +18,7 @@ import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } f
 import { enqueueClaim, removeClaim, useClaimOutboxDrain } from "./lib/claim-outbox";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { mutateDungeonRunServer } from "./lib/dungeon-api";
+import { claimBuiltinEventReward } from "./lib/event-claim-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
@@ -287,7 +289,6 @@ import {
     AURA_SPHERE_ITEM_ID,
     DUNGEON_VN_ID,
     DUNGEON_KEY_ID,
-    DUNGEON_LEGENDARY_RELIC_ID,
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
@@ -3138,9 +3139,10 @@ export default function App() {
             if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
             if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
             if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
-            if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents);
-            if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions);
-            if (snap.creatorRaids) setCreatorRaids(snap.creatorRaids);
+            const contentAdmin = isContentAdminName(snap.character.name);
+            if (snap.creatorEvents) setCreatorEvents(contentAdmin ? snap.creatorEvents : snap.creatorEvents.filter(isReleaseSafeClientEvent));
+            setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
+            setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
             if (snap.creatorCards) setCreatorCards(snap.creatorCards);
             if (snap.creatorItems) setCreatorItems(snap.creatorItems);
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
@@ -3713,6 +3715,11 @@ export default function App() {
         return Array.from(merged.values());
     }
 
+    function isContentAdminName(raw: unknown): boolean {
+        const name = String(raw ?? "").trim().toLowerCase();
+        return name === "admin 1" || name === "admin 2" || name === "admin1" || name === "admin2";
+    }
+
     // Recency-aware variant of mergeById for the shared-admin-content pull. When
     // the SAME jutsu id lives in more than one admin save (both admins pull each
     // other's catalog, so a created jutsu ends up persisted in both), a plain
@@ -3733,12 +3740,23 @@ export default function App() {
     // Returns true if the published-pet-template registry changed (caller re-normalizes).
     function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
+        const contentAdmin = isContentAdminName(character?.name);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
         if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeJutsusByRecency(prev, sharedCreatorJutsus));
         if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
-        if (snap.creatorEvents) setCreatorEvents((prev) => mergeById(prev, snap.creatorEvents as CreatorEvent[]));
-        if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
-        if (snap.creatorRaids) setCreatorRaids((prev) => mergeById(prev, snap.creatorRaids as CreatorRaid[]));
+        if (snap.creatorEvents) {
+            const incoming = contentAdmin
+                ? snap.creatorEvents as CreatorEvent[]
+                : (snap.creatorEvents as CreatorEvent[]).filter(isReleaseSafeClientEvent);
+            setCreatorEvents((prev) => mergeById(contentAdmin ? prev : prev.filter(isReleaseSafeClientEvent), incoming));
+        }
+        if (contentAdmin) {
+            if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
+            if (snap.creatorRaids) setCreatorRaids((prev) => mergeById(prev, snap.creatorRaids as CreatorRaid[]));
+        } else {
+            setCreatorMissions([]);
+            setCreatorRaids([]);
+        }
         if (snap.creatorCards) setCreatorCards((prev) => mergeById(prev, snap.creatorCards as TileCard[]));
         if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
@@ -4731,9 +4749,10 @@ export default function App() {
         if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
         if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
         if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
-        if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents);
-        if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions);
-        if (snap.creatorRaids) setCreatorRaids(snap.creatorRaids);
+        const contentAdmin = isContentAdminName(snap.character.name);
+        if (snap.creatorEvents) setCreatorEvents(contentAdmin ? snap.creatorEvents : snap.creatorEvents.filter(isReleaseSafeClientEvent));
+        setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
+        setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
         if (snap.creatorCards) setCreatorCards(snap.creatorCards);
         if (snap.creatorItems) setCreatorItems(snap.creatorItems);
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
@@ -5263,7 +5282,7 @@ export default function App() {
         setScreen(nextScreen);
     }
 
-    function completeTriggeredEvent(event: CreatorEvent) {
+    async function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
             // Interludes: a made choice consumes the beat (persisted) and reports
             // to the server story record; closing without choosing only dismisses
@@ -5280,24 +5299,19 @@ export default function App() {
                     }
                 }).catch(() => undefined);
             }
-            const leveled = gainXp(character, 0); // XP retired — derived-level recompute only
-            const isRewardEvent = event.eventKind !== "visualNovel";
-            const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
-                ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
-                : leveled.inventory;
-            const nextCharacter: Character = {
-                ...applyCurrencyRewards(leveled, event.currencyRewards),
-                ryo: leveled.ryo + event.ryoReward,
-                stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
-                clanEventContrib: (leveled.clanEventContrib ?? 0) + (isRewardEvent ? 1 : 0),
-                clanContribMonth: new Date().toISOString().slice(0, 7),
-                inventory: rewardInventory,
-            };
+            if (event.id === AURA_SPHERE_VN_ID) {
+                const claimed = await claimBuiltinEventReward(character.name, event.id);
+                if (!claimed.character) {
+                    alert(claimed.error || "The Aura Sphere could not be claimed. Try again in a moment.");
+                    return;
+                }
+                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, claimed._saveVersion);
+                setCharacter(claimed.character);
+            }
             // No kageFinale handling here: closing the finale VN without fighting
             // must NOT unlock the Kage system or grant the title. The legitimate
             // consequence path is the battle WIN in completePendingArenaStoryBattle
             // (and StoryBoss.winBossFight for the legacy Hall screen).
-            setCharacter(nextCharacter);
         }
 
         setActiveTriggeredEvent(null);
@@ -5308,7 +5322,7 @@ export default function App() {
         return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
     }
 
-    async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
+    async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent, freeRunToken = "") {
         if (!character || dungeonActionRef.current) return;
         const event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
@@ -5329,7 +5343,8 @@ export default function App() {
                 dungeonActionRef.current = false;
             }
         } else {
-            setActiveDungeonRunToken(null);
+            if (!freeRunToken) return;
+            setActiveDungeonRunToken(freeRunToken);
         }
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
@@ -5454,28 +5469,29 @@ export default function App() {
         setTemporaryStoryAi(null);
         setPendingArenaStoryBattle(null);
         setPendingAiProfileId("");
-        alert("The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
+        alert(character.activeDungeonRun?.entry === "free"
+            ? "The dungeon seal rejected you. You return to your village empty-handed."
+            : "The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
         setScreen("village");
     }
 
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
         const token = activeDungeonRunToken;
-        if (token) {
-            dungeonActionRef.current = true;
-            try {
-                const result = await mutateDungeonRunServer(character.name, "settle", token);
-                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
-                setCharacter(result.character);
-            } catch (error) {
-                alert(error instanceof Error ? error.message : "The dungeon reward could not be verified.");
-                return;
-            } finally {
-                dungeonActionRef.current = false;
-            }
-        } else {
-            const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
-            setCharacter(rewarded);
+        if (!token) {
+            alert("The dungeon reward could not be verified. Return to the map and discover a new seal.");
+            return;
+        }
+        dungeonActionRef.current = true;
+        try {
+            const result = await mutateDungeonRunServer(character.name, "settle", token);
+            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+            setCharacter(result.character);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "The dungeon reward could not be verified.");
+            return;
+        } finally {
+            dungeonActionRef.current = false;
         }
         setActiveDungeonRunToken(null);
         alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
@@ -6219,7 +6235,7 @@ export default function App() {
     function completeEventEncounter() {
         const event = pendingEventEncounter?.event;
         setPendingEventEncounter(null);
-        if (event) completeTriggeredEvent(event);
+        if (event) void completeTriggeredEvent(event);
         else setScreen(activeTriggerReturnScreen);
     }
 
@@ -6642,7 +6658,7 @@ export default function App() {
                             }
                             setActiveTriggeredEvent(null);
                         }}
-                        onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
+                        onComplete={() => { void completeTriggeredEvent(activeTriggeredEvent); }}
                         onBattle={startTriggeredEventArenaBattle}
                         onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
                         sharedImages={sharedImages}
@@ -6888,7 +6904,7 @@ export default function App() {
                             // next render, so the call below would read the stale value.
                             startTriggeredEventArenaBattle(event, battle, "worldMap");
                         }}
-                        onDungeonFound={() => { void triggerDungeonEncounter("worldMap"); }}
+                        onDungeonFound={(token) => { void triggerDungeonEncounter("worldMap", undefined, token); }}
                         onEnterHollowGate={() => { void enterHollowGateShrine(); }}
                         hollowGateEventConfig={hollowGateEventConfig}
                         onEnterHollowGateEvent={(cfg) => { void enterHollowGateShrine(cfg); }}
@@ -7129,8 +7145,8 @@ export default function App() {
                         }}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
-                {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} />}
+                {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}

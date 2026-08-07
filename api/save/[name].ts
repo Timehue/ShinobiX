@@ -22,7 +22,6 @@ import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import {
     preserveEntitledStringArray,
     preserveOwnedItems,
-    isServerOwnedItemId,
 } from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, nextSaveVersion } from './_save-version.js';
 import {
@@ -107,6 +106,24 @@ export function isAdminContentSlot(name: string): boolean {
     return ADMIN_CONTENT_SLOTS.has(name);
 }
 
+export function isReleaseSafeCreatorEvent(raw: unknown): boolean {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+    const event = raw as Record<string, unknown>;
+    if (event.eventKind !== 'visualNovel' || event.kageFinale === true) return false;
+    for (const field of ['xpReward', 'ryoReward', 'staminaReward']) {
+        if (Number(event[field] ?? 0) !== 0) return false;
+    }
+    if (event.currencyRewards && typeof event.currencyRewards === 'object') {
+        if (Object.values(event.currencyRewards as Record<string, unknown>).some((value) => Number(value ?? 0) !== 0)) return false;
+    }
+    if (Array.isArray(event.vnPages)) {
+        for (const page of event.vnPages as Array<Record<string, unknown>>) {
+            if (Array.isArray(page?.choices) && (page.choices as Array<Record<string, unknown>>).some((choice) => choice?.battle)) return false;
+        }
+    }
+    return true;
+}
+
 // Build the non-owner response: an explicit allowlist DTO. Nothing from the
 // stored save reaches a foreign reader unless it is named here — no top-level
 // spread, no internal metadata (_saveVersion / _saveAt), and future fields are
@@ -131,8 +148,17 @@ export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat
     // Admin content slots only — see SHARED_ADMIN_CONTENT_FIELDS.
     if (opts.sharedContent) {
         for (const k of SHARED_ADMIN_CONTENT_FIELDS) {
+            // Creator missions and raids currently have no authoritative
+            // published-catalog settlement. Do not advertise claim/start
+            // buttons that the server must reject or whose authored rewards it
+            // ignores. Keep them editable on the owning admin slot.
+            if (k === 'creatorMissions' || k === 'creatorRaids') continue;
             if (k in data) out[k] = data[k];
         }
+        // Narrative-only events remain publishable. Any rewardful or
+        // battle-bearing creator event stays admin-preview-only until it has a
+        // receipt-backed settlement path.
+        if (Array.isArray(out.creatorEvents)) out.creatorEvents = out.creatorEvents.filter(isReleaseSafeCreatorEvent);
         // A player-forged item is NEVER shared game content. One that reaches an
         // admin slot (see stripForgedItems) would otherwise be handed to every
         // client, which merges shared content into its own `creatorItems` and
@@ -327,6 +353,9 @@ const STARTER_BLOODLINE_JUTSU_IDS: Record<string, readonly string[]> = {
 };
 
 function strictRawSaveLedgerEnabled(): boolean {
+    // This wider cutover is deliberately opt-in until every remaining legacy
+    // progression writer and the forged-item backfill have been certified.
+    // High-impact inventory/equipment minting is closed independently below.
     return process.env.STRICT_RAW_SAVE_LEDGER === '1';
 }
 
@@ -425,17 +454,15 @@ function addOwnedCount(counts: Map<string, number>, rawId: unknown, amount = 1):
  * (full Mythic armor → 0.48 raw DR honored by every server fight). This is the
  * structural half of the strict branch made unconditional: slot names
  * whitelisted, duplicate ids and canonical-slot aliases collapsed, and every
- * equipped id required to exist somewhere the player can actually hold it —
- * the STORED backpack/equipment (server-granted items + already-equipped gear,
- * so nothing legit is ever unequipped) or the incoming backpack (covers a
- * buy → equip landing in a single POST; forged named items enter `inventory`
- * at craft time, api/craft/named.ts).
+ * equipped id required to exist somewhere the player already holds it — the
+ * STORED backpack/equipment (server-granted items + already-equipped gear, so
+ * nothing legitimate is ever unequipped). Incoming inventory is intentionally
+ * not evidence of ownership: accepting it made a receiptless buy → equip POST
+ * a combat-power mint even though the later inventory sanitizer dropped it.
  *
- * Presence, not count-consumption: non-strict inventory is still client-
- * writable, so counting would add no security while risking legit states the
- * client represents differently. Closing inventory forgery itself remains the
- * STRICT_RAW_SAVE_LEDGER=1 flip; strict mode replaces this with the full
- * count-consuming version in enforceRawSaveLedgerBoundary.
+ * Presence, not count-consumption: the compatibility path still permits
+ * representation changes for already-owned items. Strict mode replaces this
+ * with the full count-consuming version in enforceRawSaveLedgerBoundary.
  *
  * Slot-kind: a BUILT-IN item may only occupy a slot its definition fits
  * (armor DR in _multipliers.ts sums per SLOT KEY, so a body plate parked in
@@ -455,15 +482,13 @@ function slotAcceptsItemKind(equipSlot: string, itemSlot: string): boolean {
 
 function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record<string, unknown>): void {
     const owned = new Set<string>();
-    for (const source of [stored, char]) {
-        for (const id of Array.isArray(source.inventory) ? source.inventory : []) {
-            if (typeof id === 'string' && id.trim()) owned.add(id.trim());
-        }
-        if (Array.isArray(source.itemStacks)) {
-            for (const raw of source.itemStacks as Array<Record<string, unknown>>) {
-                const itemId = raw && typeof raw === 'object' && typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
-                if (itemId && Math.floor(Number(raw.count) || 0) > 0) owned.add(itemId);
-            }
+    for (const id of Array.isArray(stored.inventory) ? stored.inventory : []) {
+        if (typeof id === 'string' && id.trim()) owned.add(id.trim());
+    }
+    if (Array.isArray(stored.itemStacks)) {
+        for (const raw of stored.itemStacks as Array<Record<string, unknown>>) {
+            const itemId = raw && typeof raw === 'object' && typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+            if (itemId && Math.floor(Number(raw.count) || 0) > 0) owned.add(itemId);
         }
     }
     const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
@@ -554,7 +579,17 @@ function enforceRawSaveLedgerBoundary(
     const exStats = stored.stats && typeof stored.stats === 'object'
         ? stored.stats as Record<string, unknown>
         : {};
-    const exUnspent = Math.max(0, Math.floor(Number(stored.unspentStats) || 0));
+    let exUnspent = Math.max(0, Math.floor(Number(stored.unspentStats) || 0));
+    // Complete the one-time XP-era -> stat-ledger migration inside the strict
+    // boundary. The earlier sanitizer pass computes the same top-up, but this
+    // function intentionally rebuilds stats/unspentStats from the stored
+    // entitlement and would otherwise discard it before the latch could stick.
+    if (stored.levelLedgerMigrated !== true) {
+        const storedLevel = Math.max(1, Math.min(LEVEL_CAP, Math.floor(Number(stored.level) || 1)));
+        const earnedNow = earnedStatPoints({ ...stored, unspentStats: exUnspent });
+        exUnspent += Math.max(0, earnedForLevel(storedLevel) - earnedNow);
+        char.levelLedgerMigrated = true;
+    }
     const requestedPool = Number(requestedUnspentStats);
     let allocationBudget = Number.isSafeInteger(requestedPool) && requestedPool >= 0
         ? Math.min(exUnspent, Math.max(0, exUnspent - requestedPool))
@@ -1330,38 +1365,9 @@ export function sanitizeCharacterSave(
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
     }
-    const proposedInventory = Array.isArray(char.inventory) ? [...char.inventory] : [];
-    const proposedStacks = Array.isArray(char.itemStacks)
-        ? char.itemStacks as Array<{ itemId?: unknown; count?: unknown }>
-        : [];
     const ownedItems = preserveOwnedItems(char.inventory, char.itemStacks, exChar.inventory, exChar.itemStacks);
     char.inventory = ownedItems.inventory;
     char.itemStacks = ownedItems.itemStacks;
-    if (!strictLedger) {
-        const storedCounts = new Map<string, number>();
-        for (const raw of Array.isArray(exChar.inventory) ? exChar.inventory : []) addOwnedCount(storedCounts, raw);
-        for (const row of Array.isArray(exChar.itemStacks) ? exChar.itemStacks as Array<Record<string, unknown>> : []) {
-            addOwnedCount(storedCounts, row?.itemId, Math.max(0, Math.floor(Number(row?.count) || 0)));
-        }
-        const addedInventory = proposedInventory.filter((raw) => {
-            const id = typeof raw === 'string' ? raw : '';
-            const left = storedCounts.get(id) ?? 0;
-            if (left > 0) storedCounts.set(id, left - 1);
-            return Boolean(id) && left <= 0;
-        }) as string[];
-        const unownedStackClaim = proposedStacks.some((row) => {
-            const id = typeof row?.itemId === 'string' ? row.itemId : '';
-            return Math.max(0, Math.floor(Number(row?.count) || 0)) > (storedCounts.get(id) ?? 0);
-        });
-        // The single-item carve-out lets a legacy client-side pickup persist one
-        // net-new item per save, but NEVER a server-owned id (crates, keys, war
-        // caches, hunt materials) — those are minted only by their own
-        // server-authoritative endpoints, so a hand-crafted save can spend them
-        // but not conjure them.
-        if (addedInventory.length === 1 && !unownedStackClaim && !isServerOwnedItemId(addedInventory[0])) {
-            char.inventory = [...(char.inventory as string[]), addedInventory[0]];
-        }
-    }
     // All item ownership is server-issued. Conserve the combined inventory +
     // counted-stack entitlement so load-time array→stack migration remains
     // lossless while arbitrary additions in either representation are dropped.
@@ -2060,16 +2066,24 @@ export function sanitizeCharacterSave(
     grantOwnedBloodlineJutsuMastery(finalChar, out.savedBloodlines);
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
-    if (isFirstSave) out.creatorItems = [];
-    else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
     // On an admin content slot the rule inverts: strip forged gear instead of
     // preserving it, so the shared-content store can never accumulate (or
     // re-acquire) a personal item that would then be published to everyone.
-    else if (opts.adminContentSlot) out.creatorItems = stripForgedItems(sanitizedCreatorItems ?? existing?.creatorItems);
+    // Admin authoring remains writable in strict release mode; strict raw-save
+    // ownership applies to player economy, not the authenticated content store.
+    if (opts.adminContentSlot) out.creatorItems = stripForgedItems(sanitizedCreatorItems ?? existing?.creatorItems);
+    else if (isFirstSave) out.creatorItems = [];
+    else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
     else if (sanitizedCreatorItems !== undefined) out.creatorItems = preserveForgedItems(sanitizedCreatorItems, existing?.creatorItems, CREATOR_ITEM_CAP);
     for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
+        if (opts.adminContentSlot && SHARED_ADMIN_CONTENT_FIELDS.includes(field)) continue;
         if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
         else delete out[field];
+    }
+    if (!opts.adminContentSlot) {
+        delete out.creatorMissions;
+        delete out.creatorRaids;
+        if (Array.isArray(out.creatorEvents)) out.creatorEvents = out.creatorEvents.filter(isReleaseSafeCreatorEvent);
     }
     // World-geography version (the 2026-07 sector renumbering) is server-owned:
     // carry the stored stamp, and stamp brand-new saves current (they are born

@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeCharacterSave } from './[name].js';
 
+// These tests pin the bounded legacy sanitizer itself. Release mode defaults
+// to the stricter receipt-backed raw-save boundary and is covered separately.
+process.env.STRICT_RAW_SAVE_LEDGER = '0';
+
 // Anti-tamper coverage for the HollowGate save-sanitizer clamps (forged-save only;
 // a legitimate save must pass through unchanged). The sanitizer takes/returns the
 // { character, ... } wrapper and returns { ...incoming, character: <sanitized> }.
@@ -316,6 +320,7 @@ test('creator items: persisted weapon EP matches the authoritative combat ceilin
             ],
         },
         { character: { name: 'Audit' }, creatorItems: [] },
+        { adminContentSlot: true },
     ) as Record<string, any>;
     assert.equal(out.creatorItems[0].weaponEp, 60, 'forged EP clamps to the PvP ceiling');
     assert.equal(out.creatorItems[1].weaponEp, 35, 'legitimate named-weapon EP is unchanged');

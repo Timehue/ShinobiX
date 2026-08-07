@@ -66,6 +66,9 @@ jobs:
       - name: Release asset references and decodability
         run: npm run test:release-assets
 
+      - name: Tooling handoff drift
+        run: npm run check:tooling-handoffs
+
       - name: Root audit
         run: npm audit --audit-level=high
 

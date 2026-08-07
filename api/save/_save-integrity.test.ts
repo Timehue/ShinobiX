@@ -11,7 +11,7 @@ const wrap = (character: Record<string, unknown>, extra: Record<string, unknown>
 function withStrictLedger<T>(enabled: boolean, run: () => T): T {
     const previous = process.env.STRICT_RAW_SAVE_LEDGER;
     if (enabled) process.env.STRICT_RAW_SAVE_LEDGER = '1';
-    else delete process.env.STRICT_RAW_SAVE_LEDGER;
+    else process.env.STRICT_RAW_SAVE_LEDGER = '0';
     try {
         return run();
     } finally {
@@ -91,12 +91,11 @@ describe('stat-derived level: sanitizer authority', () => {
         assert.equal(tooLow.level, 15, 'and a lowball level cannot de-level either');
     });
 
-    it('strict-ledger mode does NOT burn the one-time migration flag', () => {
-        // Strict mode reverts the top-up further down; latching the flag here
-        // would strand that player below their level forever.
+    it('strict-ledger mode applies and latches the one-time migration', () => {
         const stored = heldSave({ unspentStats: 20, levelLedgerMigrated: undefined });
         const out = sanitizeStrict(wrap(heldSave({ unspentStats: 20, levelLedgerMigrated: undefined })), wrap(stored)).character as Record<string, unknown>;
-        assert.notEqual(out.levelLedgerMigrated, true, 'flag must not stick while its effect is reverted');
+        assert.equal(out.unspentStats, 3_933);
+        assert.equal(out.levelLedgerMigrated, true);
     });
 
     it('migrates an XP-era save up to its stored level exactly once', () => {
@@ -180,6 +179,7 @@ describe('raw save server-ledger boundary', () => {
             maxHp: 2400, maxChakra: 3000, maxStamina: 3000,
             rankTitle: 'Genin', professionXp: 123, professionRank: 2,
             auraSphereLevel: 3, rankedRating: 1111, petRankedRating: 1222,
+            levelLedgerMigrated: true,
         };
         const forged: Record<string, unknown> = Object.fromEntries(Object.keys(stored).map((key) => [key, 999_999]));
         forged.stats = { strength: 999_999, speed: 999_999 };
@@ -231,7 +231,7 @@ describe('raw save server-ledger boundary', () => {
         assert.deepEqual(out.stats, { strength: 22, speed: 20 }, 'earned/allocated stats must persist');
         assert.equal(out.unspentStats, 3 + 3908, 'the spend persists and the migration top-up lands in the pool');
         assert.deepEqual(out.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 30 }], 'battle mastery must persist');
-        assert.deepEqual(out.inventory, ['sword', 'story-loot'], 'world loot must persist');
+        assert.deepEqual(out.inventory, ['sword'], 'net-new items require an authoritative server write even before the wider strict cutover');
         assert.equal((out.pets as Array<Record<string, unknown>>)[0]?.id, 'story-pet', 'bounded pet progression must persist');
         assert.equal(out.bankRyo, 900, 'server bank balance stays locked');
         assert.equal(out.rankedRating, 1111, 'player rating stays locked');
@@ -362,6 +362,7 @@ describe('raw save server-ledger boundary', () => {
                 level: 20,
                 stats: { strength: 10, speed: 10 },
                 unspentStats: 5,
+                levelLedgerMigrated: true,
             }),
         );
         const char = out.character as Record<string, unknown>;
@@ -380,6 +381,7 @@ describe('raw save server-ledger boundary', () => {
                 level: 20,
                 stats: { strength: 10, speed: 10 },
                 unspentStats: 5,
+                levelLedgerMigrated: true,
             }),
         );
         const char = out.character as Record<string, unknown>;
