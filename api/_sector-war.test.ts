@@ -177,25 +177,30 @@ describe('sector-war: score caps (anti-farm)', () => {
     });
 
     it('garrison kills score at half weight and stop at the garrison cap', () => {
-        // ANBU vs garrison: floor(15 × 0.5) = 7 per assault; cap 50 → 7×7=49, then 1, then 0.
+        // ANBU vs garrison: floor(15 × 0.5) = 7 per assault. Derive the run-out
+        // from the constant so retuning the cap retunes the test with it.
+        const per = Math.floor(SWING_ANBU_V_VILLAGER * GARRISON_POINTS_FRACTION);
+        assert.equal(per, 7);
+        const full = Math.floor(GARRISON_POINTS_CAP / per);
+        const remainder = GARRISON_POINTS_CAP - full * per;
         let s = fresh();
         const awards: number[] = [];
-        for (let i = 0; i < 9; i++) {
+        for (let i = 0; i < full + 2; i++) {
             const out = applySectorWarBattle(s, true, { now: NOW + 7200000 + i, roleSwing: SWING_ANBU_V_VILLAGER, by: 'aria', garrisonBattle: true });
             awards.push(out.awarded);
             s = recordSectorWarBattleOutcome(out, { battleId: `g-${i}`, attackerWon: true, by: 'aria', garrison: true, at: NOW + 7200000 + i }).session;
         }
-        assert.equal(Math.floor(SWING_ANBU_V_VILLAGER * GARRISON_POINTS_FRACTION), 7);
-        assert.equal(garrisonPointsInWar(s), GARRISON_POINTS_CAP);
-        assert.equal(awards[7], 1, 'the run-out award is clipped to the cap remainder');
-        assert.equal(awards[8], 0, 'and then the garrison yields nothing');
+        assert.equal(garrisonPointsInWar(s), GARRISON_POINTS_CAP, 'the cap is reached exactly');
+        assert.equal(awards[full], remainder, 'the run-out award is clipped to the cap remainder');
+        assert.equal(awards[full + 1], 0, 'and then the garrison yields nothing');
     });
 
-    it('the garrison cap can beat an ABSENT defence but not a present one', () => {
-        // Absent defence scores 0 → any garrison lead wins at settlement…
-        assert.ok(GARRISON_POINTS_CAP > 0);
-        // …but a defence that shows up can pass the whole cap with ~4 villager holds.
-        assert.ok(GARRISON_POINTS_CAP <= 10 * SWING_VILLAGER_V_VILLAGER);
+    it('the garrison cap beats an ABSENT defence; a present defence is uncapped against it', () => {
+        // Absent defence scores 0 → any garrison lead wins at settlement.
+        assert.equal(GARRISON_POINTS_CAP, 150); // owner tuning 2026-08-07 (was 50)
+        // The defence's own scoring has NO cap, so showing up can always outrun it.
+        const out = applySectorWarBattle(fresh(), false, { now: NOW + 1, roleSwing: SWING_KAGE_V_KAGE, by: 'kell' });
+        assert.equal(out.awarded, SWING_KAGE_V_KAGE);
     });
 
     it('repelling a mercenary scores the defender at the reduced fraction', () => {

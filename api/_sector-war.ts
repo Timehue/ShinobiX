@@ -89,9 +89,11 @@ export const SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
 // the receipts still make every battle single-count, and each fight needs a
 // real cross-village session behind the rate limits. Only the AI is capped:
 /** Max points the GARRISON may yield an attacker across the whole war. Enough
- *  that a defence which never shows up loses (defender 0 < garrison lead), never
- *  enough to outrun a defence that turns up — ~10 villager kills' worth. */
-export const GARRISON_POINTS_CAP = 50;
+ *  that a defence which never shows up loses decisively (defender 0 < garrison
+ *  lead) — ~30 villager kills' worth (raised 50 → 150, owner tuning 2026-08-07).
+ *  A defence that shows up can still outscore it: repelled attackers and merc
+ *  repels pay the defender full/quarter weight with no cap. */
+export const GARRISON_POINTS_CAP = 150;
 /** Garrison kills score at half weight — live defence stays the better target. */
 export const GARRISON_POINTS_FRACTION = 0.5;
 /** Repelling an AI mercenary scores the defender a quarter weight (lower stakes
