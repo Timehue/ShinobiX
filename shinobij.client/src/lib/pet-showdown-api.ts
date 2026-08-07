@@ -55,12 +55,17 @@ export async function startShowdown(
     return { state: data.state };
 }
 
-/** Submit one round of commands. Retries once on a 503 (lock contention). */
+export type ShowdownTurnResult = ShowdownTurnResponse | { expired: true } | null;
+
+/** Submit one round of commands. Retries once on a 503 (lock contention).
+ *  A 404 means the session no longer exists (45-min TTL lapsed or already
+ *  settled elsewhere) — surfaced distinctly so the battle screen can say
+ *  "expired" instead of implying a transient connection problem. */
 export async function submitShowdownTurn(
     playerName: string,
     sessionId: string,
     commands: ShowdownCommand[],
-): Promise<ShowdownTurnResponse | null> {
+): Promise<ShowdownTurnResult> {
     for (let attempt = 0; attempt < 2; attempt++) {
         const r = await post({ action: "turn", playerName, sessionId, commands });
         if (!r) return null;
@@ -68,6 +73,7 @@ export async function submitShowdownTurn(
             await new Promise((resolve) => setTimeout(resolve, 900));
             continue;
         }
+        if (r.status === 404) return { expired: true };
         if (!r.ok) return null;
         return await r.json().catch(() => null) as ShowdownTurnResponse | null;
     }

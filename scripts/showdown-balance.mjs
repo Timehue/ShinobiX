@@ -1,0 +1,155 @@
+/*
+ * Pet Showdown balance analyzer — pits every catalog species against every
+ * other species OF THE SAME RARITY through the real server engine, both sides
+ * driven by the same AI policy, and reports the spread:
+ *
+ *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3]
+ *
+ * What "balanced" means for Showdown (mirrors the pet-role-balance ratchet):
+ *   - no ROLE outside ~40-60% overall win rate,
+ *   - no ELEMENT outside ~40-60% against the field (the wheel should decide
+ *     individual matchups, not the aggregate),
+ *   - species outliers inside ~25-75% (kits differentiate, never dominate),
+ *   - typical match length 6-12 rounds, judge decisions a minority.
+ *
+ * Read-only: prints the report and exits non-zero if a band is violated, so it
+ * can back a ratchet test. Tuning happens in api/_pet-showdown/engine.ts.
+ */
+
+import { PET_CATALOG } from '../api/pet/_catalog.ts';
+import {
+    createShowdownSession,
+    resolveShowdownRound,
+} from '../api/_pet-showdown/engine.ts';
+import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.ts';
+import { SHOWDOWN_MAX_ROUNDS } from '../shared/pet-showdown-contract.ts';
+
+const args = process.argv.slice(2);
+const flag = (name, fallback) => {
+    const i = args.indexOf(`--${name}`);
+    return i >= 0 ? Number(args[i + 1]) : fallback;
+};
+const LEVEL = flag('level', 50);
+const SEEDS = flag('seeds', 3);
+
+// Balanced-training growth: the same all-stat multiplier every species gets,
+// so the comparison isolates SPECIES identity (base spread + kit), not builds.
+const GROWTH = 1 + (LEVEL - 1) * 0.04 * 0.25;
+
+function scaled(tpl, slot) {
+    return {
+        ...tpl,
+        id: `${slot}:${tpl.id}`,
+        templateId: tpl.id,
+        level: LEVEL,
+        hp: Math.round(Number(tpl.hp) * GROWTH),
+        attack: Math.round(Number(tpl.attack) * GROWTH),
+        defense: Math.round(Number(tpl.defense) * GROWTH),
+        speed: Math.round(Number(tpl.speed) * GROWTH),
+    };
+}
+
+/** Both sides run the SAME policy: the enemy-side picker over a flipped view. */
+function commandsFor(session, side) {
+    if (side === 'enemy') return chooseShowdownAiCommands(session);
+    const flipped = { ...session, player: session.enemy, enemy: session.player };
+    const commands = chooseShowdownAiCommands(flipped);
+    session.rng = flipped.rng;   // keep one shared deterministic stream
+    return commands;
+}
+
+function fight(tplA, tplB, seed) {
+    const session = createShowdownSession({
+        sessionId: 'balance', playerName: 'A', format: '1v1', tier: 'warrior', seed,
+        playerPets: [scaled(tplA, 'a')], enemyPets: [scaled(tplB, 'b')], enemyTeamName: 'B',
+    });
+    let rounds = 0;
+    while (!session.finished && rounds < SHOWDOWN_MAX_ROUNDS + 1) {
+        rounds += 1;
+        const playerCommands = commandsFor(session, 'player');
+        const enemyCommands = commandsFor(session, 'enemy');
+        resolveShowdownRound(session, playerCommands, enemyCommands);
+    }
+    return { outcome: session.outcome, rounds: session.round, byJudge: session.round >= SHOWDOWN_MAX_ROUNDS };
+}
+
+const byRarity = new Map();
+for (const tpl of Object.values(PET_CATALOG)) {
+    if (tpl.wildSpawnable === false) continue;   // starters/evolved forms sit outside the wild pool
+    if (!Array.isArray(tpl.jutsus)) continue;
+    const list = byRarity.get(tpl.rarity) ?? [];
+    list.push(tpl);
+    byRarity.set(tpl.rarity, list);
+}
+
+const speciesStats = new Map();  // id -> {w, n, name, role, element, rarity}
+const roleStats = new Map();
+const elementStats = new Map();
+const elementEdge = { advWins: 0, advGames: 0 };
+let totalRounds = 0, totalGames = 0, judgeGames = 0;
+
+const bump = (map, key, won) => {
+    const s = map.get(key) ?? { w: 0, n: 0 };
+    s.w += won ? 1 : 0;
+    s.n += 1;
+    map.set(key, s);
+};
+
+const BEATS = { Fire: 'Wind', Wind: 'Lightning', Lightning: 'Earth', Earth: 'Water', Water: 'Fire' };
+
+for (const [rarity, list] of byRarity) {
+    for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+            for (let s = 0; s < SEEDS; s++) {
+                const seed = 1_000_003 * (i * 251 + j) + s * 7919 + rarity.length;
+                // Alternate who sits on which side so side bias cancels out.
+                const [A, B] = s % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
+                const { outcome, rounds, byJudge } = fight(A, B, seed);
+                const aWon = outcome === 'win';
+                totalRounds += rounds; totalGames += 1; judgeGames += byJudge ? 1 : 0;
+                for (const [tpl, won] of [[A, aWon], [B, !aWon]]) {
+                    bump(speciesStats, tpl.id, won);
+                    const sp = speciesStats.get(tpl.id);
+                    Object.assign(sp, { name: tpl.name, role: tpl.role, element: tpl.element, rarity });
+                    bump(roleStats, tpl.role ?? 'none', won);
+                    bump(elementStats, tpl.element ?? 'None', won);
+                }
+                if (BEATS[A.element] === B.element) { elementEdge.advGames += 1; elementEdge.advWins += aWon ? 1 : 0; }
+                else if (BEATS[B.element] === A.element) { elementEdge.advGames += 1; elementEdge.advWins += aWon ? 0 : 1; }
+            }
+        }
+    }
+}
+
+const pct = (s) => (100 * s.w / Math.max(1, s.n));
+const fmtMap = (map) => [...map.entries()]
+    .map(([k, s]) => `${k}: ${pct(s).toFixed(1)}% (${s.n})`)
+    .join('  ·  ');
+
+console.log(`\n=== Pet Showdown balance @ level ${LEVEL}, ${SEEDS} seeds, ${totalGames} games ===`);
+console.log(`pace: avg ${(totalRounds / Math.max(1, totalGames)).toFixed(1)} rounds; judge decisions ${(100 * judgeGames / Math.max(1, totalGames)).toFixed(1)}%`);
+console.log(`element-advantage matchup win rate: ${(100 * elementEdge.advWins / Math.max(1, elementEdge.advGames)).toFixed(1)}% of ${elementEdge.advGames}`);
+console.log(`\nROLES     ${fmtMap(roleStats)}`);
+console.log(`ELEMENTS  ${fmtMap(elementStats)}`);
+
+const species = [...speciesStats.values()].sort((a, b) => pct(a) - pct(b));
+console.log('\nWeakest 10:');
+for (const s of species.slice(0, 10)) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
+console.log('Strongest 10:');
+for (const s of species.slice(-10).reverse()) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
+
+// Bands (mirrored by the ratchet test once tuned).
+const failures = [];
+for (const [role, s] of roleStats) if (pct(s) < 40 || pct(s) > 60) failures.push(`role ${role} at ${pct(s).toFixed(1)}%`);
+for (const [el, s] of elementStats) if (pct(s) < 40 || pct(s) > 60) failures.push(`element ${el} at ${pct(s).toFixed(1)}%`);
+for (const s of species) if (pct(s) < 25 || pct(s) > 75) failures.push(`species ${s.name} at ${pct(s).toFixed(1)}%`);
+const avgRounds = totalRounds / Math.max(1, totalGames);
+if (avgRounds < 5 || avgRounds > 12.5) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside 5-12.5`);
+if (judgeGames / Math.max(1, totalGames) > 0.35) failures.push(`judge decides ${(100 * judgeGames / totalGames).toFixed(1)}% of games`);
+
+if (failures.length) {
+    console.log(`\nBANDS VIOLATED (${failures.length}):`);
+    for (const f of failures.slice(0, 25)) console.log(`  - ${f}`);
+    process.exit(1);
+}
+console.log('\nAll balance bands hold.');

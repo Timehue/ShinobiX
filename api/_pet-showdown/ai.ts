@@ -22,7 +22,7 @@ import {
     type ShowdownCommand,
     type ShowdownTier,
 } from '../../shared/pet-showdown-contract.js';
-import type { ShowdownPet, ShowdownSession } from './engine.js';
+import { nextRand, type ShowdownPet, type ShowdownSession } from './engine.js';
 
 // Local deterministic sampler for team generation (session rng not built yet).
 function makeRand(seed: number): () => number {
@@ -122,14 +122,9 @@ function elementBeats(attacker: string, defender: string): boolean {
 }
 
 function rngOf(session: ShowdownSession): () => number {
-    // The AI shares the session rng stream so replays are exact.
-    return () => {
-        let t = (session.rng += 0x6d2b79f5) | 0;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        session.rng = session.rng | 0;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    // The AI shares the session rng stream (and the engine's single PRNG
+    // implementation) so replays are exact.
+    return () => nextRand(session);
 }
 
 /** Pick this round's commands for every living AI pet. */

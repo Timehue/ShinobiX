@@ -24,6 +24,7 @@ import {
     startShowdown,
     submitShowdownTurn,
     forfeitShowdown,
+    fetchShowdownState,
     type ShowdownCommand,
     type ShowdownFormat,
     type ShowdownStateView,
@@ -31,6 +32,29 @@ import {
     type ShowdownTurnResponse,
 } from "../lib/pet-showdown-api";
 import { PetShowdownBattle } from "../components/PetShowdownBattle";
+
+// Refresh-resume breadcrumb: the server session outlives the tab (45-min KV
+// TTL), so a reload mid-battle can pick the fight back up via action:"state".
+const SESSION_BREADCRUMB_KEY = "showdown.session.v1";
+
+function readSessionBreadcrumb(): { sessionId: string; petIds: string[] } | null {
+    try {
+        const raw = sessionStorage.getItem(SESSION_BREADCRUMB_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown };
+        if (typeof parsed.sessionId !== "string" || !Array.isArray(parsed.petIds)) return null;
+        return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String) };
+    } catch {
+        return null;
+    }
+}
+
+function writeSessionBreadcrumb(value: { sessionId: string; petIds: string[] } | null): void {
+    try {
+        if (value) sessionStorage.setItem(SESSION_BREADCRUMB_KEY, JSON.stringify(value));
+        else sessionStorage.removeItem(SESSION_BREADCRUMB_KEY);
+    } catch { /* storage disabled — resume simply won't survive a refresh */ }
+}
 
 const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string }[] = [
     { id: "1v1", label: "1v1 Duel", size: 1, blurb: "One champion. Quick and lethal." },
@@ -88,6 +112,27 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     }, [onFullscreenActiveChange, onBattleActiveChange]);
     useEffect(() => () => setSignals(false, false), [setSignals]);
 
+    // Refresh-resume: an unresolved server session picks the fight back up.
+    useEffect(() => {
+        const crumb = readSessionBreadcrumb();
+        if (!crumb) return;
+        let cancelled = false;
+        void (async () => {
+            const state = await fetchShowdownState(character.name, crumb.sessionId);
+            if (cancelled) return;
+            if (state && !state.finished) {
+                setSelected(crumb.petIds);
+                setBattle({ state, key: battleKey.current++ });
+                setSignals(true, true);
+            } else {
+                writeSessionBreadcrumb(null);
+            }
+        })();
+        return () => { cancelled = true; };
+        // Mount-only: the breadcrumb is a one-shot restore.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const togglePet = (pet: Pet) => {
         if (busyReason(pet)) return;
         setError(null);
@@ -107,6 +152,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             return;
         }
         setBattle({ state: result.state, key: battleKey.current++ });
+        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected });
         setSignals(true, true);
     }, [starting, selected, size, character.name, format, tier, setSignals]);
 
@@ -120,6 +166,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const handleFinished = useCallback((outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {
         // Decided: release the nav lock; the fullscreen result panel stays up.
         setSignals(true, false);
+        writeSessionBreadcrumb(null);
         void outcome;
         const settledCharacter = settlement?.character as Character | undefined;
         if (settledCharacter && typeof settledCharacter === "object") {
@@ -129,11 +176,13 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
 
     const handleForfeit = useCallback(() => {
         if (activeSession) void forfeitShowdown(character.name, activeSession);
+        writeSessionBreadcrumb(null);
         setBattle(null);
         setSignals(false, false);
     }, [activeSession, character.name, setSignals]);
 
     const handleExit = useCallback(() => {
+        writeSessionBreadcrumb(null);
         setBattle(null);
         setSignals(false, false);
     }, [setSignals]);
