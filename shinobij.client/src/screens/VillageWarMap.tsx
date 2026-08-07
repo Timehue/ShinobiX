@@ -33,8 +33,8 @@ import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../d
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
 // The "command surface" beside the existing VillageWarScreen (§10/§11b.6): each
 // war village's WR/seal pools + structures + tax tier, every home sector's owner
-// + win-condition + terrain + live Control-HP, and the Kage actions (declare a
-// sector war, set win-conditions/terrain, upgrade structures). The on-map banner
+// + win-condition + terrain + the live 72h war score, and the Kage actions (declare
+// a sector war, set win-conditions/terrain, upgrade structures). The on-map banner
 // overlay and the battle-launch flows layer on separately. View data comes from
 // /api/village/war-map + /api/world-state (ownership); all actions are server-auth.
 
@@ -129,7 +129,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         for (const c of data?.contests ?? []) m[c.sector] = c;
         return m;
     }, [data]);
-    // Combat sieges THIS village is running — where a merc can be deployed.
+    // Combat wars THIS village is attacking — where a merc can be deployed.
     const myCombatContests = useMemo(
         () => (data?.contests ?? []).filter((c) => c.attackerVillage === myVillage && c.winCondition === "combat"),
         [data, myVillage],
@@ -174,12 +174,12 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                 </button>
                 {showInfo && (
                     <div className="vwm-info-body">
-                        <p>Villages fight over the world map, <b>one sector at a time</b>. The seated <b>Kage</b> declares war on an enemy-held sector and sets how it's fought — then the whole village joins in.</p>
+                        <p>Villages fight over the world map, <b>one sector at a time</b>. The seated <b>Kage</b> declares war on an enemy-held sector and sets how it's fought — then the whole village has <b>72 hours</b> to win it.</p>
                         <div className="vwm-info-grid">
                             <div><b>⚔ Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Chronicle Showdown). Every fight is server-decided — no faking a win.</span></div>
-                            <div><b>❤ Control HP → capture</b><span>Each win drains the enemy sector's Control HP; a defense win heals it. Rank matters — Kage/elders/ANBU hit harder. Drain it to 0 to capture.</span></div>
+                            <div><b>🏆 Most points in 72h wins</b><span>Every win scores kill points for your side and the tally counts up. Highest score when the clock runs out takes the sector — <b>a tie means the defender holds</b>. Rank is the score: felling a Kage is worth far more than a villager.</span></div>
                             <div><b>🗺 Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
-                            <div><b>🗡 Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and chips Control HP.</span></div>
+                            <div><b>🗡 Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and scores points for the attack.</span></div>
                             <div><b>🏯 Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
                             <div><b>👑 Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest. Anyone can fight in a sector that's already contested.</span></div>
                         </div>
@@ -245,7 +245,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                         <div className="card vwm-mercs">
                             <h3>Mercenaries</h3>
                             {!isKage && <p className="hint" style={{ color: "#fbbf24" }}>👑 This is the merc roster your village can field — only your seated Kage can hire and deploy them.</p>}
-                            <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're besieging. Fights resolve server-side — a merc win chips Control HP, a loss gives the defender only 25% back.</p>
+                            <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're attacking. Fights resolve server-side — a merc win scores full points for the attack, and a defender who repels one scores a quarter.</p>
                             <div className="vwm-merc-tiers">
                                 {mercData.tiers.map((t) => {
                                     const band = mercData.leases.find((l) => l.tierId === t.id);
@@ -328,10 +328,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <button
                                                     className="vwm-declare"
                                                     disabled={!!busy}
-                                                    title="End this siege. The War Resources you spent declaring are not refunded."
+                                                    title="Concede this war. The sector stays with the defender whatever the score, and the War Resources you spent declaring are not refunded."
                                                     onClick={() => act(`aband-${sec.sector}`, () => abandonSectorWar(character.name, sec.sector))}
                                                 >
-                                                    Call Off Siege
+                                                    Concede War
                                                 </button>
                                             )}
                                             {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
@@ -369,7 +369,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
 
                     {(data.contests ?? []).length > 0 && (
                         <div className="card vwm-contests">
-                            <h4>Active Sieges</h4>
+                            <h4>Active Wars</h4>
                             {data.contests.map((c) => (
                                 <div key={c.id} className="vwm-contest-row">
                                     <span style={{ color: villageAccent(c.attackerVillage) }}>{c.attackerVillage}</span>
