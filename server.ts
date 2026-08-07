@@ -75,6 +75,7 @@ import guardChallengeHandler from './api/village-guard/challenge.js';
 import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import worldStateHandler   from './api/world-state.js';
+import { seedHomeSectorOwnership } from './api/world-state.js';
 import messagesHandler     from './api/messages.js';
 import reportHandler       from './api/report.js';
 import perfBeaconHandler   from './api/perf-beacon.js';
@@ -1700,6 +1701,17 @@ server.listen(PORT, () => {
     // Vercel removal: the always-on server now runs the daily save-snapshot
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
+    // War-map territory self-seed. Every deploy (and the coming account wipe)
+    // must not depend on an operator remembering an admin seed call: the seeder
+    // only fills sectors with NO owner (a conquered sector is never touched,
+    // and a second run seeds 0), so booting is a safe time to run it. Fire-and-
+    // forget — a storage blip here must not affect startup, and the admin
+    // `seed` action remains as the manual re-run path.
+    if (process.env.ENABLE_VILLAGE_WAR === '1') {
+        void seedHomeSectorOwnership()
+            .then(({ seeded, sectors }) => { if (seeded > 0) console.log(`[war-map] self-seeded ${seeded} unowned home sector(s): ${sectors.join(', ')}`); })
+            .catch((err) => console.error('[war-map] territory self-seed failed (admin seed action still available):', (err as Error).message));
+    }
 });
 
 export default app;
