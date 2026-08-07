@@ -17,18 +17,15 @@ import type { Character } from "../types/character";
 import type { Jutsu } from "../types/combat";
 import { LEGACY_JUTSU_BY_ID, LEGACY_JUTSU_ID_BY_LEGACY, stampLegacyJutsuType } from "../data/legacy-jutsu";
 import { isLegacyEnabled } from "./legacy";
+import { LEGACY_SIGNATURE_MIN_STAGE } from "./legacy-jutsu-id";
 
-/** Stage 3 (Bound) unlocks the signature. */
-export const LEGACY_SIGNATURE_MIN_STAGE = 3;
-
-export function isLegacyJutsuId(jutsuId: string): boolean {
-    return LEGACY_JUTSU_BY_ID.has(jutsuId);
-}
-
-/** Stage-scaled signature mastery: 3→30, 4→40, 5→50. */
-export function legacySignatureMasteryLevel(stage: number): number {
-    return Math.min(50, Math.max(0, Math.floor(stage)) * 10);
-}
+// The ID test and mastery curve live in ./legacy-jutsu-id, which must NOT
+// import the jutsu table — App's eager graph (lib/jutsu-scaling) uses them, and
+// importing THIS module would drag the ~53 KB table into the entry chunk (its
+// lookup Maps are built at module scope, so tree-shaking can't drop them).
+// EAGER CODE IMPORTS ./legacy-jutsu-id DIRECTLY; the re-export here is
+// back-compat for the lazy screens that also need legacySignatureFor.
+export { LEGACY_SIGNATURE_MIN_STAGE, isLegacyJutsuId, legacySignatureMasteryLevel } from "./legacy-jutsu-id";
 
 /**
  * The character's active legacy signature, battle-ready (adaptive "Any" damage

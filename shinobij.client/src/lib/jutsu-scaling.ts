@@ -11,7 +11,7 @@
 
 import { effectiveTagPercent } from "./tags";
 import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC, jutsuLevelCapForLevel, MAX_LEVEL, COMBAT_RESOURCES_V2 } from "../constants/game";
-import { isLegacyJutsuId, legacySignatureMasteryLevel, LEGACY_SIGNATURE_MIN_STAGE } from "./legacy-jutsu-slot";
+import { isLegacyJutsuId, legacySignatureMasteryLevel, LEGACY_SIGNATURE_MIN_STAGE } from "./legacy-jutsu-id";
 import type { Jutsu, JutsuMastery } from "../types/combat";
 import type { Character } from "../types/character";
 
