@@ -17,4 +17,14 @@ describe('product analytics schema', () => {
             name: 'feature_entry_clicked', properties: { source: 'landing', contentId: 'guides' },
         });
     });
+
+    it('tracks focus interactions with bounded aggregate properties', () => {
+        assert.deepEqual(createProductEvent('activity_recommendation_viewed', {
+            screenId: 'daily-briefing', mode: 'focus-selected', focus: 'towers-spire',
+            playerName: 'Visible Player', exactLevel: 85,
+        }), {
+            name: 'activity_recommendation_viewed',
+            properties: { screenId: 'daily-briefing', mode: 'focus-selected', focus: 'towers-spire' },
+        });
+    });
 });

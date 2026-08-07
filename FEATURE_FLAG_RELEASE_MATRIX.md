@@ -1,5 +1,8 @@
 # Feature Flag Release Matrix
 
+> [!IMPORTANT]
+> **HISTORICAL ROLLOUT EVIDENCE — SUPERSEDED FOR CURRENT AVAILABILITY.** This matrix preserves rollout and closeout evidence, including recommendations that were current when written. Emergency switches remain valid operations tools, but the old launch-state labels are not current player availability. See [`docs/LIVE_PRODUCT_STATUS.md`](docs/LIVE_PRODUCT_STATUS.md).
+
 Updated: August 6, 2026 (post-merge release closeout)
 
 | System | Launch State | Reason | Risk | Required Before Enable |

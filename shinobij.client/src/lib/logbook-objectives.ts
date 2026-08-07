@@ -15,6 +15,7 @@
  */
 import type { Screen } from "../types/core";
 import type { Character } from "../types/character";
+import { PROGRESSION_EXAM_HOLDS } from "../../../shared/progression-holds";
 import { baseStats, rankFromLevel } from "./stats";
 import { getCharacterElements } from "./elements";
 
@@ -34,8 +35,13 @@ export interface LogbookObjective {
     title: string;
     summary?: string;
     examKey?: string;      // exams only — matches Character.examsPassed entries
+    progressionImpact?: "blocking" | "prestige";
     unlockLevel: number;
     requirements: ObjectiveRequirement[];
+}
+
+export function examProgressionImpact(examKey: string): "blocking" | "prestige" {
+    return PROGRESSION_EXAM_HOLDS.some((gate) => gate.exam === examKey) ? "blocking" : "prestige";
 }
 
 /**
@@ -190,6 +196,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             title: "Genin Exam",
             summary: "You are at the level-20 hold. Pass this exam to keep leveling toward Chunin.",
             examKey: "genin",
+            progressionImpact: examProgressionImpact("genin"),
             unlockLevel: 20,
             requirements: [
                 { label: "Reach the Genin exam gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
@@ -209,6 +216,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             title: "Chunin Exam",
             summary: "You are at the level-39 hold. Pass this exam to continue leveling toward Jonin.",
             examKey: "chunin",
+            progressionImpact: examProgressionImpact("chunin"),
             unlockLevel: 39,
             requirements: [
                 { label: "Reach the Chunin exam gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
@@ -227,8 +235,9 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             id: "exam-jonin",
             kind: "exam",
             title: "Jonin Exam",
-            summary: "Jonin rank begins at level 50. This is advanced combat and raid work for veteran shinobi.",
+            summary: "Jonin rank begins automatically at level 50. This optional veteran ceremony recognizes advanced combat and raid work.",
             examKey: "jonin",
+            progressionImpact: examProgressionImpact("jonin"),
             unlockLevel: 50,
             requirements: [
                 { label: "Get 10 PvP kills", progress: character.totalPvpKills ?? 0, target: 10 },
@@ -241,9 +250,10 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         objectives.push({
             id: "exam-special-jonin",
             kind: "exam",
-            title: "Special Jonin Exam",
-            summary: "A late-game leadership and PvP milestone.",
+            title: "Special Jonin Distinction",
+            summary: "Special Jonin rank begins automatically at level 80. This optional leadership and PvP ceremony is prestige only.",
             examKey: "specialJonin",
+            progressionImpact: examProgressionImpact("specialJonin"),
             unlockLevel: 80,
             requirements: [
                 { label: "Kill 100 players in PvP", progress: character.totalPvpKills ?? 0, target: 100 },
@@ -258,8 +268,8 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
 /**
  * The one objective the player is actively working toward, for the Daily
  * Briefing: the Academy checklist while it's still open, otherwise the
- * lowest-rank exam they've unlocked but not yet passed. Null when nothing is
- * pending (every unlocked exam passed, or nothing unlocked yet).
+ * lowest blocking exam they've unlocked but not yet passed. Optional prestige
+ * ceremonies stay visible in the Logbook but never displace a required goal.
  */
 export function currentLogbookObjective(character: Character, ctx: ObjectiveContext = {}): LogbookObjective | null {
     const objectives = buildLogbookObjectives(character, ctx);
@@ -268,5 +278,5 @@ export function currentLogbookObjective(character: Character, ctx: ObjectiveCont
     const chapter = objectives.find((o) => o.kind === "chapter" && !objectiveComplete(o));
     if (chapter) return chapter;
     const passed = new Set(character.examsPassed ?? []);
-    return objectives.find((o) => o.kind === "exam" && !passed.has(o.examKey ?? "")) ?? null;
+    return objectives.find((o) => o.kind === "exam" && o.progressionImpact === "blocking" && !passed.has(o.examKey ?? "")) ?? null;
 }

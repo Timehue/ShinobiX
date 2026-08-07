@@ -2319,7 +2319,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 758
+            "line": 759
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -2369,7 +2369,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
-            "line": 64
+            "line": 67
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -2745,7 +2745,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 238
+            "line": 240
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
@@ -2773,7 +2773,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 745
+            "line": 746
           },
           {
             "source": "shinobij.client/src/styles/index/25-mobile-profile-tabs.css",
@@ -3032,7 +3032,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 867
+            "line": 868
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -3040,7 +3040,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
-            "line": 58
+            "line": 61
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",

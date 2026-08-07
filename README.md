@@ -3,7 +3,7 @@
 ![CI](https://github.com/Timehue/ShinobiX/actions/workflows/ci.yml/badge.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D22-2f7d32)
 ![TypeScript](https://img.shields.io/badge/TypeScript-game%20server%20%2B%20client-3178c6)
-![Beta](https://img.shields.io/badge/status-public%20beta%20candidate-c47716)
+![Beta](https://img.shields.io/badge/status-live%20public%20beta-2f7d32)
 
 ShinobiX is a browser-based ninja MMORPG built around long-term character
 growth, jutsu combat, missions, clans, pets, village systems, towers, ranked
@@ -16,8 +16,8 @@ repository and backend package use the **ShinobiX** name.
 
 ## Why Star This Repo
 
-Star ShinobiX if you want to follow a serious browser MMORPG codebase as it
-moves toward public beta. The project is already more than a landing page: it
+Star ShinobiX if you want to follow a serious live browser MMORPG codebase. The
+project is more than a landing page: it
 has a real React client, an Express/Supabase backend, server-side reward and
 anti-cheat checks, and a broad automated test suite covering combat, missions,
 economy, PvP, saves, pets, towers, village systems, and release gates.
@@ -32,8 +32,8 @@ economy, PvP, saves, pets, towers, village systems, and release gates.
   effects, cooldowns, battle logs, and server-validated reward paths.
 - Join social and competitive systems including clans, ranked PvP, pet arena,
   battle towers, card clash, village leadership, and sector-war foundations.
-- Operate beta safely with release flags, audit logs, receipts, rate limits,
-  beta metrics, and admin diagnostics.
+- Operate the live beta safely with emergency controls, audit logs, receipts,
+  rate limits, product metrics, and admin diagnostics.
 
 ## Screenshots
 
@@ -43,31 +43,24 @@ economy, PvP, saves, pets, towers, village systems, and release gates.
 
 ## Current Status
 
-ShinobiX is a **public beta candidate**, not a finished MMO launch. The core
-early loop is ready enough for controlled testing after live smoke checks pass.
-Some high-risk systems should remain gated or staff-monitored until they have
-fresh production evidence.
+ShinobiX is a **live public beta**, not a 1.0 release. Its shipped player systems
+include the complete early loop plus PvP and Ranked, Towers and Spire, Hollow
+Gate, companions and their battle modes, Chronicle Showdown, clans and Clan Boss
+Operations, Village and Sector War, professions, Legacy, Hall of Legends, and
+the village story chronicles.
 
-Ready for controlled beta:
-
-- Registration, login, character creation, and Academy onboarding.
-- Training, jutsu training, inventory, shop, bank, hospital, cafeteria.
-- Early missions, early hunts, Logbook goals, village map, and world travel.
-- PvP, ranked PvP, battle towers, pet arena, professions, and clans with
-  monitoring.
-
-Gate or soft-launch:
-
-- Broad village/sector-war seasons without staff coverage.
-- Player AI image generation, creator tools, and public Bloodline Maker usage.
-- Hollow Gate as a mobile-ready feature.
+Emergency disable controls remain available for incident response. Admin and
+creator operations retain their existing permissions; operational safeguards do
+not describe player systems as unlaunched.
 
 All shipped Solo PvE combat modes now seal player loadouts, resolve actions,
 recover sessions, and settle rewards on the server. The server rejects the
 retired Weekly Boss client-damage and legacy mission-win report paths.
 
-See [Public Beta Launch Recommendation](PUBLIC_BETA_LAUNCH_RECOMMENDATION.md)
-and [Feature Flag Release Matrix](FEATURE_FLAG_RELEASE_MATRIX.md).
+See the canonical [Live Product Status](docs/LIVE_PRODUCT_STATUS.md). The
+[Public Beta Launch Recommendation](PUBLIC_BETA_LAUNCH_RECOMMENDATION.md) and
+[Feature Flag Release Matrix](FEATURE_FLAG_RELEASE_MATRIX.md) are preserved as
+historical rollout evidence.
 
 ## Tech Stack
 
@@ -123,13 +116,12 @@ bundle, and runs the build-size check.
 
 ## Roadmap
 
-The public roadmap is in [docs/ROADMAP.md](docs/ROADMAP.md). The first release
-target is a conservative `v0.1.0-beta` cut focused on the early game, core
-combat, player safety, observability, and honest beta labeling.
+The public roadmap is in [docs/ROADMAP.md](docs/ROADMAP.md). Current work focuses
+on coherence, player guidance, safety, observability, and live-beta polish.
 
 ## Release Notes
 
-Draft release notes for the first beta are in
+Historical draft notes for the first beta are in
 [docs/RELEASE_NOTES_v0.1.0-beta.md](docs/RELEASE_NOTES_v0.1.0-beta.md).
 
 ## Media Kit

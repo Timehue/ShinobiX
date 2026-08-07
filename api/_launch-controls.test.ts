@@ -28,6 +28,8 @@ describe('emergency launch controls', () => {
         for (const path of ['/admin-auth', '/admin/economy', '/cron/snapshot-saves', '/kv/get']) {
             assert.deepEqual(evaluateLaunchControl({ path, method: 'POST' }, env), { allowed: true });
         }
+        assert.deepEqual(evaluateLaunchControl({ path: '/api/player/capabilities', method: 'GET' }, env), { allowed: true });
+        assert.equal(evaluateLaunchControl({ path: '/player/capabilities', method: 'POST' }, env).allowed, false);
         assert.equal(newRegistrationsDisabled(env), true);
     });
 

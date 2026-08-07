@@ -6,7 +6,8 @@ const app = readFileSync("shinobij.client/src/App.tsx", "utf8");
 const hub = readFileSync("shinobij.client/src/screens/CentralHub.tsx", "utf8");
 const arena = readFileSync("shinobij.client/src/screens/Arena.tsx", "utf8");
 const council = readFileSync("shinobij.client/src/screens/ShinobiCouncilHall.tsx", "utf8");
-const readiness = readFileSync("shinobij.client/src/lib/release-readiness.ts", "utf8");
+const capabilities = readFileSync("api/player/_public-capabilities.ts", "utf8");
+const liveNotice = readFileSync("shinobij.client/src/lib/live-capabilities.ts", "utf8");
 const endlessActions = readFileSync("shinobij.client/src/lib/use-endless-tower-actions.ts", "utf8");
 const endlessFight = readFileSync("shinobij.client/src/screens/EndlessTowerFight.tsx", "utf8");
 
@@ -45,8 +46,9 @@ describe("Central Hub release authority", () => {
         assert.doesNotMatch(council, /totalVillageRaids|clanContribTotal/);
     });
 
-    it("does not present the authoritative Weekly Boss as reward-gated", () => {
-        assert.match(readiness, /system: "Weekly Boss",\s*\n\s*launchState: "ready"/);
-        assert.doesNotMatch(readiness, /weeklyBoss:\s*\{\s*\n\s*id: "weekly-boss"/);
+    it("keeps the Weekly Boss live by default and emits no static release warning", () => {
+        assert.match(capabilities, /weeklyBossGuardEnabled\(env\) \? available/);
+        assert.match(liveNotice, /capability\.state === "available"/);
+        assert.doesNotMatch(liveNotice, /soft-launch|desktop-first|staffed beta/i);
     });
 });

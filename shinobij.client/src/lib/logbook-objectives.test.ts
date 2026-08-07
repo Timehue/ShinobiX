@@ -2,9 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Character } from "../types/character";
 import { baseStats } from "./stats";
+import { rankFromLevel } from "./stats";
+import { jutsuLevelCapForLevel, statCapForLevel } from "../constants/game";
+import { levelProgress } from "./character-progress";
 import {
     buildLogbookObjectives,
     currentLogbookObjective,
+    examProgressionImpact,
     objectiveComplete,
 } from "./logbook-objectives";
 import { buildJourneyGuide } from "./journey-guide";
@@ -111,6 +115,28 @@ test("current objective is null once every unlocked exam is passed", () => {
     assert.equal(currentLogbookObjective(c), null);
 });
 
+test("only the two canonical progression holds can become the current exam", () => {
+    assert.equal(examProgressionImpact("genin"), "blocking");
+    assert.equal(examProgressionImpact("chunin"), "blocking");
+    assert.equal(examProgressionImpact("jonin"), "prestige");
+    assert.equal(examProgressionImpact("specialJonin"), "prestige");
+
+    const veteran = makeCharacter({ level: 80, examsPassed: ["genin", "chunin"] });
+    const optional = buildLogbookObjectives(veteran).filter((objective) => objective.progressionImpact === "prestige");
+    assert.deepEqual(optional.map((objective) => objective.examKey), ["jonin", "specialJonin"]);
+    assert.equal(currentLogbookObjective(veteran), null);
+});
+
+test("level 80 and level 100 progression does not depend on optional prestige stamps", () => {
+    for (const level of [80, 100]) {
+        const character = makeCharacter({ level, examsPassed: ["genin", "chunin"], unspentStats: 0 });
+        assert.equal(rankFromLevel(level), "Special Jonin");
+        assert.equal(levelProgress(character).heldBy, null);
+        assert.equal(statCapForLevel(level), 2500);
+        assert.equal(jutsuLevelCapForLevel(level), 50);
+    }
+});
+
 test("requirement progress reads the save's counters", () => {
     const c = makeCharacter({
         level: 39,
@@ -146,12 +172,14 @@ test("Jonin exam waits for the actual Jonin rank band", () => {
 
 test("Special Jonin 'Become Kage or Elder' honors the env context", () => {
     const base = makeCharacter({ level: 80, examsPassed: ["genin", "chunin", "jonin"], totalPvpKills: 100 });
-    const notKage = currentLogbookObjective(base);
+    const notKage = buildLogbookObjectives(base).find((objective) => objective.examKey === "specialJonin");
     assert.equal(notKage?.examKey, "specialJonin");
+    assert.equal(notKage?.progressionImpact, "prestige");
     assert.ok(!objectiveComplete(notKage!), "not Kage/Elder is incomplete");
 
-    const asKage = currentLogbookObjective(base, { isKage: true });
+    const asKage = buildLogbookObjectives(base, { isKage: true }).find((objective) => objective.examKey === "specialJonin");
     assert.ok(objectiveComplete(asKage!), "seated Kage satisfies the standing requirement");
+    assert.equal(currentLogbookObjective(base, { isKage: true }), null, "optional prestige never owns the required next objective");
 });
 
 test("Journey Guide starts fresh Academy players at training", () => {

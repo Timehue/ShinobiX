@@ -14,4 +14,31 @@ describe('rank exam authority', () => {
         assert.equal(passRankExam(special, 'specialJonin', { isElder: true }).ok, true);
         assert.equal(passRankExam({ level: 50, totalPvpKills: 10, totalVillageRaids: 20, defeatedAiIds: ['builtin-ai-rogue-ninja'], examsPassed: [] }, 'jonin').ok, false);
     });
+    it('records Special Jonin prestige without awarding or blocking character power', () => {
+        const stats = {
+            strength: 800, speed: 790, intelligence: 10, willpower: 10,
+            bukijutsuOffense: 10, bukijutsuDefense: 10, taijutsuOffense: 10, taijutsuDefense: 10,
+            genjutsuOffense: 10, genjutsuDefense: 10, ninjutsuOffense: 10, ninjutsuDefense: 10,
+        };
+        const mastery = [{ jutsuId: 'ember', level: 42 }];
+        const veteran = {
+            level: 80,
+            rankTitle: 'Special Jonin',
+            totalPvpKills: 100,
+            examsPassed: ['genin', 'chunin', 'jonin'],
+            stats,
+            unspentStats: 17,
+            jutsuMastery: mastery,
+            ryo: 900,
+        };
+        const result = passRankExam(veteran, 'specialJonin', { isKage: true });
+        assert.equal(result.ok, true);
+        assert.equal(result.character.level, 80);
+        assert.equal(result.character.rankTitle, 'Special Jonin');
+        assert.deepEqual(result.character.stats, stats);
+        assert.equal(result.character.unspentStats, 17);
+        assert.deepEqual(result.character.jutsuMastery, mastery);
+        assert.equal(result.character.ryo, 900);
+        assert.deepEqual(result.character.examsPassed, ['genin', 'chunin', 'jonin', 'specialJonin']);
+    });
 });

@@ -82,13 +82,13 @@
 
 .central-hub .central-card {
     display: grid !important;
-    grid-template-columns: 60px 1fr !important;
+    grid-template-columns: 44px minmax(0, 1fr) !important;
     grid-template-rows: auto auto !important;
-    column-gap: 16px !important;
+    column-gap: 10px !important;
     row-gap: 4px !important;
     align-items: center !important;
     text-align: left !important;
-    padding: 16px 18px !important;
+    padding: 16px 14px !important;
     background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
     border: 1px solid var(--bsv2-gold-soft) !important;
     border-radius: 6px !important;
@@ -119,10 +119,12 @@
     place-items: center;
 }
 .central-hub .central-card strong {
-    font: 600 14px/1.2 var(--font-display) !important;
+    font: 600 13px/1.2 var(--font-display) !important;
     color: var(--bsv2-gold-bright) !important;
-    letter-spacing: 0.12em !important;
+    letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .central-hub .central-card small {
     font: 400 11px/1.5 Inter, sans-serif !important;

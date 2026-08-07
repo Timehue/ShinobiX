@@ -18,6 +18,7 @@
 import type { Profession, JutsuType, VillageUpgrades } from "./core";
 import type { Stats, EquipmentSlots, JutsuMastery } from "./combat";
 import type { Pet, PetBreedingSession } from "./pet";
+import type { MasteryFocus } from "../../../shared/activity-spine";
 
 // ── Hollow Gate Shrine run state ──────────────────────────────────────────
 
@@ -312,6 +313,8 @@ export type Character = {
     storyTraits?: string[];
     storyProgress: number;
     storyVillage: string;
+    /** Optional recommendation preference; it never changes rewards or access. */
+    masteryFocus?: MasteryFocus;
     equippedBloodlineId?: string;
     stats: Stats;
     unspentStats: number;

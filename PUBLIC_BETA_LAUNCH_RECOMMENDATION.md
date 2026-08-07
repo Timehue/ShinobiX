@@ -1,5 +1,8 @@
 # Public Beta Launch Recommendation
 
+> [!IMPORTANT]
+> **HISTORICAL ROLLOUT EVIDENCE — SUPERSEDED FOR CURRENT AVAILABILITY.** This July 7 recommendation records a prelaunch decision point and is preserved for audit history. It must not be used to label shipped systems today. See [`docs/LIVE_PRODUCT_STATUS.md`](docs/LIVE_PRODUCT_STATUS.md) for current product truth.
+
 Date: July 7, 2026
 
 ## Overall Recommendation
