@@ -200,6 +200,28 @@ export function setPetPlayerControlEnabled(on: boolean): void {
     try { localStorage.setItem(PLAYER_CONTROL_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
 
+/*
+ * Pet Showdown — the turn-based cinematic flagship pet battle mode (server-
+ * resolved rounds, Stadium-style presentation). DEFAULT ON: when enabled, the
+ * Pet Arena's Coliseum tab leads with the Showdown entry. Instant rollback:
+ * localStorage.setItem("petShowdown.v1","0") restores the legacy Coliseum as
+ * the headline mode (the server endpoint additionally honors the
+ * DISABLE_PET_SHOWDOWN env kill switch). Per-device persisted.
+ */
+const SHOWDOWN_KEY = "petShowdown.v1";
+
+export function petShowdownEnabled(): boolean {
+    try {
+        const v = localStorage.getItem(SHOWDOWN_KEY);
+        if (v === "0") return false;   // explicit opt-out only (kill-switch)
+        return true;                   // DEFAULT ON — Showdown is the flagship
+    } catch { return true; }
+}
+
+export function setPetShowdownEnabled(on: boolean): void {
+    try { localStorage.setItem(SHOWDOWN_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
 const ARENA_V2_KEY = "petArenaV2.v1";
 
 export function petArenaV2Enabled(): boolean {

@@ -1,0 +1,251 @@
+/*
+ * PetShowdown — the flagship pet battle mode's host screen.
+ *
+ * Lobby (format + difficulty tier + team picker) → server-minted session
+ * (/api/pet/showdown, engine lives server-side only) → fullscreen cinematic
+ * playback via PetShowdownBattle. Ryo is client-owned: the finishing turn's
+ * response carries the settled character snapshot, which this screen ADOPTS via
+ * updateCharacter (the same pattern as /api/pet/battle-result callers).
+ *
+ * The two lifted battle signals are deliberately separate (project rule):
+ * onFullscreenActiveChange drives chrome hiding only; onBattleActiveChange
+ * drives the nav lock/presence and clears the moment the outcome is decided.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "./PetShowdown.css";
+import type { Character } from "../types/character";
+import type { Pet } from "../types/pet";
+import type { Screen } from "../types/core";
+import { isPetOnExpedition } from "../lib/pet";
+import { petCardImage } from "../lib/pet-battle-anim";
+import { preloadPetColiseumModels } from "../lib/pet-model-preload";
+import {
+    startShowdown,
+    submitShowdownTurn,
+    forfeitShowdown,
+    type ShowdownCommand,
+    type ShowdownFormat,
+    type ShowdownStateView,
+    type ShowdownTier,
+    type ShowdownTurnResponse,
+} from "../lib/pet-showdown-api";
+import { PetShowdownBattle } from "../components/PetShowdownBattle";
+
+const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string }[] = [
+    { id: "1v1", label: "1v1 Duel", size: 1, blurb: "One champion. Quick and lethal." },
+    { id: "2v2", label: "2v2 Showdown", size: 2, blurb: "The flagship — focus fire, taunts, combos." },
+    { id: "3v3", label: "3v3 Rumble", size: 3, blurb: "Full squad warfare." },
+];
+
+const TIERS: { id: ShowdownTier; label: string; icon: string; blurb: string }[] = [
+    { id: "scrapper", label: "Scrapper", icon: "🐾", blurb: "Street strays. Learn the ropes." },
+    { id: "warrior", label: "Warrior", icon: "⚔️", blurb: "Hardened kennels. A fair fight." },
+    { id: "champion", label: "Champion", icon: "👑", blurb: "Apex beasts. Bring your best." },
+];
+
+export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange }: {
+    character: Character;
+    updateCharacter: (next: Character) => void;
+    setScreen: (screen: Screen) => void;
+    sharedImages: Record<string, string>;
+    onBattleActiveChange?: (active: boolean) => void;
+    onFullscreenActiveChange?: (active: boolean) => void;
+}) {
+    const [format, setFormat] = useState<ShowdownFormat>("2v2");
+    const [tier, setTier] = useState<ShowdownTier>("scrapper");
+    const [selected, setSelected] = useState<string[]>([]);
+    const [starting, setStarting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [battle, setBattle] = useState<{ state: ShowdownStateView; key: number } | null>(null);
+    const battleKey = useRef(1);
+
+    const size = FORMATS.find((f) => f.id === format)?.size ?? 2;
+    const pets = useMemo(() => character.pets ?? [], [character.pets]);
+
+    const busyReason = useCallback((pet: Pet): string | null => {
+        if (isPetOnExpedition(pet)) return "On expedition";
+        if (pet.training && Date.now() < pet.training.endsAt) return "Training";
+        if (pet.breedingSessionId) return "Breeding barn";
+        return null;
+    }, []);
+
+    const selectedPets = useMemo(
+        () => selected.map((id) => pets.find((p) => p.id === id)).filter(Boolean) as Pet[],
+        [selected, pets],
+    );
+
+    // Warm the GLB + atlas caches while the player is still picking.
+    useEffect(() => {
+        if (selectedPets.length) preloadPetColiseumModels(selectedPets);
+    }, [selectedPets]);
+
+    // Lifted-signal lifecycle: fullscreen while the battle overlay is mounted;
+    // "unresolved battle" only until the outcome lands (or the player concedes).
+    const setSignals = useCallback((fullscreen: boolean, unresolved: boolean) => {
+        onFullscreenActiveChange?.(fullscreen);
+        onBattleActiveChange?.(unresolved);
+    }, [onFullscreenActiveChange, onBattleActiveChange]);
+    useEffect(() => () => setSignals(false, false), [setSignals]);
+
+    const togglePet = (pet: Pet) => {
+        if (busyReason(pet)) return;
+        setError(null);
+        setSelected((ids) => ids.includes(pet.id)
+            ? ids.filter((id) => id !== pet.id)
+            : ids.length < size ? [...ids, pet.id] : ids);
+    };
+
+    const launch = useCallback(async () => {
+        if (starting || selected.length !== size) return;
+        setStarting(true);
+        setError(null);
+        const result = await startShowdown(character.name, format, tier, selected);
+        setStarting(false);
+        if ("error" in result) {
+            setError(result.error);
+            return;
+        }
+        setBattle({ state: result.state, key: battleKey.current++ });
+        setSignals(true, true);
+    }, [starting, selected, size, character.name, format, tier, setSignals]);
+
+    const activeSession = battle?.state.sessionId ?? null;
+
+    const handleSubmitTurn = useCallback(async (commands: ShowdownCommand[]) => {
+        if (!activeSession) return null;
+        return submitShowdownTurn(character.name, activeSession, commands);
+    }, [character.name, activeSession]);
+
+    const handleFinished = useCallback((outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {
+        // Decided: release the nav lock; the fullscreen result panel stays up.
+        setSignals(true, false);
+        void outcome;
+        const settledCharacter = settlement?.character as Character | undefined;
+        if (settledCharacter && typeof settledCharacter === "object") {
+            updateCharacter(settledCharacter);
+        }
+    }, [setSignals, updateCharacter]);
+
+    const handleForfeit = useCallback(() => {
+        if (activeSession) void forfeitShowdown(character.name, activeSession);
+        setBattle(null);
+        setSignals(false, false);
+    }, [activeSession, character.name, setSignals]);
+
+    const handleExit = useCallback(() => {
+        setBattle(null);
+        setSignals(false, false);
+    }, [setSignals]);
+
+    const handleRematch = useCallback(() => {
+        setBattle(null);
+        setSignals(false, false);
+        void launch();
+    }, [launch, setSignals]);
+
+    return (
+        <div className="showdown-screen">
+            <div className="showdown-header">
+                <button type="button" className="showdown-chip" onClick={() => setScreen("petArena")}>← Pet Arena</button>
+                <h1>🏟️ Pet Showdown</h1>
+                <p className="showdown-tagline">Command your companions in cinematic turn-based battle. Read the elements, ride the stamina, land the perfect strike — and finish with a signature.</p>
+            </div>
+
+            <div className="showdown-config">
+                <div className="showdown-config-block">
+                    <h3>Format</h3>
+                    <div className="showdown-choice-row">
+                        {FORMATS.map((f) => (
+                            <button
+                                key={f.id}
+                                type="button"
+                                className={`showdown-choice ${format === f.id ? "active" : ""}`}
+                                onClick={() => {
+                                    setFormat(f.id);
+                                    // Trim the pick to the new team size right here
+                                    // (handler, not an effect) so it never overflows.
+                                    setSelected((ids) => ids.slice(0, f.size));
+                                }}
+                            >
+                                <span className="showdown-choice-label">{f.label}</span>
+                                <span className="showdown-choice-blurb">{f.blurb}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="showdown-config-block">
+                    <h3>Opposition</h3>
+                    <div className="showdown-choice-row">
+                        {TIERS.map((t) => (
+                            <button
+                                key={t.id}
+                                type="button"
+                                className={`showdown-choice ${tier === t.id ? "active" : ""}`}
+                                onClick={() => setTier(t.id)}
+                            >
+                                <span className="showdown-choice-label">{t.icon} {t.label}</span>
+                                <span className="showdown-choice-blurb">{t.blurb}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="showdown-roster-block">
+                <h3>Your team — pick {size} {selected.length ? `(${selected.length}/${size})` : ""}</h3>
+                {pets.length === 0 && (
+                    <p className="showdown-empty">You have no companions yet. Befriend a wild pet out in the world first!</p>
+                )}
+                <div className="showdown-roster">
+                    {pets.map((pet) => {
+                        const busy = busyReason(pet);
+                        const order = selected.indexOf(pet.id);
+                        return (
+                            <button
+                                key={pet.id}
+                                type="button"
+                                disabled={!!busy}
+                                className={`showdown-roster-card ${order >= 0 ? "picked" : ""} ${busy ? "busy" : ""}`}
+                                onClick={() => togglePet(pet)}
+                            >
+                                {order >= 0 && <span className="showdown-roster-order">{order + 1}</span>}
+                                <img src={petCardImage(pet, sharedImages)} alt="" loading="lazy" />
+                                <span className="showdown-roster-name">{pet.nickname || pet.name}</span>
+                                <span className="showdown-roster-sub">Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
+                                {busy && <span className="showdown-roster-busy">{busy}</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {error && <div className="showdown-error">⚠️ {error}</div>}
+
+            <div className="showdown-launch">
+                <button
+                    type="button"
+                    className="showdown-cta"
+                    disabled={selected.length !== size || starting}
+                    onClick={() => void launch()}
+                >
+                    {starting ? "Summoning your opponents…" : `⚔️ Enter the ${format} Showdown`}
+                </button>
+            </div>
+
+            {battle && (
+                <PetShowdownBattle
+                    key={battle.key}
+                    initialState={battle.state}
+                    playerPets={selectedPets}
+                    sharedImages={sharedImages}
+                    submitTurn={handleSubmitTurn}
+                    onForfeit={handleForfeit}
+                    onFinished={handleFinished}
+                    onExit={handleExit}
+                    onRematch={handleRematch}
+                />
+            )}
+        </div>
+    );
+}
