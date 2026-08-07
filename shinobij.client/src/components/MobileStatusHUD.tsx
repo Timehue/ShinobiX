@@ -1,7 +1,7 @@
 /*
  * Mobile-only persistent top status HUD.
  *
- * Mobile games (Genshin, Clash Royale, Marvel SNAP) always show the
+ * Major mobile games always show the
  * player's key resources at the top of the screen. NinjaK on mobile
  * was hiding both the desktop left-profile-card AND the journey-live-stats,
  * so a player on the Jutsu/Profession/Inventory screens had zero visibility

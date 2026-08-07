@@ -4629,7 +4629,7 @@ export function WorldMap({
                     keyart carries no baked lettering. */}
                 <WorldPoiPlates />
                 {/* Hovered (or in-flight) walking route from where the player
-                    stands — the Albion-style "how would I walk there" glow. */}
+                    stands — the sandbox-MMO-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
                 {/* Sea names are deliberately NOT drawn over the 2026-07 keyart:
                     its coastline runs close to the frame on every side, so there

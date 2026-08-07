@@ -100,7 +100,7 @@ all of these, so a jab is quiet and an ultimate dominates the frame.
 
 - **Cut per action (C1).** Don't smoothly track — **cut**: attacker wind-up
   close-up → impact shot → wide. 2–3 cuts per beat. Cuts themselves read as
-  energy. [Honkai: Star Rail]
+  energy. [a leading gacha RPG: Star Rail]
 - **Finisher slow-mo (A5).** After a crit/kill freeze, run the next 300–500ms at
   0.3–0.5× then snap to full speed. The speed *contrast* is what sells speed.
   [Guilty Gear Strive counter-hit slowdown]
@@ -154,14 +154,14 @@ playing; attack/hurt frames triggered by the beats.
 ## Phase 6 — 2v2 coordination · free
 
 - **Serialize the camera (D1).** Exactly one action owns the screen at a time
-  (partners may add one short peripheral contribution). [HSR/E7]
+  (partners may add one short peripheral contribution). [a leading gacha RPG/E7]
 - **Off-turn participation (D2).** Non-acting pets hold idle-aggression stances,
   face the action, **guard-flinch when their partner is hit**, reposition at the
   bubble edge — never stand at spawn.
 - **Dual / follow-up attacks (D3).** Back-to-back beats on the same target →
   choreograph a tag combo (partner 1 launches, partner 2 intercepts mid-air).
-  Ties into the synergy/teamwork bonds already shipped. [Epic Seven Dual Attack,
-  HSR follow-ups]
+  Ties into the synergy/teamwork bonds already shipped. [a leading gacha RPG Dual Attack,
+  a leading gacha RPG follow-ups]
 
 ---
 
@@ -170,7 +170,7 @@ playing; attack/hurt frames triggered by the beats.
 - Strict hierarchy basic → skill → **ultimate**; the top tier *breaks the frame*
   (full-screen element wash, **cut-in card from the existing pet art**,
   letterbox), rationed to signatures/crits/finishers so it stays special. [Persona
-  5 All-Out Attack, Epic Seven]
+  5 All-Out Attack, a leading gacha RPG]
 
 ---
 
@@ -198,8 +198,8 @@ Fighting-game craft: [SmashWiki Hitlag](https://www.ssbwiki.com/Hitlag) ·
 [Sakuga impact frames](https://blog.sakugabooru.com/glossary/impact-frames/) ·
 [Vlambeer screenshake](https://www.youtube.com/watch?v=AJdEqssNZ-U) ·
 [SLYNYRD idle stance](https://www.slynyrd.com/blog/2024/9/26/pixelblog-52-idle-fighting-stance) ·
-[Epic Seven dev interview](https://news.qoo-app.com/en/post/36433/qoo-otaku-epic-seven-interview) ·
-[HSR follow-ups](https://honkai-star-rail.fandom.com/wiki/Follow-Up_Attack).
+a leading gacha RPG dev interview ·
+a leading gacha RPG follow-ups.
 Animation pipeline: [fal.ai pricing](https://fal.ai/pricing) ·
 [Luma Ray 2 Flash](https://fal.ai/models/fal-ai/luma-dream-machine/ray-2-flash/image-to-video/api) ·
 [Kling 2.5 Turbo Pro](https://fal.ai/models/fal-ai/kling-video/v2.5-turbo/pro/image-to-video) ·

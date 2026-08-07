@@ -24,13 +24,13 @@ const pet = (index: number, patch: Record<string, unknown> = {}) => ({
 describe('pet sanctuary storage', () => {
     it('stores a deterministic pet only once and preserves the complete owned-pet record', async () => {
         const store = _makeMemoryKv();
-        const first = await storePetInSanctuaryCore(store, 'Kakashi', pet(1, { paletteVariantId: 'chromatic' }), 'wild', 100);
-        const replay = await storePetInSanctuaryCore(store, 'Kakashi', pet(1, { paletteVariantId: 'chromatic' }), 'wild', 200);
+        const first = await storePetInSanctuaryCore(store, 'Raiko', pet(1, { paletteVariantId: 'chromatic' }), 'wild', 100);
+        const replay = await storePetInSanctuaryCore(store, 'Raiko', pet(1, { paletteVariantId: 'chromatic' }), 'wild', 200);
         assert.equal(first.replayed, false);
         assert.equal(replay.replayed, true);
         assert.equal(replay.item.storedAt, 100);
         assert.equal(replay.item.pet.paletteVariantId, 'chromatic');
-        assert.equal((await listPetSanctuaryCore(store, 'Kakashi')).total, 1);
+        assert.equal((await listPetSanctuaryCore(store, 'Raiko')).total, 1);
     });
 
     it('pages an uncapped collection newest-first without loading the entire sanctuary', async () => {

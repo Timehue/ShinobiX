@@ -19,7 +19,7 @@ line of game logic.
 
 > A note on "3D models": the pets are **2D posed billboards on a 3D stage**
 > (HD-2D), not rigged 3D models — and that's the right call (148 rigged creatures
-> is an infeasible pipeline, and the Octopath/Triangle-Strategy look proves 2D
+> is an infeasible pipeline, and the HD-2D RPGs/Triangle-Strategy look proves 2D
 > sprites can look *more* beautiful than mid 3D). This plan makes them *read* as
 > fully dimensional, lit creatures in the world via lighting, rim light, shadow,
 > and post-processing — the exact HD-2D trick — and leaves a clean upgrade path
@@ -58,7 +58,7 @@ Everything above is renderer-only.
 
 # PART A — The Stage (make it HD-2D gorgeous)
 
-The HD-2D recipe (Octopath Traveler), confirmed by research: **dynamic lighting
+The HD-2D recipe (HD-2D RPGs Traveler), confirmed by research: **dynamic lighting
 + depth of field + tilt-shift + bloom + a point light that casts sprite shadows
 + a wide FOV that flattens but keeps depth → a diorama.** We have none of the
 post layer and an unlit sprite material. Closing that is the highest-ROI work in
@@ -248,7 +248,7 @@ stage.
 ## Key sources
 
 HD-2D technique: [HD-2D — Wikipedia](https://en.wikipedia.org/wiki/HD-2D) ·
-[Octopath HD-2D breakdown](https://samppy.com/octopath-travelers-hd-2d/).
+HD-2D RPGs HD-2D breakdown.
 R3F post-processing: [react-postprocessing docs](https://react-postprocessing.docs.pmnd.rs/) ·
 [Bloom](https://react-postprocessing.docs.pmnd.rs/effects/bloom) ·
 [SSAO/N8AO](https://react-postprocessing.docs.pmnd.rs/effects/ssao).
