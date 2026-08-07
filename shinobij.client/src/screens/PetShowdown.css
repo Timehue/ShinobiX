@@ -251,6 +251,7 @@
 .showdown-pet-element { font-size: 0.68rem; font-weight: 700; }
 
 .showdown-bar {
+    position: relative;
     height: 7px;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.12);
@@ -258,7 +259,20 @@
     margin-top: 3px;
 }
 .showdown-bar > div { height: 100%; border-radius: 4px; transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1); }
-.showdown-bar.hp > div { background: linear-gradient(90deg, #4ade80, #22c55e); }
+/* HP is two layers: the fill snaps to the new value; the red chip layer
+   beneath it drains slowly, so the sliver between them reads as "damage
+   you just took". */
+.showdown-bar.hp .chip {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: #ef4444;
+    transition: width 1.1s cubic-bezier(0.3, 0, 0.4, 1) 0.35s;
+}
+.showdown-bar.hp .fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(90deg, #4ade80, #22c55e);
+}
 .showdown-bar.stamina { height: 5px; }
 .showdown-bar.stamina > div { background: linear-gradient(90deg, #93c5fd, #3b82f6); }
 .showdown-bar.meter { height: 5px; }
@@ -441,6 +455,24 @@
     color: #fbbf24;
     font-size: 0.9rem;
     letter-spacing: 0.06em;
+}
+
+/* ── Signature letterbox ───────────────────────────────────────────────── */
+
+.showdown-letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.showdown-letterbox .bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 11%;
+    background: #000;
+    animation: showdown-letterbox-in 0.28s ease-out both;
+}
+.showdown-letterbox .bar.top { top: 0; transform-origin: top; }
+.showdown-letterbox .bar.bottom { bottom: 0; transform-origin: bottom; }
+@keyframes showdown-letterbox-in {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
 }
 
 /* ── Result / confirm panel ────────────────────────────────────────────── */

@@ -31,8 +31,12 @@ export const SHOWDOWN_ELEMENT_BEATS: Readonly<Record<string, string>> = Object.f
     Water: "Fire",
 });
 
-export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.3;
-export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.8;
+// 1.3/0.8 made the wheel decide ~80%+ of advantaged matchups in the balance
+// sim (it compounds with the per-element identity tables in the engine) — a
+// hard counter, not an edge. 1.16/0.9 keeps the callout meaningful while
+// leaving the fight winnable from the wrong side of the wheel.
+export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.16;
+export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.9;
 
 /** Per-pet stamina economy (Temtem-style push-your-luck). */
 export const SHOWDOWN_MAX_STAMINA = 100;

@@ -37,6 +37,7 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'world/open-chest.ts', mechanism: 'in-save-receipt', markers: ['redeemedAncientChests'] },
     { file: 'pet/befriend.ts', mechanism: 'in-save-receipt', markers: ['redeemedPetEncounters'] },
     { file: 'pet/battle-result.ts', mechanism: 'single-use-token', markers: ['redeemedPetBattleTokens'] },
+    { file: 'pet/showdown.ts', mechanism: 'in-save-receipt', markers: ['redeemedPetBattleTokens'] },
     { file: 'pet/gauntlet.ts', mechanism: 'in-save-receipt', markers: ['redeemedPetGauntletRuns'] },
     { file: 'story/settle.ts', mechanism: 'in-save-receipt', markers: ['redeemedStoryBattles'] },
     { file: 'hollow-gate/settle.ts', mechanism: 'in-save-receipt', markers: ['redeemedHollowGateRuns'] },
