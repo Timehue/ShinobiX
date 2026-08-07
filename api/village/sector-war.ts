@@ -563,8 +563,8 @@ async function doGarrison(req: VercelRequest, res: VercelResponse, identity: Ide
             roleSwing: sectorControlSwing(winnerRole, loserRole),
             attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
             defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
-            // Attacker win: the points are the PLAYER's (their cap applies on top
-            // of the garrison cap). Garrison win: the AI scored, nobody's cap.
+            // Attacker win: the points are the PLAYER's (attribution for the
+            // capture credit). Garrison win: the AI scored.
             by: attackerWon ? playerName : '',
             garrisonBattle: attackerWon,
             mercBattle: !attackerWon,

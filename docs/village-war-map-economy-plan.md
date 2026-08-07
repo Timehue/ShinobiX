@@ -939,11 +939,11 @@ the higher tally takes the sector:
 - **Attacker strictly ahead → the sector flips** (`captureSectorForVillage`).
   **Defender ahead OR TIED → the defence holds** — holding ground beats
   matching it. An abandoned war is a concession regardless of score.
-- **Anti‑farm caps:** one player may score at most
-  `SECTOR_WAR_PLAYER_POINTS_CAP` (200) per war — breadth beats one farmed
-  matchup; the **garrison** yields half‑weight points up to
-  `GARRISON_POINTS_CAP` (50) per war — enough that an absent defence loses,
-  never enough to outrun one that shows up. Repelling a merc scores ×0.25.
+- **Anti‑farm caps (AI only):** player scoring is **uncapped** (owner ruling
+  2026‑08‑07 — a per‑player cap benched the Kage/Elder duels that should matter
+  most); the **garrison** yields half‑weight points up to `GARRISON_POINTS_CAP`
+  (50) per war — enough that an absent defence loses, never enough to outrun
+  one that shows up. Repelling a merc scores ×0.25.
 - Both **live players and hired merc squads** (Combat sectors) score on wins;
   **terrain + defender home advantage** make each attacker win harder to get.
 - Conquest pacing brakes (2 concurrent attacks, 24h re‑siege cooldown on a
