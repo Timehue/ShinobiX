@@ -12,7 +12,6 @@ import {
     abandonSectorWar,
     isSectorWarActive,
     isGarrisonAssaultable,
-    playerPointsInWar,
     garrisonPointsInWar,
     sectorWarKey,
     sectorWarTokenKey,
@@ -21,7 +20,6 @@ import {
     normalizeSectorWarBattleToken,
     canDeclareSectorWar,
     SECTOR_WAR_DURATION_MS,
-    SECTOR_WAR_PLAYER_POINTS_CAP,
     GARRISON_POINTS_CAP,
     GARRISON_POINTS_FRACTION,
     MERC_REPEL_POINTS_FRACTION,
@@ -92,7 +90,7 @@ describe('sector-war: normalize + Control-HP migration', () => {
         const receipt = findSectorWarBattleReceipt(s!, 'pvp-1');
         assert.ok(receipt);
         assert.equal(receipt!.points, 5);
-        assert.equal(receipt!.by, '', 'legacy receipts carry no attribution — exempt from the player cap');
+        assert.equal(receipt!.by, '', 'legacy receipts carry no attribution (no capture credit)');
     });
 
     it('reads legacy idle/timeout terminal records as defended holds', () => {
@@ -168,25 +166,14 @@ describe('sector-war: score caps (anti-farm)', () => {
         return s;
     }
 
-    it('one player cannot score past SECTOR_WAR_PLAYER_POINTS_CAP in a war', () => {
-        // 80 a kill: 200-cap → 80 + 80 + 40 (clipped) + 0.
-        const s = grind(fresh(), 4, SWING_KAGE_V_KAGE, 'farmer');
-        assert.equal(playerPointsInWar(s, 'farmer'), SECTOR_WAR_PLAYER_POINTS_CAP);
-        assert.equal(s.attackerPoints, SECTOR_WAR_PLAYER_POINTS_CAP);
-        // A DIFFERENT player still scores — the cap forces breadth, not a stop.
-        const other = applySectorWarBattle(s, true, { now: NOW + 9999, roleSwing: SWING_VILLAGER_V_VILLAGER, by: 'ally' });
-        assert.equal(other.awarded, 5);
-    });
-
-    it('the cap is per-war and case-insensitive on the name', () => {
-        const s = grind(fresh(), 2, SWING_KAGE_V_KAGE, 'Farmer');
-        assert.equal(playerPointsInWar(s, 'fArMeR'), 160);
-    });
-
-    it('AI winners (empty `by`) are exempt — mercs are bounded by the WR economy', () => {
-        const s = grind(fresh(), 4, SWING_KAGE_V_KAGE, 'farmer');
-        const merc = applySectorWarBattle(s, true, { now: NOW + 99999, roleSwing: 5, by: '', mercBattle: true });
-        assert.equal(merc.awarded, 5);
+    it('PLAYER scoring is uncapped — a Kage-slayer scores every bounty in full (owner ruling)', () => {
+        // 5 Kage-weight kills by ONE player: all 400 points land. There is no
+        // per-player cap — receipts single-count each battle, but the fights that
+        // matter most (Kage/Elder duels) must never stop counting.
+        const s = grind(fresh(), 5, SWING_KAGE_V_KAGE, 'slayer');
+        assert.equal(s.attackerPoints, 5 * SWING_KAGE_V_KAGE);
+        const more = applySectorWarBattle(s, true, { now: NOW + 9999, roleSwing: SWING_KAGE_V_KAGE, by: 'slayer' });
+        assert.equal(more.awarded, SWING_KAGE_V_KAGE, 'still full value on the 6th');
     });
 
     it('garrison kills score at half weight and stop at the garrison cap', () => {

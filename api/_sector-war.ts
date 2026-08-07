@@ -56,7 +56,8 @@ export interface SectorWarSession {
     /** When a LIVE-player battle last resolved. Drives the garrison fallback:
      *  distinct from `updatedAt`, which AI battles refresh too. */
     lastLiveBattleAt?: number;
-    /** Durable receipts for every scored battle (idempotence + the score caps). */
+    /** Durable receipts for every scored battle (idempotence, the garrison cap,
+     *  and the settlement capture credit). */
     appliedBattles?: SectorWarBattleReceipt[];
 }
 
@@ -72,7 +73,7 @@ export interface SectorWarBattleReceipt {
     attackerWon: boolean;
     /** Points this battle awarded (after fractions and caps). */
     points: number;
-    /** Winner's canonical name — feeds the per-player score cap. '' for AI. */
+    /** Winner's canonical name — feeds the settlement capture credit. '' for AI. */
     by: string;
     /** True when the points came from a garrison assault (feeds the garrison cap). */
     garrison?: boolean;
@@ -82,11 +83,11 @@ export interface SectorWarBattleReceipt {
 export const SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
 
 // ── Score caps (anti-farm) ─────────────────────────────────────────────────────
-/** Max points ONE PLAYER may score in one war. Count-up scoring is farmable by a
- *  colluding pair trading kills for 72 hours; the cap bounds any single account's
- *  contribution and rewards breadth over one farmed matchup (a Kage-weight kill
- *  is 30-80 points, so this is roughly 3-8 top-value kills or ~40 villager ones). */
-export const SECTOR_WAR_PLAYER_POINTS_CAP = 200;
+// Player scoring is deliberately UNCAPPED (owner ruling 2026-08-07 — a
+// per-player cap benched Kage/Elder duels, the fights that should matter most).
+// A colluding pair trading real kills for 72 hours is the accepted trade-off;
+// the receipts still make every battle single-count, and each fight needs a
+// real cross-village session behind the rate limits. Only the AI is capped:
 /** Max points the GARRISON may yield an attacker across the whole war. Enough
  *  that a defence which never shows up loses (defender 0 < garrison lead), never
  *  enough to outrun a defence that turns up — ~10 villager kills' worth. */
@@ -154,7 +155,7 @@ export function newSectorWarSession(args: {
  * attacker had already dealt becomes their score, the defender starts at 0, and
  * the 72h clock runs from the original start. Its legacy receipts keep their
  * battleIds (replay-idempotence) with points mapped from the old hp fields and
- * an empty `by` (exempt from the per-player cap — attribution wasn't recorded). */
+ * an empty `by` (attribution wasn't recorded under the old model). */
 export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
     controlHp?: unknown; controlHpMax?: unknown;
 }): SectorWarSession | null {
@@ -229,15 +230,6 @@ export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: 
     return session.appliedBattles?.find((entry) => entry.battleId === battleId) ?? null;
 }
 
-/** Points a named player has already scored in this war (per-player cap input). */
-export function playerPointsInWar(session: SectorWarSession, by: string): number {
-    const name = String(by ?? '').trim().toLowerCase();
-    if (!name) return 0;
-    return (session.appliedBattles ?? [])
-        .filter((r) => r.by.toLowerCase() === name)
-        .reduce((sum, r) => sum + nonNeg(r.points), 0);
-}
-
 /** Points the garrison has already yielded in this war (garrison cap input). */
 export function garrisonPointsInWar(session: SectorWarSession): number {
     return (session.appliedBattles ?? [])
@@ -255,11 +247,10 @@ export function garrisonPointsInWar(session: SectorWarSession): number {
  * with no HP bar to one-shot, a villager felling the enemy Kage scoring the full
  * 55 is the point (leadership kills are bounties, fielding leadership is a risk).
  *
- * Fractions and caps:
+ * Fractions and caps (AI only — player scoring is uncapped, see the Score caps
+ * note above):
  *   · garrisonBattle → GARRISON_POINTS_FRACTION, then the war-wide GARRISON cap.
  *   · mercBattle + defender win → MERC_REPEL_POINTS_FRACTION.
- *   · `by` (the winner) → SECTOR_WAR_PLAYER_POINTS_CAP across the war ('' = AI,
- *     exempt — mercs are bounded by the WR economy, the garrison by its own cap).
  *
  * A terminal or past-end session scores nothing. A live-player battle refreshes
  * `lastLiveBattleAt` (re-locks the garrison); AI battles refresh `updatedAt` only.
@@ -298,10 +289,6 @@ export function applySectorWarBattle(
     }
     if (opts.mercBattle && !attackerWon) {
         points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
-    }
-    const by = String(opts.by ?? '').trim();
-    if (by) {
-        points = Math.min(points, Math.max(0, SECTOR_WAR_PLAYER_POINTS_CAP - playerPointsInWar(session, by)));
     }
     if (points <= 0) return { session: next, awarded: 0, side: 'none' };
 
