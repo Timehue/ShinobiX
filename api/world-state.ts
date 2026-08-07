@@ -415,12 +415,12 @@ export async function listActiveVillageWars(): Promise<Array<{ villages: [string
 
 /**
  * Sector War (Phase 4c) — flip a sector's persistent owner to the capturing
- * village once its Control-HP siege breaks (api/_sector-war.ts applySectorBattleResult
- * → captured). Writes `world:territory:<sector>.ownerVillage` under the per-territory
+ * village once its 72h war SETTLES with the attacker ahead (api/_sector-war-settle.ts
+ * settleDueSectorWars → settleSectorWar). Writes `world:territory:<sector>.ownerVillage` under the per-territory
  * lock, clears any stale clan owner, marks the sector freshly secured (full territory
  * HP — it must be defended anew), and resets War Supply for the new owner via
  * resolveClaimedWarSupply (anti-mint, same as the claiming-write path). Only ever
- * reached from the ENABLE_VILLAGE_WAR-gated sector-war endpoint.
+ * reached from settlement (which every ENABLE_VILLAGE_WAR-gated path funnels through).
  */
 export async function captureSectorForVillage(
     sector: number,
