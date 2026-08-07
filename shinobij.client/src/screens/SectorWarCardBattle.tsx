@@ -12,8 +12,8 @@ const SECTOR_CARD_CONFIG: CardClashDuelConfig = {
     emptyNote: "The battle context was lost. Return to the War Map.",
     emptyBackLabel: "Back to War Map",
     awaitingNote: "Waiting for the defending challenger to join.",
-    forfeitConfirm: "Forfeit the showdown? The defender holds the sector.",
-    doneNote: (_won, draw) => draw ? "Sector Control HP is unchanged after a technical draw." : "The server applied the Sector Control result once.",
+    forfeitConfirm: "Forfeit the showdown? Your side scores nothing for this fight.",
+    doneNote: (won, draw) => draw ? "A technical draw scores nothing for either side." : won ? "The server scored this win for your side of the war." : "The server scored this win for the enemy side of the war.",
     autoJoin: true,
 };
 
