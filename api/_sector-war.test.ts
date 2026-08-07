@@ -314,6 +314,28 @@ describe('sector-war: durable battle receipts', () => {
     });
 });
 
+describe('sector-war: capture contributors (legacy sectorCaptures)', () => {
+    it('credits every distinct attacker-side winner, never defenders or AI', async () => {
+        const { captureContributors } = await import('./_sector-war-settle.js');
+        let s = fresh();
+        const battles: Array<[string, boolean, string]> = [
+            ['b1', true, 'Aria'],    // attacker win → credited
+            ['b2', true, 'aria'],    // same player, different case → once
+            ['b3', false, 'Kell'],   // DEFENDER win → not a capture contributor
+            ['b4', true, ''],        // AI (merc/garrison) → no legacy save to credit
+            ['b5', true, 'Bo'],      // second attacker → credited
+        ];
+        for (const [id, attackerWon, by] of battles) {
+            const out = applySectorWarBattle(s, attackerWon, { now: NOW + 1, roleSwing: 5, by, mercBattle: !by });
+            s = recordSectorWarBattleOutcome(out, { battleId: id, attackerWon, by, at: NOW + 1 }).session;
+        }
+        // Receipts are stored newest-first, so the dedupe keeps the LATEST casing
+        // ('aria', not 'Aria') — harmless, since safeName canonicalizes real names.
+        assert.deepEqual(captureContributors(s).sort(), ['Bo', 'aria']);
+        assert.deepEqual(captureContributors({ appliedBattles: undefined }), []);
+    });
+});
+
 describe('sector-war: client projection', () => {
     it('strips the receipt ledger and nothing else', async () => {
         const { projectSectorWarForClient } = await import('./_sector-war.js');
