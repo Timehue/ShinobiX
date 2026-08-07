@@ -942,8 +942,8 @@ the higher tally takes the sector:
 - **Anti‑farm caps (AI only):** player scoring is **uncapped** (owner ruling
   2026‑08‑07 — a per‑player cap benched the Kage/Elder duels that should matter
   most); the **garrison** yields half‑weight points up to `GARRISON_POINTS_CAP`
-  (50) per war — enough that an absent defence loses, never enough to outrun
-  one that shows up. Repelling a merc scores ×0.25.
+  (150) per war — an absent defence loses decisively, while a defence that
+  shows up scores uncapped and can always outrun it. Repelling a merc scores ×0.25.
 - Both **live players and hired merc squads** (Combat sectors) score on wins;
   **terrain + defender home advantage** make each attacker win harder to get.
 - Conquest pacing brakes (2 concurrent attacks, 24h re‑siege cooldown on a
