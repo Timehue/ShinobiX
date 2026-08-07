@@ -345,6 +345,16 @@ export function recordSectorWarBattleOutcome(
     };
 }
 
+/** The session as the CLIENT sees it: everything except `appliedBattles`. The
+ *  receipt ledger is server bookkeeping (idempotence + the score caps) — up to
+ *  200 rows the war-map's 15s poll would otherwise ship to every viewer, with
+ *  per-player attribution nobody renders. Keep responses on this projection;
+ *  never return a raw session. Pure. */
+export function projectSectorWarForClient(session: SectorWarSession): Omit<SectorWarSession, 'appliedBattles'> {
+    const { appliedBattles: _receipts, ...view } = session;
+    return view;
+}
+
 // ── Settlement ─────────────────────────────────────────────────────────────────
 
 /**

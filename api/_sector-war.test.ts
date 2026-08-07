@@ -314,6 +314,19 @@ describe('sector-war: durable battle receipts', () => {
     });
 });
 
+describe('sector-war: client projection', () => {
+    it('strips the receipt ledger and nothing else', async () => {
+        const { projectSectorWarForClient } = await import('./_sector-war.js');
+        const out = applySectorWarBattle(fresh(), true, { now: NOW + 1, roleSwing: 15, by: 'aria' });
+        const recorded = recordSectorWarBattleOutcome(out, { battleId: 'b1', attackerWon: true, by: 'aria', at: NOW + 1 });
+        const view = projectSectorWarForClient(recorded.session);
+        assert.equal((view as Record<string, unknown>).appliedBattles, undefined, 'receipts are server bookkeeping');
+        // Every OTHER field survives — the client renders score, clock, and garrison state from these.
+        const { appliedBattles: _receipts, ...expected } = recorded.session;
+        assert.deepEqual(view, expected);
+    });
+});
+
 describe('sector-war: lock scopes + battle token', () => {
     it('the declare lock is SECTOR-scoped so rival attackers serialise', () => {
         const a = sectorWarKey(sectorWarId(26, 'Moonshadow Village', 'Frostfang Village'));
