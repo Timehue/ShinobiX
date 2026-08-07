@@ -19,7 +19,7 @@ describe('generic-save economy entitlement', () => {
         }
     });
 
-    it('continues to allow legitimate wallet spending', () => {
+    it('continues to allow legitimate wallet spending before the strict cutover', () => {
         const incoming = {
             ...existingCharacter,
             ryo: 9_000, fateShards: 9, boneCharms: 10, auraStones: 11, auraDust: 12,
@@ -32,5 +32,21 @@ describe('generic-save economy entitlement', () => {
         assert.equal(char.hollowShards, 15);
         assert.equal(char.level, 12);
         assert.equal(char.xp, 345);
+    });
+
+    it('requires authoritative spending after the strict cutover', () => {
+        const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+        process.env.STRICT_RAW_SAVE_LEDGER = '1';
+        try {
+            const incoming = { ...existingCharacter, ryo: 9_000, fateShards: 9, hollowShards: 15 };
+            const result = sanitizeCharacterSave({ character: incoming }, { character: existingCharacter });
+            const char = result.character as Record<string, unknown>;
+            assert.equal(char.ryo, 10_000);
+            assert.equal(char.fateShards, 10);
+            assert.equal(char.hollowShards, 16);
+        } finally {
+            if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+            else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+        }
     });
 });

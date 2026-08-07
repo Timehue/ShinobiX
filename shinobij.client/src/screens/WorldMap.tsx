@@ -49,7 +49,6 @@ import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntr
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
-import { addItem, ownsItem } from "../lib/inventory";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { peerIsTraveling } from "../lib/presence-character";
@@ -75,6 +74,7 @@ import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
 import { befriendWildPet, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
 import { openAncientChest, recordSectorExplore, type ExploreCredit } from "../lib/world-reward-api";
+import { probeFreeDungeonServer } from "../lib/dungeon-api";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
@@ -379,7 +379,7 @@ export function WorldMap({
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     sharedImages?: Record<string, string>;
     onStartEventEncounter: (event: CreatorEvent, battle?: EventEncounterBattle) => void;
-    onDungeonFound: () => void;
+    onDungeonFound: (token: string) => void;
     onEnterHollowGate?: () => void;
     // Active event gate (admin-authored) — shows the event entry in the
     // Hollow Gate menu and hands the config back on entry.
@@ -1956,7 +1956,8 @@ export function WorldMap({
             setTimeout(() => alert(msg), 40);
             return;
         }
-        updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
+        if (resp.character) updateCharacter(resp.character);
+        else updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
         if (arc.task.kind === "hunt") {
             launchStoryReckoningFight(arc);
         } else {
@@ -1974,11 +1975,8 @@ export function WorldMap({
             }
             return;
         }
-        updateCharacter(prev => {
-            if (!prev) return prev;
-            const withDrop = resp.dropItemId && !ownsItem(prev, resp.dropItemId) ? addItem(prev, resp.dropItemId, 1) : prev;
-            return { ...withDrop, activeStoryReckoning: resp.activeStoryReckoning ?? withDrop.activeStoryReckoning };
-        });
+        if (resp.character) updateCharacter(resp.character);
+        else updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
         if (openPayoff && selectedSector != null) {
             setCreatorEventPage(0);
             setCreatorEventLine(0);
@@ -1997,7 +1995,8 @@ export function WorldMap({
             setTimeout(() => alert(msg), 40);
             return;
         }
-        updateCharacter(prev => {
+        if (resp.character) updateCharacter(resp.character);
+        else updateCharacter(prev => {
             if (!prev) return prev;
             const titles = prev.questTitles ?? [];
             const nextTitles = resp.title && !titles.includes(resp.title) ? [...titles, resp.title] : titles;
@@ -2508,11 +2507,27 @@ export function WorldMap({
     }
 
     async function resolveExplore(sector: number) {
-        if (character.level >= hiddenDungeonVnEvent.levelReq && Math.random() < 0.02) {
-            if (!await settleExplore(sector, "tile")) return;
-            recordMissionExplore(sector);
-            onDungeonFound();
-            return;
+        if (character.level >= hiddenDungeonVnEvent.levelReq) {
+            try {
+                const probe = await probeFreeDungeonServer(character.name, sector);
+                onServerVersion?.(probe._saveVersion);
+                updateCharacter(prev => prev ? ({
+                    ...prev,
+                    serverFreeDungeonProbeDate: probe.character.serverFreeDungeonProbeDate,
+                    serverFreeDungeonProbesToday: probe.character.serverFreeDungeonProbesToday,
+                    activeDungeonRun: probe.character.activeDungeonRun ?? prev.activeDungeonRun,
+                }) : prev);
+                if (probe.found && probe.token) {
+                    if (!await settleExplore(sector, "tile")) return;
+                    recordMissionExplore(sector);
+                    onDungeonFound(probe.token);
+                    return;
+                }
+            } catch {
+                // A failed authoritative probe means no dungeon is shown. The
+                // ordinary tile can still resolve through its own server-backed
+                // reward paths; there is no local fallback that could mint loot.
+            }
         }
         // Wild-pet roll is SERVER-side: /api/pet/encounter-start rolls it, counts
         // the daily attempt, and seals the pet into a single-use token that

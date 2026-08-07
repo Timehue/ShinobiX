@@ -81,7 +81,7 @@ test("Ready for Genin includes the level-13 profession checkpoint", () => {
     })).find((o) => o.id === "ready-for-genin");
     const profession = ready?.requirements.find((r) => r.label === "Choose a profession");
     assert.equal(profession?.target, 1);
-    assert.equal(profession?.goScreen, "professionPicker");
+    assert.equal(profession?.goScreen, "professions");
 
     const withProfession = buildLogbookObjectives(makeCharacter({
         level: 13,
@@ -91,6 +91,18 @@ test("Ready for Genin includes the level-13 profession checkpoint", () => {
         profession: "healer",
     })).find((o) => o.id === "ready-for-genin");
     assert.equal(withProfession?.requirements.find((r) => r.label === "Choose a profession")?.progress, 1);
+});
+
+test("profession CTA stays hidden until the level-13 picker can render", () => {
+    const ready = buildLogbookObjectives(makeCharacter({
+        level: 10,
+        academyChecklistClaimed: true,
+        totalMissionsCompleted: 7,
+        totalAiKills: 7,
+    })).find((o) => o.id === "ready-for-genin");
+    const profession = ready?.requirements.find((r) => r.label === "Choose a profession");
+    assert.equal(profession?.goScreen, undefined);
+    assert.equal(profession?.goLabel, undefined);
 });
 
 test("rank exams unlock by level and are ordered low to high", () => {

@@ -28,6 +28,7 @@ import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
+import { clanBossWeekId } from '../clan-boss/_storage.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
@@ -83,6 +84,10 @@ async function fireSettlementReconciliation(includeLegacyScan = false): Promise<
     } finally {
         _settlementScanRunning = false;
     }
+}
+
+export function clanBossLeaseName(now: number = Date.now()): string {
+    return `clan-boss-weekly:${clanBossWeekId(now)}`;
 }
 
 async function fireClanBossPartySweep(): Promise<void> {
@@ -172,7 +177,7 @@ async function fire(): Promise<void> {
     // ended week. ON by default in testing (server.ts sets ENABLE_CLAN_BOSS unless
     // DISABLE_CLAN_BOSS=1); no-ops if disabled.
     try {
-        const cb = await runLeasedJob('clan-boss-weekly', LEASE_TTL.clanBoss, () => runClanBossWeekly());
+        const cb = await runLeasedJob(clanBossLeaseName(), LEASE_TTL.clanBoss, () => runClanBossWeekly());
         if (cb && cb.enabled && (cb.spawned || cb.settled.length)) {
             console.log(`[cron-scheduler] clan boss: ${cb.spawned ? `spawned ${cb.spawned}` : 'no spawn'}${cb.settled.length ? `, settled ${cb.settled.join(', ')}` : ''}.`);
         }
@@ -256,7 +261,7 @@ export function startSnapshotCron(): void {
     // Kick the clan-boss weekly pass once on boot so the current week's boss is live
     // immediately when the feature is enabled (rather than dark until the next 03:00
     // tick). No-op unless ENABLE_CLAN_BOSS=1; NX-guarded so it never double-spawns.
-    void runLeasedJob('clan-boss-weekly', LEASE_TTL.clanBoss, () => runClanBossWeekly())
+    void runLeasedJob(clanBossLeaseName(), LEASE_TTL.clanBoss, () => runClanBossWeekly())
         .catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
     console.log(`[cron-scheduler] daily jobs scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }

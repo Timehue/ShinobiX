@@ -192,6 +192,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('serverExploreDate', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'world/explore only'),
     f('serverExploresToday', 'character', 'server-owned', 'exploration', ['server-mirror-char']),
     f('redeemedSectorExplorations', 'character', 'server-payout-stamp', 'exploration', ['server-mirror-char']),
+    f('serverFreeDungeonProbeDate', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'dungeon/probe-free only'),
+    f('serverFreeDungeonProbesToday', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'dungeon/probe-free only'),
     f('serverChestDate', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'world/open-chest only'),
     f('serverChestsToday', 'character', 'server-owned', 'exploration', ['server-mirror-char']),
     f('redeemedAncientChests', 'character', 'server-payout-stamp', 'exploration', ['server-mirror-char']),
@@ -311,7 +313,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('professionChosenAt', 'character', 'server-owned', 'profession', ['combat-strip-char']),
 
     // ── Inventory, equipment, jutsu, pets ───────────────────────────────────
-    f('inventory', 'character', 'server-clamped', 'inventory', ['combat-strip-char'], 'non-strict: presence-validated + one net-new item carve-out; strict: count-consumed from stored'),
+    f('inventory', 'character', 'server-clamped', 'inventory', ['combat-strip-char'], 'all modes conserve stored inventory + stack entitlement; net-new items require an authoritative endpoint'),
     f('itemStacks', 'character', 'server-clamped', 'inventory', ['combat-strip-char'], 'same regime as inventory'),
     f('equipment', 'character', 'server-clamped', 'equipment', [], 'enforceEquipmentOwnership on every save: slot whitelist, ownership, slot-kind'),
     f('equippedJutsuIds', 'character', 'server-clamped', 'combat-loadout', [], 'capped at maxLoadout; strict: must be learned'),

@@ -57,20 +57,27 @@ describe('stat-point entitlement', () => {
     });
 
     it('is enforced by the real generic save sanitizer for an existing character', () => {
+        const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+        process.env.STRICT_RAW_SAVE_LEDGER = '0';
         const existingCharacter = { name: 'Audit', level: 10, xp: 0, ryo: 100, fateShards: 100, stats: stats(20), unspentStats: 10, totalStatsTrained: 10 };
-        const out = sanitizeCharacterSave(
-            { character: { ...existingCharacter, stats: stats(520, 510), unspentStats: 1000, totalStatsTrained: 9999 } },
-            { character: existingCharacter },
-        );
-        const character = out.character as Record<string, unknown>;
-        assert.deepEqual(character.stats, stats(20), 'forged stat jump rejected, stored stats restored');
-        // The forged pool is rejected back to the stored 10 — then the ONE-TIME
-        // ledger migration (stat-derived leveling) tops the pool up to cover the
-        // stored level: earnedForLevel(10) = 1,800, earned was 10 allocated +
-        // 10 pool = 20 → +1,780. Level stays 10, derived from that ledger.
-        assert.equal(character.unspentStats, 10 + 1780);
-        assert.equal(character.level, 10, 'level derives from the migrated ledger, not the client');
-        assert.equal(character.levelLedgerMigrated, true);
-        assert.equal(character.totalStatsTrained, 10);
+        try {
+            const out = sanitizeCharacterSave(
+                { character: { ...existingCharacter, stats: stats(520, 510), unspentStats: 1000, totalStatsTrained: 9999 } },
+                { character: existingCharacter },
+            );
+            const character = out.character as Record<string, unknown>;
+            assert.deepEqual(character.stats, stats(20), 'forged stat jump rejected, stored stats restored');
+            // The forged pool is rejected back to the stored 10 — then the ONE-TIME
+            // ledger migration (stat-derived leveling) tops the pool up to cover the
+            // stored level: earnedForLevel(10) = 1,800, earned was 10 allocated +
+            // 10 pool = 20 → +1,780. Level stays 10, derived from that ledger.
+            assert.equal(character.unspentStats, 10 + 1780);
+            assert.equal(character.level, 10, 'level derives from the migrated ledger, not the client');
+            assert.equal(character.levelLedgerMigrated, true);
+            assert.equal(character.totalStatsTrained, 10);
+        } finally {
+            if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+            else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+        }
     });
 });

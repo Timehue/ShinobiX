@@ -63,6 +63,7 @@ import playerAuthHandler from './api/player-auth.js';
 import adminAuthHandler  from './api/admin-auth.js';
 import adminPlayersHandler from './api/admin/players.js';
 import adminGrantSubscriptionHandler from './api/admin/grant-subscription.js';
+import adminGrantItemHandler from './api/admin/grant-item.js';
 import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
@@ -1047,6 +1048,7 @@ route('/admin-auth',  adminAuthHandler);
 // Admin
 route('/admin/players',      adminPlayersHandler);
 route('/admin/grant-subscription', adminGrantSubscriptionHandler);
+route('/admin/grant-item', adminGrantItemHandler);
 route('/admin/player-index-health', adminPlayerIndexHealthHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
