@@ -12,7 +12,7 @@
  * chakra/XP/rank. Renders nothing of its own chrome — drop it inside a card.
  */
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../App";
 
@@ -27,10 +27,12 @@ export function HealerInjuredList({
     character,
     updateCharacter,
     playerRoster,
+    onServerVersion,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     playerRoster: PlayerRecord[];
+    onServerVersion?: (version: number | undefined) => void;
 }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
@@ -39,6 +41,7 @@ export function HealerInjuredList({
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
     const [healed, setHealed] = useState<Set<string>>(new Set());
     const [worldwideInjured, setWorldwideInjured] = useState<Array<{ name: string; level: number; hp: number; maxHp: number; hospitalized: boolean }>>([]);
+    const pendingRequestIds = useRef<Record<string, string>>({});
 
     useEffect(() => {
         if (!hasWorldwideVision) {
@@ -61,17 +64,32 @@ export function HealerInjuredList({
 
     async function healPlayer(targetName: string) {
         setHealMsg(m => ({ ...m, [targetName]: "💚 Healing…" }));
+        const requestId = pendingRequestIds.current[targetName]
+            ?? `heal_${crypto.randomUUID().replaceAll('-', '')}`;
+        pendingRequestIds.current[targetName] = requestId;
         try {
-            const res = await fetch('/api/player/heal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ healerName: character.name, targetName }),
-            });
+            let res: Response | null = null;
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                try {
+                    res = await fetch('/api/player/heal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ healerName: character.name, targetName, requestId }),
+                    });
+                    if (res.status < 500) break;
+                } catch {
+                    if (attempt === 1) throw new Error('heal-network-failed');
+                }
+            }
+            if (!res) throw new Error('heal-network-failed');
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
+                if (res.status < 500) delete pendingRequestIds.current[targetName];
                 setHealMsg(m => ({ ...m, [targetName]: `❌ ${data.error ?? 'Failed'}` }));
                 return;
             }
+            delete pendingRequestIds.current[targetName];
+            onServerVersion?.(typeof data._saveVersion === 'number' ? data._saveVersion : undefined);
             const xpGained = Number(data.xpGained ?? 0);
             const missionXp = Number(data.missionXpAwarded ?? 0);
             const raidAssist = !!data.raidAssist;

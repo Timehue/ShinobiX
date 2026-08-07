@@ -13,7 +13,7 @@ import {
 import { gameToast } from "../components/GameToast";
 
 export
-function Hospital({ character, updateCharacter, setScreen, playerRoster }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; onServerVersion?: (version: number | undefined) => void }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
@@ -107,6 +107,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                 });
                 const data = await res.json().catch(() => ({}));
                 if (res.ok) {
+                    onServerVersion?.(typeof data._saveVersion === "number" ? data._saveVersion : undefined);
                     applyDischargeAndLeave(Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)));
                     return;
                 }
@@ -156,6 +157,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                 else alert(data.error ?? 'Failed to check out.');
                 return;
             }
+            onServerVersion?.(typeof data._saveVersion === "number" ? data._saveVersion : undefined);
             applyDischargeAndLeave(0);
         } catch {
             if (automatic) autoCheckoutStartedRef.current = false;
@@ -189,11 +191,12 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: character.name, topUp: true }),
             });
-            const data = await res.json().catch(() => ({})) as { error?: string; chargedRyo?: number; hp?: number; chakra?: number; stamina?: number };
+            const data = await res.json().catch(() => ({})) as { error?: string; chargedRyo?: number; hp?: number; chakra?: number; stamina?: number; _saveVersion?: number };
             if (!res.ok) {
                 alert(data.error ?? 'Failed to heal.');
                 return;
             }
+            onServerVersion?.(data._saveVersion);
             const chargedRyo = Number(data.chargedRyo ?? topUpCost);
             updateCharacter(prev => prev ? ({
                 ...prev,
@@ -290,7 +293,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
                 </p>
             )}
-            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} />
+            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
         </div>
     );
 }

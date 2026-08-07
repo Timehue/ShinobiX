@@ -12,7 +12,7 @@ function collect(dir) {
         if (entry.name === 'node_modules' || entry.name === 'dist') continue;
         const absolute = join(dir, entry.name);
         if (entry.isDirectory()) collect(absolute);
-        else if (/\.test\.(?:ts|mjs|cjs)$/.test(entry.name)) files.push(relative(root, absolute).replaceAll('\\', '/'));
+        else if (/\.test\.(?:tsx?|mjs|cjs)$/.test(entry.name)) files.push(relative(root, absolute).replaceAll('\\', '/'));
     }
 }
 

@@ -37,7 +37,7 @@ import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, allocatedStatPoints, baseStats, capStat, earnedForLevel, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, normalizeStats, reconcileCharacterStatBudget } from "../lib/stats";
 import { armorQualityTiers, equipmentSlotLabel, itemSectionOptions } from "../lib/equipment";
-import { addItem, removeItem, countItem } from "../lib/inventory";
+import { removeItem, countItem } from "../lib/inventory";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile, safeImageSource } from "../lib/shared-images";
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
@@ -73,6 +73,7 @@ import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCa
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
+import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
 
 type EditableVnPage = {
     title: string;
@@ -400,6 +401,27 @@ export function AdminPanel({
         });
         alert(`${item.name} deleted from the shop and game.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+    }
+
+    async function grantItemToCurrentAdmin(item: GameItem) {
+        const requestId = typeof globalThis.crypto?.randomUUID === "function"
+            ? `admin-grant-${globalThis.crypto.randomUUID()}`
+            : `admin-grant-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        try {
+            const response = await fetch("/api/admin/grant-item", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ playerName: character.name, itemId: item.id, requestId }),
+            });
+            const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; character?: Character };
+            if (!response.ok || !data.ok || !data.character) {
+                return alert(data.error || "The item could not be granted.");
+            }
+            updateCharacter(data.character);
+            alert(`${item.name} added to your inventory.`);
+        } catch {
+            alert("The item could not be granted. Please try again.");
+        }
     }
 
     async function runBulkItemGeneration() {
@@ -1834,7 +1856,9 @@ export function AdminPanel({
         if (!validateVisualNovelForSave(event)) return;
         setCreatorEvents([...creatorEvents, event]);
         await publishEventPageImages(event);
-        alert(`${event.name} created and imported to World Map.`);
+        alert(isReleaseSafeClientEvent(event)
+            ? `${event.name} created and imported to World Map.`
+            : `${event.name} saved as an admin-only draft. Reward, trait, battle, and Kage events stay player-hidden until authoritative settlement is implemented.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -1846,7 +1870,9 @@ export function AdminPanel({
             ? creatorEvents.map((event) => event.id === editingEventId ? updatedEvent : event)
             : [...creatorEvents, updatedEvent]);
         await publishEventPageImages(updatedEvent);
-        alert(`${updatedEvent.name} updated.`);
+        alert(isReleaseSafeClientEvent(updatedEvent)
+            ? `${updatedEvent.name} updated and available to players.`
+            : `${updatedEvent.name} updated as an admin-only draft.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -1897,7 +1923,7 @@ export function AdminPanel({
         const eligibility = validateCreatorMissionEligibility(mission);
         if (eligibility.ok === false) return alert(eligibility.message);
         setCreatorMissions([...creatorMissions, mission]);
-        alert(`${mission.name} created and added to Mission Hall.`);
+        alert(`${mission.name} saved as an admin-only draft. Creator missions stay player-hidden until authoritative progress and claim settlement are implemented.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -1909,7 +1935,7 @@ export function AdminPanel({
         setCreatorMissions(creatorMissions.some((existing) => existing.id === mission.id)
             ? creatorMissions.map((existing) => existing.id === mission.id ? mission : existing)
             : [...creatorMissions, mission]);
-        alert(`${mission.name} updated.`);
+        alert(`${mission.name} draft updated.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -1957,7 +1983,7 @@ export function AdminPanel({
         setRaidTargetSector(currentSector);
         const raid = raidFromForm();
         setCreatorRaids([...creatorRaids, raid]);
-        alert(`${raid.name} created.`);
+        alert(`${raid.name} saved as an admin-only draft. Creator raids stay player-hidden until waves and rewards settle authoritatively.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -1968,7 +1994,7 @@ export function AdminPanel({
             ? creatorRaids.map((r) => r.id === editingRaidId ? raid : r)
             : [...creatorRaids, raid]);
         setEditingRaidId(raid.id);
-        alert(`${raid.name} updated.`);
+        alert(`${raid.name} draft updated.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -2212,7 +2238,7 @@ export function AdminPanel({
                 )}
                 {adminSaveMsg && <span className="village-save-msg">{adminSaveMsg}</span>}
             </div>
-            <p>Anything created here is saved and imported into normal gameplay.</p>
+            <p>Supported content publishes into gameplay. Unsupported reward events, creator missions, and creator raids are retained as player-hidden drafts.</p>
 
             <div className="admin-panel-switcher">
                 {/* Players, Hollow Gate, and Moderation are full-admin only
@@ -2474,12 +2500,13 @@ export function AdminPanel({
             {activeAdminPanel === "eventsRaids" && (
                 <div className="admin-subpanel">
                     <div className="admin-panel-heading">
-                        <h3>Events / Missions / Raids</h3>
-                        <p>Build world map reward events, fetch missions, and raid encounters.</p>
+                        <h3>Events / Mission Drafts / Raid Drafts</h3>
+                        <p>Presentation-only visual novels can publish now. Reward/trait/battle events, creator missions, and creator raids remain player-hidden drafts until their server settlement exists.</p>
                     </div>
                     <div className="admin-grid">
                         <section className="summary-box">
                             <h3>World Event Builder</h3>
+                            <p className="hint">Only zero-reward visual novels without trait grants, battles, or Kage finales are player-live.</p>
                             <label>Event Name</label><input value={eventName} onChange={(e) => setEventName(e.target.value)} />
                             <label>AI To Fight</label><select value={eventAiProfileId} onChange={(e) => setEventAiProfileId(e.target.value)}><option value="">Default Arena AI</option>{allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level}</option>)}</select>
                             <label>Trigger</label><select value={eventTrigger} onChange={(e) => setEventTrigger(e.target.value as "" | "manual" | "firstBattleArena" | "firstLeaveVillage")}><option value="manual">Manual: World Map Admin Event</option><option value="firstBattleArena">First time clicking Battle Arena</option><option value="firstLeaveVillage">First time leaving the Village</option></select>
@@ -2513,8 +2540,8 @@ export function AdminPanel({
                             {editingEventId && <p className="hint">Editing event: {editingEventId}</p>}
                         </section>
                         <section className="summary-box">
-                            <h3>Mission Editor</h3>
-                            <p className="hint">Fetch quests send players to a numbered world sector and count Explore Tile actions plus optional village raids in that sector.</p>
+                            <h3>Mission Draft Editor</h3>
+                            <p className="hint">Drafts are saved for future authoring but are not exposed to players until the server owns progress and claims.</p>
                             <label>Mission Name</label><input value={missionName} onChange={(e) => setMissionName(e.target.value)} />
                             <label>Mission Board</label>
                             <select value={missionRank} onChange={(e) => setMissionRank(e.target.value as MissionRank)}>
@@ -2573,8 +2600,8 @@ export function AdminPanel({
                             ))}
                         </section>
                         <section className="summary-box">
-                            <h3>Raid Creator</h3>
-                            <p className="hint">Raids are boss encounters with multiple waves. Assign a boss AI and set escalating rewards.</p>
+                            <h3>Raid Draft Creator</h3>
+                            <p className="hint">Drafts are player-hidden until the server implements their authored waves and reward settlement.</p>
                             <label>Raid Name</label><input value={raidName} onChange={(e) => setRaidName(e.target.value)} />
                             <label>Description</label><textarea value={raidDescription} onChange={(e) => setRaidDescription(e.target.value)} rows={3} />
                             <label>Sector</label>
@@ -3850,10 +3877,7 @@ export function AdminPanel({
                                     <div className="menu" style={{ flexShrink: 0 }}>
                                         <button onClick={() => loadAdminItem(item)}>Load / Edit</button>
                                         <button
-                                            onClick={() => {
-                                                updateCharacter(addItem(character, item.id, 1));
-                                                alert(`${item.name} added to your inventory.`);
-                                            }}
+                                            onClick={() => { void grantItemToCurrentAdmin(item); }}
                                         >
                                             Give to Me
                                         </button>

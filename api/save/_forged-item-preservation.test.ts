@@ -83,7 +83,7 @@ describe('sanitizeCharacterSave wiring', () => {
 
     it('keeps a forged item a stale client POST omitted', () => {
         const previous = process.env.STRICT_RAW_SAVE_LEDGER;
-        delete process.env.STRICT_RAW_SAVE_LEDGER; // the replace-semantics path
+        process.env.STRICT_RAW_SAVE_LEDGER = '0'; // the replace-semantics path
         try {
             const incoming = {
                 character: { name: 'Tester', level: 30, equipment: { hand: DASHED } },

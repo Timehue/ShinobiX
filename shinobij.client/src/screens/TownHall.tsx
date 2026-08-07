@@ -596,11 +596,9 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     async function claimVillageAgenda() {
         if (!agendaComplete) return alert("Complete the village agenda goals first.");
         if (agendaClaimed) return alert("You already claimed today's village agenda.");
-        // The shared village-treasury credit is now server-authoritative (fixed
-        // amounts, once/day via an NX marker). We re-assert the returned treasury
-        // (zero delta into the validator); contributionPoints + the personal
-        // reward stay client-side (capped by the save sanitizer).
-        let data: { ok?: boolean; alreadyClaimed?: boolean; error?: string; treasury?: Partial<VillageTreasury>; personal?: { alreadyClaimed?: boolean; granted?: { ryo: number; boneCharms: number; honorSeals: number }; balances?: { ryo: number; boneCharms: number; honorSeals: number } } };
+        // Both personal and treasury rewards are server-authoritative and carry
+        // independent durable receipts so an interrupted claim can safely resume.
+        let data: { ok?: boolean; alreadyClaimed?: boolean; treasuryAlreadyClaimed?: boolean; personalAlreadyClaimed?: boolean; error?: string; treasury?: Partial<VillageTreasury>; personal?: { alreadyClaimed?: boolean; granted?: { ryo: number; boneCharms: number; honorSeals: number }; balances?: { ryo: number; boneCharms: number; honorSeals: number } } };
         try {
             const res = await fetch("/api/village/claim-daily-agenda", {
                 method: "POST",
@@ -613,15 +611,11 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             return alert("Could not claim the village agenda. Please try again.");
         }
         const serverTreasury = cleanVillageTreasury(data.treasury as Partial<VillageTreasury>);
-        // Personal reward is now server-authorized (audit #7 / Stage 3 Phase 2):
-        // the endpoint credits the player's save under its own lock + day-marker
-        // and returns the exact `granted` delta. We add that delta to our OWN
-        // balance (preserving any concurrent ryo gains) and re-assert via the
-        // autosave — converges with the server write. `grant` is null when the
-        // personal half was already claimed today (gated independently of the
-        // treasury marker), so a stale re-claim never double-credits.
-        const grant = (data.personal && !data.personal.alreadyClaimed && data.personal.granted) ? data.personal.granted : null;
-        if (data.alreadyClaimed) {
+        // The absolute personal balances are the authoritative post-claim view.
+        // The per-half flags matter during retry recovery: combined
+        // `alreadyClaimed` is false whenever either half was newly completed.
+        const personalNewlyClaimed = Boolean(data.personal && !data.personal.alreadyClaimed && data.personal.granted);
+        if (data.treasuryAlreadyClaimed) {
             // Treasury half already claimed today (another device) — sync it.
             updateVillageState(normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, treasury: serverTreasury }));
         } else {
@@ -637,7 +631,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
                 boneCharms: data.personal.balances.boneCharms,
             } : {}),
         }) : prev);
-        if (data.alreadyClaimed && !grant) return alert("Today's village agenda was already claimed.");
+        if (data.alreadyClaimed && !personalNewlyClaimed) return alert("Today's village agenda was already claimed.");
     }
     const mapControlClaimed = character.claimedMapControlDate === currentDateKey();
     const mapControlRyo = ownedVillageSectors.length * 100;

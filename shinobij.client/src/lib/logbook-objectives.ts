@@ -175,7 +175,13 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                     summary: "Pick a profession at level 13, reach Genin rank at level 15, then prepare for the level-20 exam hold.",
                     unlockLevel: 10,
                     requirements: [
-                        { label: "Choose a profession", progress: character.profession ? 1 : 0, target: 1, detail: "Unlocks at level 13: Healer, Vanguard, or Pet Tamer", goScreen: "professionPicker", goLabel: "Pick Path" },
+                        {
+                            label: "Choose a profession",
+                            progress: character.profession ? 1 : 0,
+                            target: 1,
+                            detail: "Unlocks at level 13: Healer, Vanguard, or Pet Tamer",
+                            ...(character.level >= 13 ? { goScreen: "professions" as Screen, goLabel: "Pick Path" } : {}),
+                        },
                         { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "training", goLabel: "Earn Points" },
                         { label: "Complete 10 missions", progress: totalMissionsCompleted, target: 10, detail: "Claim rewards back at Mission Hall", goScreen: "missions", goLabel: "Go Missions" },
                         { label: "Win 10 AI battles", progress: totalAiKills, target: 10, detail: "Rookie combat missions are safe practice", goScreen: "missions", goLabel: "Go Combat" },

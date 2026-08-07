@@ -149,7 +149,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
-        'serverExploreDate', 'serverExploresToday', 'redeemedSectorExplorations',
+        'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',
         'serverChestDate', 'serverChestsToday', 'redeemedAncientChests',
         'unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles',
         'endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins',
