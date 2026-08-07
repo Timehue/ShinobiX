@@ -77,7 +77,7 @@ export function shouldRedirectToHospital(
 // isUnresolvedBattle() below decides whether a mixed lobby/fight screen is
 // actively locked.
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "pvpBattle", "petArena", "arena", "storyBoss", "weeklyBoss", "villageWar",
+    "pvpBattle", "petArena", "petShowdown", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
     "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
 ]);
@@ -147,6 +147,10 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return !!s.pvpBattleId && !s.pvpBattleResolved;
         case "petArena":
             return s.petBattleActive || s.pendingPetBattle;
+        case "petShowdown":
+            // Showdown lifts the same signal PetArena does: true only while a
+            // server session is unresolved (the lobby stays freely navigable).
+            return s.petBattleActive;
         case "endlessTower":
             return s.endlessBattleActive;
         case "storyBoss":          // battle-only screen, no lobby

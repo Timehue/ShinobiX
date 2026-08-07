@@ -1,0 +1,181 @@
+/*
+ * Pet Showdown — the shared contract between the server-authoritative turn
+ * engine (api/_pet-showdown/) and the client presentation layer
+ * (shinobij.client/src/screens/PetShowdown.tsx + components/PetShowdownBattle.tsx).
+ *
+ * ARCHITECTURE (docs/pet-showdown-design.md): Showdown is a turn-based command
+ * battle. The ENGINE LIVES ONLY ON THE SERVER — each round is one POST to
+ * /api/pet/showdown and the server returns a TURN SCRIPT (an ordered list of
+ * ShowdownEvent) that the client merely plays back cinematically. The client
+ * never resolves combat, so there is no parity mirror, no lockstep, and no
+ * input-log replay to maintain. This file holds only types and pure constants —
+ * NO logic — so neither build can drift from the other.
+ *
+ * Determinism note: all numbers the client displays (damage, stamina, meter)
+ * arrive inside events; the client must render them verbatim, never recompute.
+ */
+
+export type ShowdownFormat = "1v1" | "2v2" | "3v3";
+
+export type ShowdownTier = "scrapper" | "warrior" | "champion";
+
+export type ShowdownOutcome = "win" | "loss";
+
+/** Element counter wheel (matches the live Pet Arena chart):
+ *  Fire > Wind > Lightning > Earth > Water > Fire. */
+export const SHOWDOWN_ELEMENT_BEATS: Readonly<Record<string, string>> = Object.freeze({
+    Fire: "Wind",
+    Wind: "Lightning",
+    Lightning: "Earth",
+    Earth: "Water",
+    Water: "Fire",
+});
+
+export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.3;
+export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.8;
+
+/** Per-pet stamina economy (Temtem-style push-your-luck). */
+export const SHOWDOWN_MAX_STAMINA = 100;
+export const SHOWDOWN_STAMINA_REGEN = 25;
+export const SHOWDOWN_REST_STAMINA = 45;
+/** Rest also patches the pet up a little so it is a real decision, not a tax. */
+export const SHOWDOWN_REST_HEAL_PCT = 0.04;
+export const SHOWDOWN_GUARD_COST = 10;
+/** Guard halves incoming damage until the pet's next action. */
+export const SHOWDOWN_GUARD_MULT = 0.5;
+
+/** Move stamina cost by power band. */
+export const SHOWDOWN_COST_LIGHT = 30;   // power <= 120
+export const SHOWDOWN_COST_MEDIUM = 45;  // power <= 220
+export const SHOWDOWN_COST_HEAVY = 60;   // power > 220
+
+/** Super meter: fills from combat, spent whole on the signature move. */
+export const SHOWDOWN_METER_MAX = 100;
+export const SHOWDOWN_METER_ON_HIT_DEALT = 10;
+export const SHOWDOWN_METER_ON_HIT_TAKEN = 18;
+export const SHOWDOWN_METER_ON_GUARDED_HIT = 14;
+/** The signature/super cast multiplies move power by this. */
+export const SHOWDOWN_SUPER_POWER_MULT = 1.6;
+
+/** Timing-needle grades (client-measured, server-CLAMPED — expression, not
+ *  requirement; the ceiling bounds what a dishonest client can gain). */
+export const SHOWDOWN_TIMING_MULTS: readonly number[] = Object.freeze([1.0, 1.1, 1.22]);
+
+/** Hard round cap — at cap the judge scores remaining HP%; there are NO draws. */
+export const SHOWDOWN_MAX_ROUNDS = 14;
+
+export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Object.freeze({
+    "1v1": 1,
+    "2v2": 2,
+    "3v3": 3,
+});
+
+/** One command per living pet per round. `timing` is the needle grade index
+ *  into SHOWDOWN_TIMING_MULTS (0 = untapped/miss, 2 = perfect). */
+export type ShowdownCommand =
+    | { kind: "move"; petId: string; moveIndex: number; targetId: string; timing?: number }
+    | { kind: "super"; petId: string; targetId: string; timing?: number }
+    | { kind: "guard"; petId: string }
+    | { kind: "rest"; petId: string };
+
+/** Public per-pet combat state, mirrored to the client after every round. */
+export interface ShowdownPetView {
+    id: string;
+    name: string;
+    element: string;
+    role: string;
+    rarity: string;
+    /** Catalog species id — lets the client resolve the 3D model for AI pets. */
+    templateId?: string;
+    level: number;
+    hp: number;
+    maxHp: number;
+    stamina: number;
+    meter: number;
+    ko: boolean;
+    guarding: boolean;
+    /** Skips its next action (overexertion wind, stun, freeze). */
+    winded: boolean;
+    statuses: { kind: string; rounds: number }[];
+    moves: {
+        name: string;
+        power: number;
+        kind: string;
+        cost: number;
+        cooldown: number;
+        currentCooldown: number;
+        signature: boolean;
+    }[];
+}
+
+export interface ShowdownStateView {
+    sessionId: string;
+    format: ShowdownFormat;
+    tier: ShowdownTier;
+    round: number;
+    maxRounds: number;
+    finished: boolean;
+    outcome: ShowdownOutcome | null;
+    player: ShowdownPetView[];
+    enemy: ShowdownPetView[];
+    enemyTeamName: string;
+}
+
+/** Effectiveness callout the presentation layer banners on impact. */
+export type ShowdownEffectiveness = "super" | "weak" | "neutral";
+
+/** One beat of the turn script. The client plays these strictly in order. */
+export type ShowdownEvent =
+    | { t: "roundStart"; round: number }
+    | {
+        t: "action";
+        actorId: string;
+        actorSide: "player" | "enemy";
+        moveName: string;
+        moveKind: string;
+        element: string;
+        /** Melee actions lunge; ranged actions fire a projectile. */
+        delivery: "melee" | "ranged" | "self";
+        /** Full-meter signature cast — cinematic camera takeover. */
+        super: boolean;
+        timing: number;
+        targets: {
+            id: string;
+            damage: number;
+            heal: number;
+            effectiveness: ShowdownEffectiveness;
+            guarded: boolean;
+            ko: boolean;
+            /** Status applied by this hit, if any (burn/stun/...). */
+            applied?: string;
+        }[];
+        /** Actor resources after the action, for HUD sync mid-script. */
+        staminaAfter: number;
+        meterAfter: number;
+        /** Set when the actor overexerted and will be winded next round. */
+        overexerted: boolean;
+    }
+    | { t: "skip"; actorId: string; actorSide: "player" | "enemy"; reason: "winded" | "stun" | "freeze" | "ko" }
+    | { t: "confused"; actorId: string; actorSide: "player" | "enemy"; selfDamage: number; ko: boolean }
+    | { t: "dot"; targetId: string; targetSide: "player" | "enemy"; kind: string; damage: number; ko: boolean }
+    | { t: "roundEnd"; round: number }
+    | { t: "end"; outcome: ShowdownOutcome; byJudge: boolean };
+
+export interface ShowdownTurnResponse {
+    ok: boolean;
+    events: ShowdownEvent[];
+    state: ShowdownStateView;
+    /** Present only on the finishing turn. */
+    reward?: number;
+    balances?: { ryo: number };
+    totalPetWins?: number;
+    dailyPetWins?: number;
+    capped?: boolean;
+    _saveVersion?: number;
+    character?: unknown;
+}
+
+export interface ShowdownStartResponse {
+    ok: boolean;
+    state: ShowdownStateView;
+}
