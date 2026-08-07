@@ -132,7 +132,10 @@ export async function deployOneMerc(args: {
                 mercBattle: true,
             });
             const recorded = recordSectorWarBattleOutcome(outcome, {
-                battleId: `merc:${args.contestId}:${args.now}`,
+                // targetPlayer in the id: two mercs striking DIFFERENT defenders in
+                // the same millisecond must not collide into one receipt (the dedupe
+                // would silently drop the second battle's points).
+                battleId: `merc:${args.contestId}:${args.targetPlayer}:${args.now}`,
                 attackerWon: battle.mercWon,
                 by: battle.mercWon ? '' : args.targetPlayer,
                 at: args.now,
