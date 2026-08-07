@@ -19,6 +19,7 @@ import { resolveMercBattle } from '../towers/_merc-fighters.js';
 import {
     sectorWarId,
     sectorWarKey,
+    projectSectorWarForClient,
     newSectorWarSession,
     applySectorWarBattle,
     findSectorWarBattleReceipt,
@@ -261,9 +262,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
             return { created: true as const, session: s };
         }, { failClosed: true });
         if (!contestRes.created && contestRes.taken) return { ok: false as const, taken: true as const, cost: 0 };
-        if (!contestRes.created) return { ok: true as const, cost: 0, contest: contestRes.session, alreadyOpen: true };
+        if (!contestRes.created) return { ok: true as const, cost: 0, contest: projectSectorWarForClient(contestRes.session), alreadyOpen: true };
         await kv.set(atkKey, { ...rec, warResources: rec.warResources - cost });
-        return { ok: true as const, cost, contest: contestRes.session, alreadyOpen: false };
+        return { ok: true as const, cost, contest: projectSectorWarForClient(contestRes.session), alreadyOpen: false };
     }, { failClosed: true });
 
     if (!out.ok && out.taken) {
@@ -616,7 +617,7 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
     if (!out.ok) return res.status(409).json({ error: 'That sector war is already over.' });
     // The WR spent declaring is NOT refunded — a called-off siege still cost the
     // village, which is what keeps declare-spam from being free.
-    return res.status(200).json({ ok: true, sector, contest: out.session });
+    return res.status(200).json({ ok: true, sector, contest: projectSectorWarForClient(out.session) });
 }
 
 // ── status (read-only) ─────────────────────────────────────────────────────────
@@ -628,10 +629,10 @@ async function doStatus(_req: VercelRequest, res: VercelResponse, body: Record<s
     const sector = Math.floor(Number(body.sector) || 0);
     if (sector) {
         const [ownerVillage, contest] = await Promise.all([getSectorOwnerVillage(sector), activeContestOnSector(sector)]);
-        return res.status(200).json({ ok: true, sector, ownerVillage, contest });
+        return res.status(200).json({ ok: true, sector, ownerVillage, contest: contest ? projectSectorWarForClient(contest) : null });
     }
     const contests = await listActiveSectorWars();
-    return res.status(200).json({ ok: true, contests });
+    return res.status(200).json({ ok: true, contests: contests.map(projectSectorWarForClient) });
 }
 
 // ── seed (admin, Phase 4d) ─────────────────────────────────────────────────────

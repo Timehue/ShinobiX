@@ -8,6 +8,7 @@ import { loadHeldSectorCounts } from '../_war-held-sectors.js';
 import { isVillageKageSeated } from '../_war-tax-apply.js';
 import { villageWarMapView, type VillageWarMapView } from '../_war-map-view.js';
 import { listActiveSectorWars } from '../_sector-war-store.js';
+import { projectSectorWarForClient } from '../_sector-war.js';
 
 /*
  * /api/village/war-map — GET only. The read-only War-Map aggregator (Phase 6).
@@ -56,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return villageWarMapView({ village: v, record, treasurySeals, sectorsHeld: heldCount[v] ?? 0, kageSeated: kageSeats[i] });
         });
 
-        return res.status(200).json({ ok: true, enabled: true, villages, contests });
+        return res.status(200).json({ ok: true, enabled: true, villages, contests: contests.map(projectSectorWarForClient) });
     } catch (err) {
         console.error('[village/war-map]', err);
         return res.status(500).json({ error: 'Internal server error.' });

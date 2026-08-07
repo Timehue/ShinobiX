@@ -51,13 +51,14 @@ export async function deleteSectorWar(id: string): Promise<void> {
     await kv.del(sectorWarKey(id));
 }
 
-/** Every contest still LIVE on the board — not captured, and not timed out
- *  (small scan; mirrors the territory scan in api/village/claim-map-control.ts).
+/** Every war still LIVE on the board — not settled, not conceded, and inside its
+ *  72h window (small scan; mirrors the territory scan in claim-map-control.ts).
  *
- *  Filtering on expiry here is what stops a stale declare from holding its sector
- *  forever under the one-contest-per-sector rule, and from keeping its village
- *  permanently "at war" in the daily pass. This is a pure read — `sweepExpiredSectorWars`
- *  (run from the daily pass) is what actually stamps and clears the records. */
+ *  The endsAt filter matters: a war whose window closed but whose verdict is not
+ *  yet stamped must already read as OVER — it can't block the one-war-per-sector
+ *  rule, count toward the attack-siege cap, or keep its village "at war" in the
+ *  daily pass. This is a pure read — settlement (api/_sector-war-settle.ts)
+ *  stamps the verdicts. */
 export async function listActiveSectorWars(now: number = Date.now()): Promise<SectorWarSession[]> {
     const keys = await kv.keys(`${SECTOR_WAR_PREFIX}*`);
     if (!keys.length) return [];
