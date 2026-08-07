@@ -59,6 +59,7 @@ const ECHOES_VERSION = new Set([
     'pet/battle-result.ts',
     'pet/evolve.ts',
     'pet/gauntlet.ts',
+    'pet/showdown.ts',
     'player/daily-login.ts',
     'player/heal.ts',
     'profession/choose.ts',

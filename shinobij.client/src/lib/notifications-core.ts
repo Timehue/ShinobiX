@@ -33,7 +33,7 @@ const BATTLE_ONLY_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 // Screens that have BOTH a lobby and a fight state. Being on one isn't enough to
 // say "in battle" — the orchestrator gates these on a live battle-lock signal.
 const LOBBY_FIGHT_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "arena", "battleArena", "arenaDistrict", "petArena",
+    "arena", "battleArena", "arenaDistrict", "petArena", "petShowdown",
 ]);
 
 export function isBattleOnlyScreen(screen: Screen): boolean {
@@ -67,7 +67,10 @@ export function shouldHideBattleChrome(inputs: BattleChromeInputs): boolean {
     const isArenaLobby = inputs.screen === "arena" || inputs.screen === "battleArena" || inputs.screen === "arenaDistrict";
     return (isBattleViewScreen(inputs.screen) && inputs.screen !== "arena" && inputs.screen !== "battleArena")
         || (isArenaLobby && inputs.arenaBattleActive)
-        || (inputs.screen === "petArena" && inputs.petBattleActive);
+        || (inputs.screen === "petArena" && inputs.petBattleActive)
+        // Pet Showdown is a mixed lobby/fight screen like petArena; its battle
+        // overlay lifts the same fullscreen/battle signals.
+        || (inputs.screen === "petShowdown" && inputs.petBattleActive);
 }
 
 export interface NotifInputs {

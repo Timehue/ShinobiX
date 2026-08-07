@@ -95,5 +95,8 @@ test("battle chrome hides on fight boards but stays on mixed-screen lobbies", ()
     assert.equal(shouldHideBattleChrome({ screen: "arenaDistrict", arenaBattleActive: true, petBattleActive: false }), true);
     assert.equal(shouldHideBattleChrome({ screen: "petArena", arenaBattleActive: false, petBattleActive: false }), false);
     assert.equal(shouldHideBattleChrome({ screen: "petArena", arenaBattleActive: false, petBattleActive: true }), true);
+    // Pet Showdown: same mixed lobby/fight contract as petArena.
+    assert.equal(shouldHideBattleChrome({ screen: "petShowdown", arenaBattleActive: false, petBattleActive: false }), false);
+    assert.equal(shouldHideBattleChrome({ screen: "petShowdown", arenaBattleActive: false, petBattleActive: true }), true);
     assert.equal(shouldHideBattleChrome({ screen: "village", arenaBattleActive: true, petBattleActive: true }), false);
 });

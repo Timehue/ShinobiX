@@ -46,6 +46,7 @@ export type Screen =
     | "sunscarFestival"
     | "centralHub"
     | "petArena"
+    | "petShowdown"
     | "petLadder"
     | "home"
     | "pets"

@@ -92,6 +92,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   sunscarFestival: civic,
   centralHub: archive,
   petArena: atFacility(companion, "pet-yard"),
+  petShowdown: atFacility(companion, "pet-yard"),
   petLadder: atFacility(companion, "pet-yard"),
   home: atFacility(companion, "home"),
   pets: atFacility(companion, "pet-yard"),
