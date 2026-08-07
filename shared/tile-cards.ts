@@ -159,7 +159,7 @@ export const shinobiTileCards: TileCard[] = [
     { id: "tc-126", name: "Eclipse Sovereign",      element: "Shadow",    rarity: "legendary", description: "Eats the sun." },
     { id: "tc-127", name: "Eternal Glacier King",   element: "Ice",       rarity: "legendary", description: "Frozen since the first age." },
     { id: "tc-128", name: "Grand Sage of Balance",  element: "Neutral",   rarity: "legendary", description: "Equal in all dimensions." },
-    { id: "tc-129", name: "Forgotten Hokage",       element: "None",      rarity: "legendary", description: "Lost name, undying skill." },
+    { id: "tc-129", name: "Forgotten Kage",         element: "None",      rarity: "legendary", description: "Lost name, undying skill." },
     { id: "tc-130", name: "World-Ender Titan",      element: "Earth",     rarity: "legendary", description: "A walking apocalypse." },
     { id: "tc-131", name: "Heaven-Shatter Drake",   element: "Lightning", rarity: "legendary", description: "One bolt, one mountain." },
     { id: "tc-132", name: "Abyssal Leviathan",      element: "Water",     rarity: "legendary", description: "Sleeps beneath the world." },
