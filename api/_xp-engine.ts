@@ -1,3 +1,5 @@
+import { PROGRESSION_EXAM_HOLDS } from '../shared/progression-holds.js';
+
 // Pure, IO-free server port of the client's character XP / level engine, for
 // the server-authoritative PvP-win reward (audit #7 / Stage 3 Phase 3). Split
 // out so the (large) level math is unit-testable without storage — same pattern
@@ -188,11 +190,15 @@ export function rankTitleForLevel(character: XpCharacter, level: number): string
 }
 
 // ── App.tsx — examLevelCap ──────────────────────────────────────────────────
-const EXAM_LEVEL_GATES: { exam: string; level: number }[] = [
-    { exam: 'genin', level: 20 },
-    { exam: 'chunin', level: 39 },
-    // Jonin / Special Jonin exams do not block XP — players reach 100 freely.
-];
+export const EXAM_LEVEL_GATES = PROGRESSION_EXAM_HOLDS;
+
+export function progressionHoldForCharacter(character: XpCharacter): { exam: string; level: number } | null {
+    const passed = Array.isArray(character.examsPassed) ? character.examsPassed as unknown[] : [];
+    for (const gate of EXAM_LEVEL_GATES) {
+        if (!passed.includes(gate.exam) && Number(character.level) >= gate.level) return gate;
+    }
+    return null;
+}
 
 function examLevelCap(character: XpCharacter): number {
     const passed = Array.isArray(character.examsPassed) ? character.examsPassed as unknown[] : [];

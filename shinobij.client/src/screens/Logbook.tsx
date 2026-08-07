@@ -8,7 +8,7 @@ import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
-import { DAILY_MISSION_LIMIT, EXAM_LEVEL_GATES, FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
@@ -65,9 +65,7 @@ export function Logbook({
     // so the next autosave isn't rejected as stale.
     onServerVersion?: (version?: number) => void;
 }) {
-    // Rank-up ceremony: set to the exam title when a promotion is claimed, so we
-    // celebrate with a modal instead of a bare alert().
-    const [ceremonyTitle, setCeremonyTitle] = useState<string | null>(null);
+    const [ceremony, setCeremony] = useState<{ title: string; prestige: boolean } | null>(null);
     const [warMissionPending, setWarMissionPending] = useState(false);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const defeatedAiIds = character.defeatedAiIds ?? [];
@@ -107,7 +105,11 @@ export function Logbook({
     const examMissions = objectives.filter(
         (o): o is LogbookObjective & { examKey: string } => o.kind === "exam" && o.examKey !== undefined,
     );
-    const ceremonyBody = ceremonyTitle === "Genin Exam"
+    const blockingExams = examMissions.filter((exam) => exam.progressionImpact === "blocking");
+    const prestigeMilestones = examMissions.filter((exam) => exam.progressionImpact === "prestige");
+    const ceremonyBody = ceremony?.prestige
+        ? `Distinction recorded for ${character.name}. This recognition grants no extra levels, stats, jutsu power, or content access.`
+        : ceremony?.title === "Genin Exam"
         ? "You graduated from the Academy. The village now trusts you with real shinobi work."
         : `Congratulations, ${character.name}. Your next shinobi path is open.`;
 
@@ -251,6 +253,32 @@ export function Logbook({
         );
     }
 
+    function renderExam(exam: LogbookObjective & { examKey: string }) {
+        const passed = (character.examsPassed ?? []).includes(exam.examKey);
+        const complete = objectiveComplete(exam);
+        const prestige = exam.progressionImpact === "prestige";
+        const isBlocking = !prestige && !passed && character.level >= exam.unlockLevel;
+        return (
+            <section className="summary-box mission-board-section" key={exam.id}>
+                <h3>{exam.title} {prestige ? <small className="activity-spine-returner">Optional Prestige</small> : null} {passed ? "✓" : ""}</h3>
+                {exam.summary && <p className="hint">{exam.summary}</p>}
+                {prestige
+                    ? <p className="hint"><strong>Progression impact: none.</strong> This distinction does not block leveling, stats, jutsu, or content.</p>
+                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>}
+                {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {exam.unlockLevel} until you pass this exam.</p>}
+                <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
+                {!passed && <div className="menu">
+                    <button disabled={!complete} onClick={() => {
+                        void passRankExamServer(character.name, exam.examKey).then((next) => {
+                            updateCharacter(next);
+                            setCeremony({ title: exam.title, prestige });
+                        }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
+                    }}>{complete ? prestige ? "Claim Distinction" : `Pass ${exam.title}` : "Requirements Incomplete"}</button>
+                </div>}
+            </section>
+        );
+    }
+
     return (
         <div className="card logbook-screen">
             <h2>Logbook</h2>
@@ -259,18 +287,18 @@ export function Logbook({
                 999999, so this used to draw BEHIND the rail at its old z-index of 9000 —
                 and passing a rank exam is one of the game's few marquee moments. Portaling
                 also escapes the .logbook-screen card's own stacking/overflow context. */}
-            {ceremonyTitle && createPortal(
+            {ceremony && createPortal(
                 <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000000, padding: 16 }}>
                     <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
                         <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
-                        <h2 style={{ marginTop: 0 }}>{ceremonyTitle} Passed!</h2>
+                        <h2 style={{ marginTop: 0 }}>{ceremony.prestige ? `${ceremony.title} Recorded` : `${ceremony.title} Passed!`}</h2>
                         <p>{ceremonyBody}</p>
-                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremonyTitle(null)}>Continue →</button>
+                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremony(null)}>Continue →</button>
                     </div>
                 </div>,
                 document.body,
             )}
-            <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
+            <p>Progression exams: <strong>{blockingExams.length}</strong> · Prestige milestones: <strong>{prestigeMilestones.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
             {academyChecklist && (
                 <>
                     <h3>Academy Training</h3>
@@ -319,32 +347,17 @@ export function Logbook({
                     <p><strong>Story.</strong> Once the Academy path is complete, your village story finds you on its own. Revisit past chapters and choices any time in the Story Hall.</p>
                 </div>
             </details>
-            {examMissions.length > 0 && (
+            {blockingExams.length > 0 && (
                 <>
                     <h3>Rank Exams</h3>
-                    {examMissions.map((exam) => {
-                        const passed = (character.examsPassed ?? []).includes(exam.examKey);
-                        const complete = exam.requirements.every((requirement) => requirement.progress >= requirement.target);
-                        const gate = EXAM_LEVEL_GATES.find(g => g.exam === exam.examKey);
-                        const isBlocking = !passed && character.level >= (gate?.level ?? 999);
-                        return (
-                            <section className="summary-box mission-board-section" key={exam.id}>
-                                <h3>{exam.title} {passed ? "✓" : ""}</h3>
-                                {exam.summary && <p className="hint">{exam.summary}</p>}
-                                <p className="hint">Gate: level {gate?.level ?? exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
-                                {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
-                                <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
-                                {!passed && <div className="menu">
-                                    <button disabled={!complete} onClick={() => {
-                                        void passRankExamServer(character.name, exam.examKey).then((next) => {
-                                            updateCharacter(next);
-                                            setCeremonyTitle(exam.title);
-                                        }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
-                                    }}>{complete ? `Pass ${exam.title}` : "Requirements Incomplete"}</button>
-                                </div>}
-                            </section>
-                        );
-                    })}
+                    {blockingExams.map(renderExam)}
+                </>
+            )}
+            {prestigeMilestones.length > 0 && (
+                <>
+                    <h3>Prestige Milestones</h3>
+                    <p className="hint">Optional recognition for veteran accomplishments. These milestones never hold progression.</p>
+                    {prestigeMilestones.map(renderExam)}
                 </>
             )}
             {activeVillageWar && (

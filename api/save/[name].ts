@@ -5,6 +5,8 @@ import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
+import { normalizeMasteryFocus } from '../../shared/activity-spine.js';
+import { PROGRESSION_EXAM_HOLDS } from '../../shared/progression-holds.js';
 import { budgetItemBonuses } from '../_item-budget.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody, setSafeRecordValue } from '../_utils.js';
@@ -730,6 +732,13 @@ export function sanitizeCharacterSave(
 
     const char: Record<string, unknown> = { ...inChar };
 
+    // Optional, presentation-only recommendation preference. Unknown or retired
+    // values safely fall back to Auto; older saves remain sparse until a player
+    // actually chooses a focus.
+    const savedMasteryFocus = char.masteryFocus ?? exChar.masteryFocus;
+    if (savedMasteryFocus === undefined) delete char.masteryFocus;
+    else char.masteryFocus = normalizeMasteryFocus(savedMasteryFocus);
+
     // ── Free-form user text moderation ──────────────────────────────
     // The DISPLAY name is player-authored too, and was capped nowhere: `safeName`
     // bounds the derived slug used in keys, but `character.name` rode through raw.
@@ -1357,21 +1366,19 @@ export function sanitizeCharacterSave(
     // counted-stack entitlement so load-time array→stack migration remains
     // lossless while arbitrary additions in either representation are dropped.
     // ─── examsPassed validation ───────────────────────────────────────────────
-    // Rank exams: genin/chunin/jonin/specialJonin gate level progression
-    // (EXAM_LEVEL_GATES in App.tsx). A forged save could POST
+    // Genin and Chunin gate level progression. Jonin and Special Jonin are
+    // optional prestige stamps, but all four keys remain server-owned. A forged save could POST
     // examsPassed:["genin","chunin","jonin","specialJonin"] to skip every
-    // exam and the level cap. Rules:
+    // exam and falsify its record. Rules:
     //   - Only the 4 known exam keys are accepted
     //   - Cap length at 4 (one of each)
     //   - Dedupe
     //   - Level-gate: genin needs level ≥20, chunin needs level ≥39
     //   - Don't shrink an existing entry (legitimate veterans keep their list)
     const KNOWN_EXAMS = new Set(['genin', 'chunin', 'jonin', 'specialJonin']);
-    const EXAM_LEVEL_GATES_SERVER: Record<string, number> = {
-        genin: 20,
-        chunin: 39,
-        // jonin / specialJonin don't have level gates per App.tsx EXAM_LEVEL_GATES
-    };
+    const EXAM_LEVEL_GATES_SERVER = Object.fromEntries(
+        PROGRESSION_EXAM_HOLDS.map(({ exam, level }) => [exam, level]),
+    ) as Record<string, number>;
     // Server-side requirement FLOOR (gameplay-loop audit L-1). The full exam
     // checklist (elements, stat-training, jutsu mastery, clan, boss defeats) is
     // evaluated client-side; here we additionally enforce the subset backed by

@@ -505,6 +505,7 @@
 
   .mobile-menu-header,
   .mobile-char-card,
+  .mobile-menu-groups,
   .mobile-menu-grid {
     position: relative;
     z-index: 1;

@@ -338,6 +338,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('examsPassed', 'character', 'server-owned', 'exams', ['combat-strip-char'], 'non-first saves replaced with stored verbatim; exams/pass advances'),
 
     // ── Preferences & cosmetics ─────────────────────────────────────────────
+    f('masteryFocus', 'character', 'client-preference', 'recommendations', [], 'allowlisted Activity Spine focus; unknown values normalize to Auto'),
     f('nindo', 'character', 'client-preference', 'profile', [], 'moderated BBCode creed'),
     f('nindoBg', 'character', 'cosmetic-ref', 'profile', [], 'allowlisted preset id'),
     f('bloodline', 'character', 'client-state', 'bloodlines', [], 'starter bloodline choice; gates the first-save starter jutsu kit'),

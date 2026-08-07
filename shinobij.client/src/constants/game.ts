@@ -9,6 +9,7 @@
 import {
     HOLLOW_GATE_DEPTH,
 } from "../../../shared/hollow-gate-contract";
+import { PROGRESSION_EXAM_HOLDS } from "../../../shared/progression-holds";
 
 // ── API endpoints ────────────────────────────────────────────────────────
 export const WORLD_STATE_API = "/api/world-state";
@@ -196,8 +197,4 @@ export const HOLLOW_GATE_SHRINE_H = 17;
 export const HOLLOW_GATE_MAX_FLOOR = HOLLOW_GATE_DEPTH;
 
 // Exam gates: players cannot level past these thresholds without passing the corresponding exam.
-export const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
-    { exam: "genin", level: 20, label: "Genin Exam" },
-    { exam: "chunin", level: 39, label: "Chunin Exam" },
-    // Jonin and Special Jonin exams do not block XP — players can reach level 100 freely.
-];
+export const EXAM_LEVEL_GATES = PROGRESSION_EXAM_HOLDS;

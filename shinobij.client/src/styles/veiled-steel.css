@@ -1011,7 +1011,7 @@ html body.ui-scroll-locked {
 
 @media (min-width: 980px) {
   .app-shell:not(.screen-start) .right-menu-buttons {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 5px !important;
   }
 

@@ -1,5 +1,8 @@
 # ShinobiX MMO Roundness Implementation Report
 
+> [!IMPORTANT]
+> **HISTORICAL IMPLEMENTATION EVIDENCE.** This report remains authoritative for the implementation and certification work it records, but its rollout recommendations do not define current player availability. See [`LIVE_PRODUCT_STATUS.md`](LIVE_PRODUCT_STATUS.md) for current product truth.
+
 Date: August 6, 2026 (post-merge closeout update)
 Branch: `codex/post-merge-release-closeout`
 Current `origin/main` base: `cdecc459447c391407f269852cff1f9da59b3251`

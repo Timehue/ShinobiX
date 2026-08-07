@@ -23,13 +23,10 @@ import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-musi
 import { primeGameAudio } from "../lib/game-audio";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
+import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — matches the
 // shinobi theme. Mirrors the mobile nav (MobileNav.tsx). Attribution in the footer below.
-import {
-    GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
-    GiExitDoor, GiFireSpellCast, GiGears, GiHearts, GiKnapsack, GiNinjaHeroicStance,
-    GiOpenBook, GiPawPrint, GiScrollUnfurled, GiSpeaker, GiSpeakerOff, GiThreeFriends, GiTreasureMap,
-} from "react-icons/gi";
+import { GiChatBubble, GiExitDoor, GiGears, GiHearts, GiOpenBook, GiSpeaker, GiSpeakerOff } from "react-icons/gi";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -113,33 +110,33 @@ export const RightMenu = memo(function RightMenu({
                         lib/screen-preload. onClick behaviour is unchanged; the preload
                         is best-effort and side-effect-free. */}
                     <div className="right-menu-buttons">
-                        <button aria-current={screen === "tavern" ? "page" : undefined} onClick={() => guardedNavigate("tavern")} onPointerDown={() => preloadScreen("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
-                        <button aria-current={screen === "worldMap" ? "page" : undefined} onClick={() => guardedNavigate("worldMap")} onPointerDown={() => preloadScreen("worldMap")}><GiTreasureMap size={16} />Travel</button>
-                        <button aria-current={screen === "userHub" ? "page" : undefined} onClick={() => guardedNavigate("userHub")} onPointerDown={() => preloadScreen("userHub")}><GiThreeFriends size={16} />Users</button>
-                        <button aria-current={screen === "messages" ? "page" : undefined} onClick={() => guardedNavigate("messages")} onPointerDown={() => preloadScreen("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
-                        <button aria-current={screen === "missions" ? "page" : undefined} onClick={() => guardedNavigate("missions")} onPointerDown={() => preloadScreen("missions")}><GiScrollUnfurled size={16} />Missions</button>
-                        <button aria-current={screen === "training" ? "page" : undefined} onClick={() => guardedNavigate("training")} onPointerDown={() => preloadScreen("training")}><GiBiceps size={16} />Training</button>
-                        <button aria-current={screen === "profile" ? "page" : undefined} onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={16} />Character</button>
-                        <button aria-current={screen === "inventory" ? "page" : undefined} onClick={() => guardedNavigate("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={16} />Inventory</button>
-                        <button aria-current={screen === "jutsuTraining" ? "page" : undefined} onClick={() => guardedNavigate("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
-                        <button aria-current={screen === "home" ? "page" : undefined} onClick={() => guardedNavigate("home")} onPointerDown={() => preloadScreen("home")}><GiPawPrint size={16} />Home</button>
-                        <button aria-current={screen === "bloodlineMaker" ? "page" : undefined} onClick={() => guardedNavigate("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
-                        <button
-                            aria-current={screen === "professions" ? "page" : undefined}
-                            onClick={() => guardedNavigate("professions")}
-                            onPointerDown={() => preloadScreen("professions")}
-                            title={profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions"}
-                        >
-                            <GiAnvil size={16} />{profession ? PROFESSION_LABEL[profession] : "Professions"}
-                        </button>
-                        <button aria-current={screen === "logbook" ? "page" : undefined} onClick={() => guardedNavigate("logbook")} onPointerDown={() => preloadScreen("logbook")}><GiBookCover size={16} />Logbook</button>
-                        <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={16} />Guides</button>
-                        <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
-                        <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")} title="Shinobi Supporter — link Patreon, see your perks"><GiHearts size={16} />Patreon</button>
-                        {(isAdminAccount || adminLoggedIn) && (
-                            <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
-                        )}
-                        <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
+                        {PLAYER_MENU_GROUPS.map((group) => (
+                            <section className="right-menu-section" aria-labelledby={`right-menu-${group.id}`} key={group.id}>
+                                <h4 id={`right-menu-${group.id}`}>{group.label}</h4>
+                                <div className="right-menu-section-grid">
+                                    {group.items.map(([target, label, Icon]) => (
+                                        <button key={target} aria-current={screen === target ? "page" : undefined} onClick={() => guardedNavigate(target)} onPointerDown={() => preloadScreen(target)} title={target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
+                                            <Icon size={16} />{target === "professions" && profession ? PROFESSION_LABEL[profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+                        ))}
+                        <section className="right-menu-section" aria-labelledby="right-menu-support">
+                            <h4 id="right-menu-support">Support</h4>
+                            <div className="right-menu-section-grid">
+                                <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={16} />Guides</button>
+                                <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
+                                <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")} title="Shinobi Supporter — link Patreon, see your perks"><GiHearts size={16} />Patreon</button>
+                            </div>
+                        </section>
+                        <section className="right-menu-section" aria-labelledby="right-menu-system">
+                            <h4 id="right-menu-system">System</h4>
+                            <div className="right-menu-section-grid">
+                                {(isAdminAccount || adminLoggedIn) && <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>}
+                                <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
+                            </div>
+                        </section>
                     </div>
                 </>
             )}
