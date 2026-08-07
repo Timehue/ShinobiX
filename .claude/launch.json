@@ -9,6 +9,13 @@
       "autoPort": true
     },
     {
+      "name": "local-server",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=%PORT%&& node app.js"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
       "name": "prod-server",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set PORT=%PORT%&& set DISABLE_REALTIME=1&& set DISABLE_SNAPSHOT_CRON=1&& node dist/server.js"],
