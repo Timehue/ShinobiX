@@ -51,6 +51,7 @@ import rosterHandler     from './api/player/roster.js';
 import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
 import playerActivitySpineHandler from './api/player/activity-spine.js';
+import playerCapabilitiesHandler from './api/player/capabilities.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
 import sunscarFestivalHandler from './api/festival/sunscar.js';
@@ -1019,6 +1020,7 @@ route('/player/roster',       rosterHandler);
 route('/player/leaderboards', playerLeaderboardsHandler);
 route('/player/trade',        playerTradeHandler);
 route('/player/activity-spine', playerActivitySpineHandler);
+route('/player/capabilities', playerCapabilitiesHandler);
 // Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
 // once per UTC day under the save lock (failClosed), idempotent via the date
 // stamp on the save itself. See api/player/_daily-login.ts.

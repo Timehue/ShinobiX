@@ -1,5 +1,8 @@
 # ShinobiX v0.1.0-beta Release Notes
 
+> [!IMPORTANT]
+> **HISTORICAL ROLLOUT EVIDENCE — SUPERSEDED FOR CURRENT AVAILABILITY.** These are draft notes from before the first public-beta release. Preserve them as release history; use [`LIVE_PRODUCT_STATUS.md`](LIVE_PRODUCT_STATUS.md) for current product truth.
+
 Draft date: July 7, 2026
 
 These notes are prepared for the first controlled public beta release. Do not

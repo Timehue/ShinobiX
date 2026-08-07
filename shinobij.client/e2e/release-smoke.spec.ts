@@ -26,6 +26,17 @@ test.beforeEach(async ({ page }) => {
     // best-effort telemetry endpoint. Stub it so frontend smoke tests do not
     // mistake the absent backend for a browser regression.
     await page.route('**/api/perf-beacon', (route) => route.fulfill({ status: 204 }));
+    await page.route('**/api/player/capabilities', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+            ok: true,
+            capabilities: Object.fromEntries([
+                'gameplay', 'gameplayMutations', 'registrations', 'villageWar', 'clanBoss',
+                'clanBossParties', 'legacy', 'petBreedingStarts', 'weeklyBossGuardCycle',
+            ].map((id) => [id, { state: 'available', reason: 'available' }])),
+        }),
+    }));
 });
 
 function captureRuntimeFailures(page: Page): string[] {

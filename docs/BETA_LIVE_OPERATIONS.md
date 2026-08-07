@@ -1,5 +1,8 @@
 # Beta Live Operations
 
+> [!IMPORTANT]
+> **HISTORICAL ROLLOUT EVIDENCE — SUPERSEDED FOR CURRENT AVAILABILITY.** Incident procedures remain useful, but the recommended launch labels below record an earlier rollout stage. Use [`LIVE_PRODUCT_STATUS.md`](LIVE_PRODUCT_STATUS.md) for current shipped-system truth.
+
 ## Recommended launch configuration
 
 - Enabled: registration, login, saves, Academy, training, inventory/shop/bank/hospital, early missions/hunts, Logbook, village/world travel.

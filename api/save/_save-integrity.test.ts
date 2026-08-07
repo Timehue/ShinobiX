@@ -30,6 +30,22 @@ const sanitizeCompatible = (
     existing: Record<string, unknown> | null,
 ) => withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing));
 
+describe('Activity Spine mastery focus persistence', () => {
+    it('round-trips a valid player-selected focus', () => {
+        const first = sanitizeCompatible(wrap({ name: 'Focus', masteryFocus: 'towers-spire' }), wrap({ name: 'Focus' })).character as Record<string, unknown>;
+        assert.equal(first.masteryFocus, 'towers-spire');
+        const second = sanitizeCompatible(wrap({ ...first }), wrap(first)).character as Record<string, unknown>;
+        assert.equal(second.masteryFocus, 'towers-spire');
+    });
+
+    it('normalizes unknown values to Auto and keeps older saves sparse', () => {
+        const unknown = sanitizeCompatible(wrap({ name: 'Focus', masteryFocus: 'invented-mode' }), wrap({ name: 'Focus' })).character as Record<string, unknown>;
+        assert.equal(unknown.masteryFocus, 'auto');
+        const older = sanitizeCompatible(wrap({ name: 'Focus' }), wrap({ name: 'Focus' })).character as Record<string, unknown>;
+        assert.equal('masteryFocus' in older, false);
+    });
+});
+
 // Stat-derived leveling (docs/leveling-without-xp-map.md). The sanitizer is the
 // ONLY thing standing between a forged body and a minted level, and the
 // recompute is rise-only — so anything it gets wrong is permanent.

@@ -24,7 +24,7 @@ export const PRODUCT_EVENT_PROPERTY_KEYS = [
     'deviceTier', 'viewportClass', 'featureFlag', 'featureFlagState',
     'durationBucket', 'errorCategory', 'contentId', 'eventAuthority',
     'partySizeBucket', 'queueWaitBucket', 'stateCategory', 'contributionCategory',
-    'horizon',
+    'horizon', 'focus',
 ] as const;
 
 export type ProductEventPropertyKey = (typeof PRODUCT_EVENT_PROPERTY_KEYS)[number];

@@ -4,20 +4,20 @@ This roadmap is written for GitHub visitors, beta testers, and contributors. It
 focuses on what makes ShinobiX safer and more playable as a public browser
 MMORPG, not every internal task in the repo.
 
-## Current Goal: v0.1.0-beta
+## Current Goal: Live Public-Beta Polish
 
-Ship a controlled public beta that proves the early loop without over-promising
-late-game polish.
+Improve the coherence, reliability, and approachability of the shipped game
+without shrinking its range of player paths or introducing balance churn.
 
 Scope:
 
 - Landing, registration, login, character creation, and Academy onboarding.
 - Early training, jutsu, missions, hunts, inventory, bank, hospital, cafeteria,
   Logbook, village map, and world map.
-- PvP, ranked PvP, Battle Towers, Pet Arena, professions, Clan Hall, Card Clash,
-  and legacy systems enabled with beta labeling and monitoring.
-- Admin diagnostics, release health checks, audit logs, reward receipts, beta
-  metrics, and rollback notes ready before invites.
+- PvP, Ranked PvP, Towers and Spire, Hollow Gate, companions, Chronicle
+  Showdown, clans and war, professions, Legacy, and story remain shipped paths.
+- Admin diagnostics, release health checks, audit logs, reward receipts, product
+  metrics, and rollback notes kept ready for live incident response.
 
 Exit criteria:
 
@@ -25,8 +25,8 @@ Exit criteria:
 - Mobile smoke covers landing, village, missions, inventory, PvP, tower fight,
   and world map.
 - `npm test`, `npm run build`, and release health check pass.
-- High-risk feature flags stay disabled unless a staffed staging pass says
-  otherwise.
+- Emergency controls and permission boundaries remain tested and ready for
+  operational incidents.
 
 ## Beta Patch 1
 
@@ -48,8 +48,8 @@ Stabilize the first cohort rather than adding risky balance churn.
 
 ## Social And World Systems
 
-- Soft-launch clans, village leadership, village war, and sector war with staff
-  coverage.
+- Improve clarity and operations evidence for clans, village leadership,
+  Village War, and Sector War as live systems.
 - Add clearer public explanations for territory, supply, mercenaries, taxes, and
   war rewards.
 - Monitor clan disputes, reward receipts, and economy anomalies before broader
@@ -59,8 +59,8 @@ Stabilize the first cohort rather than adding risky balance churn.
 
 - Keep player AI image generation disabled until moderation and budget controls
   are staffed.
-- Keep Bloodline Maker and creator tools gated until review queues and abuse
-  handling are ready.
+- Keep creator administration and moderation permission-based; do not expose
+  admin capabilities to ordinary players.
 - Document creator limits clearly before public promotion.
 
 ## Media And Community
@@ -70,9 +70,13 @@ Stabilize the first cohort rather than adding risky balance churn.
 - Publish beta notes for every release tag.
 - Pin a public roadmap issue that links back to this file.
 
-## Not In First Public Beta
+## Boundaries
 
-- Claims that all late-game systems are complete.
-- Public Hollow Gate mobile-ready marketing.
-- Unstaffed village/sector-war seasons.
-- Ungated AI image generation or economy-impacting creator tools.
+- Do not claim a 1.0 launch or fabricate live-service evidence.
+- Do not conflate operator monitoring with player-facing prelaunch labels.
+- Do not broaden AI image generation, creator administration, or economy tools
+  beyond their existing permissions.
+- Prefer measured polish and verified fixes over speculative combat or economy
+  rebalance.
+
+Current availability truth lives in [LIVE_PRODUCT_STATUS.md](LIVE_PRODUCT_STATUS.md).

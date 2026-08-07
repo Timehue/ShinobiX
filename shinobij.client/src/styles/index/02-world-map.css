@@ -792,8 +792,22 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .right-menu-buttons {
     display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 8px;
+}
+.right-menu-section h4,
+.mobile-menu-section h2 {
+    border-bottom: 1px solid rgba(250, 204, 21, 0.24);
+    color: rgba(254, 240, 138, 0.9);
+    font: 800 9px var(--font-display);
+    letter-spacing: 0.16em;
+    margin: 1px 2px 5px;
+    padding-bottom: 3px;
+    text-transform: uppercase;
+}
+.right-menu-section-grid {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: 1fr 1fr;
 }
 /* Game-icon glyph + label, centered as a row (mirrors the mobile menu). */
 .right-menu-buttons button {

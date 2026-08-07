@@ -22,14 +22,13 @@ import { useOwnAvatar } from "../lib/own-avatar";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { MobileProfileSheet } from "./MobileProfileSheet";
+import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — they match
 // the shinobi theme far better than thin outline icons. Attribution rendered in the
 // menu footer below. Game-specific emblems (ryō, chakra, …) still use GameIcon.
 import {
-    GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
-    GiExitDoor, GiFireSpellCast, GiGears, GiHamburgerMenu, GiHearts, GiHealthNormal,
-    GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPawPrint, GiScrollUnfurled,
-    GiThreeFriends, GiTreasureMap,
+    GiBeerStein, GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
+    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiTreasureMap,
 } from "react-icons/gi";
 
 // Memo'd — the bottom nav depends on immutable character snapshots, the
@@ -60,6 +59,8 @@ export const MobileNav = memo(function MobileNav({
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
     const [youOpen, setYouOpen] = useState(false);
     const navLockUntilRef = useRef(0);
+    const menuTriggerRef = useRef<HTMLButtonElement>(null);
+    const menuDialogRef = useRef<HTMLDivElement>(null);
     const isAdminAccount = isProtectedAdminName(character.name);
 
     // Treat the slide-up menu as a modal dialog: lock the body scroll behind it
@@ -68,9 +69,19 @@ export const MobileNav = memo(function MobileNav({
     useBodyScrollLock(open);
     useEffect(() => {
         if (!open) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+        const menuTrigger = menuTriggerRef.current;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") { e.preventDefault(); setOpen(false); return; }
+            if (e.key !== "Tab") return;
+            const controls = [...(menuDialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex]:not([tabindex="-1"])') ?? [])];
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (!first || !last) return;
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        };
         document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
+        return () => { document.removeEventListener("keydown", onKey); menuTrigger?.focus(); };
     }, [open]);
 
     // Level progress = earned stat points toward the next level threshold
@@ -121,7 +132,7 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
-                <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
+                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
                     <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
                     Menu
                     <MailUnreadDot />
@@ -140,7 +151,7 @@ export const MobileNav = memo(function MobileNav({
             />
 
             {open && (
-                <div className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
+                <div ref={menuDialogRef} className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
                     <div className="mobile-menu-header">
                         <span className="mobile-menu-title"><GiNinjaHeroicStance size={22} aria-hidden="true" /> SHINOBI MENU</span>
                         <button className="mobile-menu-close" aria-label="Close menu" autoFocus onClick={() => setOpen(false)}>✕</button>
@@ -170,29 +181,34 @@ export const MobileNav = memo(function MobileNav({
                     {/* onPointerDown warms each destination's lazy chunk on press,
                         before onClick's go()/navigate fires — see lib/screen-preload.
                         onClick is unchanged; the preload is best-effort + side-effect-free. */}
-                    <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}><GiBeerStein size={20} />Tavern</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}><GiTreasureMap size={20} />Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("userHub")} onPointerDown={() => preloadScreen("userHub")}><GiThreeFriends size={20} />Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("messages")} onPointerDown={() => preloadScreen("messages")}><GiEnvelope size={20} />Mail<MailUnreadBadge /></button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")} onPointerDown={() => preloadScreen("missions")}><GiScrollUnfurled size={20} />Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")} onPointerDown={() => preloadScreen("training")}><GiBiceps size={20} />Training</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={20} />Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={20} />Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={20} />Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("home")} onPointerDown={() => preloadScreen("home")}><GiPawPrint size={20} />Home</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={20} />Bloodline</button>
-                        <button className="mobile-menu-btn" onClick={() => go("professions")} onPointerDown={() => preloadScreen("professions")}>
-                            <GiAnvil size={20} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}
-                        </button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")} onPointerDown={() => preloadScreen("logbook")}><GiBookCover size={20} />Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiHearts size={20} />Patreon</button>
-                        {isAdminAccount && (
-                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>
-                        )}
-                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
+                    <div className="mobile-menu-groups">
+                        {PLAYER_MENU_GROUPS.map((group) => (
+                            <section className="mobile-menu-section" aria-labelledby={`mobile-menu-${group.id}`} key={group.id}>
+                                <h2 id={`mobile-menu-${group.id}`}>{group.label}</h2>
+                                <div className="mobile-menu-grid">
+                                    {group.items.map(([target, label, Icon]) => (
+                                        <button className="mobile-menu-btn" key={target} aria-current={screen === target ? "page" : undefined} onClick={() => go(target)} onPointerDown={() => preloadScreen(target)}>
+                                            <Icon size={20} />{target === "professions" && character.profession ? PROFESSION_LABEL[character.profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+                        ))}
+                        <section className="mobile-menu-section" aria-labelledby="mobile-menu-support">
+                            <h2 id="mobile-menu-support">Support</h2>
+                            <div className="mobile-menu-grid">
+                                <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
+                                <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
+                                <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiHearts size={20} />Patreon</button>
+                            </div>
+                        </section>
+                        <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">
+                            <h2 id="mobile-menu-system">System</h2>
+                            <div className="mobile-menu-grid">
+                                {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>}
+                                <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
+                            </div>
+                        </section>
                     </div>
                 </div>
             )}

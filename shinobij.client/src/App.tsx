@@ -206,7 +206,7 @@ import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
 const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m => ({ default: m.ScreenHint })));
-const ReleaseReadinessNotice = lazyWithRetry(() => import("./components/ReleaseReadinessNotice").then(m => ({ default: m.ReleaseReadinessNotice })));
+const LiveServiceNotice = lazyWithRetry(() => import("./components/LiveServiceNotice").then(m => ({ default: m.LiveServiceNotice })));
 const NextGoalPin = lazyWithRetry(() => import("./components/NextGoalPin").then(m => ({ default: m.NextGoalPin })));
 const Village = lazyWithRetry(() => import("./screens/Village").then(m => ({ default: m.Village })));
 
@@ -6836,9 +6836,9 @@ export default function App() {
                     </Suspense>
                 )}
 
-                {character && !isAdminAccountName(character.name) && !activeTriggeredEvent && (
+                {!activeTriggeredEvent && (
                     <Suspense fallback={null}>
-                    <ReleaseReadinessNotice screen={screen} />
+                    <LiveServiceNotice screen={screen} />
                     </Suspense>
                 )}
 

@@ -11,11 +11,13 @@ const api = read("./lib/clan-boss-api.ts");
 const css = read("./styles/index/36-clan-boss-operation.css");
 
 describe("Clan Boss operation client contract", () => {
-    it("renders all four activity horizons with eligibility and commitment", () => {
+    it("renders all four activity horizons with actionable eligibility context and commitment", () => {
         for (const horizon of ["Now", "Today", "This Week", "Long Term"]) assert.match(activity, new RegExp(`\\b${horizon}\\b`));
-        assert.match(activity, /activity\.eligibility === "blocked"/);
+        assert.match(activity, /is-\$\{activity\.eligibility\}/);
         assert.match(activity, /activity\.commitment/);
         assert.match(activity, /activity\.blocker/);
+        assert.match(activity, /aria-describedby=\{activity\.blocker \? blockerId : undefined\}/);
+        assert.doesNotMatch(activity, /disabled=\{activity\.eligibility === "blocked"\}/);
     });
 
     it("uses only server party state and never presents offline members as AI", () => {

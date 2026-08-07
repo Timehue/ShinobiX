@@ -48,6 +48,10 @@ function isOperatorRecoveryPath(path: string): boolean {
         || path.startsWith('/kv/');
 }
 
+function isPublicStatusPath(path: string, method: string): boolean {
+    return path === '/player/capabilities' && (method === 'GET' || method === 'OPTIONS');
+}
+
 /** Emergency controls evaluated at the single Express route boundary. */
 export function evaluateLaunchControl(
     req: LaunchControlRequest,
@@ -59,6 +63,7 @@ export function evaluateLaunchControl(
     // Operator recovery must remain reachable so an incident can be inspected
     // and repaired while player traffic is paused.
     if (isOperatorRecoveryPath(path)) return ALLOWED;
+    if (isPublicStatusPath(path, method)) return ALLOWED;
 
     if (enabled(env, 'MAINTENANCE_MODE')) {
         return {
