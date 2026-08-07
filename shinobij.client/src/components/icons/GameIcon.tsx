@@ -78,7 +78,7 @@ const PATHS: Record<GameIconName, ReactElement> = {
             <circle cx="12" cy="14.5" r="2.4" />
         </>
     ),
-    // Chakra orb with three tomoe cut out (sharingan-style).
+    // Chakra orb with three tomoe cut out.
     chakra: (
         <path fillRule="evenodd" clipRule="evenodd" d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM12 6.6a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4ZM8.8 12.3a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4ZM15.2 12.3a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4Z" />
     ),

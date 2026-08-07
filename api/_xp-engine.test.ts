@@ -330,7 +330,7 @@ describe('reconcile + rankTitle edge cases', () => {
     });
     it('rankTitleForLevel keeps a role title at max level but falls back below it', () => {
         assert.equal(rankTitleForLevel({ rankTitle: 'Kage', clanFounder: false }, 50), 'Jonin'); // below max → level title
-        assert.equal(rankTitleForLevel({ rankTitle: 'Fifth Hokage', clanFounder: false }, 100), 'Fifth Hokage'); // role title kept at max
+        assert.equal(rankTitleForLevel({ rankTitle: 'Fifth Kage', clanFounder: false }, 100), 'Fifth Kage'); // role title kept at max
         assert.equal(rankTitleForLevel({ clanFounder: true }, 100), 'Clan Leader');
         assert.equal(rankTitleForLevel({}, 100), 'Special Jonin');
     });

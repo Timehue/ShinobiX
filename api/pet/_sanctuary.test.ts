@@ -61,12 +61,12 @@ describe('pet sanctuary storage', () => {
 
     it('removes a stored pet idempotently without disturbing its neighbors', async () => {
         const store = _makeMemoryKv();
-        await storePetInSanctuaryCore(store, 'Naruto', pet(1), 'wild', 1);
-        await storePetInSanctuaryCore(store, 'Naruto', pet(2), 'bred', 2);
-        assert.equal((await removePetFromSanctuaryCore(store, 'Naruto', 'ember-fox:1'))?.pet.id, 'ember-fox:1');
-        assert.equal(await removePetFromSanctuaryCore(store, 'Naruto', 'ember-fox:1'), null);
-        assert.equal(await getPetFromSanctuaryCore(store, 'Naruto', 'ember-fox:1'), null);
-        const listed = await listPetSanctuaryCore(store, 'Naruto');
+        await storePetInSanctuaryCore(store, 'Raiko', pet(1), 'wild', 1);
+        await storePetInSanctuaryCore(store, 'Raiko', pet(2), 'bred', 2);
+        assert.equal((await removePetFromSanctuaryCore(store, 'Raiko', 'ember-fox:1'))?.pet.id, 'ember-fox:1');
+        assert.equal(await removePetFromSanctuaryCore(store, 'Raiko', 'ember-fox:1'), null);
+        assert.equal(await getPetFromSanctuaryCore(store, 'Raiko', 'ember-fox:1'), null);
+        const listed = await listPetSanctuaryCore(store, 'Raiko');
         assert.equal(listed.total, 1);
         assert.deepEqual(listed.items.map((item) => item.pet.id), ['ember-fox:2']);
     });
