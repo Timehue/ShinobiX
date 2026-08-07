@@ -902,7 +902,7 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
     f.state = "windup";
     f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : Math.max(1, Math.round(f.windT * plantedPaceMul(f, t)));
     // Event payloads carry the move name + target so the renderer can "call the
-    // attack" (Pokemon-style caption BEFORE the swing lands). Payload-only — no
+    // attack" (creature-battler-style caption BEFORE the swing lands). Payload-only — no
     // state or rng change, so authoritative outcomes are untouched.
     if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name, targetId });
     else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });

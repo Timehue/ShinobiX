@@ -708,7 +708,7 @@ strategic relays, and per‑territory resources — all of which this plan mirro
 which the game already implements in part.
 
 Economy/upkeep design (named, non‑genre sources):
-- **Percentage / wealth‑scaling sinks** stay effective when fixed ones don't (Albion,
+- **Percentage / wealth‑scaling sinks** stay effective when fixed ones don't (a sandbox MMO,
   EVE MER) → drives the %‑of‑wallet tax and the wealth exemption.
 - **Polynomial upkeep scaling** with level (CivFanatics building/unit‑maintenance
   threads; Civ era‑scaled upkeep) → the `level^1.25` maintenance curve.
@@ -839,7 +839,7 @@ The defending Kage assigns **each of the 8 owned sectors** a win‑condition —
 **Card Battle**, or **Pet Battle** — and an attacker contesting a sector must win *that*
 type. **No single type may be on more than 7 sectors**, so at least two types are always
 in play and an attacker can't take the map with one competency (tactical RPS; "defender
-sets the conditions" is the genre norm — Tibia/Albion).
+sets the conditions" is the genre norm — Tibia/a sandbox MMO).
 
 **Server‑authority audit (this gates which types are safe):**
 

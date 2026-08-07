@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // pet-duel-cinematic.ts — the REDESIGNED pet-coliseum combat engine.
 //
-// Owner mandate: the coliseum must feel like a Pokemon-anime / Legends-Z-A /
+// Owner mandate: the coliseum must feel like a modern creature-battler /
 // Digimon-World battle — creatures that MOVE AROUND, reposition, kite, dodge and
 // OUTMANEUVER each other, not two sprites bashing heads in place. The old
 // `pet-duel-sim.ts` orbit-then-lunge model is REPLACED here for the casual path;

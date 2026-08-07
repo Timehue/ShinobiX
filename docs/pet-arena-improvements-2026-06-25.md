@@ -27,7 +27,7 @@ ways to do that, all **movement-positive** (grab-and-go, never camp-a-tile):
 Modern MOBAs converged on exactly this shape, and *away* from static control:
 - **Dota 2 (patch 7.38)** converted simple rune/Lotus pickups into **Shrines** you must
   *enter and channel briefly* while *driving opponents off* — pickup → contested-channel.
-- **Pokémon UNITE** spawns **one buff objective at a time**, each granting a timed buff +
+- **the leading creature-battler UNITE** spawns **one buff objective at a time**, each granting a timed buff +
   a small shield, respawning on a timer; objectives are spread across the map to force
   rotations and "which objective do we take?" decisions.
 - **Deadlock** runes grant timed buffs at contested map points → repeated movement.

@@ -89,9 +89,9 @@ describe("game image service worker", () => {
     it("serves the last good image through an outage and ignores retry cache-busters", async () => {
         const harness = serviceWorkerHarness(async () => { throw new Error("temporary outage"); });
         const good = response("last-good");
-        harness.stored.set("https://shinobijourney.com/api/img?id=ai%3Akakashi", good);
+        harness.stored.set("https://shinobijourney.com/api/img?id=ai%3Araiko", good);
 
-        const result = await harness.request("https://shinobijourney.com/api/img?id=ai%3Akakashi&__img_retry=2");
+        const result = await harness.request("https://shinobijourney.com/api/img?id=ai%3Araiko&__img_retry=2");
         assert.equal(result, good);
     });
 

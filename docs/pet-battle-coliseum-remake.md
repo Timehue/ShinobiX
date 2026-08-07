@@ -54,7 +54,7 @@ The previous dev left the renderer **pre-architected for exactly this**:
   60fps. CSS/DOM (the current approach) will not hold up for "real fighting."
   Integrates cleanly with React 19 + Vite.
   - *Alternative:* `react-three-fiber` (Three.js) with **billboarded 2D sprites**
-    = the "HD-2D / Octopath Traveler" look with a real 3D camera that can pan/zoom
+    = the "HD-2D / HD-2D RPGs Traveler" look with a real 3D camera that can pan/zoom
     the arena. More wow, more complexity. **Start with Pixi**; r3f is the upgrade
     path if a true 3D camera is wanted.
 - **Driver:** the existing deterministic event queue (`petBattleChoreograph`).
@@ -137,7 +137,7 @@ This proves the direction before any token or art spend.
 ## Open decisions — RESOLVED 2026-06-10 (see "LOCKED PLAN" below)
 
 1. **Renderer → react-three-fiber (HD-2D)**, not flat Pixi. The user's reference
-   (Pokémon Legends: Z-A real-time battle) is a true-3D-camera-over-a-receding-
+   (the leading creature-battler Legends: Z-A real-time battle) is a true-3D-camera-over-a-receding-
    ground look; r3f gives a real 3D floor + angled camera with the pets as 2D
    billboard sprites — which matches it far better than flat 2D.
 2. **Procedural-first** (no cost). AI-animation token path is a later, gated step.
@@ -161,7 +161,7 @@ This proves the direction before any token or art spend.
 
 ## Visual target (locked, with reference)
 
-The user's reference is **Pokémon Legends: Z-A** real-time battle (screenshot
+The user's reference is **the leading creature-battler Legends: Z-A** real-time battle (screenshot
 provided): two elemental creatures on a 3D ground viewed at a ~3/4 angled,
 slightly-elevated camera; grounded with contact shadows; one mid-cast with the
 move's elemental VFX **swirling around the caster**; floating world-space

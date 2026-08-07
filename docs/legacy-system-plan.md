@@ -485,7 +485,7 @@ only accept one Legacy forever. If you accept this trial, your path is
 chosen."*) → then a **second**, non-VN `PermanentChoiceWarningModal` (built on
 `gameConfirm` styling, danger variant, buttons "Go Back" / "I Accept This Path
 Forever"). Two distinct affirmative steps; misclick-proof — the single biggest
-player-regret lesson from permanent-choice systems like PoE ascendancies.
+player-regret lesson from permanent-choice systems like a deep action RPG ascendancies.
 
 ### 8.2 Transaction (`{ action: "accept", legacyId }`)
 
@@ -1055,7 +1055,7 @@ filter+revoke/refund instead of a pre-approval queue (§1.4).
 
 ## 26. Research sources
 
-- Permanent-choice design & regret: [PoE2 ascendancy permanence](https://gamerblurb.com/articles/path-of-exile-2-can-you-change-your-ascendancy), [PoE respec debate](https://www.pathofexile.com/forum/view-thread/1586056), [PoE2 respec philosophy shift](https://www.ssegold.com/poe-2-ascendancy-respec) — informs the double-confirmation + decline-freely + prestige-not-power stance.
+- Permanent-choice design & regret: a deep action RPG’s ascendancy permanence, a deep action RPG respec debate, a deep action RPG respec philosophy shift — informs the double-confirmation + decline-freely + prestige-not-power stance.
 - Pity systems: [Pity timers explained](https://gameanatomy.blog/2025/05/03/pity-timers-in-games-explained/), [Bad-luck protection modeling](https://medium.com/@niklasvmoers/designing-fair-and-fun-randomness-in-video-games-via-bad-luck-protection-48f2c2262cfa), [Soft/hard pity](https://mwm.ai/glossary/pity-system) — Sage 5%+5%/day, day-7 guarantee.
 - UGC/title moderation: [CleanSpeak UGC best practices](https://cleanspeak.com/blog-archive/2022/06/07/best-practices-ugc-moderation-video-games), [Gaming content moderation guide](https://www.cometchat.com/blog/gaming-content-moderation) — hybrid filter + human review.
 - Server-first/exploit handling: [Realm-first exploit report handling](https://us.forums.blizzard.com/en/wow/t/mop-classic-realm-first-pandaren-ambassador-exploit/2144814) — revoke-and-annotate, never silently erase.
