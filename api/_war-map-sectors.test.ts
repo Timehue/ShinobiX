@@ -99,6 +99,6 @@ describe('war-map-sectors: mappers', () => {
 
     it('isWarVillage type guard', () => {
         assert.ok(isWarVillage('Frostfang Village'));
-        assert.equal(isWarVillage('Konoha'), false);
+        assert.equal(isWarVillage('Nowhere Village'), false);
     });
 });

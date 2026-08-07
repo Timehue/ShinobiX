@@ -243,7 +243,7 @@ export type BattleHistoryAction = {
     actor: string;
     /** Sequential cast number within the battle (only on real jutsu/attack casts). */
     actionNumber?: number;
-    /** Action text with the leading actor name stripped (e.g. "Chidori: …"). */
+    /** Action text with the leading actor name stripped (e.g. "Lightning Lance: …"). */
     headline: string;
     /** The colored effect lines that resulted from this action. */
     effectLines: string[];

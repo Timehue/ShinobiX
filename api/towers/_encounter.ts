@@ -35,7 +35,7 @@ export type SquadMemberInput = {
 
 // ── Elemental pylons (5 elements; 3 chosen per run) ──────────────────────────
 const TOWER_ELEMENTS = ['Fire', 'Water', 'Earth', 'Lightning', 'Wind'] as const;
-// Naruto-style counter cycle (Fire>Wind>Lightning>Earth>Water>Fire): a pylon boosts
+// Classic elemental counter cycle (Fire>Wind>Lightning>Earth>Water>Fire): a pylon boosts
 // its element and weakens the one that BEATS it (so a counter-element on the pylon
 // is punished). Drives both the engine math and the pylon's displayed label.
 const ELEMENT_WEAKENS: Record<string, string> = {

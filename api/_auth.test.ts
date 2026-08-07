@@ -70,7 +70,7 @@ describe('player session tokens', () => {
     it('canonicalizes names exactly like save/auth storage keys', async () => {
         assert.equal(await verifyPlayerToken(issuePlayerToken('  MiXeDCase  ')!), 'mixedcase');
         assert.equal(await verifyPlayerToken(issuePlayerToken('Cool Ninja')!), 'coolninja');
-        assert.equal(await verifyPlayerToken(issuePlayerToken('Naruto-Uzumaki_99')!), 'naruto-uzumaki_99');
+        assert.equal(await verifyPlayerToken(issuePlayerToken('Raiko-Veyr_99')!), 'raiko-veyr_99');
         assert.equal(await verifyPlayerToken(issuePlayerToken('a'.repeat(40))!), 'a'.repeat(32));
     });
 

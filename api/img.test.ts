@@ -42,18 +42,18 @@ describe('perImageKey', () => {
 describe('legacyImageValue', () => {
     it('finds pre-category leader portraits in the legacy misc hash', () => {
         assert.equal(
-            legacyImageValue('leader:konoha:kage', null, null, { 'leader:konoha:kage': 'data:image/png;base64,AAAA' }),
+            legacyImageValue('leader:ember:kage', null, null, { 'leader:ember:kage': 'data:image/png;base64,AAAA' }),
             'data:image/png;base64,AAAA',
         );
     });
 
     it('keeps current category storage authoritative and never borrows misc for non-leaders', () => {
-        assert.equal(legacyImageValue('leader:konoha:kage', { 'leader:konoha:kage': 'new' }, null, { 'leader:konoha:kage': 'old' }), 'new');
+        assert.equal(legacyImageValue('leader:ember:kage', { 'leader:ember:kage': 'new' }, null, { 'leader:ember:kage': 'old' }), 'new');
         assert.equal(legacyImageValue('event:boss', null, null, { 'event:boss': 'wrong bucket' }), null);
     });
 
     it('treats empty legacy values as missing', () => {
-        assert.equal(legacyImageValue('leader:konoha:kage', null, null, { 'leader:konoha:kage': '' }), null);
-        assert.equal(legacyImageValue('leader:konoha:kage', { 'leader:konoha:kage': '' }, { 'leader:konoha:kage': 'old blob' }), 'old blob');
+        assert.equal(legacyImageValue('leader:ember:kage', null, null, { 'leader:ember:kage': '' }), null);
+        assert.equal(legacyImageValue('leader:ember:kage', { 'leader:ember:kage': '' }, { 'leader:ember:kage': 'old blob' }), 'old blob');
     });
 });

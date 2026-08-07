@@ -20,18 +20,18 @@ describe("buildActionsFromPveHistory", () => {
     it("reverses newest-first → chronological, splits head/effect lines, maps role", () => {
         // Arena stores newest-first (prepended). Two actions, newest first.
         const entries = [
-            { round: 2, actor: "Sasuke", actorRole: "enemy", actionNumber: 2, description: "Fireball: Flames roar.\nDamage Dealt: Naruto takes 300 damage." },
-            { round: 1, actor: "Naruto", actorRole: "player", actionNumber: 1, description: "Chidori: Lightning pierces.\nDamage Dealt: Sasuke takes 450 damage." },
+            { round: 2, actor: "Mira", actorRole: "enemy", actionNumber: 2, description: "Fireball: Flames roar.\nDamage Dealt: Raiko takes 300 damage." },
+            { round: 1, actor: "Raiko", actorRole: "player", actionNumber: 1, description: "Lightning Lance: Lightning pierces.\nDamage Dealt: Mira takes 450 damage." },
         ];
         const actions = buildActionsFromPveHistory(entries);
         assert.equal(actions.length, 2);
-        // chronological: Naruto (round 1) first
-        assert.equal(actions[0]!.actor, "Naruto");
+        // chronological: Raiko (round 1) first
+        assert.equal(actions[0]!.actor, "Raiko");
         assert.equal(actions[0]!.role, "player");
         assert.equal(actions[0]!.round, 1);
-        assert.equal(actions[0]!.headline, "Chidori: Lightning pierces.");
-        assert.deepEqual(actions[0]!.effectLines, ["Damage Dealt: Sasuke takes 450 damage."]);
-        assert.equal(actions[1]!.actor, "Sasuke");
+        assert.equal(actions[0]!.headline, "Lightning Lance: Lightning pierces.");
+        assert.deepEqual(actions[0]!.effectLines, ["Damage Dealt: Mira takes 450 damage."]);
+        assert.equal(actions[1]!.actor, "Mira");
         assert.equal(actions[1]!.role, "enemy");
     });
 
@@ -45,21 +45,21 @@ describe("buildActionsFromPvpLog", () => {
     it("tags rounds, groups actions, numbers casts continuously, and counts rounds", () => {
         const log = [
             "--- Round 1 ---",
-            "Naruto uses Chidori: Lightning pierces.",
-            "Damage Dealt: Sasuke takes 450 damage.",
+            "Raiko uses Lightning Lance: Lightning pierces.",
+            "Damage Dealt: Mira takes 450 damage.",
             "--- Round 2 ---",
-            "Sasuke uses Fireball: Flames roar.",
-            "Damage Dealt: Naruto takes 300 damage.",
+            "Mira uses Fireball: Flames roar.",
+            "Damage Dealt: Raiko takes 300 damage.",
         ];
-        const { actions, rounds } = buildActionsFromPvpLog(log, "Naruto", "Sasuke");
+        const { actions, rounds } = buildActionsFromPvpLog(log, "Raiko", "Mira");
         assert.equal(rounds, 2);
         assert.equal(actions.length, 2);
         assert.equal(actions[0]!.round, 1);
         assert.equal(actions[0]!.actionNumber, 1);
-        assert.equal(actions[0]!.actor, "Naruto");
+        assert.equal(actions[0]!.actor, "Raiko");
         assert.equal(actions[1]!.round, 2);
         assert.equal(actions[1]!.actionNumber, 2); // numbering carries across rounds
-        assert.equal(actions[1]!.actor, "Sasuke");
+        assert.equal(actions[1]!.actor, "Mira");
     });
 });
 
@@ -109,7 +109,7 @@ describe("appendBattleHistory", () => {
 describe("capBattleActions / makeBattleEntry — payload bounds", () => {
     it("drops the oldest actions past the per-battle cap and truncates long strings", () => {
         const many: BattleHistoryAction[] = Array.from({ length: 200 }, (_, i) => ({
-            round: 1, role: "player", actor: "Naruto", headline: `A${i}`, effectLines: [],
+            round: 1, role: "player", actor: "Raiko", headline: `A${i}`, effectLines: [],
         }));
         const capped = capBattleActions(many);
         assert.ok(capped.length <= 100);

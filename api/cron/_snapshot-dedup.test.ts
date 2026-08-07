@@ -42,8 +42,8 @@ describe('newestSnapshotByPlayer — snapshot-dedup bucketing', () => {
     });
 
     it('handles names containing a colon (ts is always the last segment)', () => {
-        const m = newestSnapshotByPlayer(['save-snapshot:clan:Hokage:900']);
-        assert.equal(m.get('clan:Hokage'), 900);
+        const m = newestSnapshotByPlayer(['save-snapshot:clan:Ashen:900']);
+        assert.equal(m.get('clan:Ashen'), 900);
     });
 
     it('empty input -> empty map', () => {

@@ -197,7 +197,7 @@ describe('isPlayerClaimableImageId — first-writer-wins scope', () => {
 
 describe('categoryFromId — leader category (#16)', () => {
     it('routes leader:* to its own category instead of misc', () => {
-        assert.equal(categoryFromId('leader:konoha:kage'), 'leader');
+        assert.equal(categoryFromId('leader:ember:kage'), 'leader');
         assert.equal(categoryFromId('leader:suna:elder:1'), 'leader');
     });
     it('routes avatar:* and unknown prefixes correctly', () => {

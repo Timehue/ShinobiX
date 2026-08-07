@@ -63,11 +63,11 @@ test("applies normalize to each incoming character", () => {
 // their profile ~12s after each poll. The incoming light fields still win.
 test("layers a minimal heartbeat character over the cached rich one (Nindo survives)", () => {
   const rich = {
-    name: "Naruto",
-    character: { name: "Naruto", level: 50, nindo: "Never give up", nindoBg: "ember", pets: [{ id: "p1" }] },
+    name: "Raiko",
+    character: { name: "Raiko", level: 50, nindo: "Never give up", nindoBg: "ember", pets: [{ id: "p1" }] },
   } as unknown as PlayerRecord;
   const heartbeat = {
-    name: "Naruto",
+    name: "Raiko",
     level: 51,
     character: { avatarImage: "" }, // mirrors toPlayerRecord's minimal character
   } as unknown as PlayerRecord;

@@ -155,7 +155,7 @@ export type BattleLogAction = {
     actor: string;
     /** Sequential cast number within the battle (only on real jutsu/attack casts). */
     actionNumber?: number;
-    /** Action text with the leading actor name stripped (e.g. "Chidori: …"). */
+    /** Action text with the leading actor name stripped (e.g. "Lightning Lance: …"). */
     headline: string;
     /** The colored effect lines that resulted from this action. */
     effectLines: string[];
@@ -175,7 +175,7 @@ const SYSTEM_LINE = /⚔|wins!|\bforfeits?\b|ends their turn|moves\.$|dashes\.$|
  * ("X uses Y: …"), a basic attack ("X attacks Y …"), or standalone system
  * narration; every other line is an effect of the current action. This is far
  * more robust than the old "startsWith(name) || endsWith(':')" header guess,
- * which mis-split lines like "Naruto's shield blocks 100 damage." into new
+ * which mis-split lines like "Raiko's shield blocks 100 damage." into new
  * actions.
  */
 export function groupBattleLogActions(
