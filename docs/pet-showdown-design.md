@@ -110,6 +110,33 @@ Server: `api/_pet-showdown/engine.ts`, `api/_pet-showdown/ai.ts`,
 `lib/pet-coliseum-flag.ts`; guards in `lib/screen-guards.ts` +
 `lib/notifications-core.ts`.
 
+## Balance model (tuned 2026-08-07)
+
+`scripts/showdown-balance.mjs` pits every wild-spawnable catalog species against
+every same-rarity species through the real engine (both sides AI-driven,
+seeded, deterministic). The raw catalog produced a broken meta — trackers 72%,
+Fire 23%, 12-round judge-heavy attrition — because the catalog statlines were
+priced for the continuous sims' behavior levers (kiting ranges, positioning)
+that turn-based play removes. Four engine-side mechanisms fix it without
+touching the shared pet data:
+
+1. `DAMAGE_SCALE = 2.35` — KO pace lands at ~8.5 rounds, judge ~14%.
+2. **Species budget normalization** — each pet's combat stats scale by
+   `(rarityMedianBudget / speciesTemplateBudget)^0.6`, computed from the
+   CATALOG TEMPLATE so player training gains keep full value. Compresses the
+   ~65% same-rarity budget spread while preserving fast/tanky personality.
+3. **Role identity pricing** (`ROLE_DAMAGE_MULT` + assassin execute below 40%
+   hp + sage heal bonus) — restores the price the old sims charged for the
+   tracker statline and the burst assassins lost.
+4. **Element identity pricing** (`ELEMENT_DAMAGE_MULT`/`ELEMENT_TAKEN_MULT`,
+   wheel softened to 1.16/0.9) — normalizes the Earth/Lightning statline edge;
+   the wheel decides ~73% of advantaged matchups (an edge, not a hard counter).
+
+Result: every role and element inside 40–60% overall; `scripts/
+showdown-balance.test.ts` ratchets the standard+rare slice in CI (35–65 bands,
+pace 5.5–11.5, judge <30%). ~25 of 140 species remain outside 25–75% from kit
+composition differences — kit-level (kind-value) tuning is the remaining lever.
+
 ## Follow-ups (not in v1)
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

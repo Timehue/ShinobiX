@@ -42,6 +42,7 @@ import {
     type ShowdownTier,
 } from '../../shared/pet-showdown-contract.js';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
+import { PET_CATALOG } from '../pet/_catalog.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 // ─── Internal state ──────────────────────────────────────────────────────────
@@ -99,7 +100,6 @@ export interface ShowdownSession {
     rng: number;
     finished: boolean;
     outcome: ShowdownOutcome | null;
-    rewarded: boolean;
     /** Reward magnitude sealed at start — the opponent actually fought. */
     sealedOpponentLevel: number;
     enemyTeamName: string;
@@ -109,8 +109,10 @@ export interface ShowdownSession {
 }
 
 // ─── Seeded rng (integer-only mulberry32) ────────────────────────────────────
+// Exported so ai.ts draws from the SAME implementation — a second copy of a
+// determinism-critical PRNG is a silent-desync foot-gun.
 
-function nextRand(session: ShowdownSession): number {
+export function nextRand(session: ShowdownSession): number {
     let t = (session.rng += 0x6d2b79f5) | 0;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -136,6 +138,62 @@ const KNOWN_KINDS = new Set([
     'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark',
     'slow', 'haste', 'taunt', 'push', 'pull',
 ]);
+
+/*
+ * Species stat-budget normalization. Same-rarity catalog species differ by up
+ * to ~65% in raw stat budget (Black Cat 297hp/37atk vs Frost Cub 515hp/65atk,
+ * both "standard") — the continuous sims priced that with behavior levers
+ * (kiting ranges, moveRange, positioning) that a turn-based duel doesn't have,
+ * so raw budget would simply decide fights. At seal time each pet's combat
+ * stats are scaled by (rarityMedianBudget / speciesBudget)^0.6 computed from
+ * its CATALOG TEMPLATE — the damping keeps species personality (fast-vs-tanky
+ * spreads survive) while compressing the innate budget gap, and because the
+ * correction uses the template rather than the live stats, a player's TRAINING
+ * gains keep their full value on top. Pets with no resolvable template
+ * (admin-authored customs) are left untouched.
+ */
+const BUDGET_DAMPING = 0.6;
+
+function speciesBudget(stats: { hp: number; attack: number; defense: number; speed: number }): number {
+    // Weighted to the damage model: attack dominates (atk² scaling), hp is the
+    // durability pool, defense and speed contribute less per point.
+    return stats.hp / 8 + stats.attack + stats.defense * 0.7 + stats.speed * 0.5;
+}
+
+let rarityMedianBudget: Map<string, number> | null = null;
+function medianBudgetFor(rarity: string): number | null {
+    if (!rarityMedianBudget) {
+        const byRarity = new Map<string, number[]>();
+        for (const tpl of Object.values(PET_CATALOG)) {
+            const r = String(tpl.rarity ?? '');
+            if (!r) continue;
+            const budget = speciesBudget({
+                hp: Number(tpl.hp) || 0, attack: Number(tpl.attack) || 0,
+                defense: Number(tpl.defense) || 0, speed: Number(tpl.speed) || 0,
+            });
+            if (budget > 0) (byRarity.get(r) ?? byRarity.set(r, []).get(r)!).push(budget);
+        }
+        rarityMedianBudget = new Map();
+        for (const [r, list] of byRarity) {
+            list.sort((a, b) => a - b);
+            rarityMedianBudget.set(r, list[Math.floor(list.length / 2)]);
+        }
+    }
+    return rarityMedianBudget.get(rarity) ?? null;
+}
+
+export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
+    const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
+    const tpl = PET_CATALOG[canonical];
+    const median = medianBudgetFor(rarity);
+    if (!tpl || !median || String(tpl.rarity) !== rarity) return 1;
+    const budget = speciesBudget({
+        hp: Number(tpl.hp) || 0, attack: Number(tpl.attack) || 0,
+        defense: Number(tpl.defense) || 0, speed: Number(tpl.speed) || 0,
+    });
+    if (!(budget > 0)) return 1;
+    return Math.pow(median / budget, BUDGET_DAMPING);
+}
 
 /** Universal cheap opener every pet gets, so low stamina never means no play. */
 function basicStrike(): ShowdownMove {
@@ -167,7 +225,9 @@ function synthesizedSignature(pet: { element?: string; name?: string }): Showdow
 export function sealShowdownPet(raw: Pet): ShowdownPet {
     const rarity = ['standard', 'rare', 'legendary', 'mythic'].includes(String(raw.rarity)) ? String(raw.rarity) : 'standard';
     const level = clampInt(raw.level, 1, 100, 1);
-    const maxHp = clampInt(raw.hp, 1, petStatCeil(rarity, 'hp'), 320);
+    const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
+    const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
 
     const jutsus = Array.isArray(raw.jutsus) ? raw.jutsus : [];
@@ -202,9 +262,9 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
         level,
         hp: maxHp,
         maxHp,
-        attack: clampInt(raw.attack, 1, petStatCeil(rarity, 'attack'), 40),
-        defense: clampInt(raw.defense, 1, petStatCeil(rarity, 'defense'), 28),
-        speed: clampInt(raw.speed, 1, petStatCeil(rarity, 'speed'), 30),
+        attack: clampInt(scaled(raw.attack, 40), 1, petStatCeil(rarity, 'attack'), 40),
+        defense: clampInt(scaled(raw.defense, 28), 1, petStatCeil(rarity, 'defense'), 28),
+        speed: clampInt(scaled(raw.speed, 30), 1, petStatCeil(rarity, 'speed'), 30),
         stamina: SHOWDOWN_MAX_STAMINA,
         meter: 0,
         ko: false,
@@ -236,7 +296,6 @@ export function createShowdownSession(input: {
         rng: input.seed | 0,
         finished: false,
         outcome: null,
-        rewarded: false,
         sealedOpponentLevel: clampInt(Math.max(1, ...input.enemyPets.map((p) => Number(p.level) || 1)), 1, 100, 1),
         enemyTeamName: input.enemyTeamName,
         player: input.playerPets.slice(0, size).map(sealShowdownPet),
@@ -331,12 +390,65 @@ function applyHeal(target: ShowdownPet, amount: number): number {
     return healed;
 }
 
+/** Global damage pace. Tuned with scripts/showdown-balance.mjs: at 1.0 the
+ * average same-rarity duel ran 12+ rounds and 56% of games went to the judge
+ * (attrition meta — burst roles starved, chip roles dominated). 2.2 lands the
+ * typical KO in 6-9 rounds with the judge as a genuine minority outcome. */
+const DAMAGE_SCALE = 2.35;
+/** Assassin execute instinct: bonus damage against bloodied targets — the
+ * burst identity the role's glass-cannon statline pays for. */
+const ASSASSIN_EXECUTE_HP = 0.4;
+const ASSASSIN_EXECUTE_MULT = 1.15;
+
+/** Role identity pricing. The catalog statlines were balanced for the
+ * continuous sims, where a tracker paid for its superior hp/atk/speed with
+ * kiting-range behavior and an assassin earned burst through positioning.
+ * Turn-based combat has neither, so the engine restores the price mechanically:
+ * trackers hit lighter per action, assassins hit far harder (plus the execute
+ * below), sages swing harder and heal stronger (sageHealMult). Tuned against
+ * scripts/showdown-balance.mjs until every role sits in the 40-60% band. */
+const ROLE_DAMAGE_MULT: Record<string, number> = {
+    tracker: 0.91,
+    assassin: 1.1,
+    sage: 1.12,
+    defender: 1.02,
+};
+const SAGE_HEAL_MULT = 1.15;
+
+/** Element identity pricing, same reasoning as the role table: the catalog's
+ * Earth/Lightning species carry ~15% higher statlines than Fire/Water (paid
+ * for in the continuous sims by mechanics that no longer exist), and the
+ * atk²-scaled formula amplifies the gap. Fire burns hotter, stone hits duller.
+ * Tuned against scripts/showdown-balance.mjs. */
+const ELEMENT_DAMAGE_MULT: Record<string, number> = {
+    Fire: 1.17,
+    Water: 1.08,
+    Wind: 1.0,
+    Earth: 0.95,
+    Lightning: 0.93,
+};
+/** Durability side of the same normalization — Fire/Water species carry the
+ * lowest hp/def/speed lines, so out-damage alone can't level them. */
+const ELEMENT_TAKEN_MULT: Record<string, number> = {
+    Fire: 0.93,
+    Water: 0.97,
+    Wind: 1.0,
+    Earth: 1.02,
+    Lightning: 1.02,
+};
+
 function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number): number {
     const atk = effAttack(attacker);
     const def = effDefense(defender);
-    const base = (power / 100) * ((atk * atk) / (atk + def));
+    const base = DAMAGE_SCALE * (power / 100) * ((atk * atk) / (atk + def));
     const variance = 0.95 + nextRand(session) * 0.1;
-    let mult = elementMult(attacker.element, defender.element) * timingMult * variance;
+    let mult = elementMult(attacker.element, defender.element) * timingMult * variance
+        * (ROLE_DAMAGE_MULT[attacker.role] ?? 1)
+        * (ELEMENT_DAMAGE_MULT[attacker.element] ?? 1)
+        * (ELEMENT_TAKEN_MULT[defender.element] ?? 1);
+    if (attacker.role === 'assassin' && defender.hp / defender.maxHp < ASSASSIN_EXECUTE_HP) {
+        mult *= ASSASSIN_EXECUTE_MULT;
+    }
     // Mark: the stored bonus hit is consumed by the first damage that lands.
     const mark = defender.statuses.find((s) => s.kind === 'mark');
     if (mark) {
@@ -446,7 +558,10 @@ function executeMove(
         targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: kind === 'move' ? 'haste' : kind });
     } else if (kind === 'heal') {
         const ally = resolveAllyTarget(session, actorSide, action.targetId, actor);
-        const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, Math.max(60, power) / 1200));
+        // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the 2.2x
+        // damage pace without enabling heal-stall (the judge counts HP%).
+        const sageBonus = actor.role === 'sage' ? SAGE_HEAL_MULT : 1;
+        const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, (Math.max(60, power) / 700) * sageBonus));
         targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
     } else {
         const target = resolveTarget(session, actorSide, action.targetId);
@@ -470,8 +585,10 @@ function executeMove(
                 case 'dot':
                 case 'burn':
                 case 'wound': {
-                    applyOffensiveHit(target, kind === 'dot' ? 0.5 : 0.6, kind);
-                    if (!target.ko) addStatus(session, target, kind === 'dot' ? 'burn' : kind, 2, Math.round(power * 0.15));
+                    // 0.75 initial + 2 ticks of 20% ≈ 115% of a plain hit's power,
+                    // paid over three rounds — the DoT premium for delayed value.
+                    applyOffensiveHit(target, 0.75, kind);
+                    if (!target.ko) addStatus(session, target, kind === 'dot' ? 'burn' : kind, 2, Math.round(power * 0.2));
                     break;
                 }
                 case 'stun':
@@ -641,12 +758,12 @@ export function resolveShowdownRound(
     if (!session.finished) {
         for (const side of ['player', 'enemy'] as Side[]) {
             for (const pet of livingOf(session, side)) {
-                // DoTs tick.
+                // DoTs tick. Side defeat from a tick is detected after upkeep,
+                // so both sides always take their full end-of-round damage.
                 for (const s of pet.statuses) {
                     if ((s.kind === 'burn' || s.kind === 'wound') && s.magnitude > 0) {
                         const { dealt, ko } = applyDamage(session, pet, s.magnitude);
                         if (dealt > 0) events.push({ t: 'dot', targetId: pet.id, targetSide: side, kind: s.kind, damage: dealt, ko });
-                        if (session.finished) break;
                     }
                 }
                 if (pet.ko) continue;

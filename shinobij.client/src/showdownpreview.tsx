@@ -161,6 +161,13 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         if (victim) events.push({ t: "dot", targetId: victim.id, targetSide: "player", kind: "burn", damage: 24, ko: false });
     }
     events.push({ t: "roundEnd", round: world.round });
+    if (world.round >= 14) {
+        // Mirror the real engine's round-cap judge so the harness never plays R15+.
+        const hpPct = (pets: Pet[]) => pets.reduce((sum, p) => sum + (world.hp.get(p.id) ?? 0) / Math.max(1, p.hp), 0);
+        const outcome = hpPct(playerPets) > hpPct(enemyPets) ? "win" as const : "loss" as const;
+        events.push({ t: "end", outcome, byJudge: true });
+        return { ok: true, events, state: stateView(true, outcome), ...(outcome === "win" ? { reward: 84, balances: { ryo: 1234 } } : {}) };
+    }
     return { ok: true, events, state: stateView() };
 }
 
@@ -180,3 +187,7 @@ function Harness() {
 }
 
 createRoot(document.getElementById("root")!).render(<Harness />);
+
+// The battle portals into document.body; an HMR re-eval would orphan the old
+// portal and stack a second HUD. Full reload keeps the harness truthful.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

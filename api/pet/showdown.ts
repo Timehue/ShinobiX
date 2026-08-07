@@ -178,6 +178,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
             if (chosen.length !== size) return res.status(409).json({ error: 'A chosen pet is not in your roster.' });
+            // Busy gating is deliberately ONE-directional for v1: a pet that is
+            // breeding/training/on expedition cannot ENTER a Showdown, but an
+            // in-flight Showdown session does not stamp the pet as busy for
+            // other systems — the sealed snapshot is independent, the session
+            // pays a flat level-based reward, and a 45-min KV lease is not a
+            // durable assignment worth save-field + manifest churn. Revisit if
+            // Showdown ever grants per-pet progression.
             const breedingParents = activeBreedingParentIds(myChar ?? {});
             const now = Date.now();
             for (const pet of chosen) {

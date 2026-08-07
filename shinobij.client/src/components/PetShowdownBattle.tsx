@@ -30,6 +30,7 @@ import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models"
 import { projectileVisual } from "../lib/pet-projectile-vfx";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity } from "../lib/pet-music";
+import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
 import type { Pet } from "../types/pet";
 import type {
     ShowdownCommand,
@@ -37,6 +38,7 @@ import type {
     ShowdownPetView,
     ShowdownStateView,
     ShowdownTurnResponse,
+    ShowdownTurnResult,
 } from "../lib/pet-showdown-api";
 
 // ─── Staging constants ───────────────────────────────────────────────────────
@@ -212,6 +214,12 @@ function CameraDirector({ beatRef, fxRef, slots }: {
                 }
             }
         }
+        // Idle drift: a slow broadcast-crane sway so the wide shot never sits
+        // dead still between actions.
+        if (!beat.event || beat.event.t === "roundStart" || beat.event.t === "roundEnd") {
+            targetPos.x += Math.sin(now * 0.00013) * 1.1;
+            targetPos.y += Math.sin(now * 0.00009 + 1.7) * 0.35;
+        }
         // Portrait phones: pull back so both lines stay in frame.
         const aspect = size.width / Math.max(1, size.height);
         if (aspect < 0.9) targetPos.multiplyScalar(1.3);
@@ -234,10 +242,11 @@ function CameraDirector({ beatRef, fxRef, slots }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, victorious, beatRef, fxRef, slots, popups, highlight }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, victorious, beatRef, fxRef, slots, popups, highlight }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
+    guarding: boolean;
     victorious: boolean;
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
@@ -246,6 +255,10 @@ function ShowdownFighter({ info, displayHp, ko, victorious, beatRef, fxRef, slot
     highlight: "none" | "commander" | "targeted";
 }) {
     const group = useRef<THREE.Group>(null);
+    const impactRing = useRef<THREE.Mesh>(null);
+    const impactMat = useRef<THREE.MeshBasicMaterial>(null);
+    const guardBubble = useRef<THREE.Mesh>(null);
+    const guardMat = useRef<THREE.MeshBasicMaterial>(null);
     const [modelFailed, setModelFailed] = useState(false);
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
@@ -319,6 +332,28 @@ function ShowdownFighter({ info, displayHp, ko, victorious, beatRef, fxRef, slot
         f.victorious = victorious && !ko;
         f.desperate = !ko && displayHp / Math.max(1, info.view.maxHp) < 0.25;
         if (group.current) group.current.position.set(px, py, pz);
+
+        // Impact burst: an expanding, fading shockwave ring at the feet for
+        // ~0.45s after a landed hit. Driven entirely off fx.hitAt — no re-render.
+        if (impactRing.current && impactMat.current) {
+            const t = sinceHit / 450;
+            const active = lastHit > 0 && t >= 0 && t < 1;
+            impactRing.current.visible = active;
+            if (active) {
+                const s = 0.5 + t * 1.9;
+                impactRing.current.scale.set(s, s, s);
+                impactMat.current.opacity = 0.85 * (1 - t) * (1 - t);
+            }
+        }
+        // Guard bubble: a soft breathing shell while the pet holds Guard.
+        if (guardBubble.current && guardMat.current) {
+            guardBubble.current.visible = guarding && !ko;
+            if (guarding && !ko) {
+                const pulse = 1 + Math.sin(now * 0.006) * 0.03;
+                guardBubble.current.scale.set(pulse, pulse, pulse);
+                guardMat.current.opacity = 0.16 + Math.sin(now * 0.006) * 0.04;
+            }
+        }
     });
 
     const tint = ELEMENT_TINT[info.view.element] ?? ELEMENT_TINT.None;
@@ -345,6 +380,16 @@ function ShowdownFighter({ info, displayHp, ko, victorious, beatRef, fxRef, slot
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
                 <circleGeometry args={[0.85, 24]} />
                 <meshBasicMaterial color="#000" transparent opacity={ko ? 0.14 : 0.34} />
+            </mesh>
+            {/* Impact shockwave ring (visibility driven per-frame). */}
+            <mesh ref={impactRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} visible={false}>
+                <ringGeometry args={[0.7, 0.92, 40]} />
+                <meshBasicMaterial ref={impactMat} color={tint} transparent opacity={0} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
+            {/* Guard shell. */}
+            <mesh ref={guardBubble} position={[0, 1.0, 0]} visible={false}>
+                <sphereGeometry args={[1.35, 20, 14]} />
+                <meshBasicMaterial ref={guardMat} color="#8ecdf7" transparent opacity={0.16} toneMapped={false} depthWrite={false} />
             </mesh>
             {highlight !== "none" && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
@@ -469,7 +514,7 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
 
 // ─── Team panel (DOM) ────────────────────────────────────────────────────────
 
-interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; statuses: { kind: string; rounds: number }[] }
+interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number }[] }
 
 function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId }: {
     side: "player" | "enemy";
@@ -482,7 +527,7 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId }
     return (
         <div className={`showdown-team-panel ${side}`}>
             {pets.map((pet) => {
-                const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, statuses: pet.statuses };
+                const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
                 const clickable = targeting && !d.ko;
                 return (
                     <button
@@ -504,7 +549,12 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId }
                                 {pet.element !== "None" ? pet.element : ""}
                             </span>
                         </div>
-                        <div className="showdown-bar hp"><div style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} /></div>
+                        <div className="showdown-bar hp">
+                            {/* The chip layer drains SLOWLY behind the instant fill —
+                                the classic "damage you just took" read. */}
+                            <div className="chip" style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} />
+                            <div className="fill" style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} />
+                        </div>
                         <div className="showdown-bar stamina"><div style={{ width: `${Math.max(0, d.stamina)}%` }} /></div>
                         <div className={`showdown-bar meter ${d.meter >= 100 ? "full" : ""}`}><div style={{ width: `${Math.max(0, d.meter)}%` }} /></div>
                         {d.statuses.length > 0 && (
@@ -526,7 +576,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** The player's real roster Pets (for 3D model + art resolution). */
     playerPets: Pet[];
     sharedImages: Record<string, string>;
-    submitTurn: (commands: ShowdownCommand[]) => Promise<ShowdownTurnResponse | null>;
+    submitTurn: (commands: ShowdownCommand[]) => Promise<ShowdownTurnResult>;
     onForfeit: () => void;
     /** Fired once when the end event has played; settlement may carry rewards. */
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
@@ -543,6 +593,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [fast, setFast] = useState(false);
     const [confirmForfeit, setConfirmForfeit] = useState(false);
     const [netError, setNetError] = useState(false);
+    const [expired, setExpired] = useState(false);
+    const [letterbox, setLetterbox] = useState(false);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
 
     // Command drafting.
@@ -563,6 +615,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     useEffect(() => {
         document.body.classList.add("pet-combat-active");
         startBattleMusic("standard");
+        primePetSfx();
         return () => {
             document.body.classList.remove("pet-combat-active");
             stopBattleMusic();
@@ -657,7 +710,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         beatRef.current = { event, startedAt: performance.now(), durationMs };
 
         if (event.t === "roundStart") {
-            showBanner(`Round ${event.round}`, "round", durationMs * 0.8);
+            const isFinal = event.round >= stateView.maxRounds;
+            showBanner(
+                event.round === 1 ? "⚔️ Battle Start!" : isFinal ? "⚡ FINAL ROUND" : `Round ${event.round}`,
+                isFinal ? "super" : "round",
+                durationMs * 0.8,
+            );
+            if (isFinal) setBattleMusicIntensity("pressure");
         } else if (event.t === "skip") {
             const name = nameOf(stateView, event.actorId);
             showBanner(event.reason === "winded" ? `${name} is winded!` : event.reason === "stun" ? `${name} is stunned!` : `${name} is frozen solid!`, "status", durationMs * 0.85);
@@ -672,20 +731,28 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
+                playPetSfx("dot");
                 applyToDisplay(setDisplay, event.targetId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko }));
             }, durationMs * 0.35);
         } else if (event.t === "end") {
             later(() => {
                 showBanner(event.outcome === "win" ? "VICTORY!" : "DEFEAT", event.outcome === "win" ? "victory" : "defeat", 2400 / speed);
+                playPetSfx(event.outcome === "win" ? "victory" : "ko");
             }, durationMs * 0.2);
         } else if (event.t === "action") {
             if (event.super) {
-                showBanner(`⭐ ${event.moveName}!`, "super", durationMs * 0.6);
-                setBattleMusicIntensity("climax");
+                later(() => {
+                    setLetterbox(true);
+                    showBanner(`⭐ ${event.moveName}!`, "super", durationMs * 0.6);
+                    setBattleMusicIntensity("climax");
+                    playPetSfx("finisher");
+                }, 0);
+                later(() => setLetterbox(false), durationMs * 0.94);
             }
             // Strike moment: damage numbers, HP drains, shake, effectiveness call.
             later(() => {
                 let anyKo = false;
+                let anyHeal = false;
                 let bestEffect: "super" | "weak" | null = null;
                 for (const target of event.targets) {
                     if (target.damage > 0) {
@@ -694,7 +761,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         if (target.effectiveness === "super") bestEffect = "super";
                         else if (target.effectiveness === "weak" && bestEffect !== "super") bestEffect = "weak";
                     }
-                    if (target.heal > 0) addPopup(target.id, `+${target.heal}`, "heal");
+                    if (target.heal > 0) { addPopup(target.id, `+${target.heal}`, "heal"); anyHeal = true; }
                     if (target.applied && target.damage === 0 && target.heal === 0) addPopup(target.id, KIND_ICON[target.applied] ?? "✦", "status");
                     anyKo = anyKo || target.ko;
                     applyToDisplay(setDisplay, target.id, (d) => ({
@@ -703,16 +770,26 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         ko: target.ko,
                     }));
                 }
-                applyToDisplay(setDisplay, event.actorId, (d) => ({ ...d, stamina: event.staminaAfter, meter: event.meterAfter }));
+                // Actor resource sync — and the guard shell tracks whoever is
+                // actually holding Guard right now.
+                applyToDisplay(setDisplay, event.actorId, (d) => ({
+                    ...d, stamina: event.staminaAfter, meter: event.meterAfter,
+                    guarding: event.moveKind === "guard",
+                }));
                 const totalDamage = event.targets.reduce((sum, t) => sum + t.damage, 0);
                 if (totalDamage > 0) {
                     fxRef.current.shakeUntil = performance.now() + (event.super ? 460 : 300);
                     fxRef.current.shakeAmp = event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
+                    playPetSfx(event.super ? "crit" : "hit");
+                } else if (event.moveKind === "guard") {
+                    playPetSfx("shield");
+                } else if (anyHeal) {
+                    playPetSfx("heal");
                 }
                 if (event.timing === 2 && event.actorSide === "player") showBanner("PERFECT!", "perfect", 750 / speed);
-                else if (bestEffect === "super") showBanner("Super effective!", "effective", 900 / speed);
+                else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
                 else if (bestEffect === "weak") showBanner("Not very effective…", "weak", 900 / speed);
-                if (anyKo) later(() => showBanner("KO!", "ko", 900 / speed), 220);
+                if (anyKo) later(() => { showBanner("KO!", "ko", 900 / speed); playPetSfx("ko"); }, 220);
                 if (event.overexerted) later(() => addPopup(event.actorId, "OVEREXERTED!", "overexert"), 300);
             }, durationMs * STRIKE_FRAC);
         }
@@ -737,6 +814,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setPhase("playing");
         setNetError(false);
         const response = await submitTurn(commands);
+        if (response && "expired" in response) {
+            // Session lapsed (45-min TTL) — a distinct dead end, not a retry.
+            setExpired(true);
+            return;
+        }
         if (!response || !response.ok) {
             setNetError(true);
             setPhase("command");
@@ -832,6 +914,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         info={info}
                         displayHp={display[info.view.id]?.hp ?? info.view.hp}
                         ko={display[info.view.id]?.ko ?? info.view.ko}
+                        guarding={display[info.view.id]?.guarding ?? false}
                         victorious={phase === "finished" && outcome === (info.side === "player" ? "win" : "loss")}
                         beatRef={beatRef}
                         fxRef={fxRef}
@@ -843,6 +926,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     />
                 ))}
             </Canvas>
+
+            {/* Cinematic letterbox during signature casts. */}
+            {letterbox && (
+                <div className="showdown-letterbox">
+                    <div className="bar top" />
+                    <div className="bar bottom" />
+                </div>
+            )}
 
             {/* ── HUD ── */}
             <div className="showdown-hud">
@@ -959,6 +1050,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     </div>
                 )}
 
+                {expired && (
+                    <div className="showdown-result">
+                        <div className="showdown-result-title loss">⏳ This Showdown expired</div>
+                        <div className="showdown-result-reward capped">The session timed out on the server — no result was recorded.</div>
+                        <div className="showdown-result-buttons">
+                            <button type="button" className="showdown-cta" onClick={onExit}>Back to the lobby</button>
+                        </div>
+                    </div>
+                )}
+
                 {confirmForfeit && (
                     <div className="showdown-result">
                         <div className="showdown-result-title loss">Forfeit the battle?</div>
@@ -980,7 +1081,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 function buildDisplay(state: ShowdownStateView): Record<string, DisplayEntry> {
     const out: Record<string, DisplayEntry> = {};
     for (const pet of [...state.player, ...state.enemy]) {
-        out[pet.id] = { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, statuses: pet.statuses };
+        out[pet.id] = { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
     }
     return out;
 }

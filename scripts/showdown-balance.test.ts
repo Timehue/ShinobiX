@@ -1,0 +1,114 @@
+/*
+ * Pet Showdown balance ratchet — CI guard for the tuning constants in
+ * api/_pet-showdown/engine.ts (DAMAGE_SCALE, ROLE_DAMAGE_MULT,
+ * ELEMENT_DAMAGE/TAKEN_MULT, the species budget normalization) and the wheel
+ * constants in shared/pet-showdown-contract.ts.
+ *
+ * Runs a REDUCED slice of scripts/showdown-balance.mjs (standard + rare
+ * rarities, 1 seed — fully deterministic) so the suite stays fast; the full
+ * 3-seed all-rarity sweep lives in the analyzer script for tuning sessions.
+ * Bands are set from the tuned baseline (2026-08-07: roles 41-59%, elements
+ * 40-60%, pace 8.5, judge 14%) with sampling slack — a change that pushes a
+ * ROLE or ELEMENT outside 35-65 on this slice, stalls the pace, or turns the
+ * judge into the main outcome is a balance regression, not noise.
+ *
+ * Modeled on scripts/pet-role-balance.test.ts.
+ */
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { PET_CATALOG } from '../api/pet/_catalog.js';
+import { createShowdownSession, resolveShowdownRound } from '../api/_pet-showdown/engine.js';
+import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.js';
+import { SHOWDOWN_MAX_ROUNDS } from '../shared/pet-showdown-contract.js';
+import type { Pet } from '../api/_pet-sim/pet-types.js';
+import type { ShowdownSession } from '../api/_pet-showdown/engine.js';
+
+const LEVEL = 50;
+const GROWTH = 1 + (LEVEL - 1) * 0.04 * 0.25;
+const RARITIES = new Set(['standard', 'rare']);
+
+function scaled(tpl: Record<string, unknown>, slot: string): Pet {
+    return {
+        ...(tpl as unknown as Pet),
+        id: `${slot}:${String(tpl.id)}`,
+        templateId: String(tpl.id),
+        level: LEVEL,
+        hp: Math.round(Number(tpl.hp) * GROWTH),
+        attack: Math.round(Number(tpl.attack) * GROWTH),
+        defense: Math.round(Number(tpl.defense) * GROWTH),
+        speed: Math.round(Number(tpl.speed) * GROWTH),
+    };
+}
+
+function commandsFor(session: ShowdownSession, side: 'player' | 'enemy') {
+    if (side === 'enemy') return chooseShowdownAiCommands(session);
+    const flipped = { ...session, player: session.enemy, enemy: session.player };
+    const commands = chooseShowdownAiCommands(flipped);
+    session.rng = flipped.rng;
+    return commands;
+}
+
+function fight(tplA: Record<string, unknown>, tplB: Record<string, unknown>, seed: number) {
+    const session = createShowdownSession({
+        sessionId: 'ratchet', playerName: 'A', format: '1v1', tier: 'warrior', seed,
+        playerPets: [scaled(tplA, 'a')], enemyPets: [scaled(tplB, 'b')], enemyTeamName: 'B',
+    });
+    let guard = 0;
+    while (!session.finished && guard < SHOWDOWN_MAX_ROUNDS + 1) {
+        guard += 1;
+        const playerCommands = commandsFor(session, 'player');
+        const enemyCommands = commandsFor(session, 'enemy');
+        resolveShowdownRound(session, playerCommands, enemyCommands);
+    }
+    return { won: session.outcome === 'win', rounds: session.round };
+}
+
+test('showdown balance bands hold on the standard+rare slice', () => {
+    const byRarity = new Map<string, Record<string, unknown>[]>();
+    for (const tpl of Object.values(PET_CATALOG)) {
+        const rarity = String(tpl.rarity);
+        if (!RARITIES.has(rarity) || tpl.wildSpawnable === false || !Array.isArray(tpl.jutsus)) continue;
+        (byRarity.get(rarity) ?? byRarity.set(rarity, []).get(rarity)!).push(tpl);
+    }
+
+    const roleStats = new Map<string, { w: number; n: number }>();
+    const elementStats = new Map<string, { w: number; n: number }>();
+    let totalRounds = 0, totalGames = 0, judgeGames = 0;
+    const bump = (map: Map<string, { w: number; n: number }>, key: string, won: boolean) => {
+        const s = map.get(key) ?? { w: 0, n: 0 };
+        s.w += won ? 1 : 0; s.n += 1;
+        map.set(key, s);
+    };
+
+    for (const [, list] of byRarity) {
+        for (let i = 0; i < list.length; i++) {
+            for (let j = i + 1; j < list.length; j++) {
+                const seed = 1_000_003 * (i * 251 + j) + 17;
+                const [A, B] = (i + j) % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
+                const { won, rounds } = fight(A, B, seed);
+                totalGames += 1; totalRounds += rounds;
+                judgeGames += rounds >= SHOWDOWN_MAX_ROUNDS ? 1 : 0;
+                for (const [tpl, w] of [[A, won], [B, !won]] as const) {
+                    bump(roleStats, String(tpl.role ?? 'none'), w);
+                    bump(elementStats, String(tpl.element ?? 'None'), w);
+                }
+            }
+        }
+    }
+
+    assert.ok(totalGames > 2000, `slice ran ${totalGames} games`);
+    const failures: string[] = [];
+    const pct = (s: { w: number; n: number }) => 100 * s.w / Math.max(1, s.n);
+    for (const [role, s] of roleStats) {
+        if (pct(s) < 35 || pct(s) > 65) failures.push(`role ${role} at ${pct(s).toFixed(1)}%`);
+    }
+    for (const [el, s] of elementStats) {
+        if (pct(s) < 35 || pct(s) > 65) failures.push(`element ${el} at ${pct(s).toFixed(1)}%`);
+    }
+    const avgRounds = totalRounds / totalGames;
+    if (avgRounds < 5.5 || avgRounds > 11.5) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside 5.5-11.5`);
+    if (judgeGames / totalGames > 0.3) failures.push(`judge decides ${(100 * judgeGames / totalGames).toFixed(1)}% of games`);
+
+    assert.deepEqual(failures, [], `balance bands violated — retune api/_pet-showdown/engine.ts (see scripts/showdown-balance.mjs):\n${failures.join('\n')}`);
+});
