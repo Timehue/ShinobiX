@@ -126,8 +126,8 @@ export async function deployOneMerc(args: {
                 roleSwing,
                 attackerMult: sectorWarDamageMultiplier(atkRecord),
                 defenderMult: defenderPointsMultiplier(defRecord),
-                // A merc kill is the band's, not a player's (exempt from the player
-                // cap — bounded by the WR economy); a repel is the defender's.
+                // A merc kill is the band's, not a player's; a repel is the
+                // defender's (attribution feeds the settlement capture credit).
                 by: battle.mercWon ? '' : args.targetPlayer,
                 mercBattle: true,
             });
