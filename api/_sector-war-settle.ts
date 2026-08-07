@@ -23,10 +23,28 @@
  */
 
 import { withKvLock } from './_lock.js';
-import { settleSectorWar, sectorWarKey, SECTOR_RESIEGE_COOLDOWN_SEC } from './_sector-war.js';
+import { settleSectorWar, sectorWarKey, SECTOR_RESIEGE_COOLDOWN_SEC, type SectorWarSession } from './_sector-war.js';
 import { loadSectorWar, saveSectorWar, listUnsettledDueSectorWars } from './_sector-war-store.js';
 import { captureSectorForVillage } from './world-state.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
+import { legacyEnabled, bumpLegacyStats } from './_legacy-track.js';
+
+/** Every distinct player who won an attacker-side battle in this war, from the
+ *  durable receipts. Under the count-down model `sectorCaptures` credited only
+ *  whoever landed the final blow; the 72h scored war has no final blow, so a
+ *  capture now credits EVERYONE who put points on the board for it — which is
+ *  what the mythic Founder's Shadow legacy (25 captures) actually honors.
+ *  Receipts store display-cased names; dedupe case-insensitively. Exported for
+ *  the test. */
+export function captureContributors(session: Pick<SectorWarSession, 'appliedBattles'>): string[] {
+    const seen = new Map<string, string>();
+    for (const r of session.appliedBattles ?? []) {
+        if (!r.attackerWon || !r.by) continue;
+        const k = r.by.toLowerCase();
+        if (!seen.has(k)) seen.set(k, r.by);
+    }
+    return [...seen.values()];
+}
 
 export interface SectorWarSettlement {
     id: string;
@@ -78,6 +96,17 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                     amount: 1,
                     meta: `sector:${war.sector}`,
                 });
+                // Legacy credit (ENABLE_LEGACY): a capture counts for every attacker
+                // who won a battle in this war (see captureContributors). Best-effort
+                // AFTER the war lock — bumpLegacyStats takes each player's own save
+                // lock, and a missed credit must never unsettle a settled war.
+                if (legacyEnabled()) {
+                    for (const name of captureContributors(outcome.session)) {
+                        try {
+                            await bumpLegacyStats(name, { sectorCaptures: 1 });
+                        } catch { /* per-player best-effort */ }
+                    }
+                }
             }
             settled.push({
                 id: war.id,
