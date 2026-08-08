@@ -11,6 +11,7 @@ import { activeBreedingParentIds } from './_pet-busy.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_FORMAT_SIZE,
+    SHOWDOWN_MAX_TEAM,
     type ShowdownCommand,
     type ShowdownFormat,
     type ShowdownTier,
@@ -73,6 +74,9 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
         const timing = Math.max(0, Math.min(2, Math.floor(Number(c.timing) || 0)));
         if (kind === 'guard' || kind === 'rest') {
             out.push({ kind, petId });
+        } else if (kind === 'switch') {
+            const benchPetId = String(c.benchPetId ?? '').slice(0, 96);
+            if (benchPetId) out.push({ kind, petId, benchPetId });
         } else if (kind === 'super') {
             out.push({ kind, petId, targetId: String(c.targetId ?? '').slice(0, 96), timing });
         } else if (kind === 'move') {
@@ -164,11 +168,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const format: ShowdownFormat = body.format === '2v2' ? '2v2' : body.format === '3v3' ? '3v3' : '1v1';
             const tier: ShowdownTier = body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
             const size = SHOWDOWN_FORMAT_SIZE[format];
+            // Team = field + optional bench, up to SHOWDOWN_MAX_TEAM. The first
+            // `size` ids start on the field; the rest wait as reserves.
             const petIds: string[] = Array.isArray(body.petIds)
-                ? body.petIds.map((v: unknown) => String(v)).slice(0, size)
+                ? body.petIds.map((v: unknown) => String(v)).slice(0, SHOWDOWN_MAX_TEAM)
                 : [];
-            if (petIds.length !== size || new Set(petIds).size !== size) {
-                return res.status(400).json({ error: `Pick ${size} distinct pets for ${format}.` });
+            if (petIds.length < size || new Set(petIds).size !== petIds.length) {
+                return res.status(400).json({ error: `Pick at least ${size} distinct pets for ${format} (up to ${SHOWDOWN_MAX_TEAM} with a bench).` });
             }
 
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -177,7 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
-            if (chosen.length !== size) return res.status(409).json({ error: 'A chosen pet is not in your roster.' });
+            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your roster.' });
             // Busy gating is deliberately ONE-directional for v1: a pet that is
             // breeding/training/on expedition cannot ENTER a Showdown, but an
             // in-flight Showdown session does not stamp the pet as busy for
@@ -200,8 +206,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const seed = randomInt(1, 0x7fffffff);
-            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, size, tier, seed);
-            if (enemyPets.length !== size) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
+            // The AI fields a team the same SIZE as the player's (bench parity).
+            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed);
+            if (enemyPets.length !== chosen.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
             const sessionId = randomUUID().replace(/-/g, '');
             const session = createShowdownSession({
                 sessionId, playerName, format, tier, seed,

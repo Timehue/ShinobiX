@@ -80,13 +80,20 @@ export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Ob
     "3v3": 3,
 });
 
+/** Max pets on a team (field + bench). Every format allows a bench up to this
+ *  cap — the switch is the prediction layer that replaces board movement. */
+export const SHOWDOWN_MAX_TEAM = 3;
+
 /** One command per living pet per round. `timing` is the needle grade index
  *  into SHOWDOWN_TIMING_MULTS (0 = untapped/miss, 2 = perfect). */
 export type ShowdownCommand =
     | { kind: "move"; petId: string; moveIndex: number; targetId: string; timing?: number }
     | { kind: "super"; petId: string; targetId: string; timing?: number }
     | { kind: "guard"; petId: string }
-    | { kind: "rest"; petId: string };
+    | { kind: "rest"; petId: string }
+    /** Swap the field pet out for a living bench pet. Switches resolve BEFORE
+     *  all attacks (Pokémon priority), and both pets forfeit their action. */
+    | { kind: "switch"; petId: string; benchPetId: string };
 
 /** Public per-pet combat state, mirrored to the client after every round. */
 export interface ShowdownPetView {
@@ -104,6 +111,8 @@ export interface ShowdownPetView {
     meter: number;
     ko: boolean;
     guarding: boolean;
+    /** On the bench (not fielded). Statuses are frozen while benched. */
+    benched: boolean;
     /** Skips its next action (overexertion wind, stun, freeze). */
     winded: boolean;
     statuses: { kind: string; rounds: number }[];
@@ -173,6 +182,14 @@ export type ShowdownEvent =
         overexerted: boolean;
     }
     | { t: "skip"; actorId: string; actorSide: "player" | "enemy"; reason: "winded" | "stun" | "freeze" | "ko" }
+    | {
+        t: "switch";
+        side: "player" | "enemy";
+        outId: string;
+        inId: string;
+        /** True when the bench auto-fills a KO'd slot at round end. */
+        reinforcement: boolean;
+    }
     | { t: "confused"; actorId: string; actorSide: "player" | "enemy"; selfDamage: number; ko: boolean }
     | { t: "dot"; targetId: string; targetSide: "player" | "enemy"; kind: string; damage: number; ko: boolean }
     | { t: "roundEnd"; round: number }

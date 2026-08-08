@@ -56,10 +56,12 @@ function writeSessionBreadcrumb(value: { sessionId: string; petIds: string[] } |
     } catch { /* storage disabled — resume simply won't survive a refresh */ }
 }
 
+const MAX_TEAM = 3;
+
 const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string }[] = [
-    { id: "1v1", label: "1v1 Duel", size: 1, blurb: "One champion. Quick and lethal." },
-    { id: "2v2", label: "2v2 Showdown", size: 2, blurb: "The flagship — focus fire, taunts, combos." },
-    { id: "3v3", label: "3v3 Rumble", size: 3, blurb: "Full squad warfare." },
+    { id: "1v1", label: "1v1 Duel", size: 1, blurb: "One on the field, two in reserve — the switching mind game." },
+    { id: "2v2", label: "2v2 Showdown", size: 2, blurb: "The flagship — synergy, focus fire, a bench pivot." },
+    { id: "3v3", label: "3v3 Rumble", size: 3, blurb: "Full squad warfare, no reserves." },
 ];
 
 const TIERS: { id: ShowdownTier; label: string; icon: string; blurb: string }[] = [
@@ -138,11 +140,11 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         setError(null);
         setSelected((ids) => ids.includes(pet.id)
             ? ids.filter((id) => id !== pet.id)
-            : ids.length < size ? [...ids, pet.id] : ids);
+            : ids.length < MAX_TEAM ? [...ids, pet.id] : ids);
     };
 
     const launch = useCallback(async () => {
-        if (starting || selected.length !== size) return;
+        if (starting || selected.length < size) return;
         setStarting(true);
         setError(null);
         const result = await startShowdown(character.name, format, tier, selected);
@@ -242,7 +244,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             </div>
 
             <div className="showdown-roster-block">
-                <h3>Your team — pick {size} {selected.length ? `(${selected.length}/${size})` : ""}</h3>
+                <h3>
+                    Your team — pick {size}{MAX_TEAM > size ? ` (plus up to ${MAX_TEAM - size} bench)` : ""}
+                    {selected.length ? ` · ${selected.length}/${MAX_TEAM}` : ""}
+                </h3>
                 {pets.length === 0 && (
                     <p className="showdown-empty">You have no companions yet. Befriend a wild pet out in the world first!</p>
                 )}
@@ -258,7 +263,11 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                                 className={`showdown-roster-card ${order >= 0 ? "picked" : ""} ${busy ? "busy" : ""}`}
                                 onClick={() => togglePet(pet)}
                             >
-                                {order >= 0 && <span className="showdown-roster-order">{order + 1}</span>}
+                                {order >= 0 && (
+                                    <span className="showdown-roster-order">
+                                        {order < size ? order + 1 : "B"}
+                                    </span>
+                                )}
                                 <img src={petCardImage(pet, sharedImages)} alt="" loading="lazy" />
                                 <span className="showdown-roster-name">{pet.nickname || pet.name}</span>
                                 <span className="showdown-roster-sub">Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
@@ -275,7 +284,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 <button
                     type="button"
                     className="showdown-cta"
-                    disabled={selected.length !== size || starting}
+                    disabled={selected.length < size || starting}
                     onClick={() => void launch()}
                 >
                     {starting ? "Summoning your opponents…" : `⚔️ Enter the ${format} Showdown`}

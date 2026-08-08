@@ -457,6 +457,79 @@
     letter-spacing: 0.06em;
 }
 
+/* ── Portraits, bench, VS intro ────────────────────────────────────────── */
+
+.showdown-pet-card { position: relative; padding-left: 44px; }
+.showdown-pet-portrait {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.showdown-pet-card.benched { opacity: 0.72; border-style: dashed; }
+.showdown-bench-tag {
+    position: absolute;
+    right: 6px;
+    top: 4px;
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #b9a583;
+}
+
+.showdown-vs-intro {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 26px;
+    background: rgba(5, 3, 1, 0.55);
+    pointer-events: none;
+    animation: showdown-vs-fade 2.6s ease-in-out both;
+}
+@keyframes showdown-vs-fade {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    82% { opacity: 1; }
+    100% { opacity: 0; }
+}
+.showdown-vs-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-weight: 800;
+    color: #e8dcc2;
+    text-shadow: 0 2px 8px #000;
+}
+.showdown-vs-side img {
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.7));
+}
+.showdown-vs-side.mine { animation: showdown-vs-slide-l 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+.showdown-vs-side.theirs { animation: showdown-vs-slide-r 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+@keyframes showdown-vs-slide-l { from { transform: translateX(-70px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes showdown-vs-slide-r { from { transform: translateX(70px); opacity: 0; } to { transform: none; opacity: 1; } }
+.showdown-vs-burst {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #fbbf24;
+    text-shadow: 0 0 22px rgba(251, 191, 36, 0.8), 0 3px 10px #000;
+    animation: showdown-banner-in 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) 0.25s both;
+}
+@media (max-width: 559px) {
+    .showdown-vs-side img { width: 56px; height: 56px; }
+    .showdown-vs-burst { font-size: 2rem; }
+}
+
 /* ── Turn-order strip + matchup hints ──────────────────────────────────── */
 
 .showdown-order-strip {

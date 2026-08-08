@@ -24,6 +24,7 @@ import {
     SHOWDOWN_GUARD_MULT,
     SHOWDOWN_MAX_ROUNDS,
     SHOWDOWN_MAX_STAMINA,
+    SHOWDOWN_MAX_TEAM,
     SHOWDOWN_METER_MAX,
     SHOWDOWN_METER_ON_GUARDED_HIT,
     SHOWDOWN_METER_ON_HIT_DEALT,
@@ -86,6 +87,8 @@ export interface ShowdownPet {
     meter: number;
     ko: boolean;
     guarding: boolean;
+    /** On the bench: cannot act or be targeted; statuses are frozen. */
+    benched: boolean;
     winded: boolean;
     statuses: ShowdownStatus[];
     moves: ShowdownMove[];
@@ -157,9 +160,12 @@ const KNOWN_KINDS = new Set([
 const BUDGET_DAMPING = 0.6;
 
 function speciesBudget(stats: { hp: number; attack: number; defense: number; speed: number }): number {
-    // Weighted to the damage model: attack dominates (atk² scaling), hp is the
-    // durability pool, defense and speed contribute less per point.
-    return stats.hp / 8 + stats.attack + stats.defense * 0.7 + stats.speed * 0.5;
+    // Weighted to the damage model's true marginal values: under
+    // atk²/(atk+def), an attack point carries ~3x the value of a defense point
+    // at parity (elasticity 1.5 vs 0.5), hp is the linear durability pool, and
+    // speed only buys turn order. Pricing points at their real worth stops
+    // glass cannons from getting a hidden subsidy in the normalization.
+    return stats.hp / 8 + stats.attack * 1.2 + stats.defense * 0.45 + stats.speed * 0.5;
 }
 
 let rarityMedianBudget: Map<string, number> | null = null;
@@ -271,6 +277,7 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
         meter: 0,
         ko: false,
         guarding: false,
+        benched: false,
         winded: false,
         statuses: [],
         moves: [basicStrike(), ...kit],
@@ -289,6 +296,8 @@ export function createShowdownSession(input: {
     enemyTeamName: string;
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
+    const sealTeam = (pets: Pet[]): ShowdownPet[] =>
+        pets.slice(0, SHOWDOWN_MAX_TEAM).map((raw, i) => ({ ...sealShowdownPet(raw), benched: i >= size }));
     return {
         sessionId: input.sessionId,
         playerName: input.playerName,
@@ -300,8 +309,8 @@ export function createShowdownSession(input: {
         outcome: null,
         sealedOpponentLevel: clampInt(Math.max(1, ...input.enemyPets.map((p) => Number(p.level) || 1)), 1, 100, 1),
         enemyTeamName: input.enemyTeamName,
-        player: input.playerPets.slice(0, size).map(sealShowdownPet),
-        enemy: input.enemyPets.slice(0, size).map(sealShowdownPet),
+        player: sealTeam(input.playerPets),
+        enemy: sealTeam(input.enemyPets),
         createdAt: Date.now(),
     };
 }
@@ -331,7 +340,13 @@ function elementMult(attacker: string, defender: string): number {
 
 type Side = 'player' | 'enemy';
 
+/** Living FIELD pets — the ones who can act and be targeted. */
 function livingOf(session: ShowdownSession, side: Side): ShowdownPet[] {
+    return (side === 'player' ? session.player : session.enemy).filter((p) => !p.ko && !p.benched);
+}
+
+/** Living team members including the bench — the defeat/judge pool. */
+function livingTeam(session: ShowdownSession, side: Side): ShowdownPet[] {
     return (side === 'player' ? session.player : session.enemy).filter((p) => !p.ko);
 }
 
@@ -423,10 +438,10 @@ const SAGE_HEAL_MULT = 1.15;
  * atk²-scaled formula amplifies the gap. Fire burns hotter, stone hits duller.
  * Tuned against scripts/showdown-balance.mjs. */
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.17,
+    Fire: 1.19,
     Water: 1.08,
     Wind: 1.0,
-    Earth: 0.95,
+    Earth: 0.93,
     Lightning: 0.93,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
@@ -443,7 +458,9 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     const atk = effAttack(attacker);
     const def = effDefense(defender);
     const base = DAMAGE_SCALE * (power / 100) * ((atk * atk) / (atk + def));
-    const variance = 0.95 + nextRand(session) * 0.1;
+    // ±8% in 16 discrete steps — the genre-proven roll (Pokémon's 85-100 band):
+    // wide enough that lethal isn't fully solvable, narrow enough to plan around.
+    const variance = 0.92 + Math.floor(nextRand(session) * 16) * 0.01;
     let mult = elementMult(attacker.element, defender.element) * timingMult * variance * extraMult
         * (ROLE_DAMAGE_MULT[attacker.role] ?? 1)
         * (ELEMENT_DAMAGE_MULT[attacker.element] ?? 1)
@@ -662,7 +679,9 @@ function executeMove(
 }
 
 function sideDefeated(session: ShowdownSession, side: Side): boolean {
-    return livingOf(session, side).length === 0;
+    // The BENCH counts: a wiped field with reserves is a reinforcement moment,
+    // not a loss.
+    return livingTeam(session, side).length === 0;
 }
 
 function judgeOutcome(session: ShowdownSession): ShowdownOutcome {
@@ -700,17 +719,40 @@ export function resolveShowdownRound(
         return found ?? { kind: 'guard', petId: pet.id };
     };
 
-    // Speed order across BOTH sides, seeded tiebreak, snapshot at round start.
+    // ── Switch phase: Pokémon priority — ALL switches resolve before any
+    // attack, so a read on the incoming pet is a real prediction play. ──────
+    const switchedIn = new Set<string>();
+    for (const side of ['player', 'enemy'] as Side[]) {
+        const commands = side === 'player' ? playerCommands : enemyCommands;
+        for (const command of commands) {
+            if (command.kind !== 'switch') continue;
+            const team = side === 'player' ? session.player : session.enemy;
+            const out = team.find((p) => p.id === command.petId && !p.ko && !p.benched);
+            const inbound = team.find((p) => p.id === command.benchPetId && !p.ko && p.benched);
+            if (!out || !inbound) continue;
+            out.benched = true;
+            out.guarding = false;
+            // Field-presence effects end when the body leaves the arena.
+            out.statuses = out.statuses.filter((s) => s.kind !== 'taunt' && s.kind !== 'tauntGuard');
+            inbound.benched = false;
+            switchedIn.add(inbound.id);
+            events.push({ t: 'switch', side, outId: out.id, inId: inbound.id, reinforcement: false });
+        }
+    }
+
+    // Speed order across BOTH sides' fields, seeded tiebreak, snapshot after
+    // switches. Freshly switched-in pets spent their action arriving.
     const order = [
-        ...session.player.filter((p) => !p.ko).map((pet) => ({ pet, side: 'player' as Side })),
-        ...session.enemy.filter((p) => !p.ko).map((pet) => ({ pet, side: 'enemy' as Side })),
+        ...session.player.filter((p) => !p.ko && !p.benched).map((pet) => ({ pet, side: 'player' as Side })),
+        ...session.enemy.filter((p) => !p.ko && !p.benched).map((pet) => ({ pet, side: 'enemy' as Side })),
     ]
+        .filter(({ pet }) => !switchedIn.has(pet.id))
         .map((entry) => ({ ...entry, sortKey: effSpeed(entry.pet) + nextRand(session) * 0.5 }))
         .sort((a, b) => b.sortKey - a.sortKey);
 
     for (const { pet, side } of order) {
         if (session.finished) break;
-        if (pet.ko) continue;
+        if (pet.ko || pet.benched) continue;
 
         // Skips: overexertion wind, stun, freeze coin.
         if (pet.winded) {
@@ -759,12 +801,14 @@ export function resolveShowdownRound(
                 move: pet.signatureMove, superCast: true,
                 timing: command.timing ?? 0, targetId: command.targetId,
             }, events);
-        } else {
+        } else if (command.kind === 'move') {
             executeMove(session, pet, side, {
                 move: pet.moves[command.moveIndex], superCast: false,
                 timing: command.timing ?? 0, targetId: command.targetId,
             }, events);
         }
+        // ('switch' never reaches here: successful swaps left the order, and
+        // sanitizeCommand downgrades a failed swap to guard above.)
 
         if (sideDefeated(session, 'enemy')) { finish(session, 'win', false, events); }
         else if (sideDefeated(session, 'player')) { finish(session, 'loss', false, events); }
@@ -773,9 +817,10 @@ export function resolveShowdownRound(
     // ── End-of-round upkeep ──────────────────────────────────────────────────
     if (!session.finished) {
         for (const side of ['player', 'enemy'] as Side[]) {
+            // Field pets: DoTs tick, statuses decay, cooldowns and stamina turn.
             for (const pet of livingOf(session, side)) {
-                // DoTs tick. Side defeat from a tick is detected after upkeep,
-                // so both sides always take their full end-of-round damage.
+                // Side defeat from a tick is detected after upkeep, so both
+                // sides always take their full end-of-round damage.
                 for (const s of pet.statuses) {
                     if ((s.kind === 'burn' || s.kind === 'wound') && s.magnitude > 0) {
                         const { dealt, ko } = applyDamage(session, pet, s.magnitude);
@@ -792,9 +837,32 @@ export function resolveShowdownRound(
                 for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
                 pet.stamina = Math.min(SHOWDOWN_MAX_STAMINA, pet.stamina + SHOWDOWN_STAMINA_REGEN);
             }
+            // Bench pets rest: stamina + cooldowns recover, statuses stay frozen
+            // (no ticks, no decay — you can't wait out a burn from the bench).
+            for (const pet of livingTeam(session, side).filter((p) => p.benched)) {
+                for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
+                pet.stamina = Math.min(SHOWDOWN_MAX_STAMINA, pet.stamina + SHOWDOWN_STAMINA_REGEN);
+            }
         }
         if (sideDefeated(session, 'enemy')) finish(session, 'win', false, events);
         else if (sideDefeated(session, 'player')) finish(session, 'loss', false, events);
+    }
+
+    // ── Reinforcements: the bench fills empty field slots at round end ──────
+    if (!session.finished) {
+        const fieldSize = SHOWDOWN_FORMAT_SIZE[session.format];
+        for (const side of ['player', 'enemy'] as Side[]) {
+            const team = side === 'player' ? session.player : session.enemy;
+            let fielded = livingOf(session, side).length;
+            for (const pet of team) {
+                if (fielded >= fieldSize) break;
+                if (pet.ko || !pet.benched) continue;
+                pet.benched = false;
+                fielded += 1;
+                const fallen = team.find((p) => p.ko && !p.benched);
+                events.push({ t: 'switch', side, outId: fallen?.id ?? pet.id, inId: pet.id, reinforcement: true });
+            }
+        }
     }
 
     events.push({ t: 'roundEnd', round: session.round });
@@ -808,6 +876,10 @@ export function resolveShowdownRound(
 /** Downgrade any illegal command to a safe Guard — never fail the whole turn. */
 export function sanitizeCommand(session: ShowdownSession, pet: ShowdownPet, command: ShowdownCommand): ShowdownCommand {
     if (command.kind === 'guard' || command.kind === 'rest') return command;
+    // Switch legality is enforced in the switch phase itself (an invalid swap
+    // is simply skipped); by the time the action loop runs, any pet still
+    // holding a switch command had its swap rejected — it guards instead.
+    if (command.kind === 'switch') return { kind: 'guard', petId: pet.id };
     if (command.kind === 'super') {
         if (pet.meter >= SHOWDOWN_METER_MAX) return command;
         return { kind: 'guard', petId: pet.id };
@@ -834,6 +906,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         meter: Math.round(pet.meter),
         ko: pet.ko,
         guarding: pet.guarding,
+        benched: pet.benched,
         winded: pet.winded || hasStatus(pet, 'stun'),
         statuses: pet.statuses
             .filter((s) => s.kind !== 'tauntGuard')
@@ -864,7 +937,7 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         // applied, the per-round rng jitter deliberately excluded — a preview,
         // not a promise (ties can still flip on the tiebreak roll).
         nextOrder: [...session.player, ...session.enemy]
-            .filter((p) => !p.ko)
+            .filter((p) => !p.ko && !p.benched)
             .sort((a, b) => effSpeed(b) - effSpeed(a))
             .map((p) => p.id),
     };

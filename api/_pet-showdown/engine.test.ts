@@ -453,6 +453,95 @@ test('the state view projects next-round order by effective speed', () => {
     assert.deepEqual(view.nextOrder, ['fast', 'mid', 'slow'], 'speed-sorted, KO pets excluded');
 });
 
+function makeBenchSession(seed = 999): ShowdownSession {
+    // 1v1 format with a bench: 'lead' fields, 'reserve' waits.
+    const session = makeSession([makePet('lead', { speed: 50 })], [makePet('foe', { speed: 40, hp: 6000 })], seed, '1v1');
+    const reserve = { ...session.player[0], id: 'reserve', name: 'reserve', benched: true, element: 'Water' as const };
+    session.player.push(JSON.parse(JSON.stringify(reserve)));
+    return session;
+}
+
+test('a switch swaps field and bench before any attack lands', () => {
+    const session = makeBenchSession();
+    const events = resolveShowdownRound(session, [
+        { kind: 'switch', petId: 'lead', benchPetId: 'reserve' },
+    ], [
+        // The foe aims at the DEPARTING lead — the hit must land on the
+        // incoming reserve instead (the prediction layer).
+        { kind: 'move', petId: 'foe', moveIndex: 1, targetId: 'lead', timing: 0 },
+    ]);
+    const switchEvent = events.find((e): e is Extract<ShowdownEvent, { t: 'switch' }> => e.t === 'switch');
+    assert.ok(switchEvent);
+    assert.equal(switchEvent.outId, 'lead');
+    assert.equal(switchEvent.inId, 'reserve');
+    assert.equal(switchEvent.reinforcement, false);
+    assert.equal(session.player.find((p) => p.id === 'lead')!.benched, true);
+    assert.equal(session.player.find((p) => p.id === 'reserve')!.benched, false);
+    // Neither switcher acted; the foe's attack retargeted the incoming pet.
+    const leadActions = events.filter((e) => e.t === 'action' && e.actorId === 'lead');
+    assert.equal(leadActions.length, 0, 'the switched-out pet forfeited its action');
+    const foeHit = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'foe');
+    assert.ok(foeHit);
+    assert.equal(foeHit.targets[0].id, 'reserve', 'the attack landed on the incoming pet');
+});
+
+test('a KO with reserves triggers a reinforcement instead of a loss', () => {
+    const session = makeBenchSession(1234);
+    session.player[0].hp = 1;   // the lead dies to the first hit
+    const events = resolveShowdownRound(session, [
+        { kind: 'rest', petId: 'lead' },
+    ], [
+        { kind: 'move', petId: 'foe', moveIndex: 1, targetId: 'lead', timing: 2 },
+    ]);
+    assert.equal(session.finished, false, 'the bench keeps the battle alive');
+    const reinforcement = events.find((e): e is Extract<ShowdownEvent, { t: 'switch' }> => e.t === 'switch' && e.reinforcement);
+    assert.ok(reinforcement, 'the reserve walked in at round end');
+    assert.equal(reinforcement.inId, 'reserve');
+    assert.equal(session.player.find((p) => p.id === 'reserve')!.benched, false);
+});
+
+test('the whole team must fall before the side loses', () => {
+    const session = makeBenchSession(777);
+    session.player[0].hp = 1;
+    session.player[1].hp = 1;
+    let rounds = 0;
+    while (!session.finished && rounds < 6) {
+        rounds += 1;
+        const fieldPet = session.player.find((p) => !p.ko && !p.benched);
+        resolveShowdownRound(session, fieldPet ? [{ kind: 'rest', petId: fieldPet.id }] : [], [
+            { kind: 'move', petId: 'foe', moveIndex: 1, targetId: fieldPet?.id ?? '', timing: 2 },
+        ]);
+    }
+    assert.equal(session.finished, true);
+    assert.equal(session.outcome, 'loss');
+    assert.ok(rounds >= 2, 'took at least two rounds to fell both team members');
+});
+
+test('bench statuses are frozen — a burn cannot be waited out from the bench', () => {
+    const burner = makePet('burner', {
+        speed: 200,
+        jutsus: [{ name: 'Ember Coat', power: 160, cooldown: 0, currentCooldown: 0, kind: 'burn' }],
+    });
+    const session = makeSession([burner], [makePet('victim', { speed: 10, hp: 6000 })], 55, '1v1');
+    const reserve = JSON.parse(JSON.stringify({ ...session.enemy[0], id: 'reserve2', name: 'reserve2', benched: true }));
+    session.enemy.push(reserve);
+    // Round 1: burn the victim.
+    resolveShowdownRound(session, [
+        { kind: 'move', petId: 'burner', moveIndex: 1, targetId: 'victim', timing: 0 },
+    ], [{ kind: 'rest', petId: 'victim' }]);
+    const burnRounds = session.enemy[0].statuses.find((s) => s.kind === 'burn')?.rounds ?? 0;
+    assert.ok(burnRounds > 0, 'victim is burning');
+    // Round 2: victim switches out — benched, the burn must neither tick nor decay.
+    const hpAtSwitch = session.enemy[0].hp;
+    resolveShowdownRound(session, [
+        { kind: 'rest', petId: 'burner' },
+    ], [{ kind: 'switch', petId: 'victim', benchPetId: 'reserve2' }]);
+    const victim = session.enemy.find((p) => p.id === 'victim')!;
+    assert.equal(victim.benched, true);
+    assert.equal(victim.hp, hpAtSwitch, 'no dot tick on the bench');
+    assert.equal(victim.statuses.find((s) => s.kind === 'burn')?.rounds, burnRounds, 'no decay on the bench');
+});
+
 test('a full AI-vs-AI style fight completes inside the round cap with a winner', () => {
     for (const seed of [1, 7, 12345, 98765, 2024]) {
         const players = [makePet('mine', { level: 45 }), makePet('mine2', { level: 45, element: 'Water' })];
