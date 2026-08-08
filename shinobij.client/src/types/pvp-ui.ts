@@ -61,6 +61,13 @@ export type PvpSessionState = {
     log: string[];
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
+    rewardAuthority?: "challenge" | "clan-war" | "ranked" | "world" | "admin";
+    challengeId?: string;
+    clanWarId?: string;
+    clanWarChallengeId?: string;
+    joined?: { p1: boolean; p2: boolean };
+    baseRewards?: boolean;
+    ranked?: boolean;
     fleedBy?: "p1" | "p2";
     createdAt?: number;
     lastMoveAt?: number;

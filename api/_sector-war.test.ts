@@ -34,7 +34,7 @@ const HOUR = 60 * 60 * 1000;
 
 function fresh(winCondition: 'combat' | 'card' | 'pet' = 'combat'): SectorWarSession {
     return newSectorWarSession({
-        sector: 8, attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
+        sector: 2, attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
         winCondition, now: NOW,
     });
 }
@@ -232,6 +232,38 @@ describe('sector-war: settlement (most points at 72h wins)', () => {
         }
     });
 
+    it('settles a pre-existing foreign attack on a protected gate as defended', () => {
+        const legacyContest = newSectorWarSession({
+            sector: 1,
+            attackerVillage: 'Moonshadow Village',
+            defenderVillage: 'Stormveil Village',
+            winCondition: 'combat',
+            now: NOW,
+        });
+        const blocked = settleSectorWar(
+            { ...legacyContest, attackerPoints: 100, defenderPoints: 0 },
+            NOW + SECTOR_WAR_DURATION_MS,
+        );
+        assert.equal(blocked.changed, true);
+        assert.equal(blocked.attackerWon, false);
+        assert.equal(blocked.session.flipped, false);
+        assert.equal(blocked.session.expiredReason, 'defended');
+
+        const homeReclaim = newSectorWarSession({
+            sector: 1,
+            attackerVillage: 'Stormveil Village',
+            defenderVillage: 'Moonshadow Village',
+            winCondition: 'combat',
+            now: NOW,
+        });
+        const reclaimed = settleSectorWar(
+            { ...homeReclaim, attackerPoints: 1, defenderPoints: 0 },
+            NOW + SECTOR_WAR_DURATION_MS,
+        );
+        assert.equal(reclaimed.attackerWon, true);
+        assert.equal(reclaimed.session.flipped, true);
+    });
+
     it('is idempotent — a settled war never re-settles', () => {
         const first = settleSectorWar({ ...fresh(), attackerPoints: 1 }, NOW + SECTOR_WAR_DURATION_MS);
         const again = settleSectorWar(first.session, NOW + SECTOR_WAR_DURATION_MS + HOUR);
@@ -370,7 +402,7 @@ describe('sector-war: canDeclareSectorWar', () => {
     const base = {
         attackerVillage: 'Moonshadow Village',
         defenderVillage: 'Frostfang Village',
-        sector: 26,
+        sector: 27,
         sectorOwnerVillage: 'Frostfang Village',
         winCondition: 'combat' as const,
         attackerInActiveVillageWar: false,
@@ -396,12 +428,24 @@ describe('sector-war: canDeclareSectorWar', () => {
     it('rejects the structural invalids', () => {
         assert.equal((canDeclareSectorWar({ ...base, defenderVillage: base.attackerVillage, sectorOwnerVillage: base.attackerVillage }) as { error: string }).error, 'self');
         assert.equal((canDeclareSectorWar({ ...base, sector: 60 }) as { error: string }).error, 'not-war-sector');
+        assert.equal((canDeclareSectorWar({ ...base, sector: 26 }) as { error: string }).error, 'protected-core');
         assert.equal((canDeclareSectorWar({ ...base, sectorOwnerVillage: 'Moonshadow Village' }) as { error: string }).error, 'not-enemy-held');
         assert.equal((canDeclareSectorWar({ ...base, attackerInActiveVillageWar: true }) as { error: string }).error, 'mutual-exclusion-attacker');
         assert.equal((canDeclareSectorWar({ ...base, defenderInActiveVillageWar: true }) as { error: string }).error, 'mutual-exclusion-defender');
         assert.equal((canDeclareSectorWar({ ...base, contestAlreadyActive: true }) as { error: string }).error, 'already-contested');
         assert.equal((canDeclareSectorWar({ ...base, winCondition: 'pet', allowedWinConditions: ['combat'] }) as { error: string }).error, 'win-condition-unavailable');
         assert.equal((canDeclareSectorWar({ ...base, attackerWr: 0 }) as { error: string }).error, 'insufficient-wr');
+    });
+
+    it('lets a home village reclaim its gate from legacy captured state', () => {
+        const reclaim = canDeclareSectorWar({
+            ...base,
+            attackerVillage: 'Frostfang Village',
+            defenderVillage: 'Moonshadow Village',
+            sector: 26,
+            sectorOwnerVillage: 'Moonshadow Village',
+        });
+        assert.equal(reclaim.ok, true);
     });
 
     it('caps a village at MAX_ACTIVE_ATTACK_SIEGES fronts', () => {

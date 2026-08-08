@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget, CombatVfxTarget, CombatVfxKey } from './session.js';
-import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
+import { pvpSessionMayGrantProgress, trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
 import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL } from '../combat-core/constants.js';
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
@@ -151,6 +151,7 @@ const DEFAULT_ACTION_LABELS: Record<string, string> = {
     weapon: 'Weapon Attack',
     item: 'Item',
     'claim-afk-win': 'Forfeit Win Claimed',
+    join: 'Join Battle',
 };
 
 const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
@@ -165,6 +166,7 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
     weapon: 'weapon',
     item: 'item',
     'claim-afk-win': 'system',
+    join: 'system',
 };
 import { onlineStore } from '../_realtime/online-store.js';
 import { settleKageDuel, recordPendingKageSettle, kageDuelKey } from '../village/_kage-settle.js';
@@ -1034,15 +1036,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // headroom for retries and the AFK-fallback POSTs while blocking
     // scripted spam (which would also tank the move-lock NX path).
     //
-    // Peek the body for a player name BEFORE the limiter so the budget is
-    // keyed per-name when available — IP-only keys mean a NAT'd / mobile-
-    // tower IP shares the 120/min budget across every real user behind it.
-    // The actual auth check happens further down; this peek only feeds the
-    // limiter key, it's not a trust signal.
-    const moveBodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const movePeekName: string | undefined = typeof moveBodyPeek?.playerName === 'string' ? moveBodyPeek.playerName : undefined;
-    if (!(await enforceRateLimitKv(req, res, 'pvp-move', 120, 60_000, movePeekName))) return;
-
+    // Parse the action first, then authenticate before choosing the per-player
+    // quota key. A body-supplied name must never be able to burn someone else's
+    // rate-limit budget; authenticated identity keeps NAT'd players separate.
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         // NOTE: biome and weather* are intentionally NOT read from the body —
@@ -1060,6 +1056,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             moveToken?: string;  // client-generated UUID for idempotency
         };
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
+
+        // Authenticate before selecting the named quota key. A request body is
+        // not identity proof and must never be able to burn another user's cap.
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-move', 120, 60_000, identity.name))) return;
 
         const key = `pvp:${battleId}`;
         const sessionMaybe = await kv.get<PvpSession>(key);
@@ -1085,14 +1087,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // definition submitted by the INACTIVE player (the one claiming the
         // active player went AFK). Letting only that action through the guard;
         // the switch case re-validates that the claimant is indeed inactive.
-        if (session.activePlayer !== role && action !== 'claim-afk-win') {
+        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
             return res.status(200).json(session);
         }
 
         // Verify the requester actually owns the role they're moving as.
         // Without this, anyone could submit moves on another player's behalf.
-        const identity = await authedPlayerOrAdmin(req);
-        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin) {
             const claimedFighter = role === 'p1' ? session.p1 : session.p2;
             const claimedName = safeName(String(claimedFighter.name ?? ''));
@@ -1145,10 +1145,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return finish(session); // our move already landed during the wait
                 }
                 if (session.status === 'done') return finish(session);
-                if (session.activePlayer !== role && action !== 'claim-afk-win') {
+                if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
                     return finish(withRejected(session, 'It is no longer your turn.'));
                 }
             }
+        }
+        // Opening the battle screen sends this idempotent membership handshake.
+        // AFK forfeits and every reward consumer require both bits, so merely
+        // creating an unsolicited session against an offline name can never pay.
+        if (action === 'join') {
+            if (session.joined?.[role] === true) return finish(session);
+            const joined = {
+                p1: session.joined?.p1 === true,
+                p2: session.joined?.p2 === true,
+                [role]: true,
+            } as { p1: boolean; p2: boolean };
+            const updated = { ...session, joined };
+            await saveSession(key, updated);
+            return finish(updated);
         }
         // Annotate a soft-rejected move with a structured, response-only reason.
         // The session itself is unchanged (and NOT persisted), so this never
@@ -1294,6 +1308,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'claim-afk-win': {
+                if (session.joined?.p1 !== true || session.joined?.p2 !== true) {
+                    return finish(withRejected(session, 'A forfeit win is unavailable until both fighters have joined the battle.'));
+                }
                 // Inactive player claims the win when the active player has
                 // skipped 2 consecutive rounds (let the 45s timer run out
                 // twice). Falls back to a 90s "no contact" timeout for the
@@ -1905,6 +1922,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // rewards (Honor Seals + Vanguard XP) for the winner. Idempotent via
         // session.vanguardRewardsGranted, so retries don't double-grant.
         if (result.status === 'done' && result.winner && result.winner !== 'draw'
+            && pvpSessionMayGrantProgress(result)
             && !(result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted) {
             try {
                 const grant = await grantVanguardRewardsForSession(result);

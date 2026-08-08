@@ -65,7 +65,7 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
     'petEscortBonusReady', 'hunterRank',
     'lastBankInterestAt',
     'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
-    'createdAt', 'professionChosenAt',
+    'createdAt', 'professionChosenAt', 'professionRespecUsed',
 ]);
 
 // Pet entries: keep enough for the arena to use the OPPONENT'S actual

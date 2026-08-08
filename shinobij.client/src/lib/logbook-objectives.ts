@@ -1,7 +1,7 @@
 /*
  * Logbook objectives — the player's structured progression goals: the Academy
- * Training checklist (level 1-14 onboarding) and the four rank exams (Genin,
- * Chunin, Jonin, Special Jonin). Each objective is a list of requirements, each
+ * Training checklist (level 1-14 onboarding), two advancement gates (Genin and
+ * Chunin), and two optional prestige ceremonies (Jonin and Special Jonin). Each objective is a list of requirements, each
  * with a current progress and a target.
  *
  * This is the single source of truth shared by the Logbook screen (which renders
@@ -64,7 +64,8 @@ export function objectiveComplete(objective: LogbookObjective): boolean {
 
 /**
  * Every progression objective the player has currently unlocked, in priority
- * order: the Academy checklist (while it's open) followed by each rank exam they
+ * order: the Academy checklist (while it's open) followed by each advancement
+ * gate or prestige ceremony they
  * have reached. The Logbook renders the whole list; the briefing picks one.
  */
 export function buildLogbookObjectives(character: Character, ctx: ObjectiveContext = {}): LogbookObjective[] {
@@ -94,7 +95,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
     const objectives: LogbookObjective[] = [];
 
     // Academy Training — soft, teach-by-doing onboarding goals that fill the gap
-    // before the first rank exam (Genin). Hidden once claimed or once the player
+    // before the first advancement gate. Hidden once claimed or once the player
     // outgrows Academy rank.
     if (!character.academyChecklistClaimed && rankFromLevel(character.level) === "Academy Student") {
         objectives.push({
@@ -199,13 +200,13 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         objectives.push({
             id: "exam-genin",
             kind: "exam",
-            title: "Genin Exam",
-            summary: "You are at the level-20 hold. Pass this exam to keep leveling toward Chunin.",
+            title: "Genin Advancement Exam",
+            summary: "You became Genin at level 15. Clear this level-20 advancement gate to keep progressing toward Chunin.",
             examKey: "genin",
             progressionImpact: examProgressionImpact("genin"),
             unlockLevel: 20,
             requirements: [
-                { label: "Reach the Genin exam gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
+                { label: "Reach the Genin advancement gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
                 { label: "Train 400 stats", progress: statsTrained, target: 400, goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete 20 missions", progress: totalMissionsCompleted, target: 20, goScreen: "missions", goLabel: "Go Missions" },
@@ -219,13 +220,13 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         objectives.push({
             id: "exam-chunin",
             kind: "exam",
-            title: "Chunin Exam",
-            summary: "You are at the level-39 hold. Pass this exam to continue leveling toward Jonin.",
+            title: "Chunin Advancement Exam",
+            summary: "You became Chunin at level 30. Clear this level-39 advancement gate to continue toward Jonin.",
             examKey: "chunin",
             progressionImpact: examProgressionImpact("chunin"),
             unlockLevel: 39,
             requirements: [
-                { label: "Reach the Chunin exam gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
+                { label: "Reach the Chunin advancement gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
                 { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
                 { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
                 { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },

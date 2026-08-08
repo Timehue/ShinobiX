@@ -18,6 +18,10 @@ import { stampTurnClock } from './_tower-mp.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
+import { writeSaveProjected } from '../save/_projected-write.js';
+import { debitTowerEntry } from './_entry-fee.js';
 
 /*
  * POST /api/towers/start — begin a Battle Towers run.
@@ -144,6 +148,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(seed)); // advance to the first human's turn (or auto-resolve)
         stampTurnClock(session, now);                   // start the AFK clock for whoever is up
+
+        // Story-floor tolls are reserved from the STORED wallet under the save
+        // lock. The client never supplies a balance or daily-entry counter and a
+        // modified client cannot skip the debit. Spire remains intentionally free.
+        let chargedRyo = 0;
+        let authoritativeCharacter: Record<string, unknown> | null = null;
+        let saveVersion = 0;
+        if (mode === 'story' && !identity.admin) {
+            const saveKey = `save:${hostName}`;
+            const debit = await withKvLock(saveKey, async () => {
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = record?.character as Record<string, unknown> | undefined;
+                if (!record || !char) return { ok: false as const, status: 404, error: 'Your save was not found.' };
+                const result = debitTowerEntry(char, new Date().toISOString().slice(0, 10));
+                if (!result.ok) return { ok: false as const, status: 409, error: `Entry costs ${result.required.toLocaleString()} ryo — not enough ryo.` };
+                const nextRecord = bumpSaveVersion<Record<string, unknown>>({ ...record, character: result.character });
+                await writeSaveProjected(saveKey, nextRecord, record);
+                return {
+                    ok: true as const,
+                    charged: result.charged,
+                    character: result.character,
+                    saveVersion: Number(nextRecord._saveVersion ?? 0),
+                };
+            }, { failClosed: true });
+            if (!debit.ok) return res.status(debit.status).json({ error: debit.error });
+            chargedRyo = debit.charged;
+            authoritativeCharacter = debit.character;
+            saveVersion = debit.saveVersion;
+        }
         await writeSession(session);
 
         // Invite each ally → point them at this runId so they can discover + join it.
@@ -151,7 +184,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (slug !== hostName) await setTowerInvite(slug, runId).catch(() => undefined);
         }
 
-        return res.status(200).json({ runId, session });
+        return res.status(200).json({
+            runId,
+            session,
+            chargedRyo,
+            ...(authoritativeCharacter ? { character: authoritativeCharacter, _saveVersion: saveVersion } : {}),
+        });
     } catch (err) {
         console.error('[towers/start]', err);
         return res.status(500).json({ error: 'Internal server error.' });

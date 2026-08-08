@@ -4,9 +4,9 @@
  *
  *   • No profession chosen yet → <ProfessionOverview>: a description + layout of
  *     all three paths (Healer / Vanguard / Pet Tamer) so the player can read up
- *     before the Elder's choice. The actual irreversible choice still happens in
- *     the forced ProfessionPicker overlay (fires at Level 13) — this screen is
- *     the always-available reference, not a second commit path.
+ *     before the Elder's choice. The initial choice happens in the forced
+ *     ProfessionPicker overlay (fires at Level 13); this screen also owns the
+ *     account's one-time free path-change control after a choice is made.
  *   • Profession chosen → the matching hub (HealerHub / VanguardHub /
  *     PetTamerHub), which the menu button also relabels to.
  *
@@ -16,7 +16,9 @@ import overviewBg from "../assets/professions/overview.webp";
 import healerBg from "../assets/professions/healer.webp";
 import vanguardBg from "../assets/professions/vanguard.webp";
 import petTamerBg from "../assets/professions/pettamer.webp";
+import { useState } from "react";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { gameConfirm } from "../components/GameAlert";
 import { PROFESSION_INFO } from "../data/professions";
 import { HealerHub } from "./professions/HealerHub";
 import { VanguardHub } from "./professions/VanguardHub";
@@ -39,6 +41,77 @@ const PROFESSION_ICON: Record<Profession, GameIconName> = {
     petTamer: "paw",
 };
 
+function ProfessionRespecPanel({
+    character,
+    updateCharacter,
+    onServerVersion,
+}: {
+    character: Character;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    onServerVersion?: (version: number | undefined) => void;
+}) {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const current = PROFESSION_INFO.find(info => info.id === character.profession);
+    if (!current) return null;
+    const currentName = current.name;
+
+    const choices = PROFESSION_INFO.filter(info => info.id !== character.profession);
+
+    async function changeProfession(next: Profession) {
+        if (busy) return;
+        const nextInfo = PROFESSION_INFO.find(info => info.id === next);
+        if (!nextInfo) return;
+        const confirmed = await gameConfirm(
+            `Change from ${currentName} to ${nextInfo.name}? This uses your only free profession change and resets profession rank, XP, and mastery allocation to Rank 1.`,
+            { title: "Use Free Profession Change", confirmLabel: `Become ${nextInfo.name}`, danger: true },
+        );
+        if (!confirmed) return;
+
+        setBusy(true);
+        setError("");
+        try {
+            const response = await fetch("/api/profession/choose", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, profession: next, respec: true }),
+            });
+            const data = await response.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
+            if (!response.ok || !data.character) {
+                setError(data.error ?? `Server error (${response.status})`);
+                return;
+            }
+            updateCharacter(data.character);
+            onServerVersion?.(data._saveVersion);
+        } catch {
+            setError("Network error. Your profession was not changed; try again.");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <section className="card" aria-labelledby="profession-change-heading" style={{ marginTop: "1rem" }}>
+            <h3 id="profession-change-heading">Profession Path Change</h3>
+            {character.professionRespecUsed ? (
+                <p className="hint">Your one-time free path change has been used. <strong>{current.name}</strong> is now your permanent profession.</p>
+            ) : (
+                <>
+                    <p className="hint">Every character gets one free profession change. Changing resets profession rank, profession XP, and mastery allocation to Rank 1; your normal character progress and inventory stay intact.</p>
+                    <div className="menu">
+                        {choices.map(info => (
+                            <button key={info.id} type="button" disabled={busy} onClick={() => void changeProfession(info.id)}>
+                                {busy ? "Changing…" : `Change to ${info.name}`}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+            {error && <p role="alert" style={{ color: "#f87171" }}>{error}</p>}
+        </section>
+    );
+}
+
 export function Professions({
     character,
     updateCharacter,
@@ -54,15 +127,16 @@ export function Professions({
     playerRoster: PlayerRecord[];
     onServerVersion?: (version: number | undefined) => void;
 }) {
-    // Chosen → route straight to that profession's hub.
+    let hub: React.ReactNode = null;
     if (character.profession === "healer") {
-        return <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} onServerVersion={onServerVersion} />;
+        hub = <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} onServerVersion={onServerVersion} />;
+    } else if (character.profession === "vanguard") {
+        hub = <VanguardHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
+    } else if (character.profession === "petTamer") {
+        hub = <PetTamerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
     }
-    if (character.profession === "vanguard") {
-        return <VanguardHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
-    }
-    if (character.profession === "petTamer") {
-        return <PetTamerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
+    if (hub) {
+        return <>{hub}<ProfessionRespecPanel character={character} updateCharacter={updateCharacter} onServerVersion={onServerVersion} /></>;
     }
 
     // No profession yet → the three-path overview.
@@ -93,7 +167,7 @@ export function Professions({
 
             <p className="hint" style={{ marginTop: 0 }}>
                 At <strong>Level {PROFESSION_UNLOCK_LEVEL}</strong>, the village elder summons you to choose a profession — a
-                permanent path that shapes how you grow. Read each one below.
+                path that shapes how you grow. You receive one free path change later; using it resets profession rank, XP, and mastery. Read each one below.
                 {eligible
                     ? " You're ready: the elder will call on you to choose."
                     : ` You're Level ${character.level} — keep training to unlock the choice.`}
@@ -147,7 +221,7 @@ export function Professions({
             </div>
 
             <p className="hint" style={{ marginTop: "1rem", fontSize: "0.78rem", opacity: 0.75 }}>
-                Your choice is permanent. Once you choose, this menu opens your profession's hub.
+                Your first choice opens that profession's hub. Every character may make one free path change from the hub; the second choice is permanent.
             </p>
         </div>
     );

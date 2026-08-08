@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS, hasReservedTitleTerm } from '../_text-moderation.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyEnabled } from '../_legacy-track.js';
+import { blockedPlayersFor } from '../player/_blocks.js';
 
 // A quoted reference to the message being replied to. Display-only — just the
 // original author + a short snippet so the client can render a quote block.
@@ -47,6 +48,18 @@ function chatKey(village: string): string {
     return `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
 
+export function sameVillage(storedVillage: unknown, requestedVillage: unknown): boolean {
+    return typeof storedVillage === 'string'
+        && typeof requestedVillage === 'string'
+        && storedVillage.trim().toLowerCase() === requestedVillage.trim().toLowerCase();
+}
+
+async function memberCharacter(player: string, village: string): Promise<Record<string, unknown> | null> {
+    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+    const char = (save?.character ?? null) as Record<string, unknown> | null;
+    return char && sameVillage(char.village, village) ? char : null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -63,7 +76,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // through the service-role key, not this endpoint.
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        const messages = await kv.get<ChatMessage[]>(key) ?? [];
+        if (!identity.admin && !await memberCharacter(identity.name, village)) {
+            return res.status(403).json({ error: 'You can only read your own village chat.' });
+        }
+        const allMessages = await kv.get<ChatMessage[]>(key) ?? [];
+        const blocked = identity.admin ? new Set<string>() : new Set(await blockedPlayersFor(identity.name));
+        const messages = allMessages.filter((message) => message.system || !blocked.has(safeName(message.author)));
         res.setHeader('X-Message-Count', String(messages.length));
         // X-Last-Ts too: once the log sits at MAX_MESSAGES, every append keeps
         // the count at 30, so a count-only skip check would never show new
@@ -100,6 +118,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             if (!identity.admin && identity.name !== safeName(author)) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
+            }
+            if (!identity.admin && !await memberCharacter(identity.name, village)) {
+                return res.status(403).json({ error: 'You can only post in your own village chat.' });
             }
 
             // Silenced players can read but not post. Admin bypasses.

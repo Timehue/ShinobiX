@@ -34,10 +34,10 @@ describe('war-map-view: villageWarMapView', () => {
     });
 
     it('computes the effective tax tier (held count × Treasury-Vault softening)', () => {
-        const v1 = villageWarMapView({ village: 'Moonshadow Village', record: recordWith(), treasurySeals: 0, sectorsHeld: 1 });
-        assert.equal(v1.taxRatePct, 5);                // 1 sector → heaviest tier
-        const v2 = villageWarMapView({ village: 'Moonshadow Village', record: recordWith({ treasuryVault: 10 }), treasurySeals: 0, sectorsHeld: 1 });
-        assert.equal(v2.taxRatePct, 3.5);              // × Treasury-Vault L10 (×0.7)
+        const v1 = villageWarMapView({ village: 'Moonshadow Village', record: recordWith(), treasurySeals: 0, sectorsHeld: 9 });
+        assert.equal(v1.taxRatePct, 1);
+        const v2 = villageWarMapView({ village: 'Moonshadow Village', record: recordWith({ treasuryVault: 10 }), treasurySeals: 0, sectorsHeld: 9 });
+        assert.equal(v2.taxRatePct, 0.7);
     });
 
     it('suspends Control-HP/WR bonuses while dormant but still owes upkeep', () => {
@@ -54,7 +54,7 @@ describe('war-map view: tax rate mirrors the charge', () => {
             village: 'Frostfang Village',
             record: normalizeVillageWarRecord('Frostfang Village'),
             treasurySeals: 0,
-            sectorsHeld: 0,          // the heaviest tier
+            sectorsHeld: 9,
             kageSeated: false,
         });
         assert.equal(v.taxRatePct, 0, 'a leaderless village displays no tax');
@@ -66,10 +66,10 @@ describe('war-map view: tax rate mirrors the charge', () => {
             village: 'Frostfang Village',
             record: normalizeVillageWarRecord('Frostfang Village'),
             treasurySeals: 0,
-            sectorsHeld: 0,
+            sectorsHeld: 9,
             kageSeated: true,
         });
-        assert.equal(v.taxRatePct, 5);
+        assert.equal(v.taxRatePct, 1);
         assert.equal(v.kageSeated, true);
     });
 
@@ -78,9 +78,9 @@ describe('war-map view: tax rate mirrors the charge', () => {
             village: 'Frostfang Village',
             record: normalizeVillageWarRecord('Frostfang Village'),
             treasurySeals: 0,
-            sectorsHeld: 0,
+            sectorsHeld: 9,
         });
-        assert.equal(v.taxRatePct, 5);
+        assert.equal(v.taxRatePct, 1);
         assert.equal(v.kageSeated, true);
     });
 });

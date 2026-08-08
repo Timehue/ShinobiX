@@ -28,8 +28,9 @@
  *     statFactor is heavily damped, so it only nudges damage a few percent;
  *   • the HP multiplier decides how many hits a foe soaks (the real "tankiness"
  *     dial), and the per-hit / per-turn caps decide how hard a hit lands.
- * The peer band (90+) is intentionally left at full strength (stats ×1.0 on the
- * full-budget base, HP ×1.0, damage uncapped): the one band "supposed to be strong".
+ * The peer band ramps from the hard ceiling at 91 to full PvP-like strength at
+ * level 100. This avoids the former 90-to-91 cliff where every damage guard
+ * vanished in one level while preserving an uncapped max-level duel.
  * The shared damage math (combat-math.ts / api/pvp/move.ts) is never touched.
  */
 import { MAX_STAT, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from "../constants/game";
@@ -50,7 +51,8 @@ export function pveDifficultyBand(level: number): PveDifficultyBand {
 // level-budget block (== a fully-allocated player at that level), so `peer` no
 // longer needs a >1 boost to reach maxed-player strength — peer 1.0 IS the mirror.
 // Sub-peer bands sit below 1 for a forgiving ramp (easy ≈ preserves the old
-// onboarding feel once the higher base is accounted for). Kept strictly monotonic.
+// onboarding feel once the higher base is accounted for). Levels 91-99 then
+// interpolate to the full peer mirror instead of jumping there at level 91.
 const BAND_STAT_MULTIPLIER: Record<PveDifficultyBand, number> = {
     easy: 0.6,
     medium: 0.75,
@@ -58,15 +60,29 @@ const BAND_STAT_MULTIPLIER: Record<PveDifficultyBand, number> = {
     peer: 1.0,
 };
 
+const PEER_FULL_POWER_LEVEL = 100;
+const PEER_RAMP_START_LEVEL = 90;
+
+function peerRamp(level: number): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(0, Math.min(1, (lvl - PEER_RAMP_START_LEVEL) / (PEER_FULL_POWER_LEVEL - PEER_RAMP_START_LEVEL)));
+}
+
+function lerp(from: number, to: number, amount: number): number {
+    return from + (to - from) * amount;
+}
+
 export function pveDifficultyStatMultiplier(level: number): number {
-    return BAND_STAT_MULTIPLIER[pveDifficultyBand(level)];
+    const band = pveDifficultyBand(level);
+    if (band !== "peer") return BAND_STAT_MULTIPLIER[band];
+    return lerp(BAND_STAT_MULTIPLIER.hard, BAND_STAT_MULTIPLIER.peer, peerRamp(level));
 }
 
 // Per-band multiplier on the ENEMY'S max HP — the dominant "tankiness" lever.
 // The stat multiplier above only nudges player damage (statFactor is heavily
 // damped: ±100 stat ≈ ±2% damage), so HP is what actually decides how many hits
-// a foe soaks. Sub-peer bands soak fewer hits; the peer band (90+) keeps its
-// full HP pool so endgame PvE still reads like a real duel. Applied to standard
+// a foe soaks. Sub-peer bands soak fewer hits; the peer band reaches its full HP
+// pool at level 100 so endgame PvE still reads like a real duel. Applied to standard
 // PvE only (no live opponentCharacter, not endless/ranked) — exactly like the
 // stat multiplier. STARTING values — tune from kill-time playtests.
 const BAND_HP_MULTIPLIER: Record<PveDifficultyBand, number> = {
@@ -77,7 +93,9 @@ const BAND_HP_MULTIPLIER: Record<PveDifficultyBand, number> = {
 };
 
 export function pveDifficultyHpMultiplier(level: number): number {
-    return BAND_HP_MULTIPLIER[pveDifficultyBand(level)];
+    const band = pveDifficultyBand(level);
+    if (band !== "peer") return BAND_HP_MULTIPLIER[band];
+    return lerp(BAND_HP_MULTIPLIER.hard, BAND_HP_MULTIPLIER.peer, peerRamp(level));
 }
 
 // The AI's effective jutsu mastery, tied to its OWN level (a level-8 sentinel is
@@ -99,7 +117,7 @@ export function pveAiMasteryForLevel(level: number): number {
 // HP. This is the structural guarantee that early content can't one-shot: no
 // matter how the shared EP×stat damage curve scales (it was tuned for late-game
 // HP pools, so raw hits dwarf a level-3's 300 HP), an enemy hit in the easy band
-// is clamped to a learnable chunk of the bar. The peer band (90+) is intentionally
+// is clamped to a learnable chunk of the bar. Max-level peer combat is intentionally
 // UNCAPPED so endgame PvE hits as hard as a real duel. STARTING values — tune
 // from kill-time playtests.
 const BAND_MAX_HIT_FRACTION: Record<PveDifficultyBand, number> = {
@@ -109,12 +127,23 @@ const BAND_MAX_HIT_FRACTION: Record<PveDifficultyBand, number> = {
     peer: Infinity,
 };
 
+// Levels 91-99 keep a widening safety ceiling instead of dropping every guard
+// at once. Level 100 remains the fully uncapped, PvP-like endpoint.
+const PEER_RAMP_MAX_HIT_FRACTION = 2;
+const PEER_RAMP_MAX_TURN_FRACTION = 3;
+
+function peerHitFraction(level: number): number {
+    if (Math.floor(Number(level) || 1) >= PEER_FULL_POWER_LEVEL) return Infinity;
+    return lerp(BAND_MAX_HIT_FRACTION.hard, PEER_RAMP_MAX_HIT_FRACTION, peerRamp(level));
+}
+
 // Max damage a single standard-PvE enemy hit may deal to a player with
 // `playerMaxHp`, by the encounter band. Returns Infinity (no cap) for the peer
 // band. Callers gate this to standard PvE only (no live opponentCharacter, not
 // endless/ranked) — exactly like pveDifficultyStatMultiplier.
 export function pveEnemyHitCap(level: number, playerMaxHp: number): number {
-    const frac = BAND_MAX_HIT_FRACTION[pveDifficultyBand(level)];
+    const band = pveDifficultyBand(level);
+    const frac = band === "peer" ? peerHitFraction(level) : BAND_MAX_HIT_FRACTION[band];
     if (!Number.isFinite(frac)) return Infinity;
     const hp = Number.isFinite(playerMaxHp) ? Math.max(1, playerMaxHp) : 1;
     return Math.max(1, Math.floor(hp * frac));
@@ -132,6 +161,11 @@ const BAND_MAX_TURN_FRACTION: Record<PveDifficultyBand, number> = {
     hard: 0.70,
     peer: Infinity,
 };
+
+function peerTurnFraction(level: number): number {
+    if (Math.floor(Number(level) || 1) >= PEER_FULL_POWER_LEVEL) return Infinity;
+    return lerp(BAND_MAX_TURN_FRACTION.hard, PEER_RAMP_MAX_TURN_FRACTION, peerRamp(level));
+}
 
 // Below this level the easy band's mercy floor is STRONGER: the enemy cannot
 // land a killing blow unless the player STARTED the turn already this low.
@@ -157,13 +191,13 @@ export interface PveEnemyHitGuard {
 //      HP can't be dropped below 1 this turn (no sudden death). At low levels
 //      (≤10) it's stronger — the enemy can't kill unless the player started the
 //      turn already below a quarter HP.
-// Peer band returns the raw hit unchanged (real-duel). Hard applies the per-hit
-// and per-turn caps but no mercy floor. Callers gate this to standard PvE (no
+// A max-level peer returns the raw hit unchanged (real-duel); levels 91-99 keep
+// widening caps. Hard applies its per-hit/per-turn caps with no mercy floor. Callers gate this to standard PvE (no
 // live opponentCharacter, not endless/ranked), exactly like the stat multiplier.
 export function pveGuardedEnemyHit(rawHit: number, guard: PveEnemyHitGuard): number {
     const band = pveDifficultyBand(guard.enemyLevel);
     let hit = Math.max(0, Math.floor(Number.isFinite(rawHit) ? rawHit : 0));
-    if (band === "peer") return hit;
+    if (band === "peer" && Math.floor(Number(guard.enemyLevel) || 1) >= PEER_FULL_POWER_LEVEL) return hit;
 
     const maxHp = Number.isFinite(guard.playerMaxHp) ? Math.max(1, guard.playerMaxHp) : 1;
     const dealt = Math.max(0, Number.isFinite(guard.dealtThisTurn) ? guard.dealtThisTurn : 0);
@@ -172,7 +206,7 @@ export function pveGuardedEnemyHit(rawHit: number, guard: PveEnemyHitGuard): num
     hit = Math.min(hit, pveEnemyHitCap(guard.enemyLevel, maxHp));
 
     // 2. Per-turn cap.
-    const turnFrac = BAND_MAX_TURN_FRACTION[band];
+    const turnFrac = band === "peer" ? peerTurnFraction(guard.enemyLevel) : BAND_MAX_TURN_FRACTION[band];
     if (Number.isFinite(turnFrac)) {
         const turnBudget = Math.max(1, Math.floor(maxHp * turnFrac));
         hit = Math.min(hit, Math.max(0, turnBudget - dealt));

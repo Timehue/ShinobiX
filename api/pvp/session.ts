@@ -7,6 +7,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { consumeRankedMatchToken } from '../_ranked-match-token.js';
+import { releaseChallengePvpReservation, reserveChallengeForPvpSession } from './_challenge-authorization.js';
+import { releaseClanWarPvpReservation, reserveClanWarPvpSession } from './_clan-war-authorization.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
@@ -96,6 +98,14 @@ export type PvpSession = {
     log: string[];
     status: 'active' | 'done';
     winner: 'p1' | 'p2' | 'draw' | null;
+    // Durable proof that this battle was created by a sanctioned server flow.
+    // A client may still create an unsanctioned/casual session, but every reward
+    // consumer fails closed unless this stamp exists AND both fighters joined.
+    rewardAuthority?: 'challenge' | 'clan-war' | 'ranked' | 'world' | 'admin';
+    challengeId?: string;
+    clanWarId?: string;
+    clanWarChallengeId?: string;
+    joined?: { p1: boolean; p2: boolean };
     fleedBy?: 'p1' | 'p2';
     createdAt: number;
     // Stamped every time a successful move commits. Used as a crashed-tab
@@ -175,6 +185,21 @@ export type PvpSession = {
     vfx?: CombatVfxTarget[];
     vfxSeq?: number;
 };
+
+export function pvpSessionMayReward(session: Pick<PvpSession, 'rewardAuthority' | 'joined'>): boolean {
+    return !!session.rewardAuthority && session.joined?.p1 === true && session.joined?.p2 === true;
+}
+
+/**
+ * Ordinary PvP progression needs more than a sanctioned purpose-built duel.
+ * Zero-base-reward spars and Kage duels may settle their own dedicated result,
+ * but cannot be reused as bounty, mission, Legacy, or generic reward receipts.
+ */
+export function pvpSessionMayGrantProgress(
+    session: Pick<PvpSession, 'rewardAuthority' | 'joined' | 'baseRewards' | 'ranked'>,
+): boolean {
+    return pvpSessionMayReward(session) && (session.baseRewards === true || session.ranked === true);
+}
 // A single floating-number event, already mapped to a concrete fighter slot.
 export type HitFxTarget = { target: 'p1' | 'p2'; amount: number; kind: 'damage' | 'heal' };
 export type CombatVfxKey =
@@ -1191,13 +1216,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-session-create', 6, 60_000, rlName))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, requireWorldCoLocation, ranked, rankedKind, baseRewards, rewardSector } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, challengeId, clanWarId, clanWarChallengeId, useCurrentVitals, requireWorldCoLocation, ranked, rankedKind, baseRewards, rewardSector } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
                 biome?: string;
                 weatherPositiveElement?: string;
                 weatherNegativeElement?: string;
                 battleId?: string;
+                challengeId?: string;
+                clanWarId?: string;
+                clanWarChallengeId?: string;
                 // Sector attacks + village defense/attack fights are continuous
                 // engagements that bring whatever HP/chakra/stamina the fighter
                 // currently has. Spar / ranked / arena default to a fresh-start
@@ -1217,6 +1245,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 baseRewards?: boolean;
                 rewardSector?: number;
             };
+            if (typeof challengeId === 'string' && (typeof clanWarId === 'string' || typeof clanWarChallengeId === 'string')) {
+                return res.status(400).json({ error: 'Choose either a player challenge receipt or a Clan War receipt, not both.' });
+            }
             if (!p1Character || !p2Character) return res.status(400).json({ error: 'Missing characters' });
 
             const p1Name = (p1Character.name as string) ?? 'Player 1';
@@ -1383,6 +1414,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // prefix so all existing key/route patterns are unchanged.
             const battleId = `pvp-${randomUUID()}`;
 
+            const clanWarRequested = typeof clanWarId === 'string' || typeof clanWarChallengeId === 'string';
+            const clanWarReservation = !identity.admin && typeof clanWarId === 'string' && typeof clanWarChallengeId === 'string'
+                ? await reserveClanWarPvpSession({
+                    warId: clanWarId,
+                    challengeId: clanWarChallengeId,
+                    creator: identity.name,
+                    p1: p1Norm,
+                    p2: p2Norm,
+                    battleId,
+                })
+                : null;
+            if (clanWarRequested && !clanWarReservation) {
+                return res.status(409).json({ error: 'That accepted clan-war challenge cannot authorize this PvP session.' });
+            }
+            if (clanWarReservation && !clanWarReservation.owned) {
+                const existing = await kv.get<PvpSession>(`pvp:${clanWarReservation.battleId}`);
+                if (existing) return res.status(200).json({ battleId: existing.battleId, session: existing, rewardAuthorized: !!existing.rewardAuthority });
+                return res.status(409).json({ error: 'The clan-war battle is still being created. Retry in a moment.' });
+            }
+
             // True 50/50 coin flip — going first is a meaningful turn-based
             // advantage and previously the attacker (always p1) won by default.
             // Now both sides have an equal shot at the opening move; the
@@ -1428,6 +1479,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // Bind a normal challenge exactly once. The responder creates the
+            // session; the durable challenge record proves both identity and
+            // consent. This reservation is also what later authorizes the
+            // accepted notice sent back to the challenger.
+            const challengeReservation = !identity.admin && typeof challengeId === 'string'
+                ? await reserveChallengeForPvpSession({
+                    challengeId,
+                    creator: identity.name,
+                    p1: p1Norm,
+                    p2: p2Norm,
+                    mode: undefined,
+                    battleId,
+                })
+                : null;
+
+            // A world attack gets authority only from live server presence:
+            // both real fighters must be co-located in the claimed non-village
+            // sector, and the continuous-vitals/co-location flags must be set.
+            // Merely naming two real saves is never enough.
+            const p1Presence = onlineStore.get(p1Norm);
+            const p2Presence = onlineStore.get(p2Norm);
+            const claimedRewardSector = Math.floor(Number(rewardSector));
+            const worldAttackVerified =
+                useCurrentVitals === true
+                && requireWorldCoLocation === true
+                && !!p1Save?.character
+                && !!p2Save?.character
+                && Number.isFinite(claimedRewardSector)
+                && claimedRewardSector > 0
+                && p1Presence?.sector === claimedRewardSector
+                && p2Presence?.sector === claimedRewardSector;
+
+            const rewardAuthority: PvpSession['rewardAuthority'] = identity.admin
+                ? 'admin'
+                : rankedStamp.ranked === true
+                    ? 'ranked'
+                    : clanWarReservation
+                        ? 'clan-war'
+                    : challengeReservation
+                        ? 'challenge'
+                        : worldAttackVerified
+                            ? 'world'
+                            : undefined;
+
             // ── Base-reward stamp (audit #7 / Stage 3 Phase 3; #1A hardening) ─
             // Opt this session into server crediting of the winner's base ryo +
             // XP. Two client-trusted holes are closed here:
@@ -1460,18 +1555,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const deathsGateVerified =
                 onlineStore.get(p1Norm)?.sector === DEATHS_GATE_SECTOR
                 && onlineStore.get(p2Norm)?.sector === DEATHS_GATE_SECTOR;
-            const { stamp: baseRewardStamp, denied: baseRewardDenied } = sealBaseRewardStamp({
-                baseRewards: baseRewards === true,
+            // Consent to a standard player challenge proves the duel is real,
+            // but it is still a no-reward spar. Generic progression is enabled
+            // only by a purpose-built server receipt (ranked/world/Clan War) or
+            // an explicit admin test session.
+            const progressionAuthority = identity.admin
+                || rankedStamp.ranked === true
+                || !!clanWarReservation
+                || worldAttackVerified;
+            const { stamp: baseRewardStamp, denied: baseRewardDeniedBySave } = sealBaseRewardStamp({
+                baseRewards: baseRewards === true && progressionAuthority,
                 rewardSector,
                 isAdmin: identity.admin,
                 p1HasSave: !!p1Save?.character,
                 p2HasSave: !!p2Save?.character,
                 deathsGateVerified,
             });
+            const baseRewardDenied = baseRewards === true && (!progressionAuthority || baseRewardDeniedBySave);
             if (baseRewardDenied) {
                 const creatorName = identity.admin ? 'admin' : identity.name;
                 console.warn(
-                    `[pvp/session] base-reward request denied — opponent has no authoritative save `
+                    `[pvp/session] base-reward request denied — no progression authority or authoritative opponent save `
                     + `(creator=${creatorName}, p1=${p1Norm || '∅'}, p2=${p2Norm || '∅'}). `
                     + `Fight runs WITHOUT base rewards.`,
                 );
@@ -1527,6 +1631,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! 🪙 ${firstActorName} wins the coin flip and goes first.`],
                 status: 'active',
                 winner: null,
+                ...(rewardAuthority ? { rewardAuthority } : {}),
+                ...(challengeReservation ? { challengeId: challengeReservation.id } : {}),
+                ...(clanWarReservation ? {
+                    clanWarId: clanWarReservation.warId,
+                    clanWarChallengeId: clanWarReservation.challengeId,
+                } : {}),
+                joined: {
+                    p1: identity.admin || identity.name === p1Norm,
+                    p2: identity.admin || identity.name === p2Norm,
+                },
                 createdAt: Date.now(),
                 lastMoveAt: Date.now(),
                 // Snapshot environment so /api/pvp/move can't be tricked into
@@ -1550,14 +1664,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...baseRewardStamp,
             };
 
-            await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
+            try {
+                await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
+            } catch (writeError) {
+                if (challengeReservation) {
+                    await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
+                }
+                if (clanWarReservation) {
+                    await releaseClanWarPvpReservation(clanWarReservation).catch(() => undefined);
+                }
+                throw writeError;
+            }
             // Return the full session alongside the id so the client can seed
             // PvpBattleScreen's state on mount and skip the redundant GET
             // round trip that immediately follows a POST. Same data the GET
             // endpoint returns (and GET is unauthenticated for spectator-by-id
             // / EventSource compat), so no new exposure here — POST itself is
             // already gated to a fighter or admin via authedPlayerOrAdmin.
-            return res.status(200).json({ battleId, session });
+            return res.status(200).json({ battleId, session, rewardAuthorized: !!rewardAuthority });
         } catch (err) {
             console.error('[pvp/session]', err);
             return res.status(500).json({ error: 'Internal server error.' });

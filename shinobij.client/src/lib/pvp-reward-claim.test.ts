@@ -22,6 +22,7 @@ describe("pvp-reward-claim", () => {
         assert.equal(result.status, "confirmed");
         if (result.status === "confirmed") {
             assert.equal(result.alreadyClaimed, false);
+            assert.equal(result.rewardAuthorized, true);
             assert.deepEqual(result.rating, { field: "rankedRating", value: 1016, delta: 16 });
             assert.equal(result.base?.ryo, 175);
         }
@@ -33,7 +34,7 @@ describe("pvp-reward-claim", () => {
             alreadyClaimed: true,
         }), { playerName: "rin", battleId: "battle-1", outcome: "win" });
 
-        assert.deepEqual(result, { status: "confirmed", alreadyClaimed: true });
+        assert.deepEqual(result, { status: "confirmed", alreadyClaimed: true, rewardAuthorized: false });
     });
 
     it("keeps non-2xx receipt failures retryable", async () => {

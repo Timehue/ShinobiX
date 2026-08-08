@@ -6,7 +6,7 @@ import {
     allSpireFloors, spireFloorMeta, keystonesUpTo, SPIRE_KEYSTONE_COLOR,
     SPIRE_SHARDS_PER_TIER, type SpireBossKey,
 } from "../lib/spire-catalog";
-import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
+import { battleEntryCost, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
@@ -161,9 +161,8 @@ export function BattleTowersLobby({
         setStarting(true);
         setError(null);
         try {
-            const { runId, session } = await startTowerRun(me, selected, allies, hostLoadout);
-            const paid = payBattleEntry(character);
-            if (paid) updateCharacter(paid);
+            const { runId, session, character: authoritativeCharacter } = await startTowerRun(me, selected, allies, hostLoadout);
+            if (authoritativeCharacter) updateCharacter(authoritativeCharacter);
             onEnter(runId, session);
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
@@ -171,7 +170,7 @@ export function BattleTowersLobby({
         }
     }
 
-    // Endless Spire — fee-exempt (no payBattleEntry); the tier is the escalation, retries are free.
+    // Endless Spire is fee-exempt; the tier is the escalation and retries are free.
     async function enterSpire() {
         if (starting) return;
         const tier = Math.max(1, Math.min(spireMaxSelectable, spireTier));

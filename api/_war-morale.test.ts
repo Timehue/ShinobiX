@@ -9,6 +9,7 @@ import {
     WAR_DEBUFF_JUTSU_TIME_MULT,
     WAR_BUFF_TRAINING_XP_MULT,
     WAR_BUFF_JUTSU_TIME_MULT,
+    settlementMoralePatch,
 } from './_war-morale.js';
 import { jutsuRyoTrainingDuration } from './training/_jutsu-ryo.js';
 
@@ -29,7 +30,7 @@ describe('war morale (server)', () => {
 
     it('applies each side’s multipliers', () => {
         const loss = resolveWarMorale({ warLossDebuffUntil: NOW + DAY }, NOW);
-        assert.equal(loss.morale, 'demoralized');
+        assert.equal(loss.morale, 'rallying');
         assert.equal(loss.xpMult, WAR_DEBUFF_TRAINING_XP_MULT);
         assert.equal(loss.jutsuTimeMult, WAR_DEBUFF_JUTSU_TIME_MULT);
         const win = resolveWarMorale({ warWinBuffUntil: NOW + DAY }, NOW);
@@ -39,13 +40,25 @@ describe('war morale (server)', () => {
     });
 
     it('lets the most RECENT settlement win', () => {
-        assert.equal(resolveWarMorale({ warWinBuffUntil: NOW + 1000, warLossDebuffUntil: NOW + DAY }, NOW).morale, 'demoralized');
+        assert.equal(resolveWarMorale({ warWinBuffUntil: NOW + 1000, warLossDebuffUntil: NOW + DAY }, NOW).morale, 'rallying');
         assert.equal(resolveWarMorale({ warLossDebuffUntil: NOW + 1000, warWinBuffUntil: NOW + DAY }, NOW).morale, 'triumphant');
     });
 
     it('survives garbage stamps', () => {
         assert.equal(resolveWarMorale({ warLossDebuffUntil: 'soon' }, NOW).morale, 'none');
         assert.equal(resolveWarMorale(null, NOW).morale, 'none');
+    });
+
+    it('ends a comeback rally when that village wins its next war', () => {
+        const afterLoss = { ...settlementMoralePatch('loser', NOW) };
+        assert.equal(resolveWarMorale(afterLoss, NOW + DAY).morale, 'rallying');
+
+        const afterRematchWin = {
+            ...afterLoss,
+            ...settlementMoralePatch('winner', NOW + DAY),
+        };
+        assert.equal(resolveWarMorale(afterRematchWin, NOW + DAY).morale, 'none');
+        assert.equal(Number(afterRematchWin.warLossDebuffUntil), 0);
     });
 });
 
@@ -72,21 +85,21 @@ describe('jutsu training duration × morale', () => {
         assert.equal(jutsuRyoTrainingDuration(L, 0), jutsuRyoTrainingDuration(L, 0, 1));
     });
 
-    it('SLOWS a demoralized village even with NO training bonus — the bug this fixes', () => {
+    it('speeds up a rallying village after a loss', () => {
         const normal = jutsuRyoTrainingDuration(L, 0, 1);
-        const demoralized = jutsuRyoTrainingDuration(L, 0, WAR_DEBUFF_JUTSU_TIME_MULT);
-        assert.ok(demoralized > normal, 'the debuff must bite without an existing bonus');
-        assert.equal(demoralized, Math.floor(normal * 1.2));
+        const rallying = jutsuRyoTrainingDuration(L, 0, WAR_DEBUFF_JUTSU_TIME_MULT);
+        assert.ok(rallying < normal);
+        assert.equal(rallying, Math.floor(normal * 0.9));
     });
 
-    it('speeds up a triumphant village', () => {
-        assert.ok(jutsuRyoTrainingDuration(L, 0, WAR_BUFF_JUTSU_TIME_MULT) < jutsuRyoTrainingDuration(L, 0, 1));
+    it('keeps legacy triumphant stamps progression-neutral', () => {
+        assert.equal(jutsuRyoTrainingDuration(L, 0, WAR_BUFF_JUTSU_TIME_MULT), jutsuRyoTrainingDuration(L, 0, 1));
     });
 
     it('stacks with, rather than replacing, the player’s own bonus', () => {
         const bonused = jutsuRyoTrainingDuration(L, 50, 1);
-        assert.ok(jutsuRyoTrainingDuration(L, 50, WAR_DEBUFF_JUTSU_TIME_MULT) > bonused);
-        assert.ok(jutsuRyoTrainingDuration(L, 50, WAR_BUFF_JUTSU_TIME_MULT) < bonused);
+        assert.ok(jutsuRyoTrainingDuration(L, 50, WAR_DEBUFF_JUTSU_TIME_MULT) < bonused);
+        assert.equal(jutsuRyoTrainingDuration(L, 50, WAR_BUFF_JUTSU_TIME_MULT), bonused);
     });
 
     it('clamps a nonsense multiplier and keeps the one-minute floor', () => {

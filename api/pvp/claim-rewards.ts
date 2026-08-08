@@ -12,7 +12,7 @@ import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
-import type { PvpSession } from './session.js';
+import { pvpSessionMayReward, type PvpSession } from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
@@ -220,11 +220,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // (failClosed → 503) leaves the relevant NX receipts unplaced so a retry
         // settles cleanly without ever double-crediting. Casual, non-baseRewards
         // sessions keep the unchanged NX-only path below.
+        const rewardAuthorized = pvpSessionMayReward(session);
         const isRankedClaim =
+            rewardAuthorized &&
             session.ranked === true &&
             (session.rankedKind === 'player' || session.rankedKind === 'pet') &&
             (session.winner === 'p1' || session.winner === 'p2');
-        const creditBase = session.baseRewards === true && outcome === 'win';
+        const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win';
         if (isRankedClaim || creditBase) {
             const kind: 'player' | 'pet' = session.rankedKind === 'pet' ? 'pet' : 'player';
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
@@ -465,6 +467,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
+                    rewardAuthorized,
                     ...(out.rating ? { rating: out.rating } : {}),
                     ...(out.base ? { base: out.base } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
@@ -504,11 +507,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     source: `casual:${outcome}`,
                 });
             }
-            return res.status(200).json({ ok: true, alreadyClaimed, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+            return res.status(200).json({ ok: true, alreadyClaimed, rewardAuthorized, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
         } catch (reserveErr) {
             console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);
             const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
-            return res.status(200).json({ ok: true, alreadyClaimed: false, degraded: true, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+            return res.status(200).json({ ok: true, alreadyClaimed: false, rewardAuthorized, degraded: true, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
         }
     } catch (err) {
         console.error('[pvp/claim-rewards]', err);

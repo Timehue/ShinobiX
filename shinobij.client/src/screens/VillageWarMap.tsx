@@ -5,6 +5,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
 import { useSharedNow } from "../lib/use-shared-now";
+import { isProtectedHomeSector } from "../data/war-map-sectors";
 import {
     fetchWarMap,
     declareSectorWar,
@@ -213,7 +214,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 <span>WR Pool <b>{myView.warResources}</b>/{myView.warResourcesCap}{myView.dormant && <em className="vwm-dormant"> · dormant</em>}</span>
                                 <span>Treasury Seals <b>{myView.treasurySeals}</b></span>
                                 <span>Sectors held <b>{myView.sectorsHeld}</b></span>
-                                <span title={myView.kageSeated === false ? "No Kage is seated, so your village collects no tax." : "Daily tax on your ryo. Holding more sectors lowers it."}>Tax <b>{myView.taxRatePct}%</b>{myView.kageSeated === false && <> (no Kage)</>}</span>
+                                <span title={myView.kageSeated === false ? "No Kage is seated, so your village collects no tax." : "Only territory held beyond your village's eight home sectors creates an occupation tax."}>Tax <b>{myView.taxRatePct}%</b>{myView.kageSeated === false && <> (no Kage)</>}</span>
                                 <span>Upkeep <b>{myView.upkeepWr}</b> WR/day</span>
                                 <span>+{myView.wrPerSector} WR/sector</span>
                             </div>
@@ -292,7 +293,8 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     const owner = owners[sec.sector] || v.village;
                                     const contest = contestBySector[sec.sector];
                                     const mine = v.village === myVillage && isKage;
-                                    const canDeclare = isKage && owner !== myVillage && !contest;
+                                    const protectedCore = isProtectedHomeSector(sec.sector);
+                                    const canDeclare = isKage && owner !== myVillage && !contest && (!protectedCore || v.village === myVillage);
                                     const totalPts = contest ? contest.attackerPoints + contest.defenderPoints : 0;
                                     const pct = contest ? (totalPts > 0 ? Math.round((contest.attackerPoints / totalPts) * 100) : 50) : 0;
                                     const hoursLeft = contest ? Math.max(0, Math.ceil((contest.endsAt - nowTick) / 3_600_000)) : 0;
@@ -303,6 +305,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <span style={{ color: villageAccent(owner) }}>{owner === myVillage ? "yours" : owner}</span>
                                             </div>
                                             <div className="vwm-sector-meta">{WINCON_IMAGES[sec.winCondition] && <img src={WINCON_IMAGES[sec.winCondition]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", marginRight: 3, borderRadius: 3 }} />}{sec.winCondition} · {TERRAIN_IMAGES[sec.terrain] && <img src={TERRAIN_IMAGES[sec.terrain]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", margin: "0 3px", borderRadius: 3 }} />}{sec.terrain}</div>
+                                            {protectedCore && <small className="hint">🛡 Protected gate · home village may reclaim</small>}
                                             {contest && (
                                                 <div className="vwm-control" title={`${contest.attackerVillage} attacking — most points when the clock runs out takes the sector (tie: defender holds)`}>
                                                     <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.attackerVillage) }} /></div>

@@ -13,6 +13,15 @@ export const HOME_SECTORS: Record<string, readonly number[]> = {
     "Frostfang Village": [26, 27, 28, 29, 30, 33, 31, 32],
 };
 
+/** Permanent village gates: visible on the war map, but never conquerable. */
+export const PROTECTED_HOME_SECTORS = new Set(
+    Object.values(HOME_SECTORS).map((sectors) => sectors[0]),
+);
+
+export function isProtectedHomeSector(sector: number): boolean {
+    return PROTECTED_HOME_SECTORS.has(sector);
+}
+
 const SECTOR_TO_VILLAGE: Record<number, string> = (() => {
     const m: Record<number, string> = {};
     for (const [village, sectors] of Object.entries(HOME_SECTORS)) {

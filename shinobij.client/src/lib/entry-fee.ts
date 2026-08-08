@@ -1,6 +1,7 @@
 /*
- * Client-side ryo ENTRY FEES for the repeatable PvE modes (a recurring ryo sink
- * that drains the players who grind extra runs).
+ * Entry-fee quotes for repeatable PvE modes. Battle Towers and Pet Gauntlet
+ * debit the stored wallet in their server start endpoints; these calculations
+ * are only an immediate UI preview. Endless Tower still uses its legacy flow.
  *
  * Why client-side: ryo is client-owned — the client autosaves character.ryo — so
  * a SERVER-side debit would be clobbered by the client's next autosave of its
@@ -53,21 +54,7 @@ export function battleEntryCost(character: Character): number {
     return used < BATTLE_FREE_FLOORS ? 0 : BATTLE_FLOOR_FEE;
 }
 
-export function payBattleEntry(character: Character): Character | null {
-    const cost = battleEntryCost(character);
-    if ((character.ryo ?? 0) < cost) return null;
-    const day = todayKey();
-    const used = character.dailyBattleDate === day ? (character.dailyBattleFloors ?? 0) : 0;
-    return { ...character, ryo: (character.ryo ?? 0) - cost, dailyBattleFloors: used + 1, dailyBattleDate: day };
-}
-
 // ── Pet Gauntlet ─────────────────────────────────────────────────────────────
-// The first run on entering the Gauntlet is free; each subsequent "New Run"
-// costs a flat ryo fee. No daily counter — charged on the explicit New Run
-// action, which is exactly the repeated-grind behavior we want to drain.
+// The first run each UTC day is free; every later server-minted run costs this
+// flat amount. The server owns the counter and debit.
 export const GAUNTLET_NEW_RUN_FEE = 1500;
-
-export function payGauntletNewRun(character: Character): Character | null {
-    if ((character.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) return null;
-    return { ...character, ryo: (character.ryo ?? 0) - GAUNTLET_NEW_RUN_FEE };
-}

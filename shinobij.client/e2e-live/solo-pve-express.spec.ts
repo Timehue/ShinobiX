@@ -199,7 +199,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
 
     const screenshotName = testInfo.project.name.includes('mobile') ? 'mission-mobile.png' : 'mission-desktop.png';
-    await page.locator('.mission-arena-fight').screenshot({ path: `../docs/screenshots/solo-pve-cutover/${screenshotName}` });
+    await page.locator('.mission-arena-fight').screenshot({ path: testInfo.outputPath(screenshotName) });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
 
@@ -289,7 +289,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     expect(retrySettle.queued).toBe(true);
     expect(retrySettle.replayed).toBe(true);
     const resultName = testInfo.project.name.includes('mobile') ? 'mission-result-mobile.png' : 'mission-result-desktop.png';
-    await page.locator('.mission-arena-fight').screenshot({ path: `../docs/screenshots/solo-pve-cutover/${resultName}` });
+    await page.locator('.mission-arena-fight').screenshot({ path: testInfo.outputPath(resultName) });
 
     const replaySettle = await browserApi(page, '/api/missions/queue-combat-claim', {
         playerName: name,

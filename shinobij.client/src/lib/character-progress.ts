@@ -137,7 +137,7 @@ export type LevelProgress = {
     /** Numeric readout, e.g. "1,840 / 2,240 pts", "MAX", or "3,410 pts banked". */
     label: string;
     maxed: boolean;
-    /** The exam label ("Genin Exam") when the level is frozen behind it. */
+    /** The exam label ("Genin Advancement Exam") when the level is frozen behind it. */
     heldBy: string | null;
 };
 

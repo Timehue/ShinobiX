@@ -7,7 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
-import type { PvpSession } from './session.js';
+import { pvpSessionMayGrantProgress, type PvpSession } from './session.js';
 import { normalizeBoard, placeBounty, claimBounty, findBounty, type BountyBoard } from './_bounty.js';
 
 /*
@@ -163,6 +163,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
             if (session.status !== 'done' || !session.winner || session.winner === 'draw') {
                 return res.status(409).json({ error: 'That battle is not decided yet.' });
+            }
+            if (!pvpSessionMayGrantProgress(session)) {
+                return res.status(403).json({ error: 'That battle was not a mutually joined, sanctioned PvP match.' });
             }
             if (now - num(session.createdAt) > SESSION_REPLAY_WINDOW_MS) {
                 return res.status(409).json({ error: 'That battle is too old to claim a bounty.' });

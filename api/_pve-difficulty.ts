@@ -48,8 +48,22 @@ const BAND_STAT_MULTIPLIER: Record<PveDifficultyBand, number> = {
     easy: 0.6, medium: 0.75, hard: 0.9, peer: 1.0,
 };
 
+const PEER_FULL_POWER_LEVEL = 100;
+const PEER_RAMP_START_LEVEL = 90;
+
+function peerRamp(level: number): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(0, Math.min(1, (lvl - PEER_RAMP_START_LEVEL) / (PEER_FULL_POWER_LEVEL - PEER_RAMP_START_LEVEL)));
+}
+
+function lerp(from: number, to: number, amount: number): number {
+    return from + (to - from) * amount;
+}
+
 export function pveDifficultyStatMultiplier(level: number): number {
-    return BAND_STAT_MULTIPLIER[pveDifficultyBand(level)];
+    const band = pveDifficultyBand(level);
+    if (band !== 'peer') return BAND_STAT_MULTIPLIER[band];
+    return lerp(BAND_STAT_MULTIPLIER.hard, BAND_STAT_MULTIPLIER.peer, peerRamp(level));
 }
 
 const BAND_HP_MULTIPLIER: Record<PveDifficultyBand, number> = {
@@ -57,7 +71,9 @@ const BAND_HP_MULTIPLIER: Record<PveDifficultyBand, number> = {
 };
 
 export function pveDifficultyHpMultiplier(level: number): number {
-    return BAND_HP_MULTIPLIER[pveDifficultyBand(level)];
+    const band = pveDifficultyBand(level);
+    if (band !== 'peer') return BAND_HP_MULTIPLIER[band];
+    return lerp(BAND_HP_MULTIPLIER.hard, BAND_HP_MULTIPLIER.peer, peerRamp(level));
 }
 
 /** The AI's effective jutsu mastery, tied to its OWN level and its rank cap. */
@@ -69,8 +85,17 @@ const BAND_MAX_HIT_FRACTION: Record<PveDifficultyBand, number> = {
     easy: 0.20, medium: 0.30, hard: 0.45, peer: Infinity,
 };
 
+const PEER_RAMP_MAX_HIT_FRACTION = 2;
+const PEER_RAMP_MAX_TURN_FRACTION = 3;
+
+function peerHitFraction(level: number): number {
+    if (Math.floor(Number(level) || 1) >= PEER_FULL_POWER_LEVEL) return Infinity;
+    return lerp(BAND_MAX_HIT_FRACTION.hard, PEER_RAMP_MAX_HIT_FRACTION, peerRamp(level));
+}
+
 export function pveEnemyHitCap(level: number, playerMaxHp: number): number {
-    const frac = BAND_MAX_HIT_FRACTION[pveDifficultyBand(level)];
+    const band = pveDifficultyBand(level);
+    const frac = band === 'peer' ? peerHitFraction(level) : BAND_MAX_HIT_FRACTION[band];
     if (!Number.isFinite(frac)) return Infinity;
     const hp = Number.isFinite(playerMaxHp) ? Math.max(1, playerMaxHp) : 1;
     return Math.max(1, Math.floor(hp * frac));
@@ -79,6 +104,11 @@ export function pveEnemyHitCap(level: number, playerMaxHp: number): number {
 const BAND_MAX_TURN_FRACTION: Record<PveDifficultyBand, number> = {
     easy: 0.30, medium: 0.45, hard: 0.70, peer: Infinity,
 };
+
+function peerTurnFraction(level: number): number {
+    if (Math.floor(Number(level) || 1) >= PEER_FULL_POWER_LEVEL) return Infinity;
+    return lerp(BAND_MAX_TURN_FRACTION.hard, PEER_RAMP_MAX_TURN_FRACTION, peerRamp(level));
+}
 
 const EASY_LOWLEVEL_MAX = 10;
 const EASY_LOWLEVEL_LETHAL_FLOOR = 0.25;
@@ -101,14 +131,14 @@ export interface PveEnemyHitGuard {
 export function pveGuardedEnemyHit(rawHit: number, guard: PveEnemyHitGuard): number {
     const band = pveDifficultyBand(guard.enemyLevel);
     let hit = Math.max(0, Math.floor(Number.isFinite(rawHit) ? rawHit : 0));
-    if (band === 'peer') return hit;
+    if (band === 'peer' && Math.floor(Number(guard.enemyLevel) || 1) >= PEER_FULL_POWER_LEVEL) return hit;
 
     const maxHp = Number.isFinite(guard.playerMaxHp) ? Math.max(1, guard.playerMaxHp) : 1;
     const dealt = Math.max(0, Number.isFinite(guard.dealtThisTurn) ? guard.dealtThisTurn : 0);
 
     hit = Math.min(hit, pveEnemyHitCap(guard.enemyLevel, maxHp));
 
-    const turnFrac = BAND_MAX_TURN_FRACTION[band];
+    const turnFrac = band === 'peer' ? peerTurnFraction(guard.enemyLevel) : BAND_MAX_TURN_FRACTION[band];
     if (Number.isFinite(turnFrac)) {
         const turnBudget = Math.max(1, Math.floor(maxHp * turnFrac));
         hit = Math.min(hit, Math.max(0, turnBudget - dealt));

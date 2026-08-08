@@ -151,7 +151,7 @@ export async function validateVillageStateWrite(
         next.hollowGateUnlockedUntil = prevUntil;
     }
 
-    // ── warLossDebuffUntil (demoralized debuff) ─────────────────────
+    // ── warLossDebuffUntil (legacy name; comeback rally window) ─────
     // Set ONLY by the server at war settlement (api/world-state.ts). The client
     // may never clear or shorten it — pin to the previous value if a write tries
     // to lower it, so a losing village can't dodge its 3-day training debuff.

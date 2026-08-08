@@ -93,12 +93,12 @@ describe('sealPveDifficultyBand', () => {
         assert.equal(s.actors[0].maxHp, 750);
     });
 
-    it('is a peer-band no-op on stats and HP, but still arms the guard', () => {
-        const s = session(actor('boss', 'enemy', 95, 1000));
+    it('is a max-level peer no-op on stats and HP, but still arms the guard', () => {
+        const s = session(actor('boss', 'enemy', 100, 1000));
         sealPveDifficultyBand(s, { mode: 'MISSION', env: {} });
-        assert.equal(s.actors[0].maxHp, 1000, 'peer HP multiplier is 1');
-        assert.equal(enemyStats(s).ninjutsuOffense, 1000, 'peer stat multiplier is 1');
-        assert.equal(s.pveGuard?.enemyLevel, 95);
+        assert.equal(s.actors[0].maxHp, 1000, 'max-level peer HP multiplier is 1');
+        assert.equal(enemyStats(s).ninjutsuOffense, 1000, 'max-level peer stat multiplier is 1');
+        assert.equal(s.pveGuard?.enemyLevel, 100);
     });
 
     describe('band level derivation', () => {
