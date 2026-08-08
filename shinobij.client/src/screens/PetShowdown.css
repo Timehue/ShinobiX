@@ -217,7 +217,7 @@
 
 .showdown-pet-card {
     pointer-events: auto;
-    width: 158px;
+    width: 196px;
     padding: 6px 8px;
     background: rgba(16, 11, 6, 0.82);
     border: 1px solid rgba(217, 180, 120, 0.3);
@@ -225,6 +225,13 @@
     color: inherit;
     text-align: left;
     backdrop-filter: blur(3px);
+}
+.showdown-pet-card-sub {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.66rem;
+    margin-bottom: 2px;
 }
 .showdown-pet-card:disabled { cursor: default; }
 .showdown-pet-card.ko { opacity: 0.45; filter: grayscale(0.8); }
@@ -472,13 +479,14 @@
 }
 .showdown-pet-card.benched { opacity: 0.72; border-style: dashed; }
 .showdown-bench-tag {
-    position: absolute;
-    right: 6px;
-    top: 4px;
-    font-size: 0.52rem;
+    font-size: 0.54rem;
     font-weight: 800;
     letter-spacing: 0.08em;
-    color: #b9a583;
+    color: #1c1207;
+    background: #b9a583;
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-left: auto;
 }
 
 .showdown-vs-intro {
@@ -556,8 +564,8 @@
     margin-right: 2px;
 }
 .showdown-order-chip {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     border: 2px solid;
     display: grid;
@@ -565,6 +573,12 @@
     font-size: 0.62rem;
     font-weight: 800;
     background: rgba(30, 22, 14, 0.9);
+    overflow: hidden;
+}
+.showdown-order-chip img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
 }
 .showdown-order-chip.mine { color: #fcd34d; }
 .showdown-order-chip.theirs { color: #fca5a5; opacity: 0.85; }

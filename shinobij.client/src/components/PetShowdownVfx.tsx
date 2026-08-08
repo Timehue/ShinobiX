@@ -102,6 +102,8 @@ export interface VfxSpawn {
     scale: number;
     startedAt: number;
     durationMs: number;
+    /** Height multiplier — sky bolts are tall, impacts are square. */
+    aspect?: number;
 }
 
 function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
@@ -128,7 +130,7 @@ function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
     return (
         <Billboard position={spawn.pos} lockX lockZ>
             <mesh ref={mesh} visible={false}>
-                <planeGeometry args={[spawn.scale, spawn.scale]} />
+                <planeGeometry args={[spawn.scale, spawn.scale * (spawn.aspect ?? 1)]} />
                 <meshBasicMaterial
                     ref={mat}
                     transparent
@@ -213,7 +215,7 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
     beatRef: React.MutableRefObject<VfxBeat>;
     posRef: React.MutableRefObject<VfxPositions>;
 }) {
-    const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0 });
+    const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0, fan: 1, dirX: 0, dirZ: 1 });
     const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, element: "None", progress: 0 });
 
     useFrame(() => {
@@ -230,19 +232,24 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
         const frac = (performance.now() - beat.startedAt) / beat.durationMs;
 
         if (ev.delivery === "ranged" && ev.moveKind !== "heal") {
+            const travel = ELEMENT_TRAVEL[ev.element] ?? ELEMENT_TRAVEL.None;
             const t0 = 0.36, t1 = VFX_STRIKE_FRAC;
-            if (frac >= t0 && frac <= t1) {
+            if (!travel.instant && frac >= t0 && frac <= t1) {
                 const p = (frac - t0) / (t1 - t0);
                 const ax = actor[0], az = actor[2];
                 const bx = target[0], bz = target[2];
                 proj.active = true;
                 proj.x = ax + (bx - ax) * p;
-                proj.y = 1.2 + Math.sin(p * Math.PI) * 0.55;
+                proj.y = 1.2 + Math.sin(p * Math.PI) * travel.arc;
                 proj.z = az + (bz - az) * p;
                 proj.element = ev.element;
                 proj.kind = ev.moveKind;
                 proj.charged = ev.super;
                 proj.progress = p;
+                proj.fan = travel.fan;
+                const len = Math.hypot(bx - ax, bz - az) || 1;
+                proj.dirX = (bx - ax) / len;
+                proj.dirZ = (bz - az) / len;
             }
         } else if (ev.delivery === "melee") {
             // Mirror the fighter's dash window (0.32 → 0.5 of the beat).
@@ -269,6 +276,7 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
 // ─── Painted projectile with trail ───────────────────────────────────────────
 
 const TRAIL_LEN = 7;
+const FAN_MAX = 3;
 
 export interface ProjectileDrive {
     /** Current head position, written per-frame by the caller; null = hidden. */
@@ -281,24 +289,38 @@ export interface ProjectileDrive {
     charged: boolean;
     /** Travel progress 0..1 — drives spin phase so replays look identical. */
     progress: number;
+    /** Crescents flying in a fan (Wind); 1 = a single head. */
+    fan: number;
+    /** Normalized travel direction on the ground plane (for fan spread). */
+    dirX: number;
+    dirZ: number;
 }
 
+/** Per-element travel identity — each element THROWS differently.
+ *  arc = peak height of the flight parabola; fan = simultaneous heads;
+ *  instant = no travel at all (the sky strikes for you). */
+export const ELEMENT_TRAVEL: Record<string, { arc: number; fan: number; instant?: boolean }> = {
+    Fire: { arc: 0.35, fan: 1 },          // straight searing fastball
+    Water: { arc: 0.12, fan: 1 },         // low skimming wave
+    Wind: { arc: 0.55, fan: 3 },          // a fan of three crescents
+    Earth: { arc: 1.7, fan: 1 },          // high lobbed boulder
+    Lightning: { arc: 0, fan: 1, instant: true },   // sky bolt at the strike
+    None: { arc: 0.55, fan: 1 },
+};
+
 export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<ProjectileDrive> }) {
-    const head = useRef<THREE.Mesh>(null);
-    const headMat = useRef<THREE.MeshBasicMaterial>(null);
-    const glow = useRef<THREE.Mesh>(null);
-    const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const heads = useRef<Array<THREE.Mesh | null>>([]);
+    const headMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const glows = useRef<Array<THREE.Mesh | null>>([]);
+    const glowMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const trailRefs = useRef<Array<THREE.Mesh | null>>([]);
     const trail = useRef<Array<{ x: number; y: number; z: number }>>([]);
 
     useFrame(() => {
         const d = drive.current;
-        const h = head.current;
-        const g = glow.current;
-        if (!h || !g) return;
         if (!d.active) {
-            h.visible = false;
-            g.visible = false;
+            for (const m of heads.current) if (m) m.visible = false;
+            for (const m of glows.current) if (m) m.visible = false;
             for (const m of trailRefs.current) if (m) m.visible = false;
             trail.current.length = 0;
             return;
@@ -306,23 +328,37 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
         const visual = projectileVisual({ element: d.element, kind: d.kind, charged: d.charged });
         const tex = projectileTexture(d.element);
         const size = visual.size * (d.charged ? 2.4 : 1.8);
-        // Head: painted sprite when the element has one, glowing orb otherwise.
-        h.visible = !!tex;
-        g.visible = true;
-        if (headMat.current && tex && headMat.current.map !== tex) {
-            headMat.current.map = tex;
-            headMat.current.needsUpdate = true;
-        }
         const wobble = Math.sin(d.progress * 24) * visual.wobble * 0.35;
         const flicker = 1 + Math.sin(d.progress * 90) * visual.flicker * 0.3;
-        h.position.set(d.x, d.y + wobble, d.z);
-        h.scale.set(size * visual.stretch * flicker, size * flicker, 1);
-        h.rotation.z = visual.spin ? d.progress * visual.spin * 1.2 : 0;
-        g.position.copy(h.position);
-        g.scale.setScalar(size * 1.9 * flicker);
-        if (glowMat.current) glowMat.current.color.set(visual.glow);
+        // Fan spread: perpendicular to travel, opens mid-flight, converges at
+        // the target (sin envelope). A single head sits at offset 0.
+        const fan = Math.max(1, Math.min(FAN_MAX, d.fan));
+        const spread = Math.sin(d.progress * Math.PI) * 1.0;
+        const perpX = -d.dirZ, perpZ = d.dirX;
+        for (let i = 0; i < FAN_MAX; i++) {
+            const h = heads.current[i];
+            const g = glows.current[i];
+            if (!h || !g) continue;
+            if (i >= fan) { h.visible = false; g.visible = false; continue; }
+            const lane = fan === 1 ? 0 : (i - (fan - 1) / 2) * spread;
+            const px = d.x + perpX * lane;
+            const pz = d.z + perpZ * lane;
+            h.visible = !!tex;
+            g.visible = true;
+            const mat = headMats.current[i];
+            if (mat && tex && mat.map !== tex) {
+                mat.map = tex;
+                mat.needsUpdate = true;
+            }
+            h.position.set(px, d.y + wobble, pz);
+            h.scale.set(size * visual.stretch * flicker, size * flicker, 1);
+            h.rotation.z = visual.spin ? d.progress * visual.spin * 1.2 + i * 2.1 : 0;
+            g.position.copy(h.position);
+            g.scale.setScalar(size * 1.9 * flicker);
+            glowMats.current[i]?.color.set(visual.glow);
+        }
 
-        // Trail: breadcrumb the last positions, render as shrinking fading dots.
+        // Trail follows the CENTER head — shrinking fading dots.
         trail.current.unshift({ x: d.x, y: d.y + wobble, z: d.z });
         if (trail.current.length > TRAIL_LEN) trail.current.length = TRAIL_LEN;
         trailRefs.current.forEach((m, i) => {
@@ -340,16 +376,20 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
 
     return (
         <group>
-            <Billboard>
-                <mesh ref={head} visible={false}>
-                    <planeGeometry args={[1, 1]} />
-                    <meshBasicMaterial ref={headMat} transparent depthWrite={false} toneMapped={false} alphaTest={0.05} />
-                </mesh>
-            </Billboard>
-            <mesh ref={glow} visible={false}>
-                <sphereGeometry args={[1, 12, 12]} />
-                <meshBasicMaterial ref={glowMat} transparent opacity={0.28} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
-            </mesh>
+            {Array.from({ length: FAN_MAX }, (_, i) => (
+                <group key={i}>
+                    <Billboard>
+                        <mesh ref={(el) => { heads.current[i] = el; }} visible={false}>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial ref={(el) => { headMats.current[i] = el; }} transparent depthWrite={false} toneMapped={false} alphaTest={0.05} />
+                        </mesh>
+                    </Billboard>
+                    <mesh ref={(el) => { glows.current[i] = el; }} visible={false}>
+                        <sphereGeometry args={[1, 12, 12]} />
+                        <meshBasicMaterial ref={(el) => { glowMats.current[i] = el; }} transparent opacity={0.28} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                    </mesh>
+                </group>
+            ))}
             {Array.from({ length: TRAIL_LEN }, (_, i) => (
                 <mesh key={i} ref={(el) => { trailRefs.current[i] = el; }} visible={false}>
                     <sphereGeometry args={[1, 8, 8]} />
