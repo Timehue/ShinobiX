@@ -989,12 +989,14 @@ export function sanitizeCharacterSave(
         char.createdAt = exChar.createdAt;
     }
 
-    // Profession: lock the profession choice (server-side picker writes it
-    // via /api/profession/choose), reject client XP gains, and recompute rank
-    // from XP so a malicious client can't claim higher rank than its XP earns.
+    // Profession: lock the profession choice (the server-side picker and its
+    // one-time respec flow write it via /api/profession/choose), reject client
+    // XP gains, and recompute rank from XP so a malicious client can't claim a
+    // higher rank than its XP earns.
     //
     // Two-state lockdown:
-    //   • exChar HAS a profession  → preserve it (permanent choice).
+    //   • exChar HAS a profession  → preserve it (only the dedicated endpoint
+    //     may spend the one-time change and replace it).
     //   • exChar has NO profession → ALSO preserve `undefined`. The dedicated
     //     /api/profession/choose endpoint is the only path that may set the
     //     initial value. Without this branch a fresh-account save POST could
@@ -1239,14 +1241,15 @@ export function sanitizeCharacterSave(
     // Pet roster cap: a tampered client could POST a save with more pets than
     // allowed. Server truncates so we don't silently lose extras on next reload.
     // Preserve the active pet if it's in the cut. Subscriber-aware (Patreon
-    // perk): 3 for the base tier, 5 for subscribers. `char.patreon` is forced
+    // perk): 4 for the base tier (enough for Tactical 4v4), 5 for subscribers.
+    // `char.patreon` is forced
     // from stored later in this pipeline, but it is already the stored value on
     // an autosave (the client can't set it), so reading it here is safe.
     //
     // NON-DESTRUCTIVE downgrade: never truncate BELOW the already-stored roster,
     // so a lapsed subscriber (or a legacy larger roster) keeps every pet — the
-    // cap only prevents GROWING past it. A legit base-tier roster is <=3, so a
-    // tampered save still can't grow the roster past 3.
+    // cap only prevents GROWING past it. A legit base-tier roster is <=4, so a
+    // tampered save still can't grow the roster past 4.
     const existingPets = Array.isArray(exChar.pets) ? exChar.pets as Array<Record<string, unknown>> : [];
     const PET_CAP = Math.max(maxPets(char), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
@@ -1498,7 +1501,9 @@ export function sanitizeCharacterSave(
                 }
             }
         }
-        return (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
+        let acceptedEntitledNew = 0;
+        let rejectedUnentitledNew = false;
+        const normalized = (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
             if (!bl || typeof bl !== 'object') return {};
             const out: Record<string, unknown> = { ...bl };
             // Existing ids may retain or lower their stored rank. New ids and rank
@@ -1517,8 +1522,10 @@ export function sanitizeCharacterSave(
                     : undefined;
                 if (forge) {
                     consumedBloodlineForgeIds.add(forge.id);
+                    acceptedEntitledNew += 1;
                     rank = forge.rank;
                 } else if (!storedRank) {
+                    rejectedUnentitledNew = true;
                     return null;
                 } else {
                     rank = storedRank;
@@ -1598,6 +1605,17 @@ export function sanitizeCharacterSave(
             }
             return out;
         }).filter((bl): bl is Record<string, unknown> => bl !== null);
+
+        // Atomic replacement safety: the base-tier client stores one custom
+        // bloodline and submits `[newDraft]` when replacing it. If that draft
+        // has no forge entitlement, accepting the now-empty normalized array
+        // would erase the valid stored bloodline. Reject that whole replacement
+        // and preserve the stored roster. A genuinely entitled new bloodline is
+        // still allowed to replace the old one in the same request.
+        if (mayConsumeForge && rejectedUnentitledNew && acceptedEntitledNew === 0 && Array.isArray(existingArr) && existingArr.length > 0) {
+            return structuredClone((existingArr as unknown[]).slice(0, BLOODLINE_CAP));
+        }
+        return normalized;
     };
     // The live client persists savedBloodlines at the TOP LEVEL of the save
     // record; older/admin shapes nest it under character. Normalize whichever is
@@ -2025,8 +2043,8 @@ export function sanitizeCharacterSave(
     // un-forgeable flag and these caps are the final word regardless of
     // STRICT_RAW_SAVE_LEDGER. The base tier is intentionally lower than the
     // subscriber tier (see api/_entitlements.ts):
-    //   • jutsu loadout: 12 (base) / 15 (subscriber). The legacy 16th slot is a
-    //     separate additive field and is unaffected.
+    //   • jutsu loadout: 15 for every player. Competitive slots are deliberately
+    //     not a paid perk. The legacy 16th slot is a separate additive field.
     //   • custom avatar: subscribers only. A non-subscriber may keep an already-
     //     stored avatar (grandfathered), switch to a preset, or carry the
     //     reference URL for their OWN published shared image, but a NEW custom

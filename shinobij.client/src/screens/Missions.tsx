@@ -356,7 +356,7 @@ export function Missions({
                 <section className="mh-section rookie-orders-card">
                     <h3 className="mh-section-title" style={{ marginTop: 0 }}><GiGraduateCap style={MH_ICON} />Rookie Orders</h3>
                     <p className="hint" style={{ marginTop: 0 }}>
-                        Build toward the level-20 Genin Exam: train stats and clear your field and hunt dailies — those are what level you. Combat missions and the Arena pay the ryo that funds your gear and jutsu.
+                        Build toward the level-20 Genin Advancement Exam: you earn the Genin title at level 15, then this later gate qualifies you to keep progressing. Train stats and clear your field and hunt dailies — those are what level you. Combat missions and the Arena pay the ryo that funds your gear and jutsu.
                     </p>
                     <div className="rookie-orders-actions">
                         <button className="start-primary-btn" onClick={() => setActiveMissionTab("combat")}>

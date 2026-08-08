@@ -50,6 +50,7 @@ import { settleDueSectorWars } from '../_sector-war-settle.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
+import { pvpSessionMayReward } from '../pvp/session.js';
 
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
@@ -99,6 +100,8 @@ type ReadBattle = {
     biome?: string;
     p1?: { name?: string };
     p2?: { name?: string };
+    rewardAuthority?: 'challenge' | 'ranked' | 'world' | 'admin';
+    joined?: { p1: boolean; p2: boolean };
 };
 
 function kageKey(village: string): string {
@@ -130,6 +133,7 @@ function declineMessage(e: SectorWarDeclineReason, cost?: number): string {
         case 'self': return 'You cannot sector-war your own village.';
         case 'not-war-village': return 'Both villages must be war villages.';
         case 'not-war-sector': return 'That sector is not a war sector.';
+        case 'protected-core': return 'Village gates cannot be conquered; only their home village may fight to reclaim one.';
         case 'not-enemy-held': return 'That sector is not currently held by an enemy village.';
         case 'mutual-exclusion-attacker': return 'Your village is in a village war — finish it before running sector wars.';
         case 'mutual-exclusion-defender': return 'The defending village is in a village war and cannot be sector-warred.';
@@ -309,6 +313,9 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     // only the authoritative session winner.
     const battle = await kv.get<ReadBattle>(`pvp:${battleId}`);
     if (!battle) return res.status(404).json({ error: 'Battle session not found or expired.' });
+    if (!identity.admin && battle.rewardAuthority !== 'world') {
+        return res.status(409).json({ error: 'That battle is not an authorized world-sector match.' });
+    }
     if (!Number.isFinite(Number(battle.createdAt)) || Number(battle.createdAt) < contest.startedAt) {
         return res.status(409).json({ error: 'That battle predates this sector war.' });
     }
@@ -349,6 +356,9 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
         const freshP2 = safeName(fresh?.p2?.name ?? '');
         if (!fresh || freshP1 !== p1 || freshP2 !== p2) {
             return res.status(409).json({ error: 'Battle participants changed before registration completed.' });
+        }
+        if (!identity.admin && fresh.rewardAuthority !== 'world') {
+            return res.status(409).json({ error: 'Battle authorization changed before registration completed.' });
         }
         const pristine = fresh.status === 'active'
             && Number(fresh.round) === 1
@@ -398,6 +408,9 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     const battle = await kv.get<ReadBattle>(`pvp:${battleId}`);
     if (!battle || battle.status !== 'done' || !battle.winner || battle.winner === 'draw') {
         return res.status(409).json({ error: 'Battle is not finished, or it ended in a draw.' });
+    }
+    if (!pvpSessionMayReward(battle)) {
+        return res.status(409).json({ error: 'The battle was not authorized or both fighters did not join.' });
     }
     const battleP1 = safeName(battle.p1?.name ?? '');
     const battleP2 = safeName(battle.p2?.name ?? '');

@@ -127,6 +127,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('profession', 'character', 'server-owned', 'profession', ['public-char'], 'locked to stored; only /api/profession/choose sets it'),
     f('professionRank', 'character', 'derived', 'profession', ['public-char', 'strict-ledger-char', 'always-ledger-char'], 'recomputed from capped professionXp'),
     f('professionXp', 'character', 'server-ledger', 'profession', ['public-char', 'strict-ledger-char', 'always-ledger-char'], 'gains rejected; only server endpoints raise it'),
+    f('professionRespecUsed', 'character', 'server-owned', 'profession', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'one-time latch; only /api/profession/choose may set it'),
 
     // ── Wallet & currencies ─────────────────────────────────────────────────
     f('ryo', 'character', 'server-clamped', 'currency', ['strict-ledger-char', 'combat-strip-char'], 'decrease free; gain ≤1,000/save until strict flip, then frozen'),
@@ -186,6 +187,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('pendingCombatMissionClaims', 'character', 'server-payout-stamp', 'missions', ['payout-char'], 'durable combat-win claims queued by queue-combat-claim'),
     f('battleTowerClaimedRewards', 'character', 'server-payout-stamp', 'towers', ['payout-char', 'combat-strip-char']),
     f('battleTowerAssistRewardsClaimed', 'character', 'server-payout-stamp', 'towers', ['payout-char', 'combat-strip-char']),
+    f('dailyBattleFloors', 'character', 'server-payout-stamp', 'towers', ['payout-char'], 'server-authoritative Battle Tower entry counter'),
+    f('dailyBattleDate', 'character', 'server-payout-stamp', 'towers', ['payout-char'], 'server-authoritative Battle Tower entry day'),
     f('lastTaxDate', 'character', 'server-payout-stamp', 'village', ['payout-char']),
 
     // ── Server-mirrored redemption ledgers & counters (copy-if-defined) ─────
@@ -253,6 +256,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('petGauntletPremiumDate', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
     f('petGauntletFateClaimed', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
     f('petGauntletBoneClaimed', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
+    f('petGauntletEntryDate', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
+    f('petGauntletEntryCount', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
     f('redeemedWandererQuests', 'character', 'server-payout-stamp', 'wanderers', ['progression-entitlement-char']),
     f('redeemedWandererAmbushes', 'character', 'server-payout-stamp', 'wanderers', ['progression-entitlement-char']),
     f('wandererAmbushRewardDate', 'character', 'server-payout-stamp', 'wanderers', ['progression-entitlement-char']),

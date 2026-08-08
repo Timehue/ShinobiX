@@ -123,7 +123,7 @@ describe('PvE difficulty parity (server ⇄ client)', () => {
             assert.ok(survived < playerMaxHp, `L${enemyLevel} must not one-shot a full-HP player (dealt ${survived})`);
         }
         // Peer band is uncapped on purpose — endgame PvE hits like a real duel.
-        assert.equal(pveGuardedEnemyHit(99_999, { enemyLevel: 95, playerMaxHp, playerHpTurnStart: playerMaxHp, dealtThisTurn: 0 }), 99_999);
+        assert.equal(pveGuardedEnemyHit(99_999, { enemyLevel: 100, playerMaxHp, playerHpTurnStart: playerMaxHp, dealtThisTurn: 0 }), 99_999);
     });
 
     it('behaviour pacing helpers match', () => {

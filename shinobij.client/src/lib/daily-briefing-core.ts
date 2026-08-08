@@ -124,17 +124,17 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
     }
 
     if (i.level >= 20 && !examsPassed.has("genin")) {
-        out.push({ id: "genin-exam", icon: "🎓", title: "Pass the Genin Exam", detail: "Level 20 is a level hold. Clear the Logbook exam to keep leveling toward Chunin.", cta: "Open Logbook", screen: "logbook" });
+        out.push({ id: "genin-exam", icon: "🎓", title: "Pass the Genin Advancement Exam", detail: "You are already Genin; level 20 is an advancement hold on the path to Chunin.", cta: "Open Logbook", screen: "logbook" });
     } else if (i.level >= 15 && i.level < 20 && !examsPassed.has("genin")) {
-        out.push({ id: "genin-prep", icon: "📘", title: "Prepare for the Genin Exam", detail: "You are Genin now. Train, claim missions, and watch the level-20 exam gate.", cta: "Review Logbook", screen: "logbook" });
+        out.push({ id: "genin-prep", icon: "📘", title: "Prepare for Genin Advancement", detail: "You are Genin now. Train, claim missions, and watch the level-20 advancement gate.", cta: "Review Logbook", screen: "logbook" });
     } else if (i.level >= 13 && i.level < 15) {
         out.push({ id: "genin-rank", icon: "📘", title: "Genin begins at level 15", detail: "Choose a profession, keep your loadout full, then push through the last Academy levels.", cta: "Review Logbook", screen: "logbook" });
     }
 
     if (i.level >= 39 && examsPassed.has("genin") && !examsPassed.has("chunin")) {
-        out.push({ id: "chunin-exam", icon: "📜", title: "Pass the Chunin Exam", detail: "Level 39 is a level hold. Finish the Chunin requirements to keep advancing.", cta: "Open Logbook", screen: "logbook" });
+        out.push({ id: "chunin-exam", icon: "📜", title: "Pass the Chunin Advancement Exam", detail: "You are already Chunin; clear the level-39 advancement hold to keep progressing toward Jonin.", cta: "Open Logbook", screen: "logbook" });
     } else if (i.level >= 37 && examsPassed.has("genin") && !examsPassed.has("chunin")) {
-        out.push({ id: "chunin-prep", icon: "📜", title: "Chunin gate is close", detail: "Level 39 holds your level until the Chunin Exam is done, so check the requirements now.", cta: "Review Logbook", screen: "logbook" });
+        out.push({ id: "chunin-prep", icon: "📜", title: "Chunin advancement gate is close", detail: "Level 39 holds your level until the Chunin Advancement Exam is done, so check the requirements now.", cta: "Review Logbook", screen: "logbook" });
     }
 
     if (i.hasMissionSlot && !i.hospitalized) {

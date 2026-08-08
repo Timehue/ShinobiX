@@ -556,7 +556,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             : p);
     }
 
-    async function mintCasualPetBattleToken(opponent: PetArenaOpponent, reportKey: string, mode: "1v1" | "2v2", playerPets: Pet[], opponentPets: Pet[], seed: number): Promise<string | null> {
+    async function mintCasualPetBattleToken(opponent: PetArenaOpponent, mode: "1v1" | "2v2", playerPets: Pet[], opponentPets: Pet[]): Promise<{ token: string; seed: number; reportKey: string } | null> {
         try {
             const r = await fetch("/api/pet/battle-start", {
                 method: "POST",
@@ -565,19 +565,21 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     playerName: character.name,
                     opponentName: opponent.owner,
                     opponentLevel: opponent.pet.level,
-                    reportKey,
                     mode,
                     playerPetIds: playerPets.map((pet) => pet.id),
                     opponentPetIds: opponentPets.map((pet) => pet.id),
-                    seed,
                     hollowGate: opponent.hollowGate
                         ? { token: opponent.hollowGate.token, runId: opponent.hollowGate.runId }
                         : undefined,
                 }),
             });
             if (!r.ok) return null;
-            const data = await r.json().catch(() => null) as { token?: unknown } | null;
-            return typeof data?.token === "string" ? data.token : null;
+            const data = await r.json().catch(() => null) as { token?: unknown; seed?: unknown; reportKey?: unknown } | null;
+            return typeof data?.token === "string"
+                && Number.isSafeInteger(Number(data.seed))
+                && typeof data.reportKey === "string"
+                ? { token: data.token, seed: Number(data.seed), reportKey: data.reportKey }
+                : null;
         } catch {
             return null;
         }
@@ -610,7 +612,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         return true;
     }
 
-    function startBattle(opponentOverride?: PetArenaOpponent) {
+    async function startBattle(opponentOverride?: PetArenaOpponent) {
         setArenaView("battle"); // any duel (incl. challenge accepts) shows in the battle view
         primePetSfx(); // unlock the audio context inside the click gesture
         startBattleMusic(); // rotate to a fresh battle track
@@ -687,9 +689,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 }
                 enemyReserve = enemyReserveCandidate;
             }
-            const seed = opponent.battleSeed ?? Date.now();
-            const reportKey = `${seed}:2v2`;
-            const battleTokenPromise = mintCasualPetBattleToken(opponent, reportKey, "2v2", [myLead, myReserve], [enemyLead, enemyReserve], seed);
+            const battleSeal = await mintCasualPetBattleToken(opponent, "2v2", [myLead, myReserve], [enemyLead, enemyReserve]);
+            const seed = battleSeal?.seed ?? opponent.battleSeed ?? Date.now();
+            const reportKey = battleSeal?.reportKey ?? `unrewarded:${seed}:2v2`;
             // Spend any battle consumables on the pets that fought (2v2) — both engines.
             if ([myLead, myReserve].some((p) => p.loadout?.consumable)) {
                 updateCharacter({ ...character, pets: clearConsumablePets([myLead.id, myReserve.id]) });
@@ -748,7 +750,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 // server's 5s/12-per-min/100-per-day caps still bound damage.
                 void (async () => {
                     try {
-                        const battleToken = await battleTokenPromise;
+                        const battleToken = battleSeal?.token ?? null;
                         const r = await fetch("/api/pet/battle-result", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -871,9 +873,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             return;
         }
 
-        const seed1v1 = opponent.battleSeed ?? Date.now();
-        const reportKey1v1 = `${seed1v1}:1v1`;
-        const battleTokenPromise1v1 = mintCasualPetBattleToken(opponent, reportKey1v1, "1v1", [selectedPet], [opponent.pet], seed1v1);
+        const battleSeal1v1 = await mintCasualPetBattleToken(opponent, "1v1", [selectedPet], [opponent.pet]);
+        const seed1v1 = battleSeal1v1?.seed ?? opponent.battleSeed ?? Date.now();
+        const reportKey1v1 = battleSeal1v1?.reportKey ?? `unrewarded:${seed1v1}:1v1`;
         // Spend the battle consumable on the pet that fought.
         if (selectedPet.loadout?.consumable) {
             updateCharacter({ ...character, pets: clearConsumablePets([selectedPet.id]) });
@@ -935,7 +937,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     hollowGateSettlementInFlightRef.current = true;
                     setHollowGateSettlementStatus("pending");
                     try {
-                        const battleToken = await battleTokenPromise1v1;
+                        const battleToken = battleSeal1v1?.token ?? null;
                         if (!battleToken) throw new Error("The Hollow Hound battle seal could not be created.");
                         const response = await fetch("/api/pet/battle-result", {
                             method: "POST",
@@ -992,7 +994,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         // click-stable key so the server doesn't 400 — Tier-2
                         // security fix made reportKey REQUIRED for wins. The
                         // server's daily cap + rate limits still bound damage.
-                        const battleToken = await battleTokenPromise1v1;
+                        const battleToken = battleSeal1v1?.token ?? null;
                         const r = await fetch("/api/pet/battle-result", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1047,7 +1049,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 // token cannot be reused and one-use pet consumables settle durably.
                 void (async () => {
                     try {
-                        const battleToken = await battleTokenPromise1v1;
+                        const battleToken = battleSeal1v1?.token ?? null;
                         const r = await fetch("/api/pet/battle-result", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1099,7 +1101,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
     useEffect(() => {
         if (!pendingPetBattleOpponent || !selectedPet) return;
-        startBattle(pendingPetBattleOpponent);
+        void startBattle(pendingPetBattleOpponent);
         onPendingPetBattleStarted?.();
     }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
 
@@ -1458,13 +1460,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             <strong>{petDisplayName(selectedOpponent.pet)}</strong>
                             <span>Lv.{selectedOpponent.pet.level} · {selectedOpponent.pet.element ?? "Untyped"}</span>
                         </div>
-                        <button className="pet-coliseum-enter" onClick={() => startBattle()}>
+                        <button className="pet-coliseum-enter" onClick={() => void startBattle()}>
                             <span>{partyMode && character.pets.length >= 2 ? "Enter the 2v2 Set" : "Enter the Coliseum"}</span>
                             <small>Fight under your command</small>
                         </button>
                     </div>
                 ) : opponentMode === "ai" ? (
-                    <button onClick={() => startBattle()} disabled>
+                    <button onClick={() => void startBattle()} disabled>
                         Choose both contenders
                     </button>
                 ) : null}
@@ -1530,7 +1532,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             live={duelBattle.live ?? undefined}
                             onOutcome={duelBattle.onOutcome}
                             sharedImages={sharedImages}
-                            onFightAgain={battleOpponent?.hollowGate ? undefined : () => startBattle(battleOpponent ?? undefined)}
+                            onFightAgain={battleOpponent?.hollowGate ? undefined : () => void startBattle(battleOpponent ?? undefined)}
                             settlementStatus={battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined}
                             onRetrySettlement={battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined}
                             onExit={leaveCurrentPetBattle}
@@ -1569,7 +1571,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             setFrameIndex(0);
                             setIsPlaying(true);
                         },
-                        onFightAgain: battleOpponent?.hollowGate ? undefined : () => startBattle(),
+                        onFightAgain: battleOpponent?.hollowGate ? undefined : () => void startBattle(),
                         settlementStatus: battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined,
                         onRetrySettlement: battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined,
                         onExit: () => {

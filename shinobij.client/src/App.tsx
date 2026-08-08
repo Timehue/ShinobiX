@@ -198,7 +198,7 @@ import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { damageSectorTerritory, extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
@@ -351,7 +351,7 @@ import {
 } from "./lib/utils";
 
 import {
-    rankedDelta, applyServerBaseReward, type PvpWinBaseSummary,
+    applyServerBaseReward, type PvpWinBaseSummary,
 } from "./lib/progression";
 
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
@@ -463,7 +463,6 @@ export type SharedPvpBattleContext = {
 // Equipment/armor-derived combat stats (armor factor, raw DR, item-bonus sum,
 // PvP loadout) + the active-pet trait helper extracted to ./lib/equipment-stats.
 import {
-    getActivePetTrait,
     getCharacterArmorFactor,
     getCharacterArmorRawDR,
     getEquippedItemBonus,
@@ -2246,20 +2245,57 @@ export default function App() {
         } catch { /* sessionStorage may be unavailable */ }
 
         switch (ch.mode) {
-            case "pvp1v1":
             case "pvp2v2": {
-                if (!ch.battleId) {
-                    alert("Battle session not ready yet — refresh and try again.");
+                // The hex-grid engine is 1v1. Do not silently let one duel decide
+                // a four-player result; this mode needs an aggregate two-duel
+                // server protocol before it can safely launch.
+                alert("Clan War 2v2 combat is temporarily unavailable while its two-duel server settlement is completed.");
+                break;
+            }
+            case "pvp1v1": {
+                const p1Name = ch.fromPlayer ?? "";
+                const p2Name = ch.acceptedPlayer ?? "";
+                if (!inferredWarId || !p1Name || !p2Name) {
+                    alert("This accepted Clan War duel is missing its server match details. Refresh and try again.");
                     return;
                 }
-                // Determine role: senders are p1, defenders are p2.
-                setPvpBattleId(ch.battleId);
-                setPvpRole(onFromSide ? "p1" : "p2");
-                setPvpBattleContext({
-                    mode: ch.mode === "pvp2v2" ? "clanWar2v2" : "clanWar1v1",
-                    clanWarChallengeId: ch.id,
-                });
-                setScreen("pvpBattle");
+                void (async () => {
+                    let lastError = "Could not create the authoritative Clan War battle.";
+                    for (let attempt = 0; attempt < 4; attempt += 1) {
+                        if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 300 * attempt));
+                        try {
+                            const response = await fetch("/api/pvp/session", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: stringifyPvpSessionPayload({
+                                    clanWarId: inferredWarId,
+                                    clanWarChallengeId: ch.id,
+                                    baseRewards: true,
+                                    ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
+                                    p1Character: { name: p1Name },
+                                    p2Character: { name: p2Name },
+                                }),
+                            });
+                            const data = await response.json().catch(() => null) as { battleId?: string; session?: PvpSessionState; error?: string } | null;
+                            if (response.ok && data?.battleId && data.session) {
+                                try {
+                                    const raw = sessionStorage.getItem("clanWarChallenge.v1");
+                                    const stashed = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+                                    sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({ ...stashed, battleId: data.battleId }));
+                                } catch { /* optional resume breadcrumb */ }
+                                setPvpSeedSession(data.session);
+                                setPvpBattleId(data.battleId);
+                                setPvpRole(onFromSide ? "p1" : "p2");
+                                setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id });
+                                setScreen("pvpBattle");
+                                return;
+                            }
+                            lastError = data?.error || lastError;
+                            if (response.status !== 409) break;
+                        } catch { /* bounded retry */ }
+                    }
+                    alert(lastError);
+                })();
                 break;
             }
             case "pet1v1":
@@ -3015,6 +3051,7 @@ export default function App() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: stringifyPvpSessionPayload({
+                    challengeId: challenge.id,
                     // Sector attacks bring current vitals; spar/ranked reset to full.
                     useCurrentVitals: !!challenge.sectorAttack,
                     // Ranked-match markers (audit #7 / Stage 3). When ranked, the
@@ -7318,14 +7355,6 @@ export default function App() {
                         // Hoisted here so every reward/world-state write below can skip a casual spar.
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        const deathsGate = rewardSector === 99;
-                        const activeTrait = getActivePetTrait(character);
-                        // XP retired — Swift/Death's Gate now boost server-side stat
-                        // growth instead; ryo stays the client-visible base line.
-                        const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGate ? 2 : 1);
-                        const ratingGain = context?.mode === "ranked" && opponent
-                            ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
-                            : 0;
                         // Old point-based clan war system removed — see autoReportClanWarBattleResult below.
                         if (context?.raidKind === "raidPlayer") {
                             damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
@@ -7349,9 +7378,9 @@ export default function App() {
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                         // Spars grant NOTHING (no stats/ryo/currency/scrolls/kills); ranked = no stats.
-                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, 0);
+                        let leveled = !isFriendlyDuel && serverBase ? applyServerBaseReward(character, serverBase) : character;
                         if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
-                        const rewarded = grantTerritoryScrolls(leveled, isFriendlyDuel ? 0 : 5);
+                        const rewarded = leveled;
                         // Vanguard rewards (Honor Seals + profession XP + all the
                         // daily-tracking fields) are granted server-side in
                         // api/pvp/move.ts via grantVanguardRewardsForSession. The
@@ -7365,16 +7394,9 @@ export default function App() {
                             // ryo / fateShards include the war-ground bounty
                             // when it fires; bountyRyo+bountyFateShards are 0
                             // for non-raid wins or when already claimed today.
-                            ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
+                            ryo: rewarded.ryo + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
-                            // The server's claim-rewards already credits the +6 win
-                            // auraDust and returns the post-credit balance, which
-                            // applyServerBaseReward copied onto `rewarded` above —
-                            // so adding 6 again double-counted it. Only grant the
-                            // local +6 when the server sent no auraDust value
-                            // (non-baseRewards casual sessions).
-                            auraDust: (rewarded.auraDust ?? 0)
-                                + (isFriendlyDuel || typeof serverBase?.auraDust === "number" ? 0 : 6),
+                            auraDust: rewarded.auraDust ?? 0,
                             inventory: villageWarRaid.warCrate && !warCrateServerAuthEnabled()
                                 ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID]
                                 : rewarded.inventory,
@@ -7383,18 +7405,14 @@ export default function App() {
                             claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId && !warCrateServerAuthEnabled()
                                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                                 : (rewarded.claimedWarCrateIds ?? []),
-                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
-                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
-                            pvpKillMonth: currentMonthKey(),
+                            totalPvpKills: rewarded.totalPvpKills ?? 0,
+                            monthlyPvpKills: rewarded.monthlyPvpKills ?? 0,
+                            pvpKillMonth: rewarded.pvpKillMonth,
                             // Read-back (audit #7 / Stage 3): when the session is
                             // ranked the server credits the rating via claim-rewards
-                            // and returns it; use that authoritative value. Fall back
-                            // to the local delta only when the server didn't return
-                            // one (claim 503 / offline) so the rating still updates.
-                            // The win counter still increments locally (it converges —
-                            // server +1 from the same base).
-                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : (rewarded.rankedRating ?? 1000) + ratingGain,
-                            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
+                            // and returns it; without that receipt nothing changes.
+                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : (rewarded.rankedRating ?? 1000),
+                            rankedWins: (rewarded.rankedWins ?? 0) + (serverRating?.field === "rankedRating" && serverRating.delta > 0 ? 1 : 0),
                         });
                         // Refetch the player's own save to pick up server-side
                         // Vanguard reward updates (honorSeals, professionXp,
@@ -7495,14 +7513,11 @@ export default function App() {
                                 }
                                 // Sector War: report the loss so the defender's win counts toward the siege (server maps winner by village).
                                 if (pvpBattleContext?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                                if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
-                                const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
+                                if (pvpBattleContext?.mode !== "ranked" || serverRating?.field !== "rankedRating") return;
                                 setCharacter({
                                     ...character,
-                                    // Read-back: prefer the server-credited rating
-                                    // (claim-rewards), fall back to the local delta if
-                                    // it wasn't returned. Loss counter stays local.
-                                    rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : Math.max(0, (character.rankedRating ?? 1000) - loss),
+                                    // Only a server-credited ranked receipt may move Elo.
+                                    rankedRating: serverRating.value,
                                     rankedLosses: (character.rankedLosses ?? 0) + 1,
                                 });
                             }}

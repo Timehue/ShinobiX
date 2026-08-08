@@ -303,7 +303,9 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
             commitment: '2 min', screen: 'profile', cta: 'Tune Build', eligibility: 'eligible', context: 'progression',
         }));
     } else if (input.progressionHold) {
-        const label = input.progressionHold.exam === 'genin' ? 'Genin Exam' : 'Chunin Exam';
+        const label = input.progressionHold.exam === 'genin'
+            ? 'Genin Advancement Exam'
+            : 'Chunin Advancement Exam';
         now.push(item('now', {
             id: `progression-hold-${input.progressionHold.exam}`, title: `Clear the ${label} level hold`,
             why: `This is a real level-${input.progressionHold.level} progression hold; other rank distinctions remain optional.`,

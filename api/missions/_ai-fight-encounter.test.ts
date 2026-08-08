@@ -225,7 +225,7 @@ describe('buildAiFightEncounter', () => {
 
     it('applies the PvE band HP and stat multipliers', () => {
         // Sub-peer bands soak fewer hits and fight with scaled stats
-        // (Arena.tsx:691/:695). Peer (91+) is full strength on purpose.
+        // (Arena.tsx:691/:695). Peer ramps through 91-99 and reaches full strength at 100.
         const easy = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 20 } });
         const easyBoss = easy.actors.find((a) => a.id === 'boss')!;
         const rebuilt = relevelAiProfile(profile as never, 20, 0, 0, []);
@@ -236,12 +236,12 @@ describe('buildAiFightEncounter', () => {
         );
         assert.ok(pveDifficultyHpMultiplier(20) < 1, 'fixture check: the easy band is a nerf');
 
-        const peer = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 95 } });
-        const peerRebuilt = relevelAiProfile(profile as never, 95, 0, 0, []);
+        const peer = buildAiFightEncounter({ ...base, save: makeSave(), profile, scaling: { level: 100 } });
+        const peerRebuilt = relevelAiProfile(profile as never, 100, 0, 0, []);
         assert.equal(
             peer.actors.find((a) => a.id === 'boss')!.maxHp,
             peerRebuilt.hp,
-            'the peer band keeps its full HP pool',
+            'the max-level peer keeps its full HP pool',
         );
     });
 

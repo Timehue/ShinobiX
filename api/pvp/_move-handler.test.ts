@@ -274,11 +274,44 @@ function session(battleId: string, patch: Partial<PvpSession> = {}): PvpSession 
         log: ['Battle begins.'],
         status: 'active',
         winner: null,
+        rewardAuthority: 'challenge',
+        joined: { p1: true, p2: true },
         createdAt: Date.now(),
         lastMoveAt: Date.now(),
         ...patch,
     };
 }
+
+test('an unsolicited opponent cannot claim an AFK win before both fighters join', async () => {
+    seed(session('unjoined-afk', {
+        activePlayer: 'p2',
+        joined: { p1: true, p2: false },
+        createdAt: Date.now() - 120_000,
+        lastMoveAt: Date.now() - 120_000,
+    }));
+
+    const claim = await postMove('alice', {
+        battleId: 'unjoined-afk',
+        role: 'p1',
+        action: 'claim-afk-win',
+        moveToken: 'unjoined-afk-claim',
+    });
+    assert.equal(claim.statusCode, 200);
+    assert.match(String((claim.body as PvpSession).rejected?.reason), /both fighters have joined/i);
+    assert.equal(storedSession('unjoined-afk').status, 'active');
+});
+
+test('join is an authenticated, idempotent membership handshake even out of turn', async () => {
+    seed(session('join-handshake', { activePlayer: 'p1', joined: { p1: true, p2: false } }));
+    const joined = await postMove('bob', {
+        battleId: 'join-handshake',
+        role: 'p2',
+        action: 'join',
+        moveToken: 'join-handshake-p2',
+    });
+    assert.equal(joined.statusCode, 200);
+    assert.deepEqual(storedSession('join-handshake').joined, { p1: true, p2: true });
+});
 
 function seed(s: PvpSession): void {
     store.set(`pvp:${s.battleId}`, clone(s));

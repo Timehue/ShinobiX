@@ -2,9 +2,8 @@
  * Village War Map economy — pure, IO-free constants + helpers (Phase 0).
  *
  * The single source of truth for the War-Resources (WR) economy numbers and the
- * pure math the daily pass (api/cron) and the lazy tax (api/game-state) will
- * call once the feature is wired. Behind `villageWarMap.v1` / `villageTax.v1` —
- * NOTHING imports this yet, so adding it changes no behavior.
+ * pure math used by the daily pass and lazy tax application paths. Feature
+ * gates still control whether the Village War Map systems run.
  *
  * All values are v1 first-pass tunings (telemetry-tunable). Keep this file the
  * ONLY place the numbers live; a client display mirror must stay in sync.
@@ -81,26 +80,25 @@ export function totalMaintenanceWr(levels: Iterable<number>): number {
     return sum;
 }
 
-/** Tax rate (fraction, e.g. 0.015 = 1.5%) for a village holding `sectors`
- *  sectors. Tiers from §6.4, anchored to the 0..8 range; a conqueror holding
- *  >8 stays at the 0% reward (the tier never goes negative). */
+/** Daily occupation-tax rate. Losing home territory never taxes the losing
+ *  village; the levy begins only above the original eight home sectors. */
 export function taxRateForSectors(sectors: number): number {
     const s = clampNonNegInt(sectors);
-    if (s >= 8) return 0;
-    if (s >= 6) return 0.01;
-    if (s >= 4) return 0.02;
-    if (s >= 2) return 0.035;
-    return 0.05; // 0..1 sectors — conquered, the heaviest tier
+    if (s <= MAX_HOME_SECTORS) return 0;
+    if (s <= 10) return 0.01;
+    if (s <= 12) return 0.015;
+    return 0.02;
 }
 
-/** Rock-bottom comeback multiplier on a sector-war / mercenary WR cost, by how
- *  many sectors the SPENDING village currently holds: 0 → free, 1 → 75% off,
- *  ≥2 → full price. §6.3 / §4. */
+/** Comeback multiplier on sector-war / mercenary WR cost. The discount fades
+ *  through four held sectors instead of disappearing immediately after one. */
 export function comebackCostMultiplier(sectorsHeld: number): number {
     const s = clampNonNegInt(sectorsHeld);
     if (s <= 0) return 0;       // free
     if (s === 1) return 0.25;   // 75% off
-    return 1;                   // full price
+    if (s === 2) return 0.5;    // 50% off
+    if (s === 3) return 0.75;   // 25% off
+    return 1;                   // full price at four or more
 }
 /** A WR cost after the comeback discount (rounded, floored at 0). */
 export function discountedWrCost(baseCost: number, sectorsHeld: number): number {
@@ -141,7 +139,9 @@ export function computeTax(args: {
     const wealth = clampNonNegInt(args.ryo) + clampNonNegInt(args.bankRyo);
     const taxable = Math.max(0, wealth - TAX_EXEMPTION_RYO);
     if (taxable <= 0) return { ...ZERO_TAX, rate, days };
-    const perDay = Math.min(Math.floor(taxable * rate), TAX_DAILY_CAP_RYO);
+    // Avoid a binary-float undercharge at exact integer boundaries (for example,
+    // 995,000 × 1% × 0.7 can be represented as 6,964.999999999999).
+    const perDay = Math.min(Math.floor(taxable * rate + 1e-7), TAX_DAILY_CAP_RYO);
     const owed = perDay * days;
     const toBurn = Math.round(owed * TAX_BURN_SHARE);
     const toTreasury = owed - toBurn;

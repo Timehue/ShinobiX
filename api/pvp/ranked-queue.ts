@@ -8,11 +8,13 @@ import { withKvLock } from '../_lock.js';
 import { mintRankedMatchToken } from '../_ranked-match-token.js';
 import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 
-type QueueEntry = {
+export type QueueEntry = {
     name: string;
     level: number;
     elo: number;
     joinedAt: number;
+    /** Last liveness poll; joinedAt is deliberately never refreshed. */
+    lastPolledAt?: number;
 };
 
 const QUEUE_KEY = 'pvp:ranked-queue';
@@ -29,10 +31,32 @@ const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
 // would match, which guaranteed the low-level player a free loss. Opens
 // linearly with wait time (joinedAt → now) so a niche level stays matchable;
 // after ~LEVEL_BAND_OPEN_INTERVAL_MS × LEVEL_BAND_MAX_STEPS the band is wide
-// enough to match anyone. Falls back to "any opponent" once the band fully
-// opens, so the queue never starves.
+// enough to match anyone. A wider match is never selected before its scheduled
+// band opens for BOTH players.
 const LEVEL_BAND_BASE = 10;
 const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000; // widen by 1 level every 15s waiting
+
+export function rankedLevelBand(joinedAt: number, now: number): number {
+    const waitMs = Math.max(0, now - joinedAt);
+    return LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
+}
+
+export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], now: number): QueueEntry | undefined {
+    const myBand = rankedLevelBand(me.joinedAt, now);
+    return others
+        .filter((candidate) => {
+            const mutuallyAllowedBand = Math.min(myBand, rankedLevelBand(candidate.joinedAt, now));
+            return Math.abs(candidate.level - me.level) <= mutuallyAllowedBand;
+        })
+        .sort((a, b) => {
+            const eloGap = Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo);
+            return eloGap || a.joinedAt - b.joinedAt || a.name.localeCompare(b.name);
+        })[0];
+}
+
+function queueEntryIsActive(entry: QueueEntry, now: number): boolean {
+    return now - (entry.lastPolledAt ?? entry.joinedAt) < STALE_MS;
+}
 
 function rankedPvpActionAllowedDuringSettlement(action: string): boolean {
     return ['join', 'leave', 'poll'].includes(action);
@@ -46,7 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Return queue status for a specific player (don't expose other names)
         const name = typeof req.query.name === 'string' ? safeName(req.query.name) : '';
         const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
-        const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
+        const now = Date.now();
+        const active = queue.filter(e => queueEntryIsActive(e, now));
         const inQueue = active.some(e => e.name === name);
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ inQueue, queueSize: active.length });
@@ -114,7 +139,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // entry re-queues), so this is defense-in-depth.
             const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(QUEUE_KEY, async () => {
                 const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
-                const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
+                const now = Date.now();
+                const active = queue.filter(e => queueEntryIsActive(e, now));
 
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== safeName(name));
@@ -132,7 +158,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         name: safeName(name),
                         level: serverLevel,
                         elo: serverElo,
-                        joinedAt: Date.now(),
+                        joinedAt: now,
+                        lastPolledAt: now,
                     };
                     filtered.push(entry);
                     await Promise.all([
@@ -156,29 +183,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
 
                     const others = active.filter(e => e.name !== me.name);
-                    if (others.length === 0) {
-                        const refreshed = active.map(e => e.name === me.name ? { ...e, joinedAt: Date.now() } : e);
+                    const opponent = selectRankedOpponent(me, others, now);
+                    if (!opponent) {
+                        // Refresh liveness without resetting joinedAt: the latter is
+                        // the authoritative wait clock used by the 15-second widening
+                        // schedule. Resetting it here kept the band permanently at 10.
+                        const refreshed = active.map(e => e.name === me.name ? { ...e, lastPolledAt: now } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
                     }
-
-                    // Level band, widens with the caller's wait time so an
-                    // off-curve level eventually matches anyone. Falls back to
-                    // pure-Elo selection when the band has nobody in it (queue
-                    // never starves).
-                    const waitMs = Math.max(0, Date.now() - me.joinedAt);
-                    const band = LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
-                    const inBand = others.filter(e => Math.abs(e.level - me.level) <= band);
-                    const candidates = inBand.length > 0 ? inBand : others;
-                    candidates.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
-                    const opponent = candidates[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
                     // Deterministic initiator (lexicographically smaller slug) so
                     // exactly ONE side sends the ranked challenge and the other
                     // waits for it — no double-challenge, no silent drop. Both get a
                     // durable match record so neither vanishes if a poll is missed.
                     const initiatorName = me.name < opponent.name ? me.name : opponent.name;
-                    const now = Date.now();
                     const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now };
                     const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now };
                     await Promise.all([

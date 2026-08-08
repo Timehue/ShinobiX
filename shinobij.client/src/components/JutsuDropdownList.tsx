@@ -20,6 +20,7 @@ export function JutsuDropdownList({
     renderDetails,
     renderActions,
     onSelectJutsu,
+    selectedJutsuId,
     onReorder,
 }: {
     jutsus: Jutsu[];
@@ -28,6 +29,8 @@ export function JutsuDropdownList({
     renderDetails: (jutsu: Jutsu) => ReactNode;
     renderActions?: (jutsu: Jutsu) => ReactNode;
     onSelectJutsu?: (jutsu: Jutsu) => void;
+    /** Optional controlled selection used when a parent action targets a jutsu. */
+    selectedJutsuId?: string;
     // When provided, the list is treated as a manually-ordered loadout: the
     // incoming `jutsus` order is preserved (no auto-sort), the Sort control is
     // hidden, and ◀/▶ buttons appear so the selected jutsu can be nudged a slot
@@ -50,17 +53,21 @@ export function JutsuDropdownList({
     const sortedJutsus = baseJutsus
         .filter((jutsu) => jutsu.name.toLowerCase().includes(nameFilter.trim().toLowerCase()))
         .filter((jutsu) => effectFilter === "All" || jutsu.tags.some((tag) => tag.name === effectFilter));
-    const [selectedId, setSelectedId] = useState(sortedJutsus[0]?.id ?? "");
-    const selectedJutsu = sortedJutsus.find((jutsu) => jutsu.id === selectedId) ?? sortedJutsus[0];
+    const [localSelectedId, setLocalSelectedId] = useState(sortedJutsus[0]?.id ?? "");
+    const effectiveSelectedId = selectedJutsuId ?? localSelectedId;
+    const selectedJutsu = sortedJutsus.find((jutsu) => jutsu.id === effectiveSelectedId) ?? sortedJutsus[0];
     const selectedIndex = selectedJutsu ? sortedJutsus.findIndex((jutsu) => jutsu.id === selectedJutsu.id) : -1;
 
     useEffect(() => {
         if (!selectedJutsu) {
-            setSelectedId("");
+            if (selectedJutsuId === undefined) setLocalSelectedId("");
             return;
         }
-        if (!sortedJutsus.some((jutsu) => jutsu.id === selectedId)) setSelectedId(selectedJutsu.id);
-    }, [selectedId, selectedJutsu, sortedJutsus]);
+        if (!sortedJutsus.some((jutsu) => jutsu.id === effectiveSelectedId)) {
+            if (selectedJutsuId === undefined) setLocalSelectedId(selectedJutsu.id);
+            else onSelectJutsu?.(selectedJutsu);
+        }
+    }, [effectiveSelectedId, onSelectJutsu, selectedJutsu, selectedJutsuId, sortedJutsus]);
 
     if (jutsus.length === 0) return <div className="summary-box">{emptyText}</div>;
 
@@ -103,7 +110,7 @@ export function JutsuDropdownList({
                                 key={jutsu.id}
                                 className={`technique-card ${selected ? "selected" : ""}`}
                                 onClick={() => {
-                                    setSelectedId(jutsu.id);
+                                    setLocalSelectedId(jutsu.id);
                                     onSelectJutsu?.(jutsu);
                                 }}
                                 type="button"

@@ -8,6 +8,7 @@ import {
     homeSectorsForVillage,
     homeVillageForSector,
     isWarSector,
+    isProtectedWarSector,
     isCentralSector,
     sectorAlias,
     isWarVillage,
@@ -64,6 +65,15 @@ describe('war-map-sectors: mappers', () => {
             for (const s of HOME_SECTORS[v]) {
                 assert.equal(homeVillageForSector(s), v);
                 assert.ok(isWarSector(s));
+            }
+        }
+    });
+
+    it('protects exactly one permanent gate for every village', () => {
+        for (const village of WAR_VILLAGES) {
+            assert.equal(isProtectedWarSector(HOME_SECTORS[village][0]), true);
+            for (const sector of HOME_SECTORS[village].slice(1)) {
+                assert.equal(isProtectedWarSector(sector), false);
             }
         }
     });

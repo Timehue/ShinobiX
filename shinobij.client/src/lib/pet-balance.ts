@@ -698,8 +698,8 @@ export function collectPetTraining(pet: Pet, xpMult: number = 1): Pet {
     if (!pet.training) return pet;
     const focus = pet.training.type;
     const gains = petTrainingGains(pet);
-    // xpMult < 1 applies the village "demoralized" war-loss debuff (-10% pet
-    // training XP). Default 1 keeps every other caller unchanged.
+    // xpMult applies the server-owned village comeback-morale modifier to pet
+    // training XP. Default 1 keeps every other caller unchanged.
     const xp = Math.max(0, Math.round(gains.xp * xpMult));
     if (focus === "bond") {
         const bondXp = Math.max(0, Math.round((gains.xp + Math.round(gains.xp * 0.35)) * xpMult));

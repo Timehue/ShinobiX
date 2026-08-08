@@ -19,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
         const profession = String(body.profession ?? '') as Profession;
+        const respecRequested = body.respec === true;
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!VALID_PROFESSIONS.includes(profession)) {
@@ -65,23 +66,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ok: true,
                         profession,
                         idempotent: true,
+                        character: char,
                         ...(Number.isFinite(Number(existing._saveVersion)) ? { _saveVersion: Number(existing._saveVersion) } : {}),
                     },
                 };
             }
             if (char.profession) {
-                return { status: 409 as const, body: { error: 'Profession already chosen and cannot be changed.', current: char.profession } };
+                if (!respecRequested) {
+                    return {
+                        status: 409 as const,
+                        body: {
+                            error: char.professionRespecUsed === true
+                                ? 'Your one-time profession change has already been used.'
+                                : 'Profession already chosen. Use the one-time free change from your Profession Hub.',
+                            current: char.profession,
+                            canRespec: char.professionRespecUsed !== true,
+                        },
+                    };
+                }
+                if (char.professionRespecUsed === true) {
+                    return { status: 409 as const, body: { error: 'Your one-time profession change has already been used.', current: char.profession, canRespec: false } };
+                }
             }
 
+            const changingProfession = Boolean(char.profession);
+            const nextCharacter = {
+                ...char,
+                profession,
+                professionRank: 1,
+                professionXp: 0,
+                professionChosenAt: Date.now(),
+                ...(changingProfession ? { professionRespecUsed: true, masterySpec: {} } : {}),
+            };
             const updated = {
                 ...existing,
-                character: {
-                    ...char,
-                    profession,
-                    professionRank: 1,
-                    professionXp: 0,
-                    professionChosenAt: Date.now(),
-                },
+                character: nextCharacter,
             };
 
             // Echo the new version. Bumping it silently leaves the client's
@@ -96,6 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 body: {
                     ok: true,
                     profession,
+                    respecUsed: changingProfession,
+                    character: nextCharacter,
                     ...(Number.isFinite(nextVersion) ? { _saveVersion: nextVersion } : {}),
                 },
             };

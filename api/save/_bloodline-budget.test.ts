@@ -35,6 +35,18 @@ test('new bloodline without a server forge entitlement is discarded', () => {
     assert.deepEqual(out.savedBloodlines, []);
 });
 
+test('an unentitled replacement cannot erase an existing bloodline', () => {
+    const existing = mkBloodline('bl-existing', 'A Rank');
+    const out = sanitizeCharacterSave(
+        incoming([mkBloodline('bl-unpaid-replacement', 'A Rank')]),
+        stored([existing]),
+    );
+    assert.deepEqual(
+        (out.savedBloodlines as Array<Record<string, unknown>>).map((bloodline) => bloodline.id),
+        ['bl-existing'],
+    );
+});
+
 test('incoming payload cannot forge its own pending entitlement', () => {
     const forged = entitlement('S Rank');
     const out = sanitizeCharacterSave(incoming([mkBloodline()], { pendingBloodlineForges: [forged] }), stored());

@@ -446,9 +446,11 @@ export function Profile({
     function renderStatCard(stat: keyof Stats) {
         const value = character.stats[stat];
         const pct = Math.round((value / MAX_STAT) * 100);
+        const statLabel = formatStatLabel(stat);
+        const inputId = `stat-points-${stat}`;
         return (
             <div className="stat-card" key={stat}>
-                <div className="stat-card-label">{formatStatLabel(stat)}</div>
+                <div className="stat-card-label" id={`${inputId}-label`}>{statLabel}</div>
                 <div className="stat-card-values">
                     <span className="stat-current">{value}</span>
                     <span className="stat-max">/ {MAX_STAT}</span>
@@ -458,18 +460,23 @@ export function Profile({
                 </div>
                 <div className="stat-card-input-row">
                     <input
+                        id={inputId}
                         type="number"
                         min={1}
                         max={character.unspentStats}
                         value={statInputs[stat] ?? 1}
                         onChange={(e) => setStatInputs((prev) => ({ ...prev, [stat]: Math.max(1, parseInt(e.target.value) || 1) }))}
                         className="stat-input"
+                        aria-label={`Points to add to ${statLabel}`}
+                        aria-describedby={`${inputId}-label`}
                     />
                     <button
+                        type="button"
                         className="stat-add-btn"
                         onClick={() => addStat(stat)}
                         disabled={character.unspentStats === 0}
-                    >Add</button>
+                        aria-label={`Add selected points to ${statLabel}`}
+                    >Add to {statLabel}</button>
                 </div>
             </div>
         );

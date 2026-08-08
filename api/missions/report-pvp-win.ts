@@ -4,7 +4,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { reportMissionEvent } from './_progress.js';
-import type { PvpSession } from '../pvp/session.js';
+import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { hasRecentIpOverlap, hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { extractPvpLegacyDeltas, guardDefenseDeltas } from '../_legacy-pvp.js';
@@ -58,6 +58,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
+        }
+        if (!pvpSessionMayGrantProgress(session)) {
+            return res.status(409).json({ error: 'This battle is not an authorized progression match.' });
         }
         // Recency check — reject replays of stale sessions. The KV TTL
         // is the primary guard but this defense-in-depth check covers

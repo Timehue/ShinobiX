@@ -264,6 +264,9 @@ export function PvpBattleScreen({
     const pvpRewardRef = useRef(false);
     const [pvpRewardClaimState, setPvpRewardClaimState] = useState<"idle" | "claiming" | "failed" | "confirmed">("idle");
     const [pvpRewardClaimError, setPvpRewardClaimError] = useState("");
+    const [pvpRewardNotice, setPvpRewardNotice] = useState("");
+    const [sessionLoadFailure, setSessionLoadFailure] = useState("");
+    const [sessionRetryKey, setSessionRetryKey] = useState(0);
     const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
     // Live HP-delta floating numbers (RTX-1): make an opponent's offense legible
     // in real time instead of only as a silently-dropping HP bar.
@@ -277,6 +280,11 @@ export function PvpBattleScreen({
     const lastVfxSeqRef = useRef<number | undefined>(undefined);
     const hasObservedVfxSessionRef = useRef(false);
 
+    const exitBattle = (target: Screen) => {
+        if (onExit) onExit(target);
+        else setScreen(target);
+    };
+
     // Grid helpers (pvpXY / pvpPosFromXY / pvpAxial / pvpDist / pvpHexNeighbors /
     // pvpTileCenter) are defined once at module scope above — in scope here.
 
@@ -285,6 +293,8 @@ export function PvpBattleScreen({
 
     useEffect(() => {
         let active = true;
+        let hasLoadedSession = !!seedSession && seedSession.battleId === battleId;
+        let streamFailures = 0;
         let es: EventSource | null = null;
         let pollTimer: number | null = null;
         let unsubscribeRealtime: (() => void) | null = null;
@@ -298,26 +308,46 @@ export function PvpBattleScreen({
         // to SSE so the board still updates. Canceled on the first real push.
         let firstPayloadTimer: number | null = null;
         const REALTIME_PAYLOAD_WATCHDOG_MS = 10_000;
+        const MAX_MISSING_SESSION_ATTEMPTS = 5;
+        setSessionLoadFailure("");
+
+        function acceptSession(data: PvpSessionState): PvpSessionState {
+            hasLoadedSession = true;
+            streamFailures = 0;
+            if (active) {
+                setSessionLoadFailure("");
+                setSession(data);
+            }
+            return data;
+        }
 
         // Tier 0 fetch — even with Realtime/SSE pushing changes, we
         // need an initial snapshot since subscriptions only fire on
         // NEW writes. Without this the screen would render blank
         // until the first move.
         async function fetchInitial(): Promise<PvpSessionState | null> {
-            try {
-                const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
-                if (res.ok) {
-                    const data = await res.json() as PvpSessionState;
-                    if (active) setSession(data);
-                    return data;
-                }
-            } catch { /* ignore */ }
+            let lastStatus = 0;
+            for (let attempt = 0; active && attempt < MAX_MISSING_SESSION_ATTEMPTS; attempt += 1) {
+                if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 350 * attempt));
+                if (!active || hasLoadedSession) return null;
+                try {
+                    const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
+                    lastStatus = res.status;
+                    if (res.ok) return acceptSession(await res.json() as PvpSessionState);
+                } catch { /* bounded retry below */ }
+            }
+            if (active && !hasLoadedSession) {
+                setSessionLoadFailure(lastStatus === 403
+                    ? "You are not allowed to open this battle session."
+                    : "The battle session is unavailable or expired.");
+            }
             return null;
         }
 
         // Long-poll fallback used when neither Realtime nor SSE is
         // available (very old browser or both failed).
         async function pollFallback() {
+            let misses = 0;
             while (active) {
                 if (document.visibilityState === "hidden") {
                     await new Promise<void>(r => setTimeout(r, 2000));
@@ -327,10 +357,15 @@ export function PvpBattleScreen({
                     const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
                     if (res.ok) {
                         const data = await res.json() as PvpSessionState;
-                        setSession(data);
+                        acceptSession(data);
+                        misses = 0;
                         if (data.status === "done") break;
-                    }
-                } catch { /* ignore */ }
+                    } else misses += 1;
+                } catch { misses += 1; }
+                if (!hasLoadedSession && misses >= MAX_MISSING_SESSION_ATTEMPTS) {
+                    setSessionLoadFailure("The battle session is unavailable or expired.");
+                    break;
+                }
                 await new Promise<void>(r => setTimeout(r, 1000));
             }
         }
@@ -352,7 +387,7 @@ export function PvpBattleScreen({
                     setConnectionState("connected");
                     try {
                         const data = JSON.parse((e as MessageEvent).data) as PvpSessionState;
-                        setSession(data);
+                        acceptSession(data);
                     } catch { /* ignore malformed chunk */ }
                 });
                 es.addEventListener("open", () => {
@@ -366,6 +401,11 @@ export function PvpBattleScreen({
                     es?.close();
                     es = null;
                     if (!active) return;
+                    streamFailures += 1;
+                    if (!hasLoadedSession && streamFailures >= MAX_MISSING_SESSION_ATTEMPTS) {
+                        setSessionLoadFailure("The battle session is unavailable or expired.");
+                        return;
+                    }
                     // Surface the gap so players see "reconnecting…" rather
                     // than a frozen board.
                     setConnectionState("reconnecting");
@@ -407,7 +447,7 @@ export function PvpBattleScreen({
                     // no-payload watchdog and clear any "reconnecting" state.
                     if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
                     setConnectionState("connected");
-                    setSession(next);
+                    acceptSession(next);
                 },
                 (status) => {
                     if (!active || fallbackStarted) return;
@@ -453,7 +493,39 @@ export function PvpBattleScreen({
             if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
             if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
         };
-    }, [battleId]);
+    }, [battleId, sessionRetryKey]);
+
+    // A fighter is reward-eligible only after this authenticated handshake.
+    // It is idempotent server-side and retries a few times for navigation races.
+    useEffect(() => {
+        if (!session || session.status !== "active" || session.joined?.[role] === true) return;
+        const fighter = role === "p1" ? session.p1 : session.p2;
+        if (fighter.name.trim().toLowerCase() !== character.name.trim().toLowerCase()) return;
+        let cancelled = false;
+        void (async () => {
+            for (let attempt = 0; !cancelled && attempt < 4; attempt += 1) {
+                if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 400 * attempt));
+                try {
+                    const res = await fetch("/api/pvp/move", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            battleId,
+                            role,
+                            action: "join",
+                            moveToken: `join-${battleId}-${role}`,
+                        }),
+                    });
+                    if (res.ok) {
+                        const joinedSession = await res.json() as PvpSessionState;
+                        if (!cancelled) setSession(joinedSession);
+                        return;
+                    }
+                } catch { /* retry */ }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [battleId, role, session?.status, session?.joined?.p1, session?.joined?.p2, session?.p1.name, session?.p2.name]);
 
     // Desktop combat hotkeys — A=Attack M=Move H=Heal C=Clear X=Cleanse
     // F=Flee W/Space=End turn Esc=Deselect. Reads the latest handlers via a ref
@@ -647,13 +719,24 @@ export function PvpBattleScreen({
         // authoritative endpoint confirms the claim. Refreshes still call the
         // server so an old/stale browser latch can never replace that proof.
         try { window.localStorage.setItem(`pvp:rewarded:${battleId}`, "1"); } catch { /* storage quota — non-fatal */ }
+        setPvpRewardNotice((!result.rewardAuthorized || isSpar)
+            ? "Spar complete — no progression rewards."
+            : result.rating
+                ? `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`
+                : result.base
+                    ? "Combat rewards settled by the server."
+                    : "Official result verified; no generic payout for this mode.");
         setPvpRewardClaimState("confirmed");
         if (result.alreadyClaimed) return;
 
         const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
         const opponent = normalizeCharacter(oppFighter.character as Character);
-        if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base);
-        else onLoss?.(opponent, result.rating);
+        // Unsanctioned sessions confirm with no reward authority. Do not let
+        // their callbacks mutate missions, bounties, wars, or ranking.
+        if (result.rewardAuthorized || isSpar) {
+            if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base);
+            else onLoss?.(opponent, result.rating);
+        }
     }
 
     // Apply completion rewards/penalties only after the authoritative claim
@@ -941,7 +1024,18 @@ export function PvpBattleScreen({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
                     <h2>PvP Battle</h2>
-                    <p style={{ color: "var(--text-dim)" }}>Connecting to battle session...</p>
+                    <p style={{ color: sessionLoadFailure ? "#fca5a5" : "var(--text-dim)" }}>
+                        {sessionLoadFailure || "Connecting to battle session..."}
+                    </p>
+                    {sessionLoadFailure && (
+                        <div className="menu">
+                            <button type="button" onClick={() => {
+                                setSessionLoadFailure("");
+                                setSessionRetryKey(value => value + 1);
+                            }}>Retry Connection</button>
+                            <button type="button" onClick={() => exitBattle(currentSector > 0 ? "worldMap" : "village")}>Return Safely</button>
+                        </div>
+                    )}
                 </div>
             </div>
         </CombatInstance>
@@ -964,10 +1058,6 @@ export function PvpBattleScreen({
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
-    const exitBattle = (target: Screen) => {
-        if (onExit) onExit(target);
-        else setScreen(target);
-    };
     // Environment comes from the SEALED session (what the server actually used
     // for terrain/weather math), not the live world props — so the displayed
     // terrain/weather always matches server-resolved damage. Ranked seals
@@ -1667,17 +1757,11 @@ export function PvpBattleScreen({
                                             </button>
                                         </div>
                                     )}
-                                    {!amSpectator && iWon && pvpRewardClaimState === "confirmed" && (() => {
-                                        const deathsGate = currentSector === 99;
-                                        const ryo = 75 * (deathsGate ? 2 : 1);
-                                        // XP retired — serious wins grow your stats instead
-                                        // (server-credited, daily-capped).
-                                        return (
-                                            <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
-                                                +{ryo} Ryo · Stat growth credited · +15 Honor Seals · +6 Aura Dust{deathsGate ? " · ?? 2× bonus!" : ""}
-                                            </p>
-                                        );
-                                    })()}
+                                    {!amSpectator && pvpRewardClaimState === "confirmed" && pvpRewardNotice && (
+                                        <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
+                                            {pvpRewardNotice}
+                                        </p>
+                                    )}
                                     <div className="menu">
                                         {/* Handoff to the DURABLE record. The live log above stays the
                                             low-latency source during the fight; this reads the server

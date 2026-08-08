@@ -1,5 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -10,6 +10,7 @@ import { replayCasualPetDuel } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { SERVER_ARENA_PETS } from './_arena-ai.js';
+import { petArenaRyoRewardForTeam } from './_arena-reward.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { activeBreedingParentIds } from './_pet-busy.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
@@ -72,22 +73,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         const opponentName = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
-        const reportKeyRaw = typeof body.reportKey === 'string' ? body.reportKey.slice(0, 64) : '';
-        const reportKey = /^[A-Za-z0-9:_-]+$/.test(reportKeyRaw) ? reportKeyRaw : '';
         const mode = body.mode === '2v2' ? '2v2' : '1v1';
         const playerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         const opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
-        const seed = Number.isSafeInteger(Number(body.seed)) ? Number(body.seed) : Date.now();
+        // The battle receipt owns both identifiers. A caller cannot search for a
+        // favourable deterministic seed and then ask the server to certify it.
+        const token = randomUUID().replace(/-/g, '');
+        const reportKey = `pet:${token}`;
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!reportKey) return res.status(400).json({ error: 'Missing or invalid reportKey.' });
-
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own pet battles.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-battle-start', 30, 60_000, identity.name))) return;
+        const seed = identity.admin && Number.isSafeInteger(Number(body.seed))
+            ? Number(body.seed)
+            : randomInt(1, 0x7fffffff);
 
         const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const myChar = mySave?.character as Record<string, unknown> | undefined;
@@ -147,6 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sealedOpponentLevel = realOpponentLevel != null
             ? realOpponentLevel
             : clampLevel(Math.max(1, ...opponentPets.map((p) => Number((p as { level?: unknown }).level ?? 1))));
+        const sealedRewardRyo = petArenaRyoRewardForTeam(opponentPets);
         const rank = Math.max(0, Math.min(10, Number(myChar?.professionRank) || 0));
         const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
         const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
@@ -184,25 +188,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
                 : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
 
-        const token = randomUUID().replace(/-/g, '');
-        await kv.set(`pet:battle-token:${playerName}:${token}`, {
-            playerName,
-            opponentName: opponentName || undefined,
-            opponentLevel: sealedOpponentLevel,
-            reportKey,
-            mode,
-            createdAt: Date.now(),
-            playerPetIds,
+        // One outstanding receipt per player closes seed-shopping: a client must
+        // settle (including a loss/draw) before it can mint another random seed.
+        const activeKey = `pet:battle-active:${playerName}`;
+        const claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
+        if (!claimed) {
+            // A refresh may lose the in-memory receipt. Return the SAME seal only
+            // when it describes the exact requested matchup; never mint a new
+            // seed and never attach the old token to different pets.
+            const activeToken = await kv.get<string>(activeKey);
+            const active = activeToken ? await kv.get<{
+                reportKey?: string; seed?: number; mode?: string;
+                playerPetIds?: string[]; opponentPetIds?: string[];
+            }>(`pet:battle-token:${playerName}:${activeToken}`) : null;
+            const sameIds = (a: string[] | undefined, b: string[]) => JSON.stringify(a ?? []) === JSON.stringify(b);
+            if (activeToken && active?.reportKey && Number.isSafeInteger(active.seed)
+                && active.mode === mode
+                && sameIds(active.playerPetIds, playerPetIds)
+                && sameIds(active.opponentPetIds, opponentPetIds)) {
+                return res.status(200).json({ ok: true, token: activeToken, reportKey: active.reportKey, seed: active.seed, resumed: true });
+            }
+            return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
+        }
+        try {
+            await kv.set(`pet:battle-token:${playerName}:${token}`, {
+                playerName,
+                opponentName: opponentName || undefined,
+                opponentLevel: sealedOpponentLevel,
+                rewardRyo: sealedRewardRyo,
+                reportKey,
+                seed,
+                mode,
+                createdAt: Date.now(),
+                playerPetIds,
             // Needed to rebuild the same opponent at report time. AI pets come
             // from the server's own roster, so these ids are not player input in
             // any meaningful sense — but they are re-resolved, never trusted.
-            opponentPetIds,
-            ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
-            sealedParams,
-            authoritativeOutcome: result,
-        }, { ex: TOKEN_TTL_SECONDS });
+                opponentPetIds,
+                ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
+                sealedParams,
+                authoritativeOutcome: result,
+            }, { ex: TOKEN_TTL_SECONDS });
+        } catch (writeErr) {
+            await kv.delIfEqual(activeKey, token).catch(() => undefined);
+            throw writeErr;
+        }
 
-        return res.status(200).json({ ok: true, token, reportKey });
+        return res.status(200).json({ ok: true, token, reportKey, seed });
     } catch (err) {
         console.error('[pet/battle-start]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

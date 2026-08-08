@@ -146,8 +146,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         stampPresenceBeat(name);
         void clearSleeperCamp(name).catch(() => undefined);
 
+        // Do NOT read-delete the challenge inbox here. A challenge can arrive
+        // between mget() and del(); deleting the whole key in that window loses
+        // the new invite forever. Delivery is now acknowledgment-safe: heartbeat
+        // may repeat pending records, the client de-dupes by id, and the explicit
+        // challenge DELETE/accept/decline path removes exactly one stored id.
         await Promise.all([
-            pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
             healSignal ? kv.del(healSignalKey) : Promise.resolve(),
             stampPlayerIp(req, name),
         ]);

@@ -3,12 +3,69 @@ import { kv } from '../_storage.js';
 import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { PET_RANKED_DISABLED_REASON, petRankedStartsEnabled } from '../pet/_ranked-settlement.js';
+import { blockRelationship } from './_blocks.js';
+import type { PvpSession } from '../pvp/session.js';
+import {
+    cancelChallengeRecord,
+    isChallengeId,
+    isPlayerChallengeMode,
+    loadChallengeRecord,
+    resolveChallengeRecord,
+    saveChallengeRecord,
+    type AuthoritativeChallengeRecord,
+} from '../pvp/_challenge-authorization.js';
 
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
+
+const MAX_CHALLENGE_INBOX = 20;
+
+const CHALLENGE_INPUT_FIELDS = new Set([
+    'id', 'fromName', 'toName', 'challenger', 'challengerJutsus', 'challengerBloodlineMult',
+    'challengerPetId', 'petBattleSeed', 'responderPetId', 'responderPet', 'petParty',
+    'challengerPetIds', 'responderPetIds', 'responderParty', 'arenaMatch', 'arenaSize',
+    'challengerTeamIds', 'responderTeam', 'createdAt', 'mode', 'clanWarPoints',
+    'challengerPetRating', 'responderPetRating', 'petRankedToken', 'sectorAttack',
+    'kageChallengeId', 'kageVillage', 'battleId', 'accepted', 'declined',
+]);
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function boundedString(value: unknown, max = 100): string {
+    return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function isBattleId(value: unknown): value is string {
+    return typeof value === 'string'
+        && value.length >= 8
+        && value.length <= 100
+        && /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+function boundedIdList(value: unknown, maxItems: number): string[] {
+    if (!Array.isArray(value)) return [];
+    return [...new Set(value
+        .map((entry) => boundedString(entry, 80))
+        .filter((entry) => entry && /^[A-Za-z0-9_.:-]+$/.test(entry)))]
+        .slice(0, maxItems);
+}
+
+function petById(character: Record<string, unknown> | null, id: string): Record<string, unknown> | null {
+    if (!character || !id || !Array.isArray(character.pets)) return null;
+    const found = (character.pets as unknown[]).find((pet) => isPlainRecord(pet) && String(pet.id ?? '') === id);
+    return isPlainRecord(found) ? found : null;
+}
+
+async function loadCharacter(name: string): Promise<Record<string, unknown> | null> {
+    const save = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
+    return isPlainRecord(save?.character) ? save.character : null;
+}
 
 // Public projection for the challenger character stored alongside a
 // challenges:<name> entry. The challenges:* prefix is anon-readable via
@@ -76,6 +133,34 @@ function outgoingKey(name: string) {
     return `challenge-outgoing:${safeName(name)}`;
 }
 
+async function removeFromInbox(owner: string, id: string): Promise<boolean> {
+    const key = challengeKey(owner);
+    return withKvLock(key, async () => {
+        const existing = await kv.get<unknown[]>(key) ?? [];
+        const had = existing.some((challenge) => challengeId(challenge) === id);
+        const updated = existing.filter((challenge) => challengeId(challenge) !== id);
+        if (updated.length) await kv.set(key, updated, { ex: CHALLENGE_TTL });
+        else await kv.del(key);
+        return had;
+    });
+}
+
+async function enqueueChallenge(owner: string, challenge: Record<string, unknown>): Promise<void> {
+    const key = challengeKey(owner);
+    const id = challengeId(challenge);
+    await withKvLock(key, async () => {
+        const existing = await kv.get<unknown[]>(key) ?? [];
+        const deduped = existing.filter((entry) => challengeId(entry) !== id);
+        await kv.set(key, [...deduped, challenge].slice(-MAX_CHALLENGE_INBOX), { ex: CHALLENGE_TTL });
+    });
+}
+
+async function clearExactOutgoing(sender: string, id: string): Promise<void> {
+    const key = outgoingKey(sender);
+    const outgoing = await kv.get<{ challengeId?: string }>(key);
+    if (String(outgoing?.challengeId ?? '') === id) await kv.del(key);
+}
+
 function challengeId(challenge: unknown) {
     return challenge && typeof challenge === 'object' && 'id' in challenge
         ? String((challenge as { id?: unknown }).id ?? '')
@@ -130,157 +215,316 @@ function clampClanWarPoints(challenge: unknown): unknown {
     return rec;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+function validateChallengeShape(value: unknown): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
+    if (!isPlainRecord(value)) return { ok: false, error: 'Challenge must be an object.' };
+    const unknown = Object.keys(value).filter((key) => !CHALLENGE_INPUT_FIELDS.has(key));
+    if (unknown.length) return { ok: false, error: `Unknown challenge field: ${unknown[0]}.` };
+    if (!isChallengeId(value.id)) return { ok: false, error: 'Challenge id is missing or malformed.' };
+    if (value.accepted === true && value.declined === true) {
+        return { ok: false, error: 'A challenge cannot be both accepted and declined.' };
+    }
+    if (value.accepted !== undefined && typeof value.accepted !== 'boolean') {
+        return { ok: false, error: 'accepted must be a boolean.' };
+    }
+    if (value.declined !== undefined && typeof value.declined !== 'boolean') {
+        return { ok: false, error: 'declined must be a boolean.' };
+    }
+    return { ok: true, value };
+}
+
+async function buildNewChallenge(
+    raw: Record<string, unknown>,
+    identityName: string,
+    targetName: string,
+): Promise<{ ok: true; challenge: Record<string, unknown>; record: AuthoritativeChallengeRecord } | { ok: false; status: number; error: string }> {
+    const from = safeName(boundedString(raw.fromName, 64));
+    const to = safeName(targetName);
+    if (!from || from !== identityName) return { ok: false, status: 403, error: 'Cannot send a challenge as another player.' };
+    if (!to || safeName(boundedString(raw.toName, 64)) !== to) {
+        return { ok: false, status: 400, error: 'Challenge recipient does not match targetName.' };
+    }
+    if (from === to) return { ok: false, status: 400, error: 'You cannot challenge yourself.' };
+    const blocked = await blockRelationship(from, to);
+    if (blocked.aBlockedB || blocked.bBlockedA) {
+        return { ok: false, status: 403, error: 'A player block prevents this challenge.' };
+    }
+    const mode = raw.mode ?? 'standard';
+    if (!isPlayerChallengeMode(mode)) return { ok: false, status: 400, error: 'Unsupported challenge mode.' };
+    if (raw.battleId !== undefined && !isBattleId(raw.battleId)) {
+        return { ok: false, status: 400, error: 'Malformed battleId.' };
+    }
+    if (raw.battleId && raw.sectorAttack !== true) {
+        return { ok: false, status: 400, error: 'Only a sector-attack notice may carry a battleId before acceptance.' };
+    }
+
+    const [senderCharacter, targetCharacter] = await Promise.all([
+        loadCharacter(from),
+        loadCharacter(to),
+    ]);
+    if (!senderCharacter) return { ok: false, status: 404, error: 'Your character save was not found.' };
+    if (!targetCharacter) return { ok: false, status: 404, error: `No player named "${targetName}" was found.` };
+
+    if (raw.battleId) {
+        const battle = await kv.get<PvpSession>(`pvp:${raw.battleId}`);
+        const fighters = battle ? [safeName(battle.p1?.name ?? ''), safeName(battle.p2?.name ?? '')] : [];
+        if (!battle || !fighters.includes(from) || !fighters.includes(to)) {
+            return { ok: false, status: 403, error: 'Sector-attack notice does not match that battle.' };
+        }
+    }
+
+    const displayFrom = boundedString(senderCharacter.name, 64) || boundedString(raw.fromName, 64);
+    const displayTo = boundedString(targetCharacter.name, 64) || boundedString(raw.toName, 64);
+    const safe: Record<string, unknown> = {
+        id: raw.id,
+        fromName: displayFrom,
+        toName: displayTo,
+        challenger: projectChallengerCharacter(senderCharacter),
+        createdAt: Date.now(),
+        mode,
+    };
+    const clanWarPoints = CLAN_WAR_POINTS_BY_MODE[mode] ?? 0;
+    if (clanWarPoints > 0) safe.clanWarPoints = clanWarPoints;
+    if (raw.sectorAttack === true) safe.sectorAttack = true;
+    if (raw.battleId) safe.battleId = raw.battleId;
+    if (raw.petParty === true) safe.petParty = true;
+    if (raw.arenaMatch === true) safe.arenaMatch = true;
+    if (raw.arenaSize === 2 || raw.arenaSize === 4) safe.arenaSize = raw.arenaSize;
+
+    const challengerPetId = boundedString(raw.challengerPetId, 80);
+    if (challengerPetId && petById(senderCharacter, challengerPetId)) safe.challengerPetId = challengerPetId;
+    const petIds = boundedIdList(raw.challengerPetIds, 2).filter((id) => !!petById(senderCharacter, id));
+    if (petIds.length === 2) safe.challengerPetIds = petIds;
+    const teamIds = boundedIdList(raw.challengerTeamIds, 4).filter((id) => !!petById(senderCharacter, id));
+    if (teamIds.length) safe.challengerTeamIds = teamIds;
+    if (Number.isSafeInteger(raw.petBattleSeed) && Number(raw.petBattleSeed) >= 0) safe.petBattleSeed = Number(raw.petBattleSeed);
+    const petRankedToken = boundedString(raw.petRankedToken, 100);
+    if (petRankedToken) safe.petRankedToken = petRankedToken;
+    if (mode === 'rankedPet') safe.challengerPetRating = Number(senderCharacter.petRankedRating ?? 1000);
+    const kageChallengeId = boundedString(raw.kageChallengeId, 100);
+    const kageVillage = boundedString(raw.kageVillage, 64);
+    if (kageChallengeId) safe.kageChallengeId = kageChallengeId;
+    if (kageVillage) safe.kageVillage = kageVillage;
+
+    const record: AuthoritativeChallengeRecord = {
+        id: String(raw.id),
+        from,
+        to,
+        mode,
+        status: 'pending',
+        createdAt: Number(safe.createdAt),
+        challenge: safe,
+    };
+    return { ok: true, challenge: safe, record };
+}
+
+async function buildResolutionNotice(
+    record: AuthoritativeChallengeRecord,
+    raw: Record<string, unknown>,
+    resolution: 'accepted' | 'declined',
+): Promise<Record<string, unknown>> {
+    const responder = await loadCharacter(record.to);
+    const base = record.challenge;
+    const notice: Record<string, unknown> = {
+        ...base,
+        fromName: boundedString(responder?.name, 64) || record.to,
+        toName: boundedString((base.challenger as Record<string, unknown> | undefined)?.name, 64) || record.from,
+        accepted: resolution === 'accepted',
+        declined: resolution === 'declined',
+    };
+    if (record.battleId) notice.battleId = record.battleId;
+    if (resolution === 'accepted' && responder) {
+        const responderPetId = boundedString(raw.responderPetId, 80);
+        const responderPet = petById(responder, responderPetId);
+        if (responderPet) {
+            notice.responderPetId = responderPetId;
+            notice.responderPet = stripPetInlineImages([responderPet]) instanceof Array
+                ? (stripPetInlineImages([responderPet]) as unknown[])[0]
+                : responderPet;
+        }
+        const responderPetIds = boundedIdList(raw.responderPetIds, 2).filter((id) => !!petById(responder, id));
+        if (responderPetIds.length === 2) {
+            notice.responderPetIds = responderPetIds;
+            notice.responderParty = stripPetInlineImages(responderPetIds.map((id) => petById(responder, id)!));
+        }
+        const responseTeamIds = Array.isArray(raw.responderTeam)
+            ? boundedIdList(raw.responderTeam.map((pet) => isPlainRecord(pet) ? pet.id : ''), 4)
+            : [];
+        const responseTeam = responseTeamIds.map((id) => petById(responder, id)).filter(Boolean) as Record<string, unknown>[];
+        if (responseTeam.length) notice.responderTeam = stripPetInlineImages(responseTeam);
+        if (record.mode === 'rankedPet') notice.responderPetRating = Number(responder.petRankedRating ?? 1000);
+    }
+    return notice;
+}
+
+async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // All challenge operations require a logged-in player (or admin).
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'player-challenge', 30, 60_000, identity.name))) return;
 
     try {
         const parsed = parseJsonBody(req.body);
         if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-        const body = parsed.body;
+        const body = parsed.body as Record<string, unknown>;
 
         if (req.method === 'DELETE') {
-            const { targetName, challengeId: id, fromName } = body as { targetName?: string; challengeId?: string; fromName?: string };
-            if (!targetName && !fromName) return res.status(400).json({ error: 'Missing targetName or fromName.' });
+            const id = boundedString(body.challengeId, 80);
+            const targetName = boundedString(body.targetName, 64);
+            const fromName = boundedString(body.fromName, 64);
+            if (!isChallengeId(id) || !targetName || !fromName) {
+                return res.status(400).json({ error: 'targetName, fromName, and a valid challengeId are required.' });
+            }
+            const record = await loadChallengeRecord(id);
+            if (!record) return res.status(404).json({ error: 'Challenge not found or expired.' });
 
-            // Ownership gate: a DELETE clears a challenge from targetName's
-            // inbox and/or fromName's outgoing slot. The caller must be a PARTY
-            // to the challenge — i.e. either its recipient (targetName === me)
-            // or its sender (fromName === me). This preserves both legitimate
-            // flows, where one name is the caller and the other is the
-            // counterparty:
-            //   • sender cancels:    targetName=<recipient>, fromName=<me>
-            //   • recipient resolves: targetName=<me>, fromName=<sender>
-            // It blocks a pure third party (neither sender nor recipient) from
-            // clearing someone else's inbox/outgoing slot. Admins bypass.
-            if (!identity.admin) {
-                const me = identity.name;
-                const ownsTarget = targetName ? safeName(targetName) === me : false;
-                const ownsFrom = fromName ? safeName(fromName) === me : false;
-                if (!ownsTarget && !ownsFrom) {
-                    return res.status(403).json({ error: 'Cannot delete another player\'s challenges.' });
-                }
+            const resolved = record.status === 'accepted' || record.status === 'declined';
+            const expectedTarget = resolved ? record.from : record.to;
+            const expectedFrom = resolved ? record.to : record.from;
+            if (safeName(targetName) !== expectedTarget || safeName(fromName) !== expectedFrom) {
+                return res.status(409).json({ error: 'Challenge participants do not match the stored challenge.' });
+            }
+            if (!identity.admin && identity.name !== record.from && identity.name !== record.to) {
+                return res.status(403).json({ error: 'Cannot clear another player\'s challenge.' });
+            }
+            if (record.status === 'session-started' && !identity.admin && identity.name === record.from) {
+                return res.status(409).json({ error: 'That accepted battle has already started.' });
             }
 
-            const pendingKey = targetName ? challengeKey(targetName) : '';
-            // Lock the recipient's inbox during the read-filter-write so a
-            // concurrent POST adding a new challenge can't be silently
-            // overwritten by our DELETE (or vice versa).
-            if (pendingKey) {
-                await withKvLock(pendingKey, async () => {
-                    const existing = await kv.get<unknown[]>(pendingKey) ?? [];
-                    const updated = id ? existing.filter(challenge => challengeId(challenge) !== id) : existing;
-                    if (updated.length) await kv.set(pendingKey, updated, { ex: CHALLENGE_TTL });
-                    else await kv.del(pendingKey);
-                });
+            await removeFromInbox(expectedTarget, id);
+            if (record.status === 'pending' && (identity.admin || identity.name === record.from)) {
+                await cancelChallengeRecord(id, record.from);
+                await clearExactOutgoing(record.from, id);
+            } else if (resolved) {
+                await clearExactOutgoing(record.from, id);
             }
-            if (fromName) await kv.del(outgoingKey(fromName));
             return res.status(200).json({ ok: true });
         }
 
         if (req.method !== 'POST') return res.status(405).end();
 
-        const { targetName, challenge } = body as { targetName?: string; challenge?: unknown };
-        if (!targetName || !challenge) return res.status(400).json({ error: 'Missing targetName or challenge.' });
+        const targetName = boundedString(body.targetName, 64);
+        const shaped = validateChallengeShape(body.challenge);
+        if (!targetName) return res.status(400).json({ error: 'Missing targetName.' });
+        if (!shaped.ok) return res.status(400).json({ error: shaped.error });
+        const rawChallenge = shaped.value;
+        const accepted = rawChallenge.accepted === true;
+        const declined = rawChallenge.declined === true;
+        const id = String(rawChallenge.id);
 
-        const record = challenge as { accepted?: boolean; declined?: boolean; battleId?: string; mode?: string };
-        const fromName = challengeFromName(challenge);
+        if (accepted || declined) {
+            const record = await loadChallengeRecord(id);
+            if (!record) return res.status(404).json({ error: 'The original challenge was not found or has expired.' });
+            if (!identity.admin && identity.name !== record.to) {
+                return res.status(403).json({ error: 'Only the challenged player may accept or decline.' });
+            }
+            if (safeName(targetName) !== record.from || safeName(boundedString(rawChallenge.fromName, 64)) !== record.to) {
+                return res.status(409).json({ error: 'Challenge response does not match the outstanding challenge.' });
+            }
+            if (accepted) {
+                const blocked = await blockRelationship(record.from, record.to);
+                if (blocked.aBlockedB || blocked.bBlockedA) {
+                    return res.status(403).json({ error: 'A player block prevents accepting this challenge.' });
+                }
+            }
 
-        // Direct ranked-pet challenges previously allowed the browser to choose
-        // the outcome. Refuse new, accepted, and routed challenges until the
-        // deterministic server engine enables the matching token flow.
-        if (record.mode === 'rankedPet' && !petRankedStartsEnabled()) {
+            const resolution: 'accepted' | 'declined' = accepted ? 'accepted' : 'declined';
+            const battleId = boundedString(rawChallenge.battleId, 100);
+            const petProtocol = record.mode === 'clanWarPet' || record.mode === 'rankedPet';
+            if (accepted && !petProtocol) {
+                if (!isBattleId(battleId) || record.battleId !== battleId) {
+                    return res.status(409).json({ error: 'Accepted challenge is not bound to its server-created battle.' });
+                }
+                const battle = await kv.get<PvpSession>(`pvp:${battleId}`);
+                const p1 = safeName(battle?.p1?.name ?? '');
+                const p2 = safeName(battle?.p2?.name ?? '');
+                if (!battle || battle.challengeId !== id || p1 !== record.from || p2 !== record.to) {
+                    return res.status(409).json({ error: 'Accepted battle does not match the original challenge.' });
+                }
+            }
+
+            const resolutionResult = await resolveChallengeRecord({
+                id,
+                responder: record.to,
+                target: record.from,
+                resolution,
+                ...(battleId ? { battleId } : {}),
+            });
+            if (!resolutionResult) {
+                return res.status(409).json({ error: 'Challenge was already resolved differently or no longer matches.' });
+            }
+
+            const notice = await buildResolutionNotice(resolutionResult.record, rawChallenge, resolution);
+            await Promise.all([
+                removeFromInbox(record.to, id),
+                clearExactOutgoing(record.from, id),
+            ]);
+            await enqueueChallenge(record.from, notice);
+            kickPlayer(record.from, 'challenge');
+            return res.status(200).json({ ok: true, replay: resolutionResult.replay });
+        }
+
+        if (rawChallenge.accepted !== undefined || rawChallenge.declined !== undefined) {
+            return res.status(400).json({ error: 'False response flags must be omitted.' });
+        }
+
+        const creator = identity.admin
+            ? safeName(boundedString(rawChallenge.fromName, 64))
+            : identity.name;
+        const built = await buildNewChallenge(rawChallenge, creator, targetName);
+        if (!built.ok) return res.status(built.status).json({ error: built.error });
+
+        if (built.record.mode === 'rankedPet' && !petRankedStartsEnabled()) {
             return res.status(503).json({ error: PET_RANKED_DISABLED_REASON });
         }
-
-        // The challenge's fromName (sender) must match the authed identity unless admin.
-        if (!identity.admin && fromName && safeName(fromName) !== identity.name) {
-            return res.status(403).json({ error: 'Cannot send a challenge as another player.' });
-        }
-
-        // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
-        if (!record.accepted && !record.declined && !record.battleId) {
-            // The target must be a real, existing player. A challenge typed to a
-            // mistyped/nonexistent name would otherwise store at challenges:<typo>
-            // — a key no heartbeat ever reads — and return 200 as if delivered,
-            // so the sender is never told it went nowhere (they'd wait for an
-            // accept that can't come). Player saves live at save:<safeName>, so a
-            // missing save = no such player. Only new outgoing challenges are
-            // gated; accept/decline/battle-routing replies legitimately target
-            // the counterparty and are handled above.
-            const targetExists = await kv.get(`save:${safeName(targetName)}`);
-            if (!targetExists) return res.status(404).json({ error: `No player named "${targetName}" was found.` });
-            // Presence is in process memory; challengeBlock carries the
-            // traveling / in-battle / engaged gates AND the Academy-Student
-            // protection (sub-Genin can't be challenged). Spar and pet-battle
-            // modes are exempt from the Academy gate (passed via record.mode) so
-            // brand-new players can still practice-fight; ranked / clan-war keep
-            // it. An OFFLINE target is NOT blocked — the challenge is queued in
-            // their inbox for later.
-            const block = challengeBlock(onlineStore.get(targetName), record.mode);
+        if (!built.challenge.battleId) {
+            const block = challengeBlock(onlineStore.get(built.record.to), built.record.mode);
             if (block) return res.status(block.status).json({ error: block.error });
         }
 
-        if (record.accepted || record.declined) {
-            await kv.del(outgoingKey(targetName));
-        } else if (fromName && !record.battleId) {
-            const senderKey = outgoingKey(fromName);
-            const existingOutgoing = await kv.get<{ targetName?: string; challengeId?: string }>(senderKey);
-            // Supersede the sender's prior pending challenge instead of rejecting
-            // the new one. A challenge that was never answered (recipient
-            // offline) — or one the sender lost track of after a page reload —
-            // used to lock the sender out for the full CHALLENGE_TTL window with
-            // a "you already have a pending challenge" error and no way to clear
-            // it. Clear the previous recipient's inbox copy here; the outgoing
-            // slot is overwritten just below. This preserves the "one
-            // outstanding challenge per sender" invariant — the new challenge
-            // simply replaces the old, dead one.
-            if (existingOutgoing?.targetName) {
-                const prevKey = challengeKey(String(existingOutgoing.targetName));
-                const prevId = existingOutgoing.challengeId ? String(existingOutgoing.challengeId) : '';
-                await withKvLock(prevKey, async () => {
-                    const inbox = await kv.get<unknown[]>(prevKey) ?? [];
-                    const filtered = prevId ? inbox.filter(c => challengeId(c) !== prevId) : inbox;
-                    if (filtered.length) await kv.set(prevKey, filtered, { ex: CHALLENGE_TTL });
-                    else await kv.del(prevKey);
-                });
+        const senderKey = outgoingKey(built.record.from);
+        if (!built.challenge.battleId) {
+            const prior = await kv.get<{ targetName?: string; challengeId?: string }>(senderKey);
+            if (prior?.challengeId && prior.targetName) {
+                await removeFromInbox(String(prior.targetName), String(prior.challengeId));
+                await cancelChallengeRecord(String(prior.challengeId), built.record.from);
             }
-            await kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
 
-        // Two server-side transforms before the challenge hits KV:
-        //   1. clampClanWarPoints — keeps the win-credit path honest.
-        //   2. projectChallenge   — strips the challenger's full character
-        //      down to the inbox-renderable public projection. The
-        //      challenges:* key prefix is anon-readable via Supabase
-        //      Realtime; the full payload would otherwise leak ryo /
-        //      jutsu / equipment / stats to any anon WS subscriber.
-        const safeChallenge = projectChallenge(clampClanWarPoints(challenge));
+        if (!(await saveChallengeRecord(built.record))) {
+            const existing = await loadChallengeRecord(built.record.id);
+            if (existing?.from === built.record.from && existing.to === built.record.to && existing.mode === built.record.mode) {
+                await enqueueChallenge(existing.to, existing.challenge);
+                if (!existing.challenge.battleId) {
+                    await kv.set(outgoingKey(existing.from), {
+                        targetName: existing.to,
+                        challengeId: existing.id,
+                        createdAt: existing.createdAt,
+                    }, { ex: CHALLENGE_TTL });
+                }
+                kickPlayer(existing.to, 'challenge');
+                return res.status(200).json({ ok: true, replay: true, challengeId: built.record.id });
+            }
+            return res.status(409).json({ error: 'That challenge id is already in use. Create a fresh challenge and retry.' });
+        }
+        await enqueueChallenge(built.record.to, projectChallenge(clampClanWarPoints(built.challenge)) as Record<string, unknown>);
+        if (!built.challenge.battleId) {
+            await kv.set(senderKey, {
+                targetName: built.record.to,
+                challengeId: built.record.id,
+                createdAt: built.record.createdAt,
+            }, { ex: CHALLENGE_TTL });
+        }
 
-        // Lock the recipient's inbox around the read-dedupe-write so two
-        // simultaneous challengers can't both read the same snapshot and
-        // both produce a final list that's missing the other's entry.
-        const key = challengeKey(targetName);
-        const cid = challengeId(challenge);
-        await withKvLock(key, async () => {
-            const existing = await kv.get<unknown[]>(key) ?? [];
-            const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
-            const updated = [...deduped, safeChallenge].slice(-20);
-            await kv.set(key, updated, { ex: CHALLENGE_TTL });
-        });
-
-        // Instant delivery: nudge the recipient to poll now. The HTTP heartbeat
-        // remains the authoritative carrier of pendingChallenges; this just makes
-        // it arrive immediately. No-op when realtime is off / they have no socket.
-        kickPlayer(targetName, 'challenge');
-
-        return res.status(200).json({ ok: true });
+        kickPlayer(built.record.to, 'challenge');
+        return res.status(200).json({ ok: true, challengeId: built.record.id });
     } catch (err) {
         console.error('[challenge]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    return secureChallengeHandler(req, res);
 }

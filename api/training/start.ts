@@ -108,8 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const trusted = trustedTrainingRewards(tier, character);
             // Village war MORALE, applied at the SEAL — this is the only seam that
             // works, because the gain is sealed here and paid out verbatim at
-            // completion. A demoralized village trains slower and a triumphant one
-            // faster; read from authoritative village-state, never the client.
+            // completion. A rallying village receives its comeback multiplier,
+            // read from authoritative village-state rather than the client.
             const morale = await moraleForCharacter(character, startedAt);
             const sealedGain = applyMoraleToGain(trusted.sealedGain, morale.xpMult);
             const sealedXp = applyMoraleToGain(trusted.sealedXp, morale.xpMult);
