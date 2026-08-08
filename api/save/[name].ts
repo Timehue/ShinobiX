@@ -1241,15 +1241,14 @@ export function sanitizeCharacterSave(
     // Pet roster cap: a tampered client could POST a save with more pets than
     // allowed. Server truncates so we don't silently lose extras on next reload.
     // Preserve the active pet if it's in the cut. Subscriber-aware (Patreon
-    // perk): 4 for the base tier (enough for Tactical 4v4), 5 for subscribers.
-    // `char.patreon` is forced
+    // perk): 3 for the base tier, 5 for subscribers. `char.patreon` is forced
     // from stored later in this pipeline, but it is already the stored value on
     // an autosave (the client can't set it), so reading it here is safe.
     //
     // NON-DESTRUCTIVE downgrade: never truncate BELOW the already-stored roster,
     // so a lapsed subscriber (or a legacy larger roster) keeps every pet — the
-    // cap only prevents GROWING past it. A legit base-tier roster is <=4, so a
-    // tampered save still can't grow the roster past 4.
+    // cap only prevents GROWING past it. A legit base-tier roster is <=3, so a
+    // tampered save still can't grow the roster past 3.
     const existingPets = Array.isArray(exChar.pets) ? exChar.pets as Array<Record<string, unknown>> : [];
     const PET_CAP = Math.max(maxPets(char), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
@@ -2043,8 +2042,8 @@ export function sanitizeCharacterSave(
     // un-forgeable flag and these caps are the final word regardless of
     // STRICT_RAW_SAVE_LEDGER. The base tier is intentionally lower than the
     // subscriber tier (see api/_entitlements.ts):
-    //   • jutsu loadout: 15 for every player. Competitive slots are deliberately
-    //     not a paid perk. The legacy 16th slot is a separate additive field.
+    //   • jutsu loadout: 12 (base) / 15 (subscriber). The legacy 16th slot is a
+    //     separate additive field and is unaffected.
     //   • custom avatar: subscribers only. A non-subscriber may keep an already-
     //     stored avatar (grandfathered), switch to a preset, or carry the
     //     reference URL for their OWN published shared image, but a NEW custom

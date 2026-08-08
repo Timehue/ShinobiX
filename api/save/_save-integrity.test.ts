@@ -158,12 +158,12 @@ describe('jutsu loadout persistence', () => {
         equippedJutsuIds: [...slotOrder, slotOrder[0]],
     });
 
-    it('preserves all 15 ordered PvP slots for a base player', () => {
+    it('preserves slot order while enforcing the base 12-slot cap', () => {
         const out = sanitizeCompatible(incomingSave, storedSave(false)).character as Record<string, unknown>;
-        assert.deepEqual(out.equippedJutsuIds, slotOrder);
+        assert.deepEqual(out.equippedJutsuIds, slotOrder.slice(0, 12));
     });
 
-    it('keeps the subscriber PvP cap equal at the same 15 ordered slots', () => {
+    it('preserves all 15 ordered slots for a stored subscriber entitlement', () => {
         const out = sanitizeCompatible(incomingSave, storedSave(true)).character as Record<string, unknown>;
         assert.deepEqual(out.equippedJutsuIds, slotOrder);
     });

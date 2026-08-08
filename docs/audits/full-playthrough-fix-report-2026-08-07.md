@@ -26,7 +26,7 @@ The fresh account completed this route on the production-built client and author
 2. Selected Stormveil, Ashen Eyes, an avatar, and the Ripple Seal starter companion.
 3. Reached the village and checked the rank/exam and combat-resource Guide text.
 4. Started Strength training and confirmed the stamina debit and active timer.
-5. Unlocked Flicker, equipped it, and confirmed the fair 15-slot loadout message.
+5. Unlocked Flicker, equipped it, and confirmed the 12-slot base loadout with three supporter slots shown as locked.
 6. Equipped the starter Kunai and Vest.
 7. Entered an Academy battle, moved, used Flicker and a normal attack, won, and received the expected rewards.
 8. Ate Small Ramen, confirming healing and the Ryo debit.
@@ -42,8 +42,8 @@ The browser reported no application errors. It only logged an upstream Three.js 
 
 - Clarified automatic ranks versus later advancement holds.
 - Corrected the Guide: Ninjutsu/Genjutsu spend Chakra; Taijutsu/Bukijutsu spend Stamina under the live resource system.
-- Gave every player the same 15-slot PvP combat loadout; the subscription no longer sells extra combat slots.
-- Made the four-pet Tactical ladder reachable on the free pet allowance.
+- Preserved the supporter entitlement model: base accounts equip 12 jutsu and carry 3 pets; supporters equip 15 jutsu and carry 5 pets.
+- Kept Tactical eligibility based on having four available pets. Normal base-account acquisition routes overflow past three carried pets into the Sanctuary, while supporters may carry enough pets to enter directly.
 - Prevented bloodline data from being silently erased during saves.
 - Fixed training selection synchronization, stat-control accessibility, Town Hall Kage wording, Clan Hall XP wording, morale messaging, and profession-respec state.
 - Corrected Sennin-set combat values and generated catalogs, and added authored battle text for built-in bloodlines.
