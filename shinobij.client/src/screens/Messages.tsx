@@ -36,10 +36,19 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const [composeTo, setComposeTo] = useState(initialWith ?? "");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [blocked, setBlocked] = useState<Set<string>>(() => new Set());
     const threadRef = useRef<HTMLDivElement>(null);
 
     const loadInbox = useCallback(async () => {
         try { const r = await fetch("/api/messages"); if (r.ok) { const j = await r.json(); setInbox(Array.isArray(j) ? j : []); } } catch { /* offline */ }
+    }, []);
+    const loadBlocks = useCallback(async () => {
+        try {
+            const r = await fetch("/api/player/blocks");
+            if (!r.ok) return;
+            const j = await r.json() as { blocked?: unknown };
+            setBlocked(new Set(Array.isArray(j.blocked) ? j.blocked.map(String) : []));
+        } catch { /* offline */ }
     }, []);
     const loadThread = useCallback(async (withName: string) => {
         try {
@@ -55,7 +64,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         } catch { /* offline */ }
     }, []);
 
-    useEffect(() => { void loadInbox(); }, [loadInbox]);
+    useEffect(() => { void loadInbox(); void loadBlocks(); }, [loadBlocks, loadInbox]);
     useEffect(() => { if (active) void loadThread(active); }, [active, loadThread]);
     // Poll inbox + the open thread while the screen is mounted.
     useEffect(() => {
@@ -90,6 +99,26 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         }
     }, [busy, loadInbox]);
 
+    const setPlayerBlocked = useCallback(async (target: string, value: boolean) => {
+        if (busy) return;
+        setBusy(true); setError("");
+        try {
+            const r = await fetch("/api/player/blocks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ target, blocked: value }),
+            });
+            const data = await r.json().catch(() => ({})) as { error?: string; blocked?: unknown };
+            if (!r.ok) throw new Error(data.error || "Could not update this player.");
+            setBlocked(new Set(Array.isArray(data.blocked) ? data.blocked.map(String) : []));
+            void loadInbox();
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "Could not update this player.");
+        } finally {
+            setBusy(false);
+        }
+    }, [busy, loadInbox]);
+
     return (
         <div className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
             <div className="menu" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -103,6 +132,14 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <strong style={{ color: "#fbbf24" }}>{active}</strong>
                             <ReportControl targetType="player" targetName={active} context="direct-message" />
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void setPlayerBlocked(active, !blocked.has(active))}
+                                style={{ fontSize: 11, padding: "2px 7px", color: blocked.has(active) ? "#86efac" : "#fca5a5" }}
+                            >
+                                {blocked.has(active) ? "Unblock" : "Block"}
+                            </button>
                         </span>
                         <button onClick={() => { setActive(null); setError(""); void loadInbox(); }}>← Inbox</button>
                     </div>
@@ -120,8 +157,8 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         })}
                     </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={`Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
-                        <button disabled={busy || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
+                        <input disabled={blocked.has(active)} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${active} is blocked` : `Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
+                        <button disabled={busy || blocked.has(active) || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
                     </div>
                     {error && <p className="hint" style={{ color: "var(--red-400)", marginTop: 6 }}>{error}</p>}
                 </div>

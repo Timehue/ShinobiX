@@ -7,6 +7,8 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { replayGauntlet } from '../_pet-sim/gauntlet-sim.js';
+import { debitGauntletEntry } from './_gauntlet-entry.js';
+import { writeSaveProjected } from '../save/_projected-write.js';
 
 /*
  * /api/pet/gauntlet — Pet Gauntlet rewards + weekly leaderboard.
@@ -100,8 +102,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!enforceRateLimit(req, res, 'pet-gauntlet-start', 10, 60_000, me)) return;
             const idx = currentWeekIndex();
             const weekKey = weekKeyOf(idx);
-            const startSave = await kv.get<Record<string, unknown>>(`save:${me}`);
-            const startChar = (startSave?.character ?? null) as Record<string, unknown> | null;
+            const saveKey = `save:${me}`;
+            const reservation = await withKvLock(saveKey, async () => {
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = (record?.character ?? null) as Record<string, unknown> | null;
+                if (!record || !char) return { ok: false as const, status: 404, error: 'Player save not found.' };
+                const result = debitGauntletEntry(char, dayStamp());
+                if (!result.ok) return { ok: false as const, status: 409, error: `A new Gauntlet run costs ${result.required.toLocaleString()} ryo. Not enough ryo.` };
+                const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: result.character });
+                await writeSaveProjected(saveKey, updated, record);
+                return {
+                    ok: true as const,
+                    character: result.character,
+                    chargedRyo: result.charged,
+                    saveVersion: Number(updated._saveVersion ?? 0),
+                };
+            }, { failClosed: true });
+            if (!reservation.ok) return res.status(reservation.status).json({ error: reservation.error });
+            const startChar = reservation.character;
             const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
             const rewardEligible = used < REWARDED_RUNS_PER_DAY;
             // Per-run random seed, minted + sealed server-side so `report` can replay
@@ -113,7 +131,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const id = randomUUID();
             await kv.set(tokenKey(id), sealed, { ex: TOKEN_TTL_SECONDS });
-            return res.status(200).json({ runToken: id, seed: sealed.seed, weekKey, rewardEligible, maxRounds: MAX_ROUNDS, rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used) });
+            return res.status(200).json({
+                runToken: id,
+                seed: sealed.seed,
+                weekKey,
+                rewardEligible,
+                maxRounds: MAX_ROUNDS,
+                rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used),
+                chargedRyo: reservation.chargedRyo,
+                balances: { ryo: Number(startChar.ryo ?? 0) },
+                character: startChar,
+                _saveVersion: reservation.saveVersion,
+            });
         }
 
         // ── report: consume token, pay sealed Ryo, update weekly board ─────────

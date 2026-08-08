@@ -1,8 +1,8 @@
 /*
  * Client wrapper for the daily village tax (§6.4).
  *
- * The tax is a personal ryo sink whose rate falls as your village holds more
- * sectors — a village at its full 8 pays nothing, a conquered one pays the most.
+ * The tax is a personal ryo sink charged only when a village occupies territory
+ * beyond its original eight home sectors. The Treasury Vault can soften the rate.
  * The server owns the whole calculation; this only settles it and adopts the
  * resulting balances.
  *

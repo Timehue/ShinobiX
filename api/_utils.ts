@@ -44,14 +44,16 @@ function isImageField(key: string, value: unknown) {
 // a cleared pet loadout item) is absent from the incoming payload and gets
 // silently re-injected from the stored record on reload — visibly "didn't save",
 // and for weapons/armor a reload-triggered dupe (the item is also returned to
-// inventory[]) that even feeds back into PvP combat hydration. For these keys we
-// recurse with NO existing baseline, so the incoming object replaces the stored
-// one verbatim (a missing inner key genuinely means "cleared"). Safe because the
-// client always sends the COMPLETE current map for these, and foreign/public
+// inventory[]) that even feeds back into PvP combat hydration. Profession
+// mastery allocation also needs full replacement so a dedicated respec can
+// persist an intentionally empty `{}` rather than resurrecting old node ranks.
+// For these keys we recurse with NO existing baseline, so the incoming object
+// replaces the stored one verbatim (a missing inner key genuinely means
+// "cleared"). Safe because the client always sends the COMPLETE current map for these, and foreign/public
 // projections omit the key entirely (so this branch never fires for them — the
 // partial-payload protection is preserved). Scalars cleared to undefined (e.g.
 // activePetId) are handled client-side by sending `null` instead of omitting.
-const REPLACE_SUBTREE_KEYS = new Set<string>(['equipment', 'loadout']);
+const REPLACE_SUBTREE_KEYS = new Set<string>(['equipment', 'loadout', 'masterySpec']);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 
 export function isSafeRecordKey(key: string): boolean {

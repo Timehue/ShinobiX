@@ -228,6 +228,15 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const overLimit = currentTotalPoints > pointLimit;
 
     async function saveBloodline() {
+        // A new bloodline must be entered through the Awakening Stone purchase
+        // flow, which sets lockedRank after the server issues a one-use forge
+        // entitlement. The right-menu Bloodline screen is still useful for
+        // viewing/swapping/editing, but must never optimistically replace a
+        // player's existing bloodline with an unpurchased draft.
+        if (!editingBloodline && !lockedRank) {
+            alert("Purchase a bloodline forge at the Awakening Stone before creating a new bloodline. Your current bloodline was not changed.");
+            return;
+        }
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
         const usedUniqueTags = new Set<string>();
         const finalizedJutsus = jutsus.map((jutsu) => {
@@ -597,7 +606,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j)} pts<br /><small>{describeJutsuEffects(j)}</small><br /><small>Combat VFX: {jutsuVisualEffectLabel(j.visualEffect)}</small></div>
                     ))}
                     {renderPointTotal()}
-                    <button onClick={saveBloodline} disabled={overLimit} style={overLimit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>Save Bloodline</button>
+                    {!editingBloodline && !lockedRank && <p className="hint" role="status">New bloodlines require a forge purchase at the Awakening Stone. Existing bloodlines can still be viewed and equipped here.</p>}
+                    <button onClick={saveBloodline} disabled={overLimit || (!editingBloodline && !lockedRank)} style={overLimit || (!editingBloodline && !lockedRank) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>{editingBloodline ? "Save Changes" : "Save Bloodline"}</button>
                     {savedBloodlines.length > 0 && <><h3>Saved <small className="hint">({savedBloodlines.length}/{maxStoredBloodlines(character)} stored{!isPatreonSubscriber(character) ? " — link Patreon to store 2 & swap" : ""})</small></h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}{b.id === character.equippedBloodlineId ? <p className="hint">✓ Equipped</p> : <button onClick={() => void equipStoredBloodline(b)}>Equip</button>}</div>)}</>}
                 </div>
             )}

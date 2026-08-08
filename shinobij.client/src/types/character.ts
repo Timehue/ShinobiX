@@ -390,6 +390,8 @@ export type Character = {
     professionRank?: number;
     professionXp?: number;
     professionChosenAt?: number;
+    /** Server-owned latch for the account's single free profession change. */
+    professionRespecUsed?: boolean;
     // Patreon subscriber entitlement — SERVER-OWNED. Written ONLY by the
     // signature-verified Patreon webhook / OAuth callback (api/patreon/*), never
     // by a client save: api/save/[name].ts forces it from the stored record via
@@ -579,6 +581,8 @@ export type Character = {
     // UTC date they count for. Own stamp (not lastDailyReset).
     dailyBattleFloors?: number;
     dailyBattleDate?: string;
+    petGauntletEntryCount?: number;
+    petGauntletEntryDate?: string;
     lastDailyReset?: string;
     // Daily login-streak reward (server-authoritative, api/player/daily-login.ts).
     // loginStreak = consecutive UTC days claimed; lastLoginRewardDate = the UTC

@@ -5,14 +5,9 @@ import { cors } from '../_utils.js';
 /*
  * /api/village/war-debuff — GET ?village=<name>
  *
- * Returns the village's current war MORALE window: the loser's "demoralized"
- * debuff and the winner's buff, both stamped on the village-state at war
- * settlement (api/world-state.ts settleVillageWar). 0 when none / expired.
- *
- * `warWinBuffUntil` had been stamped since the winner-buff phase but was never
- * served, so nothing could read it and winning a war granted nothing while
- * losing one cost the whole village three days. Both are returned here now; the
- * client resolves whichever settled MOST RECENTLY (see lib/war-debuff.ts).
+ * Returns the current comeback window plus any historical winner-morale stamp.
+ * The legacy field names remain stable for stored records. The client resolves
+ * whichever settlement was most recent (see lib/war-debuff.ts).
  *
  * Public + briefly cached (the values change only at war-end).
  */

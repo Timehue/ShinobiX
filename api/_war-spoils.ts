@@ -4,12 +4,15 @@
  * unit-testable and the magnitudes live in one reviewable place.
  *
  * Spoils: the winner village siphons a slice of the loser village's treasury.
- * No cap (it's a % of CURRENT holdings, so it always leaves the rest and can't
- * go below zero). Draws / timeouts award nothing (no winner → settle skipped).
+ * Percentage plus absolute caps keep one win from creating an insurmountable
+ * economy lead. Draws / timeouts award nothing (no winner → settle skipped).
  */
 
-export const SPOILS_CURRENCY_PCT = 0.15; // ryo + honor seals
-export const SPOILS_FATE_PCT = 0.10;     // fate shards
+export const SPOILS_CURRENCY_PCT = 0.05; // ryo + honor seals
+export const SPOILS_FATE_PCT = 0.02;     // fate shards
+export const SPOILS_RYO_CAP = 250_000;
+export const SPOILS_SEAL_CAP = 100;
+export const SPOILS_FATE_CAP = 10;
 
 function n(v: unknown): number {
     const x = Math.floor(Number(v));
@@ -22,9 +25,9 @@ export type Spoils = { ryo: number; honorSeals: number; fateShards: number };
 /** Amount the winner takes from the loser's CURRENT treasury (floored, >= 0). */
 export function computeSpoils(loserTreasury: SpoilsTreasury): Spoils {
     return {
-        ryo: Math.floor(n(loserTreasury.ryo) * SPOILS_CURRENCY_PCT),
-        honorSeals: Math.floor(n(loserTreasury.honorSeals) * SPOILS_CURRENCY_PCT),
-        fateShards: Math.floor(n(loserTreasury.fateShards) * SPOILS_FATE_PCT),
+        ryo: Math.min(SPOILS_RYO_CAP, Math.floor(n(loserTreasury.ryo) * SPOILS_CURRENCY_PCT)),
+        honorSeals: Math.min(SPOILS_SEAL_CAP, Math.floor(n(loserTreasury.honorSeals) * SPOILS_CURRENCY_PCT)),
+        fateShards: Math.min(SPOILS_FATE_CAP, Math.floor(n(loserTreasury.fateShards) * SPOILS_FATE_PCT)),
     };
 }
 

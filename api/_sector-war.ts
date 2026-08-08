@@ -26,7 +26,7 @@
 
 import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
-import { isWarVillage, isWarSector } from './_war-map-sectors.js';
+import { homeVillageForSector, isWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 
 /** How long a sector war runs. Fixed and visible to both sides from declare. */
@@ -359,7 +359,13 @@ export function settleSectorWar(
     if (session.flipped) return { session, changed: false, attackerWon: true };
     if (session.expiredAt) return { session, changed: false, attackerWon: false };
     if (now < session.endsAt) return { session, changed: false, attackerWon: false };
-    const attackerWon = session.attackerPoints > session.defenderPoints;
+    // The declaration guard prevents new attacks on another village's gate, but
+    // a contest created before that rule shipped can still be due for settlement.
+    // Re-assert the permanent-gate invariant here so a legacy/live row cannot
+    // capture a protected core after deployment.
+    const protectedFromAttacker = isProtectedWarSector(session.sector)
+        && homeVillageForSector(session.sector) !== session.attackerVillage;
+    const attackerWon = !protectedFromAttacker && session.attackerPoints > session.defenderPoints;
     const next: SectorWarSession = attackerWon
         ? { ...session, flipped: true, updatedAt: now }
         : { ...session, expiredAt: now, expiredReason: 'defended', updatedAt: now };
@@ -510,6 +516,7 @@ export type SectorWarDeclineReason =
     | 'self'
     | 'not-war-village'
     | 'not-war-sector'
+    | 'protected-core'
     | 'not-enemy-held'
     | 'mutual-exclusion-attacker'
     | 'mutual-exclusion-defender'
@@ -568,6 +575,9 @@ export function canDeclareSectorWar(c: SectorWarDeclareCheck): SectorWarDeclareR
     if (!attacker || !defender || attacker === defender) return { ok: false, error: 'self' };
     if (!isWarVillage(attacker) || !isWarVillage(defender)) return { ok: false, error: 'not-war-village' };
     if (!isWarSector(c.sector)) return { ok: false, error: 'not-war-sector' };
+    if (isProtectedWarSector(c.sector) && homeVillageForSector(c.sector) !== attacker) {
+        return { ok: false, error: 'protected-core' };
+    }
     if (String(c.sectorOwnerVillage) !== defender) return { ok: false, error: 'not-enemy-held' };
     if (c.attackerInActiveVillageWar) return { ok: false, error: 'mutual-exclusion-attacker' };
     if (c.defenderInActiveVillageWar) return { ok: false, error: 'mutual-exclusion-defender' };

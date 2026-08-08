@@ -104,12 +104,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         let casualBattleTokenKey: string | null = null;
+        let casualBattleActiveKey: string | null = null;
         let casualBattleReceipt = '';
         let casualPetIds: string[] = [];
         let hollowGatePetResult: HollowGatePetResultReceipt | null = null;
         // The reward level SEALED at battle-start (opponent actually fought). When
         // set, it — not the body-named opponent — decides the payout.
         let sealedOpponentLevel: number | null = null;
+        let sealedRewardRyo: number | null = null;
         if (!ranked && !identity.admin) {
             if (!battleToken) return res.status(400).json({ error: 'A valid pet battle start token is required.' });
             const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
@@ -117,6 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 playerName?: string;
                 reportKey?: string;
                 opponentLevel?: number;
+                rewardRyo?: number;
                 playerPetIds?: string[];
                 opponentPetIds?: string[];
                 sealedOpponentPets?: Pet[];
@@ -187,7 +190,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
             sealedOpponentLevel = opponentLevelRaw;
+            const tokenReward = Number(tokenData.rewardRyo);
+            if (!Number.isSafeInteger(tokenReward) || tokenReward < 20 || tokenReward > 250) {
+                return res.status(409).json({ error: 'Pet battle token lacks a valid sealed reward.' });
+            }
+            sealedRewardRyo = tokenReward;
             casualBattleTokenKey = tokenKey;
+            casualBattleActiveKey = `pet:battle-active:${playerName}`;
             casualBattleReceipt = battleToken;
             casualPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
             if (tokenData.hollowGate?.runId) {
@@ -201,6 +210,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        const releaseCasualBattle = async (): Promise<void> => {
+            if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
+            if (casualBattleActiveKey) await kv.delIfEqual(casualBattleActiveKey, battleToken).catch(() => undefined);
+        };
+
         // Hollow Gate pet duels do not pay the ordinary Coliseum faucet. Their
         // server-replayed outcome becomes a one-use receipt consumed by the
         // run-bound Hollow Gate settlement endpoint.
@@ -210,7 +224,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hollowGatePetResult,
                 { nx: true, ex: HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS },
             );
-            await kv.del(casualBattleTokenKey).catch(() => undefined);
+            await releaseCasualBattle();
             return res.status(200).json({
                 ok: true,
                 hollowGate: true,
@@ -407,7 +421,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? (char.redeemedPetBattleTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
                     : [];
                 if (receipts.includes(casualBattleReceipt)) {
-                    await kv.del(casualBattleTokenKey).catch(() => undefined);
+                    await releaseCasualBattle();
                     return {
                         ok: true,
                         reward: 0,
@@ -438,7 +452,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (outcome === 'loss' || outcome === 'draw') {
                 const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
                 await writeSaveProjected(saveKey, spentRecord, record);
-                if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
+                await releaseCasualBattle();
                 return {
                     ok: true,
                     outcome,
@@ -457,7 +471,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
                 const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
                 await writeSaveProjected(saveKey, spentRecord, record);
-                if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
+                await releaseCasualBattle();
                 return {
                     ok: true,
                     reward: 0,
@@ -470,7 +484,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
 
-            const reward = petArenaRyoReward(opponentLevel);
+            // Casual rewards come from the opponent PET SNAPSHOT sealed at
+            // battle-start. Account level is retained only for the trusted
+            // admin compatibility path, never for ordinary player receipts.
+            const reward = sealedRewardRyo ?? petArenaRyoReward(opponentLevel);
             const updatedChar = {
                 ...spentChar,
                 ryo: Number(char.ryo ?? 0) + reward,
@@ -480,7 +497,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const updated = bumpSaveVersion({ ...record, character: updatedChar });
             await writeSaveProjected(saveKey, updated, record);
-            if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
+            await releaseCasualBattle();
             return {
                 ok: true,
                 reward,

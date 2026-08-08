@@ -67,6 +67,7 @@ const ECHOES_VERSION = new Set([
     'pvp/claim-rewards.ts',
     'save/_mutate-player-save.ts',
     'sector/story-reckoning.ts',
+    'towers/start.ts',
     'village/claim-daily-agenda.ts',
     'village/claim-map-control.ts',
     'village/claim-war-crate.ts',

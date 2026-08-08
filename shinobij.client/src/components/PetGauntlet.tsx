@@ -23,7 +23,7 @@ import {
     type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
-import { GAUNTLET_NEW_RUN_FEE, payGauntletNewRun } from "../lib/entry-fee";
+import { GAUNTLET_NEW_RUN_FEE } from "../lib/entry-fee";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -157,6 +157,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     // Latest character for the (single, async) reward credit — avoids a stale closure.
     const charRef = useRef(character);
     useEffect(() => { charRef.current = character; }, [character]);
+    const updateCharacterRef = useRef(updateCharacter);
+    useEffect(() => { updateCharacterRef.current = updateCharacter; }, [updateCharacter]);
 
     const fielded = useMemo(() => (run ? fieldedPets(run) : []), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
@@ -207,6 +209,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         void (async () => {
             const s = await startGauntlet();
             if (!alive) return;
+            if (s?.character) updateCharacterRef.current(s.character);
             setMeta(s ? { token: s.runToken, weekKey: s.weekKey, rewardEligible: s.rewardEligible } : null);
             setCells({});
             setSelId(null);
@@ -313,11 +316,11 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     }
 
     const newRun = () => {
-        // Ryo entry fee on each fresh run (the first run on entering is free). Charged
-        // on the explicit New Run action — the repeated-grind behavior we want to drain.
-        const paid = payGauntletNewRun(charRef.current);
-        if (!paid) return alert(`A new Gauntlet run costs ${GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo. Not enough ryo.`);
-        updateCharacter(paid);
+        // The start endpoint debits the stored wallet under its save lock. This
+        // local check only gives immediate feedback; it cannot grant a paid run.
+        if ((charRef.current.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) {
+            return alert(`A new Gauntlet run costs ${GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo. Not enough ryo.`);
+        }
         setRun(null);
         setNonce((n) => n + 1);
     };

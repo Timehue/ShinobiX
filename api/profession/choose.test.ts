@@ -55,4 +55,39 @@ describe('profession choice settlement', () => {
         assert.equal(conflict.statusCode, 409);
         assert.equal((await kv.get<{ character?: { profession?: string } }>(SAVE_KEY))?.character?.profession, 'vanguard');
     });
+
+    it('allows one free profession change and resets profession progression', { concurrency: false }, async () => {
+        await kv.set(SAVE_KEY, {
+            _saveVersion: 4,
+            character: {
+                name: 'professiontester', level: 25, profession: 'vanguard', professionRank: 7,
+                professionXp: 8_400, masterySpec: { ironclad: 2 },
+            },
+        });
+
+        const changed = await post({ playerName: 'professiontester', profession: 'healer', respec: true });
+        assert.equal(changed.statusCode, 200);
+        assert.equal(changed.body?.respecUsed, true);
+        const saved = await kv.get<{ character?: Record<string, unknown> }>(SAVE_KEY);
+        assert.equal(saved?.character?.profession, 'healer');
+        assert.equal(saved?.character?.professionRank, 1);
+        assert.equal(saved?.character?.professionXp, 0);
+        assert.equal(saved?.character?.professionRespecUsed, true);
+        assert.deepEqual(saved?.character?.masterySpec, {});
+
+        const second = await post({ playerName: 'professiontester', profession: 'petTamer', respec: true });
+        assert.equal(second.statusCode, 409);
+        assert.equal((await kv.get<{ character?: { profession?: string } }>(SAVE_KEY))?.character?.profession, 'healer');
+    });
+
+    it('does not consume the free change on the initial profession choice or an idempotent replay', { concurrency: false }, async () => {
+        const first = await post({ playerName: 'professiontester', profession: 'petTamer' });
+        assert.equal(first.statusCode, 200);
+        assert.equal((await kv.get<{ character?: { professionRespecUsed?: boolean } }>(SAVE_KEY))?.character?.professionRespecUsed, undefined);
+
+        const replay = await post({ playerName: 'professiontester', profession: 'petTamer', respec: true });
+        assert.equal(replay.statusCode, 200);
+        assert.equal(replay.body?.idempotent, true);
+        assert.equal((await kv.get<{ character?: { professionRespecUsed?: boolean } }>(SAVE_KEY))?.character?.professionRespecUsed, undefined);
+    });
 });

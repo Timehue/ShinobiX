@@ -21,7 +21,7 @@
 import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
-import type { PvpSession } from '../pvp/session.js';
+import { pvpSessionMayReward, type PvpSession } from '../pvp/session.js';
 import { resolveDuelDecision, applySeatTransfer, applyDefense, applyExpiry, isChallengeExpired, type KageStateLike } from './_kage-challenge.js';
 
 const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -57,7 +57,7 @@ export type SettleResult =
 
 /** Build the outcome from a finished PvpSession, or null if it isn't settle-ready. */
 function outcomeFromSession(session: PvpSession | null, challengeId?: string): KageDuelOutcome | null {
-    if (!session || session.status !== 'done' || !session.winner || session.winner === 'draw') return null;
+    if (!session || !pvpSessionMayReward(session) || session.status !== 'done' || !session.winner || session.winner === 'draw') return null;
     const winnerName = session.winner === 'p1' ? session.p1.name : session.p2.name;
     const loserName = session.winner === 'p1' ? session.p2.name : session.p1.name;
     return { battleId: session.battleId, createdAt: num(session.createdAt), winnerName, loserName, p1Name: session.p1.name, p2Name: session.p2.name, challengeId };

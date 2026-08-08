@@ -60,6 +60,7 @@ import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { cappedPostDamage, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
+import { advancePveGroundZonesForTurn, pveGroundZoneDebuff, type PveGroundZone } from "../lib/pve-ground-zones";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -825,13 +826,10 @@ export function Arena({
     const [playerStatuses, setPlayerStatuses] = useState<CombatStatus[]>([]);
     const [enemyStatuses, setEnemyStatuses] = useState<CombatStatus[]>([]);
     const [barrierTiles, setBarrierTiles] = useState<{ tile: number; rounds: number }[]>([]);
-    // Persistent ground-effect zones the PLAYER drops with an INSTANT_EFFECT
+    // Persistent ground-effect zones either fighter drops with an INSTANT_EFFECT
     // ground jutsu (mirrors PvP `groundEffects`). Each re-applies its debuffs to
-    // the enemy whenever the enemy stands in it, for `rounds` rounds. Only the
-    // player owns zones — the AI never casts ground jutsu. (PvP: api/pvp/move.ts
-    // groundEffects / applyGroundEffects / tickGroundEffects.)
-    type GroundZone = { id: string; tiles: number[]; rounds: number; tags: { name: string; percent?: number }[] };
-    const [groundZones, setGroundZones] = useState<GroundZone[]>([]);
+    // the opposing fighter whenever they stand in it for `rounds` rounds.
+    const [groundZones, setGroundZones] = useState<PveGroundZone[]>([]);
     // Tags a ground zone may carry — matches PvP groundEffectTags.
     const GROUND_ZONE_TAGS = new Set(["Decrease Damage Given", "Recoil", "Poison"]);
 
@@ -1467,7 +1465,7 @@ export function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: true, rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
+                body: stringifyPvpSessionPayload({ challengeId: challenge.id, useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: !(!challenge.mode || (challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack)), rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
@@ -3559,7 +3557,7 @@ export function Arena({
                 .filter((t) => GROUND_ZONE_TAGS.has(t.name));
             if (zoneTags.length) {
                 const tiles = [targetTile, ...hexNeighbors(targetTile)];
-                setGroundZones((z) => [...z, { id: `gz-${jutsu.id}-${turn}-${z.length}`, tiles, rounds: 2, tags: zoneTags }]);
+                setGroundZones((z) => [...z, { id: `gz-${jutsu.id}-${turn}-${z.length}`, owner: "player", tiles, rounds: 2, tags: zoneTags }]);
                 effectLines.push(`${jutsu.name} leaves a lingering zone for 2 rounds.`);
             }
         }
@@ -4304,6 +4302,25 @@ export function Arena({
             }
         });
 
+        // Keep AI ground jutsu on the field just like player ground jutsu.
+        // Previously the visual played, but the enemy patch vanished immediately.
+        if (jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT") {
+            const zoneTags = jutsu.tags
+                .map((tag) => ({ name: normalizeTagName(tag.name), percent: tag.percent }))
+                .filter((tag) => GROUND_ZONE_TAGS.has(tag.name));
+            if (zoneTags.length) {
+                const tiles = [playerPos, ...hexNeighbors(playerPos)];
+                setGroundZones((zones) => [...zones, {
+                    id: `gz-enemy-${jutsu.id}-${turn}-${zones.length}`,
+                    owner: "enemy",
+                    tiles,
+                    rounds: 2,
+                    tags: zoneTags,
+                }]);
+                effectLines.push(`${jutsu.name} leaves a lingering zone for 2 rounds.`);
+            }
+        }
+
         // IDG/IDT/Ignition/DDG/DDT are already folded into `damage` by the
         // soft-cap pools inside calculateDamage (the player path does the same and
         // voids the old multiplicativeTagMultiplier pass). Re-applying them here
@@ -4758,6 +4775,28 @@ export function Arena({
         setEnemyStatuses((s) => tickStatuses(s));
         const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
         pendingPlayerStunApPenaltyRef.current = false;
+        // Enemy-owned patches get exactly one lifetime tick when the player's turn
+        // begins. Player-owned patches are untouched here and advance at enemyTurn.
+        const playerZoneTurn = advancePveGroundZonesForTurn(groundZones, "player", playerPos);
+        const playerZoneHits = playerZoneTurn.hits;
+        const playerZoneStatuses: CombatStatus[] = [];
+        if (playerZoneHits.length && !activeStatuses(playerStatuses).some((status) => status.name === "Debuff Prevent")) {
+            const zoneNotes: string[] = [];
+            for (const zone of playerZoneHits) {
+                for (const tag of zone.tags) {
+                    const status = pveGroundZoneDebuff(tag, COMBAT_RESOURCES_V2);
+                    if (!status) continue;
+                    playerZoneStatuses.push(status);
+                    if (status.name === "Decrease Damage Given") zoneNotes.push(`−${status.percent}% damage`);
+                    else if (status.name === "Recoil") zoneNotes.push("recoil");
+                    else zoneNotes.push("poison");
+                }
+            }
+            if (playerZoneStatuses.length) {
+                addCombatLog(`${character.name} is caught in a ground zone (${[...new Set(zoneNotes)].join(", ")}).`, "effects", opponentName);
+            }
+        }
+        if (groundZones.some((zone) => zone.owner === "enemy")) setGroundZones(playerZoneTurn.zones);
         // DoT damage is summed from statuses ACTIVE this turn at their CURRENT
         // rounds — NOT pre-ticked. Mirrors api/pvp/move.ts applyDoTs, which reads
         // activeStatuses() and applies tick damage separately from the round
@@ -4766,7 +4805,12 @@ export function Arena({
         const activeDotPlayerStatuses = withoutStun(playerStatuses).filter((s) => (s.activeRound ?? turn) <= turn);
         // FUNCTIONAL set: ticks the LIVE committed state so debuffs queued this
         // turn (Poison/Drain/Ignition/Seal/Lag/Recoil) are preserved and ticked.
-        setPlayerStatuses((prev) => tickStatuses(withoutStun(prev)));
+        // Tick the statuses that just completed, then apply the incoming zone.
+        // Reversing this order erased 1-round DDG/Recoil before the player could act.
+        setPlayerStatuses((prev) => playerZoneStatuses.reduce(
+            (statuses, status) => mergeCombatStatus(statuses, status),
+            tickStatuses(withoutStun(prev)),
+        ));
         const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), activeDotPlayerStatuses);
         let pDotDamage = 0;
         let pDrainChakra = 0;
@@ -4851,20 +4895,22 @@ export function Arena({
             addCombatLog(`Lag: ${opponentName}'s actions cost ${enemyLagStatus?.percent || 20}% more AP this turn.`, "lag", opponentName);
         }
 
-        // Ground zones: the player's lingering patches re-apply their debuffs to
-        // the enemy while it stands in one (mirrors PvP applyGroundEffects). The
-        // zone's own Poison status then ticks through the normal enemy DoT below.
-        // Functional setEnemyStatuses so we don't clobber other same-turn changes.
-        const enemyZoneHits = groundZones.filter((z) => z.tiles.includes(enemyPos));
+        // Player-owned patches get exactly one lifetime tick when the enemy's turn
+        // begins. Enemy-owned patches are untouched here and advance when the
+        // player's turn begins in endEnemyTurn().
+        const enemyZoneTurn = advancePveGroundZonesForTurn(groundZones, "enemy", enemyPos);
+        const enemyZoneHits = enemyZoneTurn.hits;
         if (enemyZoneHits.length && !activeStatuses(enemyStatuses).some((s) => s.name === "Debuff Prevent")) {
             const zoneStatuses: CombatStatus[] = [];
             const zoneNotes: string[] = [];
             for (const z of enemyZoneHits) {
                 for (const tag of z.tags) {
-                    const pct = tag.percent ?? (tag.name === "Poison" ? 6 : 30);
-                    if (tag.name === "Decrease Damage Given") { zoneStatuses.push({ name: "Decrease Damage Given", rounds: 2, percent: pct, kind: "negative" }); zoneNotes.push(`−${pct}% damage`); }
-                    else if (tag.name === "Recoil") { zoneStatuses.push({ name: "Recoil", rounds: 2, percent: pct, kind: "negative" }); zoneNotes.push("recoil"); }
-                    else if (tag.name === "Poison") { zoneStatuses.push({ name: "Poison", rounds: 2, percent: pct, kind: "negative" }); zoneNotes.push("poison"); }
+                    const status = pveGroundZoneDebuff(tag, COMBAT_RESOURCES_V2);
+                    if (!status) continue;
+                    zoneStatuses.push(status);
+                    if (status.name === "Decrease Damage Given") zoneNotes.push(`−${status.percent}% damage`);
+                    else if (status.name === "Recoil") zoneNotes.push("recoil");
+                    else zoneNotes.push("poison");
                 }
             }
             if (zoneStatuses.length) {
@@ -4872,8 +4918,7 @@ export function Arena({
                 addCombatLog(`${opponentName} is caught in a ground zone (${[...new Set(zoneNotes)].join(", ")}).`, "effects", character.name);
             }
         }
-        // Tick the player's zones down once per round (the enemy's turn marks a round).
-        if (groundZones.length) setGroundZones((zones) => zones.map((z) => ({ ...z, rounds: z.rounds - 1 })).filter((z) => z.rounds > 0));
+        if (groundZones.some((zone) => zone.owner === "player")) setGroundZones(enemyZoneTurn.zones);
 
         // DoT DR mitigation (PvE↔PvP parity, mirrors api/pvp/move.ts applyDoTs):
         // ticks scale by (1 - effDR × DR_DOT_SCALE) using the defender's own
@@ -4917,15 +4962,16 @@ export function Arena({
 
         if (enemyHp - dotDamage <= 0) return winBattle();
 
-        // Start the multi-action turn. The first action runs synchronously (same
-        // closure as the start bookkeeping above — identical to the old single-
-        // action behaviour); afterEnemyAction schedules any follow-ups via
-        // enemyContinueRef so they read fresh committed state. enemyTurnActiveRef
-        // guards against a double-begin (e.g. waitTurn + the auto-resolve effect).
+        // Start after React commits the start-of-turn zone statuses. This makes a
+        // freshly re-applied 1-round DDG/Recoil affect the first enemy action too;
+        // follow-up actions already use this same fresh-state path.
         enemyTurnActiveRef.current = true;
         enemyTurnApRef.current = enemyTurnAp;
         enemyTurnActionsRef.current = 0;
-        afterEnemyAction(enemyTakeAction(enemyTurnAp));
+        enemyTurnTimerRef.current = window.setTimeout(() => {
+            enemyTurnTimerRef.current = null;
+            enemyContinueRef.current();
+        }, 0);
     }
 
     function resetBattle(nextEnemyHp = enemyMaxHp, firstActor?: "player" | "enemy") {
@@ -5564,7 +5610,10 @@ export function Arena({
                     setPlayerStatuses(saved.playerStatuses as CombatStatus[]);
                     setEnemyStatuses(saved.enemyStatuses as CombatStatus[]);
                     setBarrierTiles(saved.barrierTiles);
-                    setGroundZones((saved.groundZones ?? []) as GroundZone[]);
+                    setGroundZones((saved.groundZones ?? []).map((zone) => ({
+                        ...zone,
+                        owner: zone.owner === "enemy" ? "enemy" : "player",
+                    })) as PveGroundZone[]);
                     setCooldowns(saved.cooldowns);
                     setJutsuCooldowns(saved.jutsuCooldowns);
                     setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);

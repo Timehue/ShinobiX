@@ -228,7 +228,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 /** Begin a run: host + optional allies (slugs) + the host's client-computed loadout extras.
  *  Returns the runId + the initial session. */
-export function startTowerRun(hostName: string, floor: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
+export function startTowerRun(hostName: string, floor: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession; character?: Character; chargedRyo?: number; _saveVersion?: number }> {
     return postJson('/api/towers/start', { hostName, floor, allies, hostLoadout });
 }
 

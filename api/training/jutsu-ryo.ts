@@ -64,8 +64,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!def || typeof def !== 'object') return false;
                 return !characterMayUseJutsu(character, record, { id: jutsuId, element: (def as Record<string, unknown>).element });
             };
-            // Village war MORALE, resolved SERVER-SIDE from village-state — a
-            // demoralized village trains jutsu slower and a triumphant one faster,
+            // Village war MORALE, resolved SERVER-SIDE from village-state: a
+            // rallying village trains faster while legacy winner morale is neutral,
             // independently of the client-reported bonus (which is separately clamped).
             const jutsuMorale = await moraleForCharacter(character, Date.now());
             if (action === 'start') {

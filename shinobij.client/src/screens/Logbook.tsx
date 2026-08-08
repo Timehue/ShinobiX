@@ -109,7 +109,7 @@ export function Logbook({
     const prestigeMilestones = examMissions.filter((exam) => exam.progressionImpact === "prestige");
     const ceremonyBody = ceremony?.prestige
         ? `Distinction recorded for ${character.name}. This recognition grants no extra levels, stats, jutsu power, or content access.`
-        : ceremony?.title === "Genin Exam"
+        : ceremony?.title === "Genin Advancement Exam"
         ? "You graduated from the Academy. The village now trusts you with real shinobi work."
         : `Congratulations, ${character.name}. Your next shinobi path is open.`;
 
@@ -317,7 +317,7 @@ export function Logbook({
                 <>
                     <h3>Path to Genin</h3>
                     <section className="academy-logbook-panel chapter-logbook-panel mission-board-section">
-                        <p className="hint">Follow these chapters after the tutorial. The real Genin Exam appears at the level-20 hold.</p>
+                        <p className="hint">Follow these chapters after the tutorial. You become Genin at level 15; the Genin Advancement Exam is the level-20 progression hold.</p>
                         {chapterObjectives.map((chapter) => {
                             const complete = objectiveComplete(chapter);
                             const active = currentObjective?.id === chapter.id;

@@ -5,7 +5,7 @@ import type { JutsuType } from "../types/core";
 import { JutsuEffectCards } from "./JutsuEffectCards";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
-import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
+import { LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 
@@ -183,8 +183,7 @@ export function JutsuLoadoutPanel({
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     const [lensOverride, setLensOverride] = useState<JutsuType | null>(null);
     const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">("loadout");
-    const subscriber = isPatreonSubscriber(character);
-    const unlockedSlots = subscriber ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
+    const unlockedSlots = LOADOUT_CAP_BASE;
     const loadoutFull = character.equippedJutsuIds.length >= unlockedSlots;
 
     const equippedJutsus = character.equippedJutsuIds
@@ -306,10 +305,10 @@ export function JutsuLoadoutPanel({
                             <p>Drag equipped jutsu to reorder your battle action bar.</p>
                         </div>
                         <div className="jutsu-subscriber-callout">
-                            <span>♛</span>
+                            <span aria-hidden="true">⚖</span>
                             <div>
-                                <strong>{subscriber ? "Subscriber Active" : "Subscriber Bonus"}</strong>
-                                <small>{subscriber ? "All 15 slots unlocked." : "Unlock 3 additional slots."}</small>
+                                <strong>Fair-play loadout</strong>
+                                <small>All 15 combat slots are available to every shinobi.</small>
                             </div>
                         </div>
                     </div>
@@ -317,18 +316,6 @@ export function JutsuLoadoutPanel({
                     <div className="jutsu-loadout-grid" aria-label="Equipped jutsu loadout">
                         {Array.from({ length: LOADOUT_CAP_SUB }, (_, slotIndex) => {
                             const jutsu = equippedJutsus[slotIndex];
-                            const locked = slotIndex >= unlockedSlots;
-                            if (locked) {
-                                return (
-                                    <div className="jutsu-loadout-slot is-locked" key={slotIndex}>
-                                        <span className="jutsu-slot-number">{slotIndex + 1}</span>
-                                        <span className="jutsu-lock-icon">🔒</span>
-                                        <span className="jutsu-lock-crown">♛</span>
-                                        <strong>Subscriber Slot</strong>
-                                        <small>Unlocks with subscription</small>
-                                    </div>
-                                );
-                            }
                             return (
                                 <div
                                     className={`jutsu-loadout-slot ${jutsu ? "is-filled" : "is-open"} ${selectedJutsu?.id === jutsu?.id ? "is-selected" : ""} ${dragOverSlot === slotIndex ? "is-drag-over" : ""}`}
@@ -469,10 +456,10 @@ export function JutsuLoadoutPanel({
                         </ul>
                     </section>
                     <section className="jutsu-sidebar-section jutsu-subscription-benefits">
-                        <h3>♛ Subscription Benefits</h3>
+                        <h3>Loadout Rules</h3>
                         <ul>
-                            <li>Unlock 3 additional loadout slots (13–15)</li>
-                            <li>More loadout flexibility in battle</li>
+                            <li>Every player can equip up to 15 jutsu.</li>
+                            <li>Subscriptions do not grant extra combat slots.</li>
                         </ul>
                     </section>
                     <section className="jutsu-sidebar-section jutsu-element-legend">
