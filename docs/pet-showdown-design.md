@@ -184,6 +184,36 @@ per session with stage-tinted lighting + drifting motes; Bloom post-processing
 (petBloom flag); VS intro card; portraits on every HUD card; bench cards with
 BENCH badges; the Switch action with a bench-pick flow.
 
+## Round 5 — the wheel sharpened, per-element move identity, seen-and-fixed UI (2026-08-08)
+
+**Element wheel 1.16/0.9 → 1.5/0.75** (swing 2.0), grounded in a dedicated
+research pass (WoW pet battles' proven 1.5/0.66 flat chart in a switch-centric
+format; the fan-Naruto ±25% standard; licensed Naruto games either skip the
+wheel or use ~±25%; Pokémon/Temtem's 2x/0.5x only works with dual-type
+ambiguity/doubles damping). The switch-economics math: at 1.5/0.75 a
+half-flip switch pays back in ~2.7 rounds, a full flip in ~1.3 — switching is
+now the central decision the bench was built for. Cycle symmetry keeps
+aggregates intact: post-change sim bands are the TIGHTEST yet (roles 45-55%,
+elements 43.5-55.1%, pace 8.2 rounds, judge 11%). The 93% advantaged-matchup
+rate in the benchless 1v1 sim is intended — live play answers it by switching.
+Canon note: the friendlier 0.75 floor (not WoW's 0.66) reflects Naruto's
+"power can overcome nature" rule. Reserve option if telemetry shows switching
+underused: 1.5/0.66. Wu-Xing "generating cycle" ally-synergy noted as a
+future team-mode layer.
+
+**Per-element move identity** (`ELEMENT_TRAVEL` in PetShowdownVfx): Fire = a
+straight searing fastball; Water = a low skimming wave; Wind = a FAN of three
+crescents that opens mid-flight and converges on the target; Earth = a high
+lobbed tumbling boulder; Lightning = NO travel — a tall bolt strikes from the
+sky at the impact moment. Signatures additionally detonate their element's
+painted flipbook large over the kaboom.
+
+**Seen-and-fixed UI** (first real screenshots via headless Playwright): bench
+row moved from the camera foreground to side WINGS (player left, enemy right);
+pet cards widened to full names with a two-row layout and a proper BENCH pill;
+turn-order chips now show portraits; move buttons carry the commander's
+element as a colored edge.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

@@ -56,7 +56,6 @@ import type {
 
 const PLAYER_Z = 3.6;
 const ENEMY_Z = -3.6;
-const BENCH_Z = 6.6;
 const SLOT_SPACING = 2.7;
 const FLOOR_Y = 0;
 
@@ -190,11 +189,18 @@ function lineupFromState(state: ShowdownStateView): Lineup {
 function computeArrangement(lineup: Lineup): Map<string, [number, number, number]> {
     const out = new Map<string, [number, number, number]>();
     const place = (ids: string[], side: "player" | "enemy", bench: boolean) => {
+        if (bench) {
+            // The bench waits in the WINGS (player left, enemy right), slightly
+            // behind its side's line — visible at the frame edge in wide shots,
+            // never looming in the camera foreground.
+            ids.forEach((id, i) => {
+                const wing = side === "player" ? -1 : 1;
+                out.set(id, [wing * (6.8 + i * 1.9), FLOOR_Y, side === "player" ? 4.4 : -4.4]);
+            });
+            return;
+        }
         const positions = slotPositions(ids.length, side);
-        ids.forEach((id, i) => {
-            const [x, y, z] = positions[i];
-            out.set(id, bench ? [x * 0.8, y, side === "player" ? BENCH_Z : -BENCH_Z] : [x, y, z]);
-        });
+        ids.forEach((id, i) => out.set(id, positions[i]));
     };
     place(lineup.playerField, "player", false);
     place(lineup.playerBench, "player", true);
@@ -645,19 +651,21 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                         ].join(" ")}
                     >
                         {art?.[pet.id] && <img className="showdown-pet-portrait" src={art[pet.id]} alt="" loading="lazy" />}
-                        {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
                         <div className="showdown-pet-card-head">
                             <span className="showdown-pet-name">{pet.name}</span>
-                            <span className="showdown-pet-level">Lv {pet.level}</span>
-                            <span className="showdown-pet-element" style={{ color: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}>
-                                {pet.element !== "None" ? pet.element : ""}
-                            </span>
                             {clickable && hintElement && SHOWDOWN_ELEMENT_BEATS[hintElement] === pet.element && (
                                 <span className="showdown-matchup up" title="Your element beats theirs">▲</span>
                             )}
                             {clickable && hintElement && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement && (
                                 <span className="showdown-matchup down" title="Their element beats yours">▼</span>
                             )}
+                        </div>
+                        <div className="showdown-pet-card-sub">
+                            <span className="showdown-pet-level">Lv {pet.level}</span>
+                            <span className="showdown-pet-element" style={{ color: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}>
+                                {pet.element !== "None" ? pet.element : ""}
+                            </span>
+                            {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
                         </div>
                         <div className="showdown-bar hp">
                             {/* The chip layer drains SLOWLY behind the instant fill —
@@ -783,12 +791,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, [stateView.player.length, stateView.enemy.length]);
 
     /** Spawn a one-shot painted flipbook at a pet's current position. */
-    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0) => {
+    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1) => {
         const at = posRef.current.get(petId);
         if (!at) return;
         const key = popupKey.current++;
         setVfx((list) => [...list.slice(-14), {
-            key, frames, scale, durationMs,
+            key, frames, scale, durationMs, aspect,
             pos: [at[0], at[1] + yLift, at[2]] as [number, number, number],
             startedAt: performance.now(),
         }]);
@@ -929,6 +937,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             event.super ? (target.splash ? 2.6 : 3.6) : target.splash ? 1.8 : 2.4,
                             event.super ? 720 : 560,
                         );
+                        // Lightning ranged attacks STRIKE FROM THE SKY — a tall
+                        // bolt drops on the victim (there was no travel to watch).
+                        if (event.element === "Lightning" && event.delivery === "ranged" && !target.splash) {
+                            spawnFlipbook(target.id, "lightning", 2.9, 520, 2.6, 2.2);
+                        }
+                        // A signature also detonates its ELEMENT large over the
+                        // kaboom, so every super reads as its nature.
+                        if (event.super && !target.splash) {
+                            const el = event.element.toLowerCase();
+                            if (["fire", "water", "earth", "wind", "lightning"].includes(el)) {
+                                spawnFlipbook(target.id, el, 4.4, 820);
+                            }
+                        }
                         if (target.effectiveness === "super") bestEffect = "super";
                         else if (target.effectiveness === "weak" && bestEffect !== "super") bestEffect = "weak";
                         anySynergy = anySynergy || !!target.synergy;
@@ -1221,7 +1242,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     style={{ borderColor: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}
                                     title={pet.name}
                                 >
-                                    {pet.name.slice(0, 2)}
+                                    {panelArt[petId]
+                                        ? <img src={panelArt[petId]} alt={pet.name} />
+                                        : pet.name.slice(0, 2)}
                                 </span>
                             );
                         })}
@@ -1264,6 +1287,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                                 type="button"
                                                 disabled={cooling}
                                                 className={`showdown-move ${cooling ? "cooling" : ""} ${willOverexert ? "overexert" : ""}`}
+                                                style={{ borderLeft: `3px solid ${ELEMENT_TINT[commander.element] ?? ELEMENT_TINT.None}` }}
                                                 onClick={() => chooseMove(i, false)}
                                             >
                                                 <span className="showdown-move-icon">{KIND_ICON[move.kind] ?? "⚔️"}</span>

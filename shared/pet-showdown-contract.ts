@@ -31,12 +31,19 @@ export const SHOWDOWN_ELEMENT_BEATS: Readonly<Record<string, string>> = Object.f
     Water: "Fire",
 });
 
-// 1.3/0.8 made the wheel decide ~80%+ of advantaged matchups in the balance
-// sim (it compounds with the per-element identity tables in the engine) — a
-// hard counter, not an edge. 1.16/0.9 keeps the callout meaningful while
-// leaving the fight winnable from the wrong side of the wheel.
-export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.16;
-export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.9;
+// Tuned per the elemental-wheel research pass (docs/pet-showdown-design.md):
+// with bench switching shipped as the counterplay, a gentle wheel underprices
+// the switch (the matchup delta a swap captures must beat ~2 actions of cost).
+// 1.5/0.75 (swing 2.0) sits between WoW pet battles' proven 1.5/0.66 and the
+// fan-Naruto ±25% standard: a half-flip switch pays back in ~2.7 rounds, a
+// full flip in ~1.3 — switching becomes the central decision without being
+// forced every turn. The 0.75 floor (not the 0.66 reciprocal) is deliberate:
+// single-element pets have no second type to hedge a bad matchup, and canon
+// Naruto's wheel is explicitly power-can-overcome, not a hard counter.
+// Cycle symmetry keeps AGGREGATE element win rates ~50% at any multiplier —
+// this sharpens individual matchups, which the bench now answers.
+export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.5;
+export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.75;
 
 /** Per-pet stamina economy (Temtem-style push-your-luck). */
 export const SHOWDOWN_MAX_STAMINA = 100;
