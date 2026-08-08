@@ -25,7 +25,7 @@ function poolPet(index: number): Pet {
     return balanceBuiltInPetTemplate({ ...rawPetPool[index] }) as Pet;
 }
 
-const playerPets = [poolPet(0), poolPet(4)];
+const playerPets = [poolPet(0), poolPet(4), poolPet(16)];
 const enemyPets = [poolPet(8), poolPet(12)];
 
 function petView(pet: Pet, hp?: number): ShowdownPetView {
@@ -44,6 +44,7 @@ function petView(pet: Pet, hp?: number): ShowdownPetView {
         meter: 0,
         ko: (hp ?? maxHp) <= 0,
         guarding: false,
+        benched: world.benched.has(pet.id),
         winded: false,
         statuses: [],
         moves: [
@@ -62,7 +63,10 @@ const world = {
     round: 0,
     hp: new Map<string, number>(),
     meter: new Map<string, number>(),
+    // The third player pet starts on the bench (mirrors the 2v2+bench format).
+    benched: new Set<string>([]),
 };
+world.benched.add(playerPets[2].id);
 for (const pet of [...playerPets, ...enemyPets]) world.hp.set(pet.id, Math.round(pet.hp));
 for (const pet of [...playerPets, ...enemyPets]) world.meter.set(pet.id, 0);
 
@@ -85,7 +89,7 @@ function stateView(finished = false, outcome: "win" | "loss" | null = null): Sho
         enemy: enemyPets.map(view),
         enemyTeamName: "Harness Pack",
         nextOrder: [...playerPets, ...enemyPets]
-            .filter((p) => (world.hp.get(p.id) ?? 0) > 0)
+            .filter((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id))
             .sort((a, b) => (b.speed ?? 0) - (a.speed ?? 0))
             .map((p) => p.id),
     };
@@ -101,11 +105,20 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
     await new Promise((resolve) => setTimeout(resolve, 250));
     world.round += 1;
     const events: ShowdownEvent[] = [{ t: "roundStart", round: world.round }];
-    const livingEnemy = () => enemyPets.find((p) => (world.hp.get(p.id) ?? 0) > 0);
-    const livingPlayer = () => playerPets.find((p) => (world.hp.get(p.id) ?? 0) > 0);
+    const livingEnemy = () => enemyPets.find((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id));
+    const livingPlayer = () => playerPets.find((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id));
+
+    // Switches resolve first, like the real engine.
+    for (const c of commands) {
+        if (c.kind !== "switch") continue;
+        world.benched.add(c.petId);
+        world.benched.delete(c.benchPetId);
+        events.push({ t: "switch", side: "player", outId: c.petId, inId: c.benchPetId, reinforcement: false });
+    }
 
     // Player commands play out roughly as issued.
     for (const c of commands) {
+        if (c.kind === "switch") continue;
         const actor = playerPets.find((p) => p.id === c.petId);
         const target = livingEnemy();
         if (!actor || (world.hp.get(actor.id) ?? 0) <= 0) continue;

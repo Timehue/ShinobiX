@@ -22,7 +22,9 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Billboard, Html } from "@react-three/drei";
+import { Billboard, Html, Sparkles } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
@@ -54,11 +56,46 @@ import type {
 
 const PLAYER_Z = 3.6;
 const ENEMY_Z = -3.6;
+const BENCH_Z = 6.6;
 const SLOT_SPACING = 2.7;
 const FLOOR_Y = 0;
 
-const COLISEUM_FLOOR_URL = new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href;
-const COLISEUM_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
+// ── Arena roster: five painted stages, picked per session. ──────────────────
+const STAGES = {
+    coliseum: {
+        floor: new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href,
+        ember: "#ff7a35", ambient: "#8fc7ff",
+    },
+    grove: {
+        floor: new URL("../assets/coliseum/grove-floor.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/grove-bg.webp", import.meta.url).href,
+        ember: "#9fe7a0", ambient: "#bfe9c9",
+    },
+    frost: {
+        floor: new URL("../assets/coliseum/frost-floor.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/frost-bg.webp", import.meta.url).href,
+        ember: "#9fd8ff", ambient: "#cfe9ff",
+    },
+    storm: {
+        floor: new URL("../assets/coliseum/storm-floor.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/storm-bg.webp", import.meta.url).href,
+        ember: "#ffe24a", ambient: "#9aa7d8",
+    },
+    volcano: {
+        floor: new URL("../assets/coliseum/volcano-floor.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/volcano-bg.webp", import.meta.url).href,
+        ember: "#ff5a2c", ambient: "#ffb08a",
+    },
+} as const;
+type StageKey = keyof typeof STAGES;
+const STAGE_KEYS = Object.keys(STAGES) as StageKey[];
+
+function stageForSession(sessionId: string): StageKey {
+    let hash = 0;
+    for (let i = 0; i < sessionId.length; i++) hash = (hash * 31 + sessionId.charCodeAt(i)) | 0;
+    return STAGE_KEYS[Math.abs(hash) % STAGE_KEYS.length];
+}
 
 const ELEMENT_TINT: Record<string, string> = {
     Fire: "#ff7a35", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#fde047", Earth: "#d6a76a", None: "#a5b4fc",
@@ -86,6 +123,7 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
     const base = event.t === "action" ? (event.super ? 3300 : (event.moveKind === "guard" || event.moveKind === "rest") ? 1200 : 2300)
         : event.t === "roundStart" ? 950
         : event.t === "skip" ? 900
+        : event.t === "switch" ? 1500
         : event.t === "confused" ? 1200
         : event.t === "dot" ? 850
         : event.t === "end" ? 1700
@@ -109,6 +147,9 @@ interface SceneFx {
     hitAt: Map<string, number>;
     shakeUntil: number;
     shakeAmp: number;
+    /** Skeletal animation freezes until this timestamp — damage-scaled
+     *  hit-stop (the fighting-game contact freeze). */
+    hitStopUntil: number;
     superFocus: boolean;
 }
 
@@ -128,19 +169,72 @@ function slotPositions(count: number, side: "player" | "enemy"): [number, number
     });
 }
 
+/** Who stands where. Fielded pets hold the front slots; the bench waits in a
+ *  back row and pets physically RUN between rows on switches. */
+interface Lineup {
+    playerField: string[];
+    playerBench: string[];
+    enemyField: string[];
+    enemyBench: string[];
+}
+
+function lineupFromState(state: ShowdownStateView): Lineup {
+    return {
+        playerField: state.player.filter((p) => !p.benched).map((p) => p.id),
+        playerBench: state.player.filter((p) => p.benched).map((p) => p.id),
+        enemyField: state.enemy.filter((p) => !p.benched).map((p) => p.id),
+        enemyBench: state.enemy.filter((p) => p.benched).map((p) => p.id),
+    };
+}
+
+function computeArrangement(lineup: Lineup): Map<string, [number, number, number]> {
+    const out = new Map<string, [number, number, number]>();
+    const place = (ids: string[], side: "player" | "enemy", bench: boolean) => {
+        const positions = slotPositions(ids.length, side);
+        ids.forEach((id, i) => {
+            const [x, y, z] = positions[i];
+            out.set(id, bench ? [x * 0.8, y, side === "player" ? BENCH_Z : -BENCH_Z] : [x, y, z]);
+        });
+    };
+    place(lineup.playerField, "player", false);
+    place(lineup.playerBench, "player", true);
+    place(lineup.enemyField, "enemy", false);
+    place(lineup.enemyBench, "enemy", true);
+    return out;
+}
+
+/** Moves a pet between the field and bench lists of its side. On a voluntary
+ *  switch the outgoing pet walks to the bench row; on a reinforcement the
+ *  fallen pet simply drops out of the arrangement (the body stays where it
+ *  fell — fighters freeze when their id has no assigned position). */
+function lineupAfterSwitch(lineup: Lineup, side: "player" | "enemy", outId: string, inId: string, reinforcement: boolean): Lineup {
+    const fieldKey = side === "player" ? "playerField" : "enemyField";
+    const benchKey = side === "player" ? "playerBench" : "enemyBench";
+    const field = lineup[fieldKey].map((id) => (id === outId ? inId : id));
+    if (!field.includes(inId)) field.push(inId);
+    return {
+        ...lineup,
+        [fieldKey]: field,
+        [benchKey]: lineup[benchKey]
+            .filter((id) => id !== inId)
+            .concat(!reinforcement && outId !== inId ? [outId] : []),
+    };
+}
+
 // ─── Stage environment (lifted from the proven Coliseum recipe) ──────────────
 
-function StageEnvironment() {
+function StageEnvironment({ stage }: { stage: StageKey }) {
+    const art = STAGES[stage];
     const textures = useMemo(() => {
         const loader = new THREE.TextureLoader();
-        const floor = loader.load(COLISEUM_FLOOR_URL);
+        const floor = loader.load(art.floor);
         floor.colorSpace = THREE.SRGBColorSpace;
-        const backdrop = loader.load(COLISEUM_BG_URL);
+        const backdrop = loader.load(art.bg);
         backdrop.colorSpace = THREE.SRGBColorSpace;
         backdrop.wrapS = THREE.MirroredRepeatWrapping;
         backdrop.repeat.set(2, 1);
         return { floor, backdrop };
-    }, []);
+    }, [art]);
     const ambient = useRef<THREE.AmbientLight>(null);
     const sun = useRef<THREE.DirectionalLight>(null);
     useFrame((state) => {
@@ -151,7 +245,7 @@ function StageEnvironment() {
     return (
         <group>
             <ambientLight ref={ambient} intensity={0.5} />
-            <hemisphereLight args={["#8fc7ff", "#4a210d", 0.56]} />
+            <hemisphereLight args={[art.ambient, "#4a210d", 0.56]} />
             <directionalLight
                 ref={sun}
                 position={[5, 10, 6]}
@@ -168,7 +262,7 @@ function StageEnvironment() {
                 shadow-camera-bottom={-12}
             />
             <directionalLight position={[-7, 5, -7]} intensity={0.6} color="#79aaff" />
-            <pointLight position={[0, 3.5, 2]} intensity={12} distance={15} decay={2} color="#ff7a35" />
+            <pointLight position={[0, 3.5, 2]} intensity={12} distance={15} decay={2} color={art.ember} />
             <mesh position={[0, 6.0, 0]}>
                 <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
                 <meshBasicMaterial map={textures.backdrop} side={THREE.BackSide} toneMapped={false} fog={false} />
@@ -177,16 +271,18 @@ function StageEnvironment() {
                 <circleGeometry args={[14, 64]} />
                 <meshStandardMaterial map={textures.floor} roughness={0.95} />
             </mesh>
+            {/* Stage-tinted drifting motes — living air (embers/spores/snow). */}
+            <Sparkles count={38} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={art.ember} opacity={0.5} />
         </group>
     );
 }
 
 // ─── Camera director ─────────────────────────────────────────────────────────
 
-function CameraDirector({ beatRef, fxRef, slots }: {
+function CameraDirector({ beatRef, fxRef, posRef }: {
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
-    slots: Map<string, FighterSlotInfo>;
+    posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
 }) {
     const pos = useRef(new THREE.Vector3(0, 5.2, 9.6));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
@@ -202,11 +298,11 @@ function CameraDirector({ beatRef, fxRef, slots }: {
         let targetPos = new THREE.Vector3(0, 5.2, 10.2);
         let targetLook = new THREE.Vector3(0, 1.0, -0.4);
         if (beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
-            const actor = slots.get(beat.event.actorId);
-            const firstTarget = beat.event.targets[0] ? slots.get(beat.event.targets[0].id) : undefined;
-            if (actor) {
-                const a = new THREE.Vector3(...actor.basePos);
-                const b = firstTarget ? new THREE.Vector3(...firstTarget.basePos) : a;
+            const actorPos = posRef.current.get(beat.event.actorId);
+            const victimPos = beat.event.targets[0] ? posRef.current.get(beat.event.targets[0].id) : undefined;
+            if (actorPos) {
+                const a = new THREE.Vector3(...actorPos);
+                const b = victimPos ? new THREE.Vector3(...victimPos) : a;
                 const mid = a.clone().lerp(b, 0.5);
                 const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
                 if (beat.event.super) {
@@ -251,7 +347,7 @@ function CameraDirector({ beatRef, fxRef, slots }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, slots, popups, highlight }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, popups, highlight }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
@@ -260,7 +356,9 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     victorious: boolean;
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
-    slots: Map<string, FighterSlotInfo>;
+    /** petId → assigned home position (field slot or bench row). A pet with no
+     *  entry (a fallen body after reinforcement) freezes where it stands. */
+    posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
     popups: PopupEntry[];
     highlight: "none" | "commander" | "targeted";
 }) {
@@ -269,6 +367,10 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const impactMat = useRef<THREE.MeshBasicMaterial>(null);
     const guardBubble = useRef<THREE.Mesh>(null);
     const guardMat = useRef<THREE.MeshBasicMaterial>(null);
+    /** Where this fighter currently stands — walks toward its assigned home. */
+    const standing = useRef<[number, number, number] | null>(null);
+    /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
+    const timeline = useRef(0);
     const [modelFailed, setModelFailed] = useState(false);
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
@@ -283,18 +385,43 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         return t;
     }, [info.model, modelFailed, info.fallbackImage]);
 
-    useFrame(() => {
+    useFrame((_, delta) => {
         const f = frame.current;
         const beat = beatRef.current;
         const fx = fxRef.current;
         const now = performance.now();
-        const base = info.basePos;
-        let px = base[0], pz = base[2];
-        const py = base[1];
+        // Home = assigned slot; standing = where the body actually is. Living
+        // pets WALK home (switch-ins gallop across the arena); the fallen stay
+        // where they dropped.
+        const home = posRef.current.get(info.view.id) ?? standing.current ?? info.basePos;
+        if (!standing.current) standing.current = [home[0], home[1], home[2]];
+        const stand = standing.current;
+        let walkX = 0, walkZ = 0, walking = false;
+        if (!ko) {
+            const dx = home[0] - stand[0];
+            const dz = home[2] - stand[2];
+            const dist = Math.hypot(dx, dz);
+            if (dist > 0.06) {
+                walking = true;
+                const step = Math.min(dist, delta * 7.2);
+                walkX = dx / dist; walkZ = dz / dist;
+                stand[0] += walkX * step;
+                stand[2] += walkZ * step;
+            } else {
+                stand[0] = home[0]; stand[2] = home[2];
+            }
+        }
+        let px = stand[0], pz = stand[2];
+        const py = home[1];
         let faceX = 0, faceZ = info.side === "player" ? -1 : 1;
         f.moving = false;
         f.speed = 0;
         f.casting = false;
+
+        // Hit-stop-aware presentation clock: skeletal time crawls during the
+        // contact freeze, so impacts have fighting-game weight.
+        timeline.current += delta * (now < fx.hitStopUntil ? 0.06 : 1);
+        f.timeline = timeline.current;
 
         const lastHit = fx.hitAt.get(info.view.id) ?? 0;
         const sinceHit = now - lastHit;
@@ -306,10 +433,10 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const ev = beat.event as ActionEvent;
             const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
-            const targetInfo = ev.targets[0] ? slots.get(ev.targets[0].id) : undefined;
-            if (targetInfo && targetInfo.view.id !== info.view.id) {
-                const dx = targetInfo.basePos[0] - base[0];
-                const dz = targetInfo.basePos[2] - base[2];
+            const targetPos = ev.targets[0] ? posRef.current.get(ev.targets[0].id) : undefined;
+            if (targetPos && ev.targets[0].id !== info.view.id) {
+                const dx = targetPos[0] - stand[0];
+                const dz = targetPos[2] - stand[2];
                 const len = Math.hypot(dx, dz) || 1;
                 faceX = dx / len; faceZ = dz / len;
                 if (ev.delivery === "melee") {
@@ -319,8 +446,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                         : frac < 0.5 ? (frac - 0.32) / 0.18
                         : frac < 0.68 ? 1
                         : Math.max(0, 1 - (frac - 0.68) / 0.24);
-                    px = base[0] + faceX * reach * drive;
-                    pz = base[2] + faceZ * reach * drive;
+                    px = stand[0] + faceX * reach * drive;
+                    pz = stand[2] + faceZ * reach * drive;
                     f.motion = frac < 0.32 ? "windup" : frac < 0.5 ? "dash" : frac < 0.7 ? "strike" : "recover";
                     if (f.motion === "dash") { f.moving = true; f.speed = 9; f.moveX = faceX; f.moveZ = faceZ; }
                 } else {
@@ -333,6 +460,12 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         } else if (sinceHit >= 0 && sinceHit < 480) {
             f.motion = "stagger";
             f.hit = Math.max(0, 1 - sinceHit / 480);
+        } else if (walking) {
+            f.motion = "run";
+            f.moving = true;
+            f.speed = 7.2;
+            f.moveX = walkX; f.moveZ = walkZ;
+            faceX = walkX; faceZ = walkZ;
         } else {
             f.motion = "idle";
             f.hit = 0;
@@ -472,7 +605,7 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
 
 interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number }[] }
 
-function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement }: {
+function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement, art, benchedIds, benchPicking, onPickBench }: {
     side: "player" | "enemy";
     pets: ShowdownPetView[];
     display: Record<string, DisplayEntry>;
@@ -481,25 +614,38 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
     commanderId?: string | null;
     /** While targeting: the commander's element, for ▲/▼ matchup hints. */
     hintElement?: string;
+    /** petId → portrait/card art url. */
+    art?: Record<string, string>;
+    /** Which team members currently wait on the bench. */
+    benchedIds?: ReadonlySet<string>;
+    /** Switch flow: bench cards become the pick targets. */
+    benchPicking?: boolean;
+    onPickBench?: (petId: string) => void;
 }) {
     return (
         <div className={`showdown-team-panel ${side}`}>
             {pets.map((pet) => {
                 const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
-                const clickable = targeting && !d.ko;
+                const benched = benchedIds?.has(pet.id) ?? false;
+                const clickable = !d.ko && (benchPicking ? benched : targeting && !benched);
                 return (
                     <button
                         key={pet.id}
                         type="button"
                         disabled={!clickable}
-                        onClick={clickable && onPickTarget ? () => onPickTarget(pet.id) : undefined}
+                        onClick={clickable
+                            ? () => (benchPicking ? onPickBench?.(pet.id) : onPickTarget?.(pet.id))
+                            : undefined}
                         className={[
                             "showdown-pet-card",
                             d.ko ? "ko" : "",
+                            benched ? "benched" : "",
                             clickable ? "targetable" : "",
                             commanderId === pet.id ? "commanding" : "",
                         ].join(" ")}
                     >
+                        {art?.[pet.id] && <img className="showdown-pet-portrait" src={art[pet.id]} alt="" loading="lazy" />}
+                        {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
                         <div className="showdown-pet-card-head">
                             <span className="showdown-pet-name">{pet.name}</span>
                             <span className="showdown-pet-level">Lv {pet.level}</span>
@@ -566,7 +712,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // Command drafting.
     const [draft, setDraft] = useState<ShowdownCommand[]>([]);
     const [pendingMove, setPendingMove] = useState<{ moveIndex: number; super: boolean } | null>(null);
+    const [pickingSwitch, setPickingSwitch] = useState(false);
     const [needleFor, setNeedleFor] = useState<{ petId: string; moveIndex: number; super: boolean; targetId: string } | null>(null);
+    // VS intro card over the opening seconds.
+    const [intro, setIntro] = useState(true);
+    useEffect(() => {
+        const timer = window.setTimeout(() => setIntro(false), 2600);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     const settlementRef = useRef<ShowdownTurnResponse | null>(null);
     const finishedNotified = useRef(false);
@@ -575,8 +728,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const speed = fast ? 2.1 : 1;
 
     const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1 });
-    const fxRef = useRef<SceneFx>({ hitAt: new Map(), shakeUntil: 0, shakeAmp: 0, superFocus: false });
+    const fxRef = useRef<SceneFx>({ hitAt: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false });
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
+
+    // Who stands where — switches and reinforcements move pets between the
+    // front line and the bench row; fighters walk to their assigned spot.
+    const [lineup, setLineup] = useState<Lineup>(() => lineupFromState(initialState));
+    const posRef = useRef<Map<string, [number, number, number]>>(computeArrangement(lineupFromState(initialState)));
+    useEffect(() => {
+        posRef.current = computeArrangement(lineup);
+    }, [lineup]);
+
+    const stage = useMemo(() => stageForSession(initialState.sessionId), [initialState.sessionId]);
 
     // ── Fullscreen overlay + body scroll lock + music ───────────────────────
     useEffect(() => {
@@ -619,18 +782,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stateView.player.length, stateView.enemy.length]);
 
-    /** Spawn a one-shot painted flipbook at a pet's position. */
+    /** Spawn a one-shot painted flipbook at a pet's current position. */
     const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0) => {
-        const info = slots.get(petId);
-        if (!info) return;
+        const at = posRef.current.get(petId);
+        if (!at) return;
         const key = popupKey.current++;
         setVfx((list) => [...list.slice(-14), {
             key, frames, scale, durationMs,
-            pos: [info.basePos[0], info.basePos[1] + yLift, info.basePos[2]] as [number, number, number],
+            pos: [at[0], at[1] + yLift, at[2]] as [number, number, number],
             startedAt: performance.now(),
         }]);
         window.setTimeout(() => setVfx((list) => list.filter((s) => s.key !== key)), durationMs + 400);
-    }, [slots]);
+    }, []);
 
     const clearTimers = useCallback(() => {
         for (const id of timeouts.current) window.clearTimeout(id);
@@ -670,6 +833,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 if (response?.state) {
                     setStateView(response.state);
                     setDisplay(buildDisplay(response.state));
+                    setLineup(lineupFromState(response.state));
                     if (response.state.finished) {
                         setPhase("finished");
                         if (!finishedNotified.current && response.state.outcome) {
@@ -708,6 +872,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 applyToDisplay(setDisplay, event.actorId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.selfDamage), ko: event.ko }));
                 fxRef.current.hitAt.set(event.actorId, performance.now());
             }, durationMs * 0.5);
+        } else if (event.t === "switch") {
+            later(() => {
+                const inName = nameOf(stateView, event.inId);
+                showBanner(
+                    event.side === "player"
+                        ? (event.reinforcement ? `${inName} joins the fight!` : `Go, ${inName}!`)
+                        : (event.reinforcement ? `The enemy sends in ${inName}!` : `They swap to ${inName}!`),
+                    "status",
+                    durationMs * 0.8,
+                );
+                playPetSfx("move");
+                // Reassign slots — the fighters physically run the exchange.
+                setLineup((l) => lineupAfterSwitch(l, event.side, event.outId, event.inId, event.reinforcement));
+            }, 0);
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
@@ -782,16 +960,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     fxRef.current.shakeUntil = performance.now() + (event.super ? 460 : 300);
                     fxRef.current.shakeAmp = event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
                     playPetSfx(event.super ? "crit" : "hit");
+                    // Damage-scaled hit-stop (fighting-game contact freeze),
+                    // heavier for Lightning per the electric-hitlag convention.
+                    const stopMs = Math.min(330, 110 + totalDamage * 0.45) * (event.element === "Lightning" ? 1.4 : 1);
+                    fxRef.current.hitStopUntil = performance.now() + (event.super ? Math.max(stopMs, 260) : stopMs);
                     if (event.super) {
                         // Signature detonation: light pillar on the primary target
                         // + a full-screen white flash.
-                        const primary = slots.get(event.targets[0].id);
+                        const primary = posRef.current.get(event.targets[0].id);
                         if (primary) {
                             pillarDrive.current = {
                                 startedAt: performance.now(),
                                 activeUntil: performance.now() + 750,
-                                x: primary.basePos[0],
-                                z: primary.basePos[2],
+                                x: primary[0],
+                                z: primary[2],
                                 color: ELEMENT_TINT[event.element] ?? "#fbbf24",
                             };
                         }
@@ -824,8 +1006,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, [phase, queue, queueIndex]);
 
     // ── Command flow ────────────────────────────────────────────────────────
-    const livingPlayer = stateView.player.filter((p) => !(display[p.id]?.ko ?? p.ko));
-    const livingEnemies = stateView.enemy.filter((p) => !(display[p.id]?.ko ?? p.ko));
+    // Only FIELD pets act and can be targeted; the bench waits its turn.
+    const livingPlayer = lineup.playerField
+        .map((id) => stateView.player.find((p) => p.id === id))
+        .filter((p): p is ShowdownPetView => !!p && !(display[p.id]?.ko ?? p.ko));
+    const livingEnemies = lineup.enemyField
+        .map((id) => stateView.enemy.find((p) => p.id === id))
+        .filter((p): p is ShowdownPetView => !!p && !(display[p.id]?.ko ?? p.ko));
+    const livingBench = lineup.playerBench
+        .map((id) => stateView.player.find((p) => p.id === id))
+        .filter((p): p is ShowdownPetView => !!p && !(display[p.id]?.ko ?? p.ko));
     const commander = phase === "command" ? livingPlayer[draft.length] ?? null : null;
     const commanderDisplay = commander ? display[commander.id] : null;
 
@@ -854,6 +1044,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             // Finished session replay (e.g. payout retry) — no script to play.
             setStateView(response.state);
             setDisplay(buildDisplay(response.state));
+            setLineup(lineupFromState(response.state));
             if (response.state.finished) {
                 setPhase("finished");
                 if (!finishedNotified.current && response.state.outcome) {
@@ -869,6 +1060,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const pushCommand = (command: ShowdownCommand) => {
         setNeedleFor(null);
         setPendingMove(null);
+        setPickingSwitch(false);
         const nextDraft = [...draft, command];
         setDraft(nextDraft);
         if (nextDraft.length >= livingPlayer.length) void submitRound(nextDraft);
@@ -920,17 +1112,28 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
     const outcome = stateView.outcome;
     const targetingAllies = !!pendingMove && !!commander && ALLY_MOVE_KINDS.has((pendingMove.super ? commander.moves.find((m) => m.signature) : commander.moves[pendingMove.moveIndex])?.kind ?? "");
+    const panelArt = useMemo(
+        () => Object.fromEntries([...slots.values()].map((i) => [i.view.id, i.fallbackImage])),
+        [slots],
+    );
+    const playerBenchedIds = useMemo(() => new Set(lineup.playerBench), [lineup.playerBench]);
+    const enemyBenchedIds = useMemo(() => new Set(lineup.enemyBench), [lineup.enemyBench]);
     const commanderMoves = commander?.moves.filter((m) => !m.signature) ?? [];
     const commanderSignature = commander?.moves.find((m) => m.signature) ?? null;
 
     const overlay = (
         <div className="pet-combat-takeover showdown-takeover">
             <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 5.2, 9.6], near: 0.1, far: 80 }}>
-                <StageEnvironment />
-                <CameraDirector beatRef={beatRef} fxRef={fxRef} slots={slots} />
-                <BeatDrivenVfx beatRef={beatRef} slots={slots} />
+                <StageEnvironment stage={stage} />
+                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} />
+                <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
+                {petBloomEnabled() && (
+                    <EffectComposer>
+                        <Bloom intensity={0.55} luminanceThreshold={0.62} luminanceSmoothing={0.3} mipmapBlur />
+                    </EffectComposer>
+                )}
                 {[...slots.values()].map((info) => (
                     <ShowdownFighter
                         key={info.view.id}
@@ -942,7 +1145,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         victorious={phase === "finished" && outcome === (info.side === "player" ? "win" : "loss")}
                         beatRef={beatRef}
                         fxRef={fxRef}
-                        slots={slots}
+                        posRef={posRef}
                         popups={popups}
                         highlight={commander?.id === info.view.id ? "commander"
                             : pendingMove && ((info.side === "enemy" && !targetingAllies) || (info.side === "player" && targetingAllies)) && !(display[info.view.id]?.ko) ? "targeted"
@@ -961,6 +1164,21 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             {/* Full-screen white flash on the signature detonation. */}
             {flash !== 0 && <div key={flash} className="showdown-flash" />}
 
+            {/* Opening VS card. */}
+            {intro && (
+                <div className="showdown-vs-intro">
+                    <div className="showdown-vs-side mine">
+                        {stateView.player.map((p) => panelArt[p.id] && <img key={p.id} src={panelArt[p.id]} alt={p.name} />)}
+                        <span>Your team</span>
+                    </div>
+                    <div className="showdown-vs-burst">VS</div>
+                    <div className="showdown-vs-side theirs">
+                        {stateView.enemy.map((p) => panelArt[p.id] && <img key={p.id} src={panelArt[p.id]} alt={p.name} />)}
+                        <span>{stateView.enemyTeamName}</span>
+                    </div>
+                </div>
+            )}
+
             {/* ── HUD ── */}
             <div className="showdown-hud">
                 <div className="showdown-topbar">
@@ -971,6 +1189,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         targeting={!!pendingMove && !targetingAllies}
                         onPickTarget={pickTarget}
                         hintElement={commander?.element}
+                        art={panelArt}
+                        benchedIds={enemyBenchedIds}
                     />
                     <div className="showdown-topbar-right">
                         {/* stateView.round reconciles at playback end, so the round
@@ -1016,15 +1236,24 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         targeting={!!pendingMove && targetingAllies}
                         onPickTarget={pickTarget}
                         commanderId={commander?.id ?? null}
+                        art={panelArt}
+                        benchedIds={playerBenchedIds}
+                        benchPicking={pickingSwitch}
+                        onPickBench={(benchId) => {
+                            if (!commander) return;
+                            pushCommand({ kind: "switch", petId: commander.id, benchPetId: benchId });
+                        }}
                     />
                     {phase === "command" && commander && !needleFor && (
                         <div className="showdown-deck">
                             <div className="showdown-deck-title">
-                                {pendingMove
-                                    ? <>Choose a target for <b>{commander.name}</b>…</>
-                                    : <><b>{commander.name}</b> — choose an action{netError ? " (connection hiccup — try again)" : ""}</>}
+                                {pickingSwitch
+                                    ? <>Who takes <b>{commander.name}</b>'s place? Tap a bench card…</>
+                                    : pendingMove
+                                        ? <>Choose a target for <b>{commander.name}</b>…</>
+                                        : <><b>{commander.name}</b> — choose an action{netError ? " (connection hiccup — try again)" : ""}</>}
                             </div>
-                            {!pendingMove && (
+                            {!pendingMove && !pickingSwitch && (
                                 <div className="showdown-deck-grid">
                                     {commanderMoves.map((move, i) => {
                                         const cooling = move.currentCooldown > 0;
@@ -1055,6 +1284,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                         <span className="showdown-move-name">Catch Breath</span>
                                         <span className="showdown-move-sub">+45 STA · small heal</span>
                                     </button>
+                                    <button
+                                        type="button"
+                                        className="showdown-move utility"
+                                        disabled={!livingBench.length}
+                                        onClick={() => setPickingSwitch(true)}
+                                    >
+                                        <span className="showdown-move-icon">🔄</span>
+                                        <span className="showdown-move-name">Switch</span>
+                                        <span className="showdown-move-sub">{livingBench.length ? "Send in a bench pet" : "No reserves left"}</span>
+                                    </button>
                                     {commanderSignature && (
                                         <button
                                             type="button"
@@ -1069,9 +1308,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     )}
                                 </div>
                             )}
-                            {(draft.length > 0 || pendingMove) && (
-                                <button type="button" className="showdown-chip" onClick={() => { setPendingMove(null); setDraft((d) => d.slice(0, -1)); }}>
-                                    ↩ Undo
+                            {(draft.length > 0 || pendingMove || pickingSwitch) && (
+                                <button type="button" className="showdown-chip" onClick={() => {
+                                    if (pickingSwitch) { setPickingSwitch(false); return; }
+                                    setPendingMove(null);
+                                    setDraft((d) => d.slice(0, -1));
+                                }}>
+                                    ↩ {pickingSwitch ? "Cancel switch" : "Undo"}
                                 </button>
                             )}
                         </div>
