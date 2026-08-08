@@ -1,15 +1,22 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { maxLoadout, maxPets } from './_entitlements.js';
+import { canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines } from './_entitlements.js';
 
-describe('competitive entitlement caps', () => {
-    it('gives free and supporter players the same 15-jutsu PvP loadout cap', () => {
-        assert.equal(maxLoadout({}), 15);
+describe('supporter entitlement caps', () => {
+    it('keeps three additional jutsu slots as a supporter perk', () => {
+        assert.equal(maxLoadout({}), 12);
         assert.equal(maxLoadout({ patreon: { active: true } }), 15);
     });
 
-    it('lets a free player carry the four pets required by Tactical mode', () => {
-        assert.equal(maxPets({}), 4);
+    it('keeps two additional carried pets as a supporter perk', () => {
+        assert.equal(maxPets({}), 3);
         assert.equal(maxPets({ patreon: { active: true } }), 5);
+    });
+
+    it('keeps custom avatars and a second stored bloodline as supporter perks', () => {
+        assert.equal(canCustomAvatar({}), false);
+        assert.equal(canCustomAvatar({ patreon: { active: true } }), true);
+        assert.equal(maxStoredBloodlines({}), 1);
+        assert.equal(maxStoredBloodlines({ patreon: { active: true } }), 2);
     });
 });

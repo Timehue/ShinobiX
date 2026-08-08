@@ -35,6 +35,12 @@ interface Perk {
 }
 
 // Self-contained inline SVG chrome (no external icon deps), sized by CSS.
+const ScrollIcon = (
+    <svg className="patreon-benefit-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+        <rect x="5" y="4" width="14" height="16" rx="2" />
+        <path d="M8 8h8M8 12h8M8 16h5" />
+    </svg>
+);
 const PawIcon = (
     <svg className="patreon-benefit-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <ellipse cx="12" cy="15.5" rx="4.3" ry="3.4" />
@@ -57,7 +63,8 @@ const DropletIcon = (
 );
 
 const PERKS: Perk[] = [
-    { label: '5 Pet Companions', detail: 'one extra carried pet', icon: PawIcon },
+    { label: '15 Jutsu Slots', detail: 'up from 12', icon: ScrollIcon },
+    { label: '5 Pet Companions', detail: 'up from 3', icon: PawIcon },
     { label: 'Custom Avatar', detail: 'upload your own', icon: MaskIcon },
     { label: '2 Bloodlines', detail: 'store & swap', icon: DropletIcon },
 ];

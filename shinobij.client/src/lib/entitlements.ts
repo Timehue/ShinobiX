@@ -25,12 +25,10 @@ export function subscriberTier(character: WithPatreon): string | null {
     return isPatreonSubscriber(character) ? (character?.patreon?.tier ?? 'shinobi-supporter') : null;
 }
 
-// Competitive caps are equal for every player. Supporter perks remain
-// cosmetic/convenience benefits and never expand the PvP jutsu roster.
-export const LOADOUT_CAP_BASE = 15;
+// Perk caps: base = non-subscriber, sub = $15 "Shinobi Supporter".
+export const LOADOUT_CAP_BASE = 12;
 export const LOADOUT_CAP_SUB = 15;
-// Four free carried pets keeps the ranked 4v4 Tactical mode accessible.
-export const PET_CAP_BASE = 4;
+export const PET_CAP_BASE = 3;
 export const PET_CAP_SUB = 5;
 export const STORED_BLOODLINES_BASE = 1;
 export const STORED_BLOODLINES_SUB = 2;
