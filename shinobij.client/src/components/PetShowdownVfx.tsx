@@ -1,0 +1,467 @@
+/*
+ * PetShowdownVfx — the painted-effects layer for Pet Showdown.
+ *
+ * Plays the bundled hand-painted FX flipbooks (src/assets/fx/<key>/NNN.png via
+ * lib/jutsu-fx-assets — Foozle / Ninja Adventure / CodeManu, see CREDITS.txt)
+ * as additive billboards inside the r3f scene, plus the painted projectile
+ * sprites (assets/fx/projectiles/<element>.webp) with a fading trail, melee
+ * afterimage streaks, and the signature light pillar. This is what turns a
+ * turn-based action from "a sphere flew" into a real anime beat.
+ *
+ * CLIENT-ONLY (the flipbook loader uses import.meta.glob) and presentation-
+ * only: every number rendered here arrived in a server event; nothing feeds
+ * back into combat.
+ */
+
+/* eslint-disable react-refresh/only-export-components -- the FX layer exports
+   its spawn/drive types and the flipbook-key helper alongside the components;
+   HMR granularity is irrelevant for a purely visual module. */
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Billboard } from "@react-three/drei";
+import * as THREE from "three";
+import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
+import { projectileVisual } from "../lib/pet-projectile-vfx";
+import type { ShowdownEvent } from "../lib/pet-showdown-api";
+
+/** The slice of the battle's beat/slot state this layer needs. */
+export interface VfxBeat {
+    event: ShowdownEvent | null;
+    startedAt: number;
+    durationMs: number;
+}
+export interface VfxSlot {
+    view: { id: string };
+    basePos: [number, number, number];
+}
+
+// ─── Texture caches ──────────────────────────────────────────────────────────
+
+const flipbookCache = new Map<string, THREE.Texture[] | null>();
+
+function flipbookTextures(key: string): THREE.Texture[] | null {
+    if (flipbookCache.has(key)) return flipbookCache.get(key)!;
+    const frames = bundledJutsuFxFrames(key);
+    if (!frames) {
+        flipbookCache.set(key, null);
+        return null;
+    }
+    const loader = new THREE.TextureLoader();
+    const textures = frames.map((url) => {
+        const t = loader.load(url);
+        t.colorSpace = THREE.SRGBColorSpace;
+        // Crisp pixel-art frames — no mip smear at billboard scale.
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.LinearFilter;
+        return t;
+    });
+    flipbookCache.set(key, textures);
+    return textures;
+}
+
+const PROJECTILE_SPRITES: Record<string, string> = {
+    fire: new URL("../assets/fx/projectiles/fire.webp", import.meta.url).href,
+    water: new URL("../assets/fx/projectiles/water.webp", import.meta.url).href,
+    wind: new URL("../assets/fx/projectiles/wind.webp", import.meta.url).href,
+    earth: new URL("../assets/fx/projectiles/earth.webp", import.meta.url).href,
+    lightning: new URL("../assets/fx/projectiles/lightning.webp", import.meta.url).href,
+};
+
+const projectileTexCache = new Map<string, THREE.Texture>();
+function projectileTexture(element: string): THREE.Texture | null {
+    const key = element.toLowerCase();
+    const url = PROJECTILE_SPRITES[key];
+    if (!url) return null;
+    let t = projectileTexCache.get(key);
+    if (!t) {
+        t = new THREE.TextureLoader().load(url);
+        t.colorSpace = THREE.SRGBColorSpace;
+        projectileTexCache.set(key, t);
+    }
+    return t;
+}
+
+/** Impact/one-shot flipbook key for a move — element first, kind fallback. */
+export function impactFlipbookKey(element: string, moveKind: string, superCast: boolean): string {
+    if (superCast) return "kaboom";
+    const el = element.toLowerCase();
+    if (moveKind === "heal") return "heal";
+    if (moveKind === "burn" || moveKind === "dot") return "burn";
+    if (moveKind === "wound") return "poison";
+    if (moveKind === "freeze") return "ice";
+    if (moveKind === "buff" || moveKind === "haste" || moveKind === "move") return "buff";
+    if (moveKind === "shield" || moveKind === "barrier" || moveKind === "absorb" || moveKind === "guard" || moveKind === "taunt") return "eshield";
+    if (el === "fire" || el === "water" || el === "earth" || el === "wind" || el === "lightning" || el === "lava") return el;
+    return "impact";
+}
+
+// ─── One-shot flipbook billboard ─────────────────────────────────────────────
+
+export interface VfxSpawn {
+    key: number;
+    frames: string;
+    pos: [number, number, number];
+    scale: number;
+    startedAt: number;
+    durationMs: number;
+}
+
+function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
+    const textures = useMemo(() => flipbookTextures(spawn.frames), [spawn.frames]);
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame(() => {
+        if (!textures || !mesh.current || !mat.current) return;
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        if (t < 0 || t >= 1) {
+            mesh.current.visible = false;
+            return;
+        }
+        mesh.current.visible = true;
+        const frame = textures[Math.min(textures.length - 1, Math.floor(t * textures.length))];
+        if (mat.current.map !== frame) {
+            mat.current.map = frame;
+            mat.current.needsUpdate = true;
+        }
+        // Ease in fast, linger, fade at the tail.
+        mat.current.opacity = t < 0.12 ? t / 0.12 : t > 0.78 ? (1 - t) / 0.22 : 1;
+    });
+    if (!textures) return null;
+    return (
+        <Billboard position={spawn.pos} lockX lockZ>
+            <mesh ref={mesh} visible={false}>
+                <planeGeometry args={[spawn.scale, spawn.scale]} />
+                <meshBasicMaterial
+                    ref={mat}
+                    transparent
+                    opacity={0}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    toneMapped={false}
+                />
+            </mesh>
+        </Billboard>
+    );
+}
+
+export function ShowdownVfxLayer({ spawns }: { spawns: VfxSpawn[] }) {
+    return <group>{spawns.map((s) => <FlipbookOnce key={s.key} spawn={s} />)}</group>;
+}
+
+// ─── Looping status aura (burn keeps burning, poison keeps dripping) ─────────
+
+const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; opacity: number }> = {
+    burn: { frames: "burn", scale: 1.5, y: 0.9, opacity: 0.75 },
+    wound: { frames: "poison", scale: 1.3, y: 0.9, opacity: 0.7 },
+    freeze: { frames: "ice", scale: 1.5, y: 0.9, opacity: 0.75 },
+    buff: { frames: "aura", scale: 1.9, y: 0.85, opacity: 0.55 },
+    haste: { frames: "aura", scale: 1.6, y: 0.85, opacity: 0.45 },
+};
+
+export function StatusAuraFx({ statuses }: { statuses: readonly { kind: string }[] }) {
+    // At most two auras so a debuff-stacked pet doesn't become a bonfire.
+    const active = statuses
+        .map((s) => STATUS_AURA[s.kind])
+        .filter(Boolean)
+        .slice(0, 2);
+    return (
+        <group>
+            {active.map((aura, i) => <StatusAuraLoop key={`${aura.frames}-${i}`} aura={aura} phase={i * 0.5} />)}
+        </group>
+    );
+}
+
+function StatusAuraLoop({ aura, phase }: { aura: { frames: string; scale: number; y: number; opacity: number }; phase: number }) {
+    const textures = useMemo(() => flipbookTextures(aura.frames), [aura.frames]);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const LOOP_MS = 900;
+    useFrame(() => {
+        if (!textures || !mat.current) return;
+        const t = ((performance.now() / LOOP_MS + phase) % 1);
+        const frame = textures[Math.floor(t * textures.length) % textures.length];
+        if (mat.current.map !== frame) {
+            mat.current.map = frame;
+            mat.current.needsUpdate = true;
+        }
+    });
+    if (!textures) return null;
+    return (
+        <Billboard position={[0, aura.y, 0]} lockX lockZ>
+            <mesh>
+                <planeGeometry args={[aura.scale, aura.scale]} />
+                <meshBasicMaterial
+                    ref={mat}
+                    transparent
+                    opacity={aura.opacity}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    toneMapped={false}
+                />
+            </mesh>
+        </Billboard>
+    );
+}
+
+// ─── Beat-driven travel FX (projectile + melee streaks) ──────────────────────
+// Owns its drive refs (the react-compiler rule forbids mutating prop-passed
+// refs), translates the current beat into them each frame, and renders the
+// painted projectile + afterimage streaks.
+
+/** Fraction of an action beat at which the hit lands — keep in sync with the
+ *  battle component's STRIKE_FRAC. */
+const VFX_STRIKE_FRAC = 0.55;
+
+export function BeatDrivenVfx({ beatRef, slots }: {
+    beatRef: React.MutableRefObject<VfxBeat>;
+    slots: ReadonlyMap<string, VfxSlot>;
+}) {
+    const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0 });
+    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, element: "None", progress: 0 });
+
+    useFrame(() => {
+        const beat = beatRef.current;
+        const proj = projectileDrive.current;
+        const melee = meleeDrive.current;
+        proj.active = false;
+        melee.active = false;
+        if (beat.event?.t !== "action" || !beat.event.targets.length) return;
+        const ev = beat.event;
+        const actor = slots.get(ev.actorId);
+        const target = slots.get(ev.targets[0].id);
+        if (!actor || !target || target.view.id === actor.view.id) return;
+        const frac = (performance.now() - beat.startedAt) / beat.durationMs;
+
+        if (ev.delivery === "ranged" && ev.moveKind !== "heal") {
+            const t0 = 0.36, t1 = VFX_STRIKE_FRAC;
+            if (frac >= t0 && frac <= t1) {
+                const p = (frac - t0) / (t1 - t0);
+                const ax = actor.basePos[0], az = actor.basePos[2];
+                const bx = target.basePos[0], bz = target.basePos[2];
+                proj.active = true;
+                proj.x = ax + (bx - ax) * p;
+                proj.y = 1.2 + Math.sin(p * Math.PI) * 0.55;
+                proj.z = az + (bz - az) * p;
+                proj.element = ev.element;
+                proj.kind = ev.moveKind;
+                proj.charged = ev.super;
+                proj.progress = p;
+            }
+        } else if (ev.delivery === "melee") {
+            // Mirror the fighter's dash window (0.32 → 0.5 of the beat).
+            if (frac >= 0.3 && frac <= 0.62) {
+                melee.active = true;
+                melee.fromX = actor.basePos[0];
+                melee.fromZ = actor.basePos[2];
+                melee.toX = target.basePos[0];
+                melee.toZ = target.basePos[2];
+                melee.element = ev.element;
+                melee.progress = Math.min(1, Math.max(0, (frac - 0.32) / 0.18));
+            }
+        }
+    });
+
+    return (
+        <group>
+            <PaintedProjectile drive={projectileDrive} />
+            <MeleeStreaks drive={meleeDrive} />
+        </group>
+    );
+}
+
+// ─── Painted projectile with trail ───────────────────────────────────────────
+
+const TRAIL_LEN = 7;
+
+export interface ProjectileDrive {
+    /** Current head position, written per-frame by the caller; null = hidden. */
+    active: boolean;
+    x: number;
+    y: number;
+    z: number;
+    element: string;
+    kind: string;
+    charged: boolean;
+    /** Travel progress 0..1 — drives spin phase so replays look identical. */
+    progress: number;
+}
+
+export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<ProjectileDrive> }) {
+    const head = useRef<THREE.Mesh>(null);
+    const headMat = useRef<THREE.MeshBasicMaterial>(null);
+    const glow = useRef<THREE.Mesh>(null);
+    const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const trailRefs = useRef<Array<THREE.Mesh | null>>([]);
+    const trail = useRef<Array<{ x: number; y: number; z: number }>>([]);
+
+    useFrame(() => {
+        const d = drive.current;
+        const h = head.current;
+        const g = glow.current;
+        if (!h || !g) return;
+        if (!d.active) {
+            h.visible = false;
+            g.visible = false;
+            for (const m of trailRefs.current) if (m) m.visible = false;
+            trail.current.length = 0;
+            return;
+        }
+        const visual = projectileVisual({ element: d.element, kind: d.kind, charged: d.charged });
+        const tex = projectileTexture(d.element);
+        const size = visual.size * (d.charged ? 2.4 : 1.8);
+        // Head: painted sprite when the element has one, glowing orb otherwise.
+        h.visible = !!tex;
+        g.visible = true;
+        if (headMat.current && tex && headMat.current.map !== tex) {
+            headMat.current.map = tex;
+            headMat.current.needsUpdate = true;
+        }
+        const wobble = Math.sin(d.progress * 24) * visual.wobble * 0.35;
+        const flicker = 1 + Math.sin(d.progress * 90) * visual.flicker * 0.3;
+        h.position.set(d.x, d.y + wobble, d.z);
+        h.scale.set(size * visual.stretch * flicker, size * flicker, 1);
+        h.rotation.z = visual.spin ? d.progress * visual.spin * 1.2 : 0;
+        g.position.copy(h.position);
+        g.scale.setScalar(size * 1.9 * flicker);
+        if (glowMat.current) glowMat.current.color.set(visual.glow);
+
+        // Trail: breadcrumb the last positions, render as shrinking fading dots.
+        trail.current.unshift({ x: d.x, y: d.y + wobble, z: d.z });
+        if (trail.current.length > TRAIL_LEN) trail.current.length = TRAIL_LEN;
+        trailRefs.current.forEach((m, i) => {
+            if (!m) return;
+            const p = trail.current[i + 1];
+            if (!p) { m.visible = false; return; }
+            m.visible = true;
+            m.position.set(p.x, p.y, p.z);
+            const f = 1 - (i + 1) / (TRAIL_LEN + 1);
+            m.scale.setScalar(size * 0.85 * f * visual.tail);
+            (m.material as THREE.MeshBasicMaterial).opacity = 0.4 * f;
+            (m.material as THREE.MeshBasicMaterial).color.set(visual.glow);
+        });
+    });
+
+    return (
+        <group>
+            <Billboard>
+                <mesh ref={head} visible={false}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial ref={headMat} transparent depthWrite={false} toneMapped={false} alphaTest={0.05} />
+                </mesh>
+            </Billboard>
+            <mesh ref={glow} visible={false}>
+                <sphereGeometry args={[1, 12, 12]} />
+                <meshBasicMaterial ref={glowMat} transparent opacity={0.28} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            {Array.from({ length: TRAIL_LEN }, (_, i) => (
+                <mesh key={i} ref={(el) => { trailRefs.current[i] = el; }} visible={false}>
+                    <sphereGeometry args={[1, 8, 8]} />
+                    <meshBasicMaterial transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
+// ─── Melee afterimage streaks ────────────────────────────────────────────────
+
+export interface MeleeStreakDrive {
+    active: boolean;
+    /** Streak line from → to (the dash path), tinted by element. */
+    fromX: number; fromZ: number;
+    toX: number; toZ: number;
+    element: string;
+    /** 0..1 along the dash. */
+    progress: number;
+}
+
+const STREAK_COUNT = 4;
+
+export function MeleeStreaks({ drive }: { drive: React.MutableRefObject<MeleeStreakDrive> }) {
+    const refs = useRef<Array<THREE.Mesh | null>>([]);
+    useFrame(() => {
+        const d = drive.current;
+        refs.current.forEach((m, i) => {
+            if (!m) return;
+            if (!d.active) { m.visible = false; return; }
+            const lag = (i + 1) * 0.12;
+            const p = Math.max(0, d.progress - lag);
+            if (p <= 0) { m.visible = false; return; }
+            m.visible = true;
+            const x = d.fromX + (d.toX - d.fromX) * p;
+            const z = d.fromZ + (d.toZ - d.fromZ) * p;
+            m.position.set(x, 0.9, z);
+            const angle = Math.atan2(d.toX - d.fromX, d.toZ - d.fromZ);
+            m.rotation.y = angle;
+            const fade = (1 - lag * 1.6) * (d.progress < 0.9 ? 1 : (1 - d.progress) / 0.1);
+            (m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.34 * fade);
+            const tint = { Fire: "#ff9a4d", Water: "#67c7ff", Wind: "#8df5d3", Lightning: "#ffe86b", Earth: "#e0b477" }[d.element] ?? "#cbd5f5";
+            (m.material as THREE.MeshBasicMaterial).color.set(tint);
+        });
+    });
+    return (
+        <group>
+            {Array.from({ length: STREAK_COUNT }, (_, i) => (
+                <mesh key={i} ref={(el) => { refs.current[i] = el; }} visible={false}>
+                    <planeGeometry args={[0.32, 1.5]} />
+                    <meshBasicMaterial transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
+// ─── Signature light pillar ──────────────────────────────────────────────────
+
+export interface PillarDrive {
+    activeUntil: number;
+    startedAt: number;
+    x: number;
+    z: number;
+    color: string;
+}
+
+export function SuperPillar({ drive }: { drive: React.MutableRefObject<PillarDrive> }) {
+    const beam = useRef<THREE.Mesh>(null);
+    const beamMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ring = useRef<THREE.Mesh>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame(() => {
+        const d = drive.current;
+        const now = performance.now();
+        const active = now >= d.startedAt && now < d.activeUntil;
+        if (beam.current && beamMat.current) {
+            beam.current.visible = active;
+            if (active) {
+                const t = (now - d.startedAt) / Math.max(1, d.activeUntil - d.startedAt);
+                beam.current.position.set(d.x, 4.2, d.z);
+                const w = 0.9 + Math.sin(now * 0.02) * 0.12;
+                beam.current.scale.set(w * (1 - t * 0.4), 1, w * (1 - t * 0.4));
+                beamMat.current.color.set(d.color);
+                beamMat.current.opacity = 0.5 * (1 - t);
+            }
+        }
+        if (ring.current && ringMat.current) {
+            ring.current.visible = active;
+            if (active) {
+                const t = (now - d.startedAt) / Math.max(1, d.activeUntil - d.startedAt);
+                ring.current.position.set(d.x, 0.08, d.z);
+                const s = 0.8 + t * 4.2;
+                ring.current.scale.set(s, s, s);
+                ringMat.current.color.set(d.color);
+                ringMat.current.opacity = 0.7 * (1 - t);
+            }
+        }
+    });
+    return (
+        <group>
+            <mesh ref={beam} visible={false}>
+                <cylinderGeometry args={[1, 1.25, 8.5, 20, 1, true]} />
+                <meshBasicMaterial ref={beamMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                <ringGeometry args={[0.82, 1, 48]} />
+                <meshBasicMaterial ref={ringMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
+        </group>
+    );
+}

@@ -457,6 +457,64 @@
     letter-spacing: 0.06em;
 }
 
+/* ── Turn-order strip + matchup hints ──────────────────────────────────── */
+
+.showdown-order-strip {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(10, 7, 3, 0.66);
+    border: 1px solid rgba(217, 180, 120, 0.28);
+    pointer-events: none;
+    max-width: 90vw;
+    overflow: hidden;
+}
+.showdown-order-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #b9a583;
+    margin-right: 2px;
+}
+.showdown-order-chip {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: grid;
+    place-items: center;
+    font-size: 0.62rem;
+    font-weight: 800;
+    background: rgba(30, 22, 14, 0.9);
+}
+.showdown-order-chip.mine { color: #fcd34d; }
+.showdown-order-chip.theirs { color: #fca5a5; opacity: 0.85; }
+
+.showdown-matchup { font-size: 0.72rem; font-weight: 900; }
+.showdown-matchup.up { color: #4ade80; }
+.showdown-matchup.down { color: #f87171; }
+
+/* ── Signature flash ───────────────────────────────────────────────────── */
+
+.showdown-flash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    pointer-events: none;
+    z-index: 3;
+    animation: showdown-flash-out 0.26s ease-out both;
+}
+@keyframes showdown-flash-out {
+    from { opacity: 0.85; }
+    to { opacity: 0; }
+}
+
 /* ── Signature letterbox ───────────────────────────────────────────────── */
 
 .showdown-letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 2; }

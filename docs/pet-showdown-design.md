@@ -137,7 +137,24 @@ showdown-balance.test.ts` ratchets the standard+rare slice in CI (35–65 bands,
 pace 5.5–11.5, judge <30%). ~25 of 140 species remain outside 25–75% from kit
 composition differences — kit-level (kind-value) tuning is the remaining lever.
 
-## Follow-ups (not in v1)
+## Round 3 — Temtem depth + painted VFX (2026-08-07)
+
+System: signatures now SPLASH every other living foe at 0.72x in team formats;
+**ally element synergy** (+10% with a "Synergy!" callout when a living
+teammate's element beats the target — team-building matters); a projected
+**turn-order strip** (`nextOrder` in the state view, haste/slow applied, rng
+tiebreaks excluded); ▲/▼ **matchup hints** on targeting cards.
+
+VFX (`components/PetShowdownVfx.tsx`): the bundled hand-painted FX flipbooks
+(`assets/fx/<key>/NNN.png` via lib/jutsu-fx-assets — the same CC0 sets the DOM
+renderer used) now play as additive billboards in the 3D scene — per-element
+impact detonations, heal/buff/shield bursts, cast-charge gathers; painted
+projectile heads (`assets/fx/projectiles/*.webp`) with spin/wobble/flicker from
+the projectileVisual spec plus a fading trail; melee afterimage streaks;
+signature light pillar + ground shockwave + full-screen flash; and looping
+**status auras** (burning pets visibly burn, frozen pets frost, buffed pets
+glow). All presentation-only; every number still arrives in a server event.
+
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
 - Bench + switching for 3v3 (the prediction layer).
