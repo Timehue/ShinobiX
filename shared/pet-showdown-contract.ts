@@ -60,6 +60,12 @@ export const SHOWDOWN_METER_ON_HIT_TAKEN = 18;
 export const SHOWDOWN_METER_ON_GUARDED_HIT = 14;
 /** The signature/super cast multiplies move power by this. */
 export const SHOWDOWN_SUPER_POWER_MULT = 1.6;
+/** In 2v2/3v3 a signature also SPLASHES every other living foe at this rate —
+ *  the ultimate is a screen-wide moment, not a single-target nuke. */
+export const SHOWDOWN_SUPER_SPLASH_SCALE = 0.72;
+/** Temtem-style ally synergy: in team formats, an offensive move gains this
+ *  multiplier when a LIVING ally's element beats the target's element. */
+export const SHOWDOWN_SYNERGY_MULT = 1.1;
 
 /** Timing-needle grades (client-measured, server-CLAMPED — expression, not
  *  requirement; the ceiling bounds what a dishonest client can gain). */
@@ -123,6 +129,9 @@ export interface ShowdownStateView {
     player: ShowdownPetView[];
     enemy: ShowdownPetView[];
     enemyTeamName: string;
+    /** Projected next-round action order (pet ids, current speed effects
+     *  applied, rng tiebreaks excluded) — the Temtem-style order strip. */
+    nextOrder: string[];
 }
 
 /** Effectiveness callout the presentation layer banners on impact. */
@@ -152,6 +161,10 @@ export type ShowdownEvent =
             ko: boolean;
             /** Status applied by this hit, if any (burn/stun/...). */
             applied?: string;
+            /** An ally's element beat this target — the Synergy bonus landed. */
+            synergy?: boolean;
+            /** This hit is a signature's splash onto a secondary foe. */
+            splash?: boolean;
         }[];
         /** Actor resources after the action, for HUD sync mid-script. */
         staminaAfter: number;

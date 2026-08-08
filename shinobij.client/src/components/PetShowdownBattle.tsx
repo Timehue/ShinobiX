@@ -27,10 +27,19 @@ import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
-import { projectileVisual } from "../lib/pet-projectile-vfx";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity } from "../lib/pet-music";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
+import {
+    ShowdownVfxLayer,
+    StatusAuraFx,
+    BeatDrivenVfx,
+    SuperPillar,
+    impactFlipbookKey,
+    type VfxSpawn,
+    type PillarDrive,
+} from "./PetShowdownVfx";
+import { SHOWDOWN_ELEMENT_BEATS } from "../../../shared/pet-showdown-contract";
 import type { Pet } from "../types/pet";
 import type {
     ShowdownCommand,
@@ -242,11 +251,12 @@ function CameraDirector({ beatRef, fxRef, slots }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, victorious, beatRef, fxRef, slots, popups, highlight }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, slots, popups, highlight }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
     guarding: boolean;
+    statuses: readonly { kind: string }[];
     victorious: boolean;
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
@@ -391,6 +401,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, victorious, beatRef, f
                 <sphereGeometry args={[1.35, 20, 14]} />
                 <meshBasicMaterial ref={guardMat} color="#8ecdf7" transparent opacity={0.16} toneMapped={false} depthWrite={false} />
             </mesh>
+            {/* Persistent painted status auras: burning pets burn, frozen pets frost. */}
+            {!ko && <StatusAuraFx statuses={statuses} />}
             {highlight !== "none" && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
                     <ringGeometry args={[0.95, 1.12, 32]} />
@@ -412,62 +424,6 @@ function ShowdownFighter({ info, displayHp, ko, guarding, victorious, beatRef, f
     );
 }
 
-// ─── Projectile ──────────────────────────────────────────────────────────────
-
-function ProjectileFx({ beatRef, slots }: {
-    beatRef: React.MutableRefObject<SceneBeat>;
-    slots: Map<string, FighterSlotInfo>;
-}) {
-    const mesh = useRef<THREE.Mesh>(null);
-    const mat = useRef<THREE.MeshBasicMaterial>(null);
-    const glow = useRef<THREE.Mesh>(null);
-    useFrame(() => {
-        const beat = beatRef.current;
-        const m = mesh.current;
-        const g = glow.current;
-        if (!m || !g) return;
-        let visible = false;
-        if (beat.event?.t === "action" && beat.event.delivery === "ranged" && beat.event.targets.length
-            && beat.event.moveKind !== "heal") {
-            const ev = beat.event as ActionEvent;
-            const actor = slots.get(ev.actorId);
-            const target = slots.get(ev.targets[0].id);
-            if (actor && target) {
-                const frac = (performance.now() - beat.startedAt) / beat.durationMs;
-                const t0 = 0.36, t1 = STRIKE_FRAC;
-                if (frac >= t0 && frac <= t1) {
-                    const p = (frac - t0) / (t1 - t0);
-                    const a = new THREE.Vector3(actor.basePos[0], 1.25, actor.basePos[2]);
-                    const b = new THREE.Vector3(target.basePos[0], 1.15, target.basePos[2]);
-                    const pos = a.lerp(b, p);
-                    pos.y += Math.sin(p * Math.PI) * 0.55;
-                    m.position.copy(pos);
-                    g.position.copy(pos);
-                    const visual = projectileVisual({ element: ev.element, kind: ev.moveKind, charged: ev.super });
-                    if (mat.current) mat.current.color.set(visual.glow);
-                    const s = visual.size * (ev.super ? 1.5 : 1.1);
-                    m.scale.setScalar(s);
-                    g.scale.setScalar(s * 2.4);
-                    visible = true;
-                }
-            }
-        }
-        m.visible = visible;
-        g.visible = visible;
-    });
-    return (
-        <group>
-            <mesh ref={mesh} visible={false}>
-                <sphereGeometry args={[1, 16, 16]} />
-                <meshBasicMaterial ref={mat} color="#ffffff" toneMapped={false} />
-            </mesh>
-            <mesh ref={glow} visible={false}>
-                <sphereGeometry args={[1, 12, 12]} />
-                <meshBasicMaterial color="#ffffff" transparent opacity={0.22} toneMapped={false} />
-            </mesh>
-        </group>
-    );
-}
 
 // ─── Timing needle (DOM) ─────────────────────────────────────────────────────
 
@@ -516,13 +472,15 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
 
 interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number }[] }
 
-function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId }: {
+function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement }: {
     side: "player" | "enemy";
     pets: ShowdownPetView[];
     display: Record<string, DisplayEntry>;
     targeting: boolean;
     onPickTarget?: (petId: string) => void;
     commanderId?: string | null;
+    /** While targeting: the commander's element, for ▲/▼ matchup hints. */
+    hintElement?: string;
 }) {
     return (
         <div className={`showdown-team-panel ${side}`}>
@@ -548,6 +506,12 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId }
                             <span className="showdown-pet-element" style={{ color: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}>
                                 {pet.element !== "None" ? pet.element : ""}
                             </span>
+                            {clickable && hintElement && SHOWDOWN_ELEMENT_BEATS[hintElement] === pet.element && (
+                                <span className="showdown-matchup up" title="Your element beats theirs">▲</span>
+                            )}
+                            {clickable && hintElement && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement && (
+                                <span className="showdown-matchup down" title="Their element beats yours">▼</span>
+                            )}
                         </div>
                         <div className="showdown-bar hp">
                             {/* The chip layer drains SLOWLY behind the instant fill —
@@ -595,6 +559,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [netError, setNetError] = useState(false);
     const [expired, setExpired] = useState(false);
     const [letterbox, setLetterbox] = useState(false);
+    const [flash, setFlash] = useState(0);
+    const [vfx, setVfx] = useState<VfxSpawn[]>([]);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
 
     // Command drafting.
@@ -610,6 +576,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
     const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1 });
     const fxRef = useRef<SceneFx>({ hitAt: new Map(), shakeUntil: 0, shakeAmp: 0, superFocus: false });
+    const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
 
     // ── Fullscreen overlay + body scroll lock + music ───────────────────────
     useEffect(() => {
@@ -651,6 +618,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // Rosters never change mid-session; art inputs are stable.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stateView.player.length, stateView.enemy.length]);
+
+    /** Spawn a one-shot painted flipbook at a pet's position. */
+    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0) => {
+        const info = slots.get(petId);
+        if (!info) return;
+        const key = popupKey.current++;
+        setVfx((list) => [...list.slice(-14), {
+            key, frames, scale, durationMs,
+            pos: [info.basePos[0], info.basePos[1] + yLift, info.basePos[2]] as [number, number, number],
+            startedAt: performance.now(),
+        }]);
+        window.setTimeout(() => setVfx((list) => list.filter((s) => s.key !== key)), durationMs + 400);
+    }, [slots]);
 
     const clearTimers = useCallback(() => {
         for (const id of timeouts.current) window.clearTimeout(id);
@@ -749,20 +729,41 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 }, 0);
                 later(() => setLetterbox(false), durationMs * 0.94);
             }
+            // Windup: a charge-gather flipbook on the caster for real attacks.
+            if (event.moveKind !== "guard" && event.moveKind !== "rest") {
+                later(() => spawnFlipbook(event.actorId, event.super ? "charge" : event.delivery === "ranged" ? "charge" : "aura", event.super ? 2.6 : 1.7, durationMs * (event.delivery === "melee" ? 0.28 : 0.36), 1.05), durationMs * 0.04);
+            }
             // Strike moment: damage numbers, HP drains, shake, effectiveness call.
             later(() => {
                 let anyKo = false;
                 let anyHeal = false;
+                let anySynergy = false;
                 let bestEffect: "super" | "weak" | null = null;
                 for (const target of event.targets) {
                     if (target.damage > 0) {
                         addPopup(target.id, `-${target.damage}`, target.guarded ? "guarded" : event.super ? "super" : "damage");
                         fxRef.current.hitAt.set(target.id, performance.now());
+                        // Painted impact: the element's flipbook detonates on the
+                        // victim (splash hits get a smaller wash).
+                        spawnFlipbook(
+                            target.id,
+                            impactFlipbookKey(event.element, event.moveKind, event.super),
+                            event.super ? (target.splash ? 2.6 : 3.6) : target.splash ? 1.8 : 2.4,
+                            event.super ? 720 : 560,
+                        );
                         if (target.effectiveness === "super") bestEffect = "super";
                         else if (target.effectiveness === "weak" && bestEffect !== "super") bestEffect = "weak";
+                        anySynergy = anySynergy || !!target.synergy;
                     }
-                    if (target.heal > 0) { addPopup(target.id, `+${target.heal}`, "heal"); anyHeal = true; }
-                    if (target.applied && target.damage === 0 && target.heal === 0) addPopup(target.id, KIND_ICON[target.applied] ?? "✦", "status");
+                    if (target.heal > 0) {
+                        addPopup(target.id, `+${target.heal}`, "heal");
+                        spawnFlipbook(target.id, "heal", 2.2, 700);
+                        anyHeal = true;
+                    }
+                    if (target.applied && target.damage === 0 && target.heal === 0) {
+                        addPopup(target.id, KIND_ICON[target.applied] ?? "✦", "status");
+                        spawnFlipbook(target.id, impactFlipbookKey(event.element, target.applied, false), 1.9, 620);
+                    }
                     anyKo = anyKo || target.ko;
                     applyToDisplay(setDisplay, target.id, (d) => ({
                         ...d,
@@ -781,12 +782,32 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     fxRef.current.shakeUntil = performance.now() + (event.super ? 460 : 300);
                     fxRef.current.shakeAmp = event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
                     playPetSfx(event.super ? "crit" : "hit");
+                    if (event.super) {
+                        // Signature detonation: light pillar on the primary target
+                        // + a full-screen white flash.
+                        const primary = slots.get(event.targets[0].id);
+                        if (primary) {
+                            pillarDrive.current = {
+                                startedAt: performance.now(),
+                                activeUntil: performance.now() + 750,
+                                x: primary.basePos[0],
+                                z: primary.basePos[2],
+                                color: ELEMENT_TINT[event.element] ?? "#fbbf24",
+                            };
+                        }
+                        setFlash(popupKey.current++);
+                        later(() => setFlash(0), 260);
+                    }
                 } else if (event.moveKind === "guard") {
                     playPetSfx("shield");
+                    spawnFlipbook(event.actorId, "eshield", 2.0, 600);
                 } else if (anyHeal) {
                     playPetSfx("heal");
+                } else if (event.targets.some((t) => t.applied)) {
+                    playPetSfx("buff");
                 }
                 if (event.timing === 2 && event.actorSide === "player") showBanner("PERFECT!", "perfect", 750 / speed);
+                else if (anySynergy && event.actorSide === "player") showBanner("🤝 Synergy!", "effective", 850 / speed);
                 else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
                 else if (bestEffect === "weak") showBanner("Not very effective…", "weak", 900 / speed);
                 if (anyKo) later(() => { showBanner("KO!", "ko", 900 / speed); playPetSfx("ko"); }, 220);
@@ -907,7 +928,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 5.2, 9.6], near: 0.1, far: 80 }}>
                 <StageEnvironment />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} slots={slots} />
-                <ProjectileFx beatRef={beatRef} slots={slots} />
+                <BeatDrivenVfx beatRef={beatRef} slots={slots} />
+                <SuperPillar drive={pillarDrive} />
+                <ShowdownVfxLayer spawns={vfx} />
                 {[...slots.values()].map((info) => (
                     <ShowdownFighter
                         key={info.view.id}
@@ -915,6 +938,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         displayHp={display[info.view.id]?.hp ?? info.view.hp}
                         ko={display[info.view.id]?.ko ?? info.view.ko}
                         guarding={display[info.view.id]?.guarding ?? false}
+                        statuses={display[info.view.id]?.statuses ?? []}
                         victorious={phase === "finished" && outcome === (info.side === "player" ? "win" : "loss")}
                         beatRef={beatRef}
                         fxRef={fxRef}
@@ -934,6 +958,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     <div className="bar bottom" />
                 </div>
             )}
+            {/* Full-screen white flash on the signature detonation. */}
+            {flash !== 0 && <div key={flash} className="showdown-flash" />}
 
             {/* ── HUD ── */}
             <div className="showdown-hud">
@@ -944,6 +970,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         display={display}
                         targeting={!!pendingMove && !targetingAllies}
                         onPickTarget={pickTarget}
+                        hintElement={commander?.element}
                     />
                     <div className="showdown-topbar-right">
                         {/* stateView.round reconciles at playback end, so the round
@@ -958,6 +985,28 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 </div>
 
                 {banner && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
+
+                {/* Temtem-style turn-order strip: who acts next round, fastest first. */}
+                {stateView.nextOrder && stateView.nextOrder.length > 0 && phase !== "finished" && (
+                    <div className="showdown-order-strip">
+                        <span className="showdown-order-label">Next</span>
+                        {stateView.nextOrder.map((petId) => {
+                            const pet = [...stateView.player, ...stateView.enemy].find((p) => p.id === petId);
+                            if (!pet || (display[petId]?.ko ?? pet.ko)) return null;
+                            const mine = stateView.player.some((p) => p.id === petId);
+                            return (
+                                <span
+                                    key={petId}
+                                    className={`showdown-order-chip ${mine ? "mine" : "theirs"}`}
+                                    style={{ borderColor: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}
+                                    title={pet.name}
+                                >
+                                    {pet.name.slice(0, 2)}
+                                </span>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <div className="showdown-bottombar">
                     <TeamPanel

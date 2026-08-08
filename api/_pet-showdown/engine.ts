@@ -32,6 +32,8 @@ import {
     SHOWDOWN_REST_STAMINA,
     SHOWDOWN_STAMINA_REGEN,
     SHOWDOWN_SUPER_POWER_MULT,
+    SHOWDOWN_SUPER_SPLASH_SCALE,
+    SHOWDOWN_SYNERGY_MULT,
     SHOWDOWN_TIMING_MULTS,
     type ShowdownCommand,
     type ShowdownEvent,
@@ -437,12 +439,12 @@ const ELEMENT_TAKEN_MULT: Record<string, number> = {
     Lightning: 1.02,
 };
 
-function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number): number {
+function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number, extraMult = 1): number {
     const atk = effAttack(attacker);
     const def = effDefense(defender);
     const base = DAMAGE_SCALE * (power / 100) * ((atk * atk) / (atk + def));
     const variance = 0.95 + nextRand(session) * 0.1;
-    let mult = elementMult(attacker.element, defender.element) * timingMult * variance
+    let mult = elementMult(attacker.element, defender.element) * timingMult * variance * extraMult
         * (ROLE_DAMAGE_MULT[attacker.role] ?? 1)
         * (ELEMENT_DAMAGE_MULT[attacker.element] ?? 1)
         * (ELEMENT_TAKEN_MULT[defender.element] ?? 1);
@@ -522,9 +524,13 @@ function executeMove(
 
     const targets: Extract<ShowdownEvent, { t: 'action' }>['targets'] = [];
 
-    const applyOffensiveHit = (target: ShowdownPet, powerScale: number, applied?: string): void => {
+    const applyOffensiveHit = (target: ShowdownPet, powerScale: number, applied?: string, splash = false): void => {
         const guarded = target.guarding;
-        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult);
+        // Temtem-style ally synergy: a LIVING teammate whose element beats the
+        // target amplifies the hit. Solo formats have no ally, so no bonus.
+        const synergy = livingOf(session, actorSide)
+            .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
+        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergy ? SHOWDOWN_SYNERGY_MULT : 1);
         const { dealt, ko } = applyDamage(session, target, dmg);
         if (dealt > 0) gainMeter(actor, SHOWDOWN_METER_ON_HIT_DEALT);
         const eff = elementMult(actor.element, target.element);
@@ -536,6 +542,8 @@ function executeMove(
             guarded,
             ko,
             ...(applied ? { applied } : {}),
+            ...(synergy && dealt > 0 ? { synergy: true } : {}),
+            ...(splash ? { splash: true } : {}),
         });
     };
 
@@ -566,6 +574,11 @@ function executeMove(
     } else {
         const target = resolveTarget(session, actorSide, action.targetId);
         if (target) {
+            // Signature splash: in team formats the super also washes over every
+            // OTHER living foe — collected before the primary hit can KO them.
+            const splashTargets = superCast
+                ? livingOf(session, actorSide === 'player' ? 'enemy' : 'player').filter((foe) => foe !== target)
+                : [];
             switch (kind) {
                 case 'damage':
                     applyOffensiveHit(target, 1);
@@ -624,6 +637,9 @@ function executeMove(
                 default:
                     applyOffensiveHit(target, 1);
                     break;
+            }
+            for (const foe of splashTargets) {
+                if (!foe.ko) applyOffensiveHit(foe, SHOWDOWN_SUPER_SPLASH_SCALE, undefined, true);
             }
         }
     }
@@ -844,5 +860,12 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         player: session.player.map(petView),
         enemy: session.enemy.map(petView),
         enemyTeamName: session.enemyTeamName,
+        // Projected order for the NEXT round: current haste/slow effects
+        // applied, the per-round rng jitter deliberately excluded — a preview,
+        // not a promise (ties can still flip on the tiebreak roll).
+        nextOrder: [...session.player, ...session.enemy]
+            .filter((p) => !p.ko)
+            .sort((a, b) => effSpeed(b) - effSpeed(a))
+            .map((p) => p.id),
     };
 }

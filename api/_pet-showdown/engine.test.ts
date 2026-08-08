@@ -399,6 +399,60 @@ test('AI commands are always legal for the enemy side', () => {
     }
 });
 
+test('a signature in 2v2 splashes the second foe at a reduced rate', () => {
+    const session = makeSession(
+        [makePet('a', { speed: 300 }), makePet('a2', { speed: 5, attack: 1 })],
+        [makePet('b', { speed: 4, hp: 6000, element: 'None' }), makePet('b2', { speed: 3, hp: 6000, element: 'None' })],
+        777, '2v2',
+    );
+    session.player[0].meter = SHOWDOWN_METER_MAX;
+    const events = resolveShowdownRound(session, [
+        { kind: 'super', petId: 'a', targetId: 'b', timing: 0 },
+        { kind: 'rest', petId: 'a2' },
+    ], [{ kind: 'rest', petId: 'b' }, { kind: 'rest', petId: 'b2' }]);
+    const superAction = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.super);
+    assert.ok(superAction);
+    const primary = superAction.targets.find((t) => t.id === 'b');
+    const splash = superAction.targets.find((t) => t.id === 'b2');
+    assert.ok(primary && primary.damage > 0);
+    assert.ok(splash && splash.damage > 0, 'the second foe was splashed');
+    assert.equal(splash.splash, true);
+    assert.ok(splash.damage < primary.damage, 'splash is reduced-rate');
+});
+
+test('ally element synergy amplifies the hit and flags the event', () => {
+    const damageWithAlly = (allyElement: string) => {
+        const session = makeSession(
+            [makePet('a', { speed: 300, element: 'None' }), makePet('ally', { speed: 5, attack: 1, element: allyElement as Pet['element'] })],
+            [makePet('b', { speed: 4, hp: 6000, element: 'Wind' }), makePet('b2', { speed: 3, hp: 6000, element: 'Wind' })],
+            424242, '2v2',
+        );
+        const events = resolveShowdownRound(session, [
+            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+            { kind: 'rest', petId: 'ally' },
+        ], [{ kind: 'rest', petId: 'b' }, { kind: 'rest', petId: 'b2' }]);
+        const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+        return action!.targets[0];
+    };
+    // Fire beats Wind → the Fire ally powers up the hit; a Water ally does not.
+    const withSynergy = damageWithAlly('Fire');
+    const without = damageWithAlly('Water');
+    assert.equal(withSynergy.synergy, true);
+    assert.equal(without.synergy, undefined);
+    assert.ok(withSynergy.damage > without.damage);
+});
+
+test('the state view projects next-round order by effective speed', () => {
+    const session = makeSession(
+        [makePet('fast', { speed: 90 }), makePet('slow', { speed: 10 })],
+        [makePet('mid', { speed: 50 }), makePet('dead', { speed: 99 })],
+        1, '2v2',
+    );
+    session.enemy[1].ko = true;
+    const view = showdownStateView(session);
+    assert.deepEqual(view.nextOrder, ['fast', 'mid', 'slow'], 'speed-sorted, KO pets excluded');
+});
+
 test('a full AI-vs-AI style fight completes inside the round cap with a winner', () => {
     for (const seed of [1, 7, 12345, 98765, 2024]) {
         const players = [makePet('mine', { level: 45 }), makePet('mine2', { level: 45, element: 'Water' })];

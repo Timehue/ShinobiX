@@ -84,6 +84,10 @@ function stateView(finished = false, outcome: "win" | "loss" | null = null): Sho
         player: playerPets.map(view),
         enemy: enemyPets.map(view),
         enemyTeamName: "Harness Pack",
+        nextOrder: [...playerPets, ...enemyPets]
+            .filter((p) => (world.hp.get(p.id) ?? 0) > 0)
+            .sort((a, b) => (b.speed ?? 0) - (a.speed ?? 0))
+            .map((p) => p.id),
     };
 }
 
