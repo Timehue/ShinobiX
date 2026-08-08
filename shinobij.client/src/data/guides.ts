@@ -218,7 +218,7 @@ const BLOODLINE: Guide = {
                     ["A Rank", "100 Aura Stones", "Bosses, dungeons & tougher content"],
                     ["S Rank", "100 Mythic Seals", "Top-end bosses, dungeons & war rewards"],
                 ] },
-                { type: "callout", tone: "warn", label: "Heads up", text: "A base account stores one custom bloodline, so forging a brand-new one replaces it; supporters may store two. Swapping only unequips the outgoing bloodline's jutsu — its mastery is preserved for when you swap back." },
+                { type: "callout", tone: "warn", label: "Heads up", text: "Your saved custom bloodline is replaced if you forge a brand-new one, and swapping bloodlines wipes those jutsu's mastery (you re-train them). Build deliberately." },
             ],
         },
         {
