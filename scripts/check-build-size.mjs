@@ -235,7 +235,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // deleting that stack (pet-duel-cinematic, pet-duel-sim, pet-battle-sim,
 // pet-arena-sim and their renderers — far larger than this chunk) ratchets this
 // number DOWN well past 7.265 (docs/pet-showdown-design.md, follow-ups).
-const TOTAL_JS_CSS_FAIL_BYTES = 7_311_000;
+// 2026-08-07 (same day): 7.311 -> 7.332 MB. Pet Showdown rounds 3-4 grew the
+// lazy Showdown chunk: the painted-VFX layer (PetShowdownVfx), bench/switch UI,
+// the five-stage arena wiring, and the Bloom composer import. The exact
+// CI-equivalent product graph is 7,313,039 B, leaving ~19 KB of measured
+// variance, consistent with prior entries. Startup gates unchanged (initial
+// graph 1.31 MB raw / 351 KB gzip). The scheduled drain remains the legacy
+// coliseum-stack deletion described in the previous entry.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_332_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

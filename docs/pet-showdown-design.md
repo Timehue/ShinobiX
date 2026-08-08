@@ -155,10 +155,42 @@ signature light pillar + ground shockwave + full-screen flash; and looping
 **status auras** (burning pets visibly burn, frozen pets frost, buffed pets
 glow). All presentation-only; every number still arrives in a server event.
 
+## Round 4 — the bench, the switch, and the AAA shell (2026-08-07)
+
+**Bench + switching** (the prediction layer that replaces board movement —
+grounded in a competitive-design research pass over Pokémon/Smogon/Temtem):
+every format now picks up to 3 pets (field size 1/2/3 + reserves). `switch` is
+a command that resolves BEFORE all attacks (Pokémon priority) — the incoming
+pet eats anything aimed at the slot, and both pets forfeit the action (the
+minimum friction floor so switch-spam isn't free). Benched pets regen stamina
+and tick cooldowns but their statuses are FROZEN (you can't wait out a burn) —
+the Temtem "switching as stamina rotation" identity. KO'd field pets are
+auto-replaced from the bench at round end (reinforcements); a side loses only
+when the whole TEAM falls; the judge scores team-wide HP%. Warrior/champion AI
+makes matchup-driven switches. On screen, pets physically gallop between the
+bench row and the front line (lineup state + a live position map; fighters walk
+to their assigned slot, the fallen stay where they dropped).
+
+**Research-driven tuning**: damage roll widened to the genre-proven ±8% in 16
+discrete steps; species-budget weights corrected for the formula's true
+marginal values (atk ≈ 3x def under atk²/(atk+def) — glass cannons no longer
+get a normalization subsidy); damage-scaled **hit-stop** (110ms + 0.45ms/dmg,
+cap 330ms, ×1.4 for Lightning) freezes skeletal animation at contact via the
+PetModelFrame timeline clock. Bands re-verified: roles 43-57%, elements 40-60%,
+pace 8.6 rounds, judge ~15%.
+
+**AAA shell**: five painted arenas (coliseum/grove/frost/storm/volcano) picked
+per session with stage-tinted lighting + drifting motes; Bloom post-processing
+(petBloom flag); VS intro card; portraits on every HUD card; bench cards with
+BENCH badges; the Switch action with a bench-pick flow.
+
+## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
-- Bench + switching for 3v3 (the prediction layer).
+- Reserve balance levers from the research pass, deliberately unshipped:
+  U-turn-style pivot moves, entry-hazard analogues, priority-bracket moves,
+  trick-room analogues for slow archetypes.
+- Kit-level (kind-value) tuning for the remaining ~25/140 species outliers.
 - Per-pet mastery/bond progression and seasonal track.
-- SFX pass; hit-stop; per-element impact set pieces.
 - Migrating Hollow Gate / clan war / sector war / ladder onto the turn engine,
   then deleting the legacy sim stack (~45k lines client+server).

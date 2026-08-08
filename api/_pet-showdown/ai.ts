@@ -127,16 +127,33 @@ function rngOf(session: ShowdownSession): () => number {
     return () => nextRand(session);
 }
 
-/** Pick this round's commands for every living AI pet. */
+/** Pick this round's commands for every living AI FIELD pet. */
 export function chooseShowdownAiCommands(session: ShowdownSession): ShowdownCommand[] {
     const rand = rngOf(session);
     const tier = session.tier;
-    const foes = session.player.filter((p) => !p.ko);
+    const foes = session.player.filter((p) => !p.ko && !p.benched);
     const commands: ShowdownCommand[] = [];
     if (!foes.length) return commands;
 
+    // At most one voluntary switch per round so the AI never cycles its whole
+    // line in a single turn.
+    let switchedThisRound = false;
     for (const pet of session.enemy) {
-        if (pet.ko) continue;
+        if (pet.ko || pet.benched) continue;
+        // Matchup-driven switch (warrior sometimes, champion often): if this
+        // pet is element-beaten by a foe and a living bench ally would beat one
+        // of the foes, rotate — the same read the player is making.
+        if (!switchedThisRound && tier !== 'scrapper' && pet.hp / pet.maxHp > 0.3) {
+            const threatened = foes.some((f) => elementBeats(f.element, pet.element));
+            const counterpick = session.enemy.find((ally) =>
+                ally.benched && !ally.ko && foes.some((f) => elementBeats(ally.element, f.element)));
+            const eagerness = tier === 'champion' ? 0.55 : 0.25;
+            if (threatened && counterpick && rand() < eagerness) {
+                switchedThisRound = true;
+                commands.push({ kind: 'switch', petId: pet.id, benchPetId: counterpick.id });
+                continue;
+            }
+        }
         commands.push(choosePetCommand(session, pet, foes, tier, rand));
     }
     return commands;
@@ -176,7 +193,7 @@ function choosePetCommand(
     // Heal check: patch a bloodied self/ally when the kit allows it.
     const healMove = affordable.find(({ m }) => m.kind === 'heal');
     if (healMove && tier !== 'scrapper') {
-        const allies = (session.enemy).filter((p) => !p.ko);
+        const allies = (session.enemy).filter((p) => !p.ko && !p.benched);
         const bloodied = allies.filter((a) => a.hp / a.maxHp < 0.45)
             .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
         if (bloodied && rand() < 0.8) {

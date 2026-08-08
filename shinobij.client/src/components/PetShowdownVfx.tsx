@@ -30,10 +30,8 @@ export interface VfxBeat {
     startedAt: number;
     durationMs: number;
 }
-export interface VfxSlot {
-    view: { id: string };
-    basePos: [number, number, number];
-}
+/** petId → current world position map maintained by the battle component. */
+export type VfxPositions = ReadonlyMap<string, readonly [number, number, number]>;
 
 // ─── Texture caches ──────────────────────────────────────────────────────────
 
@@ -211,9 +209,9 @@ function StatusAuraLoop({ aura, phase }: { aura: { frames: string; scale: number
  *  battle component's STRIKE_FRAC. */
 const VFX_STRIKE_FRAC = 0.55;
 
-export function BeatDrivenVfx({ beatRef, slots }: {
+export function BeatDrivenVfx({ beatRef, posRef }: {
     beatRef: React.MutableRefObject<VfxBeat>;
-    slots: ReadonlyMap<string, VfxSlot>;
+    posRef: React.MutableRefObject<VfxPositions>;
 }) {
     const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0 });
     const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, element: "None", progress: 0 });
@@ -226,17 +224,17 @@ export function BeatDrivenVfx({ beatRef, slots }: {
         melee.active = false;
         if (beat.event?.t !== "action" || !beat.event.targets.length) return;
         const ev = beat.event;
-        const actor = slots.get(ev.actorId);
-        const target = slots.get(ev.targets[0].id);
-        if (!actor || !target || target.view.id === actor.view.id) return;
+        const actor = posRef.current.get(ev.actorId);
+        const target = posRef.current.get(ev.targets[0].id);
+        if (!actor || !target || ev.targets[0].id === ev.actorId) return;
         const frac = (performance.now() - beat.startedAt) / beat.durationMs;
 
         if (ev.delivery === "ranged" && ev.moveKind !== "heal") {
             const t0 = 0.36, t1 = VFX_STRIKE_FRAC;
             if (frac >= t0 && frac <= t1) {
                 const p = (frac - t0) / (t1 - t0);
-                const ax = actor.basePos[0], az = actor.basePos[2];
-                const bx = target.basePos[0], bz = target.basePos[2];
+                const ax = actor[0], az = actor[2];
+                const bx = target[0], bz = target[2];
                 proj.active = true;
                 proj.x = ax + (bx - ax) * p;
                 proj.y = 1.2 + Math.sin(p * Math.PI) * 0.55;
@@ -250,10 +248,10 @@ export function BeatDrivenVfx({ beatRef, slots }: {
             // Mirror the fighter's dash window (0.32 → 0.5 of the beat).
             if (frac >= 0.3 && frac <= 0.62) {
                 melee.active = true;
-                melee.fromX = actor.basePos[0];
-                melee.fromZ = actor.basePos[2];
-                melee.toX = target.basePos[0];
-                melee.toZ = target.basePos[2];
+                melee.fromX = actor[0];
+                melee.fromZ = actor[2];
+                melee.toX = target[0];
+                melee.toZ = target[2];
                 melee.element = ev.element;
                 melee.progress = Math.min(1, Math.max(0, (frac - 0.32) / 0.18));
             }
