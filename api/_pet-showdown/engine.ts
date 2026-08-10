@@ -182,25 +182,90 @@ function medianBudgetFor(rarity: string): number | null {
             if (budget > 0) (byRarity.get(r) ?? byRarity.set(r, []).get(r)!).push(budget);
         }
         rarityMedianBudget = new Map();
+        const all: number[] = [];
         for (const [r, list] of byRarity) {
             list.sort((a, b) => a - b);
             rarityMedianBudget.set(r, list[Math.floor(list.length / 2)]);
+            all.push(...list);
         }
+        all.sort((a, b) => a - b);
+        if (all.length) rarityMedianBudget.set('__all__', all[Math.floor(all.length / 2)]);
     }
     return rarityMedianBudget.get(rarity) ?? null;
 }
+
+/** Kit-POWER normalization — the stat budget's sibling. Same-rarity kits vary
+ *  wildly in authored move power (three mythic assassins carry 92-100-power
+ *  kits in a 450-cap bracket and sat at 5-11% win rate), and power multiplies
+ *  damage linearly. Each pet's moves scale toward its rarity's median kit
+ *  power (cross-tier blended like the stat budget), damped and clamped so
+ *  authored kit personality survives. */
+let rarityMedianKitPower: Map<string, number> | null = null;
+function medianKitPowerFor(rarity: string): number | null {
+    if (!rarityMedianKitPower) {
+        const byRarity = new Map<string, number[]>();
+        const all: number[] = [];
+        for (const tpl of Object.values(PET_CATALOG)) {
+            const r = String(tpl.rarity ?? '');
+            if (!r || !Array.isArray(tpl.jutsus)) continue;
+            const powers = (tpl.jutsus as Array<{ power?: unknown }>)
+                .map((j) => Number(j.power) || 0)
+                .filter((p) => p > 0);
+            if (!powers.length) continue;
+            const avg = powers.reduce((s, p) => s + p, 0) / powers.length;
+            (byRarity.get(r) ?? byRarity.set(r, []).get(r)!).push(avg);
+            all.push(avg);
+        }
+        rarityMedianKitPower = new Map();
+        for (const [r, list] of byRarity) {
+            list.sort((a, b) => a - b);
+            rarityMedianKitPower.set(r, list[Math.floor(list.length / 2)]);
+        }
+        all.sort((a, b) => a - b);
+        if (all.length) rarityMedianKitPower.set('__all__', all[Math.floor(all.length / 2)]);
+    }
+    return rarityMedianKitPower.get(rarity) ?? null;
+}
+
+export function kitPowerNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
+    const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
+    const tpl = PET_CATALOG[canonical];
+    // Own-rarity reference ONLY — no cross-tier blend here. Blending dragged
+    // the mythic reference down toward the global median, which neutralized
+    // the very fix this exists for (mythics with standard-power kits).
+    // Cross-tier compression is the STAT blend's job.
+    const median = medianKitPowerFor(rarity);
+    if (!tpl || !median || String(tpl.rarity) !== rarity || !Array.isArray(tpl.jutsus)) return 1;
+    const powers = (tpl.jutsus as Array<{ power?: unknown }>)
+        .map((j) => Number(j.power) || 0)
+        .filter((p) => p > 0);
+    if (!powers.length) return 1;
+    const avg = powers.reduce((s, p) => s + p, 0) / powers.length;
+    return Math.max(0.8, Math.min(1.35, Math.pow(median / avg, 0.6)));
+}
+
+/** Cross-tier blend: the reference budget each pet is normalized toward is
+ *  mostly its OWN rarity's median, pulled this fraction toward the global
+ *  median. Compresses the standard→rare cliff (raw catalog gap gave rare a
+ *  95% stomp rate over standard) toward the 65-80% ladder the other tier
+ *  steps already sit at, while preserving the rarity progression. */
+const CROSS_TIER_BLEND = 0.5;
 
 export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
     const tpl = PET_CATALOG[canonical];
     const median = medianBudgetFor(rarity);
+    const globalMedian = medianBudgetFor('__all__');
     if (!tpl || !median || String(tpl.rarity) !== rarity) return 1;
     const budget = speciesBudget({
         hp: Number(tpl.hp) || 0, attack: Number(tpl.attack) || 0,
         defense: Number(tpl.defense) || 0, speed: Number(tpl.speed) || 0,
     });
     if (!(budget > 0)) return 1;
-    return Math.pow(median / budget, BUDGET_DAMPING);
+    const reference = globalMedian
+        ? median * (1 - CROSS_TIER_BLEND) + globalMedian * CROSS_TIER_BLEND
+        : median;
+    return Math.pow(reference / budget, BUDGET_DAMPING);
 }
 
 /** Universal cheap opener every pet gets, so low stamina never means no play. */
@@ -216,11 +281,14 @@ function basicStrike(): ShowdownMove {
     };
 }
 
-function synthesizedSignature(pet: { element?: string; name?: string }): ShowdownMove {
+function synthesizedSignature(pet: { element?: string; name?: string }, rarity: string): ShowdownMove {
     const el = String(pet.element ?? 'None');
     return {
         name: el !== 'None' && el ? `${el} Overdrive` : 'Spirit Overdrive',
-        power: 260,
+        // Scales with rarity (72% of the tier's jutsu-power cap ≈ 230/259/292/324)
+        // so a mythic without an authored signature isn't stuck with a
+        // standard-tier finisher.
+        power: Math.round(petJutsuPowerCeil(rarity) * 0.72),
         kind: 'damage',
         cost: 0,
         cooldown: 0,
@@ -234,6 +302,7 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
     const rarity = ['standard', 'rare', 'legendary', 'mythic'].includes(String(raw.rarity)) ? String(raw.rarity) : 'standard';
     const level = clampInt(raw.level, 1, 100, 1);
     const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const kitNorm = kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
     const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
@@ -243,7 +312,7 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
         .filter((j) => j && typeof j.name === 'string')
         .slice(0, 5)
         .map((j) => {
-            const power = clampInt(j.power, 0, powerCeil, 0);
+            const power = clampInt(Math.round((Number(j.power) || 0) * kitNorm), 0, powerCeil, 0);
             return {
                 name: String(j.name).slice(0, 48),
                 power,
@@ -257,7 +326,7 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
 
     // The flagged signature is reserved for the super; everything else is the kit.
     const signatureMove = sealedJutsus.find((m) => m.signature)
-        ?? synthesizedSignature({ element: raw.element, name: raw.name });
+        ?? synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
     const kit = sealedJutsus.filter((m) => m !== signatureMove && m.kind !== 'move').slice(0, 4);
 
     return {
@@ -572,7 +641,7 @@ function executeMove(
             case 'move': addStatus(session, actor, 'haste', 2, 1.25); break;
             case 'shield':
             case 'barrier':
-            case 'absorb': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 1.1))); break;
+            case 'absorb': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 0.9))); break;
             case 'taunt': {
                 const foes = livingOf(session, actorSide === 'player' ? 'enemy' : 'player');
                 if (foes.length > 1 || session.format !== '1v1') addStatus(session, actor, 'taunt', 1, 1);
@@ -615,10 +684,12 @@ function executeMove(
                 case 'dot':
                 case 'burn':
                 case 'wound': {
-                    // 0.75 initial + 2 ticks of 20% ≈ 115% of a plain hit's power,
-                    // paid over three rounds — the DoT premium for delayed value.
-                    applyOffensiveHit(target, 0.75, kind);
-                    if (!target.ko) addStatus(session, target, kind === 'dot' ? 'burn' : kind, 2, Math.round(power * 0.2));
+                    // 0.82 initial + 2 ticks of 24% ≈ 130% of a plain hit's power
+                    // over three rounds — the kind-carrier analysis showed the
+                    // old 0.75/0.20 premium still under-paid for the delay (dot
+                    // carriers at ~30% win rate, burn ~43%).
+                    applyOffensiveHit(target, 0.82, kind);
+                    if (!target.ko) addStatus(session, target, kind === 'dot' ? 'burn' : kind, 2, Math.round(power * 0.24));
                     break;
                 }
                 case 'stun':
@@ -648,8 +719,8 @@ function executeMove(
                     break;
                 case 'push':
                 case 'pull':
-                    applyOffensiveHit(target, 0.7, kind);
-                    target.stamina = Math.max(0, target.stamina - 12);
+                    applyOffensiveHit(target, 0.85, kind);
+                    target.stamina = Math.max(0, target.stamina - 16);
                     break;
                 default:
                     applyOffensiveHit(target, 1);
