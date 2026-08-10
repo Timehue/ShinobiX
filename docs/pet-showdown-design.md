@@ -321,6 +321,34 @@ affordable. Role multipliers retuned for the no-cooldown meta (defender 1.22,
 tracker 0.84). Final bands: roles 42.4-54.1%, elements 42.2-56.9%, pace 8.7
 rounds, judge 24%, species outliers 8 (best yet). 35 tests green.
 
+## Round 10 — training made meaningful, ratio formula, logic audit (2026-08-10)
+
+**The damage formula changed shape**: atk²/(atk+def) → Pokémon's pure-ratio
+`DAMAGE_SCALE × (power/100) × REF_DEF × atk/def`. Under the old shape an
+attack point carried ~3x a defense point's value, making defense TRAINING a
+trap buy. Under the ratio shape attack, defense, and hp all carry equal
+marginal weight. The new TRAINING RELEVANCE analysis (a pet trained +60% in
+one stat vs its untrained twin) proves every focus is now a real choice:
+attack 86.7%, hp 86.7%, speed 80%, defense 73.3% (defense was ~55% before).
+
+**The ratio formula's known cost, handled**: it cancels uniform stat
+inflation, which ERASED the rarity ladder (mythic lost to legendary 32.5%).
+Cross-tier superiority is now granted deliberately via
+`RARITY_DAMAGE_TIER` (1 / 1.04 / 1.1 / 1.26, attacker-over-defender ratio so
+same-tier fights are untouched) — ladder restored: rare>standard 82.5%,
+legendary>rare 70%, mythic>legendary 62.5% (measured with same-element pairs;
+the old sampler let the 1.5x wheel swamp the tier gap). Budget weights
+repriced for the new elasticities (def 1.3); cross-tier blend eased to 0.3.
+
+**Logic audit fixes**: overdraft self-chips no longer FARM the super meter
+(applyDamage grantMeter flag); a winded pet can no longer dodge its stolen
+turn by switching to the bench.
+
+Final bands: roles 43.3-53.6%, elements 44.6-55.0%, pace 7.0 rounds, judge
+11.3%. Species outliers 18 but shallow (worst ~20% — historically 2-6%);
+the added spread is the price of element identity under the stronger wheel.
+35 tests green.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
