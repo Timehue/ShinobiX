@@ -296,6 +296,7 @@ test('a stun landed after the target already acted survives upkeep and skips its
         jutsus: [{ name: 'Skull Ring', power: 120, cooldown: 0, currentCooldown: 0, kind: 'stun' }],
     });
     const session = makeSession([stunner], [makePet('victim', { speed: 200, hp: 6000, attack: 5 })]);
+    session.player[0].readiness = 1;   // control moves HOLD until round 2
     resolveShowdownRound(session, [
         { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim', timing: 0 },
     ], [{ kind: 'rest', petId: 'victim' }]);
@@ -312,6 +313,7 @@ test('a stun landed before the target acts consumes its SAME-round action', () =
         jutsus: [{ name: 'Skull Ring', power: 120, cooldown: 0, currentCooldown: 0, kind: 'stun' }],
     });
     const session = makeSession([stunner], [makePet('victim', { speed: 10, hp: 6000 })]);
+    session.player[0].readiness = 1;   // control moves HOLD until round 2
     const events = resolveShowdownRound(session, [
         { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim', timing: 0 },
     ], [{ kind: 'rest', petId: 'victim' }]);
@@ -406,7 +408,7 @@ test('AI commands are always legal for the enemy side', () => {
             if (c.kind === 'move') {
                 const pet = session.enemy.find((p) => p.id === c.petId)!;
                 assert.ok(c.moveIndex >= 0 && c.moveIndex < pet.moves.length);
-                assert.equal(pet.moves[c.moveIndex].currentCooldown, 0, 'AI never picks a cooling move');
+                assert.ok(pet.readiness >= pet.moves[c.moveIndex].hold, 'AI never picks a held move early');
             }
             if (c.kind === 'super') {
                 const pet = session.enemy.find((p) => p.id === c.petId)!;
@@ -611,6 +613,55 @@ test('kit overrides replace a broken catalog kit at seal time', () => {
     assert.ok(!sealed.moves.some((m) => m.name === 'Weak Old Move'), 'old kit replaced');
     assert.ok(sealed.moves.some((m) => m.name === 'Abyssal Rend'), 'override kit applied');
     assert.equal(sealed.signatureMove.name, 'Oni Gate Requiem');
+});
+
+test('traits carry in-combat effects: Battleborn starts charged, Aggressive hits harder', () => {
+    const battleborn = sealShowdownPet(makePet('bb', { trait: 'Battleborn' }));
+    assert.equal(battleborn.meter, 25, 'Battleborn enters with meter');
+    const hitWith = (trait?: Pet['trait']) => {
+        const session = makeSession(
+            [makePet('a', { speed: 200, element: 'None', ...(trait ? { trait } : {}) })],
+            [makePet('b', { speed: 10, element: 'None', hp: 6000 })],
+            777,
+        );
+        const events = resolveShowdownRound(session, [
+            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+        ], [{ kind: 'rest', petId: 'b' }]);
+        const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+        return action!.targets[0].damage;
+    };
+    assert.ok(hitWith('Aggressive') > hitWith(), 'Aggressive outdamages traitless on the same seed');
+});
+
+test('PvP gear applies: stat mods, start shield, and execute proc', () => {
+    // Aegis Pendant: battle opens with a 25%-max-hp shield.
+    const aegis = makePet('aegis', { loadout: { pvp: 'pvp-aegis-pendant' } });
+    const session = makeSession([aegis], [makePet('foe', { speed: 10, hp: 6000 })]);
+    const sealed = session.player[0];
+    assert.equal(sealed.gear?.name, 'Aegis Pendant');
+    const shield = sealed.statuses.find((s) => s.kind === 'shield');
+    assert.ok(shield && shield.magnitude === Math.round(sealed.maxHp * 0.25), 'start shield raised');
+
+    // Spiked War Harness: +15% attack on the sealed stats.
+    const bare = sealShowdownPet(makePet('bare', {}));
+    const harness = sealShowdownPet(makePet('bare', { loadout: { pvp: 'pvp-spiked-war-harness' } }));
+    assert.ok(harness.attack > bare.attack, 'gear attack bonus survived sealing');
+
+    // Executioner's Talon: bonus damage below 40% hp.
+    const talonHit = (gearId?: string) => {
+        const s = makeSession(
+            [makePet('t', { speed: 200, element: 'None', ...(gearId ? { loadout: { pvp: gearId } } : {}) })],
+            [makePet('lowfoe', { speed: 10, element: 'None', hp: 6000 })],
+            4242,
+        );
+        s.enemy[0].hp = Math.round(s.enemy[0].maxHp * 0.3);   // below the 40% line
+        const events = resolveShowdownRound(s, [
+            { kind: 'move', petId: 't', moveIndex: 1, targetId: 'lowfoe', timing: 0 },
+        ], [{ kind: 'rest', petId: 'lowfoe' }]);
+        const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 't');
+        return action!.targets[0].damage;
+    };
+    assert.ok(talonHit('pvp-executioners-talon') > talonHit(), 'execute proc fired below the line');
 });
 
 test('a full AI-vs-AI style fight completes inside the round cap with a winner', () => {

@@ -290,6 +290,37 @@ this round completes the model with the three missing pieces:
 Bands re-verified unchanged (pace 8.2, judge 11.1%, elements 46.9-53.1%,
 roles 45-56%); 33 showdown tests green.
 
+## Round 9 — traits, equipment, and pure stamina+hold gating (2026-08-10)
+
+**Traits fight now** (stat bonuses were already baked into stored stats; these
+are the live-combat identities on top): Aggressive +6% damage, Loyal +20%
+meter gain, Guardian blocks at 42% instead of 50%, Swift +8% effective speed,
+Lucky shifts the damage roll window up 3%, Battleborn enters with 25 meter;
+ultras — Fateweaver +8% damage/+10% meter, Hollowborn drinks 8% of damage
+dealt, Boonbringer doubles its ally-synergy bonus.
+
+**Equipment fights now**: equipped PvP gear applies its stat mods to the live
+stats before sealing (an earned bonus the species normalization deliberately
+does not wash out) and all five combat procs run in the engine — Aegis start
+shields, Venomfang on-hit poison, Executioner's execute bonus, Final Bastion
+last-stand reduction, Bloodthirster lifesteal. The gear name rides the view
+for the HUD.
+
+**Cooldowns are GONE** — stamina and hold are the only gates, exactly the
+Temtem model. The removal surfaced two degenerate metas the sim caught and
+the round fixed:
+- Control spam (stun/freeze chains → 45% judge decisions): control kinds now
+  cost like haymakers (44+), carry Hold 1, and a pet that pays a stolen turn
+  gains 2 rounds of *steadfast* (control immunity) — the engine's Sleep
+  Clause.
+- Heal spam (18-stamina heals every round = unbreakable sustain): heals cost
+  40+ and carry Hold 1.
+Plus two throughput fixes: DAMAGE_SCALE 2.35 → 3.3 (Temtem pairs low regen
+with hard-hitting techniques) and the AI no longer rests while a jab is still
+affordable. Role multipliers retuned for the no-cooldown meta (defender 1.22,
+tracker 0.84). Final bands: roles 42.4-54.1%, elements 42.2-56.9%, pace 8.7
+rounds, judge 24%, species outliers 8 (best yet). 35 tests green.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
