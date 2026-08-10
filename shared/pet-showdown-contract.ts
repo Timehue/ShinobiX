@@ -256,6 +256,10 @@ export type ShowdownEvent =
             synergy?: boolean;
             /** This hit is a signature's splash onto a secondary foe. */
             splash?: boolean;
+            /** Named trait/gear effects that fired on this hit ("Executioner's
+             *  Talon", "Hollowborn"). Without these the procs silently mutate
+             *  damage with nothing on screen to attribute it to. */
+            procs?: string[];
         }[];
         /** Actor resources after the action, for HUD sync mid-script. */
         staminaAfter: number;

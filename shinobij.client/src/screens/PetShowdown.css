@@ -292,7 +292,7 @@
     margin-bottom: 4px;
     font-size: 0.78rem;
 }
-.showdown-pet-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.showdown-pet-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .showdown-pet-level { color: #b9a583; font-size: 0.7rem; }
 .showdown-pet-element { font-size: 0.68rem; font-weight: 700; }
 
@@ -488,6 +488,8 @@
 .showdown-popup.dot { color: #c084fc; font-size: 1.1rem; }
 .showdown-popup.status { color: #93c5fd; }
 .showdown-popup.overexert { color: #fb923c; font-size: 0.95rem; }
+/* Named trait/gear attribution — smaller than a damage number, it explains it. */
+.showdown-popup.proc { color: #fcd34d; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.02em; }
 
 /* ── Timing needle ─────────────────────────────────────────────────────── */
 
@@ -664,17 +666,69 @@
 }
 .showdown-order-chip.mine { color: #fcd34d; }
 .showdown-order-chip.theirs { color: #fca5a5; opacity: 0.85; }
+/* Chips slide when a drafted command re-sorts the round. */
+.showdown-order-strip { transition: none; }
+.showdown-order-chip { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1); position: relative; }
+.showdown-order-chip.skipping { opacity: 0.4; }
+.showdown-order-chip.skipping::after {
+    content: "";
+    position: absolute;
+    left: 2px; right: 2px; top: 50%;
+    height: 2px;
+    background: #f87171;
+    transform: rotate(-18deg);
+}
+.showdown-order-unknown {
+    position: absolute;
+    right: -1px;
+    bottom: -2px;
+    font-size: 0.5rem;
+    font-style: normal;
+    font-weight: 900;
+    color: #b9a583;
+}
+
+/* ── Post-battle recap ─────────────────────────────────────────────────── */
+
+.showdown-recap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: min(340px, 86vw);
+    animation: showdown-fade-in 0.3s ease-out both;
+}
+.showdown-recap-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: rgba(16, 11, 6, 0.8);
+    border: 1px solid rgba(217, 180, 120, 0.22);
+    font-size: 0.8rem;
+}
+.showdown-recap-row.mvp { border-color: rgba(251, 191, 36, 0.6); background: rgba(48, 34, 12, 0.85); }
+.showdown-recap-row img { width: 26px; height: 26px; object-fit: contain; }
+.showdown-recap-name { flex: 1; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.showdown-recap-stat { font-size: 0.72rem; color: #d9c9a8; white-space: nowrap; }
+.showdown-result-daily { font-size: 0.76rem; color: #b9a583; }
+@media (prefers-reduced-motion: reduce) {
+    .showdown-order-chip { transition: none; }
+    .showdown-recap { animation: none; }
+}
 
 /* Filled pills, not colour-only — the matchup readout must survive a
    colour-vision difference and a small viewport. */
 .showdown-matchup {
-    font-size: 0.56rem;
+    font-size: 0.52rem;
     font-weight: 900;
-    letter-spacing: 0.03em;
-    padding: 1px 5px;
+    letter-spacing: 0.02em;
+    padding: 1px 4px;
     border-radius: 4px;
     white-space: nowrap;
     margin-left: auto;
+    /* Must never be squeezed or pushed past the card edge — the name yields. */
+    flex: 0 0 auto;
 }
 .showdown-matchup.up { color: #06301a; background: #4ade80; }
 .showdown-matchup.down { color: #3a0b0b; background: #f87171; }
