@@ -78,6 +78,22 @@ export const SHOWDOWN_SYNERGY_MULT = 1.1;
  *  requirement; the ceiling bounds what a dishonest client can gain). */
 export const SHOWDOWN_TIMING_MULTS: readonly number[] = Object.freeze([1.0, 1.1, 1.22]);
 
+/** Temtem-style MULTIPLICATIVE move priority (order = pet speed × priority of
+ *  the chosen action). Multiplicative — not absolute brackets — so a slow
+ *  pet's quick jab still doesn't outrun a fast pet's. Guard is the defensive
+ *  quick-action; heavy nukes and signatures swing LAST. */
+export const SHOWDOWN_PRIORITY_GUARD = 1.5;
+export const SHOWDOWN_PRIORITY_REST = 0.9;
+export const SHOWDOWN_PRIORITY_LIGHT = 1.15;   // power ≤ 80 quick jabs
+export const SHOWDOWN_PRIORITY_NORMAL = 1.0;
+export const SHOWDOWN_PRIORITY_HEAVY = 0.8;    // power > 220 haymakers
+export const SHOWDOWN_PRIORITY_SUPER = 0.75;   // signatures swing last
+
+/** Heavy techniques HOLD: unusable until the pet has been in battle this many
+ *  rounds (counts everywhere, field or bench — the Temtem rule). */
+export const SHOWDOWN_HOLD_HEAVY = 1;   // power > 220
+export const SHOWDOWN_HOLD_SUPER = 2;   // signatures
+
 /** Hard round cap — at cap the judge scores remaining HP%; there are NO draws. */
 export const SHOWDOWN_MAX_ROUNDS = 14;
 
@@ -131,7 +147,16 @@ export interface ShowdownPetView {
         cooldown: number;
         currentCooldown: number;
         signature: boolean;
+        /** Temtem-style turn-order multiplier for the round this move is
+         *  chosen: >1 resolves early, <1 swings late. */
+        priority: number;
+        /** Rounds the pet must have been in battle before this fires (Temtem
+         *  Hold). 0 = always ready. */
+        hold: number;
     }[];
+    /** Rounds this pet has been in the battle (holds count down everywhere,
+     *  field or bench — the Temtem rule). */
+    readiness: number;
 }
 
 export interface ShowdownStateView {

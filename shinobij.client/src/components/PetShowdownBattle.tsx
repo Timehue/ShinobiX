@@ -292,6 +292,9 @@ function CameraDirector({ beatRef, fxRef, posRef }: {
 }) {
     const pos = useRef(new THREE.Vector3(0, 5.2, 9.6));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
+    /** Shot identity — when it changes, the camera CUTS (snaps) instead of
+     *  lerping: the Pokémon Colosseum grammar. */
+    const shotKey = useRef("");
     // Camera + size come from the frame-callback state (not render-scope
     // useThree destructuring) so the mutation stays outside render.
     useFrame((frameState) => {
@@ -303,25 +306,52 @@ function CameraDirector({ beatRef, fxRef, posRef }: {
         // Default: wide broadcast shot from behind the player's line.
         let targetPos = new THREE.Vector3(0, 5.2, 10.2);
         let targetLook = new THREE.Vector3(0, 1.0, -0.4);
+        let nextShot = "wide";
+        let cutOnChange = false;
         if (beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const actorPos = posRef.current.get(beat.event.actorId);
             const victimPos = beat.event.targets[0] ? posRef.current.get(beat.event.targets[0].id) : undefined;
             if (actorPos) {
                 const a = new THREE.Vector3(...actorPos);
                 const b = victimPos ? new THREE.Vector3(...victimPos) : a;
-                const mid = a.clone().lerp(b, 0.5);
                 const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
                 if (beat.event.super) {
-                    // Signature: swoop from the actor's shoulder into the impact.
+                    // Signature: swoop from the actor's shoulder into the impact
+                    // (kept as a continuous move — the letterbox moment).
+                    nextShot = `super:${beat.startedAt}`;
                     const behind = a.clone().sub(b).normalize().multiplyScalar(3.4);
                     targetPos = a.clone().add(behind).add(new THREE.Vector3(1.6 - frac * 1.1, 2.0 + frac * 0.6, 0));
                     targetLook = frac < 0.45 ? a.clone().setY(1.2) : b.clone().setY(1.1);
                 } else {
-                    // Standard action: pull toward the duel axis, framing both.
-                    const sideways = new THREE.Vector3(b.z - a.z, 0, a.x - b.x).normalize().multiplyScalar(5.6);
-                    if (sideways.lengthSq() < 0.1) sideways.set(5.6, 0, 0);
-                    targetPos = mid.clone().add(sideways).add(new THREE.Vector3(0, 3.1, 2.2));
-                    targetLook = mid.clone().setY(1.1);
+                    // Colosseum cut sequence: (1) low behind-the-shoulder shot
+                    // for the windup, (2) HARD CUT to a side-on shot of the
+                    // victim for the strike.
+                    cutOnChange = true;
+                    const dir = b.clone().sub(a);
+                    dir.y = 0;
+                    if (dir.lengthSq() < 0.05) dir.set(0, 0, -1);
+                    dir.normalize();
+                    if (frac < STRIKE_FRAC * 0.92) {
+                        nextShot = `windup:${beat.startedAt}`;
+                        const lateral = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(1.5);
+                        targetPos = a.clone().sub(dir.clone().multiplyScalar(3.4)).add(lateral).setY(1.9);
+                        targetLook = b.clone().setY(1.2);
+                    } else {
+                        nextShot = `strike:${beat.startedAt}`;
+                        const side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(4.8);
+                        targetPos = b.clone().add(side).add(dir.clone().multiplyScalar(-1.6)).setY(2.3);
+                        targetLook = b.clone().setY(1.05);
+                    }
+                }
+            }
+        }
+        // The CUT: on a shot change, snap into the new framing instantly.
+        if (nextShot !== shotKey.current) {
+            shotKey.current = nextShot;
+            if (cutOnChange || nextShot === "wide") {
+                if (nextShot !== "wide") {
+                    pos.current.copy(targetPos);
+                    look.current.copy(targetLook);
                 }
             }
         }
@@ -921,6 +951,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 }, 0);
                 later(() => setLetterbox(false), durationMs * 0.94);
             }
+            // The Colosseum declaration: "Red Fox used Flame Bolt!" opens every
+            // non-super action (supers already banner their own name larger).
+            if (!event.super && event.moveKind !== "guard" && event.moveKind !== "rest") {
+                later(() => showBanner(`${nameOf(stateView, event.actorId)} used ${event.moveName}!`, "declare", durationMs * 0.42), 0);
+            }
             // Windup: a charge-gather flipbook on the caster for real attacks.
             if (event.moveKind !== "guard" && event.moveKind !== "rest") {
                 later(() => spawnFlipbook(event.actorId, event.super ? "charge" : event.delivery === "ranged" ? "charge" : "aura", event.super ? 2.6 : 1.7, durationMs * (event.delivery === "melee" ? 0.28 : 0.36), 1.05), durationMs * 0.04);
@@ -1286,20 +1321,24 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                 <div className="showdown-deck-grid">
                                     {commanderMoves.map((move, i) => {
                                         const cooling = move.currentCooldown > 0;
+                                        const holding = move.hold > commander.readiness;
                                         const willOverexert = (commanderDisplay?.stamina ?? 100) < move.cost;
+                                        const pace = move.priority > 1 ? " ▲" : move.priority < 1 ? " ▼" : "";
                                         return (
                                             <button
                                                 key={`${move.name}-${i}`}
                                                 type="button"
-                                                disabled={cooling}
-                                                className={`showdown-move ${cooling ? "cooling" : ""} ${willOverexert ? "overexert" : ""}`}
+                                                disabled={cooling || holding}
+                                                className={`showdown-move ${cooling || holding ? "cooling" : ""} ${willOverexert ? "overexert" : ""}`}
                                                 style={{ borderLeft: `3px solid ${ELEMENT_TINT[commander.element] ?? ELEMENT_TINT.None}` }}
                                                 onClick={() => chooseMove(i, false)}
                                             >
                                                 <span className="showdown-move-icon">{KIND_ICON[move.kind] ?? "⚔️"}</span>
-                                                <span className="showdown-move-name">{move.name}</span>
+                                                <span className="showdown-move-name">{move.name}{pace}</span>
                                                 <span className="showdown-move-sub">
-                                                    {cooling ? `Ready in ${move.currentCooldown}` : `${move.power > 0 ? `PWR ${move.power} · ` : ""}${move.cost} STA${willOverexert ? " ⚠" : ""}`}
+                                                    {holding ? `Charging — round ${move.hold + 1}`
+                                                        : cooling ? `Ready in ${move.currentCooldown}`
+                                                        : `${move.power > 0 ? `PWR ${move.power} · ` : ""}${move.cost} STA${willOverexert ? " ⚠" : ""}`}
                                                 </span>
                                             </button>
                                         );
@@ -1324,18 +1363,25 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                         <span className="showdown-move-name">Switch</span>
                                         <span className="showdown-move-sub">{livingBench.length ? "Send in a bench pet" : "No reserves left"}</span>
                                     </button>
-                                    {commanderSignature && (
-                                        <button
-                                            type="button"
-                                            disabled={(commanderDisplay?.meter ?? 0) < 100}
-                                            className={`showdown-move signature ${(commanderDisplay?.meter ?? 0) >= 100 ? "ready" : ""}`}
-                                            onClick={() => chooseMove(-1, true)}
-                                        >
-                                            <span className="showdown-move-icon">⭐</span>
-                                            <span className="showdown-move-name">{commanderSignature.name}</span>
-                                            <span className="showdown-move-sub">{(commanderDisplay?.meter ?? 0) >= 100 ? "SIGNATURE READY!" : "Fill the meter"}</span>
-                                        </button>
-                                    )}
+                                    {commanderSignature && (() => {
+                                        const meterFull = (commanderDisplay?.meter ?? 0) >= 100;
+                                        const sigHolding = commanderSignature.hold > commander.readiness;
+                                        return (
+                                            <button
+                                                type="button"
+                                                disabled={!meterFull || sigHolding}
+                                                className={`showdown-move signature ${meterFull && !sigHolding ? "ready" : ""}`}
+                                                onClick={() => chooseMove(-1, true)}
+                                            >
+                                                <span className="showdown-move-icon">⭐</span>
+                                                <span className="showdown-move-name">{commanderSignature.name} ▼</span>
+                                                <span className="showdown-move-sub">
+                                                    {sigHolding ? `Unleashes from round ${commanderSignature.hold + 1}`
+                                                        : meterFull ? "SIGNATURE READY!" : "Fill the meter"}
+                                                </span>
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
                             )}
                             {(draft.length > 0 || pendingMove || pickingSwitch) && (
