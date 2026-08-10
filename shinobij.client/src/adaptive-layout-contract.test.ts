@@ -191,10 +191,12 @@ test('pet WebGL stages resize and release pointer, timer, and texture resources'
     const warfront = readFileSync(join(srcDir, 'components', 'PetWarfrontMatch.tsx'), 'utf8');
     const board = readFileSync(join(srcDir, 'components', 'PetBoardArena.tsx'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.match(warfront, /new ResizeObserver\(measure\)/);
+    assert.match(warfront, /new ResizeObserver\(resize\)/);
+    assert.match(warfront, /return \(\) => observer\.disconnect\(\)/);
     assert.match(warfront, /setPointerCapture\(e\.pointerId\)/);
     assert.match(warfront, /lostpointercapture/);
-    assert.match(warfront, /rig\.current\.width !== tileW/);
+    assert.match(warfront, /rig\.current\?\.key !== key/);
+    assert.match(warfront, /new THREE\.WebGLRenderTarget\(width \* dpr, height \* dpr\)/);
     assert.doesNotMatch(warfront, /window\.innerWidth/);
     assert.match(board, /loaded\?\.dispose\(\)/);
     assert.match(board, /popTimers\.current\.clear\(\)/);

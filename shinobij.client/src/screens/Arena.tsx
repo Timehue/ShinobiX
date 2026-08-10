@@ -97,7 +97,7 @@ import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
-import { postPlayerChallengeNotice } from "../lib/player-api";
+import { postPlayerChallengeTerminal } from "../lib/player-api";
 import { boostAmount } from "../lib/village-upgrades";
 import { rankedDelta } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
@@ -1421,21 +1421,21 @@ export function Arena({
         }
     }
 
-    function declineChallenge(challenge: DuelChallenge) {
+    async function declineChallenge(challenge: DuelChallenge) {
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-        fetch('/api/player/challenge', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
-        }).catch(() => {});
-        fetch('/api/player/challenge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                targetName: challenge.fromName,
-                challenge: { ...challenge, declined: true, fromName: character.name, toName: challenge.fromName },
-            }),
-        }).catch(() => {});
+        const committed = await postPlayerChallengeTerminal(challenge, {
+            ...challenge,
+            accepted: false,
+            declined: true,
+            fromName: character.name,
+            toName: challenge.fromName,
+        });
+        if (!committed) {
+            setDuelChallenges(duelChallenges.some((candidate) => candidate.id === challenge.id)
+                ? duelChallenges
+                : [challenge, ...duelChallenges]);
+            alert("That challenge changed or expired before the decline could be authorized. It remains in your inbox.");
+        }
     }
 
     async function acceptChallenge(challenge: DuelChallenge) {
@@ -1477,12 +1477,15 @@ export function Arena({
             const battleId = acceptData.battleId;
             if (acceptData.session) setPvpSeedSession?.(acceptData.session);
             // Push acceptance notification back so the original challenger gets routed to p1
-            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
+            const notified = await postPlayerChallengeTerminal(challenge, {
+                ...challenge, battleId, accepted: true, declined: false,
+                fromName: character.name, toName: challenge.fromName,
+            });
+            if (!notified) throw new Error("Challenge acceptance was not authorized.");
             setPvpBattleId?.(battleId);
             setPvpRole?.("p2");
             setPvpBattleContext?.({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
             setScreen("pvpBattle");
-            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
             // Refuse to fall through to the local-sim arena. That fallback
             // used to grant ranked/clan-war wins from a CLIENT-decided
@@ -1491,8 +1494,7 @@ export function Arena({
             // transient session-create error clears.
             // (Arena's setDuelChallenges prop takes a DuelChallenge[] directly,
             // not the functional updater form — re-add by value.)
-            const stillPresent = duelChallenges.some(c => c.id === challenge.id);
-            if (!stillPresent) setDuelChallenges([challenge, ...duelChallenges]);
+            setDuelChallenges([challenge, ...duelChallenges.filter((candidate) => candidate.id !== challenge.id)]);
             alert("Couldn't reach the battle server to start the duel. The challenge is still in your inbox — try accepting again in a moment.");
         }
     }
@@ -5365,25 +5367,30 @@ export function Arena({
                                                     alert("Both players need a pet before this pet battle can start.");
                                                     return;
                                                 }
-                                                savePendingClanPetBattle({
-                                                    clanName: character.clan,
-                                                    points: challenge.clanWarPoints ?? 25,
-                                                    opponentName: challenge.fromName,
-                                                    createdAt: Date.now(),
-                                                });
-                                                setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-                                                fetch('/api/player/challenge', {
-                                                    method: 'DELETE',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
-                                                }).catch(() => {});
-                                                fetch('/api/player/challenge', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
-                                                }).catch(() => {});
-                                                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
-                                                setScreen("petArena");
+                                                void (async () => {
+                                                    const committed = await postPlayerChallengeTerminal(challenge, {
+                                                        ...challenge,
+                                                        accepted: true,
+                                                        declined: false,
+                                                        fromName: character.name,
+                                                        toName: challenge.fromName,
+                                                        responderPetId: responderPet.id,
+                                                        responderPet,
+                                                    });
+                                                    if (!committed) {
+                                                        alert("That clan pet challenge changed or expired before acceptance. Nothing was started.");
+                                                        return;
+                                                    }
+                                                    savePendingClanPetBattle({
+                                                        clanName: character.clan,
+                                                        points: challenge.clanWarPoints ?? 25,
+                                                        opponentName: challenge.fromName,
+                                                        createdAt: Date.now(),
+                                                    });
+                                                    setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+                                                    setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+                                                    setScreen("petArena");
+                                                })();
                                                 return;
                                             }
                                             acceptChallenge(challenge);

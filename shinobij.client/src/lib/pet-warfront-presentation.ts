@@ -10,6 +10,207 @@ export type WarfrontPresentationBudget = Readonly<{
 
 export type WarfrontAdaptivePressure = 0 | 1 | 2;
 
+export type WarfrontTeam = "blue" | "red";
+export type WarfrontPaceMode = "1" | "1.5" | "2" | "smart";
+
+type WarfrontTimedSnapshot = Readonly<{ t: number }>;
+
+export type WarfrontSnapshotBounds<T extends WarfrontTimedSnapshot> = Readonly<{
+    lower: T;
+    upper: T;
+    /** Real simulation tick, clamped to the captured replay frontier. */
+    tick: number;
+    /** Blend from `lower` to `upper`, derived from their real `.t` values. */
+    alpha: number;
+}>;
+
+/** The replay frontier is simulation time, never an array index. */
+export function warfrontSnapshotFrontier<T extends WarfrontTimedSnapshot>(snapshots: readonly T[]): number {
+    const tick = snapshots[snapshots.length - 1]?.t;
+    return Number.isFinite(tick) ? Math.max(0, tick) : 0;
+}
+
+/** Resolve the last captured state at or before a simulation tick. This is the
+ * canonical lookup for discrete state (HP, alive, status, intent). */
+export function warfrontSnapshotAtTick<T extends WarfrontTimedSnapshot>(
+    snapshots: readonly T[],
+    requestedTick: number,
+): T | null {
+    return warfrontSnapshotBoundsAtTick(snapshots, requestedTick)?.lower ?? null;
+}
+
+/** Resolve interpolation keyframes by their real simulation ticks. Captures
+ * may be sparse and the terminal frame need not land on the regular stride. */
+export function warfrontSnapshotBoundsAtTick<T extends WarfrontTimedSnapshot>(
+    snapshots: readonly T[],
+    requestedTick: number,
+): WarfrontSnapshotBounds<T> | null {
+    if (snapshots.length === 0) return null;
+    const first = snapshots[0];
+    const last = snapshots[snapshots.length - 1];
+    const firstTick = Number.isFinite(first.t) ? first.t : 0;
+    const lastTick = Number.isFinite(last.t) ? Math.max(firstTick, last.t) : firstTick;
+    const finiteTick = Number.isFinite(requestedTick) ? requestedTick : firstTick;
+    const tick = Math.max(firstTick, Math.min(lastTick, finiteTick));
+
+    let lo = 0;
+    let hi = snapshots.length - 1;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (snapshots[mid].t <= tick) lo = mid;
+        else hi = mid - 1;
+    }
+    const lower = snapshots[lo];
+    const upper = snapshots[Math.min(snapshots.length - 1, lo + 1)];
+    const gap = upper.t - lower.t;
+    const alpha = gap > 0 ? Math.max(0, Math.min(1, (tick - lower.t) / gap)) : 0;
+    return { lower, upper, tick, alpha };
+}
+
+/** Return the exclusive event cursor through a real simulation tick. Action
+ * cues stay event-driven even when the tick itself is not a captured keyframe. */
+export function warfrontEventCursorThroughTick<T extends Readonly<{ t: number }>>(
+    events: readonly T[],
+    start: number,
+    requestedTick: number,
+): number {
+    let cursor = Math.max(0, Math.min(events.length, Number.isFinite(start) ? Math.floor(start) : 0));
+    const tick = Number.isFinite(requestedTick) ? requestedTick : 0;
+    while (cursor < events.length && events[cursor].t <= tick) cursor++;
+    return cursor;
+}
+
+/** Binary-search an actor's pre-indexed action ticks. The result is stable for
+ * forward playback and rewind, so render frames never consume or duplicate it. */
+export function warfrontLatestTickAtOrBefore(ticks: readonly number[], requestedTick: number): number | null {
+    if (ticks.length === 0) return null;
+    const tick = Number.isFinite(requestedTick) ? requestedTick : 0;
+    let lo = 0;
+    let hi = ticks.length - 1;
+    if (ticks[0] > tick) return null;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (ticks[mid] <= tick) lo = mid;
+        else hi = mid - 1;
+    }
+    return ticks[lo];
+}
+
+export function warfrontPaceForMotion(mode: WarfrontPaceMode, reducedMotion: boolean): WarfrontPaceMode {
+    return reducedMotion ? "1" : mode;
+}
+
+export type WarfrontEventSignal = Readonly<{
+    type: string;
+    t?: number;
+    stolen?: boolean;
+    kind?: string;
+}>;
+
+const EVENT_SALIENCE: Readonly<Record<string, number>> = Object.freeze({
+    coredown: 10, verdict: 9, ascendance: 9, wardenkill: 9, coreexposed: 8, mercy: 8,
+    counterstrikeclaim: 8, shutdown: 7, siegebreak: 7, techniqueused: 7,
+    counterstrike: 6, statuedown: 6, guardiandown: 6, minikill: 6,
+    kill: 5, sigilawake: 5, wardenphase: 5, phase: 5,
+    gank: 4, ultimate: 4, wardensoon: 4, minimarch: 4, elemsig: 3,
+    opening: 2, round: 2, sigilsoon: 2,
+});
+
+/** One shared importance scale for director cuts, recaps and smart pacing. */
+export function warfrontEventSalience(event: WarfrontEventSignal): number {
+    if (event.type === "wardenkill" && event.stolen) return 10;
+    if (event.type === "bosssig") return event.kind === "roar" || event.kind === "quakeland" ? 0 : 3;
+    return EVENT_SALIENCE[event.type] ?? 0;
+}
+
+/** Brief presentation-only time dilation for readable impact beats. */
+export function warfrontHitStopSeconds(event: WarfrontEventSignal, reducedMotion: boolean): number {
+    if (reducedMotion) return 0;
+    if (event.type === "coredown") return .46;
+    if (event.type === "wardenkill" || event.type === "ascendance" || event.type === "siegebreak" || event.type === "counterstrikeclaim") return .34;
+    if (event.type === "statuedown" || event.type === "guardiandown" || event.type === "coreexposed" || event.type === "minikill" || event.type === "techniqueused" || event.type === "counterstrike") return .26;
+    if (event.type === "kill" || event.type === "shutdown") return .22;
+    return event.type === "ultimate" ? .14 : 0;
+}
+
+/** A fallen Seal belongs to the victim, but its broadcast credit and color
+ * always belong to the attacker. Keeping this pure prevents perspective flips. */
+export function warfrontSealBreakPresentation(event: Readonly<{ team: WarfrontTeam; by: WarfrontTeam }>) {
+    const team = event.by;
+    return { team, label: `${team === "blue" ? "Blue" : "Red"} shattered the Seal`, color: team === "blue" ? "#93c5fd" : "#fca5a5" } as const;
+}
+
+export function warfrontPipHealthColor(team: WarfrontTeam, hpShare: number): string {
+    return hpShare < .35 ? "#f87171" : team === "blue" ? "#93c5fd" : "#fca5a5";
+}
+
+/** Choose by consequence first, then put the chosen beats back in story order. */
+export function warfrontTurningPoints<T extends WarfrontEventSignal>(events: readonly T[], limit: number): T[] {
+    return events
+        .map((event, index) => ({ event, index, score: warfrontEventSalience(event) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score || (b.event.t ?? 0) - (a.event.t ?? 0) || b.index - a.index)
+        .slice(0, Math.max(0, limit))
+        .sort((a, b) => (a.event.t ?? 0) - (b.event.t ?? 0) || a.index - b.index)
+        .map((entry) => entry.event);
+}
+
+export type WarfrontJudgmentState = Readonly<{
+    leader: WarfrontTeam | null;
+    blueShare: number;
+    label: string;
+}>;
+
+/** Mirrors the authoritative verdict order: structures first, coins only on a tie. */
+export function warfrontJudgmentState(
+    score: Readonly<Record<WarfrontTeam, number>>,
+    coins: Readonly<Record<WarfrontTeam, number>>,
+): WarfrontJudgmentState {
+    const leader = score.blue !== score.red
+        ? (score.blue > score.red ? "blue" : "red")
+        : coins.blue !== coins.red ? (coins.blue > coins.red ? "blue" : "red") : null;
+    const blueShare = leader === "blue" ? 68 : leader === "red" ? 32 : 50;
+    const basis = score.blue === score.red ? `points tied; coins ${coins.blue}-${coins.red}` : `points ${score.blue}-${score.red}`;
+    return { leader, blueShare, label: leader ? `${leader === "blue" ? "Blue" : "Red"} leads Judgment, ${basis}` : `Judgment tied, ${basis}` };
+}
+
+type QuietActor = Readonly<{ team: WarfrontTeam; state: string; x: number; y: number }>;
+type QuietObjective = Readonly<{ active: boolean; alive: boolean; x: number; y: number }>;
+type QuietMini = Readonly<{ alive: boolean; awake: boolean; ally: WarfrontTeam | null; siegeDowns: number; x: number; y: number }>;
+
+/** Conservative smart-pacing gate: never accelerate a live fight, objective
+ * contact, exposed Seal, or a four-second major-event pre-roll. */
+export function warfrontSmartPaceIsQuiet(snapshot: Readonly<{
+    actors: readonly QuietActor[];
+    structures: Readonly<Record<WarfrontTeam, Readonly<{ core: Readonly<{ exposed: boolean }> }>>>;
+    warden: QuietObjective;
+    minis: readonly QuietMini[];
+}>, majorEventNearby: boolean): boolean {
+    if (majorEventNearby || snapshot.structures.blue.core.exposed || snapshot.structures.red.core.exposed) return false;
+    const alive = snapshot.actors.filter((actor) => actor.state !== "respawning");
+    for (const blue of alive) {
+        if (blue.team !== "blue") continue;
+        for (const red of alive) if (red.team === "red" && Math.hypot(blue.x - red.x, blue.y - red.y) < 8) return false;
+    }
+    if (snapshot.warden.active && snapshot.warden.alive
+        && alive.some((actor) => Math.hypot(actor.x - snapshot.warden.x, actor.y - snapshot.warden.y) < 9)) return false;
+    for (const mini of snapshot.minis) {
+        if (!mini.alive || (!mini.awake && !(mini.ally && mini.siegeDowns === 0))) continue;
+        if (alive.some((actor) => Math.hypot(actor.x - mini.x, actor.y - mini.y) < 8)) return false;
+    }
+    return true;
+}
+
+/** Perspective-safe Ward Seal callout for the live broadcast HUD. */
+export function warfrontWardSealInstruction(
+    exposedTeam: WarfrontTeam | null,
+    localTeam: WarfrontTeam,
+): string | null {
+    if (!exposedTeam) return null;
+    const action = exposedTeam === localTeam ? "DEFEND" : "BREAK";
+    return `${action} ${exposedTeam.toUpperCase()}'S WARD SEAL`;
+}
+
 export type WarfrontMvpCandidate = Readonly<{
     id: string;
     dmg: number;
@@ -98,7 +299,10 @@ const WARFRONT_BUDGETS: Readonly<Record<PetVisualQuality, WarfrontPresentationBu
     medium: Object.freeze({
         hollowHoundRigs: 2,
         laneHoundRigs: 3,
-        squadCameras: false,
+        // Medium is the highest player-facing preset, so expose the broadcast
+        // wall here at its cheaper cadence. Adaptive pressure still sheds it
+        // first; High remains available only as a QA override.
+        squadCameras: true,
         squadCameraRenderEvery: 3,
         houndRigDistance: 22,
     }),
