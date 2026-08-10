@@ -381,6 +381,7 @@
 .showdown-banner.super { color: #f59e0b; font-size: 1.7rem; }
 .showdown-banner.ko { color: #f87171; font-size: 2rem; }
 .showdown-banner.status { color: #93c5fd; font-size: 1.05rem; }
+.showdown-banner.declare { color: #e8dcc2; font-size: 1.02rem; top: 14%; font-weight: 700; }
 .showdown-banner.victory { color: #fcd34d; font-size: 2.2rem; }
 .showdown-banner.defeat { color: #f87171; font-size: 2.2rem; }
 

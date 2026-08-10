@@ -241,6 +241,33 @@ needing kit re-authoring in the shared catalog (not engine distortion):
 Abyssal Oni Hound, Stormgod Raijin (mythic assassins with under-powered
 authored kits).
 
+## Round 7 — the Temtem technique engine, kit surgery, Colosseum cameras (2026-08-10)
+
+**Temtem-style technique mechanics** (the two we lacked):
+- **Per-move PRIORITY, multiplicative** (order = pet speed × chosen move's
+  priority — Temtem's model, gentler than Pokémon's absolute brackets): Guard
+  1.5x, quick jabs (≤80 power) 1.15x, normal 1.0, haymakers (>220) 0.8x,
+  signatures 0.75x, Rest 0.9x. The round's order is now a CONSEQUENCE of the
+  commands — a guard raises before the fast attacker lands; the nuke swings
+  last. Deck buttons show ▲/▼ pace arrows.
+- **HOLD**: haymakers are unusable until round 2 in battle, signatures until
+  round 3 (readiness ticks everywhere, field or bench — the Temtem rule).
+  Kills the alpha-strike opener; deck shows "Charging — round N".
+
+**Kit surgery** (owner-authorized moveset changes, done as SHOWDOWN-SIDE
+overrides so the shared catalog and the legacy modes are untouched):
+`SHOWDOWN_KIT_OVERRIDES` re-authors the three mythic assassins that shipped
+standard-power kits (Worldstorm Dragon, Abyssal Oni Hound, Stormgod Raijin) —
+proper mythic burst kits with mark setups and lifesteal sustain. Overridden
+kits skip kit-power normalization (they're authored at correct tier power).
+Result: worst species now 21.4% (was 5.6%); elements 46.7-53.3%.
+
+**Pokémon Colosseum camera grammar**: non-super actions now CUT instead of
+lerp — a low behind-the-shoulder shot frames the windup, then a HARD CUT to a
+side-on shot of the victim for the strike; supers keep their continuous
+letterboxed swoop. Every action opens with the classic declaration banner
+("Red Fox used Flame Bolt!").
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

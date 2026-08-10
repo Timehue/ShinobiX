@@ -181,7 +181,7 @@ function choosePetCommand(
         : scored[0].foe;
 
     // Super discipline: champion holds until it can confirm value; others pop it.
-    if (pet.meter >= SHOWDOWN_METER_MAX) {
+    if (pet.meter >= SHOWDOWN_METER_MAX && pet.readiness >= pet.signatureMove.hold) {
         const eager = tier === 'scrapper' ? 0.9 : tier === 'warrior' ? 0.75 : (target.hp / target.maxHp < 0.75 ? 1 : 0.3);
         if (rand() < eager) {
             return { kind: 'super', petId: pet.id, targetId: target.id, timing: tier === 'champion' ? 2 : 1 };
@@ -190,7 +190,7 @@ function choosePetCommand(
 
     const ready = pet.moves
         .map((m, i) => ({ m, i }))
-        .filter(({ m }) => m.currentCooldown <= 0);
+        .filter(({ m }) => m.currentCooldown <= 0 && pet.readiness >= m.hold);
     const affordable = ready.filter(({ m }) => m.cost <= pet.stamina);
 
     // Heal check: patch a bloodied self/ally when the kit allows it.

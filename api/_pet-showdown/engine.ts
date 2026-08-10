@@ -22,9 +22,17 @@ import {
     SHOWDOWN_FORMAT_SIZE,
     SHOWDOWN_GUARD_COST,
     SHOWDOWN_GUARD_MULT,
+    SHOWDOWN_HOLD_HEAVY,
+    SHOWDOWN_HOLD_SUPER,
     SHOWDOWN_MAX_ROUNDS,
     SHOWDOWN_MAX_STAMINA,
     SHOWDOWN_MAX_TEAM,
+    SHOWDOWN_PRIORITY_GUARD,
+    SHOWDOWN_PRIORITY_HEAVY,
+    SHOWDOWN_PRIORITY_LIGHT,
+    SHOWDOWN_PRIORITY_NORMAL,
+    SHOWDOWN_PRIORITY_REST,
+    SHOWDOWN_PRIORITY_SUPER,
     SHOWDOWN_METER_MAX,
     SHOWDOWN_METER_ON_GUARDED_HIT,
     SHOWDOWN_METER_ON_HIT_DEALT,
@@ -68,6 +76,10 @@ export interface ShowdownMove {
     cooldown: number;
     currentCooldown: number;
     signature: boolean;
+    /** Temtem-style turn-order multiplier for the round this move is chosen. */
+    priority: number;
+    /** Rounds in battle required before this move fires (Temtem Hold). */
+    hold: number;
 }
 
 export interface ShowdownPet {
@@ -90,6 +102,8 @@ export interface ShowdownPet {
     /** On the bench: cannot act or be targeted; statuses are frozen. */
     benched: boolean;
     winded: boolean;
+    /** Rounds this pet has been in the battle — holds tick everywhere. */
+    readiness: number;
     statuses: ShowdownStatus[];
     moves: ShowdownMove[];
     /** The full-meter finisher — excluded from the normal move list. */
@@ -268,6 +282,20 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
     return Math.pow(reference / budget, BUDGET_DAMPING);
 }
 
+/** Temtem-style per-move pacing: quick jabs resolve early, haymakers swing
+ *  late and need a HOLD round before they come online. */
+export function movePriority(power: number, kind: string): number {
+    if (kind === 'guard') return SHOWDOWN_PRIORITY_GUARD;
+    if (kind === 'rest') return SHOWDOWN_PRIORITY_REST;
+    if (power > 220) return SHOWDOWN_PRIORITY_HEAVY;
+    if (power > 0 && power <= 80) return SHOWDOWN_PRIORITY_LIGHT;
+    return SHOWDOWN_PRIORITY_NORMAL;
+}
+
+export function moveHold(power: number): number {
+    return power > 220 ? SHOWDOWN_HOLD_HEAVY : 0;
+}
+
 /** Universal cheap opener every pet gets, so low stamina never means no play. */
 function basicStrike(): ShowdownMove {
     return {
@@ -278,6 +306,8 @@ function basicStrike(): ShowdownMove {
         cooldown: 0,
         currentCooldown: 0,
         signature: false,
+        priority: SHOWDOWN_PRIORITY_LIGHT,
+        hold: 0,
     };
 }
 
@@ -294,40 +324,86 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
         cooldown: 0,
         currentCooldown: 0,
         signature: true,
+        priority: SHOWDOWN_PRIORITY_SUPER,
+        hold: SHOWDOWN_HOLD_SUPER,
     };
 }
+
+/*
+ * Showdown-side KIT OVERRIDES for catalog species whose authored move sets are
+ * structurally broken for turn-based play. The shared catalog feeds the legacy
+ * modes, so kits are corrected HERE at seal time rather than in the source
+ * data. Each entry replaces the species' jutsu list wholesale (power values
+ * still pass through kit normalization + rarity ceilings). Current entries:
+ * the three mythic assassins that shipped standard-power kits (5-17% win rate
+ * in the all-catalog sim) get proper mythic assassin kits — burst, mark
+ * setups, and a lifesteal sustain valve.
+ */
+const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number; cooldown: number; kind: string; signature?: boolean }>> = {
+    'mythic-1': [   // Worldstorm Dragon — Lightning assassin
+        { name: 'Stormfang Dive', power: 138, cooldown: 2, kind: 'damage' },
+        { name: 'Static Brand', power: 96, cooldown: 4, kind: 'mark' },
+        { name: 'Skybreaker Bolt', power: 168, cooldown: 4, kind: 'stun' },
+        { name: 'Worldstorm Requiem', power: 300, cooldown: 5, kind: 'damage', signature: true },
+    ],
+    'mythic-4': [   // Abyssal Oni Hound — Earth assassin
+        { name: 'Abyssal Rend', power: 142, cooldown: 2, kind: 'damage' },
+        { name: 'Graveearth Jaws', power: 150, cooldown: 3, kind: 'crush' },
+        { name: 'Hungering Maw', power: 128, cooldown: 4, kind: 'lifesteal' },
+        { name: 'Oni Gate Requiem', power: 300, cooldown: 5, kind: 'lifesteal', signature: true },
+    ],
+    'mythic-8': [   // Stormgod Raijin — Lightning assassin
+        { name: 'Raijin Claw', power: 140, cooldown: 2, kind: 'damage' },
+        { name: 'Thundergod Brand', power: 98, cooldown: 4, kind: 'mark' },
+        { name: 'Heavenly Piercer', power: 172, cooldown: 4, kind: 'stun' },
+        { name: 'Stormgod Judgement', power: 300, cooldown: 5, kind: 'damage', signature: true },
+    ],
+};
 
 /** Seal one save/catalog pet into showdown combat form, ceilings applied. */
 export function sealShowdownPet(raw: Pet): ShowdownPet {
     const rarity = ['standard', 'rare', 'legendary', 'mythic'].includes(String(raw.rarity)) ? String(raw.rarity) : 'standard';
     const level = clampInt(raw.level, 1, 100, 1);
     const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
-    const kitNorm = kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const overrideKeyEarly = String(raw.templateId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
+    // Overridden kits are authored at correct tier power — normalizing them
+    // against the species' OLD broken catalog kit would double-correct.
+    const kitNorm = SHOWDOWN_KIT_OVERRIDES[overrideKeyEarly]
+        ? 1
+        : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
     const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
 
-    const jutsus = Array.isArray(raw.jutsus) ? raw.jutsus : [];
+    const kitOverride = SHOWDOWN_KIT_OVERRIDES[overrideKeyEarly];
+    const jutsus = kitOverride ?? (Array.isArray(raw.jutsus) ? raw.jutsus : []);
     const sealedJutsus: ShowdownMove[] = jutsus
         .filter((j) => j && typeof j.name === 'string')
         .slice(0, 5)
         .map((j) => {
             const power = clampInt(Math.round((Number(j.power) || 0) * kitNorm), 0, powerCeil, 0);
+            const kind = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
             return {
                 name: String(j.name).slice(0, 48),
                 power,
-                kind: KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage',
+                kind,
                 cost: moveStaminaCost(power),
                 cooldown: clampInt(j.cooldown, 0, 8, 0),
                 currentCooldown: 0,
                 signature: j.signature === true,
+                priority: movePriority(power, kind),
+                hold: moveHold(power),
             };
         });
 
     // The flagged signature is reserved for the super; everything else is the kit.
-    const signatureMove = sealedJutsus.find((m) => m.signature)
-        ?? synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
-    const kit = sealedJutsus.filter((m) => m !== signatureMove && m.kind !== 'move').slice(0, 4);
+    const authoredSignature = sealedJutsus.find((m) => m.signature);
+    const signatureMove = authoredSignature
+        ? { ...authoredSignature, priority: SHOWDOWN_PRIORITY_SUPER, hold: SHOWDOWN_HOLD_SUPER }
+        : synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
+    // Exclude by the ORIGINAL sealed entry — signatureMove may be a copy with
+    // super priority/hold applied, and identity comparison must still hit.
+    const kit = sealedJutsus.filter((m) => m !== authoredSignature && m.kind !== 'move').slice(0, 4);
 
     return {
         id: String(raw.id),
@@ -348,6 +424,7 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
         guarding: false,
         benched: false,
         winded: false,
+        readiness: 0,
         statuses: [],
         moves: [basicStrike(), ...kit],
         signatureMove: { ...signatureMove, cost: 0 },
@@ -811,14 +888,24 @@ export function resolveShowdownRound(
         }
     }
 
-    // Speed order across BOTH sides' fields, seeded tiebreak, snapshot after
-    // switches. Freshly switched-in pets spent their action arriving.
+    // Temtem-style order: pet speed × the CHOSEN move's priority, seeded
+    // tiebreak, snapshot after switches. A guard resolves fast, a haymaker
+    // swings late — the round order is itself a consequence of the commands.
+    // Freshly switched-in pets spent their action arriving.
+    const priorityOf = (pet: ShowdownPet, side: Side): number => {
+        const command = sanitizeCommand(session, pet, commandFor(pet, side));
+        if (command.kind === 'guard') return SHOWDOWN_PRIORITY_GUARD;
+        if (command.kind === 'rest') return SHOWDOWN_PRIORITY_REST;
+        if (command.kind === 'super') return pet.signatureMove.priority;
+        if (command.kind === 'move') return pet.moves[command.moveIndex]?.priority ?? SHOWDOWN_PRIORITY_NORMAL;
+        return SHOWDOWN_PRIORITY_NORMAL;
+    };
     const order = [
         ...session.player.filter((p) => !p.ko && !p.benched).map((pet) => ({ pet, side: 'player' as Side })),
         ...session.enemy.filter((p) => !p.ko && !p.benched).map((pet) => ({ pet, side: 'enemy' as Side })),
     ]
         .filter(({ pet }) => !switchedIn.has(pet.id))
-        .map((entry) => ({ ...entry, sortKey: effSpeed(entry.pet) + nextRand(session) * 0.5 }))
+        .map((entry) => ({ ...entry, sortKey: effSpeed(entry.pet) * priorityOf(entry.pet, entry.side) + nextRand(session) * 0.5 }))
         .sort((a, b) => b.sortKey - a.sortKey);
 
     for (const { pet, side } of order) {
@@ -914,6 +1001,8 @@ export function resolveShowdownRound(
                 for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
                 pet.stamina = Math.min(SHOWDOWN_MAX_STAMINA, pet.stamina + SHOWDOWN_STAMINA_REGEN);
             }
+            // Hold timers tick for EVERYONE, field or bench (the Temtem rule).
+            for (const pet of livingTeam(session, side)) pet.readiness += 1;
         }
         if (sideDefeated(session, 'enemy')) finish(session, 'win', false, events);
         else if (sideDefeated(session, 'player')) finish(session, 'loss', false, events);
@@ -952,11 +1041,11 @@ export function sanitizeCommand(session: ShowdownSession, pet: ShowdownPet, comm
     // holding a switch command had its swap rejected — it guards instead.
     if (command.kind === 'switch') return { kind: 'guard', petId: pet.id };
     if (command.kind === 'super') {
-        if (pet.meter >= SHOWDOWN_METER_MAX) return command;
+        if (pet.meter >= SHOWDOWN_METER_MAX && pet.readiness >= pet.signatureMove.hold) return command;
         return { kind: 'guard', petId: pet.id };
     }
     const move = pet.moves[command.moveIndex];
-    if (!move || move.currentCooldown > 0) return { kind: 'guard', petId: pet.id };
+    if (!move || move.currentCooldown > 0 || pet.readiness < move.hold) return { kind: 'guard', petId: pet.id };
     return command;
 }
 
@@ -982,12 +1071,15 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         statuses: pet.statuses
             .filter((s) => s.kind !== 'tauntGuard')
             .map((s) => ({ kind: s.kind, rounds: s.rounds })),
+        readiness: pet.readiness,
         moves: pet.moves.map((m) => ({
             name: m.name, power: m.power, kind: m.kind, cost: m.cost,
             cooldown: m.cooldown, currentCooldown: m.currentCooldown, signature: false,
+            priority: m.priority, hold: m.hold,
         })).concat([{
             name: pet.signatureMove.name, power: pet.signatureMove.power, kind: pet.signatureMove.kind,
             cost: 0, cooldown: 0, currentCooldown: 0, signature: true,
+            priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
         }]),
     };
 }
