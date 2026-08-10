@@ -79,7 +79,8 @@ function projectileTexture(element: string): THREE.Texture | null {
     return t;
 }
 
-/** Impact/one-shot flipbook key for a move — element first, kind fallback. */
+/** Impact/one-shot flipbook key for a move — kind identity first (every
+ *  buff/debuff/heal family has its own painted burst), element fallback. */
 export function impactFlipbookKey(element: string, moveKind: string, superCast: boolean): string {
     if (superCast) return "kaboom";
     const el = element.toLowerCase();
@@ -87,8 +88,13 @@ export function impactFlipbookKey(element: string, moveKind: string, superCast: 
     if (moveKind === "burn" || moveKind === "dot") return "burn";
     if (moveKind === "wound") return "poison";
     if (moveKind === "freeze") return "ice";
+    if (moveKind === "lifesteal") return "blood";
+    if (moveKind === "debuff") return "shadow";
+    if (moveKind === "slow" || moveKind === "movelock" || moveKind === "confuse") return "vortex";
+    if (moveKind === "mark" || moveKind === "stun") return "spark";
+    if (moveKind === "taunt") return "power";
     if (moveKind === "buff" || moveKind === "haste" || moveKind === "move") return "buff";
-    if (moveKind === "shield" || moveKind === "barrier" || moveKind === "absorb" || moveKind === "guard" || moveKind === "taunt") return "eshield";
+    if (moveKind === "shield" || moveKind === "barrier" || moveKind === "absorb" || moveKind === "guard") return "eshield";
     if (el === "fire" || el === "water" || el === "earth" || el === "wind" || el === "lightning" || el === "lava") return el;
     return "impact";
 }
@@ -156,6 +162,13 @@ const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; op
     freeze: { frames: "ice", scale: 1.5, y: 0.9, opacity: 0.75 },
     buff: { frames: "aura", scale: 1.9, y: 0.85, opacity: 0.55 },
     haste: { frames: "aura", scale: 1.6, y: 0.85, opacity: 0.45 },
+    // The debuff family lingers on its victim too — a weakened pet LOOKS it.
+    debuff: { frames: "shadow", scale: 1.6, y: 0.85, opacity: 0.6 },
+    crush: { frames: "shadow", scale: 1.4, y: 0.8, opacity: 0.5 },
+    slow: { frames: "vortex", scale: 1.5, y: 0.55, opacity: 0.55 },
+    confuse: { frames: "vortex", scale: 1.1, y: 1.9, opacity: 0.65 },
+    mark: { frames: "spark", scale: 1.2, y: 1.9, opacity: 0.7 },
+    stun: { frames: "spark", scale: 1.4, y: 1.7, opacity: 0.75 },
 };
 
 export function StatusAuraFx({ statuses }: { statuses: readonly { kind: string }[] }) {

@@ -214,6 +214,33 @@ pet cards widened to full names with a two-row layout and a proper BENCH pill;
 turn-order chips now show portraits; move buttons carry the commander's
 element as a colored edge.
 
+## Round 6 — support VFX complete, kit-power normalization, kind-value tuning (2026-08-08)
+
+**Every buff/debuff/heal family now has its own painted burst AND a lingering
+aura on the afflicted pet**: debuff → shadow wisps, slow/movelock/confuse →
+vortex, mark/stun → crackling sparks, taunt → power flare, lifesteal → blood
+burst; debuffed/slowed/marked/confused/stunned pets carry looping auras just
+like burning/frozen ones. Stun/freeze turn-skips flash their effect on the
+skipping pet. Synthesized signatures now scale with rarity (72% of the tier's
+power cap) instead of a flat 260.
+
+**Kit-power normalization** (the stat budget's sibling): same-rarity kits vary
+wildly in authored move power — three mythic assassins carried 92-100-power
+kits in a 450-cap bracket and sat at 5-11% win rate. Each pet's move powers
+now scale toward its OWN rarity's median kit power (damped ^0.6, clamped
+0.8-1.35; deliberately NOT cross-tier blended — that neutralized the fix).
+Kind-value tuning from the new per-kind carrier analysis: DoT initial 0.82 +
+24%/tick, push/pull 0.85 + 16 stamina drain, shields softened to 0.9x pool.
+
+**Results**: species outliers 25 → 10; elements 45.9-53.9%; roles 44-56%;
+pace 8.1 rounds; judge 10.3%. Cross-rarity ladder measured: rare>standard
+92.5% (the catalog's steepest cliff — accepted as PROGRESSION, and AI tier
+pools are now single-rarity so it never decides fairness inside one fight),
+legendary>rare 62.5%, mythic>legendary 75%. Known per-species outliers
+needing kit re-authoring in the shared catalog (not engine distortion):
+Abyssal Oni Hound, Stormgod Raijin (mythic assassins with under-powered
+authored kits).
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
