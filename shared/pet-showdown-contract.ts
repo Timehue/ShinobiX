@@ -162,19 +162,23 @@ export interface ShowdownPetView {
     /** Skips its next action (overexertion wind, stun, freeze). */
     winded: boolean;
     statuses: { kind: string; rounds: number }[];
+    /** Trait riding into combat (Loyal/Aggressive/Guardian/Swift/Lucky/
+     *  Battleborn + ultras) — the engine applies its in-combat effect. */
+    trait?: string;
+    /** Equipped PvP gear name, for the HUD chip. */
+    gearName?: string;
     moves: {
         name: string;
         power: number;
         kind: string;
         cost: number;
-        cooldown: number;
-        currentCooldown: number;
         signature: boolean;
         /** Temtem-style turn-order multiplier for the round this move is
          *  chosen: >1 resolves early, <1 swings late. */
         priority: number;
         /** Rounds the pet must have been in battle before this fires (Temtem
-         *  Hold). 0 = always ready. */
+         *  Hold). 0 = always ready. NO COOLDOWNS — stamina and hold are the
+         *  only gates, exactly the Temtem model. */
         hold: number;
     }[];
     /** Rounds this pet has been in the battle (holds count down everywhere,

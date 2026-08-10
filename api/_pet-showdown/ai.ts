@@ -3,7 +3,7 @@
  *
  * Team generation samples the real PET_CATALOG (so opponents are recognizable
  * species with authored kits) scaled to the challenger's own pets, and the
- * command picker plays the same rules the player does — stamina, cooldowns,
+ * command picker plays the same rules the player does — stamina, holds,
  * element counters, supers. Three tiers ladder the pressure:
  *   scrapper — softer stats, impulsive move choice
  *   warrior  — even stats, sound fundamentals
@@ -189,7 +189,7 @@ function choosePetCommand(
 
     const ready = pet.moves
         .map((m, i) => ({ m, i }))
-        .filter(({ m }) => m.currentCooldown <= 0 && pet.readiness >= m.hold);
+        .filter(({ m }) => pet.readiness >= m.hold);
     const affordable = ready.filter(({ m }) => m.cost <= pet.stamina);
 
     // Heal check: patch a bloodied self/ally when the kit allows it.
@@ -203,9 +203,11 @@ function choosePetCommand(
         }
     }
 
-    // Low stamina: rest rather than overexert — except champion smells blood and
-    // will overexert deliberately to close a kill.
-    if (!affordable.length || pet.stamina < pet.maxStamina * 0.28) {
+    // Rest only when NOTHING is affordable — an affordable jab always beats
+    // idling (the old 28% threshold rested pets that could still fight, which
+    // collapsed damage throughput into rest-loops). Champion still smells
+    // blood and overexerts deliberately to close a kill.
+    if (!affordable.length) {
         const killPower = ready.filter(({ m }) => m.power > 0)
             .sort((a, b) => b.m.power - a.m.power)[0];
         const canExecute = tier === 'champion' && killPower && target.hp / target.maxHp < 0.22;

@@ -57,6 +57,7 @@ import {
 } from '../../shared/pet-showdown-contract.js';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
+import { applyPetPvpGear, petPvpGearById } from '../_pet-sim/pet-config.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 // ─── Internal state ──────────────────────────────────────────────────────────
@@ -76,13 +77,25 @@ export interface ShowdownMove {
     power: number;
     kind: string;
     cost: number;
-    cooldown: number;
-    currentCooldown: number;
     signature: boolean;
     /** Temtem-style turn-order multiplier for the round this move is chosen. */
     priority: number;
-    /** Rounds in battle required before this move fires (Temtem Hold). */
+    /** Rounds in battle required before this move fires (Temtem Hold).
+     *  NO COOLDOWNS — stamina and hold are the only gates (the Temtem model). */
     hold: number;
+}
+
+/** Combat procs carried from equipped PvP gear (pet-config.ts definitions). */
+export interface ShowdownGear {
+    name: string;
+    shieldStartPctOfHp?: number;
+    dotOnHitPctOfAtk?: number;
+    dotRounds?: number;
+    executeBelowPct?: number;
+    executeBonusPct?: number;
+    lastStandBelowPct?: number;
+    lastStandReductionPct?: number;
+    lifestealPctOfDamage?: number;
 }
 
 export interface ShowdownPet {
@@ -109,6 +122,10 @@ export interface ShowdownPet {
     winded: boolean;
     /** Rounds this pet has been in the battle — holds tick everywhere. */
     readiness: number;
+    /** Trait riding into combat — in-combat effect applied by the engine. */
+    trait?: string;
+    /** Equipped PvP gear procs. */
+    gear?: ShowdownGear;
     statuses: ShowdownStatus[];
     moves: ShowdownMove[];
     /** The full-meter finisher — excluded from the normal move list. */
@@ -151,10 +168,21 @@ const clampInt = (n: unknown, lo: number, hi: number, fallback: number): number 
     return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : fallback;
 };
 
-export function moveStaminaCost(power: number): number {
-    if (power <= 120) return SHOWDOWN_COST_LIGHT;
-    if (power <= 220) return SHOWDOWN_COST_MEDIUM;
-    return SHOWDOWN_COST_HEAVY;
+/** Turn-denial kinds: without cooldowns these chain into perma-lock, so they
+ *  pay heavy stamina, carry a hold, and their victims gain brief immunity. */
+const CONTROL_KINDS = new Set(['stun', 'freeze', 'confuse']);
+/** Sustain kinds: an every-round heal is unbreakable (the genre's stall trap —
+ *  an attacker under ~33%/turn never breaks a healer), so healing is priced
+ *  near a haymaker and held one round. */
+const SUSTAIN_KINDS = new Set(['heal']);
+
+export function moveStaminaCost(power: number, kind = 'damage'): number {
+    const band = power <= 120 ? SHOWDOWN_COST_LIGHT : power <= 220 ? SHOWDOWN_COST_MEDIUM : SHOWDOWN_COST_HEAVY;
+    // Control and sustain are priced like haymakers no matter their listed
+    // power — a stolen turn or an undone round of damage outvalues most hits.
+    if (CONTROL_KINDS.has(kind)) return Math.max(band, 44);
+    if (SUSTAIN_KINDS.has(kind)) return Math.max(band, 40);
+    return band;
 }
 
 const KNOWN_KINDS = new Set([
@@ -297,7 +325,8 @@ export function movePriority(power: number, kind: string): number {
     return SHOWDOWN_PRIORITY_NORMAL;
 }
 
-export function moveHold(power: number): number {
+export function moveHold(power: number, kind = 'damage'): number {
+    if (CONTROL_KINDS.has(kind) || SUSTAIN_KINDS.has(kind)) return SHOWDOWN_HOLD_HEAVY;
     return power > 220 ? SHOWDOWN_HOLD_HEAVY : 0;
 }
 
@@ -308,8 +337,6 @@ function basicStrike(): ShowdownMove {
         power: 55,
         kind: 'damage',
         cost: SHOWDOWN_COST_BASIC,
-        cooldown: 0,
-        currentCooldown: 0,
         signature: false,
         priority: SHOWDOWN_PRIORITY_LIGHT,
         hold: 0,
@@ -326,8 +353,6 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
         power: Math.round(petJutsuPowerCeil(rarity) * 0.72),
         kind: 'damage',
         cost: 0,
-        cooldown: 0,
-        currentCooldown: 0,
         signature: true,
         priority: SHOWDOWN_PRIORITY_SUPER,
         hold: SHOWDOWN_HOLD_SUPER,
@@ -344,29 +369,34 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
  * in the all-catalog sim) get proper mythic assassin kits — burst, mark
  * setups, and a lifesteal sustain valve.
  */
-const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number; cooldown: number; kind: string; signature?: boolean }>> = {
+const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number; kind: string; signature?: boolean }>> = {
     'mythic-1': [   // Worldstorm Dragon — Lightning assassin
-        { name: 'Stormfang Dive', power: 138, cooldown: 2, kind: 'damage' },
-        { name: 'Static Brand', power: 96, cooldown: 4, kind: 'mark' },
-        { name: 'Skybreaker Bolt', power: 168, cooldown: 4, kind: 'stun' },
-        { name: 'Worldstorm Requiem', power: 300, cooldown: 5, kind: 'damage', signature: true },
+        { name: 'Stormfang Dive', power: 138, kind: 'damage' },
+        { name: 'Static Brand', power: 96, kind: 'mark' },
+        { name: 'Skybreaker Bolt', power: 168, kind: 'stun' },
+        { name: 'Worldstorm Requiem', power: 300, kind: 'damage', signature: true },
     ],
     'mythic-4': [   // Abyssal Oni Hound — Earth assassin
-        { name: 'Abyssal Rend', power: 142, cooldown: 2, kind: 'damage' },
-        { name: 'Graveearth Jaws', power: 150, cooldown: 3, kind: 'crush' },
-        { name: 'Hungering Maw', power: 128, cooldown: 4, kind: 'lifesteal' },
-        { name: 'Oni Gate Requiem', power: 300, cooldown: 5, kind: 'lifesteal', signature: true },
+        { name: 'Abyssal Rend', power: 142, kind: 'damage' },
+        { name: 'Graveearth Jaws', power: 150, kind: 'crush' },
+        { name: 'Hungering Maw', power: 128, kind: 'lifesteal' },
+        { name: 'Oni Gate Requiem', power: 300, kind: 'lifesteal', signature: true },
     ],
     'mythic-8': [   // Stormgod Raijin — Lightning assassin
-        { name: 'Raijin Claw', power: 140, cooldown: 2, kind: 'damage' },
-        { name: 'Thundergod Brand', power: 98, cooldown: 4, kind: 'mark' },
-        { name: 'Heavenly Piercer', power: 172, cooldown: 4, kind: 'stun' },
-        { name: 'Stormgod Judgement', power: 300, cooldown: 5, kind: 'damage', signature: true },
+        { name: 'Raijin Claw', power: 140, kind: 'damage' },
+        { name: 'Thundergod Brand', power: 98, kind: 'mark' },
+        { name: 'Heavenly Piercer', power: 172, kind: 'stun' },
+        { name: 'Stormgod Judgement', power: 300, kind: 'damage', signature: true },
     ],
 };
 
 /** Seal one save/catalog pet into showdown combat form, ceilings applied. */
-export function sealShowdownPet(raw: Pet): ShowdownPet {
+export function sealShowdownPet(rawInput: Pet): ShowdownPet {
+    // Equipped PvP gear stat mods apply to the LIVE stats before sealing —
+    // an earned bonus the species normalization must not wash out (it
+    // normalizes against the template, so the gear percentage survives).
+    const raw = applyPetPvpGear(rawInput);
+    const gearDef = petPvpGearById(raw.loadout?.pvp);
     const rarity = ['standard', 'rare', 'legendary', 'mythic'].includes(String(raw.rarity)) ? String(raw.rarity) : 'standard';
     const level = clampInt(raw.level, 1, 100, 1);
     const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
@@ -392,12 +422,10 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
                 name: String(j.name).slice(0, 48),
                 power,
                 kind,
-                cost: moveStaminaCost(power),
-                cooldown: clampInt(j.cooldown, 0, 8, 0),
-                currentCooldown: 0,
+                cost: moveStaminaCost(power, kind),
                 signature: j.signature === true,
                 priority: movePriority(power, kind),
-                hold: moveHold(power),
+                hold: moveHold(power, kind),
             };
         });
 
@@ -430,12 +458,24 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
         speed: clampInt(scaled(raw.speed, 30), 1, petStatCeil(rarity, 'speed'), 30),
         stamina: maxStamina,
         maxStamina,
-        meter: 0,
+        // Battleborn pets enter the arena with meter already burning.
+        meter: TRAIT_FX.startMeter[String(raw.trait ?? '')] ?? 0,
         ko: false,
         guarding: false,
         benched: false,
         winded: false,
         readiness: 0,
+        ...(typeof raw.trait === 'string' && raw.trait ? { trait: raw.trait } : {}),
+        ...(gearDef ? {
+            gear: {
+                name: gearDef.name,
+                ...(gearDef.shieldStartPctOfHp ? { shieldStartPctOfHp: gearDef.shieldStartPctOfHp } : {}),
+                ...(gearDef.dotOnHitPctOfAtk ? { dotOnHitPctOfAtk: gearDef.dotOnHitPctOfAtk, dotRounds: gearDef.dotOnHitRounds ?? 2 } : {}),
+                ...(gearDef.executeBelowPct ? { executeBelowPct: gearDef.executeBelowPct, executeBonusPct: gearDef.executeBonusPct ?? 0 } : {}),
+                ...(gearDef.lastStandBelowPct ? { lastStandBelowPct: gearDef.lastStandBelowPct, lastStandReductionPct: gearDef.lastStandReductionPct ?? 0 } : {}),
+                ...(gearDef.lifestealPctOfDamage ? { lifestealPctOfDamage: gearDef.lifestealPctOfDamage } : {}),
+            },
+        } : {}),
         statuses: [],
         moves: [basicStrike(), ...kit],
         signatureMove: { ...signatureMove, cost: 0 },
@@ -454,7 +494,17 @@ export function createShowdownSession(input: {
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[]): ShowdownPet[] =>
-        pets.slice(0, SHOWDOWN_MAX_TEAM).map((raw, i) => ({ ...sealShowdownPet(raw), benched: i >= size }));
+        pets.slice(0, SHOWDOWN_MAX_TEAM).map((raw, i) => {
+            const sealed = { ...sealShowdownPet(raw), benched: i >= size };
+            // Gear proc: Aegis-style start shields raise before round one.
+            if (sealed.gear?.shieldStartPctOfHp) {
+                sealed.statuses = [{
+                    kind: 'shield', rounds: 99, bornRound: 0,
+                    magnitude: Math.round(sealed.maxHp * sealed.gear.shieldStartPctOfHp / 100),
+                }];
+            }
+            return sealed;
+        });
     return {
         sessionId: input.sessionId,
         playerName: input.playerName,
@@ -483,9 +533,32 @@ function statusMult(pet: ShowdownPet, kinds: Record<string, number>): number {
     return mult;
 }
 
+/*
+ * In-combat TRAIT effects. Trait stat bonuses are already baked into stored
+ * stats at acquisition (applyOwnedPetTrait); these are the live-combat
+ * behaviors on top — deterministic, one identity beat per trait. Ultras
+ * (Fateweaver / Hollowborn / Boonbringer) get the bigger swings.
+ */
+const TRAIT_FX = {
+    damageOut: { Aggressive: 1.06, Fateweaver: 1.08 } as Record<string, number>,
+    meterGain: { Loyal: 1.2, Fateweaver: 1.1 } as Record<string, number>,
+    speed: { Swift: 1.08 } as Record<string, number>,
+    /** Guardian blocks harder than the standard guard. */
+    guardMult: { Guardian: 0.42 } as Record<string, number>,
+    /** Lucky shifts the damage roll window upward (+3%). */
+    varianceShift: { Lucky: 0.03 } as Record<string, number>,
+    /** Battleborn enters the arena with meter already burning. */
+    startMeter: { Battleborn: 25 } as Record<string, number>,
+    /** Hollowborn drinks a slice of every hit it lands. */
+    lifedrainPct: { Hollowborn: 0.08 } as Record<string, number>,
+    /** Boonbringer amplifies the ally-synergy bonus it benefits from. */
+    synergyMult: { Boonbringer: 1.2 } as Record<string, number>,
+};
+const traitOf = (p: ShowdownPet): string => p.trait ?? '';
+
 const effAttack = (p: ShowdownPet) => p.attack * statusMult(p, { buff: 1.25, debuff: 0.8, burn: 0.9 });
 const effDefense = (p: ShowdownPet) => p.defense * statusMult(p, { crush: 0.8, tauntGuard: 1.2 });
-const effSpeed = (p: ShowdownPet) => p.speed * statusMult(p, { haste: 1.25, slow: 0.75, movelock: 0.7 });
+const effSpeed = (p: ShowdownPet) => p.speed * statusMult(p, { haste: 1.25, slow: 0.75, movelock: 0.7 }) * (TRAIT_FX.speed[traitOf(p)] ?? 1);
 
 function elementMult(attacker: string, defender: string): number {
     if (SHOWDOWN_ELEMENT_BEATS[attacker] === defender) return SHOWDOWN_ELEMENT_ADVANTAGE;
@@ -524,7 +597,8 @@ function addStatus(session: ShowdownSession, pet: ShowdownPet, kind: string, rou
 
 function gainMeter(pet: ShowdownPet, amount: number): void {
     if (pet.ko) return;
-    pet.meter = Math.min(SHOWDOWN_METER_MAX, Math.round(pet.meter + amount));
+    const traitMult = TRAIT_FX.meterGain[traitOf(pet)] ?? 1;
+    pet.meter = Math.min(SHOWDOWN_METER_MAX, Math.round(pet.meter + amount * traitMult));
 }
 
 /** Absorb pools (shield/barrier/absorb) soak damage first. Returns unabsorbed. */
@@ -568,7 +642,10 @@ function applyHeal(target: ShowdownPet, amount: number): number {
  * average same-rarity duel ran 12+ rounds and 56% of games went to the judge
  * (attrition meta — burst roles starved, chip roles dominated). 2.2 lands the
  * typical KO in 6-9 rounds with the judge as a genuine minority outcome. */
-const DAMAGE_SCALE = 2.35;
+// Raised 2.35 → 3.3 with the pure stamina+hold economy: low Temtem regen
+// rest-gates the heavy casts, so each technique must hit harder per cast
+// (exactly Temtem's pairing of low regen with hard-hitting techniques).
+const DAMAGE_SCALE = 3.3;
 /** Assassin execute instinct: bonus damage against bloodied targets — the
  * burst identity the role's glass-cannon statline pays for. */
 const ASSASSIN_EXECUTE_HP = 0.4;
@@ -581,11 +658,14 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
  * trackers hit lighter per action, assassins hit far harder (plus the execute
  * below), sages swing harder and heal stronger (sageHealMult). Tuned against
  * scripts/showdown-balance.mjs until every role sits in the 40-60% band. */
+// Retuned for the pure stamina+hold economy: removing cooldowns took the
+// enemy-burst cap that tanks sheltered under, so defenders hit harder and the
+// throughput roles give a little back.
 const ROLE_DAMAGE_MULT: Record<string, number> = {
-    tracker: 0.91,
-    assassin: 1.1,
-    sage: 1.12,
-    defender: 1.02,
+    tracker: 0.84,
+    assassin: 1.02,
+    sage: 1.04,
+    defender: 1.22,
 };
 const SAGE_HEAL_MULT = 1.15;
 
@@ -617,13 +697,26 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     const base = DAMAGE_SCALE * (power / 100) * ((atk * atk) / (atk + def));
     // ±8% in 16 discrete steps — the genre-proven roll (Pokémon's 85-100 band):
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
-    const variance = 0.92 + Math.floor(nextRand(session) * 16) * 0.01;
+    // Lucky shifts the whole window up.
+    const variance = 0.92 + (TRAIT_FX.varianceShift[traitOf(attacker)] ?? 0) + Math.floor(nextRand(session) * 16) * 0.01;
     let mult = elementMult(attacker.element, defender.element) * timingMult * variance * extraMult
         * (ROLE_DAMAGE_MULT[attacker.role] ?? 1)
         * (ELEMENT_DAMAGE_MULT[attacker.element] ?? 1)
-        * (ELEMENT_TAKEN_MULT[defender.element] ?? 1);
+        * (ELEMENT_TAKEN_MULT[defender.element] ?? 1)
+        * (TRAIT_FX.damageOut[traitOf(attacker)] ?? 1);
     if (attacker.role === 'assassin' && defender.hp / defender.maxHp < ASSASSIN_EXECUTE_HP) {
         mult *= ASSASSIN_EXECUTE_MULT;
+    }
+    // Gear procs: execute bonus below the line; last-stand damage reduction.
+    const gearA = attacker.gear;
+    if (gearA?.executeBelowPct && gearA.executeBonusPct
+        && defender.hp / defender.maxHp < gearA.executeBelowPct / 100) {
+        mult *= 1 + gearA.executeBonusPct / 100;
+    }
+    const gearD = defender.gear;
+    if (gearD?.lastStandBelowPct && gearD.lastStandReductionPct
+        && defender.hp / defender.maxHp < gearD.lastStandBelowPct / 100) {
+        mult *= 1 - gearD.lastStandReductionPct / 100;
     }
     // Mark: the stored bonus hit is consumed by the first damage that lands.
     const mark = defender.statuses.find((s) => s.kind === 'mark');
@@ -631,7 +724,8 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
         mult *= 1.25;
         defender.statuses = defender.statuses.filter((s) => s !== mark);
     }
-    if (defender.guarding) mult *= SHOWDOWN_GUARD_MULT;
+    // Guardian pets block harder than the standard guard.
+    if (defender.guarding) mult *= TRAIT_FX.guardMult[traitOf(defender)] ?? SHOWDOWN_GUARD_MULT;
     return Math.max(power > 0 ? 1 : 0, Math.round(base * mult));
 }
 
@@ -699,7 +793,6 @@ function executeMove(
         } else {
             actor.stamina -= move.cost;
         }
-        move.currentCooldown = move.cooldown;
     }
     actor.guarding = false;
 
@@ -708,12 +801,25 @@ function executeMove(
     const applyOffensiveHit = (target: ShowdownPet, powerScale: number, applied?: string, splash = false): void => {
         const guarded = target.guarding;
         // Temtem-style ally synergy: a LIVING teammate whose element beats the
-        // target amplifies the hit. Solo formats have no ally, so no bonus.
+        // target amplifies the hit (Boonbringers amplify it further). Solo
+        // formats have no ally, so no bonus.
         const synergy = livingOf(session, actorSide)
             .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
-        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergy ? SHOWDOWN_SYNERGY_MULT : 1);
+        const synergyMult = synergy ? (TRAIT_FX.synergyMult[traitOf(actor)] ?? SHOWDOWN_SYNERGY_MULT) : 1;
+        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergyMult);
         const { dealt, ko } = applyDamage(session, target, dmg);
         if (dealt > 0) gainMeter(actor, SHOWDOWN_METER_ON_HIT_DEALT);
+        // Hollowborn drinks a slice of every hit it lands.
+        const drain = TRAIT_FX.lifedrainPct[traitOf(actor)] ?? 0;
+        if (dealt > 0 && drain > 0) applyHeal(actor, dealt * drain);
+        // Gear procs on plain strikes: on-hit poison and gear lifesteal.
+        const gear = actor.gear;
+        if (dealt > 0 && !target.ko && gear?.dotOnHitPctOfAtk && kind === 'damage') {
+            addStatus(session, target, 'wound', gear.dotRounds ?? 2, Math.max(1, Math.round(effAttack(actor) * gear.dotOnHitPctOfAtk / 100)));
+        }
+        if (dealt > 0 && gear?.lifestealPctOfDamage && kind === 'damage') {
+            applyHeal(actor, dealt * gear.lifestealPctOfDamage / 100);
+        }
         const eff = elementMult(actor.element, target.element);
         targets.push({
             id: target.id,
@@ -736,7 +842,7 @@ function executeMove(
             case 'move': addStatus(session, actor, 'haste', 2, 1.25); break;
             case 'shield':
             case 'barrier':
-            case 'absorb': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 0.9))); break;
+            case 'absorb': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 1.05))); break;
             case 'taunt': {
                 const foes = livingOf(session, actorSide === 'player' ? 'enemy' : 'player');
                 if (foes.length > 1 || session.format !== '1v1') addStatus(session, actor, 'taunt', 1, 1);
@@ -789,15 +895,15 @@ function executeMove(
                 }
                 case 'stun':
                     applyOffensiveHit(target, 0.5, 'stun');
-                    if (!target.ko) addStatus(session, target, 'stun', 1, 1);
+                    if (!target.ko && !hasStatus(target, 'steadfast')) addStatus(session, target, 'stun', 1, 1);
                     break;
                 case 'freeze':
                     applyOffensiveHit(target, 0.6, 'freeze');
-                    if (!target.ko) addStatus(session, target, 'freeze', 1, 1);
+                    if (!target.ko && !hasStatus(target, 'steadfast')) addStatus(session, target, 'freeze', 1, 1);
                     break;
                 case 'confuse':
                     applyOffensiveHit(target, 0.6, 'confuse');
-                    if (!target.ko) addStatus(session, target, 'confuse', 2, 1);
+                    if (!target.ko && !hasStatus(target, 'steadfast')) addStatus(session, target, 'confuse', 2, 1);
                     break;
                 case 'debuff':
                     applyOffensiveHit(target, 0.4, 'debuff');
@@ -939,10 +1045,15 @@ export function resolveShowdownRound(
         }
         if (hasStatus(pet, 'stun')) {
             pet.statuses = pet.statuses.filter((s) => s.kind !== 'stun');
+            // Paying the stolen turn grants brief immunity — control cannot
+            // chain into a perma-lock (the Sleep Clause of this engine).
+            addStatus(session, pet, 'steadfast', 2, 1);
             events.push({ t: 'skip', actorId: pet.id, actorSide: side, reason: 'stun' });
             continue;
         }
         if (hasStatus(pet, 'freeze') && nextRand(session) < 0.5) {
+            pet.statuses = pet.statuses.filter((s) => s.kind !== 'freeze');
+            addStatus(session, pet, 'steadfast', 2, 1);
             events.push({ t: 'skip', actorId: pet.id, actorSide: side, reason: 'freeze' });
             continue;
         }
@@ -1005,19 +1116,17 @@ export function resolveShowdownRound(
                     }
                 }
                 if (pet.ko) continue;
-                // Status decay + cooldowns + regen. A status born THIS round is
-                // exempt from this round's decay — a stun landed mid-round must
+                // Status decay + regen. A status born THIS round is exempt
+                // from this round's decay — a stun landed mid-round must
                 // still cost the target its next-round action.
                 pet.statuses = pet.statuses
                     .map((s) => (s.bornRound < session.round ? { ...s, rounds: s.rounds - 1 } : s))
                     .filter((s) => s.rounds > 0);
-                for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
                 pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
             }
-            // Bench pets rest: stamina + cooldowns recover, statuses stay frozen
-            // (no ticks, no decay — you can't wait out a burn from the bench).
+            // Bench pets rest: stamina recovers, statuses stay frozen (no
+            // ticks, no decay — you can't wait out a burn from the bench).
             for (const pet of livingTeam(session, side).filter((p) => p.benched)) {
-                for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
                 pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
             }
             // Hold timers tick for EVERYONE, field or bench (the Temtem rule).
@@ -1064,7 +1173,7 @@ export function sanitizeCommand(session: ShowdownSession, pet: ShowdownPet, comm
         return { kind: 'guard', petId: pet.id };
     }
     const move = pet.moves[command.moveIndex];
-    if (!move || move.currentCooldown > 0 || pet.readiness < move.hold) return { kind: 'guard', petId: pet.id };
+    if (!move || pet.readiness < move.hold) return { kind: 'guard', petId: pet.id };
     return command;
 }
 
@@ -1092,13 +1201,14 @@ function petView(pet: ShowdownPet): ShowdownPetView {
             .filter((s) => s.kind !== 'tauntGuard')
             .map((s) => ({ kind: s.kind, rounds: s.rounds })),
         readiness: pet.readiness,
+        ...(pet.trait ? { trait: pet.trait } : {}),
+        ...(pet.gear ? { gearName: pet.gear.name } : {}),
         moves: pet.moves.map((m) => ({
-            name: m.name, power: m.power, kind: m.kind, cost: m.cost,
-            cooldown: m.cooldown, currentCooldown: m.currentCooldown, signature: false,
+            name: m.name, power: m.power, kind: m.kind, cost: m.cost, signature: false,
             priority: m.priority, hold: m.hold,
         })).concat([{
             name: pet.signatureMove.name, power: pet.signatureMove.power, kind: pet.signatureMove.kind,
-            cost: 0, cooldown: 0, currentCooldown: 0, signature: true,
+            cost: 0, signature: true,
             priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
         }]),
     };
