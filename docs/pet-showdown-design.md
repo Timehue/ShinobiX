@@ -349,6 +349,90 @@ Final bands: roles 43.3-53.6%, elements 44.6-55.0%, pace 7.0 rounds, judge
 the added spread is the price of element identity under the stronger wheel.
 35 tests green.
 
+## Round 11 — the AAA pass (2026-08-10)
+
+Driven by a 46-agent audit across balance, UI, VFX, engine logic and AAA-gap
+research; 25 of 40 findings survived adversarial verification and were built.
+
+**Correctness / exploits**
+- **Prototype-key crash + NaN pet.** A pet id/role/trait of `constructor` or
+  `__proto__` resolved to an inherited `Object.prototype` member on a bare
+  table read — non-nullish and non-numeric — which 500'd the start endpoint
+  and, worse, propagated NaN into hp so `hp <= 0` was never true: an
+  unkillable pet on a reward path. All identity fields are now allowlisted and
+  every tuning-table read goes through an own-property numeric lookup, with
+  NaN backstops on damage/heal.
+- **Super-priority exploit.** Commands were sanitized twice — once for the
+  turn-order sort, once at action time against mutated state. A super
+  submitted at meter 82-99 sanitized to `guard` for the sort (buying the 1.5x
+  guard slot), topped its meter up from damage taken, then fired early ahead
+  of every enemy Guard. Now sanitized exactly once and carried forward.
+- **87 of 140 species had lost their authored signature name.** `_catalog.ts`
+  authors the signature last, and a `slice(0, 5)` ran before the signature
+  lookup — so "Lunar Eclipse: Ninetail Requiem" displayed as "Fire Overdrive".
+  Fixed with a power FLOOR (never a nerf, never a buff), so every sealed
+  number is byte-identical and only the name changes.
+
+**Balance** — the AI was the biggest lever. Its "already applied" penalty
+checked `target.statuses` for the raw kind, but self-buffs land on the ACTOR
+under renamed keys (barrier→shield, move→haste, dot→burn, movelock→slow), so
+the penalty never fired and **barrier was 24.8% of all AI commands — more than
+plain damage**. `storedStatusKind` is now the single source of truth both the
+engine and the AI read. The AI also rotates its bench on the half-flip and on
+stamina, not only a full element flip (which held in ~2% of rounds).
+Result, with the element identity tables retuned for the corrected AI:
+
+| | before | after |
+|---|---|---|
+| roles | 43.3-53.6% | **48.4-52.7%** |
+| elements | 44.6-55.0% | **49.2-52.0%** |
+| judge decisions | 11.3% | **0.9%** |
+| species outliers | 17 | **7-13** |
+| training relevance | def 73.3% | **def 86.7%** (hp 83, atk 80, spd 73) |
+
+**Round cap now scales with bench depth.** A flat 14 could not resolve a team
+fed in one at a time: 1v1 with two reserves ended **87.2%** of its games on the
+timer. The cap extends per reserve, leaving 2v2/3v3 (which field everyone at
+once) exactly as tuned.
+
+**UI / readability**
+- Move buttons carry a server-authored **effect line** — a 168-power stun
+  landing 84 damage was previously indistinguishable from a 168-power hit.
+- The element matchup readout no longer requires multi-target mode, so it
+  finally renders in **1v1** — the format whose blurb sells the wheel. Now a
+  filled pill reading `▲ STRONG ×1.5`, not a colour-only arrow.
+- Status pips show **remaining rounds** and a plain-English tooltip
+  (shields include their remaining pool).
+- A pet that will lose its next action is **no longer asked for a command**
+  (it used to get the full deck and a timing needle for input the engine
+  discards). A stunned pet still gets its switch decision.
+- Overdraft is pre-warned with the exact HP cost before you commit.
+- The **judge** is announced and explained on the result panel — it decided
+  fights the player was never told about.
+- Trait and gear are shown on the roster picker (where team-building happens)
+  and on the player's battle cards.
+- A closed-by-default **rules panel** in the lobby, and the in-game guide's
+  wheel numbers were wrong for this mode (it taught the Coliseum's ±25%).
+
+**Feel / accessibility**
+- Impact recoil is now **damage-scaled** (`impactPower` was never assigned, so
+  every hit used the same restrained flinch).
+- The victory pose latches off the end EVENT, not the finished phase — the
+  winner used to stand in a plain idle through the entire victory beat.
+- Full **`prefers-reduced-motion`** support (the mode was the only one in the
+  codebase without it): shake, flash, bloom and overshoot animations drop,
+  information-bearing HP transitions and the camera's hard cuts stay.
+- The **timing needle is keyboard-reachable** — it bound `pointerdown` only,
+  so keyboard players were permanently capped at the base multiplier.
+- An **audio toggle** inside the takeover, which hides the global one.
+- Mobile portrait gutter regression fixed (a `padding` shorthand inside the
+  mobile block was resetting it, overlapping the portrait onto the stat line).
+
+**Deferred, deliberately** — camera shot variety, the draft-aware turn-order
+strip, combat-reactive stage light, the post-battle stat recap, and gear-proc
+attribution in the battle log. All are additive polish with no correctness or
+balance impact; each is scoped in the audit work order.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

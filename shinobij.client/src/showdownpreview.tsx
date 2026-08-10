@@ -46,18 +46,21 @@ function petView(pet: Pet, hp?: number): ShowdownPetView {
         ko: (hp ?? maxHp) <= 0,
         guarding: false,
         benched: world.benched.has(pet.id),
-        winded: false,
+        speed: pet.speed ?? 30,
+        skipsNextAction: false,
+        canSwitchOut: true,
         readiness: world.round,
         statuses: [],
         moves: [
-            { name: "Swift Strike", power: 55, kind: "damage", cost: 14, signature: false, priority: 1.15, hold: 0 },
+            { name: "Swift Strike", power: 55, kind: "damage", cost: 14, signature: false, priority: 1.15, hold: 0, effect: "Straight damage" },
             ...(pet.jutsus ?? []).slice(0, 3).map((j) => ({
                 name: j.name, power: j.power, kind: j.kind, cost: j.power <= 120 ? 18 : j.power <= 220 ? 32 : 52,
                 signature: false,
                 priority: j.power > 220 ? 0.8 : j.power <= 80 ? 1.15 : 1.0,
                 hold: j.power > 220 ? 1 : 0,
+                effect: `${j.kind} effect`,
             })),
-            { name: `${pet.element ?? "Spirit"} Overdrive`, power: 260, kind: "damage", cost: 0, signature: true, priority: 0.75, hold: 2 },
+            { name: `${pet.element ?? "Spirit"} Overdrive`, power: 260, kind: "damage", cost: 0, signature: true, priority: 0.75, hold: 2, effect: "Spends the full meter" },
         ],
     };
 }

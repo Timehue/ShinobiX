@@ -21,7 +21,7 @@ import {
     type ShowdownCommand,
     type ShowdownTier,
 } from '../../shared/pet-showdown-contract.js';
-import { nextRand, type ShowdownPet, type ShowdownSession } from './engine.js';
+import { nextRand, SELF_KINDS, storedStatusKind, type ShowdownPet, type ShowdownSession } from './engine.js';
 
 // Local deterministic sampler for team generation (session rng not built yet).
 function makeRand(seed: number): () => number {
@@ -140,19 +140,35 @@ export function chooseShowdownAiCommands(session: ShowdownSession): ShowdownComm
     // At most one voluntary switch per round so the AI never cycles its whole
     // line in a single turn.
     let switchedThisRound = false;
+    const reserves = session.enemy.filter((p) => p.benched && !p.ko);
     for (const pet of session.enemy) {
         if (pet.ko || pet.benched) continue;
-        // Matchup-driven switch (warrior sometimes, champion often): if this
-        // pet is element-beaten by a foe and a living bench ally would beat one
-        // of the foes, rotate — the same read the player is making.
-        if (!switchedThisRound && tier !== 'scrapper' && pet.hp / pet.maxHp > 0.3) {
+        // Switch reads (warrior sometimes, champion often). A full element
+        // flip is rare — it held in only ~2% of pet-rounds — so the AI also
+        // rotates on the HALF flip and on stamina, which is what actually
+        // makes the bench visible in play.
+        if (!switchedThisRound && tier !== 'scrapper' && reserves.length && pet.hp / pet.maxHp > 0.3) {
             const threatened = foes.some((f) => elementBeats(f.element, pet.element));
-            const counterpick = session.enemy.find((ally) =>
-                ally.benched && !ally.ko && foes.some((f) => elementBeats(ally.element, f.element)));
+            // Full flip: a reserve that beats something on the field.
+            const counterpick = reserves.find((ally) => foes.some((f) => elementBeats(ally.element, f.element)));
+            // Half flip: a reserve that at least is not itself beaten.
+            const safePick = reserves.find((ally) => !foes.some((f) => elementBeats(f.element, ally.element)));
+            // Stamina rotation: nothing castable, but a rested reserve waits.
+            const cheapest = Math.min(...pet.moves.map((m) => m.cost));
+            const spent = pet.stamina < cheapest;
+            const restedPick = reserves.find((ally) => ally.stamina / ally.maxStamina >= 0.7);
             const eagerness = tier === 'champion' ? 0.55 : 0.25;
-            if (threatened && counterpick && rand() < eagerness) {
+
+            const rotate = spent && restedPick
+                ? restedPick
+                : threatened && counterpick && rand() < eagerness
+                    ? counterpick
+                    : threatened && safePick && rand() < eagerness * 0.6
+                        ? safePick
+                        : null;
+            if (rotate) {
                 switchedThisRound = true;
-                commands.push({ kind: 'switch', petId: pet.id, benchPetId: counterpick.id });
+                commands.push({ kind: 'switch', petId: pet.id, benchPetId: rotate.id });
                 continue;
             }
         }
@@ -193,9 +209,12 @@ function choosePetCommand(
     const affordable = ready.filter(({ m }) => m.cost <= pet.stamina);
 
     // Heal check: patch a bloodied self/ally when the kit allows it.
+    const allies = session.enemy.filter((p) => !p.ko && !p.benched);
+    const worstAllyHp = allies.length
+        ? Math.min(...allies.map((a) => a.hp / a.maxHp))
+        : 1;
     const healMove = affordable.find(({ m }) => m.kind === 'heal');
     if (healMove && tier !== 'scrapper') {
-        const allies = (session.enemy).filter((p) => !p.ko && !p.benched);
         const bloodied = allies.filter((a) => a.hp / a.maxHp < 0.45)
             .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
         if (bloodied && rand() < 0.8) {
@@ -220,13 +239,33 @@ function choosePetCommand(
     }
 
     // Score the affordable kit: damage value + status opportunism.
-    const targetHasStatus = new Set(target.statuses.map((s) => s.kind));
+    //
+    // The "already applied" check must look at the pet the status actually
+    // lands on, under the name the ENGINE stores it as. Self-buffs land on the
+    // ACTOR (not the target) and several kinds are renamed on write
+    // (barrier/absorb -> shield, move -> haste, dot -> burn, movelock ->
+    // slow). Checking `target.statuses` for the raw kind meant the -60 penalty
+    // never fired for any self-buff: barrier scored `power*0.8 + 45` forever
+    // and became 24.8% of all AI commands — more than plain damage.
+    const foeStatuses = new Map(target.statuses.map((s) => [s.kind, s]));
+    const selfStatuses = new Map(pet.statuses.map((s) => [s.kind, s]));
     const best = affordable
         .map(({ m, i }) => {
             let score = m.power * (elementBeats(pet.element, target.element) ? 1.3 : 1);
-            if (m.kind !== 'damage' && m.kind !== 'crush' && m.kind !== 'lifesteal') {
-                // Status moves are strong openers but wasted on an already-afflicted target.
-                score = m.power * 0.8 + (targetHasStatus.has(m.kind) ? -60 : 45);
+            if (m.kind === 'heal') {
+                // The engine never stores a 'heal' status, so a lookup is dead
+                // here — gate on whether anyone actually needs the healing.
+                score = m.power * 0.8 + (worstAllyHp < 0.85 ? 45 : -60);
+            } else if (m.kind !== 'damage' && m.kind !== 'crush' && m.kind !== 'lifesteal') {
+                const stored = storedStatusKind(m.kind, session.format, foes.length);
+                const onSelf = SELF_KINDS.has(m.kind);
+                const held = onSelf ? selfStatuses.get(stored) : foeStatuses.get(stored);
+                // A shield already up is only worth recasting if the new pool
+                // would be bigger than what remains (mirrors engine.ts).
+                const refills = stored === 'shield' && held
+                    ? held.magnitude < Math.max(40, Math.round(m.power * 1.05))
+                    : false;
+                score = m.power * 0.8 + (held && !refills ? -60 : 45);
                 if (session.round <= 1) score += 25;
             }
             if (m.kind === 'lifesteal' && pet.hp / pet.maxHp < 0.5) score += 50;
