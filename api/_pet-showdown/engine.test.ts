@@ -192,6 +192,7 @@ test('a super without a full meter downgrades to guard; with one it fires and re
     assert.equal(deniedAction?.moveKind, 'guard');
 
     session.player[0].meter = SHOWDOWN_METER_MAX;
+    session.player[0].readiness = 2;   // signatures HOLD until round 3 in battle
     const fired = resolveShowdownRound(session, [
         { kind: 'super', petId: 'a', targetId: 'b', timing: 2 },
     ], [{ kind: 'rest', petId: 'b' }]);
@@ -406,6 +407,7 @@ test('a signature in 2v2 splashes the second foe at a reduced rate', () => {
         777, '2v2',
     );
     session.player[0].meter = SHOWDOWN_METER_MAX;
+    session.player[0].readiness = 2;   // signatures HOLD until round 3 in battle
     const events = resolveShowdownRound(session, [
         { kind: 'super', petId: 'a', targetId: 'b', timing: 0 },
         { kind: 'rest', petId: 'a2' },
@@ -540,6 +542,58 @@ test('bench statuses are frozen — a burn cannot be waited out from the bench',
     assert.equal(victim.benched, true);
     assert.equal(victim.hp, hpAtSwitch, 'no dot tick on the bench');
     assert.equal(victim.statuses.find((s) => s.kind === 'burn')?.rounds, burnRounds, 'no decay on the bench');
+});
+
+test('move priority reorders the round: a guard outruns a faster attacker', () => {
+    // 'slowpoke' (speed 20) guards; 'speedy' (speed 90) attacks. Guard's 1.5x
+    // priority beats 90 x 1.0 only if 20*1.5 > ... it does not — so use a
+    // closer pair: guard at speed 70 (105 effective) vs attack at speed 90.
+    const session = makeSession(
+        [makePet('guardian', { speed: 70 })],
+        [makePet('speedy', { speed: 90, hp: 6000 })],
+        321,
+    );
+    const events = resolveShowdownRound(session, [
+        { kind: 'guard', petId: 'guardian' },
+    ], [
+        { kind: 'move', petId: 'speedy', moveIndex: 1, targetId: 'guardian', timing: 0 },
+    ]);
+    const actions = events.filter((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action');
+    assert.equal(actions[0].actorId, 'guardian', 'the guard resolved first despite lower speed');
+    assert.equal(actions[1].targets[0].guarded, true, 'so the attack landed on a raised guard');
+});
+
+test('heavy moves HOLD: unusable on round one, live after the hold elapses', () => {
+    const nuker = makePet('nuker', {
+        speed: 200,
+        jutsus: [{ name: 'Cataclysm', power: 300, cooldown: 3, currentCooldown: 0, kind: 'damage' }],
+    });
+    const session = makeSession([nuker], [makePet('wall', { speed: 10, hp: 9000, attack: 1 })]);
+    const nukeIndex = session.player[0].moves.findIndex((m) => m.hold > 0);
+    assert.ok(nukeIndex >= 0, 'the 300-power move carries a hold');
+    const round1 = resolveShowdownRound(session, [
+        { kind: 'move', petId: 'nuker', moveIndex: nukeIndex, targetId: 'wall', timing: 0 },
+    ], [{ kind: 'rest', petId: 'wall' }]);
+    const round1Action = round1.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'nuker');
+    assert.equal(round1Action?.moveKind, 'guard', 'held move downgraded to guard on round 1');
+    const round2 = resolveShowdownRound(session, [
+        { kind: 'move', petId: 'nuker', moveIndex: nukeIndex, targetId: 'wall', timing: 0 },
+    ], [{ kind: 'rest', petId: 'wall' }]);
+    const round2Action = round2.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'nuker');
+    assert.equal(round2Action?.moveName, 'Cataclysm', 'the haymaker fires once the hold elapses');
+    assert.ok((round2Action?.targets[0]?.damage ?? 0) > 0);
+});
+
+test('kit overrides replace a broken catalog kit at seal time', () => {
+    const oniHound = makePet('hound', {
+        rarity: 'mythic',
+        templateId: 'mythic-4',
+        jutsus: [{ name: 'Weak Old Move', power: 95, cooldown: 3, currentCooldown: 0, kind: 'dot' }],
+    });
+    const sealed = sealShowdownPet(oniHound);
+    assert.ok(!sealed.moves.some((m) => m.name === 'Weak Old Move'), 'old kit replaced');
+    assert.ok(sealed.moves.some((m) => m.name === 'Abyssal Rend'), 'override kit applied');
+    assert.equal(sealed.signatureMove.name, 'Oni Gate Requiem');
 });
 
 test('a full AI-vs-AI style fight completes inside the round cap with a winner', () => {

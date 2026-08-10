@@ -46,14 +46,17 @@ function petView(pet: Pet, hp?: number): ShowdownPetView {
         guarding: false,
         benched: world.benched.has(pet.id),
         winded: false,
+        readiness: world.round,
         statuses: [],
         moves: [
-            { name: "Swift Strike", power: 55, kind: "damage", cost: 20, cooldown: 0, currentCooldown: 0, signature: false },
+            { name: "Swift Strike", power: 55, kind: "damage", cost: 20, cooldown: 0, currentCooldown: 0, signature: false, priority: 1.15, hold: 0 },
             ...(pet.jutsus ?? []).slice(0, 3).map((j) => ({
                 name: j.name, power: j.power, kind: j.kind, cost: j.power <= 120 ? 30 : j.power <= 220 ? 45 : 60,
                 cooldown: j.cooldown, currentCooldown: 0, signature: false,
+                priority: j.power > 220 ? 0.8 : j.power <= 80 ? 1.15 : 1.0,
+                hold: j.power > 220 ? 1 : 0,
             })),
-            { name: `${pet.element ?? "Spirit"} Overdrive`, power: 260, kind: "damage", cost: 0, cooldown: 0, currentCooldown: 0, signature: true },
+            { name: `${pet.element ?? "Spirit"} Overdrive`, power: 260, kind: "damage", cost: 0, cooldown: 0, currentCooldown: 0, signature: true, priority: 0.75, hold: 2 },
         ],
     };
 }
