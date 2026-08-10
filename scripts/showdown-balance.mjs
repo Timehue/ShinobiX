@@ -132,6 +132,49 @@ console.log(`element-advantage matchup win rate: ${(100 * elementEdge.advWins / 
 console.log(`\nROLES     ${fmtMap(roleStats)}`);
 console.log(`ELEMENTS  ${fmtMap(elementStats)}`);
 
+// ── Per-KIND analysis: which move kinds drag their carriers down? ────────────
+// Presence-weighted: a species' win rate is credited to every kind in its kit,
+// so a kind whose carriers systematically lose surfaces as a low number.
+const kindStats = new Map();
+for (const [rarity, list] of byRarity) {
+    void rarity;
+    for (const tpl of list) {
+        const s = speciesStats.get(tpl.id);
+        if (!s) continue;
+        const kinds = new Set(tpl.jutsus.map((j) => j.kind));
+        for (const kind of kinds) {
+            const k = kindStats.get(kind) ?? { w: 0, n: 0 };
+            k.w += s.w;
+            k.n += s.n;
+            kindStats.set(kind, k);
+        }
+    }
+}
+console.log(`\nKIND CARRIERS (win rate of species carrying each move kind):`);
+console.log([...kindStats.entries()]
+    .sort((a, b) => pct(a[1]) - pct(b[1]))
+    .map(([k, s]) => `${k}: ${pct(s).toFixed(1)}%`)
+    .join('  ·  '));
+
+// ── Cross-rarity spot check: higher rarity should win, sanely ────────────────
+const CROSS_SAMPLES = 40;
+const rarityOrder = ['standard', 'rare', 'legendary', 'mythic'];
+console.log('\nCROSS-RARITY (higher-tier win rate, sampled):');
+for (let r = 0; r < rarityOrder.length - 1; r++) {
+    const low = byRarity.get(rarityOrder[r]) ?? [];
+    const high = byRarity.get(rarityOrder[r + 1]) ?? [];
+    if (!low.length || !high.length) continue;
+    let wins = 0, games = 0;
+    for (let s = 0; s < CROSS_SAMPLES; s++) {
+        const tplHigh = high[(s * 7) % high.length];
+        const tplLow = low[(s * 11) % low.length];
+        const { outcome } = fight(tplHigh, tplLow, 900_001 + s * 6007);
+        games += 1;
+        wins += outcome === 'win' ? 1 : 0;
+    }
+    console.log(`  ${rarityOrder[r + 1]} vs ${rarityOrder[r]}: ${(100 * wins / games).toFixed(1)}% (${games})`);
+}
+
 const species = [...speciesStats.values()].sort((a, b) => pct(a) - pct(b));
 console.log('\nWeakest 10:');
 for (const s of species.slice(0, 10)) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);

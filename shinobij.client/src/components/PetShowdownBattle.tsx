@@ -872,6 +872,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         } else if (event.t === "skip") {
             const name = nameOf(stateView, event.actorId);
             showBanner(event.reason === "winded" ? `${name} is winded!` : event.reason === "stun" ? `${name} is stunned!` : `${name} is frozen solid!`, "status", durationMs * 0.85);
+            // The lost turn gets a visual: sparks crackle on a stun, frost
+            // flashes on a freeze (winded pets just pant — the banner carries it).
+            later(() => {
+                if (event.reason === "stun") spawnFlipbook(event.actorId, "spark", 2.2, 620, 1.6);
+                else if (event.reason === "freeze") spawnFlipbook(event.actorId, "ice", 2.4, 620);
+            }, durationMs * 0.25);
         } else if (event.t === "confused") {
             const name = nameOf(stateView, event.actorId);
             showBanner(`${name} hurt itself in confusion!`, "status", durationMs * 0.85);

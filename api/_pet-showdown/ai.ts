@@ -36,9 +36,12 @@ function makeRand(seed: number): () => number {
     };
 }
 
+// One rarity per pool where the cross-tier gap is steep (standard→rare is the
+// catalog's biggest cliff) so a lucky roll inside one AI team can't swing the
+// fight more than the tier choice itself.
 const TIER_RARITIES: Record<ShowdownTier, string[]> = {
-    scrapper: ['standard', 'rare'],
-    warrior: ['rare', 'legendary'],
+    scrapper: ['standard'],
+    warrior: ['rare'],
     champion: ['legendary', 'mythic'],
 };
 
