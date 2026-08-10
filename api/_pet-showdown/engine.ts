@@ -835,7 +835,7 @@ const ELEMENT_TAKEN_MULT: Record<string, number> = {
     Lightning: 1.02,
 };
 
-function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number, extraMult = 1): number {
+function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number, extraMult = 1, procs?: string[]): number {
     const atk = effAttack(attacker);
     const def = effDefense(defender);
     const base = DAMAGE_SCALE * (power / 100) * REF_DEF * (atk / Math.max(1, def));
@@ -849,28 +849,40 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
         * tableMult(ELEMENT_TAKEN_MULT, defender.element)
         * tableMult(TRAIT_FX.damageOut, traitOf(attacker))
         * tableMult(RARITY_DAMAGE_TIER, attacker.rarity) / tableMult(RARITY_DAMAGE_TIER, defender.rarity);
+    // Every named multiplier below is ATTRIBUTED into `procs` so the client can
+    // say WHY a number was unusual instead of silently mutating it.
     if (attacker.role === 'assassin' && defender.hp / defender.maxHp < ASSASSIN_EXECUTE_HP) {
         mult *= ASSASSIN_EXECUTE_MULT;
+        procs?.push('Execute');
     }
+    if (tableMult(TRAIT_FX.damageOut, traitOf(attacker)) !== 1) procs?.push(traitOf(attacker));
     // Gear procs: execute bonus below the line; last-stand damage reduction.
     const gearA = attacker.gear;
     if (gearA?.executeBelowPct && gearA.executeBonusPct
         && defender.hp / defender.maxHp < gearA.executeBelowPct / 100) {
         mult *= 1 + gearA.executeBonusPct / 100;
+        procs?.push(gearA.name);
     }
     const gearD = defender.gear;
     if (gearD?.lastStandBelowPct && gearD.lastStandReductionPct
         && defender.hp / defender.maxHp < gearD.lastStandBelowPct / 100) {
         mult *= 1 - gearD.lastStandReductionPct / 100;
+        procs?.push(gearD.name);
     }
     // Mark: the stored bonus hit is consumed by the first damage that lands.
     const mark = defender.statuses.find((s) => s.kind === 'mark');
     if (mark) {
         mult *= 1.25;
         defender.statuses = defender.statuses.filter((s) => s !== mark);
+        procs?.push('Mark');
     }
     // Guardian pets block harder than the standard guard.
-    if (defender.guarding) mult *= tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT);
+    if (defender.guarding) {
+        mult *= tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT);
+        if (tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT) !== SHOWDOWN_GUARD_MULT) {
+            procs?.push(traitOf(defender));
+        }
+    }
     const out = Math.round(base * mult);
     // Final NaN backstop: a non-finite result would make hp <= 0 unreachable.
     return Number.isFinite(out) ? Math.max(power > 0 ? 1 : 0, out) : 0;
@@ -956,19 +968,25 @@ function executeMove(
         const synergy = livingOf(session, actorSide)
             .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
         const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
-        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergyMult);
+        const procs: string[] = [];
+        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergyMult, procs);
         const { dealt, ko } = applyDamage(session, target, dmg);
         if (dealt > 0) gainMeter(actor, SHOWDOWN_METER_ON_HIT_DEALT);
         // Hollowborn drinks a slice of every hit it lands.
         const drain = tableMult(TRAIT_FX.lifedrainPct, traitOf(actor), 0);
-        if (dealt > 0 && drain > 0) applyHeal(actor, dealt * drain);
+        if (dealt > 0 && drain > 0) {
+            applyHeal(actor, dealt * drain);
+            procs.push(traitOf(actor));
+        }
         // Gear procs on plain strikes: on-hit poison and gear lifesteal.
         const gear = actor.gear;
         if (dealt > 0 && !target.ko && gear?.dotOnHitPctOfAtk && kind === 'damage') {
             addStatus(session, target, 'wound', gear.dotRounds ?? 2, Math.max(1, Math.round(effAttack(actor) * gear.dotOnHitPctOfAtk / 100)));
+            procs.push(gear.name);
         }
         if (dealt > 0 && gear?.lifestealPctOfDamage && kind === 'damage') {
             applyHeal(actor, dealt * gear.lifestealPctOfDamage / 100);
+            procs.push(gear.name);
         }
         const eff = elementMult(actor.element, target.element);
         targets.push({
@@ -981,6 +999,7 @@ function executeMove(
             ...(applied ? { applied } : {}),
             ...(synergy && dealt > 0 ? { synergy: true } : {}),
             ...(splash ? { splash: true } : {}),
+            ...(procs.length && dealt > 0 ? { procs: [...new Set(procs.filter(Boolean))] } : {}),
         });
     };
 

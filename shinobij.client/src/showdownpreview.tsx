@@ -58,7 +58,12 @@ function petView(pet: Pet, hp?: number): ShowdownPetView {
                 signature: false,
                 priority: j.power > 220 ? 0.8 : j.power <= 80 ? 1.15 : 1.0,
                 hold: j.power > 220 ? 1 : 0,
-                effect: `${j.kind} effect`,
+                // Mirrors the shape of the real server-authored line so the
+                // harness previews representative text.
+                effect: j.kind === "damage" ? "Straight damage"
+                    : j.kind === "barrier" ? "Absorbs incoming damage"
+                    : j.kind === "burn" ? "Burns for 2 more rounds · 82% hit"
+                    : `${j.kind} · reduced hit`,
             })),
             { name: `${pet.element ?? "Spirit"} Overdrive`, power: 260, kind: "damage", cost: 0, signature: true, priority: 0.75, hold: 2, effect: "Spends the full meter" },
         ],

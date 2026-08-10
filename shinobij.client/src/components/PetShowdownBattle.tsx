@@ -168,6 +168,9 @@ interface SceneBeat {
     event: ShowdownEvent | null;
     startedAt: number;
     durationMs: number;
+    /** Queue position — the shot-variant seed. Deliberately NOT startedAt,
+     *  which is a wall clock and would pick different framings on replay. */
+    index: number;
 }
 
 interface SceneFx {
@@ -262,7 +265,7 @@ function lineupAfterSwitch(lineup: Lineup, side: "player" | "enemy", outId: stri
 
 // ─── Stage environment (lifted from the proven Coliseum recipe) ──────────────
 
-function StageEnvironment({ stage }: { stage: StageKey }) {
+function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef: React.MutableRefObject<SceneBeat>; fxRef: React.MutableRefObject<SceneFx> }) {
     const art = STAGES[stage];
     const textures = useMemo(() => {
         const loader = new THREE.TextureLoader();
@@ -276,10 +279,28 @@ function StageEnvironment({ stage }: { stage: StageKey }) {
     }, [art]);
     const ambient = useRef<THREE.AmbientLight>(null);
     const sun = useRef<THREE.DirectionalLight>(null);
+    const ember = useRef<THREE.PointLight>(null);
     useFrame((state) => {
         const t = state.clock.elapsedTime;
-        if (ambient.current) ambient.current.intensity = 0.5 + Math.sin(t * 7.3) * 0.02 + Math.sin(t * 12.7) * 0.014;
+        // The arena reacts to contact: reuse the CAMERA's own shake envelope so
+        // the light punch and the screen shake can never drift apart.
+        const fx = fxRef.current;
+        const now = performance.now();
+        let punch = 0;
+        if (now < fx.shakeUntil) {
+            const k = (fx.shakeUntil - now) / 320;
+            punch = Math.min(1, fx.shakeAmp * k * k * 4);
+        }
+        if (ambient.current) ambient.current.intensity = 0.5 + Math.sin(t * 7.3) * 0.02 + Math.sin(t * 12.7) * 0.014 + punch * 0.9;
         if (sun.current) sun.current.intensity = 1.15 + Math.sin(t * 9.1) * 0.035;
+        if (ember.current) {
+            ember.current.intensity = 12 + punch * 26;
+            // Tint the EMBER only — the key and hemi lights carry each painted
+            // arena's identity and must not be recoloured by combat.
+            const beat = beatRef.current;
+            const el = beat.event?.t === "action" ? beat.event.element : "";
+            ember.current.color.set(punch > 0.02 && el ? (ELEMENT_TINT[el] ?? art.ember) : art.ember);
+        }
     });
     return (
         <group>
@@ -301,7 +322,7 @@ function StageEnvironment({ stage }: { stage: StageKey }) {
                 shadow-camera-bottom={-12}
             />
             <directionalLight position={[-7, 5, -7]} intensity={0.6} color="#79aaff" />
-            <pointLight position={[0, 3.5, 2]} intensity={12} distance={15} decay={2} color={art.ember} />
+            <pointLight ref={ember} position={[0, 3.5, 2]} intensity={12} distance={15} decay={2} color={art.ember} />
             <mesh position={[0, 6.0, 0]}>
                 <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
                 <meshBasicMaterial map={textures.backdrop} side={THREE.BackSide} toneMapped={false} fog={false} />
@@ -318,10 +339,12 @@ function StageEnvironment({ stage }: { stage: StageKey }) {
 
 // ─── Camera director ─────────────────────────────────────────────────────────
 
-function CameraDirector({ beatRef, fxRef, posRef }: {
+function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
+    lineup: Lineup;
+    reduced: boolean;
 }) {
     const pos = useRef(new THREE.Vector3(0, 5.2, 9.6));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
@@ -348,34 +371,86 @@ function CameraDirector({ beatRef, fxRef, posRef }: {
                 const a = new THREE.Vector3(...actorPos);
                 const b = victimPos ? new THREE.Vector3(...victimPos) : a;
                 const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
+                // Deterministic shot seed: the QUEUE INDEX, so a replay of the
+                // same script picks the same framings every time.
+                const v = (beat.index * 2654435761) >>> 0;
                 if (beat.event.super) {
                     // Signature: swoop from the actor's shoulder into the impact
                     // (kept as a continuous move — the letterbox moment).
-                    nextShot = `super:${beat.startedAt}`;
+                    nextShot = `super:${beat.index}`;
                     const behind = a.clone().sub(b).normalize().multiplyScalar(3.4);
-                    targetPos = a.clone().add(behind).add(new THREE.Vector3(1.6 - frac * 1.1, 2.0 + frac * 0.6, 0));
-                    targetLook = frac < 0.45 ? a.clone().setY(1.2) : b.clone().setY(1.1);
+                    // Reduced motion pins the swoop to its end framing: the
+                    // shot still reads, the continuous travel does not happen.
+                    const swoop = reduced ? 1 : frac;
+                    targetPos = a.clone().add(behind).add(new THREE.Vector3(1.6 - swoop * 1.1, 2.0 + swoop * 0.6, 0));
+                    targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
                 } else {
-                    // Colosseum cut sequence: (1) low behind-the-shoulder shot
-                    // for the windup, (2) HARD CUT to a side-on shot of the
-                    // victim for the strike.
+                    // Colosseum cut sequence: a windup framing, then a HARD CUT
+                    // to the impact. Ranged and melee are shot differently —
+                    // a thrown attack needs both bodies in frame to read.
                     cutOnChange = true;
                     const dir = b.clone().sub(a);
                     dir.y = 0;
                     if (dir.lengthSq() < 0.05) dir.set(0, 0, -1);
                     dir.normalize();
+                    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+                    const ranged = beat.event.delivery === "ranged";
+                    const heavy = beat.event.targets.some((t) => t.ko || t.damage > 260);
                     if (frac < STRIKE_FRAC * 0.92) {
-                        nextShot = `windup:${beat.startedAt}`;
-                        const lateral = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(1.5);
-                        targetPos = a.clone().sub(dir.clone().multiplyScalar(3.4)).add(lateral).setY(1.9);
-                        targetLook = b.clone().setY(1.2);
+                        const variant = v % 3;
+                        nextShot = `windup:${beat.index}:${variant}`;
+                        if (ranged) {
+                            // Slot line: sit off the axis so the throw travels
+                            // across frame rather than into the lens.
+                            const mid = a.clone().lerp(b, 0.5);
+                            targetPos = mid.clone()
+                                .add(perp.clone().multiplyScalar(variant === 1 ? -6.2 : 6.2))
+                                .setY(variant === 2 ? 3.4 : 2.6);
+                            targetLook = mid.clone().setY(1.2);
+                        } else {
+                            const lateral = perp.clone().multiplyScalar(variant === 1 ? -1.5 : 1.5);
+                            targetPos = a.clone()
+                                .sub(dir.clone().multiplyScalar(variant === 2 ? 4.2 : 3.4))
+                                .add(lateral)
+                                .setY(variant === 2 ? 2.6 : 1.9);
+                            targetLook = b.clone().setY(1.2);
+                        }
                     } else {
-                        nextShot = `strike:${beat.startedAt}`;
-                        const side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(4.8);
-                        targetPos = b.clone().add(side).add(dir.clone().multiplyScalar(-1.6)).setY(2.3);
+                        const variant = (v >> 3) % 3;
+                        nextShot = `strike:${beat.index}:${variant}`;
+                        // A heavy or lethal blow pushes the lens in close.
+                        const sideDist = heavy ? 3.2 : 4.8;
+                        const height = heavy ? 1.7 : 2.3;
+                        targetPos = b.clone()
+                            .add(perp.clone().multiplyScalar(variant === 1 ? -sideDist : sideDist))
+                            .add(dir.clone().multiplyScalar(variant === 2 ? -2.6 : -1.6))
+                            .setY(variant === 2 ? height + 0.6 : height);
                         targetLook = b.clone().setY(1.05);
                     }
                 }
+            }
+        } else if (beat.event && beat.event.t === "switch") {
+            // The rotation is a beat of its own — track the arriving pet.
+            const inPos = posRef.current.get(beat.event.inId);
+            if (inPos) {
+                const p = new THREE.Vector3(...inPos);
+                nextShot = `switch:${beat.index}`;
+                cutOnChange = true;
+                targetPos = p.clone().add(new THREE.Vector3(3.6, 2.4, 3.6));
+                targetLook = p.clone().setY(1.1);
+            }
+        } else if (beat.event && beat.event.t === "end") {
+            // Orbit the survivor under the result panel — beatRef is never
+            // cleared, so this keeps turning behind the scrim.
+            const winners = beat.event.outcome === "win" ? lineup.playerField : lineup.enemyField;
+            const focusId = winners[0];
+            const at = focusId ? posRef.current.get(focusId) : undefined;
+            if (at) {
+                const p = new THREE.Vector3(...at);
+                nextShot = "end";
+                const th = (now - beat.startedAt) * 0.00045;
+                targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 4.2, 2.6, Math.cos(th) * 4.2));
+                targetLook = p.clone().setY(1.15);
             }
         }
         // The CUT: on a shot change, snap into the new framing instantly.
@@ -390,13 +465,21 @@ function CameraDirector({ beatRef, fxRef, posRef }: {
         }
         // Idle drift: a slow broadcast-crane sway so the wide shot never sits
         // dead still between actions.
-        if (!beat.event || beat.event.t === "roundStart" || beat.event.t === "roundEnd") {
+        if (!reduced && (!beat.event || beat.event.t === "roundStart" || beat.event.t === "roundEnd")) {
             targetPos.x += Math.sin(now * 0.00013) * 1.1;
             targetPos.y += Math.sin(now * 0.00009 + 1.7) * 0.35;
         }
-        // Portrait phones: pull back so both lines stay in frame.
+        // Portrait phones: pull back ALONG THE LOOK VECTOR. Scaling the raw
+        // position would also scale the height, sending low variants into the
+        // ceiling and high ones through the backdrop.
         const aspect = size.width / Math.max(1, size.height);
-        if (aspect < 0.9) targetPos.multiplyScalar(1.3);
+        if (aspect < 0.9) {
+            targetPos.add(targetPos.clone().sub(targetLook).normalize().multiplyScalar(3.4));
+        }
+        // Containment: never below the floor, never outside the arena shell
+        // (floor radius 14, backdrop wall just beyond).
+        targetPos.y = Math.max(FLOOR_Y + 1.0, targetPos.y);
+        if (targetPos.length() > 13) targetPos.setLength(13);
         pos.current.lerp(targetPos, 0.055);
         look.current.lerp(targetLook, 0.075);
         camera.position.copy(pos.current);
@@ -807,6 +890,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [flash, setFlash] = useState(0);
     const [endedByJudge, setEndedByJudge] = useState(false);
     const [endOutcome, setEndOutcome] = useState<"win" | "loss" | null>(null);
+    /** Snapshotted from the tally when the battle ends (never read in render). */
+    const [recap, setRecap] = useState<{ pet: ShowdownPetView; dmg: number; kos: number; supers: number; mvp: boolean }[]>([]);
     const [muted, setMuted] = useState(() => isAudioMuted());
     const toggleAudio = useCallback(() => {
         const next = !isAudioMuted();
@@ -837,12 +922,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, []);
 
     const settlementRef = useRef<ShowdownTurnResponse | null>(null);
+    const tallyRef = useRef<Map<string, { dmg: number; kos: number; supers: number }>>(new Map());
     const finishedNotified = useRef(false);
     const popupKey = useRef(1);
     const timeouts = useRef<number[]>([]);
     const speed = fast ? 2.1 : 1;
 
-    const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1 });
+    const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1, index: 0 });
     const fxRef = useRef<SceneFx>({ hitAt: new Map(), hitPower: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false });
     const reducedMotion = prefersReducedMotion();
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
@@ -952,6 +1038,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     setLineup(lineupFromState(response.state));
                     if (response.state.finished) {
                         setPhase("finished");
+                        setRecap(buildRecap(response.state, tallyRef.current));
                         if (!finishedNotified.current && response.state.outcome) {
                             finishedNotified.current = true;
                             onFinished(response.state.outcome, response);
@@ -967,7 +1054,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         }
         const event = queue[queueIndex];
         const durationMs = beatDurationMs(event, speed);
-        beatRef.current = { event, startedAt: performance.now(), durationMs };
+        beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex };
 
         if (event.t === "roundStart") {
             const isFinal = event.round >= stateView.maxRounds;
@@ -1157,6 +1244,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         ko: d.hp - (event.overexertDamage ?? 0) <= 0,
                     }));
                 }
+                // Name the trait/gear that bent the number — these used to
+                // mutate damage with nothing on screen to attribute it to.
+                const firedProcs = [...new Set(event.targets.flatMap((t) => t.procs ?? []))];
+                if (firedProcs.length && event.actorSide === "player") {
+                    later(() => addPopup(event.actorId, firedProcs[0], "proc"), 180);
+                }
                 if (event.timing === 2 && event.actorSide === "player") showBanner("PERFECT!", "perfect", 750 / speed);
                 else if (anySynergy && event.actorSide === "player") showBanner("🤝 Synergy!", "effective", 850 / speed);
                 else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
@@ -1215,6 +1308,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         }
         settlementRef.current = response;
         setSettlement(response);
+        // Tally at INGEST, not during playback — fast-forwarding or leaving
+        // early must not change the recap. Every number here is server-sent.
+        for (const ev of response.events) {
+            if (ev.t !== "action") continue;
+            const row = tallyRef.current.get(ev.actorId) ?? { dmg: 0, kos: 0, supers: 0 };
+            for (const t of ev.targets) {
+                if (t.id !== ev.actorId) row.dmg += t.damage;
+                if (t.ko && t.id !== ev.actorId) row.kos += 1;
+            }
+            if (ev.super) row.supers += 1;
+            tallyRef.current.set(ev.actorId, row);
+        }
         setQueue(response.events);
         setQueueIndex(0);
         if (!response.events.length && response.state) {
@@ -1224,6 +1329,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             setLineup(lineupFromState(response.state));
             if (response.state.finished) {
                 setPhase("finished");
+                setRecap(buildRecap(response.state, tallyRef.current));
                 if (!finishedNotified.current && response.state.outcome) {
                     finishedNotified.current = true;
                     onFinished(response.state.outcome, response);
@@ -1297,14 +1403,45 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     );
     const playerBenchedIds = useMemo(() => new Set(lineup.playerBench), [lineup.playerBench]);
     const enemyBenchedIds = useMemo(() => new Set(lineup.enemyBench), [lineup.enemyBench]);
+
+    // Mirrors the engine's ordering rule (speed × chosen-move priority), minus
+    // the per-round rng jitter — it is an estimate, and it is labelled as one.
+    const estimatedOrder = useMemo(() => {
+        const drafted = new Map(draft.map((c) => [c.petId, c]));
+        // A drafted SWITCH removes the pet from the round entirely and does NOT
+        // insert the incoming pet (which spends its action arriving) — the
+        // biggest single order change a command can make.
+        const switchedOut = new Set(
+            draft.filter((c): c is Extract<ShowdownCommand, { kind: "switch" }> => c.kind === "switch")
+                .map((c) => c.petId),
+        );
+        const rows: { pet: ShowdownPetView; mine: boolean; key: number; skipping: boolean }[] = [];
+        const add = (ids: string[], pool: ShowdownPetView[], mine: boolean) => {
+            for (const id of ids) {
+                const pet = pool.find((p) => p.id === id);
+                if (!pet || (display[id]?.ko ?? pet.ko)) continue;
+                if (mine && switchedOut.has(id)) continue;
+                let priority = 1;
+                const command = mine ? drafted.get(id) : undefined;
+                if (command?.kind === "guard") priority = 1.5;
+                else if (command?.kind === "rest") priority = 0.9;
+                else if (command?.kind === "super") priority = pet.moves.find((m) => m.signature)?.priority ?? 0.75;
+                else if (command?.kind === "move") priority = pet.moves[command.moveIndex]?.priority ?? 1;
+                rows.push({ pet, mine, key: pet.speed * priority, skipping: pet.skipsNextAction });
+            }
+        };
+        add(lineup.playerField, stateView.player, true);
+        add(lineup.enemyField, stateView.enemy, false);
+        return rows.sort((a, b) => b.key - a.key);
+    }, [stateView, draft, display, lineup.playerField, lineup.enemyField]);
     const commanderMoves = commander?.moves.filter((m) => !m.signature) ?? [];
     const commanderSignature = commander?.moves.find((m) => m.signature) ?? null;
 
     const overlay = (
         <div className="pet-combat-takeover showdown-takeover">
             <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 5.2, 9.6], near: 0.1, far: 80 }}>
-                <StageEnvironment stage={stage} />
-                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} />
+                <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
+                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
@@ -1391,27 +1528,33 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
                 {banner && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
 
-                {/* Temtem-style turn-order strip: who acts next round, fastest first. */}
-                {stateView.nextOrder && stateView.nextOrder.length > 0 && phase !== "finished" && (
+                {/* Turn-order estimate. The engine's real key is speed × the
+                    priority of the CHOSEN move, so this recomputes from the
+                    live draft — picking Guard or a signature visibly moves your
+                    chip. Enemy commands are unknown, so their chips stay at
+                    neutral priority and are marked as such. */}
+                {estimatedOrder.length > 0 && phase !== "finished" && (
                     <div className="showdown-order-strip">
-                        <span className="showdown-order-label">Next</span>
-                        {stateView.nextOrder.map((petId) => {
-                            const pet = [...stateView.player, ...stateView.enemy].find((p) => p.id === petId);
-                            if (!pet || (display[petId]?.ko ?? pet.ko)) return null;
-                            const mine = stateView.player.some((p) => p.id === petId);
-                            return (
-                                <span
-                                    key={petId}
-                                    className={`showdown-order-chip ${mine ? "mine" : "theirs"}`}
-                                    style={{ borderColor: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}
-                                    title={pet.name}
-                                >
-                                    {panelArt[petId]
-                                        ? <img src={panelArt[petId]} alt={pet.name} />
-                                        : pet.name.slice(0, 2)}
-                                </span>
-                            );
-                        })}
+                        <span className="showdown-order-label">Est. order</span>
+                        {estimatedOrder.map((entry) => (
+                            <span
+                                key={entry.pet.id}
+                                className={[
+                                    "showdown-order-chip",
+                                    entry.mine ? "mine" : "theirs",
+                                    entry.skipping ? "skipping" : "",
+                                ].join(" ")}
+                                style={{ borderColor: ELEMENT_TINT[entry.pet.element] ?? ELEMENT_TINT.None }}
+                                title={entry.mine
+                                    ? `${entry.pet.name}${entry.skipping ? " — loses this action" : ""}`
+                                    : `${entry.pet.name} — their action is unknown`}
+                            >
+                                {panelArt[entry.pet.id]
+                                    ? <img src={panelArt[entry.pet.id]} alt={entry.pet.name} />
+                                    : entry.pet.name.slice(0, 2)}
+                                {!entry.mine && <i className="showdown-order-unknown">?</i>}
+                            </span>
+                        ))}
                     </div>
                 )}
 
@@ -1531,11 +1674,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                                 onClick={() => chooseMove(-1, true)}
                                             >
                                                 <span className="showdown-move-icon">⭐</span>
-                                                <span className="showdown-move-name">{commanderSignature.name} ▼</span>
+                                                <span className="showdown-move-name">{commanderSignature.name}</span>
                                                 <span className="showdown-move-sub">
                                                     {sigHolding ? `Unleashes from round ${commanderSignature.hold + 1}`
-                                                        : meterFull ? "SIGNATURE READY!" : "Fill the meter"}
+                                                        : meterFull ? "SIGNATURE READY! · swings last" : "Fill the meter · swings last"}
                                                 </span>
+                                                <span className="showdown-move-effect">{commanderSignature.effect}</span>
                                             </button>
                                         );
                                     })()}
@@ -1570,6 +1714,27 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         )}
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
+                        )}
+                        {/* Squad recap — who actually carried the fight. */}
+                        {recap.length > 0 && (
+                            <div className="showdown-recap">
+                                {recap.map((r) => (
+                                    <div key={r.pet.id} className={`showdown-recap-row ${r.mvp ? "mvp" : ""}`}>
+                                        {panelArt[r.pet.id] && <img src={panelArt[r.pet.id]} alt="" />}
+                                        <span className="showdown-recap-name">
+                                            {r.mvp && <b title="Most damage dealt">👑 </b>}{r.pet.name}
+                                        </span>
+                                        <span className="showdown-recap-stat">{r.dmg} dmg</span>
+                                        {r.kos > 0 && <span className="showdown-recap-stat">{r.kos} KO</span>}
+                                        {r.supers > 0 && <span className="showdown-recap-stat">⭐{r.supers}</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {typeof settlement?.dailyPetWins === "number" && (
+                            <div className="showdown-result-daily">
+                                Daily arena wins {settlement.dailyPetWins}/100
+                            </div>
                         )}
                         {outcome === "win" && settlement?.capped && (
                             <div className="showdown-result-reward capped">Daily arena reward cap reached</div>
@@ -1608,6 +1773,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 }
 
 // ─── Small pure helpers ──────────────────────────────────────────────────────
+
+/** Squad recap rows, best damage first, MVP crowned. Pure — the caller passes
+ *  the tally in, so this never reads a ref during render. */
+function buildRecap(
+    state: ShowdownStateView,
+    tally: Map<string, { dmg: number; kos: number; supers: number }>,
+): { pet: ShowdownPetView; dmg: number; kos: number; supers: number; mvp: boolean }[] {
+    const rows = state.player
+        .map((pet) => ({ pet, ...(tally.get(pet.id) ?? { dmg: 0, kos: 0, supers: 0 }), mvp: false }))
+        .sort((a, b) => b.dmg - a.dmg);
+    if (rows.length && rows[0].dmg > 0) rows[0].mvp = true;
+    return rows;
+}
 
 function buildDisplay(state: ShowdownStateView): Record<string, DisplayEntry> {
     const out: Record<string, DisplayEntry> = {};
