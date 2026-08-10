@@ -109,7 +109,7 @@ const KIND_ICON: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
     burn: "🔥", wound: "🗡️", stun: "🌀", freeze: "❄️", confuse: "😵", debuff: "📉", buff: "📈",
-    shield: "🛡️", mark: "🎯", slow: "🐌", haste: "💨", crush: "💥", taunt: "📢",
+    shield: "🛡️", mark: "🎯", slow: "🐌", haste: "💨", crush: "💥", taunt: "📢", steadfast: "💪",
 };
 
 // Moves that never point at an enemy (mirror of the server's routing).
@@ -1330,7 +1330,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             {!pendingMove && !pickingSwitch && (
                                 <div className="showdown-deck-grid">
                                     {commanderMoves.map((move, i) => {
-                                        const cooling = move.currentCooldown > 0;
+                                        // Temtem gating: stamina + hold only — no cooldowns.
                                         const holding = move.hold > commander.readiness;
                                         const willOverexert = (commanderDisplay?.stamina ?? 100) < move.cost;
                                         const pace = move.priority > 1 ? " ▲" : move.priority < 1 ? " ▼" : "";
@@ -1338,8 +1338,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                             <button
                                                 key={`${move.name}-${i}`}
                                                 type="button"
-                                                disabled={cooling || holding}
-                                                className={`showdown-move ${cooling || holding ? "cooling" : ""} ${willOverexert ? "overexert" : ""}`}
+                                                disabled={holding}
+                                                className={`showdown-move ${holding ? "cooling" : ""} ${willOverexert ? "overexert" : ""}`}
                                                 style={{ borderLeft: `3px solid ${ELEMENT_TINT[commander.element] ?? ELEMENT_TINT.None}` }}
                                                 onClick={() => chooseMove(i, false)}
                                             >
@@ -1347,7 +1347,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                                 <span className="showdown-move-name">{move.name}{pace}</span>
                                                 <span className="showdown-move-sub">
                                                     {holding ? `Charging — round ${move.hold + 1}`
-                                                        : cooling ? `Ready in ${move.currentCooldown}`
                                                         : `${move.power > 0 ? `PWR ${move.power} · ` : ""}${move.cost} STA${willOverexert ? " ⚠" : ""}`}
                                                 </span>
                                             </button>
