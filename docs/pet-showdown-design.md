@@ -433,6 +433,48 @@ strip, combat-reactive stage light, the post-battle stat recap, and gear-proc
 attribution in the battle log. All are additive polish with no correctness or
 balance impact; each is scoped in the audit work order.
 
+## Round 12 — the deferred polish (2026-08-10)
+
+The five items round 11 scoped and deliberately postponed, all built.
+
+**Camera shot variety.** Non-super actions now pick from three windup and
+three strike framings, seeded off the **queue index** (not a wall clock, which
+would pick different shots on replay). Ranged attacks get an off-axis "slot
+line" framing that holds both bodies so the throw travels across frame; melee
+keeps the behind-the-shoulder traverse. A lethal or heavy blow pushes the lens
+in (side 4.8→3.2, height 2.3→1.7). Switches get their own shot tracking the
+arriving pet, and the battle ends on a slow **orbit of the survivor** that
+keeps turning behind the result panel. All framings are clamped inside the
+arena shell, and the portrait pull-back now travels along the look vector
+instead of scaling the position (which used to send low shots into the floor
+and high ones through the backdrop).
+
+**Draft-aware turn-order strip.** The strip recomputes from the live draft,
+mirroring the engine's `speed × chosen-move priority` — so picking Guard or a
+signature visibly re-sorts your chip. A drafted **switch removes the pet from
+the round entirely** (and does not insert the incoming pet, which spends its
+action arriving) — the largest single order change a command can make.
+Skipped pets keep their slot, dimmed and struck through. Enemy chips carry a
+`?` and stay at neutral priority, and the strip is honestly relabelled
+"Est. order" rather than presenting a guess as truth.
+
+**Combat-reactive stage light.** The arena now flinches with the hit: ambient
+and the ember point-light punch off the *camera's own shake envelope*, so
+light and shake can never drift apart, and the ember tints to the attacking
+element for the duration. The key and hemisphere lights are deliberately left
+alone — they carry each painted arena's identity.
+
+**Post-battle recap.** Per-pet damage, KOs and supers, best first, with an MVP
+crown and the daily-win counter that was already on the wire with zero
+consumers. Tallied at **ingest**, not during playback, so fast-forwarding or
+leaving early cannot change the numbers.
+
+**Gear/trait proc attribution.** Named effects (`procs[]` on the target
+payload) now ride each hit: Execute, Mark, Executioner's Talon, Final Bastion,
+Bloodthirster, Hollowborn, Guardian and the damage traits. They used to bend
+damage with nothing on screen to attribute it to. Verified balance-neutral —
+the sim is byte-identical, because attribution only observes.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
