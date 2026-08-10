@@ -163,7 +163,7 @@ const FROZEN = {
         'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks',
         'apexWeekClaimed', 'element', 'elements', 'claimedAwakenings',
         'redeemedAwakeningActions', 'elderFocus', 'activeDungeonRun', 'redeemedDungeonRuns',
-        'redeemedHollowGateRuns', 'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens',
+        'redeemedHollowGateRuns', 'redeemedPetBattleTokens', 'warfrontSettlementReceipts', 'lastWarfrontFirstWinDate', 'redeemedPetExpeditionTokens',
         'claimedServerMissions', 'redeemedPetGauntletRuns', 'petGauntletRewardDate',
         'petGauntletRewardCount', 'petGauntletPremiumDate', 'petGauntletFateClaimed',
         'petGauntletBoneClaimed', 'petGauntletEntryDate', 'petGauntletEntryCount',

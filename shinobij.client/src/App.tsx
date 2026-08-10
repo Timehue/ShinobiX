@@ -167,7 +167,7 @@ const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ d
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { allProgressMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
-import { postPlayerChallengeNotice } from "./lib/player-api";
+import { postPlayerChallengeTerminal } from "./lib/player-api";
 import { EXAM_LEVEL_GATES } from "./constants/game";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
@@ -333,7 +333,18 @@ import {
 } from "./lib/elements";
 
 import { isPetOnExpedition, resolveAvailablePetBattlePair } from "./lib/pet";
-import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
+import {
+    arenaMatchOwnedByPlayer,
+    buildAcceptedArenaMatch,
+    ownArenaMatch,
+    type PlayerOwnedArenaMatch,
+    type WarfrontSetup,
+} from "./lib/arena-challenge";
+import {
+    ingestChallengeInboxEntry,
+    recoveryFromOpaqueArenaNotice,
+    type ArenaPvpRecovery,
+} from "./lib/arena-pvp-recovery";
 import { stopBattleMusic } from "./lib/pet-music";
 
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
@@ -418,6 +429,12 @@ export type DuelChallenge = {
     arenaSize?: 2 | 4;
     challengerTeamIds?: string[];
     responderTeam?: Pet[];
+    challengerWarfrontSetup?: WarfrontSetup;
+    responderWarfrontSetup?: WarfrontSetup;
+    challengerSetupSealed?: boolean;
+    /** Opaque accepted Arena notice: fetch the private canonical reveal through
+     * authenticated GET /api/player/challenge?challengeId=... . */
+    recoveryRequired?: boolean;
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet" | "rankedPet";
     clanWarPoints?: number;
@@ -2075,7 +2092,8 @@ export default function App() {
         const CHALLENGE_TIMEOUT_MS = 180000; // 3 minutes — keep in sync with CHALLENGE_TTL in api/player/challenge.ts
         const id = setInterval(() => {
             setDuelChallenges((current) => {
-                const fresh = current.filter((c) => c.battleId || Date.now() - (c.createdAt ?? 0) < CHALLENGE_TIMEOUT_MS);
+                const fresh = current.filter((c) => c.battleId || c.accepted || c.declined
+                    || Date.now() - (c.createdAt ?? 0) < CHALLENGE_TIMEOUT_MS);
                 return fresh.length === current.length ? current : fresh;
             });
         }, 20000);
@@ -2113,8 +2131,25 @@ export default function App() {
         pushLog: pushHollowGateLog,
         buildRunSummary: buildHollowGateRunSummary,
     });
-    const [pendingArenaMatch, setPendingArenaMatch] = useState<{ blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null>(null); // Tactical Arena PvP match → PetArena
+    const [pendingArenaMatch, setPendingArenaMatch] = useState<PlayerOwnedArenaMatch | null>(null); // Tactical Arena PvP match → PetArena
     const [pendingArenaResponse, setPendingArenaResponse] = useState<DuelChallenge | null>(null); // incoming arena challenge → PetArena responder picker
+    const [pendingArenaRecovery, setPendingArenaRecovery] = useState<ArenaPvpRecovery | null>(null); // opaque accepted notice → authenticated reveal
+    // Cross-screen handoffs are private player-owned state. Clear any envelope
+    // from the previous account in the layout phase, before PetArena can paint
+    // or a passive launch effect can consume it for the new identity.
+    useLayoutEffect(() => {
+        const normalized = character?.name.trim().toLowerCase() ?? "";
+        setPendingArenaMatch((current) => current && arenaMatchOwnedByPlayer(current, normalized) ? current : null);
+        setPendingArenaResponse((current) => {
+            if (!current || current.toName.trim().toLowerCase() === normalized) return current;
+            // Routing to PetArena temporarily suppresses the inbox card. If the
+            // account changes before Accept/Decline commits, let the original
+            // player's heartbeat restore that still-live challenge later.
+            dismissedChallengeIdsRef.current.delete(current.id);
+            return null;
+        });
+        setPendingArenaRecovery((current) => current && current.playerName.trim().toLowerCase() === normalized ? current : null);
+    }, [character?.name]);
     // IDs of challenges the user already handled (accepted / declined /
     // consumed an accepted-or-declined notice). Both the realtime push and the
     // heartbeat poll re-merge from the server, which keeps each challenge for a
@@ -2128,6 +2163,12 @@ export default function App() {
         if (!id) return;
         dismissedChallengeIdsRef.current.add(id);
         setDuelChallenges(prev => prev.filter(c => c.id !== id));
+    }, []);
+    const restoreChallengeLocally = useCallback((challenge: DuelChallenge) => {
+        dismissedChallengeIdsRef.current.delete(challenge.id);
+        setDuelChallenges((current) => current.some((candidate) => candidate.id === challenge.id)
+            ? current
+            : [challenge, ...current]);
     }, []);
 
     // Auto-report a clan-war battle result on behalf of the actual
@@ -2615,9 +2656,14 @@ export default function App() {
                     setDuelChallenges((current) => {
                         const myNameLower = char.name.toLowerCase();
                         const incoming = data.pendingChallenges!
-                            .filter((challenge) => challenge.toName.toLowerCase() === myNameLower)
+                            .filter((challenge) => typeof challenge?.toName === "string"
+                                && challenge.toName.toLowerCase() === myNameLower)
                             .filter((challenge) => !dismissedChallengeIdsRef.current.has(challenge.id))
-                            .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
+                            .map((challenge) => ingestChallengeInboxEntry(
+                                challenge,
+                                (challenger) => normalizeCharacter(challenger as Character),
+                            ) as DuelChallenge | null)
+                            .filter((challenge): challenge is DuelChallenge => Boolean(challenge));
                         if (!incoming.length) return current;
                         const merged = current.filter((existing) => !incoming.some((challenge) => challenge.id === existing.id));
                         return [...merged, ...incoming];
@@ -2708,22 +2754,23 @@ export default function App() {
         }).catch(() => {});
     }
 
-    function declineChallengeGlobal(challenge: DuelChallenge) {
+    async function declineChallengeGlobal(challenge: DuelChallenge) {
+        if (!character || processingChallengeIds.includes(challenge.id)) return;
+        setProcessingChallengeIds((current) => [...current, challenge.id]);
         dismissChallengeLocally(challenge.id);
-        void clearChallengeOnServer(challenge);
-        fetch('/api/player/challenge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                targetName: challenge.fromName,
-                challenge: {
-                    ...challenge,
-                    declined: true,
-                    fromName: character?.name ?? challenge.toName,
-                    toName: challenge.fromName,
-                },
-            }),
-        }).catch(() => {});
+        const terminal: DuelChallenge = {
+            ...challenge,
+            accepted: false,
+            declined: true,
+            fromName: character.name,
+            toName: challenge.fromName,
+        };
+        const committed = await postPlayerChallengeTerminal(challenge, terminal);
+        if (!committed) {
+            restoreChallengeLocally(challenge);
+            alert("That challenge could not be declined because its live authorization changed. It remains in your inbox.");
+        }
+        setProcessingChallengeIds((current) => current.filter((id) => id !== challenge.id));
     }
 
     async function acceptPetChallengeGlobal(challenge: DuelChallenge) {
@@ -2740,7 +2787,6 @@ export default function App() {
                 return;
             }
             dismissChallengeLocally(challenge.id);
-            void clearChallengeOnServer(challenge);
             setPendingArenaResponse(challenge);
             setScreen("petArena");
             return;
@@ -2787,7 +2833,6 @@ export default function App() {
 
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         dismissChallengeLocally(challenge.id);
-        await clearChallengeOnServer(challenge);
         const isRanked = challenge.mode === "rankedPet";
         const acceptedNotice: DuelChallenge = {
             ...challenge,
@@ -2805,7 +2850,15 @@ export default function App() {
                 responderParty: myParty,
             } : {}),
         };
-        const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
+        // Commit acceptance before deleting the incoming row: the server uses
+        // the challenger's still-live outgoing record as the authorization.
+        const notified = await postPlayerChallengeTerminal(challenge, acceptedNotice);
+        if (!notified) {
+            restoreChallengeLocally(challenge);
+            setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
+            alert(`${challenge.fromName}'s challenge changed or expired before acceptance. It was not started.`);
+            return;
+        }
         const opponentForResume: PetArenaOpponent = {
             owner: challenge.fromName,
             pet: challengerPet,
@@ -2838,7 +2891,6 @@ export default function App() {
         setPendingPetBattleOpponent(opponentForResume);
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
-        if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Coliseum if they do not see the fight.`);
     }
 
     // Fetch full server player list (includes offline players from registry)
@@ -2948,9 +3000,23 @@ export default function App() {
         dismissChallengeLocally(accepted.id);
         void clearChallengeOnServer(accepted);
         if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
-            const match = buildAcceptedArenaMatch(accepted);
-            if (match) setPendingArenaMatch(match);
-            else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge. Open the Pet Coliseum if it doesn't start.`);
+            // The public inbox carries only this opaque wake-up marker. Never
+            // touch absent teams/setups before fetching the authenticated
+            // participant-only reveal by challenge id.
+            if (accepted.recoveryRequired === true) {
+                const recovery = recoveryFromOpaqueArenaNotice(accepted, character.name);
+                setPendingArenaMatch(null);
+                if (recovery) setPendingArenaRecovery(recovery);
+                else alert("That Arena acceptance notice was malformed and was not opened. Ask the other player to resend it.");
+            } else {
+                // Compatibility with an authenticated/direct accepted response:
+                // even here the parser fails closed and the envelope owns the
+                // private reveal to this exact normalized account.
+                const match = buildAcceptedArenaMatch(accepted);
+                const owned = match ? ownArenaMatch(match, character.name, accepted.id) : null;
+                if (owned) setPendingArenaMatch(owned);
+                else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge, but its authenticated recovery marker was missing. Ask them to resend rather than starting an unverified replay.`);
+            }
             setScreen("petArena");
             return;
         }
@@ -3118,7 +3184,11 @@ export default function App() {
             const battleId = acceptData.battleId;
             if (acceptData.session) setPvpSeedSession(acceptData.session);
             // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
-            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
+            const notified = await postPlayerChallengeTerminal(challenge, {
+                ...challenge, battleId, accepted: true, declined: false,
+                fromName: character.name, toName: challenge.fromName,
+            });
+            if (!notified) throw new Error("Challenge acceptance was not authorized.");
             setPvpBattleId(battleId);
             setPvpRole("p2");
             setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
@@ -3131,9 +3201,8 @@ export default function App() {
                 }).catch(() => {});
             }
             setScreen("pvpBattle");
-            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
-            setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
+            restoreChallengeLocally(challenge);
             alert(`${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
@@ -7135,7 +7204,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} pendingArenaRecovery={pendingArenaRecovery} onPendingArenaRecoveryHandled={() => setPendingArenaRecovery(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];

@@ -24,11 +24,17 @@ export const BIG_BODY_RE =
 // stops the oversized body before it is buffered/parsed.
 export const SAVE_BODY_RE = /(?:^|\/)save(?:\/|$)/;
 
-export type BodyLimitClass = 'big' | 'save' | 'default';
+// Challenge notices are intentionally much smaller than general gameplay JSON.
+// A separate class rejects multi-megabyte inbox amplification at the parser
+// boundary, before Express allocates and synchronously parses a 5 MB object.
+export const CHALLENGE_BODY_RE = /(?:^|\/)player\/challenge(?:\/|$)/;
+
+export type BodyLimitClass = 'big' | 'save' | 'challenge' | 'default';
 
 /** Which JSON body-size limit a request path should be parsed under. */
 export function classifyBodyLimit(path: string): BodyLimitClass {
     if (BIG_BODY_RE.test(path)) return 'big';
     if (SAVE_BODY_RE.test(path)) return 'save';
+    if (CHALLENGE_BODY_RE.test(path)) return 'challenge';
     return 'default';
 }

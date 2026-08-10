@@ -42,9 +42,43 @@ const _readCache = new Map<string, CacheEntry>();
 const _CACHE_MAX_ENTRIES = 5000;
 
 // These prefixes change too rapidly to benefit from caching.
-const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:'];
+const _noCachePrefixes = [
+    // Saves are mutable economy ledgers. Distributed save locks coordinate
+    // writers across processes, but a worker-local cached read inside the lock
+    // can still overwrite a prior worker's committed receipt or unrelated
+    // character field. Every lock holder must therefore read the backing store.
+    'save:',
+    'presence:',
+    'challenges:',
+    'challenge-outgoing:',
+    'challenge-terminal:',
+    'arena-challenge-setup:',
+    // Co-op lobbies and accepted Arena-match recovery records are shared,
+    // mutable coordination state. A worker-local cached snapshot can otherwise
+    // overwrite a newer join/start or hide a terminal reveal from another
+    // worker even while both writers correctly hold the distributed lock.
+    'arena:lobby:',
+    'arena-match-recovery:',
+    // PvP sessions are cross-worker live state and now also authorize battleId
+    // routing notices. A ten-second worker-local snapshot could route a player
+    // into a match that already ended or miss the latest active session.
+    'pvp:',
+    'reset-signal:',
+    'admin-lock:',
+    'auth:',
+    'auth-session:',
+    'world:travel-lease:',
+    // Security-sensitive Warfront grants, active leases, decision paths, and
+    // one-use battle tokens must always observe the backing store. A stale
+    // process-local read can otherwise reopen or fork an authorization.
+    'pet:warfront-prepared:',
+    'pet:warfront-active:',
+    'pet:warfront-authorization:',
+    'pet:warfront-council:',
+    'pet:battle-token:',
+];
 
-function _shouldCache(key: string): boolean {
+export function _shouldCache(key: string): boolean {
     return !_noCachePrefixes.some(p => key.startsWith(p));
 }
 
