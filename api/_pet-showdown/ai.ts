@@ -17,7 +17,6 @@ import { PET_CATALOG } from '../pet/_catalog.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_ELEMENT_BEATS,
-    SHOWDOWN_MAX_STAMINA,
     SHOWDOWN_METER_MAX,
     type ShowdownCommand,
     type ShowdownTier,
@@ -206,7 +205,7 @@ function choosePetCommand(
 
     // Low stamina: rest rather than overexert — except champion smells blood and
     // will overexert deliberately to close a kill.
-    if (!affordable.length || pet.stamina < SHOWDOWN_MAX_STAMINA * 0.28) {
+    if (!affordable.length || pet.stamina < pet.maxStamina * 0.28) {
         const killPower = ready.filter(({ m }) => m.power > 0)
             .sort((a, b) => b.m.power - a.m.power)[0];
         const canExecute = tier === 'champion' && killPower && target.hp / target.maxHp < 0.22;

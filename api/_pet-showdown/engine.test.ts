@@ -122,6 +122,23 @@ test('overexertion fires the move but winds the pet for the next round', () => {
     assert.ok(skip, 'the wind costs the next-round action');
 });
 
+test('overdrafting pays HP for the deficit (the Temtem chip) and the pool is a bulk-derived stat', () => {
+    const session = makeSession([makePet('a', { speed: 200 })], [makePet('b', { speed: 10, attack: 1, hp: 6000 })]);
+    const pet = session.player[0];
+    assert.ok(pet.maxStamina >= 80 && pet.maxStamina <= 125, `pool is a stat (${pet.maxStamina})`);
+    const hpBefore = pet.hp;
+    pet.stamina = 4;   // deficit of (cost - 4) on any real move
+    const events = resolveShowdownRound(session, [
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+    ], [{ kind: 'rest', petId: 'b' }]);
+    const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+    assert.ok(action);
+    assert.equal(action.overexerted, true);
+    assert.ok((action.overexertDamage ?? 0) > 0, 'the deficit drew blood');
+    assert.ok(pet.hp < hpBefore, 'the actor paid HP');
+    assert.ok((action.targets[0]?.damage ?? 0) > 0, 'the move still fired');
+});
+
 test('guarding halves incoming damage and reads back in the event', () => {
     const damageWith = (guarding: boolean): number => {
         const session = makeSession(

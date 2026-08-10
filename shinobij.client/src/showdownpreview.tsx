@@ -41,6 +41,7 @@ function petView(pet: Pet, hp?: number): ShowdownPetView {
         hp: hp ?? maxHp,
         maxHp,
         stamina: 100,
+        maxStamina: 100,
         meter: 0,
         ko: (hp ?? maxHp) <= 0,
         guarding: false,
