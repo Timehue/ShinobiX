@@ -25,8 +25,8 @@ import {
     SHOWDOWN_GUARD_MULT,
     SHOWDOWN_HOLD_HEAVY,
     SHOWDOWN_HOLD_SUPER,
-    SHOWDOWN_MAX_ROUNDS,
     SHOWDOWN_MAX_TEAM,
+    showdownRoundCap,
     SHOWDOWN_OVERDRAFT_HP_PER_POINT,
     SHOWDOWN_PRIORITY_GUARD,
     SHOWDOWN_PRIORITY_HEAVY,
@@ -168,6 +168,36 @@ const clampInt = (n: unknown, lo: number, hi: number, fallback: number): number 
     return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : fallback;
 };
 
+/*
+ * Pet identity arrives from player saves, so every string that indexes a
+ * lookup table is untrusted. `??` does NOT protect these: an id/role/trait of
+ * 'constructor' or '__proto__' resolves to an inherited Object.prototype
+ * member — non-nullish, non-numeric — which propagated NaN through the damage
+ * math until `hp <= 0` could never be true (an unkillable pet on a reward
+ * path). Every table read goes through hasOwn/mult, and every identity field
+ * is allowlisted below.
+ */
+const hasOwn = (obj: object, key: string): boolean => Object.prototype.hasOwnProperty.call(obj, key);
+
+/** Own-property numeric table read; anything else falls back. */
+const tableMult = (table: Record<string, number>, key: string, fallback = 1): number => {
+    if (!hasOwn(table, key)) return fallback;
+    const n = table[key];
+    return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
+};
+
+/** The move list to seal from: an override kit, else the pet's own jutsus. */
+function jutsuList(
+    override: Array<{ name: string; power: number; kind: string; signature?: boolean }> | undefined,
+    rawJutsus: unknown,
+): Array<{ name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }> {
+    if (override) return override;
+    if (!Array.isArray(rawJutsus)) return [];
+    return rawJutsus.filter((j) => j && typeof j.name === 'string');
+}
+
+const ELEMENT_OK: ReadonlySet<string> = new Set([...Object.keys(SHOWDOWN_ELEMENT_BEATS), 'None']);
+
 /** Turn-denial kinds: without cooldowns these chain into perma-lock, so they
  *  pay heavy stamina, carry a hold, and their victims gain brief immunity. */
 const CONTROL_KINDS = new Set(['stun', 'freeze', 'confuse']);
@@ -190,6 +220,68 @@ const KNOWN_KINDS = new Set([
     'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark',
     'slow', 'haste', 'taunt', 'push', 'pull',
 ]);
+
+/*
+ * KIND_FX — the single source of truth for what a move kind DOES.
+ *
+ * `mult` is the fraction of the listed power that lands as immediate damage.
+ * This was previously a pile of inline literals in the resolution switch,
+ * invisible to the player: a 168-power stun lands 84 damage while a 138-power
+ * strike lands 138 — 39% less damage for 37% more stamina, with nothing on
+ * screen explaining why. `blurb` is rendered on the move button so the
+ * trade-off is legible. `store` is the status kind actually written (several
+ * kinds are stored under a different name — see storedStatusKind).
+ */
+interface KindFx { mult: number; rounds: number; store?: string; blurb: string }
+export const KIND_FX: Record<string, KindFx> = {
+    damage:    { mult: 1.0,  rounds: 0, blurb: 'Straight damage' },
+    crush:     { mult: 1.1,  rounds: 2, blurb: 'Heavy hit, lowers DEF 2 rounds' },
+    lifesteal: { mult: 1.0,  rounds: 0, blurb: 'Heals you for half the damage' },
+    push:      { mult: 0.85, rounds: 0, blurb: 'Hits and drains foe stamina' },
+    pull:      { mult: 0.85, rounds: 0, blurb: 'Hits and drains foe stamina' },
+    dot:       { mult: 0.82, rounds: 2, store: 'burn', blurb: 'Burns for 2 more rounds' },
+    burn:      { mult: 0.82, rounds: 2, blurb: 'Burns for 2 more rounds' },
+    wound:     { mult: 0.82, rounds: 2, blurb: 'Bleeds and halves foe healing' },
+    stun:      { mult: 0.5,  rounds: 1, blurb: 'Steals the foe\'s next action' },
+    freeze:    { mult: 0.6,  rounds: 1, blurb: 'Foe may lose its next action' },
+    confuse:   { mult: 0.6,  rounds: 2, blurb: 'Foe may hit itself, 2 rounds' },
+    debuff:    { mult: 0.4,  rounds: 2, blurb: 'Weakens foe ATK 2 rounds' },
+    mark:      { mult: 0.4,  rounds: 3, blurb: 'Next hit on the foe hits harder' },
+    slow:      { mult: 0.4,  rounds: 2, blurb: 'Slows the foe 2 rounds' },
+    movelock:  { mult: 0.4,  rounds: 2, store: 'slow', blurb: 'Slows the foe 2 rounds' },
+    buff:      { mult: 0,    rounds: 2, blurb: 'Raises your ATK' },
+    haste:     { mult: 0,    rounds: 2, blurb: 'Raises your speed' },
+    move:      { mult: 0,    rounds: 2, store: 'haste', blurb: 'Raises your speed' },
+    shield:    { mult: 0,    rounds: 2, blurb: 'Absorbs incoming damage' },
+    barrier:   { mult: 0,    rounds: 2, store: 'shield', blurb: 'Absorbs incoming damage' },
+    absorb:    { mult: 0,    rounds: 2, store: 'shield', blurb: 'Absorbs incoming damage' },
+    taunt:     { mult: 0,    rounds: 1, blurb: 'Draws the foes\' attacks to you' },
+    heal:      { mult: 0,    rounds: 0, blurb: 'Restores HP' },
+};
+
+/**
+ * The status kind a move actually STORES. Several kinds are written under a
+ * different name (barrier/absorb -> shield, dot -> burn, move -> haste,
+ * movelock -> slow), and taunt degenerates to a self-guard in solo formats.
+ * Both the engine and the AI read this, so they cannot drift apart — the AI
+ * previously checked for a 'barrier' status that the engine never writes,
+ * which made its "already applied" penalty dead and turned barrier into 24.8%
+ * of all its commands.
+ */
+export function storedStatusKind(kind: string, format?: ShowdownFormat, foeCount = 2): string {
+    if (kind === 'taunt') return (foeCount > 1 || format !== '1v1') ? 'taunt' : 'tauntGuard';
+    return (hasOwn(KIND_FX, kind) && KIND_FX[kind].store) || kind;
+}
+
+/** Server-authored effect line for the move button. Never computed client-side. */
+export function moveEffectText(kind: string, power: number): string {
+    if (!hasOwn(KIND_FX, kind)) return 'Straight damage';
+    const fx = KIND_FX[kind];
+    if (kind === 'heal') return `Restores ~${Math.round(Math.min(0.3, Math.max(60, power) / 700) * 100)}% max HP`;
+    if (fx.mult === 0) return fx.blurb;
+    if (fx.mult === 1) return fx.blurb;
+    return `${fx.blurb} · ${Math.round(fx.mult * 100)}% hit`;
+}
 
 /*
  * Species stat-budget normalization. Same-rarity catalog species differ by up
@@ -401,42 +493,62 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const level = clampInt(raw.level, 1, 100, 1);
     const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
     const overrideKeyEarly = String(raw.templateId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
+    // hasOwnProperty, NOT a bare index: a pet id of 'constructor' or
+    // '__proto__' otherwise resolves to an inherited Object.prototype member,
+    // which reached `.filter` as a function and 500'd the start endpoint.
+    const kitOverride = hasOwn(SHOWDOWN_KIT_OVERRIDES, overrideKeyEarly)
+        ? SHOWDOWN_KIT_OVERRIDES[overrideKeyEarly]
+        : undefined;
     // Overridden kits are authored at correct tier power — normalizing them
     // against the species' OLD broken catalog kit would double-correct.
-    const kitNorm = SHOWDOWN_KIT_OVERRIDES[overrideKeyEarly]
-        ? 1
-        : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const kitNorm = kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
     const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
 
-    const kitOverride = SHOWDOWN_KIT_OVERRIDES[overrideKeyEarly];
-    const jutsus = kitOverride ?? (Array.isArray(raw.jutsus) ? raw.jutsus : []);
-    const sealedJutsus: ShowdownMove[] = jutsus
-        .filter((j) => j && typeof j.name === 'string')
-        .slice(0, 5)
-        .map((j) => {
-            const power = clampInt(Math.round((Number(j.power) || 0) * kitNorm), 0, powerCeil, 0);
-            const kind = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
-            return {
-                name: String(j.name).slice(0, 48),
-                power,
-                kind,
-                cost: moveStaminaCost(power, kind),
-                signature: j.signature === true,
-                priority: movePriority(power, kind),
-                hold: moveHold(power, kind),
-            };
-        });
+    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }): ShowdownMove => {
+        const power = clampInt(Math.round((Number(j.power) || 0) * kitNorm), 0, powerCeil, 0);
+        const kind = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
+        return {
+            name: String(j.name).slice(0, 48),
+            power,
+            kind,
+            cost: moveStaminaCost(power, kind),
+            signature: j.signature === true,
+            priority: movePriority(power, kind),
+            hold: moveHold(power, kind),
+        };
+    };
 
-    // The flagged signature is reserved for the super; everything else is the kit.
-    const authoredSignature = sealedJutsus.find((m) => m.signature);
-    const signatureMove = authoredSignature
-        ? { ...authoredSignature, priority: SHOWDOWN_PRIORITY_SUPER, hold: SHOWDOWN_HOLD_SUPER }
-        : synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
-    // Exclude by the ORIGINAL sealed entry — signatureMove may be a copy with
-    // super priority/hold applied, and identity comparison must still hit.
-    const kit = sealedJutsus.filter((m) => m !== authoredSignature && m.kind !== 'move').slice(0, 4);
+    // The authored signature is found on the FULL named list, never on a
+    // sliced one: _catalog.ts authors the signature LAST, so an early
+    // slice(0,5) silently dropped it for 87 of 140 species and replaced their
+    // named finisher ("Lunar Eclipse: Ninetail Requiem") with a generic
+    // "<Element> Overdrive".
+    const named = jutsuList(kitOverride, raw.jutsus);
+    const sigRaw = named.find((j) => j.signature === true);
+    // The 'move' filter MUST run before the slice, or every rare/legendary
+    // loses a kit slot (and its element move) to a mobility entry.
+    const kit = named
+        .filter((j) => j !== sigRaw && String(j.kind) !== 'move')
+        .slice(0, 4)
+        .map(sealMove);
+
+    const synth = synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
+    const signatureMove: ShowdownMove = sigRaw
+        ? {
+            ...sealMove(sigRaw),
+            // Power FLOOR — never a nerf, never a buff above the synthesized
+            // tier value. Authored raws (90-152) sit below the synth floors
+            // (230-324), so every sealed power is byte-identical to before;
+            // only the displayed NAME changes.
+            power: Math.max(sealMove(sigRaw).power, synth.power),
+            kind: 'damage',
+            signature: true,
+            priority: SHOWDOWN_PRIORITY_SUPER,
+            hold: SHOWDOWN_HOLD_SUPER,
+        }
+        : synth;
 
     const defense = clampInt(scaled(raw.defense, 28), 1, petStatCeil(rarity, 'defense'), 28);
     // The stamina pool is a STAT (the Temtem model): bulk buys endurance.
@@ -447,8 +559,8 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         id: String(raw.id),
         name: String(raw.nickname || raw.name || 'Companion').slice(0, 32),
         ...(typeof raw.templateId === 'string' && raw.templateId ? { templateId: raw.templateId } : {}),
-        element: typeof raw.element === 'string' ? raw.element : 'None',
-        role: typeof raw.role === 'string' ? raw.role : 'defender',
+        element: ELEMENT_OK.has(String(raw.element)) ? String(raw.element) : 'None',
+        role: ROLE_OK.has(String(raw.role)) ? String(raw.role) : 'defender',
         rarity,
         level,
         hp: maxHp,
@@ -459,13 +571,13 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         stamina: maxStamina,
         maxStamina,
         // Battleborn pets enter the arena with meter already burning.
-        meter: TRAIT_FX.startMeter[String(raw.trait ?? '')] ?? 0,
+        meter: tableMult(TRAIT_FX.startMeter, String(raw.trait ?? ''), 0),
         ko: false,
         guarding: false,
         benched: false,
         winded: false,
         readiness: 0,
-        ...(typeof raw.trait === 'string' && raw.trait ? { trait: raw.trait } : {}),
+        ...(TRAIT_OK.has(String(raw.trait)) ? { trait: String(raw.trait) } : {}),
         ...(gearDef ? {
             gear: {
                 name: gearDef.name,
@@ -554,11 +666,17 @@ const TRAIT_FX = {
     /** Boonbringer amplifies the ally-synergy bonus it benefits from. */
     synergyMult: { Boonbringer: 1.2 } as Record<string, number>,
 };
+/** Every trait the engine recognizes — the seal allowlist. */
+const TRAIT_OK: ReadonlySet<string> = new Set(
+    Object.values(TRAIT_FX).flatMap((table) => Object.keys(table)),
+);
+/** Roles come from the shared role taxonomy, never a hardcoded list. */
+const ROLE_OK: ReadonlySet<string> = new Set(['defender', 'tracker', 'assassin', 'sage']);
 const traitOf = (p: ShowdownPet): string => p.trait ?? '';
 
 const effAttack = (p: ShowdownPet) => p.attack * statusMult(p, { buff: 1.25, debuff: 0.8, burn: 0.9 });
 const effDefense = (p: ShowdownPet) => p.defense * statusMult(p, { crush: 0.8, tauntGuard: 1.2 });
-const effSpeed = (p: ShowdownPet) => p.speed * statusMult(p, { haste: 1.25, slow: 0.75, movelock: 0.7 }) * (TRAIT_FX.speed[traitOf(p)] ?? 1);
+const effSpeed = (p: ShowdownPet) => p.speed * statusMult(p, { haste: 1.25, slow: 0.75, movelock: 0.7 }) * tableMult(TRAIT_FX.speed, traitOf(p));
 
 function elementMult(attacker: string, defender: string): number {
     if (SHOWDOWN_ELEMENT_BEATS[attacker] === defender) return SHOWDOWN_ELEMENT_ADVANTAGE;
@@ -569,6 +687,13 @@ function elementMult(attacker: string, defender: string): number {
 // ─── Round resolution ────────────────────────────────────────────────────────
 
 type Side = 'player' | 'enemy';
+
+/** The round cap for THIS session — extended per benched reserve, since a
+ *  team that feeds reserves in one at a time needs more rounds to resolve. */
+export function sessionRoundCap(session: ShowdownSession): number {
+    const fieldSize = SHOWDOWN_FORMAT_SIZE[session.format];
+    return showdownRoundCap(Math.max(session.player.length, session.enemy.length), fieldSize);
+}
 
 /** Living FIELD pets — the ones who can act and be targeted. */
 function livingOf(session: ShowdownSession, side: Side): ShowdownPet[] {
@@ -597,7 +722,7 @@ function addStatus(session: ShowdownSession, pet: ShowdownPet, kind: string, rou
 
 function gainMeter(pet: ShowdownPet, amount: number): void {
     if (pet.ko) return;
-    const traitMult = TRAIT_FX.meterGain[traitOf(pet)] ?? 1;
+    const traitMult = tableMult(TRAIT_FX.meterGain, traitOf(pet));
     pet.meter = Math.min(SHOWDOWN_METER_MAX, Math.round(pet.meter + amount * traitMult));
 }
 
@@ -617,7 +742,8 @@ function soakThroughShields(pet: ShowdownPet, damage: number): number {
 }
 
 function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: number, grantMeter = true): { dealt: number; ko: boolean } {
-    const dealt = Math.max(0, Math.round(soakThroughShields(target, amount)));
+    const soaked = soakThroughShields(target, Number.isFinite(amount) ? amount : 0);
+    const dealt = Number.isFinite(soaked) ? Math.max(0, Math.round(soaked)) : 0;
     target.hp = Math.max(0, target.hp - dealt);
     if (target.hp <= 0 && !target.ko) {
         target.ko = true;
@@ -634,7 +760,8 @@ function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: numb
 
 function applyHeal(target: ShowdownPet, amount: number): number {
     if (target.ko) return 0;
-    const halved = hasStatus(target, 'wound') ? Math.round(amount * 0.5) : amount;
+    const safe = Number.isFinite(amount) ? amount : 0;
+    const halved = hasStatus(target, 'wound') ? Math.round(safe * 0.5) : safe;
     const healed = Math.min(target.maxHp - target.hp, Math.max(0, Math.round(halved)));
     target.hp += healed;
     return healed;
@@ -650,7 +777,7 @@ function applyHeal(target: ShowdownPet, amount: number): number {
 // (damage ∝ atk/def) where attack, defense, and hp all carry equal marginal
 // weight, so every training focus is a real choice. REF_DEF anchors the
 // magnitude so a typical mid-game hit lands in the same range as before.
-const DAMAGE_SCALE = 3.0;
+const DAMAGE_SCALE = 2.65;
 const REF_DEF = 52;
 /** Assassin execute instinct: bonus damage against bloodied targets — the
  * burst identity the role's glass-cannon statline pays for. */
@@ -670,7 +797,7 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
 const ROLE_DAMAGE_MULT: Record<string, number> = {
     tracker: 0.82,
     assassin: 1.02,
-    sage: 1.04,
+    sage: 1.1,
     defender: 1.32,
 };
 const SAGE_HEAL_MULT = 1.15;
@@ -686,25 +813,25 @@ const SAGE_HEAL_MULT = 1.15;
  *  is the progression knob that keeps a mythic feeling mythic. */
 const RARITY_DAMAGE_TIER: Record<string, number> = {
     standard: 1,
-    rare: 1.04,
-    legendary: 1.1,
-    mythic: 1.26,
+    rare: 1.06,
+    legendary: 1.09,
+    mythic: 1.18,
 };
 
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.26,
-    Water: 1.08,
-    Wind: 1.0,
-    Earth: 0.9,
-    Lightning: 0.93,
+    Fire: 1.52,
+    Water: 1.0,
+    Wind: 1.06,
+    Earth: 0.82,
+    Lightning: 0.9,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
 const ELEMENT_TAKEN_MULT: Record<string, number> = {
-    Fire: 0.82,
-    Water: 0.97,
-    Wind: 1.0,
-    Earth: 1.02,
+    Fire: 0.70,
+    Water: 1.01,
+    Wind: 1.06,
+    Earth: 1.08,
     Lightning: 1.02,
 };
 
@@ -715,13 +842,13 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     // ±8% in 16 discrete steps — the genre-proven roll (Pokémon's 85-100 band):
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
     // Lucky shifts the whole window up.
-    const variance = 0.92 + (TRAIT_FX.varianceShift[traitOf(attacker)] ?? 0) + Math.floor(nextRand(session) * 16) * 0.01;
+    const variance = 0.92 + tableMult(TRAIT_FX.varianceShift, traitOf(attacker), 0) + Math.floor(nextRand(session) * 16) * 0.01;
     let mult = elementMult(attacker.element, defender.element) * timingMult * variance * extraMult
-        * (ROLE_DAMAGE_MULT[attacker.role] ?? 1)
-        * (ELEMENT_DAMAGE_MULT[attacker.element] ?? 1)
-        * (ELEMENT_TAKEN_MULT[defender.element] ?? 1)
-        * (TRAIT_FX.damageOut[traitOf(attacker)] ?? 1)
-        * (RARITY_DAMAGE_TIER[attacker.rarity] ?? 1) / (RARITY_DAMAGE_TIER[defender.rarity] ?? 1);
+        * tableMult(ROLE_DAMAGE_MULT, attacker.role)
+        * tableMult(ELEMENT_DAMAGE_MULT, attacker.element)
+        * tableMult(ELEMENT_TAKEN_MULT, defender.element)
+        * tableMult(TRAIT_FX.damageOut, traitOf(attacker))
+        * tableMult(RARITY_DAMAGE_TIER, attacker.rarity) / tableMult(RARITY_DAMAGE_TIER, defender.rarity);
     if (attacker.role === 'assassin' && defender.hp / defender.maxHp < ASSASSIN_EXECUTE_HP) {
         mult *= ASSASSIN_EXECUTE_MULT;
     }
@@ -743,8 +870,10 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
         defender.statuses = defender.statuses.filter((s) => s !== mark);
     }
     // Guardian pets block harder than the standard guard.
-    if (defender.guarding) mult *= TRAIT_FX.guardMult[traitOf(defender)] ?? SHOWDOWN_GUARD_MULT;
-    return Math.max(power > 0 ? 1 : 0, Math.round(base * mult));
+    if (defender.guarding) mult *= tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT);
+    const out = Math.round(base * mult);
+    // Final NaN backstop: a non-finite result would make hp <= 0 unreachable.
+    return Number.isFinite(out) ? Math.max(power > 0 ? 1 : 0, out) : 0;
 }
 
 /** Retarget through taunt: 2v2+ taunters drag single-target hostiles onto themselves. */
@@ -761,7 +890,9 @@ function resolveAllyTarget(session: ShowdownSession, actorSide: Side, requestedI
     return allies.find((p) => p.id === requestedId) ?? actor;
 }
 
-const SELF_KINDS = new Set(['buff', 'haste', 'move', 'shield', 'barrier', 'absorb', 'taunt']);
+/** Kinds whose status lands on the ACTOR, not the target. Exported so the AI
+ *  checks the same pet the engine writes to. */
+export const SELF_KINDS = new Set(['buff', 'haste', 'move', 'shield', 'barrier', 'absorb', 'taunt']);
 const ALLY_KINDS = new Set(['heal']);
 
 function deliveryFor(kind: string, role: string): 'melee' | 'ranged' | 'self' {
@@ -824,12 +955,12 @@ function executeMove(
         // formats have no ally, so no bonus.
         const synergy = livingOf(session, actorSide)
             .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
-        const synergyMult = synergy ? (TRAIT_FX.synergyMult[traitOf(actor)] ?? SHOWDOWN_SYNERGY_MULT) : 1;
+        const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
         const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergyMult);
         const { dealt, ko } = applyDamage(session, target, dmg);
         if (dealt > 0) gainMeter(actor, SHOWDOWN_METER_ON_HIT_DEALT);
         // Hollowborn drinks a slice of every hit it lands.
-        const drain = TRAIT_FX.lifedrainPct[traitOf(actor)] ?? 0;
+        const drain = tableMult(TRAIT_FX.lifedrainPct, traitOf(actor), 0);
         if (dealt > 0 && drain > 0) applyHeal(actor, dealt * drain);
         // Gear procs on plain strikes: on-hit poison and gear lifesteal.
         const gear = actor.gear;
@@ -854,22 +985,18 @@ function executeMove(
     };
 
     if (SELF_KINDS.has(kind)) {
-        // Self moves: apply the status to the actor.
-        switch (kind) {
+        // Self moves: apply the status to the actor. The stored kind comes
+        // from storedStatusKind so the engine and the AI cannot disagree.
+        const foes = livingOf(session, actorSide === 'player' ? 'enemy' : 'player');
+        const stored = storedStatusKind(kind, session.format, foes.length);
+        switch (stored) {
             case 'buff': addStatus(session, actor, 'buff', move.power > 150 ? 3 : 2, 1.25); break;
-            case 'haste':
-            case 'move': addStatus(session, actor, 'haste', 2, 1.25); break;
-            case 'shield':
-            case 'barrier':
-            case 'absorb': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 1.05))); break;
-            case 'taunt': {
-                const foes = livingOf(session, actorSide === 'player' ? 'enemy' : 'player');
-                if (foes.length > 1 || session.format !== '1v1') addStatus(session, actor, 'taunt', 1, 1);
-                else addStatus(session, actor, 'tauntGuard', 1, 1.2);
-                break;
-            }
+            case 'haste': addStatus(session, actor, 'haste', 2, 1.25); break;
+            case 'shield': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 1.05))); break;
+            case 'taunt': addStatus(session, actor, 'taunt', 1, 1); break;
+            case 'tauntGuard': addStatus(session, actor, 'tauntGuard', 1, 1.2); break;
         }
-        targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: kind === 'move' ? 'haste' : kind });
+        targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: stored });
     } else if (kind === 'heal') {
         const ally = resolveAllyTarget(session, actorSide, action.targetId, actor);
         // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the 2.2x
@@ -909,7 +1036,7 @@ function executeMove(
                     // old 0.75/0.20 premium still under-paid for the delay (dot
                     // carriers at ~30% win rate, burn ~43%).
                     applyOffensiveHit(target, 0.82, kind);
-                    if (!target.ko) addStatus(session, target, kind === 'dot' ? 'burn' : kind, 2, Math.round(power * 0.24));
+                    if (!target.ko) addStatus(session, target, storedStatusKind(kind), 2, Math.round(power * 0.24));
                     break;
                 }
                 case 'stun':
@@ -935,7 +1062,7 @@ function executeMove(
                 case 'slow':
                 case 'movelock':
                     applyOffensiveHit(target, 0.4, 'slow');
-                    if (!target.ko) addStatus(session, target, 'slow', 2, 0.75);
+                    if (!target.ko) addStatus(session, target, storedStatusKind(kind), 2, 0.75);
                     break;
                 case 'push':
                 case 'pull':
@@ -1038,23 +1165,35 @@ export function resolveShowdownRound(
     // tiebreak, snapshot after switches. A guard resolves fast, a haymaker
     // swings late — the round order is itself a consequence of the commands.
     // Freshly switched-in pets spent their action arriving.
-    const priorityOf = (pet: ShowdownPet, side: Side): number => {
-        const command = sanitizeCommand(session, pet, commandFor(pet, side));
+    const priorityFor = (pet: ShowdownPet, command: ShowdownCommand): number => {
         if (command.kind === 'guard') return SHOWDOWN_PRIORITY_GUARD;
         if (command.kind === 'rest') return SHOWDOWN_PRIORITY_REST;
         if (command.kind === 'super') return pet.signatureMove.priority;
         if (command.kind === 'move') return pet.moves[command.moveIndex]?.priority ?? SHOWDOWN_PRIORITY_NORMAL;
         return SHOWDOWN_PRIORITY_NORMAL;
     };
+    // Sanitize EXACTLY ONCE, here, and carry the decision into the action
+    // loop. Sanitizing twice (sort time, then act time against mutated state)
+    // was exploitable: a super submitted at meter 82-99 sanitized to `guard`
+    // for the sort — buying the 1.5x guard priority slot — then topped its
+    // meter up from damage taken mid-round and fired the super early, ahead
+    // of every enemy Guard.
     const order = [
         ...session.player.filter((p) => !p.ko && !p.benched).map((pet) => ({ pet, side: 'player' as Side })),
         ...session.enemy.filter((p) => !p.ko && !p.benched).map((pet) => ({ pet, side: 'enemy' as Side })),
     ]
         .filter(({ pet }) => !switchedIn.has(pet.id))
-        .map((entry) => ({ ...entry, sortKey: effSpeed(entry.pet) * priorityOf(entry.pet, entry.side) + nextRand(session) * 0.5 }))
+        .map((entry) => {
+            const command = sanitizeCommand(session, entry.pet, commandFor(entry.pet, entry.side));
+            return {
+                ...entry,
+                command,
+                sortKey: effSpeed(entry.pet) * priorityFor(entry.pet, command) + nextRand(session) * 0.5,
+            };
+        })
         .sort((a, b) => b.sortKey - a.sortKey);
 
-    for (const { pet, side } of order) {
+    for (const { pet, side, command } of order) {
         if (session.finished) break;
         if (pet.ko || pet.benched) continue;
 
@@ -1078,8 +1217,6 @@ export function resolveShowdownRound(
             events.push({ t: 'skip', actorId: pet.id, actorSide: side, reason: 'freeze' });
             continue;
         }
-
-        const command = sanitizeCommand(session, pet, commandFor(pet, side));
 
         // Confusion: half chance the action becomes a self-hit.
         if (hasStatus(pet, 'confuse') && command.kind !== 'guard' && command.kind !== 'rest' && nextRand(session) < 0.5) {
@@ -1176,7 +1313,7 @@ export function resolveShowdownRound(
 
     events.push({ t: 'roundEnd', round: session.round });
 
-    if (!session.finished && session.round >= SHOWDOWN_MAX_ROUNDS) {
+    if (!session.finished && session.round >= sessionRoundCap(session)) {
         finish(session, judgeOutcome(session), true, events);
     }
     return events;
@@ -1217,20 +1354,25 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         ko: pet.ko,
         guarding: pet.guarding,
         benched: pet.benched,
-        winded: pet.winded || hasStatus(pet, 'stun'),
+        speed: Math.round(effSpeed(pet)),
+        skipsNextAction: pet.winded || hasStatus(pet, 'stun'),
+        // Mirrors the switch-phase predicate exactly, so the client cannot
+        // offer a switch the engine will silently refuse.
+        canSwitchOut: !pet.winded,
         statuses: pet.statuses
             .filter((s) => s.kind !== 'tauntGuard')
-            .map((s) => ({ kind: s.kind, rounds: s.rounds })),
+            .map((s) => ({ kind: s.kind, rounds: s.rounds, magnitude: Math.round(s.magnitude) })),
         readiness: pet.readiness,
         ...(pet.trait ? { trait: pet.trait } : {}),
         ...(pet.gear ? { gearName: pet.gear.name } : {}),
         moves: pet.moves.map((m) => ({
             name: m.name, power: m.power, kind: m.kind, cost: m.cost, signature: false,
-            priority: m.priority, hold: m.hold,
+            priority: m.priority, hold: m.hold, effect: moveEffectText(m.kind, m.power),
         })).concat([{
             name: pet.signatureMove.name, power: pet.signatureMove.power, kind: pet.signatureMove.kind,
             cost: 0, signature: true,
             priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
+            effect: 'Spends the full meter — massive damage',
         }]),
     };
 }
@@ -1241,7 +1383,7 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         format: session.format,
         tier: session.tier,
         round: session.round,
-        maxRounds: SHOWDOWN_MAX_ROUNDS,
+        maxRounds: sessionRoundCap(session),
         finished: session.finished,
         outcome: session.outcome,
         player: session.player.map(petView),

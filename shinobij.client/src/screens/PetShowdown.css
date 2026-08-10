@@ -119,6 +119,45 @@
 .showdown-roster-name { font-weight: 700; font-size: 0.85rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .showdown-roster-sub { font-size: 0.72rem; color: #b9a583; }
 .showdown-roster-busy { font-size: 0.7rem; color: #f87171; }
+.showdown-roster-kit {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: center;
+    margin-top: 2px;
+}
+.showdown-roster-kit em {
+    font-style: normal;
+    font-size: 0.56rem;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    color: #e8dcc2;
+}
+.showdown-roster-kit em.gear { background: rgba(147, 197, 253, 0.15); border-color: rgba(147, 197, 253, 0.3); }
+
+/* Rules disclosure — closed by default, so it never gates the CTA. */
+.showdown-rules {
+    margin: 4px 0 16px;
+    padding: 10px 14px;
+    background: rgba(24, 18, 12, 0.7);
+    border: 1px solid rgba(217, 180, 120, 0.22);
+    border-radius: 12px;
+}
+.showdown-rules summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #d9c9a8;
+    min-block-size: var(--touch-target-min, 44px);
+    display: flex;
+    align-items: center;
+}
+.showdown-rules ul { margin: 8px 0 2px; padding-left: 18px; }
+.showdown-rules li { margin-bottom: 6px; font-size: 0.84rem; line-height: 1.5; color: #cbb99a; }
+.showdown-rules b { color: #f3ead7; }
 
 .showdown-empty { color: #b9a583; }
 
@@ -347,6 +386,47 @@
 .showdown-move-icon { font-size: 1rem; }
 .showdown-move-name { font-weight: 700; font-size: 0.82rem; }
 .showdown-move-sub { font-size: 0.68rem; color: #b9a583; }
+/* The server-authored effect line: what the move actually DOES. A 168-power
+   stun landing 84 damage is otherwise indistinguishable from a 168-power hit. */
+.showdown-move-effect {
+    font-size: 0.63rem;
+    color: #8f7f66;
+    line-height: 1.3;
+    margin-top: 1px;
+}
+.showdown-move.overexert .showdown-move-effect { color: #fb923c; font-weight: 700; }
+
+/* Status pips carry their remaining duration. */
+.showdown-status-pip { display: inline-flex; align-items: center; gap: 1px; }
+.showdown-status-pip b { font-size: 0.58rem; color: #d9c9a8; font-weight: 800; }
+
+/* Trait / gear identity on the player's cards. */
+.showdown-pet-kit { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+.showdown-kit-chip {
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(251, 191, 36, 0.14);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    color: #e8dcc2;
+}
+.showdown-kit-chip.gear { background: rgba(147, 197, 253, 0.14); border-color: rgba(147, 197, 253, 0.3); }
+
+.showdown-skip-tag {
+    font-size: 0.54rem;
+    font-weight: 800;
+    color: #fb923c;
+    letter-spacing: 0.04em;
+}
+
+.showdown-result-reason {
+    max-width: 34ch;
+    text-align: center;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: #cbb99a;
+}
 
 /* ── Banners + popups ──────────────────────────────────────────────────── */
 
@@ -382,6 +462,7 @@
 .showdown-banner.ko { color: #f87171; font-size: 2rem; }
 .showdown-banner.status { color: #93c5fd; font-size: 1.05rem; }
 .showdown-banner.declare { color: #e8dcc2; font-size: 1.02rem; top: 14%; font-weight: 700; }
+.showdown-banner.judge { color: #d9c9a8; font-size: 1.35rem; letter-spacing: 0.08em; }
 .showdown-banner.victory { color: #fcd34d; font-size: 2.2rem; }
 .showdown-banner.defeat { color: #f87171; font-size: 2.2rem; }
 
@@ -584,9 +665,19 @@
 .showdown-order-chip.mine { color: #fcd34d; }
 .showdown-order-chip.theirs { color: #fca5a5; opacity: 0.85; }
 
-.showdown-matchup { font-size: 0.72rem; font-weight: 900; }
-.showdown-matchup.up { color: #4ade80; }
-.showdown-matchup.down { color: #f87171; }
+/* Filled pills, not colour-only — the matchup readout must survive a
+   colour-vision difference and a small viewport. */
+.showdown-matchup {
+    font-size: 0.56rem;
+    font-weight: 900;
+    letter-spacing: 0.03em;
+    padding: 1px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-left: auto;
+}
+.showdown-matchup.up { color: #06301a; background: #4ade80; }
+.showdown-matchup.down { color: #3a0b0b; background: #f87171; }
 
 /* ── Signature flash ───────────────────────────────────────────────────── */
 
@@ -645,7 +736,13 @@
 
 @media (max-width: 559px) {
     .showdown-team-panel { max-width: 70vw; }
-    .showdown-pet-card { width: 128px; padding: 4px 6px; }
+    /* The padding SHORTHAND here used to reset the 44px portrait gutter set
+       above, so the portrait sat on top of the level/element line at every
+       mobile width. Keep a left gutter sized to the smaller mobile portrait.
+       128px is load-bearing: 2 x 128 + 6px gap = 262px, exactly two cards per
+       row inside the 70vw panel at 375px. */
+    .showdown-pet-card { width: 128px; padding: 4px 6px 4px 32px; }
+    .showdown-pet-portrait { left: 4px; width: 26px; height: 26px; }
     .showdown-pet-card-head { font-size: 0.7rem; }
     .showdown-banner { font-size: 1.15rem; padding: 8px 16px; }
     .showdown-banner.victory, .showdown-banner.defeat { font-size: 1.7rem; }
@@ -654,4 +751,44 @@
     .showdown-topbar { flex-wrap: wrap; }
     .showdown-vs { display: none; }
     .showdown-result-title { font-size: 1.8rem; }
+    .showdown-move-effect { font-size: 0.58rem; }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────
+   Every sibling mode in this codebase honours this; Showdown did not. The
+   rule is: kill CONTINUOUS and overshoot motion, keep the information-bearing
+   transitions (HP drain) and keep the camera's hard cuts — a cut is the
+   absence of motion, and it is the mode's whole visual grammar. */
+@media (prefers-reduced-motion: reduce) {
+    /* animation:none is REQUIRED — the flash keyframe has `both` fill starting
+       at 0.85 opacity, so a bare opacity declaration loses to it. */
+    .showdown-flash { animation: none; opacity: 0; }
+
+    .showdown-pet-card.targetable,
+    .showdown-bar.meter.full > div,
+    .showdown-playing-hint,
+    .showdown-move.signature.ready,
+    .showdown-letterbox .bar,
+    .showdown-vs-side.mine,
+    .showdown-vs-side.theirs,
+    .showdown-vs-burst {
+        animation: none;
+    }
+    /* Static substitutes so state stays readable without the pulse. */
+    .showdown-pet-card.targetable { box-shadow: 0 0 0 2px #f87171; }
+    .showdown-move.signature.ready { box-shadow: 0 0 0 2px #fbbf24; }
+    .showdown-bar.meter.full > div { filter: brightness(1.35); }
+    .showdown-playing-hint { opacity: 0.85; }
+
+    /* Overshoot pop-ins become plain fades. */
+    .showdown-banner { animation: showdown-fade-in 0.18s ease-out both; }
+    .showdown-popup { animation: showdown-fade-out 1.2s ease-out forwards; }
+    .showdown-vs-side.mine, .showdown-vs-side.theirs, .showdown-vs-burst { opacity: 1; transform: none; }
+}
+@keyframes showdown-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes showdown-fade-out {
+    0% { opacity: 0; }
+    12% { opacity: 1; }
+    75% { opacity: 1; }
+    100% { opacity: 0; }
 }

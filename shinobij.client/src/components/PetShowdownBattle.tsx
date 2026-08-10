@@ -30,8 +30,10 @@ import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetMo
 import { PetModelBoundary } from "./PetModelBoundary";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity } from "../lib/pet-music";
+import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
+import { petDuelImpactStrength } from "../lib/pet-duel-presentation";
+import { prefersReducedMotion } from "../lib/device-tier";
 import {
     ShowdownVfxLayer,
     StatusAuraFx,
@@ -112,6 +114,31 @@ const STATUS_LABEL: Record<string, string> = {
     shield: "🛡️", mark: "🎯", slow: "🐌", haste: "💨", crush: "💥", taunt: "📢", steadfast: "💪",
 };
 
+/** Plain English for every status the view can actually carry. `movelock` and
+ *  `tauntGuard` are unreachable (the engine renames/filters them). */
+const STATUS_TITLE: Record<string, string> = {
+    burn: "Burning — takes damage each round",
+    wound: "Wounded — bleeds each round and heals for less",
+    stun: "Stunned — loses its next action",
+    freeze: "Frozen — may lose its next action",
+    confuse: "Confused — may hit itself instead",
+    debuff: "Weakened — deals less damage",
+    buff: "Empowered — deals more damage",
+    shield: "Shielded — absorbs incoming damage",
+    mark: "Marked — the next hit lands harder",
+    slow: "Slowed — acts later in the round",
+    haste: "Hastened — acts earlier in the round",
+    crush: "Crushed — defence lowered",
+    taunt: "Taunting — draws single-target attacks",
+    steadfast: "Steadfast — immune to stun and freeze",
+};
+
+function statusTitle(s: { kind: string; rounds: number; magnitude: number }): string {
+    const base = STATUS_TITLE[s.kind] ?? s.kind;
+    const pool = s.kind === "shield" && s.magnitude > 0 ? ` (${s.magnitude} left)` : "";
+    return `${base}${pool} · ${s.rounds} round${s.rounds === 1 ? "" : "s"}`;
+}
+
 // Moves that never point at an enemy (mirror of the server's routing).
 const SELF_MOVE_KINDS = new Set(["buff", "haste", "move", "shield", "barrier", "absorb", "taunt"]);
 const ALLY_MOVE_KINDS = new Set(["heal"]);
@@ -125,7 +152,9 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
         : event.t === "switch" ? 1500
         : event.t === "confused" ? 1200
         : event.t === "dot" ? 850
-        : event.t === "end" ? 1700
+        // A judge ending shows two banners in sequence — at speed 2 a 1700ms
+        // beat collides them.
+        : event.t === "end" ? (event.byJudge ? 2900 : 1700)
         : 350;
     return base / speed;
 }
@@ -144,6 +173,10 @@ interface SceneBeat {
 interface SceneFx {
     /** petId → timestamp of the last landed hit (drives stagger + hit flash). */
     hitAt: Map<string, number>;
+    /** petId → damage-scaled recoil weight for that hit. PetModel3D reads
+     *  this as impactPower (0.45-1.25) to drive pitch, squash and weight —
+     *  left unset it pinned every hit to the same restrained flinch. */
+    hitPower: Map<string, number>;
     shakeUntil: number;
     shakeAmp: number;
     /** Skeletal animation freezes until this timestamp — damage-scaled
@@ -496,6 +529,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         } else if (sinceHit >= 0 && sinceHit < 480) {
             f.motion = "stagger";
             f.hit = Math.max(0, 1 - sinceHit / 480);
+            f.impactPower = fx.hitPower.get(info.view.id) ?? 0.55;
         } else if (walking) {
             f.motion = "run";
             f.moving = true;
@@ -601,11 +635,16 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
     const raf = useRef(0);
     const start = useRef<number | null>(null);
     const done = useRef(false);
+    const btn = useRef<HTMLButtonElement>(null);
     const SWEEP_MS = 1100;
     useEffect(() => {
         // Lazy-init so the sweep clock starts on mount, not in render — and
         // survives parent re-renders mid-sweep without restarting.
         if (start.current === null) start.current = performance.now();
+        // The command deck unmounts when the needle appears, so a keyboard
+        // player's focus falls to <body> and they can never hit the window —
+        // capping them at the base multiplier forever. Take focus explicitly.
+        btn.current?.focus({ preventScroll: true });
         const tick = () => {
             const elapsed = performance.now() - (start.current ?? performance.now());
             if (elapsed >= SWEEP_MS) {
@@ -626,7 +665,10 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
         onGrade(dist <= 0.08 ? 2 : dist <= 0.2 ? 1 : 0);
     };
     return (
-        <button type="button" className="showdown-needle" onPointerDown={tap}>
+        // Both handlers: pointer users keep the earlier pointerdown timing,
+        // keyboard activation arrives as a click. The done latch makes the
+        // double-fire a no-op.
+        <button ref={btn} type="button" className="showdown-needle" onPointerDown={tap} onClick={tap}>
             <div className="showdown-needle-track">
                 <div className="showdown-needle-zone good" />
                 <div className="showdown-needle-zone perfect" />
@@ -639,7 +681,7 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
 
 // ─── Team panel (DOM) ────────────────────────────────────────────────────────
 
-interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number }[] }
+interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number; magnitude: number }[] }
 
 function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement, art, benchedIds, benchPicking, onPickBench }: {
     side: "player" | "enemy";
@@ -664,6 +706,8 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                 const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
                 const benched = benchedIds?.has(pet.id) ?? false;
                 const clickable = !d.ko && (benchPicking ? benched : targeting && !benched);
+                const showHint = !!hintElement && !d.ko && !benched;
+                const skipping = pet.skipsNextAction;
                 return (
                     <button
                         key={pet.id}
@@ -683,11 +727,16 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                         {art?.[pet.id] && <img className="showdown-pet-portrait" src={art[pet.id]} alt="" loading="lazy" />}
                         <div className="showdown-pet-card-head">
                             <span className="showdown-pet-name">{pet.name}</span>
-                            {clickable && hintElement && SHOWDOWN_ELEMENT_BEATS[hintElement] === pet.element && (
-                                <span className="showdown-matchup up" title="Your element beats theirs">▲</span>
+                            {/* The matchup readout is gated on the ELEMENT being
+                                known, never on the card being a click target —
+                                it used to require multi-target mode, so in 1v1
+                                (the format whose blurb sells the wheel) it could
+                                never render at all. */}
+                            {showHint && SHOWDOWN_ELEMENT_BEATS[hintElement!] === pet.element && (
+                                <span className="showdown-matchup up" title="Your element is strong here">▲ STRONG ×1.5</span>
                             )}
-                            {clickable && hintElement && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement && (
-                                <span className="showdown-matchup down" title="Their element beats yours">▼</span>
+                            {showHint && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement && (
+                                <span className="showdown-matchup down" title="Your element is weak here">▼ WEAK ×0.75</span>
                             )}
                         </div>
                         <div className="showdown-pet-card-sub">
@@ -696,7 +745,14 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                                 {pet.element !== "None" ? pet.element : ""}
                             </span>
                             {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
+                            {skipping && !d.ko && <span className="showdown-skip-tag" title="Loses its next action">💨 SKIP</span>}
                         </div>
+                        {side === "player" && (pet.trait || pet.gearName) && (
+                            <div className="showdown-pet-kit">
+                                {pet.trait && <span className="showdown-kit-chip trait" title="Trait">{pet.trait}</span>}
+                                {pet.gearName && <span className="showdown-kit-chip gear" title="Equipped gear">{pet.gearName}</span>}
+                            </div>
+                        )}
                         <div className="showdown-bar hp">
                             {/* The chip layer drains SLOWLY behind the instant fill —
                                 the classic "damage you just took" read. */}
@@ -707,7 +763,12 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                         <div className={`showdown-bar meter ${d.meter >= 100 ? "full" : ""}`}><div style={{ width: `${Math.max(0, d.meter)}%` }} /></div>
                         {d.statuses.length > 0 && (
                             <div className="showdown-statuses">
-                                {d.statuses.map((s) => <span key={s.kind} title={s.kind}>{STATUS_LABEL[s.kind] ?? "✦"}</span>)}
+                                {d.statuses.map((s) => (
+                                    <span key={s.kind} className="showdown-status-pip" title={statusTitle(s)}>
+                                        {STATUS_LABEL[s.kind] ?? "✦"}
+                                        <b>{s.rounds}</b>
+                                    </span>
+                                ))}
                             </div>
                         )}
                     </button>
@@ -744,6 +805,22 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [expired, setExpired] = useState(false);
     const [letterbox, setLetterbox] = useState(false);
     const [flash, setFlash] = useState(0);
+    const [endedByJudge, setEndedByJudge] = useState(false);
+    const [endOutcome, setEndOutcome] = useState<"win" | "loss" | null>(null);
+    const [muted, setMuted] = useState(() => isAudioMuted());
+    const toggleAudio = useCallback(() => {
+        const next = !isAudioMuted();
+        setAudioMuted(next);
+        setMuted(next);
+        // Unmuting must RESTART the loop: startBattleMusic early-returns while
+        // muted, so the theme is null and clearing the flag alone resumes
+        // nothing.
+        if (!next) {
+            primePetSfx();
+            startBattleMusic("standard");
+            setBattleMusicIntensity("pressure");
+        }
+    }, []);
     const [vfx, setVfx] = useState<VfxSpawn[]>([]);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
 
@@ -766,7 +843,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const speed = fast ? 2.1 : 1;
 
     const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1 });
-    const fxRef = useRef<SceneFx>({ hitAt: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false });
+    const fxRef = useRef<SceneFx>({ hitAt: new Map(), hitPower: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false });
+    const reducedMotion = prefersReducedMotion();
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
 
     // Who stands where — switches and reinforcements move pets between the
@@ -937,10 +1015,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 applyToDisplay(setDisplay, event.targetId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko }));
             }, durationMs * 0.35);
         } else if (event.t === "end") {
+            // 11.3% of fights used to end on a rule the player was never told.
+            if (event.byJudge) {
+                setEndedByJudge(true);
+                later(() => showBanner("⚖️ JUDGE'S DECISION", "judge", 1300 / speed), 0);
+            }
+            setEndOutcome(event.outcome);
             later(() => {
                 showBanner(event.outcome === "win" ? "VICTORY!" : "DEFEAT", event.outcome === "win" ? "victory" : "defeat", 2400 / speed);
                 playPetSfx(event.outcome === "win" ? "victory" : "ko");
-            }, durationMs * 0.2);
+                if (event.outcome === "win") playPetSfx("crowd");
+            }, durationMs * (event.byJudge ? 0.5 : 0.2));
         } else if (event.t === "action") {
             if (event.super) {
                 later(() => {
@@ -970,6 +1055,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     if (target.damage > 0) {
                         addPopup(target.id, `-${target.damage}`, target.guarded ? "guarded" : event.super ? "super" : "damage");
                         fxRef.current.hitAt.set(target.id, performance.now());
+                        // Damage-scaled recoil: a chip flinches, a haymaker folds
+                        // the body. Uses the sibling mode's tuned curve — a raw
+                        // damage fraction reads as almost no flinch at all.
+                        fxRef.current.hitPower.set(
+                            target.id,
+                            petDuelImpactStrength(target.damage / Math.max(1, stateMaxHp(stateView, target.id)), event.super),
+                        );
                         // Painted impact: the element's flipbook detonates on the
                         // victim (splash hits get a smaller wash).
                         spawnFlipbook(
@@ -1020,7 +1112,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 const totalDamage = event.targets.reduce((sum, t) => sum + t.damage, 0);
                 if (totalDamage > 0) {
                     fxRef.current.shakeUntil = performance.now() + (event.super ? 460 : 300);
-                    fxRef.current.shakeAmp = event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
+                    // Screen shake is motion; hit-stop is a timing freeze and stays.
+                    fxRef.current.shakeAmp = reducedMotion
+                        ? 0
+                        : event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
                     playPetSfx(event.super ? "crit" : "hit");
                     // Damage-scaled hit-stop (fighting-game contact freeze),
                     // heavier for Lightning per the electric-hitlag convention.
@@ -1039,8 +1134,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                 color: ELEMENT_TINT[event.element] ?? "#fbbf24",
                             };
                         }
-                        setFlash(popupKey.current++);
-                        later(() => setFlash(0), 260);
+                        if (!reducedMotion) {
+                            setFlash(popupKey.current++);
+                            later(() => setFlash(0), 260);
+                        }
                     }
                 } else if (event.moveKind === "guard") {
                     playPetSfx("shield");
@@ -1088,7 +1185,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const livingBench = lineup.playerBench
         .map((id) => stateView.player.find((p) => p.id === id))
         .filter((p): p is ShowdownPetView => !!p && !(display[p.id]?.ko ?? p.ko));
-    const commander = phase === "command" ? livingPlayer[draft.length] ?? null : null;
+    // A pet that will lose its next action is not asked for one — it used to
+    // get the full deck and a timing needle for a command the engine discards
+    // before ever reading it. A STUNNED pet is still prompted (it may switch);
+    // an overdraft-winded pet may not rotate away, so it is skipped entirely.
+    const promptable = livingPlayer.filter(
+        (p) => !p.skipsNextAction || (p.canSwitchOut && livingBench.length > 0),
+    );
+    const commander = phase === "command" ? promptable[draft.length] ?? null : null;
+    const commanderMustSwitch = !!commander && commander.skipsNextAction;
     const commanderDisplay = commander ? display[commander.id] : null;
 
     // Fire the round: called from the LAST pushCommand (event handler, not an
@@ -1135,7 +1240,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setPickingSwitch(false);
         const nextDraft = [...draft, command];
         setDraft(nextDraft);
-        if (nextDraft.length >= livingPlayer.length) void submitRound(nextDraft);
+        // Omitting a skipped pet is safe: the engine defaults any missing
+        // command to a guard, which its winded/stun branch discards anyway.
+        if (nextDraft.length >= promptable.length) void submitRound(nextDraft);
     };
 
     const chooseMove = (moveIndex: number, superCast: boolean) => {
@@ -1201,7 +1308,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
-                {petBloomEnabled() && (
+                {petBloomEnabled() && !reducedMotion && (
                     <EffectComposer>
                         <Bloom intensity={0.55} luminanceThreshold={0.62} luminanceSmoothing={0.3} mipmapBlur />
                     </EffectComposer>
@@ -1214,7 +1321,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         ko={display[info.view.id]?.ko ?? info.view.ko}
                         guarding={display[info.view.id]?.guarding ?? false}
                         statuses={display[info.view.id]?.statuses ?? []}
-                        victorious={phase === "finished" && outcome === (info.side === "player" ? "win" : "loss")}
+                        // Latches off the END EVENT, not the finished phase: the phase
+                        // flips a frame AFTER the result panel mounts, so the winner
+                        // used to stand in a plain idle for the whole victory beat.
+                        victorious={(endOutcome ?? (phase === "finished" ? outcome : null)) === (info.side === "player" ? "win" : "loss")}
                         beatRef={beatRef}
                         fxRef={fxRef}
                         posRef={posRef}
@@ -1270,6 +1380,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         <div className="showdown-round">R{stateView.finished ? stateView.round : Math.min(stateView.round + 1, stateView.maxRounds)}/{stateView.maxRounds}</div>
                         <div className="showdown-vs">{stateView.enemyTeamName}</div>
                         <button type="button" className="showdown-chip" onClick={() => setFast((f) => !f)}>{fast ? "▶▶ Fast" : "▶ Normal"}</button>
+                        {/* The takeover hides the global menu, so this is the
+                            only reachable audio control during a fight. */}
+                        <button type="button" className="showdown-chip" onClick={toggleAudio}>{muted ? "🔇 Muted" : "🔊 Sound"}</button>
                         {phase !== "finished" && (
                             <button type="button" className="showdown-chip danger" onClick={() => setConfirmForfeit(true)}>Forfeit</button>
                         )}
@@ -1325,15 +1438,45 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     ? <>Who takes <b>{commander.name}</b>'s place? Tap a bench card…</>
                                     : pendingMove
                                         ? <>Choose a target for <b>{commander.name}</b>…</>
-                                        : <><b>{commander.name}</b> — choose an action{netError ? " (connection hiccup — try again)" : ""}</>}
+                                        : commanderMustSwitch
+                                            ? <><b>{commander.name}</b> loses this action — rotate it out, or hold the line.</>
+                                            : <><b>{commander.name}</b> — choose an action{netError ? " (connection hiccup — try again)" : ""}</>}
                             </div>
-                            {!pendingMove && !pickingSwitch && (
+                            {/* A stunned pet cannot act, but it MAY rotate out —
+                                so it gets the switch decision and nothing else. */}
+                            {!pendingMove && !pickingSwitch && commanderMustSwitch && (
+                                <div className="showdown-deck-grid">
+                                    <button
+                                        type="button"
+                                        className="showdown-move utility"
+                                        disabled={!livingBench.length}
+                                        onClick={() => setPickingSwitch(true)}
+                                    >
+                                        <span className="showdown-move-icon">🔄</span>
+                                        <span className="showdown-move-name">Switch</span>
+                                        <span className="showdown-move-sub">{livingBench.length ? "Send in a bench pet" : "No reserves left"}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="showdown-move utility"
+                                        onClick={() => pushCommand({ kind: "guard", petId: commander.id })}
+                                    >
+                                        <span className="showdown-move-icon">⏭️</span>
+                                        <span className="showdown-move-name">Hold the line</span>
+                                        <span className="showdown-move-sub">Stay in and lose the action</span>
+                                    </button>
+                                </div>
+                            )}
+                            {!pendingMove && !pickingSwitch && !commanderMustSwitch && (
                                 <div className="showdown-deck-grid">
                                     {commanderMoves.map((move, i) => {
                                         // Temtem gating: stamina + hold only — no cooldowns.
                                         const holding = move.hold > commander.readiness;
-                                        const willOverexert = (commanderDisplay?.stamina ?? 100) < move.cost;
-                                        const pace = move.priority > 1 ? " ▲" : move.priority < 1 ? " ▼" : "";
+                                        const deficit = Math.max(0, move.cost - (commanderDisplay?.stamina ?? 100));
+                                        const willOverexert = deficit > 0;
+                                        // "acts early/late" in words — a bare ▲/▼ collides with
+                                        // the element-matchup arrows on the target cards.
+                                        const pace = move.priority > 1 ? "acts early" : move.priority < 1 ? "swings last" : "";
                                         return (
                                             <button
                                                 key={`${move.name}-${i}`}
@@ -1344,10 +1487,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                                 onClick={() => chooseMove(i, false)}
                                             >
                                                 <span className="showdown-move-icon">{KIND_ICON[move.kind] ?? "⚔️"}</span>
-                                                <span className="showdown-move-name">{move.name}{pace}</span>
+                                                <span className="showdown-move-name">{move.name}</span>
                                                 <span className="showdown-move-sub">
-                                                    {holding ? `Charging — round ${move.hold + 1}`
-                                                        : `${move.power > 0 ? `PWR ${move.power} · ` : ""}${move.cost} STA${willOverexert ? " ⚠" : ""}`}
+                                                    {holding ? `Charging — ready round ${move.hold + 1}`
+                                                        : `${move.power > 0 ? `PWR ${move.power} · ` : ""}${move.cost} STA${pace ? ` · ${pace}` : ""}`}
+                                                </span>
+                                                <span className="showdown-move-effect">
+                                                    {willOverexert
+                                                        ? `OVERDRAFT · −${deficit * 2} HP · skips next round`
+                                                        : move.effect}
                                                 </span>
                                             </button>
                                         );
@@ -1414,6 +1562,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         <div className={`showdown-result-title ${outcome === "win" ? "win" : "loss"}`}>
                             {outcome === "win" ? "🏆 VICTORY" : "💀 DEFEAT"}
                         </div>
+                        {endedByJudge && (
+                            <div className="showdown-result-reason">
+                                Judge's decision — the round limit was reached, so the team with more
+                                remaining HP takes it. A tie goes to your opponent.
+                            </div>
+                        )}
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
                         )}
