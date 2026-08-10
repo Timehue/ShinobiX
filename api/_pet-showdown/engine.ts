@@ -207,12 +207,12 @@ const KNOWN_KINDS = new Set([
 const BUDGET_DAMPING = 0.6;
 
 function speciesBudget(stats: { hp: number; attack: number; defense: number; speed: number }): number {
-    // Weighted to the damage model's true marginal values: under
-    // atk²/(atk+def), an attack point carries ~3x the value of a defense point
-    // at parity (elasticity 1.5 vs 0.5), hp is the linear durability pool, and
-    // speed only buys turn order. Pricing points at their real worth stops
-    // glass cannons from getting a hidden subsidy in the normalization.
-    return stats.hp / 8 + stats.attack * 1.2 + stats.defense * 0.45 + stats.speed * 0.5;
+    // Weighted to the RATIO damage model's marginal values: atk, def, and hp
+    // are all elasticity ±1 (damage ∝ atk/def, durability ∝ hp·def), so a
+    // point's worth is proportional to 1/typical-magnitude — atk and def
+    // points are priced equally relative to their scales, hp per-point is
+    // cheap because the pool is large, and speed only buys turn order.
+    return stats.hp / 8 + stats.attack + stats.defense * 1.3 + stats.speed * 0.5;
 }
 
 let rarityMedianBudget: Map<string, number> | null = null;
@@ -296,7 +296,7 @@ export function kitPowerNormalizationMult(templateId: string | undefined, petId:
  *  median. Compresses the standard→rare cliff (raw catalog gap gave rare a
  *  95% stomp rate over standard) toward the 65-80% ladder the other tier
  *  steps already sit at, while preserving the rarity progression. */
-const CROSS_TIER_BLEND = 0.5;
+const CROSS_TIER_BLEND = 0.3;
 
 export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
@@ -616,7 +616,7 @@ function soakThroughShields(pet: ShowdownPet, damage: number): number {
     return remaining;
 }
 
-function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: number): { dealt: number; ko: boolean } {
+function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: number, grantMeter = true): { dealt: number; ko: boolean } {
     const dealt = Math.max(0, Math.round(soakThroughShields(target, amount)));
     target.hp = Math.max(0, target.hp - dealt);
     if (target.hp <= 0 && !target.ko) {
@@ -624,7 +624,9 @@ function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: numb
         target.statuses = [];
         target.guarding = false;
     }
-    if (dealt > 0) {
+    // Self-inflicted overdraft chips pass grantMeter=false — bleeding by
+    // choice must not FARM the super meter.
+    if (dealt > 0 && grantMeter) {
         gainMeter(target, target.guarding ? SHOWDOWN_METER_ON_GUARDED_HIT : SHOWDOWN_METER_ON_HIT_TAKEN);
     }
     return { dealt, ko: target.ko };
@@ -642,10 +644,14 @@ function applyHeal(target: ShowdownPet, amount: number): number {
  * average same-rarity duel ran 12+ rounds and 56% of games went to the judge
  * (attrition meta — burst roles starved, chip roles dominated). 2.2 lands the
  * typical KO in 6-9 rounds with the judge as a genuine minority outcome. */
-// Raised 2.35 → 3.3 with the pure stamina+hold economy: low Temtem regen
-// rest-gates the heavy casts, so each technique must hit harder per cast
-// (exactly Temtem's pairing of low regen with hard-hitting techniques).
-const DAMAGE_SCALE = 3.3;
+// Damage magnitude for the A/D RATIO formula below. History: the original
+// atk²/(atk+def) shape gave attack ~3x the marginal value of defense, which
+// made defense TRAINING a bad buy — switched to Pokémon's pure-ratio shape
+// (damage ∝ atk/def) where attack, defense, and hp all carry equal marginal
+// weight, so every training focus is a real choice. REF_DEF anchors the
+// magnitude so a typical mid-game hit lands in the same range as before.
+const DAMAGE_SCALE = 3.0;
+const REF_DEF = 52;
 /** Assassin execute instinct: bonus damage against bloodied targets — the
  * burst identity the role's glass-cannon statline pays for. */
 const ASSASSIN_EXECUTE_HP = 0.4;
@@ -662,10 +668,10 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
 // enemy-burst cap that tanks sheltered under, so defenders hit harder and the
 // throughput roles give a little back.
 const ROLE_DAMAGE_MULT: Record<string, number> = {
-    tracker: 0.84,
+    tracker: 0.82,
     assassin: 1.02,
     sage: 1.04,
-    defender: 1.22,
+    defender: 1.32,
 };
 const SAGE_HEAL_MULT = 1.15;
 
@@ -674,17 +680,28 @@ const SAGE_HEAL_MULT = 1.15;
  * for in the continuous sims by mechanics that no longer exist), and the
  * atk²-scaled formula amplifies the gap. Fire burns hotter, stone hits duller.
  * Tuned against scripts/showdown-balance.mjs. */
+/** Explicit rarity-tier damage ladder. The RATIO damage formula cancels
+ *  uniform stat inflation (a mythic's +11% to both atk and def leaves atk/def
+ *  unchanged), so cross-tier superiority must be granted deliberately — this
+ *  is the progression knob that keeps a mythic feeling mythic. */
+const RARITY_DAMAGE_TIER: Record<string, number> = {
+    standard: 1,
+    rare: 1.04,
+    legendary: 1.1,
+    mythic: 1.26,
+};
+
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.19,
+    Fire: 1.26,
     Water: 1.08,
     Wind: 1.0,
-    Earth: 0.93,
+    Earth: 0.9,
     Lightning: 0.93,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
 const ELEMENT_TAKEN_MULT: Record<string, number> = {
-    Fire: 0.93,
+    Fire: 0.82,
     Water: 0.97,
     Wind: 1.0,
     Earth: 1.02,
@@ -694,7 +711,7 @@ const ELEMENT_TAKEN_MULT: Record<string, number> = {
 function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number, extraMult = 1): number {
     const atk = effAttack(attacker);
     const def = effDefense(defender);
-    const base = DAMAGE_SCALE * (power / 100) * ((atk * atk) / (atk + def));
+    const base = DAMAGE_SCALE * (power / 100) * REF_DEF * (atk / Math.max(1, def));
     // ±8% in 16 discrete steps — the genre-proven roll (Pokémon's 85-100 band):
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
     // Lucky shifts the whole window up.
@@ -703,7 +720,8 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
         * (ROLE_DAMAGE_MULT[attacker.role] ?? 1)
         * (ELEMENT_DAMAGE_MULT[attacker.element] ?? 1)
         * (ELEMENT_TAKEN_MULT[defender.element] ?? 1)
-        * (TRAIT_FX.damageOut[traitOf(attacker)] ?? 1);
+        * (TRAIT_FX.damageOut[traitOf(attacker)] ?? 1)
+        * (RARITY_DAMAGE_TIER[attacker.rarity] ?? 1) / (RARITY_DAMAGE_TIER[defender.rarity] ?? 1);
     if (attacker.role === 'assassin' && defender.hp / defender.maxHp < ASSASSIN_EXECUTE_HP) {
         mult *= ASSASSIN_EXECUTE_MULT;
     }
@@ -788,8 +806,9 @@ function executeMove(
             const deficit = move.cost - actor.stamina;
             actor.stamina = 0;
             overexertDamage = Math.round(deficit * SHOWDOWN_OVERDRAFT_HP_PER_POINT);
-            // The chip can KO — overdrafting on your last legs is a real gamble.
-            applyDamage(session, actor, overexertDamage);
+            // The chip can KO — overdrafting on your last legs is a real
+            // gamble — but it never charges the actor's own super meter.
+            applyDamage(session, actor, overexertDamage, false);
         } else {
             actor.stamina -= move.cost;
         }
@@ -1000,7 +1019,9 @@ export function resolveShowdownRound(
         for (const command of commands) {
             if (command.kind !== 'switch') continue;
             const team = side === 'player' ? session.player : session.enemy;
-            const out = team.find((p) => p.id === command.petId && !p.ko && !p.benched);
+            // A winded pet cannot switch out — the overdraft's stolen turn
+            // must be PAID, not dodged by rotating to the bench.
+            const out = team.find((p) => p.id === command.petId && !p.ko && !p.benched && !p.winded);
             const inbound = team.find((p) => p.id === command.benchPetId && !p.ko && p.benched);
             if (!out || !inbound) continue;
             out.benched = true;
