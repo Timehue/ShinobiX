@@ -1,3 +1,8 @@
+import {
+    DEFAULT_WARFRONT_AUTHORED_SETUP,
+    type WarfrontAuthoredSetup,
+} from '../pet/_warfront-setup.js';
+
 /*
  * Pure (kv/auth-free) core for the co-op Tactical Pet Arena lobby. The handler
  * (api/arena/lobby.ts) owns I/O — auth, the KV blob, the lock, seed minting —
@@ -47,7 +52,39 @@ export type LobbySlot = {
 };
 
 export type ArenaSlotOut = { pet: PetSnapshot; role: ArenaRole };
-export type MatchPayload = { seed: number; blue: ArenaSlotOut[]; red: ArenaSlotOut[] };
+
+export const COOP_WARFRONT_SETUP_VERSION = 1 as const;
+
+/** Both sides receive this neutral, versioned playbook from the server. The
+ * version lets clients fail closed if a future deployment changes the seal. */
+export type SealedCoopWarfrontSetup = WarfrontAuthoredSetup & {
+    version: typeof COOP_WARFRONT_SETUP_VERSION;
+    stance: 'balanced';
+    doctrine: 'warden-pact';
+    buyPolicy: 'balanced';
+};
+
+export function sealedCoopWarfrontSetup(): SealedCoopWarfrontSetup {
+    return {
+        version: COOP_WARFRONT_SETUP_VERSION,
+        stance: 'balanced',
+        doctrine: 'warden-pact',
+        buyPolicy: 'balanced',
+        deployment: [...DEFAULT_WARFRONT_AUTHORED_SETUP.deployment],
+        buildPackage: DEFAULT_WARFRONT_AUTHORED_SETUP.buildPackage,
+        coachOrder: DEFAULT_WARFRONT_AUTHORED_SETUP.coachOrder,
+        objectiveTechnique: DEFAULT_WARFRONT_AUTHORED_SETUP.objectiveTechnique,
+        counterstrike: DEFAULT_WARFRONT_AUTHORED_SETUP.counterstrike,
+    };
+}
+
+export type MatchPayload = {
+    seed: number;
+    blue: ArenaSlotOut[];
+    red: ArenaSlotOut[];
+    blueSetup: SealedCoopWarfrontSetup;
+    redSetup: SealedCoopWarfrontSetup;
+};
 
 export type Lobby = {
     code: string;
@@ -61,7 +98,10 @@ export type Lobby = {
 };
 
 export const PETS_PER_PLAYER = 2;
-export const CODE_LEN = 4;
+// 8 characters from a 32-symbol alphabet = 40 bits of entropy. Four-character
+// codes had only ~1M possibilities and were enumerable inside an ordinary poll
+// budget; 40-bit codes remain human-shareable without becoming a discovery API.
+export const CODE_LEN = 8;
 // Unambiguous alphabet (no 0/O/1/I) for shareable join codes.
 export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -147,17 +187,21 @@ export function snapshotPet(raw: Record<string, unknown>): PetSnapshot {
  * template id both work, but a single owned pet can't be picked twice). Returns
  * null when the count is wrong or any id isn't owned — the caller rejects.
  */
-export function chooseOwnedPets(owned: Array<Record<string, unknown>>, petIds: unknown): PetSnapshot[] | null {
+export function chooseOwnedPetRecords(owned: Array<Record<string, unknown>>, petIds: unknown): Array<Record<string, unknown>> | null {
     if (!Array.isArray(petIds) || petIds.length !== PETS_PER_PLAYER) return null;
     const pool = owned.slice();
-    const chosen: PetSnapshot[] = [];
+    const chosen: Array<Record<string, unknown>> = [];
     for (const id of petIds) {
         const idx = pool.findIndex((p) => String(p.id ?? "") === String(id));
         if (idx < 0) return null;
-        chosen.push(snapshotPet(pool[idx]));
+        chosen.push(pool[idx]);
         pool.splice(idx, 1);
     }
     return chosen;
+}
+
+export function chooseOwnedPets(owned: Array<Record<string, unknown>>, petIds: unknown): PetSnapshot[] | null {
+    return chooseOwnedPetRecords(owned, petIds)?.map(snapshotPet) ?? null;
 }
 
 /** Index of the array entry with the max (or min) score; ties → lowest index. */
@@ -228,7 +272,13 @@ export function resolveMatch(lobby: Lobby, seed: number): MatchPayload {
         const roles = autoArenaRoles(pets);
         return pets.map((pet, i) => ({ pet, role: roles[i] }));
     };
-    return { seed, blue: buildTeam("blue"), red: buildTeam("red") };
+    return {
+        seed,
+        blue: buildTeam("blue"),
+        red: buildTeam("red"),
+        blueSetup: sealedCoopWarfrontSetup(),
+        redSetup: sealedCoopWarfrontSetup(),
+    };
 }
 
 /** Can the host start? Everyone who JOINED must be ready; empty seats are AI. */
@@ -248,21 +298,37 @@ export type PublicLobby = {
     code: string;
     host: string;
     state: "lobby" | "running";
-    you: { team: Team; slot: 0 | 1 } | null;
+    you: {
+        team: Team;
+        slot: 0 | 1;
+        petIndexes: [number, number];
+        lanes: [SealedCoopWarfrontSetup['deployment'][number], SealedCoopWarfrontSetup['deployment'][number]];
+    } | null;
     seats: PublicSeat[];
+    setupPreview: SealedCoopWarfrontSetup;
     match: MatchPayload | null;
     createdAt: number;
 };
 
 export function publicView(lobby: Lobby, viewer: string): PublicLobby {
     const mine = findPlayerSlot(lobby, viewer);
+    const setupPreview = sealedCoopWarfrontSetup();
+    const firstPetIndex = mine ? mine.slot * PETS_PER_PLAYER : 0;
     return {
         code: lobby.code,
         host: lobby.host,
         state: lobby.state,
-        you: mine ? { team: mine.team, slot: mine.slot } : null,
+        you: mine ? {
+            team: mine.team,
+            slot: mine.slot,
+            petIndexes: [firstPetIndex, firstPetIndex + 1],
+            lanes: [setupPreview.deployment[firstPetIndex], setupPreview.deployment[firstPetIndex + 1]],
+        } : null,
         seats: lobby.slots.map((s) => ({ team: s.team, slot: s.slot, name: s.name, ready: s.ready, petCount: s.pets.length, isYou: s.name === viewer })),
-        match: lobby.state === "running" ? lobby.match : null,
+        setupPreview,
+        // A running match contains the server-minted seed and both sealed
+        // rosters. Only a seated participant may ever receive that reveal.
+        match: lobby.state === "running" && mine ? lobby.match : null,
         createdAt: lobby.createdAt,
     };
 }

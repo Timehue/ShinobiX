@@ -12,6 +12,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
 import { sectorExitById } from '../shared/sector-links';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth';
+import { petArenaStaticIsolationPlugin } from './build/pet-arena-static-graph';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
@@ -379,6 +380,7 @@ setInterval(() => {
 export default defineConfig({
     plugins: [
         plugin(),
+        petArenaStaticIsolationPlugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({
             // Skip SVGs (already tiny, svgo isn't installed) and WebP. The
@@ -388,7 +390,10 @@ export default defineConfig({
             // Pet QA turnarounds and generation proofs are already final review
             // artifacts. Processing thousands of them concurrently can exhaust
             // Windows' file-handle limit; none are shipped by the live build.
-            exclude: /(?:[\\/]pet-models[\\/](?:qa|roster-concepts|proofs|sources|roster-references)[\\/])|(?:\.(?:svg|webp)$)/i,
+            // Jutsu-FX frames are pixel art. They are emitted under assets/fx
+            // (see assetFileNames below) and must remain byte-exact instead of
+            // going through the decorative-art PNG palette/quality pass.
+            exclude: /(?:[\\/]pet-models[\\/](?:qa|roster-concepts|proofs|sources|roster-references)[\\/])|(?:^|[\\/])assets[\\/]fx[\\/]|(?:\.(?:svg|webp)$)/i,
             // Compress PNGs — background images drop from ~2.5–3.5 MB to
             // ~250–600 KB. Quality dropped from 78 → 70: at 70 the visual
             // difference on decorative game art is imperceptible, but
@@ -1071,6 +1076,18 @@ export default defineConfig({
                 propertyReadSideEffects: false,
             },
             output: {
+                assetFileNames(assetInfo) {
+                    const isJutsuFxFrame = assetInfo.originalFileNames.some((fileName) =>
+                        /(?:^|\/)assets\/fx\//.test(fileName.replace(/\\/g, '/')),
+                    );
+                    return isJutsuFxFrame
+                        ? 'assets/fx/[name]-[hash][extname]'
+                        : 'assets/[name]-[hash][extname]';
+                },
+                // Oxc's final bundle pass removes production-only console calls
+                // and catches cross-module simplifications the per-module pass
+                // cannot see. Runtime error reporting remains owned by Sentry.
+                minify: { compress: { dropConsole: true }, mangle: true, codegen: true },
                 // Pull React + ReactDOM into their own vendor chunk so they
                 // can be cached independently of app code. The app bundle
                 // changes constantly; React itself rarely does, so users

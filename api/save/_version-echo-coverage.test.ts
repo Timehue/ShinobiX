@@ -57,6 +57,7 @@ const ECHOES_VERSION = new Set([
     'missions/report-raid.ts',
     'missions/weekly-board.ts',
     'pet/battle-result.ts',
+    'pet/warfront-forfeit.ts',
     'pet/evolve.ts',
     'pet/gauntlet.ts',
     'player/daily-login.ts',

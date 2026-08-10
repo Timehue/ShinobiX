@@ -377,5 +377,6 @@ export function resolveTactical(attacker: DefenseDoc, defender: DefenseDoc, seed
         "balanced", "balanced", undefined,
         { blue: parseStance(attacker.stance), red: parseStance(defender.stance) },
         { blue: parseDoctrineChoice(attacker.doctrine), red: parseDoctrineChoice(defender.doctrine) },
+        { captureSnapshots: false },
     ).winner === "blue";
 }

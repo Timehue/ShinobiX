@@ -286,6 +286,8 @@ import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petWarfrontStartHandler from './api/pet/warfront-start.js';
+import petWarfrontCouncilHandler from './api/pet/warfront-council.js';
+import petWarfrontForfeitHandler from './api/pet/warfront-forfeit.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
 import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
@@ -510,7 +512,10 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // default with room to spare.
 const jsonBig = express.json({ limit: '50mb' });
 const jsonSave = express.json({ limit: '1mb' });
+const jsonChallenge = express.json({ limit: '512kb' });
 const jsonDefault = express.json({ limit: '5mb' });
+const urlEncodedChallenge = express.urlencoded({ extended: true, limit: '512kb' });
+const urlEncodedDefault = express.urlencoded({ extended: true, limit: '5mb' });
 // The Patreon webhook must verify an HMAC-MD5 over the EXACT raw request body,
 // so this parser stashes the raw Buffer on req.rawBody. The capture runs ONLY
 // for that one path — every other request skips it. See api/patreon/webhook.ts.
@@ -526,10 +531,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     switch (classifyBodyLimit(req.path)) {
         case 'big':  return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
+        case 'challenge': return jsonChallenge(req, res, next);
         default:     return jsonDefault(req, res, next);
     }
 });
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use((req, res, next) => classifyBodyLimit(req.path) === 'challenge'
+    ? urlEncodedChallenge(req, res, next)
+    : urlEncodedDefault(req, res, next));
 
 // Per-request correlation id — a short, greppable token on every request,
 // echoed in the x-request-id response header (visible in the browser network
@@ -1376,6 +1384,8 @@ route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/warfront-start', petWarfrontStartHandler);
+route('/pet/warfront-council', petWarfrontCouncilHandler);
+route('/pet/warfront-forfeit', petWarfrontForfeitHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
 route('/weapon/apply-elemental-core', applyElementalCoreHandler);

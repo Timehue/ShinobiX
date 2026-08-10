@@ -72,6 +72,8 @@ export function applyCanonicalFirstSave(character: Record<string, unknown>): Rec
     next.redeemedDungeonRuns = [];
     next.redeemedHollowGateRuns = [];
     next.redeemedPetBattleTokens = [];
+    next.warfrontSettlementReceipts = [];
+    delete next.lastWarfrontFirstWinDate;
     next.redeemedPetExpeditionTokens = [];
     next.claimedServerMissions = [];
     next.redeemedPetGauntletRuns = [];
