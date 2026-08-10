@@ -156,6 +156,25 @@ console.log([...kindStats.entries()]
     .map(([k, s]) => `${k}: ${pct(s).toFixed(1)}%`)
     .join('  ·  '));
 
+// ── Training relevance: every focus must beat an untrained twin ──────────────
+// A pet trained all-in on ONE stat (the +396% budget channeled per the live
+// growth rule, here +60% on the focused stat as a mid-game snapshot) fights
+// its untrained twin. Every focus should win CLEARLY (>=65%) or that training
+// choice is a trap.
+const TRAIN_SAMPLES = 30;
+console.log('\nTRAINING RELEVANCE (trained-in-one-stat vs untrained twin):');
+for (const focus of ['hp', 'attack', 'defense', 'speed']) {
+    let wins = 0;
+    const pool = [...byRarity.values()].flat();
+    for (let s = 0; s < TRAIN_SAMPLES; s++) {
+        const tpl = pool[(s * 13) % pool.length];
+        const trained = { ...tpl, [focus]: Math.round(Number(tpl[focus]) * 1.6) };
+        const { outcome } = fight(trained, tpl, 777_001 + s * 101);
+        wins += outcome === 'win' ? 1 : 0;
+    }
+    console.log(`  ${focus}: ${(100 * wins / TRAIN_SAMPLES).toFixed(1)}%`);
+}
+
 // ── Cross-rarity spot check: higher rarity should win, sanely ────────────────
 const CROSS_SAMPLES = 40;
 const rarityOrder = ['standard', 'rare', 'legendary', 'mythic'];
@@ -167,7 +186,11 @@ for (let r = 0; r < rarityOrder.length - 1; r++) {
     let wins = 0, games = 0;
     for (let s = 0; s < CROSS_SAMPLES; s++) {
         const tplHigh = high[(s * 7) % high.length];
-        const tplLow = low[(s * 11) % low.length];
+        // SAME-ELEMENT pairing — the 1.5x wheel would otherwise swamp the
+        // tier gap this sample exists to measure.
+        const sameElement = low.filter((t) => t.element === tplHigh.element);
+        const pool = sameElement.length ? sameElement : low;
+        const tplLow = pool[(s * 11) % pool.length];
         const { outcome } = fight(tplHigh, tplLow, 900_001 + s * 6007);
         games += 1;
         wins += outcome === 'win' ? 1 : 0;
