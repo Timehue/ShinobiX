@@ -268,6 +268,28 @@ side-on shot of the victim for the strike; supers keep their continuous
 letterboxed swoop. Every action opens with the classic declaration banner
 ("Red Fox used Flame Bolt!").
 
+## Round 8 — the full Temtem stamina economy (2026-08-10)
+
+The stamina system was half-Temtem (overexertion, Rest, bench regen existed);
+this round completes the model with the three missing pieces:
+
+- **The pool is a STAT**: max stamina derives from bulk at seal time
+  (`55 + maxHp/16 + defense/6`, clamped 80-125) — a war tortoise casts
+  longer than a glass kitsune. HUD stamina bars are now fractions of the
+  pet's own pool.
+- **Low regen** (Temtem: 5%+1; ours: 7%+2 per round, field or bench):
+  passive income sits far below nuke cost, so "spam your best move" is
+  arithmetically self-terminating within a few uses and Rest (~22%+2) is a
+  real rotation beat. Costs rebalanced for the tighter economy: basic 14,
+  light 18, medium 32, heavy 52.
+- **Overdraft draws blood**: using a move beyond remaining stamina still
+  fires it, but the pet pays 2 HP per point of deficit (it CAN self-KO) on
+  top of being winded next round — Temtem's overexertion chip, shown as a
+  damage popup on the actor.
+
+Bands re-verified unchanged (pace 8.2, judge 11.1%, elements 46.9-53.1%,
+roles 45-56%); 33 showdown tests green.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

@@ -45,20 +45,41 @@ export const SHOWDOWN_ELEMENT_BEATS: Readonly<Record<string, string>> = Object.f
 export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.5;
 export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.75;
 
-/** Per-pet stamina economy (Temtem-style push-your-luck). */
-export const SHOWDOWN_MAX_STAMINA = 100;
-export const SHOWDOWN_STAMINA_REGEN = 25;
-export const SHOWDOWN_REST_STAMINA = 45;
+/*
+ * Per-pet stamina economy — the FULL Temtem model:
+ *  - The POOL IS A STAT: each pet's max stamina derives from its bulk
+ *    (hp/defense), so a war tortoise casts longer than a glass kitsune.
+ *    Range ~85-120 around the 100 reference.
+ *  - Regen is LOW (Temtem: 5% + 1/turn): passive income sits an order of
+ *    magnitude below nuke cost, so "spam your best move" is arithmetically
+ *    self-terminating within 2-3 uses and Rest is a real rotation beat.
+ *  - Rest recovers ~22% + 2 (Temtem: 20% + 1) plus a small heal.
+ *  - OVERDRAFT (using a move costing more than remaining stamina): the move
+ *    still fires, the pet takes HP damage proportional to the deficit, and
+ *    it is winded (forced skip) next round — Temtem's overexertion, HP chip
+ *    included.
+ */
+export const SHOWDOWN_STAMINA_REFERENCE = 100;
+/** Regen fraction of MAX per round (+ the flat point), field or bench. */
+export const SHOWDOWN_STAMINA_REGEN_PCT = 0.07;
+export const SHOWDOWN_STAMINA_REGEN_FLAT = 2;
+/** Rest recovery fraction of MAX (+ flat). */
+export const SHOWDOWN_REST_PCT = 0.22;
+export const SHOWDOWN_REST_FLAT = 2;
 /** Rest also patches the pet up a little so it is a real decision, not a tax. */
 export const SHOWDOWN_REST_HEAL_PCT = 0.04;
-export const SHOWDOWN_GUARD_COST = 10;
+/** HP damage per point of stamina deficit on an overdraft. */
+export const SHOWDOWN_OVERDRAFT_HP_PER_POINT = 2;
+export const SHOWDOWN_GUARD_COST = 8;
 /** Guard halves incoming damage until the pet's next action. */
 export const SHOWDOWN_GUARD_MULT = 0.5;
 
-/** Move stamina cost by power band. */
-export const SHOWDOWN_COST_LIGHT = 30;   // power <= 120
-export const SHOWDOWN_COST_MEDIUM = 45;  // power <= 220
-export const SHOWDOWN_COST_HEAVY = 60;   // power > 220
+/** Move stamina cost by power band (absolute — a bigger pool literally buys
+ *  more casts, which IS the species identity). */
+export const SHOWDOWN_COST_LIGHT = 18;   // power <= 120
+export const SHOWDOWN_COST_MEDIUM = 32;  // power <= 220
+export const SHOWDOWN_COST_HEAVY = 52;   // power > 220
+export const SHOWDOWN_COST_BASIC = 14;   // the universal Swift Strike
 
 /** Super meter: fills from combat, spent whole on the signature move. */
 export const SHOWDOWN_METER_MAX = 100;
@@ -131,6 +152,8 @@ export interface ShowdownPetView {
     hp: number;
     maxHp: number;
     stamina: number;
+    /** Per-pet stamina pool — a stat derived from bulk, ~85-120. */
+    maxStamina: number;
     meter: number;
     ko: boolean;
     guarding: boolean;
@@ -212,6 +235,8 @@ export type ShowdownEvent =
         meterAfter: number;
         /** Set when the actor overexerted and will be winded next round. */
         overexerted: boolean;
+        /** HP the actor paid for the overdraft (Temtem's overexertion chip). */
+        overexertDamage?: number;
     }
     | { t: "skip"; actorId: string; actorSide: "player" | "enemy"; reason: "winded" | "stun" | "freeze" | "ko" }
     | {
