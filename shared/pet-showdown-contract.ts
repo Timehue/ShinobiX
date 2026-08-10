@@ -115,8 +115,20 @@ export const SHOWDOWN_PRIORITY_SUPER = 0.75;   // signatures swing last
 export const SHOWDOWN_HOLD_HEAVY = 1;   // power > 220
 export const SHOWDOWN_HOLD_SUPER = 2;   // signatures
 
-/** Hard round cap — at cap the judge scores remaining HP%; there are NO draws. */
+/** Hard round cap — at cap the judge scores remaining HP%; there are NO draws.
+ *  A single KO averages ~7 rounds, so a flat 14 cannot resolve a team that
+ *  fields its reserves one at a time: measured judge rates were 1v1+0 11.3%,
+ *  1v1+1 49.1%, 1v1+2 **87.2%** — the format the lobby sells as "one on the
+ *  field, two in reserve" was decided by the timer, not by combat. The cap
+ *  therefore extends per RESERVE (bench depth), not per team size, which
+ *  leaves 2v2/3v3 (which field everyone at once) exactly as tuned. */
 export const SHOWDOWN_MAX_ROUNDS = 14;
+export const SHOWDOWN_ROUNDS_PER_RESERVE = 5;
+
+export function showdownRoundCap(teamSize: number, fieldSize: number): number {
+    const reserves = Math.max(0, teamSize - fieldSize);
+    return SHOWDOWN_MAX_ROUNDS + reserves * SHOWDOWN_ROUNDS_PER_RESERVE;
+}
 
 export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Object.freeze({
     "1v1": 1,
@@ -159,9 +171,16 @@ export interface ShowdownPetView {
     guarding: boolean;
     /** On the bench (not fielded). Statuses are frozen while benched. */
     benched: boolean;
-    /** Skips its next action (overexertion wind, stun, freeze). */
-    winded: boolean;
-    statuses: { kind: string; rounds: number }[];
+    /** Effective speed (haste/slow/movelock + trait applied) — the magnitude
+     *  the turn-order strip sorts on. */
+    speed: number;
+    /** This pet will lose its next action (overdraft wind or stun). Freeze is
+     *  NOT included — it is a coin flip resolved at act time. */
+    skipsNextAction: boolean;
+    /** Overdraft-winded pets may not switch out (the stolen turn must be
+     *  paid); stunned pets still may. Mirrors the engine's switch predicate. */
+    canSwitchOut: boolean;
+    statuses: { kind: string; rounds: number; magnitude: number }[];
     /** Trait riding into combat (Loyal/Aggressive/Guardian/Swift/Lucky/
      *  Battleborn + ultras) — the engine applies its in-combat effect. */
     trait?: string;
@@ -173,6 +192,10 @@ export interface ShowdownPetView {
         kind: string;
         cost: number;
         signature: boolean;
+        /** Server-authored plain-English effect line ("Burns: 24% of power
+         *  per round for 2 rounds"). NEVER computed on the client — a client
+         *  table drifts the moment a kind is retuned. */
+        effect: string;
         /** Temtem-style turn-order multiplier for the round this move is
          *  chosen: >1 resolves early, <1 swings late. */
         priority: number;

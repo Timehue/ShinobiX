@@ -462,8 +462,8 @@ const PETS: Guide = {
             blocks: [
                 { type: "p", text: "Pet combat is rock-paper-scissors: Fire → Wind → Lightning → Earth → Water → Fire." },
                 { type: "list", items: [
-                    "Hitting a weakness (you beat their element) deals +25% damage.",
-                    "Hitting a resistance (they beat yours) deals −20% damage.",
+                    "Pet Showdown (turn-based): hitting a weakness deals ×1.5 damage, hitting a resistance deals ×0.75.",
+                    "Pet Coliseum (the older auto-battle modes): +25% into a weakness, −20% into a resistance.",
                 ] },
                 { type: "callout", tone: "tip", label: "Tip", text: "Element advantage is the single biggest lever in a pet fight. Match your pet — and the location — against what you expect to face." },
             ],
@@ -483,7 +483,23 @@ const PETS: Guide = {
             ],
         },
         {
-            heading: "4 · Expeditions & Summoning",
+            heading: "4 · Pet Showdown (turn-based)",
+            blocks: [
+                { type: "p", text: "Showdown is the flagship pet battle: you command every action of a turn-based fight, in 1v1, 2v2 or 3v3. Pick up to three pets — the extras wait on the bench and can be rotated in mid-fight." },
+                { type: "list", items: [
+                    "Stamina, not cooldowns: every technique costs stamina from a pool sized by the pet's bulk, and it regenerates slowly each round.",
+                    "Overdraft: you may cast a move you cannot afford. It still fires, but the pet takes damage for the shortfall and loses its next action.",
+                    "Hold: the heaviest techniques need a round in battle before they come online, and signatures need two.",
+                    "Turn order is speed × the priority of the move you chose — Guard resolves early, haymakers and signatures swing last.",
+                    "The signature meter fills as you deal and take damage, then empties in a single cast.",
+                    "Switching resolves before all attacks, and the pet coming in eats whatever was aimed at that slot — so a read on the switch is a real play.",
+                    "No draws: at the round limit the judge awards the win to the team with more remaining HP, and a tie goes to your opponent.",
+                ] },
+                { type: "callout", tone: "tip", label: "Tip", text: "Benched pets keep recovering stamina but their statuses are frozen — you cannot wait out a burn on the bench." },
+            ],
+        },
+        {
+            heading: "5 · Expeditions & Summoning",
             blocks: [
                 { type: "p", text: "Send a level-50+ pet on a timed expedition for pet XP, ryo and rare materials:" },
                 { type: "table", head: ["Expedition", "Duration"], rows: [

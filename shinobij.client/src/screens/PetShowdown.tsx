@@ -19,6 +19,7 @@ import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
 import { isPetOnExpedition } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
+import { petPvpGearById } from "../data/pet-config";
 import { preloadPetColiseumModels } from "../lib/pet-model-preload";
 import {
     startShowdown,
@@ -243,6 +244,29 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 </div>
             </div>
 
+            {/* The rules the battle never gets a chance to teach — especially
+                the judge, which decides real fights and is never stated in the
+                battle UI. */}
+            <details className="showdown-rules">
+                <summary>How a Showdown works</summary>
+                <ul>
+                    <li><b>Elements</b> — Fire &gt; Wind &gt; Lightning &gt; Earth &gt; Water &gt; Fire.
+                        Attacking the element you beat deals <b>×1.5</b>; attacking the one that
+                        beats you deals <b>×0.75</b>.</li>
+                    <li><b>Stamina</b> — every technique costs stamina, and it regenerates slowly.
+                        You may cast a move you cannot afford: it still fires, but the pet
+                        <b> bleeds HP</b> for the shortfall and <b>loses its next action</b>.</li>
+                    <li><b>Hold</b> — the heaviest techniques and signatures need a round or two in
+                        battle before they come online.</li>
+                    <li><b>Turn order</b> — speed × the priority of the move you picked. Guard
+                        resolves early; haymakers and signatures swing last.</li>
+                    <li><b>Signature</b> — the meter fills as you deal and take damage, and it
+                        empties in one cast.</li>
+                    <li><b>No draws</b> — if the round limit is reached, the judge awards it to
+                        the team with more remaining HP, and <b>a tie goes to your opponent</b>.</li>
+                </ul>
+            </details>
+
             <div className="showdown-roster-block">
                 <h3>
                     Your team — pick {size}{MAX_TEAM > size ? ` (plus up to ${MAX_TEAM - size} bench)` : ""}
@@ -271,6 +295,18 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                                 <img src={petCardImage(pet, sharedImages)} alt="" loading="lazy" />
                                 <span className="showdown-roster-name">{pet.nickname || pet.name}</span>
                                 <span className="showdown-roster-sub">Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
+                                {/* Team-building happens HERE, so the trait and
+                                    gear that decide a fight belong on the picker. */}
+                                {(pet.trait || pet.loadout?.pvp) && (
+                                    <span className="showdown-roster-kit">
+                                        {pet.trait && <em title="Trait">{pet.trait}</em>}
+                                        {petPvpGearById(pet.loadout?.pvp) && (
+                                            <em className="gear" title={petPvpGearById(pet.loadout?.pvp)?.desc}>
+                                                {petPvpGearById(pet.loadout?.pvp)?.name}
+                                            </em>
+                                        )}
+                                    </span>
+                                )}
                                 {busy && <span className="showdown-roster-busy">{busy}</span>}
                             </button>
                         );
