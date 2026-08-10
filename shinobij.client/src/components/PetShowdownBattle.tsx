@@ -703,7 +703,7 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                             <div className="chip" style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} />
                             <div className="fill" style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} />
                         </div>
-                        <div className="showdown-bar stamina"><div style={{ width: `${Math.max(0, d.stamina)}%` }} /></div>
+                        <div className="showdown-bar stamina"><div style={{ width: `${Math.max(0, (d.stamina / Math.max(1, pet.maxStamina)) * 100)}%` }} /></div>
                         <div className={`showdown-bar meter ${d.meter >= 100 ? "full" : ""}`}><div style={{ width: `${Math.max(0, d.meter)}%` }} /></div>
                         {d.statuses.length > 0 && (
                             <div className="showdown-statuses">
@@ -1050,6 +1050,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 } else if (event.targets.some((t) => t.applied)) {
                     playPetSfx("buff");
                 }
+                // Overdraft: the actor bleeds for the deficit (Temtem's chip).
+                if (event.overexertDamage) {
+                    addPopup(event.actorId, `-${event.overexertDamage}`, "damage");
+                    fxRef.current.hitAt.set(event.actorId, performance.now());
+                    applyToDisplay(setDisplay, event.actorId, (d) => ({
+                        ...d,
+                        hp: Math.max(0, d.hp - (event.overexertDamage ?? 0)),
+                        ko: d.hp - (event.overexertDamage ?? 0) <= 0,
+                    }));
+                }
                 if (event.timing === 2 && event.actorSide === "player") showBanner("PERFECT!", "perfect", 750 / speed);
                 else if (anySynergy && event.actorSide === "player") showBanner("🤝 Synergy!", "effective", 850 / speed);
                 else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
@@ -1351,7 +1361,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     <button type="button" className="showdown-move utility" onClick={() => pushCommand({ kind: "rest", petId: commander.id })}>
                                         <span className="showdown-move-icon">💤</span>
                                         <span className="showdown-move-name">Catch Breath</span>
-                                        <span className="showdown-move-sub">+45 STA · small heal</span>
+                                        <span className="showdown-move-sub">+22% STA · small heal</span>
                                     </button>
                                     <button
                                         type="button"

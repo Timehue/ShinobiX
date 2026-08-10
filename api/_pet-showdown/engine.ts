@@ -13,6 +13,7 @@
  */
 
 import {
+    SHOWDOWN_COST_BASIC,
     SHOWDOWN_COST_HEAVY,
     SHOWDOWN_COST_LIGHT,
     SHOWDOWN_COST_MEDIUM,
@@ -25,8 +26,8 @@ import {
     SHOWDOWN_HOLD_HEAVY,
     SHOWDOWN_HOLD_SUPER,
     SHOWDOWN_MAX_ROUNDS,
-    SHOWDOWN_MAX_STAMINA,
     SHOWDOWN_MAX_TEAM,
+    SHOWDOWN_OVERDRAFT_HP_PER_POINT,
     SHOWDOWN_PRIORITY_GUARD,
     SHOWDOWN_PRIORITY_HEAVY,
     SHOWDOWN_PRIORITY_LIGHT,
@@ -38,8 +39,10 @@ import {
     SHOWDOWN_METER_ON_HIT_DEALT,
     SHOWDOWN_METER_ON_HIT_TAKEN,
     SHOWDOWN_REST_HEAL_PCT,
-    SHOWDOWN_REST_STAMINA,
-    SHOWDOWN_STAMINA_REGEN,
+    SHOWDOWN_REST_FLAT,
+    SHOWDOWN_REST_PCT,
+    SHOWDOWN_STAMINA_REGEN_FLAT,
+    SHOWDOWN_STAMINA_REGEN_PCT,
     SHOWDOWN_SUPER_POWER_MULT,
     SHOWDOWN_SUPER_SPLASH_SCALE,
     SHOWDOWN_SYNERGY_MULT,
@@ -96,6 +99,8 @@ export interface ShowdownPet {
     defense: number;
     speed: number;
     stamina: number;
+    /** Per-pet stamina pool — a stat derived from bulk (~85-120). */
+    maxStamina: number;
     meter: number;
     ko: boolean;
     guarding: boolean;
@@ -302,7 +307,7 @@ function basicStrike(): ShowdownMove {
         name: 'Swift Strike',
         power: 55,
         kind: 'damage',
-        cost: 20,
+        cost: SHOWDOWN_COST_BASIC,
         cooldown: 0,
         currentCooldown: 0,
         signature: false,
@@ -405,6 +410,11 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
     // super priority/hold applied, and identity comparison must still hit.
     const kit = sealedJutsus.filter((m) => m !== authoredSignature && m.kind !== 'move').slice(0, 4);
 
+    const defense = clampInt(scaled(raw.defense, 28), 1, petStatCeil(rarity, 'defense'), 28);
+    // The stamina pool is a STAT (the Temtem model): bulk buys endurance.
+    // ~85 for a glass cannon, ~100 mid, ~120 for a war tortoise.
+    const maxStamina = Math.max(80, Math.min(125, Math.round(55 + maxHp / 16 + defense / 6)));
+
     return {
         id: String(raw.id),
         name: String(raw.nickname || raw.name || 'Companion').slice(0, 32),
@@ -416,9 +426,10 @@ export function sealShowdownPet(raw: Pet): ShowdownPet {
         hp: maxHp,
         maxHp,
         attack: clampInt(scaled(raw.attack, 40), 1, petStatCeil(rarity, 'attack'), 40),
-        defense: clampInt(scaled(raw.defense, 28), 1, petStatCeil(rarity, 'defense'), 28),
+        defense,
         speed: clampInt(scaled(raw.speed, 30), 1, petStatCeil(rarity, 'speed'), 30),
-        stamina: SHOWDOWN_MAX_STAMINA,
+        stamina: maxStamina,
+        maxStamina,
         meter: 0,
         ko: false,
         guarding: false,
@@ -669,15 +680,22 @@ function executeMove(
     const kind = move.kind;
     const power = superCast ? Math.round(move.power * SHOWDOWN_SUPER_POWER_MULT) : move.power;
 
-    // Costs and cooldowns — overexertion is allowed and priced in wind.
+    // Costs and cooldowns — overexertion is allowed and priced the Temtem way:
+    // the move fires, the pet pays HP for the deficit, and it is winded next
+    // round. Push your luck, bleed for it.
     let overexerted = false;
+    let overexertDamage = 0;
     if (superCast) {
         actor.meter = 0;
     } else {
         if (actor.stamina < move.cost) {
             overexerted = true;
             actor.winded = true;
+            const deficit = move.cost - actor.stamina;
             actor.stamina = 0;
+            overexertDamage = Math.round(deficit * SHOWDOWN_OVERDRAFT_HP_PER_POINT);
+            // The chip can KO — overdrafting on your last legs is a real gamble.
+            applyDamage(session, actor, overexertDamage);
         } else {
             actor.stamina -= move.cost;
         }
@@ -823,6 +841,7 @@ function executeMove(
         staminaAfter: Math.round(actor.stamina),
         meterAfter: Math.round(actor.meter),
         overexerted,
+        ...(overexertDamage > 0 ? { overexertDamage } : {}),
     });
 }
 
@@ -945,7 +964,7 @@ export function resolveShowdownRound(
                 staminaAfter: Math.round(pet.stamina), meterAfter: Math.round(pet.meter), overexerted: false,
             });
         } else if (command.kind === 'rest') {
-            pet.stamina = Math.min(SHOWDOWN_MAX_STAMINA, pet.stamina + SHOWDOWN_REST_STAMINA);
+            pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_REST_PCT) + SHOWDOWN_REST_FLAT);
             const healed = applyHeal(pet, pet.maxHp * SHOWDOWN_REST_HEAL_PCT);
             pet.guarding = false;
             events.push({
@@ -993,13 +1012,13 @@ export function resolveShowdownRound(
                     .map((s) => (s.bornRound < session.round ? { ...s, rounds: s.rounds - 1 } : s))
                     .filter((s) => s.rounds > 0);
                 for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
-                pet.stamina = Math.min(SHOWDOWN_MAX_STAMINA, pet.stamina + SHOWDOWN_STAMINA_REGEN);
+                pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
             }
             // Bench pets rest: stamina + cooldowns recover, statuses stay frozen
             // (no ticks, no decay — you can't wait out a burn from the bench).
             for (const pet of livingTeam(session, side).filter((p) => p.benched)) {
                 for (const m of pet.moves) m.currentCooldown = Math.max(0, m.currentCooldown - 1);
-                pet.stamina = Math.min(SHOWDOWN_MAX_STAMINA, pet.stamina + SHOWDOWN_STAMINA_REGEN);
+                pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
             }
             // Hold timers tick for EVERYONE, field or bench (the Temtem rule).
             for (const pet of livingTeam(session, side)) pet.readiness += 1;
@@ -1063,6 +1082,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         hp: Math.round(pet.hp),
         maxHp: pet.maxHp,
         stamina: Math.round(pet.stamina),
+        maxStamina: pet.maxStamina,
         meter: Math.round(pet.meter),
         ko: pet.ko,
         guarding: pet.guarding,
