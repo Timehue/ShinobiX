@@ -2,8 +2,7 @@
  * PetShowdownBattle — the cinematic playback layer for Pet Showdown.
  *
  * The battle is resolved ON THE SERVER (api/_pet-showdown/engine.ts): this
- * component only (1) collects one round of commands through the command deck +
- * timing needle, (2) POSTs them, and (3) plays back the returned turn script
+ * component only (1) collects one round of commands through the command deck, (2) POSTs them, and (3) plays back the returned turn script
  * beat by beat — camera cuts, lunges, projectiles, damage numbers, banners.
  * It never computes a combat number; every figure on screen arrived in an event.
  *
@@ -191,7 +190,7 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
         : event.t === "dot" ? 850
         // A judge ending shows two banners in sequence — at speed 2 a 1700ms
         // beat collides them.
-        : event.t === "end" ? (event.byJudge ? 2900 : 1700)
+        : event.t === "end" ? 1700
         : 350;
     return base / speed;
 }
@@ -787,57 +786,6 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     );
 }
 
-
-// ─── Timing needle (DOM) ─────────────────────────────────────────────────────
-
-function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
-    const [pos, setPos] = useState(0);
-    const raf = useRef(0);
-    const start = useRef<number | null>(null);
-    const done = useRef(false);
-    const btn = useRef<HTMLButtonElement>(null);
-    const SWEEP_MS = 1100;
-    useEffect(() => {
-        // Lazy-init so the sweep clock starts on mount, not in render — and
-        // survives parent re-renders mid-sweep without restarting.
-        if (start.current === null) start.current = performance.now();
-        // The command deck unmounts when the needle appears, so a keyboard
-        // player's focus falls to <body> and they can never hit the window —
-        // capping them at the base multiplier forever. Take focus explicitly.
-        btn.current?.focus({ preventScroll: true });
-        const tick = () => {
-            const elapsed = performance.now() - (start.current ?? performance.now());
-            if (elapsed >= SWEEP_MS) {
-                if (!done.current) { done.current = true; onGrade(0); }
-                return;
-            }
-            setPos(elapsed / SWEEP_MS);
-            raf.current = requestAnimationFrame(tick);
-        };
-        raf.current = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(raf.current);
-    }, [onGrade]);
-    const tap = () => {
-        if (done.current) return;
-        done.current = true;
-        cancelAnimationFrame(raf.current);
-        const dist = Math.abs(pos - 0.5);
-        onGrade(dist <= 0.08 ? 2 : dist <= 0.2 ? 1 : 0);
-    };
-    return (
-        // Both handlers: pointer users keep the earlier pointerdown timing,
-        // keyboard activation arrives as a click. The done latch makes the
-        // double-fire a no-op.
-        <button ref={btn} type="button" className="showdown-needle" onPointerDown={tap} onClick={tap}>
-            <div className="showdown-needle-track">
-                <div className="showdown-needle-zone good" />
-                <div className="showdown-needle-zone perfect" />
-                <div className="showdown-needle-marker" style={{ left: `${pos * 100}%` }} />
-            </div>
-            <div className="showdown-needle-hint">TAP in the center!</div>
-        </button>
-    );
-}
 
 // ─── Team panel (DOM) ────────────────────────────────────────────────────────
 
@@ -1470,7 +1418,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [expired, setExpired] = useState(false);
     const [letterbox, setLetterbox] = useState(false);
     const [flash, setFlash] = useState(0);
-    const [endedByJudge, setEndedByJudge] = useState(false);
     const [endOutcome, setEndOutcome] = useState<"win" | "loss" | null>(null);
     /** Snapshotted from the tally when the battle ends (never read in render). */
     const [recap, setRecap] = useState<{ pet: ShowdownPetView; dmg: number; kos: number; supers: number; mvp: boolean }[]>([]);
@@ -1502,7 +1449,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** The creature the pointer is over while targeting (drives the cursor and
      *  the inspector's "→ target" line). */
     const [hoveredTarget, setHoveredTarget] = useState<string | null>(null);
-    const [needleFor, setNeedleFor] = useState<{ petId: string; moveIndex: number; super: boolean; targetId: string } | null>(null);
     // VS intro card over the opening seconds.
     const [intro, setIntro] = useState(true);
     useEffect(() => {
@@ -1646,9 +1592,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex };
 
         if (event.t === "roundStart") {
-            const isFinal = event.round >= stateView.maxRounds;
+            // The old cap's moment survives as the pressure cue: this is where
+            // attrition starts biting, not where a timer ends the fight.
+            const isFinal = event.round >= stateView.attritionAt;
             showBanner(
-                event.round === 1 ? "BATTLE START" : isFinal ? "FINAL ROUND" : `ROUND ${event.round}`,
+                event.round === 1 ? "BATTLE START" : isFinal ? "ATTRITION" : `ROUND ${event.round}`,
                 isFinal ? "super" : "round",
                 durationMs * 0.8,
             );
@@ -1691,17 +1639,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 applyToDisplay(setDisplay, event.targetId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko }));
             }, durationMs * 0.35);
         } else if (event.t === "end") {
-            // 11.3% of fights used to end on a rule the player was never told.
-            if (event.byJudge) {
-                setEndedByJudge(true);
-                later(() => showBanner("JUDGE'S DECISION", "judge", 1300 / speed), 0);
-            }
             setEndOutcome(event.outcome);
             later(() => {
                 showBanner(event.outcome === "win" ? "VICTORY!" : "DEFEAT", event.outcome === "win" ? "victory" : "defeat", 2400 / speed);
                 playPetSfx(event.outcome === "win" ? "victory" : "ko");
                 if (event.outcome === "win") playPetSfx("crowd");
-            }, durationMs * (event.byJudge ? 0.5 : 0.2));
+            }, durationMs * 0.2);
         } else if (event.t === "action") {
             if (event.super) {
                 later(() => {
@@ -1839,8 +1782,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 if (firedProcs.length && event.actorSide === "player") {
                     later(() => addPopup(event.actorId, firedProcs[0], "proc"), 180);
                 }
-                if (event.timing === 2 && event.actorSide === "player") showBanner("PERFECT!", "perfect", 750 / speed);
-                else if (anySynergy && event.actorSide === "player") showBanner("SYNERGY", "effective", 850 / speed);
+                if (anySynergy && event.actorSide === "player") showBanner("SYNERGY", "effective", 850 / speed);
                 else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
                 else if (bestEffect === "weak") showBanner("Not very effective…", "weak", 900 / speed);
                 if (anyKo) later(() => { showBanner("KO!", "ko", 900 / speed); playPetSfx("ko"); }, 220);
@@ -1868,7 +1810,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         .map((id) => stateView.player.find((p) => p.id === id))
         .filter((p): p is ShowdownPetView => !!p && !(display[p.id]?.ko ?? p.ko));
     // A pet that will lose its next action is not asked for one — it used to
-    // get the full deck and a timing needle for a command the engine discards
+    // get the full deck for a command the engine discards
     // before ever reading it. A STUNNED pet is still prompted (it may switch);
     // an overdraft-winded pet may not rotate away, so it is skipped entirely.
     const promptable = livingPlayer.filter(
@@ -1930,7 +1872,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // Plain handlers (not useCallback): they close over render-derived values
     // (draft, livingPlayer) and only ever run from committed-event contexts.
     const pushCommand = (command: ShowdownCommand) => {
-        setNeedleFor(null);
         setPendingMove(null);
         setPickingSwitch(false);
         setMenuTab("root");
@@ -1957,17 +1898,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             return;
         }
         const targetId = needsEnemy ? (livingEnemies[0]?.id ?? "") : needsAlly ? commander.id : commander.id;
-        beginNeedle(commander.id, moveIndex, superCast, targetId, move.kind);
+        pushCommand(superCast
+            ? { kind: "super", petId: commander.id, targetId }
+            : { kind: "move", petId: commander.id, moveIndex, targetId });
     };
 
-    const beginNeedle = (petId: string, moveIndex: number, superCast: boolean, targetId: string, moveKind: string) => {
-        // Timing expression only matters on offense; utility moves skip the needle.
-        if (SELF_MOVE_KINDS.has(moveKind) || ALLY_MOVE_KINDS.has(moveKind)) {
-            pushCommand(superCast ? { kind: "super", petId, targetId, timing: 0 } : { kind: "move", petId, moveIndex, targetId, timing: 0 });
-            return;
-        }
-        setNeedleFor({ petId, moveIndex, super: superCast, targetId });
-    };
 
     /** One entry point for every "you clicked a creature" decision. */
     const pickTarget = (targetId: string) => {
@@ -1980,25 +1915,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             return;
         }
         if (!pendingMove) return;
-        const move = pendingMove.super ? commander.moves.find((m) => m.signature) : commander.moves[pendingMove.moveIndex];
+        const wasSuper = pendingMove.super;
+        const moveIndex = pendingMove.moveIndex;
         setPendingMove(null);
-        beginNeedle(commander.id, pendingMove.moveIndex, pendingMove.super, targetId, move?.kind ?? "damage");
+        pushCommand(wasSuper
+            ? { kind: "super", petId: commander.id, targetId }
+            : { kind: "move", petId: commander.id, moveIndex, targetId });
     };
 
-    const onNeedleGrade = (grade: number) => {
-        // Closure over the needle that mounted this sweep — the needle unmounts
-        // the moment pushCommand clears it, so this fires at most once per sweep.
-        if (!needleFor) return;
-        // Landing it perfectly used to feel identical to letting the sweep
-        // expire: one text banner, no sound, no haptic. This is the only moment
-        // in the mode where the player's reflexes matter — it has to land.
-        playPetSfx(grade === 2 ? "needlePerfect" : grade === 1 ? "needleGood" : "needleMiss");
-        petHaptic(grade === 2 ? [14, 26, 22] : grade === 1 ? 16 : 8);
-        if (grade === 2) showBanner("PERFECT!", "perfect", 600);
-        pushCommand(needleFor.super
-            ? { kind: "super", petId: needleFor.petId, targetId: needleFor.targetId, timing: grade }
-            : { kind: "move", petId: needleFor.petId, moveIndex: needleFor.moveIndex, targetId: needleFor.targetId, timing: grade });
-    };
 
     const outcome = stateView.outcome;
     const targetingAllies = !!pendingMove && !!commander && ALLY_MOVE_KINDS.has((pendingMove.super ? commander.moves.find((m) => m.signature) : commander.moves[pendingMove.moveIndex])?.kind ?? "");
@@ -2198,7 +2122,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     <div className="showdown-topbar-right">
                         {/* stateView.round reconciles at playback end, so the round
                             IN PROGRESS (command or playing) is always round + 1. */}
-                        <div className="showdown-round">R{stateView.finished ? stateView.round : Math.min(stateView.round + 1, stateView.maxRounds)}/{stateView.maxRounds}</div>
+                        <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}</div>
                         <div className="showdown-vs">{stateView.enemyTeamName}</div>
                         <button
                             type="button"
@@ -2272,7 +2196,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 </div>
 
                 <div className="showdown-bottombar">
-                    {phase === "command" && commander && !needleFor && (
+                    {phase === "command" && commander && (
                         <>
                             {/* Targeting takes over the menu column: the choice is
                                 made in the 3D scene, so the panel only says who
@@ -2326,19 +2250,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     {phase === "playing" && <div className="showdown-playing-hint">The exchange unfolds…</div>}
                 </div>
 
-                {needleFor && <TimingNeedle key={`${needleFor.petId}:${draft.length}`} onGrade={onNeedleGrade} />}
-
                 {phase === "finished" && (
                     <div className="showdown-result">
                         <div className={`showdown-result-title ${outcome === "win" ? "win" : "loss"}`}>
                             {outcome === "win" ? "VICTORY" : "DEFEAT"}
                         </div>
-                        {endedByJudge && (
-                            <div className="showdown-result-reason">
-                                Judge's decision — the round limit was reached, so the team with more
-                                remaining HP takes it. A tie goes to your opponent.
-                            </div>
-                        )}
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
                         )}

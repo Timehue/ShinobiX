@@ -25,7 +25,7 @@ import {
     SHOWDOWN_PRIORITY_HEAVY,
     SHOWDOWN_PRIORITY_LIGHT,
     SHOWDOWN_PRIORITY_NORMAL,
-    showdownRoundCap,
+    SHOWDOWN_ATTRITION_START,
 } from "../../shared/pet-showdown-contract";
 import type {
     ShowdownCommand,
@@ -148,7 +148,7 @@ function stateView(finished = false, outcome: "win" | "loss" | null = null): Sho
         format: "2v2",
         tier: "warrior",
         round: world.round,
-        maxRounds: showdownRoundCap(3, 2),
+        attritionAt: SHOWDOWN_ATTRITION_START,
         finished,
         outcome,
         player: playerPets.map(view),
@@ -191,7 +191,7 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         if (c.kind === "guard" || c.kind === "rest") {
             events.push({
                 t: "action", actorId: actor.id, actorSide: "player", moveName: c.kind === "guard" ? "Guard" : "Catch Breath",
-                moveKind: c.kind, element: actor.element ?? "None", delivery: "self", super: false, timing: 0,
+                moveKind: c.kind, element: actor.element ?? "None", delivery: "self", super: false,
                 targets: [{ id: actor.id, damage: 0, heal: c.kind === "rest" ? 32 : 0, effectiveness: "neutral", guarded: false, ko: false, applied: c.kind }],
                 staminaAfter: 80, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
             });
@@ -208,13 +208,13 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
             moveName: superCast ? `${actor.element} Overdrive` : "Swift Strike",
             moveKind: "damage", element: actor.element ?? "None",
             delivery: actor.role === "assassin" || actor.role === "defender" ? "melee" : "ranged",
-            super: superCast, timing: c.timing ?? 0,
+            super: superCast,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: world.round % 3 === 0 ? "super" : "neutral", guarded: false, ko }],
             staminaAfter: Math.max(0, 100 - world.round * 25), meterAfter: meter,
             overexerted: world.round === 3,
         });
         if (ko && !livingEnemy()) {
-            events.push({ t: "end", outcome: "win", byJudge: false }, { t: "roundEnd", round: world.round });
+            events.push({ t: "end", outcome: "win" }, { t: "roundEnd", round: world.round });
             return { ok: true, events, state: stateView(true, "win"), reward: 84, balances: { ryo: 1234 } };
         }
     }
@@ -230,12 +230,12 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         world.meter.set(target.id, meter);
         events.push({
             t: "action", actorId: enemy.id, actorSide: "enemy", moveName: "Fang Rush",
-            moveKind: "damage", element: enemy.element ?? "None", delivery: "melee", super: false, timing: 0,
+            moveKind: "damage", element: enemy.element ?? "None", delivery: "melee", super: false,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: "neutral", guarded: false, ko }],
             staminaAfter: 60, meterAfter: 40, overexerted: false,
         });
         if (ko && !livingPlayer()) {
-            events.push({ t: "end", outcome: "loss", byJudge: false }, { t: "roundEnd", round: world.round });
+            events.push({ t: "end", outcome: "loss" }, { t: "roundEnd", round: world.round });
             return { ok: true, events, state: stateView(true, "loss") };
         }
     }
@@ -248,7 +248,7 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         // Mirror the real engine's round-cap judge so the harness never plays R15+.
         const hpPct = (pets: Pet[]) => pets.reduce((sum, p) => sum + (world.hp.get(p.id) ?? 0) / Math.max(1, p.hp), 0);
         const outcome = hpPct(playerPets) > hpPct(enemyPets) ? "win" as const : "loss" as const;
-        events.push({ t: "end", outcome, byJudge: true });
+        events.push({ t: "end", outcome });
         return { ok: true, events, state: stateView(true, outcome), ...(outcome === "win" ? { reward: 84, balances: { ryo: 1234 } } : {}) };
     }
     return { ok: true, events, state: stateView() };

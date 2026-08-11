@@ -71,17 +71,16 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
         const petId = String(c.petId ?? '').slice(0, 96);
         if (!petId) continue;
         const kind = String(c.kind ?? '');
-        const timing = Math.max(0, Math.min(2, Math.floor(Number(c.timing) || 0)));
         if (kind === 'guard' || kind === 'rest') {
             out.push({ kind, petId });
         } else if (kind === 'switch') {
             const benchPetId = String(c.benchPetId ?? '').slice(0, 96);
             if (benchPetId) out.push({ kind, petId, benchPetId });
         } else if (kind === 'super') {
-            out.push({ kind, petId, targetId: String(c.targetId ?? '').slice(0, 96), timing });
+            out.push({ kind, petId, targetId: String(c.targetId ?? '').slice(0, 96) });
         } else if (kind === 'move') {
             const moveIndex = Math.max(0, Math.min(7, Math.floor(Number(c.moveIndex) || 0)));
-            out.push({ kind, petId, moveIndex, targetId: String(c.targetId ?? '').slice(0, 96), timing });
+            out.push({ kind, petId, moveIndex, targetId: String(c.targetId ?? '').slice(0, 96) });
         }
     }
     return out;

@@ -22,7 +22,7 @@ import {
     resolveShowdownRound,
 } from '../api/_pet-showdown/engine.ts';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.ts';
-import { SHOWDOWN_MAX_ROUNDS } from '../shared/pet-showdown-contract.ts';
+const HARD_STOP = 400;  // sim-only guard; the engine has no round cap
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -64,13 +64,13 @@ function fight(tplA, tplB, seed) {
         playerPets: [scaled(tplA, 'a')], enemyPets: [scaled(tplB, 'b')], enemyTeamName: 'B',
     });
     let rounds = 0;
-    while (!session.finished && rounds < SHOWDOWN_MAX_ROUNDS + 1) {
+    while (!session.finished && rounds < HARD_STOP + 1) {
         rounds += 1;
         const playerCommands = commandsFor(session, 'player');
         const enemyCommands = commandsFor(session, 'enemy');
         resolveShowdownRound(session, playerCommands, enemyCommands);
     }
-    return { outcome: session.outcome, rounds: session.round, byJudge: session.round >= SHOWDOWN_MAX_ROUNDS };
+    return { outcome: session.outcome, rounds: session.round, byJudge: session.round >= HARD_STOP };
 }
 
 const byRarity = new Map();

@@ -23,7 +23,7 @@ import {
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
 import {
-    SHOWDOWN_MAX_ROUNDS,
+    SHOWDOWN_ATTRITION_START,
     SHOWDOWN_ELEMENT_ADVANTAGE,
     SHOWDOWN_ELEMENT_DISADVANTAGE,
     SHOWDOWN_METER_MAX,
@@ -107,7 +107,7 @@ test('a decisive stat gap produces a KO win and an end event', () => {
     const weak = makePet('weak', { attack: 40, hp: 300, defense: 20, rarity: 'standard' });
     const session = makeSession([strong], [weak]);
     let sawEnd = false;
-    for (let i = 0; i < SHOWDOWN_MAX_ROUNDS && !session.finished; i++) {
+    for (let i = 0; i < 40 && !session.finished; i++) {
         const events = resolveShowdownRound(session, attackAll(session), enemyAttackAll(session));
         sawEnd = sawEnd || events.some((e) => e.t === 'end' && e.outcome === 'win');
     }
@@ -123,7 +123,7 @@ test('overexertion fires the move but winds the pet for the next round', () => {
     const heavyIndex = session.player[0].moves.findIndex((m) => m.cost > 10);
     assert.ok(heavyIndex >= 0);
     const events = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'a', moveIndex: heavyIndex, targetId: 'b', timing: 0 },
+        { kind: 'move', petId: 'a', moveIndex: heavyIndex, targetId: 'b' },
     ], [{ kind: 'rest', petId: 'b' }]);
     const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.ok(action);
@@ -132,7 +132,7 @@ test('overexertion fires the move but winds the pet for the next round', () => {
     assert.ok((action.targets[0]?.damage ?? 0) > 0, 'the overexerted move still lands');
 
     const nextEvents = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
     ], [{ kind: 'rest', petId: 'b' }]);
     const skip = nextEvents.find((e) => e.t === 'skip' && e.actorId === 'a');
     assert.ok(skip, 'the wind costs the next-round action');
@@ -145,7 +145,7 @@ test('overdrafting pays HP for the deficit (the Temtem chip) and the pool is a b
     const hpBefore = pet.hp;
     pet.stamina = 4;   // deficit of (cost - 4) on any real move
     const events = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
     ], [{ kind: 'rest', petId: 'b' }]);
     const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.ok(action);
@@ -164,7 +164,7 @@ test('guarding halves incoming damage and reads back in the event', () => {
         );
         if (guarding) session.enemy[0].guarding = true;
         const events = resolveShowdownRound(session, [
-            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
         ], [{ kind: 'rest', petId: 'b' }]);
         const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
         assert.ok(action);
@@ -184,7 +184,7 @@ test('element advantage outdamages a neutral matchup and banners it', () => {
             999,
         );
         const events = resolveShowdownRound(session, [
-            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
         ], [{ kind: 'rest', petId: 'b' }]);
         const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
         assert.ok(action);
@@ -208,26 +208,11 @@ test('element advantage outdamages a neutral matchup and banners it', () => {
     for (const t of [advantaged, neutral, weak]) assert.ok(t.damage > 0);
 });
 
-test('perfect timing outdamages an untapped needle', () => {
-    const hit = (timing: number) => {
-        const session = makeSession(
-            [makePet('a', { speed: 200, element: 'None' })],
-            [makePet('b', { speed: 10, element: 'None' })],
-            31337,
-        );
-        const events = resolveShowdownRound(session, [
-            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing },
-        ], [{ kind: 'rest', petId: 'b' }]);
-        const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
-        return action!.targets[0].damage;
-    };
-    assert.ok(hit(2) > hit(0));
-});
 
 test('a super without a full meter downgrades to guard; with one it fires and resets', () => {
     const session = makeSession([makePet('a', { speed: 200 })], [makePet('b', { speed: 10, hp: 5000 })]);
     const denied = resolveShowdownRound(session, [
-        { kind: 'super', petId: 'a', targetId: 'b', timing: 2 },
+        { kind: 'super', petId: 'a', targetId: 'b' },
     ], [{ kind: 'rest', petId: 'b' }]);
     const deniedAction = denied.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.equal(deniedAction?.moveKind, 'guard');
@@ -235,7 +220,7 @@ test('a super without a full meter downgrades to guard; with one it fires and re
     session.player[0].meter = SHOWDOWN_METER_MAX;
     session.player[0].readiness = 2;   // signatures HOLD until round 3 in battle
     const fired = resolveShowdownRound(session, [
-        { kind: 'super', petId: 'a', targetId: 'b', timing: 2 },
+        { kind: 'super', petId: 'a', targetId: 'b' },
     ], [{ kind: 'rest', petId: 'b' }]);
     const superAction = fired.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.ok(superAction);
@@ -266,30 +251,7 @@ test('rest recovers stamina and a little hp', () => {
     assert.ok(session.player[0].stamina > 5);
 });
 
-test('the round cap invokes the judge and never draws', () => {
-    // Two unkillable walls — nobody dies before the cap.
-    const wall = { hp: 20000, defense: 5000, attack: 5, rarity: 'mythic' as const };
-    const session = makeSession([makePet('a', wall)], [makePet('b', { ...wall, hp: 19000 })]);
-    let endEvent: Extract<ShowdownEvent, { t: 'end' }> | undefined;
-    for (let i = 0; i < SHOWDOWN_MAX_ROUNDS + 2 && !session.finished; i++) {
-        const events = resolveShowdownRound(session, attackAll(session), enemyAttackAll(session));
-        endEvent = events.find((e): e is Extract<ShowdownEvent, { t: 'end' }> => e.t === 'end') ?? endEvent;
-    }
-    assert.equal(session.finished, true);
-    assert.ok(endEvent);
-    assert.equal(endEvent.byJudge, true);
-    assert.ok(session.outcome === 'win' || session.outcome === 'loss');
-});
 
-test('an exact judge tie goes to the opponent — stalling is never free', () => {
-    const wall = { hp: 20000, defense: 5000, attack: 5, rarity: 'mythic' as const };
-    const session = makeSession([makePet('a', wall)], [makePet('b', wall)]);
-    for (let i = 0; i < SHOWDOWN_MAX_ROUNDS + 2 && !session.finished; i++) {
-        resolveShowdownRound(session, [{ kind: 'rest', petId: 'a' }], [{ kind: 'rest', petId: 'b' }]);
-    }
-    assert.equal(session.finished, true);
-    assert.equal(session.outcome, 'loss');
-});
 
 test('every jutsu kind resolves without throwing', () => {
     const kinds = [
@@ -304,7 +266,7 @@ test('every jutsu kind resolves without throwing', () => {
         });
         const session = makeSession([caster], [makePet('dummy', { speed: 10, hp: 4000 })]);
         const events = resolveShowdownRound(session, [
-            { kind: 'move', petId: 'caster', moveIndex: 1, targetId: 'dummy', timing: 1 },
+            { kind: 'move', petId: 'caster', moveIndex: 1, targetId: 'dummy' },
         ], [{ kind: 'rest', petId: 'dummy' }]);
         const action = events.find((e) => e.t === 'action' && e.actorId === 'caster');
         assert.ok(action, `kind ${kind} produced an action event`);
@@ -322,7 +284,7 @@ test('a stun landed after the target already acted survives upkeep and skips its
     const session = makeSession([stunner], [makePet('victim', { speed: 200, hp: 6000, attack: 5 })]);
     session.player[0].readiness = 1;   // control moves HOLD until round 2
     resolveShowdownRound(session, [
-        { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim', timing: 0 },
+        { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim' },
     ], [{ kind: 'rest', petId: 'victim' }]);
     const events = resolveShowdownRound(session, [
         { kind: 'rest', petId: 'stunner' },
@@ -339,7 +301,7 @@ test('a stun landed before the target acts consumes its SAME-round action', () =
     const session = makeSession([stunner], [makePet('victim', { speed: 10, hp: 6000 })]);
     session.player[0].readiness = 1;   // control moves HOLD until round 2
     const events = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim', timing: 0 },
+        { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim' },
     ], [{ kind: 'rest', petId: 'victim' }]);
     const skip = events.find((e) => e.t === 'skip' && e.actorId === 'victim' && e.reason === 'stun');
     assert.ok(skip, 'outspeeding the victim steals its pending action');
@@ -356,10 +318,10 @@ test('taunt in 2v2 drags single-target hits onto the taunter', () => {
         [taunter, squishy], 5555, '2v2',
     );
     const events = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'p1', moveIndex: 1, targetId: 'squishy', timing: 0 },
-        { kind: 'move', petId: 'p2', moveIndex: 1, targetId: 'squishy', timing: 0 },
+        { kind: 'move', petId: 'p1', moveIndex: 1, targetId: 'squishy' },
+        { kind: 'move', petId: 'p2', moveIndex: 1, targetId: 'squishy' },
     ], [
-        { kind: 'move', petId: 'taunter', moveIndex: 1, targetId: 'p1', timing: 0 },
+        { kind: 'move', petId: 'taunter', moveIndex: 1, targetId: 'p1' },
         { kind: 'rest', petId: 'squishy' },
     ]);
     const playerHits = events.filter((e): e is Extract<ShowdownEvent, { t: 'action' }> =>
@@ -377,7 +339,7 @@ test('burn ticks at end of round as a dot event', () => {
     });
     const session = makeSession([burner], [makePet('victim', { speed: 10, hp: 6000 })]);
     const events = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'burner', moveIndex: 1, targetId: 'victim', timing: 0 },
+        { kind: 'move', petId: 'burner', moveIndex: 1, targetId: 'victim' },
     ], [{ kind: 'rest', petId: 'victim' }]);
     const dot = events.find((e) => e.t === 'dot' && e.targetId === 'victim');
     assert.ok(dot, 'burn ticked in the same round upkeep');
@@ -452,7 +414,7 @@ test('a signature in 2v2 splashes the second foe at a reduced rate', () => {
     session.player[0].meter = SHOWDOWN_METER_MAX;
     session.player[0].readiness = 2;   // signatures HOLD until round 3 in battle
     const events = resolveShowdownRound(session, [
-        { kind: 'super', petId: 'a', targetId: 'b', timing: 0 },
+        { kind: 'super', petId: 'a', targetId: 'b' },
         { kind: 'rest', petId: 'a2' },
     ], [{ kind: 'rest', petId: 'b' }, { kind: 'rest', petId: 'b2' }]);
     const superAction = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.super);
@@ -473,7 +435,7 @@ test('ally element synergy amplifies the hit and flags the event', () => {
             424242, '2v2',
         );
         const events = resolveShowdownRound(session, [
-            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
             { kind: 'rest', petId: 'ally' },
         ], [{ kind: 'rest', petId: 'b' }, { kind: 'rest', petId: 'b2' }]);
         const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
@@ -513,7 +475,7 @@ test('a switch swaps field and bench before any attack lands', () => {
     ], [
         // The foe aims at the DEPARTING lead — the hit must land on the
         // incoming reserve instead (the prediction layer).
-        { kind: 'move', petId: 'foe', moveIndex: 1, targetId: 'lead', timing: 0 },
+        { kind: 'move', petId: 'foe', moveIndex: 1, targetId: 'lead' },
     ]);
     const switchEvent = events.find((e): e is Extract<ShowdownEvent, { t: 'switch' }> => e.t === 'switch');
     assert.ok(switchEvent);
@@ -536,7 +498,7 @@ test('a KO with reserves triggers a reinforcement instead of a loss', () => {
     const events = resolveShowdownRound(session, [
         { kind: 'rest', petId: 'lead' },
     ], [
-        { kind: 'move', petId: 'foe', moveIndex: 1, targetId: 'lead', timing: 2 },
+        { kind: 'move', petId: 'foe', moveIndex: 1, targetId: 'lead' },
     ]);
     assert.equal(session.finished, false, 'the bench keeps the battle alive');
     const reinforcement = events.find((e): e is Extract<ShowdownEvent, { t: 'switch' }> => e.t === 'switch' && e.reinforcement);
@@ -554,7 +516,7 @@ test('the whole team must fall before the side loses', () => {
         rounds += 1;
         const fieldPet = session.player.find((p) => !p.ko && !p.benched);
         resolveShowdownRound(session, fieldPet ? [{ kind: 'rest', petId: fieldPet.id }] : [], [
-            { kind: 'move', petId: 'foe', moveIndex: 1, targetId: fieldPet?.id ?? '', timing: 2 },
+            { kind: 'move', petId: 'foe', moveIndex: 1, targetId: fieldPet?.id ?? '' },
         ]);
     }
     assert.equal(session.finished, true);
@@ -572,7 +534,7 @@ test('bench statuses are frozen — a burn cannot be waited out from the bench',
     session.enemy.push(reserve);
     // Round 1: burn the victim.
     resolveShowdownRound(session, [
-        { kind: 'move', petId: 'burner', moveIndex: 1, targetId: 'victim', timing: 0 },
+        { kind: 'move', petId: 'burner', moveIndex: 1, targetId: 'victim' },
     ], [{ kind: 'rest', petId: 'victim' }]);
     const burnRounds = session.enemy[0].statuses.find((s) => s.kind === 'burn')?.rounds ?? 0;
     assert.ok(burnRounds > 0, 'victim is burning');
@@ -599,7 +561,7 @@ test('move priority reorders the round: a guard outruns a faster attacker', () =
     const events = resolveShowdownRound(session, [
         { kind: 'guard', petId: 'guardian' },
     ], [
-        { kind: 'move', petId: 'speedy', moveIndex: 1, targetId: 'guardian', timing: 0 },
+        { kind: 'move', petId: 'speedy', moveIndex: 1, targetId: 'guardian' },
     ]);
     const actions = events.filter((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action');
     assert.equal(actions[0].actorId, 'guardian', 'the guard resolved first despite lower speed');
@@ -615,12 +577,12 @@ test('heavy moves HOLD: unusable on round one, live after the hold elapses', () 
     const nukeIndex = session.player[0].moves.findIndex((m) => m.hold > 0);
     assert.ok(nukeIndex >= 0, 'the 300-power move carries a hold');
     const round1 = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'nuker', moveIndex: nukeIndex, targetId: 'wall', timing: 0 },
+        { kind: 'move', petId: 'nuker', moveIndex: nukeIndex, targetId: 'wall' },
     ], [{ kind: 'rest', petId: 'wall' }]);
     const round1Action = round1.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'nuker');
     assert.equal(round1Action?.moveKind, 'guard', 'held move downgraded to guard on round 1');
     const round2 = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'nuker', moveIndex: nukeIndex, targetId: 'wall', timing: 0 },
+        { kind: 'move', petId: 'nuker', moveIndex: nukeIndex, targetId: 'wall' },
     ], [{ kind: 'rest', petId: 'wall' }]);
     const round2Action = round2.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'nuker');
     assert.equal(round2Action?.moveName, 'Cataclysm', 'the haymaker fires once the hold elapses');
@@ -649,7 +611,7 @@ test('traits carry in-combat effects: Battleborn starts charged, Aggressive hits
             777,
         );
         const events = resolveShowdownRound(session, [
-            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+            { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
         ], [{ kind: 'rest', petId: 'b' }]);
         const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
         return action!.targets[0].damage;
@@ -680,7 +642,7 @@ test('PvP gear applies: stat mods, start shield, and execute proc', () => {
         );
         s.enemy[0].hp = Math.round(s.enemy[0].maxHp * 0.3);   // below the 40% line
         const events = resolveShowdownRound(s, [
-            { kind: 'move', petId: 't', moveIndex: 1, targetId: 'lowfoe', timing: 0 },
+            { kind: 'move', petId: 't', moveIndex: 1, targetId: 'lowfoe' },
         ], [{ kind: 'rest', petId: 'lowfoe' }]);
         const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 't');
         return action!.targets[0].damage;
@@ -741,8 +703,8 @@ test('an under-charged super cannot buy guard-tier turn priority', () => {
     session.player[0].meter = 90;   // NOT full — the super must be refused
     session.player[0].readiness = 2;
     const events = resolveShowdownRound(session, [
-        { kind: 'super', petId: 'mine', targetId: 'fast', timing: 2 },
-    ], [{ kind: 'move', petId: 'fast', moveIndex: 1, targetId: 'mine', timing: 0 }]);
+        { kind: 'super', petId: 'mine', targetId: 'fast' },
+    ], [{ kind: 'move', petId: 'fast', moveIndex: 1, targetId: 'mine' }]);
     const mine = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'mine');
     assert.equal(mine?.moveKind, 'guard', 'the refused super became a guard');
     assert.equal(mine?.super, false, 'and never fired as a super');
@@ -774,31 +736,12 @@ test('a self-buff is stored on the ACTOR under its renamed kind', () => {
     });
     const session = makeSession([caster], [makePet('foe', { speed: 5, hp: 6000 })]);
     resolveShowdownRound(session, [
-        { kind: 'move', petId: 'caster', moveIndex: 1, targetId: 'foe', timing: 0 },
+        { kind: 'move', petId: 'caster', moveIndex: 1, targetId: 'foe' },
     ], [{ kind: 'rest', petId: 'foe' }]);
     assert.ok(session.player[0].statuses.some((s) => s.kind === 'shield'), 'stored as shield on the caster');
     assert.ok(!session.enemy[0].statuses.some((s) => s.kind === 'barrier'), 'never lands on the target');
 });
 
-test('the round cap extends with bench depth so reserve formats can resolve', () => {
-    // A single KO averages ~6 rounds; a flat 14 could not resolve a 3-deep
-    // team fed in one at a time (measured 87.2% judge decisions).
-    const solo = makeSession([makePet('a')], [makePet('b')], 1, '1v1');
-    const deep = makeSession(
-        [makePet('a'), makePet('a2'), makePet('a3')],
-        [makePet('b'), makePet('b2'), makePet('b3')],
-        1, '1v1',
-    );
-    assert.equal(showdownStateView(solo).maxRounds, SHOWDOWN_MAX_ROUNDS);
-    assert.ok(showdownStateView(deep).maxRounds > SHOWDOWN_MAX_ROUNDS, 'reserves buy rounds');
-    // 3v3 fields everyone at once — no reserves, so the cap is untouched.
-    const wide = makeSession(
-        [makePet('a'), makePet('a2'), makePet('a3')],
-        [makePet('b'), makePet('b2'), makePet('b3')],
-        1, '3v3',
-    );
-    assert.equal(showdownStateView(wide).maxRounds, SHOWDOWN_MAX_ROUNDS);
-});
 
 test('the view exposes the fields the HUD needs', () => {
     const session = makeSession([makePet('a')], [makePet('b')]);
@@ -816,7 +759,7 @@ test('a full AI-vs-AI style fight completes inside the round cap with a winner',
         const players = [makePet('mine', { level: 45 }), makePet('mine2', { level: 45, element: 'Water' })];
         const { pets: enemyPets } = buildShowdownAiTeam(players, 2, 'warrior', seed);
         const session = makeSession(players, enemyPets, seed, '2v2');
-        for (let i = 0; i < SHOWDOWN_MAX_ROUNDS + 1 && !session.finished; i++) {
+        for (let i = 0; i < 40 && !session.finished; i++) {
             resolveShowdownRound(session, attackAll(session), chooseShowdownAiCommands(session));
         }
         assert.equal(session.finished, true, `seed ${seed} finished`);
@@ -881,7 +824,7 @@ test('an overdraft onto a SHIELD reports what was dealt, not what was rolled', (
     const hpBefore = actor.hp;
     actor.stamina = 2;   // guarantees a deficit on any real move
     const events = resolveShowdownRound(session, [
-        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
     ], [{ kind: 'rest', petId: 'b' }]);
     const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.ok(action);
@@ -896,7 +839,7 @@ test('an overdraft onto a SHIELD reports what was dealt, not what was rolled', (
     const bare = makeSession([makePet('c', { speed: 200 })], [makePet('d', { speed: 10, attack: 1, hp: 6000 })]);
     bare.player[0].stamina = 2;
     const bareEvents = resolveShowdownRound(bare, [
-        { kind: 'move', petId: 'c', moveIndex: 1, targetId: 'd', timing: 0 },
+        { kind: 'move', petId: 'c', moveIndex: 1, targetId: 'd' },
     ], [{ kind: 'rest', petId: 'd' }]);
     const bareAction = bareEvents.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'c');
     assert.ok((bareAction?.overexertDamage ?? 0) > 0, 'an unshielded overdraft still bleeds');

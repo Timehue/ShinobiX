@@ -281,8 +281,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         resolves early; haymakers and signatures swing last.</li>
                     <li><b>Signature</b> — the meter fills as you deal and take damage, and it
                         empties in one cast.</li>
-                    <li><b>No draws</b> — if the round limit is reached, the judge awards it to
-                        the team with more remaining HP, and <b>a tie goes to your opponent</b>.</li>
+                    <li><b>No round limit</b> — a fight ends when a team falls, never on a
+                        timer. If it runs long, <b>attrition</b> sets in: every pet starts
+                        bleeding a little more each round and healing fades, so the fight
+                        closes itself without ever deciding the winner for you.</li>
                 </ul>
             </details>
 
