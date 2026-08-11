@@ -475,6 +475,97 @@ Bloodthirster, Hollowborn, Guardian and the damage traits. They used to bend
 damage with nothing on screen to attribute it to. Verified balance-neutral —
 the sim is byte-identical, because attribution only observes.
 
+## Round 13 — the JRPG command HUD, and targeting by creature (2026-08-10)
+
+Reference-led pass on the battle UI: the console-RPG layout (ornate status
+plates in the corners, a vertical command menu, a move inspector) plus the one
+interaction change that carries it — **you target by clicking the creature, not
+its name card**.
+
+**Click the model.** Every fighter carries an invisible 2.1 × 2.4 × 2.1 hit
+volume (sized generously for a thumb, not for the mesh) that is interactive
+**only while that pet is a legal pick**, so it can never steal a stray click
+during playback. A legal target floats a spinning triangular reticle above it
+and lights its own plate on hover; the inspector gains a `→ target` line naming
+what the pointer is over. One `pickTarget` entry point now serves all three
+picks — enemy for an attack, ally for a heal, reserve for a switch. The plates
+stay clickable as a **keyboard/assistive fallback** (a `<button>` only when it
+is a legal target), because a 3D hit volume is not reachable by Tab. Reserves
+wait in the side wings and can sit outside the standoff shot, so the switch
+prompt names the plate as the reliable target rather than pretending otherwise.
+
+**Status plates.** The old stacked cards became gold-rimmed lacquer plaques:
+portrait with an element-tinted rim, name / Lv / element mark, then HP and
+Stamina each as key + track + **`cur / max` numerals** — the readout the cards
+never had — with the slow-draining red chip layer preserved under the HP fill.
+The signature meter is a hairline under both bars. Bench plates drop the
+element mark and the meter to buy name room, because a reserve you are
+choosing between needs its NAME legible above all else.
+
+**Command menu.** A vertical console list — Attack / Skill / Guard / Rest /
+Switch — with a ▶ selection arrow, per-row EN costs, and arrow-key navigation
+alongside the mouse. **Skill** opens the technique sub-list (kit moves, then
+the signature, then Back). Only an unmet **Hold** disables a row; a move you
+cannot afford stays selectable, because overdraft is a legal, priced choice and
+the inspector says exactly what it costs. Rows are built by a pure builder that
+returns **declarative actions** rather than closures — the component dispatches
+them — which is what keeps the row data clear of the command handlers (those
+reach refs, and the React compiler forbids touching refs during render).
+
+**Move inspector.** Bottom-right: move name in its element tint, an
+element · kind tag, the server-authored effect line, and PWR / STA / PACE /
+HOLD chips, over an oversized element glyph bled into the corner. Warnings are
+computed from the same server-sent fields — overdraft cost in HP, an unmet
+hold, an unfilled meter.
+
+**Mobile.** The plate rows stack no more: each team gets one horizontally
+scrolling row, so HUD height is fixed regardless of team size (the wrapping
+grid ate the whole screen and left no arena visible). Menu and inspector stay
+side by side rather than stacking, which used to push the readout off the
+bottom edge; the turn-order strip drops clear of the top bar. Verified at
+1440×860 and 390×844.
+
+Balance untouched — this round adds no number to the engine and reads none it
+was not already sent.
+
+**What the review pass caught.** Nine defects survived adversarial verification
+across six lenses, all fixed before commit:
+
+- **Guard's inspector line was affirmatively false.** It claimed guarding makes
+  the signature meter "fill faster"; the engine pays a guarded pet
+  `SHOWDOWN_METER_ON_GUARDED_HIT` (14), *less* than the 18 for eating the hit —
+  guard is only ahead per point of health. Both figures now come from the
+  contract, so the sentence cannot drift from the table again, and Guard's
+  otherwise-empty PWR chip became a METER chip.
+- **The switch line only held in 1v1.** The engine has no slot inheritance: an
+  attack aimed at a pet that leaves the field falls through to the first pet
+  still standing (or the taunt holder), which in 2v2/3v3 is usually *not* the
+  arriving pet. The copy now branches on the field count.
+- **Menu rows were natively `disabled`**, which fires no hover and takes no
+  focus — so the inspector line explaining *why* a row was unavailable ("Still
+  charging — unleashes from round 3") was unreachable by any input. Rows are
+  `aria-disabled` now, with activation guarded in the handler.
+- **Keyboard focus fell to `<body>` on every menu transition.** The battle is
+  portalled to the end of `document.body`, so recovering it meant tabbing
+  through the entire background app. Both panels now reclaim focus on mount —
+  and only when it was genuinely orphaned, so a mouse player never gets yanked.
+- **A hover could latch forever.** r3f deletes a mesh's handlers the moment
+  `targetable` goes false and drops the hovered entry before its own eventCount
+  guard, so a pet that stopped being a legal target under a stationary pointer
+  never fired pointerout. The hover is derived from the targeting state now
+  rather than trusted to expire.
+- Plus four CSS defects: a reduced-motion `animation: none` that lost on
+  specificity (so the one continuous animation the block exists to kill kept
+  running), inspector stat values overflowing their pills on a phone, a stale
+  `margin-left: auto` right-aligning a whole tag row, and phone-width plate
+  names truncated to a few letters.
+
+Two claims were investigated and **rejected as non-defects** worth recording:
+the `moveIndex` the server reads addresses the engine's own move list, which
+the view mirrors with the signature appended last — so both the old filtered
+index and the new real index resolve identically; and the overdraft HP literal
+predates this round.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

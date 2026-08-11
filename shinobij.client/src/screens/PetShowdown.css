@@ -237,14 +237,25 @@
 .showdown-round { font-weight: 800; font-size: 0.9rem; color: #fbbf24; text-shadow: 0 1px 4px #000; }
 .showdown-vs { font-size: 0.78rem; color: #d9c9a8; text-shadow: 0 1px 4px #000; max-width: 160px; text-align: right; }
 
+/* The player's own plates sit just above the command panels, mirroring the
+   enemy's row at the top — the classic two-corner JRPG readout. */
+.showdown-playerbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 10px 6px;
+    margin-top: auto;
+}
+
+/* Command menu on the left, move inspector on the right. */
 .showdown-bottombar {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
     padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── Team panels ───────────────────────────────────────────────────────── */
+/* ── Status plates ─────────────────────────────────────────────────────── */
 
 .showdown-team-panel {
     display: flex;
@@ -252,99 +263,354 @@
     flex-wrap: wrap;
     max-width: 62vw;
 }
-.showdown-team-panel.player { align-self: flex-start; }
+.showdown-team-panel.player { justify-content: flex-end; }
 
-.showdown-pet-card {
+/* The ornate frame: a gold-rimmed lacquer plaque. `--plate-tint` is the pet's
+   element colour and threads through the portrait rim and the name. */
+.showdown-plate {
     pointer-events: auto;
-    width: 196px;
-    padding: 6px 8px;
-    background: rgba(16, 11, 6, 0.82);
-    border: 1px solid rgba(217, 180, 120, 0.3);
-    border-radius: 10px;
-    color: inherit;
-    text-align: left;
-    backdrop-filter: blur(3px);
-}
-.showdown-pet-card-sub {
+    position: relative;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
-    font-size: 0.66rem;
-    margin-bottom: 2px;
+    width: 232px;
+    padding: 6px 10px 6px 6px;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    background:
+        linear-gradient(155deg, rgba(48, 34, 18, 0.95), rgba(14, 10, 6, 0.95));
+    border: 1px solid rgba(217, 180, 120, 0.5);
+    border-radius: 10px;
+    box-shadow:
+        inset 0 0 0 1px rgba(251, 220, 160, 0.16),
+        inset 0 1px 0 rgba(255, 235, 190, 0.18),
+        0 4px 14px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+    transition: border-color 0.15s, box-shadow 0.15s, opacity 0.2s;
 }
-.showdown-pet-card:disabled { cursor: default; }
-.showdown-pet-card.ko { opacity: 0.45; filter: grayscale(0.8); }
-.showdown-pet-card.commanding { border-color: #fbbf24; box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
-.showdown-pet-card.targetable {
+/* Corner filigree — two hairline brackets, no extra markup. */
+.showdown-plate::before,
+.showdown-plate::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1px solid rgba(251, 220, 160, 0.55);
+    pointer-events: none;
+}
+.showdown-plate::before { top: 3px; left: 3px; border-width: 1px 0 0 1px; border-radius: 4px 0 0 0; }
+.showdown-plate::after { bottom: 3px; right: 3px; border-width: 0 1px 1px 0; border-radius: 0 0 4px 0; }
+
+.showdown-plate.ko { opacity: 0.45; filter: grayscale(0.8); }
+/* Bench plates trade the element mark and the signature meter for name room —
+   a reserve you are choosing between needs its NAME legible above all else. */
+.showdown-plate.benched { width: 186px; opacity: 0.74; border-style: dashed; }
+.showdown-plate.benched .showdown-plate-elem,
+.showdown-plate.benched .showdown-plate-meter { display: none; }
+.showdown-plate.commanding { border-color: #fbbf24; box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.2), 0 0 14px rgba(251, 191, 36, 0.45); }
+.showdown-plate.critical .showdown-plate-bar.hp .fill { background: linear-gradient(90deg, #fca5a5, #ef4444); }
+.showdown-plate.targetable {
     border-color: #f87171;
     box-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
     cursor: pointer;
     animation: showdown-target-pulse 0.9s ease-in-out infinite;
 }
+/* Pointing at the creature in the arena lights its plate too, so the link
+   between the model and the readout is never ambiguous. */
+.showdown-plate.hovered { border-color: #fde68a; box-shadow: 0 0 16px rgba(253, 230, 138, 0.6); }
 @keyframes showdown-target-pulse {
     50% { box-shadow: 0 0 18px rgba(248, 113, 113, 0.85); }
 }
 
-.showdown-pet-card-head {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin-bottom: 4px;
-    font-size: 0.78rem;
-}
-.showdown-pet-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
-.showdown-pet-level { color: #b9a583; font-size: 0.7rem; }
-.showdown-pet-element { font-size: 0.68rem; font-weight: 700; }
-
-.showdown-bar {
+.showdown-plate-portrait {
     position: relative;
-    height: 7px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.12);
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
     overflow: hidden;
-    margin-top: 3px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid color-mix(in srgb, var(--plate-tint, #d9b478) 55%, transparent);
 }
-.showdown-bar > div { height: 100%; border-radius: 4px; transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.showdown-plate-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.showdown-plate-glyph { font-size: 1.2rem; }
+.showdown-plate.benched .showdown-plate-portrait { width: 32px; height: 32px; }
+.showdown-plate-ko {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: #fca5a5;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.showdown-plate-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.showdown-plate-title { display: flex; align-items: baseline; gap: 6px; font-size: 0.78rem; }
+.showdown-plate-name {
+    font-weight: 700;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 3px #000;
+}
+.showdown-plate-lv { flex: 0 0 auto; font-size: 0.66rem; font-weight: 800; color: #d9b478; }
+.showdown-plate-elem { flex: 0 0 auto; font-size: 0.8rem; line-height: 1; }
+
+/* Each bar is key + track + numbers on one baseline. */
+.showdown-plate-bar { display: flex; align-items: center; gap: 5px; }
+.showdown-plate-key {
+    flex: 0 0 auto;
+    width: 17px;
+    font-size: 0.55rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #b9a583;
+}
+.showdown-plate-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    box-shadow: inset 0 0 0 1px rgba(217, 180, 120, 0.28);
+    overflow: hidden;
+}
+.showdown-plate-track > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
 /* HP is two layers: the fill snaps to the new value; the red chip layer
    beneath it drains slowly, so the sliver between them reads as "damage
    you just took". */
-.showdown-bar.hp .chip {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: #ef4444;
-    transition: width 1.1s cubic-bezier(0.3, 0, 0.4, 1) 0.35s;
+.showdown-plate-bar.hp .chip { background: #ef4444; transition: width 1.1s cubic-bezier(0.3, 0, 0.4, 1) 0.35s; }
+.showdown-plate-bar.hp .fill { background: linear-gradient(90deg, #86efac, #22c55e); }
+.showdown-plate-bar.en .fill { background: linear-gradient(90deg, #bae6fd, #3b82f6); }
+.showdown-plate-num {
+    flex: 0 0 auto;
+    font-size: 0.6rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #f3ead7;
+    text-shadow: 0 1px 3px #000;
 }
-.showdown-bar.hp .fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: linear-gradient(90deg, #4ade80, #22c55e);
+.showdown-plate-num i { font-style: normal; font-weight: 600; color: #8f7f66; }
+
+.showdown-plate-meter {
+    height: 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    margin-top: 1px;
 }
-.showdown-bar.stamina { height: 5px; }
-.showdown-bar.stamina > div { background: linear-gradient(90deg, #93c5fd, #3b82f6); }
-.showdown-bar.meter { height: 5px; }
-.showdown-bar.meter > div { background: linear-gradient(90deg, #fcd34d, #f59e0b); }
-.showdown-bar.meter.full { box-shadow: 0 0 8px rgba(251, 191, 36, 0.8); }
-.showdown-bar.meter.full > div { animation: showdown-meter-glow 0.8s ease-in-out infinite; }
+.showdown-plate-meter > span {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #fcd34d, #f59e0b);
+    transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.showdown-plate-meter.full { box-shadow: 0 0 8px rgba(251, 191, 36, 0.8); }
+.showdown-plate-meter.full > span { animation: showdown-meter-glow 0.8s ease-in-out infinite; }
 @keyframes showdown-meter-glow {
     50% { filter: brightness(1.5); }
 }
 
-.showdown-statuses { margin-top: 3px; font-size: 0.72rem; display: flex; gap: 3px; }
+.showdown-plate-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    empty-cells: hide;
+}
+.showdown-plate-tags:empty { display: none; }
 
-/* ── Command deck ──────────────────────────────────────────────────────── */
+/* ── Command menu ──────────────────────────────────────────────────────── */
 
-.showdown-deck {
+.showdown-menu {
     pointer-events: auto;
-    background: rgba(14, 10, 5, 0.9);
-    border: 1px solid rgba(217, 180, 120, 0.35);
-    border-radius: 14px;
-    padding: 10px;
+    flex: 0 1 268px;
+    min-width: 214px;
+    background: linear-gradient(155deg, rgba(46, 32, 16, 0.96), rgba(12, 9, 5, 0.96));
+    border: 1px solid rgba(217, 180, 120, 0.55);
+    border-radius: 12px;
+    box-shadow:
+        inset 0 0 0 1px rgba(251, 220, 160, 0.18),
+        0 8px 24px rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
+    overflow: hidden;
+}
+.showdown-menu-head {
+    padding: 7px 12px 6px;
+    background: linear-gradient(180deg, rgba(120, 88, 34, 0.55), rgba(60, 42, 18, 0.2));
+    border-bottom: 1px solid rgba(217, 180, 120, 0.35);
+}
+.showdown-menu-title {
+    display: block;
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 3px #000;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.showdown-menu-sub { display: block; font-size: 0.64rem; color: #c3b090; margin-top: 1px; }
+
+.showdown-menu-rows { display: flex; flex-direction: column; padding: 5px; gap: 1px; }
+
+.showdown-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 7px 9px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-block-size: var(--touch-target-min, 44px);
+    transition: background 0.1s, border-color 0.1s;
+}
+/* `.is-disabled`, not `:disabled` — the rows are aria-disabled so they stay
+   hoverable and focusable, which is the only way to read the inspector line
+   that explains why they are unavailable. */
+.showdown-menu-row.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.showdown-menu-row.focused {
+    background: linear-gradient(90deg, rgba(251, 191, 36, 0.22), rgba(251, 191, 36, 0.04));
+    border-color: rgba(251, 191, 36, 0.6);
+}
+/* Selected but unavailable reads as grey, never as "press me". */
+.showdown-menu-row.focused.is-disabled {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(217, 180, 120, 0.35);
+}
+.showdown-menu-arrow { flex: 0 0 auto; width: 10px; font-size: 0.6rem; color: #fbbf24; opacity: 0; }
+.showdown-menu-row.focused .showdown-menu-arrow { opacity: 1; }
+.showdown-menu-row.focused.is-disabled .showdown-menu-arrow { color: #b9a583; }
+.showdown-menu-icon { flex: 0 0 auto; font-size: 0.95rem; }
+.showdown-menu-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 0.84rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.showdown-menu-note {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: #b9a583;
+    font-variant-numeric: tabular-nums;
+}
+.showdown-menu-row.signature .showdown-menu-label { color: #fcd34d; }
+.showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note {
+    color: #fbbf24;
+    animation: showdown-hint-pulse 1.1s ease-in-out infinite;
 }
 
-.showdown-deck-title { font-size: 0.88rem; margin-bottom: 8px; color: #e8dcc2; }
+/* ── Move inspector ────────────────────────────────────────────────────── */
+
+.showdown-inspector {
+    pointer-events: auto;
+    position: relative;
+    align-self: stretch;
+    min-width: 0;
+    padding: 9px 12px;
+    background: linear-gradient(155deg, rgba(30, 24, 14, 0.96), rgba(10, 8, 5, 0.96));
+    border: 1px solid color-mix(in srgb, var(--insp-tint, #d9b478) 45%, rgba(217, 180, 120, 0.4));
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.12), 0 8px 24px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    overflow: hidden;
+}
+/* Oversized element mark bled into the corner. */
+.showdown-inspector-glyph {
+    position: absolute;
+    right: -8px;
+    bottom: -14px;
+    font-size: 4.2rem;
+    line-height: 1;
+    opacity: 0.13;
+    pointer-events: none;
+}
+.showdown-inspector-head { display: flex; align-items: baseline; gap: 8px; }
+.showdown-inspector-title {
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: var(--insp-tint, #f3ead7);
+    text-shadow: 0 1px 3px #000;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.showdown-inspector-cat {
+    flex: 0 0 auto;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #b9a583;
+    border: 1px solid rgba(217, 180, 120, 0.35);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+/* The server-authored effect line: what the move actually DOES. A 168-power
+   stun landing 84 damage is otherwise indistinguishable from a 168-power hit. */
+.showdown-inspector-desc { margin: 5px 0 0; font-size: 0.7rem; line-height: 1.4; color: #d9c9a8; }
+.showdown-inspector-target { margin: 4px 0 0; font-size: 0.68rem; font-weight: 800; color: #fde68a; }
+.showdown-inspector-warn { margin: 4px 0 0; font-size: 0.66rem; font-weight: 700; color: #fb923c; }
+.showdown-inspector-stats {
+    display: flex;
+    gap: 6px;
+    margin-top: 7px;
+    flex-wrap: wrap;
+}
+.showdown-inspector-stats > span {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 46px;
+    padding: 3px 6px;
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(217, 180, 120, 0.25);
+    border-radius: 6px;
+}
+.showdown-inspector-stats i { font-style: normal; font-size: 0.5rem; font-weight: 900; letter-spacing: 0.08em; color: #8f7f66; }
+.showdown-inspector-stats b { font-size: 0.76rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Inspector column on the right, with the undo affordance stacked above it so
+   the inspector always stays pinned to the corner. */
+.showdown-bottombar-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex: 0 1 320px;
+    min-width: 0;
+}
+
 .showdown-playing-hint {
-    align-self: center;
+    margin: 0 auto;
     background: rgba(14, 10, 5, 0.7);
     border-radius: 999px;
     padding: 6px 16px;
@@ -352,56 +618,11 @@
 }
 @keyframes showdown-hint-pulse { 50% { opacity: 0.55; } }
 
-.showdown-deck-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-    gap: 7px;
-}
-
-.showdown-move {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 8px 10px;
-    background: rgba(40, 28, 16, 0.9);
-    border: 1px solid rgba(217, 180, 120, 0.35);
-    border-radius: 10px;
-    color: inherit;
-    cursor: pointer;
-    min-block-size: var(--touch-target-min, 44px);
-    transition: border-color 0.12s, transform 0.1s;
-}
-.showdown-move:hover:not(:disabled) { border-color: #fbbf24; transform: translateY(-1px); }
-.showdown-move:disabled { opacity: 0.45; cursor: not-allowed; }
-.showdown-move.cooling { opacity: 0.45; }
-.showdown-move.overexert { border-color: rgba(251, 146, 60, 0.7); }
-.showdown-move.utility { background: rgba(24, 30, 24, 0.9); }
-.showdown-move.signature { background: rgba(52, 32, 8, 0.95); border-color: rgba(251, 191, 36, 0.4); }
-.showdown-move.signature.ready {
-    border-color: #fbbf24;
-    box-shadow: 0 0 14px rgba(251, 191, 36, 0.55);
-    animation: showdown-target-pulse 1s ease-in-out infinite;
-}
-.showdown-move-icon { font-size: 1rem; }
-.showdown-move-name { font-weight: 700; font-size: 0.82rem; }
-.showdown-move-sub { font-size: 0.68rem; color: #b9a583; }
-/* The server-authored effect line: what the move actually DOES. A 168-power
-   stun landing 84 damage is otherwise indistinguishable from a 168-power hit. */
-.showdown-move-effect {
-    font-size: 0.63rem;
-    color: #8f7f66;
-    line-height: 1.3;
-    margin-top: 1px;
-}
-.showdown-move.overexert .showdown-move-effect { color: #fb923c; font-weight: 700; }
-
 /* Status pips carry their remaining duration. */
 .showdown-status-pip { display: inline-flex; align-items: center; gap: 1px; }
 .showdown-status-pip b { font-size: 0.58rem; color: #d9c9a8; font-weight: 800; }
 
-/* Trait / gear identity on the player's cards. */
-.showdown-pet-kit { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+/* Trait / gear identity on the player's plates. */
 .showdown-kit-chip {
     font-size: 0.55rem;
     font-weight: 700;
@@ -410,6 +631,10 @@
     background: rgba(251, 191, 36, 0.14);
     border: 1px solid rgba(251, 191, 36, 0.3);
     color: #e8dcc2;
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .showdown-kit-chip.gear { background: rgba(147, 197, 253, 0.14); border-color: rgba(147, 197, 253, 0.3); }
 
@@ -548,20 +773,11 @@
     letter-spacing: 0.06em;
 }
 
-/* ── Portraits, bench, VS intro ────────────────────────────────────────── */
+/* ── Bench tag, VS intro ───────────────────────────────────────────────── */
 
-.showdown-pet-card { position: relative; padding-left: 44px; }
-.showdown-pet-portrait {
-    position: absolute;
-    left: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
-}
-.showdown-pet-card.benched { opacity: 0.72; border-style: dashed; }
+/* No `margin-left: auto` — that was the old card's push-to-the-right-edge
+   trick. In the plate's tag row this chip leads the line, so an auto margin
+   right-aligns every chip after it too. */
 .showdown-bench-tag {
     font-size: 0.54rem;
     font-weight: 800;
@@ -570,7 +786,6 @@
     background: #b9a583;
     border-radius: 4px;
     padding: 0 5px;
-    margin-left: auto;
 }
 
 .showdown-vs-intro {
@@ -624,11 +839,14 @@
 
 /* ── Turn-order strip + matchup hints ──────────────────────────────────── */
 
+/* IN FLOW, centred — not absolutely positioned. Absolute placement put it on
+   top of the enemy plates, and no fixed offset survives every combination of
+   width and team size (the plate row wraps). Sitting in the HUD column after
+   the top bar makes the collision impossible instead of merely unlikely; the
+   player bar's `margin-top: auto` packs both against the top. */
 .showdown-order-strip {
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
+    align-self: center;
+    margin-top: 6px;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -726,8 +944,7 @@
     padding: 1px 4px;
     border-radius: 4px;
     white-space: nowrap;
-    margin-left: auto;
-    /* Must never be squeezed or pushed past the card edge — the name yields. */
+    /* Must never be squeezed or pushed past the plate edge — the name yields. */
     flex: 0 0 auto;
 }
 .showdown-matchup.up { color: #06301a; background: #4ade80; }
@@ -789,23 +1006,68 @@
 /* ── Mobile compression ────────────────────────────────────────────────── */
 
 @media (max-width: 559px) {
-    .showdown-team-panel { max-width: 70vw; }
-    /* The padding SHORTHAND here used to reset the 44px portrait gutter set
-       above, so the portrait sat on top of the level/element line at every
-       mobile width. Keep a left gutter sized to the smaller mobile portrait.
-       128px is load-bearing: 2 x 128 + 6px gap = 262px, exactly two cards per
-       row inside the 70vw panel at 375px. */
-    .showdown-pet-card { width: 128px; padding: 4px 6px 4px 32px; }
-    .showdown-pet-portrait { left: 4px; width: 26px; height: 26px; }
-    .showdown-pet-card-head { font-size: 0.7rem; }
+    /* A phone cannot afford a wrapping grid of plates — stacked rows ate the
+       whole screen and left no arena visible. Each team gets ONE row that
+       scrolls sideways, so the HUD's height is fixed no matter the team size. */
+    .showdown-team-panel {
+        max-width: 100%;
+        gap: 4px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .showdown-team-panel::-webkit-scrollbar { display: none; }
+    .showdown-plate { flex: 0 0 auto; width: 176px; padding: 4px 6px 4px 4px; gap: 5px; }
+    .showdown-plate.benched { width: 150px; }
+    .showdown-plate-portrait { width: 30px; height: 30px; }
+    .showdown-plate.benched .showdown-plate-portrait { width: 26px; height: 26px; }
+    .showdown-plate-title { font-size: 0.68rem; gap: 4px; }
+    .showdown-plate-lv { font-size: 0.56rem; }
+    /* The element already reads from the portrait's tinted rim, so the inline
+       mark is duplication — and it was costing the NAME ~18px on a phone, where
+       names were truncating to a few letters. Bench plates already drop it. */
+    .showdown-plate-elem { display: none; }
+    .showdown-plate-num { font-size: 0.52rem; }
+    .showdown-plate-num i { display: none; }
+    .showdown-plate-key { width: 13px; font-size: 0.48rem; }
+    .showdown-plate-track { height: 7px; }
     .showdown-banner { font-size: 1.15rem; padding: 8px 16px; }
     .showdown-banner.victory, .showdown-banner.defeat { font-size: 1.7rem; }
-    .showdown-deck-grid { grid-template-columns: repeat(2, 1fr); }
-    .showdown-move-name { font-size: 0.76rem; }
-    .showdown-topbar { flex-wrap: wrap; }
+    /* Menu and inspector stay side by side — stacking them pushed the readout
+       off the bottom of the screen. */
+    .showdown-bottombar { gap: 6px; padding-inline: 6px; }
+    .showdown-menu { flex: 1 1 0; min-width: 0; }
+    .showdown-bottombar-right { flex: 1 1 0; min-width: 0; align-items: stretch; }
+    .showdown-inspector { padding: 7px 8px; }
+    /* There is vertical room but no horizontal room: let the move name wrap
+       instead of ellipsing away to "Swift …". */
+    .showdown-inspector-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .showdown-inspector-title { white-space: normal; overflow: visible; line-height: 1.15; font-size: 0.82rem; }
+    /* Two columns, not four. `flex: 1 1 0` gave each pill a zero base size, so
+       the row never wrapped and every value was squeezed into a quarter of a
+       phone-width plate — "Fastest" and "120/240" spilled out of their pills. */
+    .showdown-inspector-stats { gap: 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .showdown-inspector-stats > span { min-width: 0; padding: 2px 3px; }
+    /* Server-sent values keep growing; clamp rather than overlap a neighbour. */
+    .showdown-inspector-stats b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .showdown-inspector-glyph { font-size: 2.6rem; right: -4px; bottom: -8px; }
+    .showdown-inspector-desc { font-size: 0.64rem; }
+    .showdown-menu-rows { padding: 3px; }
+    .showdown-menu-row { padding: 5px 6px; gap: 5px; min-block-size: 40px; }
+    .showdown-menu-label { font-size: 0.74rem; }
+    .showdown-menu-note { font-size: 0.55rem; }
+    .showdown-menu-head { padding: 5px 8px; }
+    .showdown-menu-title { font-size: 0.8rem; }
+    .showdown-topbar { flex-wrap: nowrap; gap: 6px; padding-inline: 6px; }
+    .showdown-topbar-right { flex: 0 0 auto; gap: 4px; }
+    .showdown-topbar-right .showdown-chip { padding: 4px 8px; font-size: 0.62rem; min-block-size: 28px; }
+    .showdown-playerbar { padding-inline: 6px; }
+    /* flex-end plus overflow-x makes the leading plates spill off the LEFT edge
+       where no scroll can reach them — start-align and let the row scroll. */
+    .showdown-team-panel.player { justify-content: flex-start; }
+    .showdown-order-strip { padding: 3px 8px; }
     .showdown-vs { display: none; }
     .showdown-result-title { font-size: 1.8rem; }
-    .showdown-move-effect { font-size: 0.58rem; }
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────────
@@ -818,10 +1080,12 @@
        at 0.85 opacity, so a bare opacity declaration loses to it. */
     .showdown-flash { animation: none; opacity: 0; }
 
-    .showdown-pet-card.targetable,
-    .showdown-bar.meter.full > div,
+    .showdown-plate.targetable,
+    .showdown-plate-meter.full > span,
     .showdown-playing-hint,
-    .showdown-move.signature.ready,
+    /* Must repeat :not(.is-disabled) — the declaring selector carries it, and
+       a lower-specificity `animation: none` silently loses the cascade. */
+    .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note,
     .showdown-letterbox .bar,
     .showdown-vs-side.mine,
     .showdown-vs-side.theirs,
@@ -829,9 +1093,9 @@
         animation: none;
     }
     /* Static substitutes so state stays readable without the pulse. */
-    .showdown-pet-card.targetable { box-shadow: 0 0 0 2px #f87171; }
-    .showdown-move.signature.ready { box-shadow: 0 0 0 2px #fbbf24; }
-    .showdown-bar.meter.full > div { filter: brightness(1.35); }
+    .showdown-plate.targetable { box-shadow: 0 0 0 2px #f87171; }
+    .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note { opacity: 1; }
+    .showdown-plate-meter.full > span { filter: brightness(1.35); }
     .showdown-playing-hint { opacity: 0.85; }
 
     /* Overshoot pop-ins become plain fades. */
