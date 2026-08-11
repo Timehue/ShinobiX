@@ -856,3 +856,19 @@ test('every kit is a real stamina ladder: a spammable jab, mid techniques, and o
     assert.ok(heavy.priority < mid.priority, 'the haymaker swings late');
     assert.equal(heavy.hold, SHOWDOWN_HOLD_HEAVY, 'the haymaker holds a round');
 });
+
+test('the universal basic is never promoted — every pet can attack on round one', () => {
+    // The Water starter line (barrier + heal kits, no damage-family move) had
+    // its Swift Strike promoted: hold 1, 22 EN, swings last. A starter opened
+    // every battle with no attack available at all.
+    let checked = 0;
+    for (const tpl of Object.values(PET_CATALOG)) {
+        const pet = { ...(tpl as unknown as Pet), id: String(tpl.id), templateId: String(tpl.id), level: 50 };
+        const session = makeSession([pet], [pet]);
+        const basic = session.player[0].moves[0];
+        assert.equal(basic.hold, 0, `${tpl.name}: the basic must be castable on round one`);
+        assert.ok(basic.power > 0, `${tpl.name}: the basic must be an attack`);
+        checked++;
+    }
+    assert.ok(checked > 100, `swept the catalog (${checked} species)`);
+});

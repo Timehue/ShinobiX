@@ -447,7 +447,13 @@ export function moveHold(power: number, kind = 'damage'): number {
  *  the most efficient, so nothing else was ever worth casting. */
 export function promoteHeavy(moves: ShowdownMove[], rarity: string): ShowdownMove[] {
     let bestIdx = -1;
-    for (let i = 0; i < moves.length; i++) {
+    // Start at 1: the universal Swift Strike at index 0 is NEVER promoted. It is
+    // defined as the play you can always afford, and promoting it would give it
+    // a round-one hold and heavy pricing. Three catalog species (the whole Water
+    // starter line) carry kits of barrier + heal only, so they have no eligible
+    // kit move — before this guard their basic was promoted and they opened
+    // every battle with no attack available at all.
+    for (let i = 1; i < moves.length; i++) {
         const m = moves[i];
         if (!HEAVY_ELIGIBLE_KINDS.has(m.kind) || m.power <= 0) continue;
         if (bestIdx < 0 || m.power > moves[bestIdx].power) bestIdx = i;
