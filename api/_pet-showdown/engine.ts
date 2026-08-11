@@ -498,10 +498,19 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
     const el = String(pet.element ?? 'None');
     return {
         name: el !== 'None' && el ? `${el} Overdrive` : 'Spirit Overdrive',
-        // Scales with rarity (72% of the tier's jutsu-power cap ≈ 230/259/292/324)
-        // so a mythic without an authored signature isn't stuck with a
-        // standard-tier finisher.
-        power: Math.round(petJutsuPowerCeil(rarity) * 0.72),
+        // Scales with rarity (30% of the tier's jutsu-power cap = 96/108/122/135)
+        // so a mythic's finisher outclasses a standard one.
+        //
+        // Was 72%, which made the signature deal ~177% of a full HP bar —
+        // measured across the catalog, 159 of 160 species ONE-SHOT a full-health
+        // mirror. That is not an ultimate, it is the win condition: it made the
+        // first five rounds a loading bar for the meter and reduced every lever
+        // the stamina ladder ships (the cost curve, the haymaker, its premium,
+        // its hold, its late swing) to chip damage worth 15-45% of a bar while
+        // one button dealt 177%. At 30% the signature lands ~74% of a bar —
+        // 1.7x the haymaker, decisive but survivable from full, so it WINS a
+        // fight you have already worked for instead of replacing it.
+        power: Math.round(petJutsuPowerCeil(rarity) * 0.30),
         kind: 'damage',
         cost: 0,
         signature: true,
@@ -597,11 +606,15 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const signatureMove: ShowdownMove = sigRaw
         ? {
             ...sealMove(sigRaw),
-            // Power FLOOR — never a nerf, never a buff above the synthesized
-            // tier value. Authored raws (90-152) sit below the synth floors
-            // (230-324), so every sealed power is byte-identical to before;
-            // only the displayed NAME changes.
-            power: Math.max(sealMove(sigRaw).power, synth.power),
+            // Signature power is TIER-DERIVED, full stop; the authored move
+            // contributes its NAME (and its element flavour), not its number.
+            // This was written as max(authored, synth) back when synth was
+            // 230-324 and every authored raw (90-152) sat below it — the max
+            // never bound, and the comment said so. Once the synth value came
+            // down, the max inverted the intent: authored raws started binding
+            // and produced a tail of species whose signature still one-shot a
+            // full-HP mirror while everyone else's did not.
+            power: synth.power,
             kind: 'damage',
             signature: true,
             priority: SHOWDOWN_PRIORITY_SUPER,
@@ -853,11 +866,21 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
 // Retuned for the pure stamina+hold economy: removing cooldowns took the
 // enemy-burst cap that tanks sheltered under, so defenders hit harder and the
 // throughput roles give a little back.
+//
+// Then re-fitted again when the signature came down from 177% of a health bar
+// to 74%. With a one-shot ultimate, bulk barely mattered — a glass assassin
+// simply fired first and deleted you. With fights decided by sustained damage,
+// a defender's durability started compounding with the 1.32 damage bonus this
+// table hands it as stat normalization, and defenders ran to 63%. Compressed
+// on the same principle as the element table: the correction is real, it was
+// just fitted to a regime that no longer exists.
+const ROLE_MULT_COMPRESSION = 0.6;
+const softenRoleMult = (v: number): number => 1 + (v - 1) * ROLE_MULT_COMPRESSION;
 const ROLE_DAMAGE_MULT: Record<string, number> = {
-    tracker: 0.82,
-    assassin: 1.02,
-    sage: 1.1,
-    defender: 1.32,
+    tracker: softenRoleMult(0.82),
+    assassin: softenRoleMult(1.02),
+    sage: softenRoleMult(1.1),
+    defender: softenRoleMult(1.32),
 };
 const SAGE_HEAL_MULT = 1.15;
 
@@ -877,21 +900,34 @@ const RARITY_DAMAGE_TIER: Record<string, number> = {
     mythic: 1.18,
 };
 
+/** How hard the per-element normalization below is applied. 1 = the raw table,
+ *  0 = no per-element correction at all.
+ *
+ *  The raw spreads (Fire 1.52 dealt / 0.70 taken against Earth 0.82 / 1.08 —
+ *  a 2.2x swing) were tuned while the signature dealt 177% of a health bar and
+ *  one-shot 159 of 160 species: outcomes were decided by who charged the meter
+ *  first, so a per-element damage bias barely showed in the aggregate. With the
+ *  signature down to 74% of a bar, fights are decided by sustained damage and
+ *  the same table drove Fire to a 74.4% element win rate. Compression re-fits
+ *  it to the regime it now actually runs in. */
+const ELEMENT_MULT_COMPRESSION = 0.4;
+const softenElementMult = (v: number): number => 1 + (v - 1) * ELEMENT_MULT_COMPRESSION;
+
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.52,
-    Water: 1.0,
-    Wind: 1.06,
-    Earth: 0.82,
-    Lightning: 0.9,
+    Fire: softenElementMult(1.52),
+    Water: softenElementMult(1.0),
+    Wind: softenElementMult(1.06),
+    Earth: softenElementMult(0.82),
+    Lightning: softenElementMult(0.9),
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
 const ELEMENT_TAKEN_MULT: Record<string, number> = {
-    Fire: 0.70,
-    Water: 1.01,
-    Wind: 1.06,
-    Earth: 1.08,
-    Lightning: 1.02,
+    Fire: softenElementMult(0.70),
+    Water: softenElementMult(1.01),
+    Wind: softenElementMult(1.06),
+    Earth: softenElementMult(1.08),
+    Lightning: softenElementMult(1.02),
 };
 
 function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number, extraMult = 1, procs?: string[]): number {
@@ -1007,10 +1043,23 @@ function executeMove(
             actor.winded = true;
             const deficit = move.cost - actor.stamina;
             actor.stamina = 0;
-            overexertDamage = Math.round(deficit * SHOWDOWN_OVERDRAFT_HP_PER_POINT);
             // The chip can KO — overdrafting on your last legs is a real
             // gamble — but it never charges the actor's own super meter.
-            applyDamage(session, actor, overexertDamage, false);
+            //
+            // Report what was DEALT, not what was rolled: applyDamage soaks
+            // through shields first, so the raw figure was landing on the wire
+            // whenever the actor had a barrier up. The client subtracts this
+            // straight off the HP bar and derives a KO from it, so a shielded
+            // overdraft used to drain the bar by damage that never happened and
+            // fire the full KO treatment until the end-of-script reconcile
+            // silently undid it. Every other number in this event is the dealt
+            // amount; this one is now too.
+            overexertDamage = applyDamage(
+                session,
+                actor,
+                Math.round(deficit * SHOWDOWN_OVERDRAFT_HP_PER_POINT),
+                false,
+            ).dealt;
         } else {
             actor.stamina -= move.cost;
         }
