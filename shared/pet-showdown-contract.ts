@@ -74,12 +74,65 @@ export const SHOWDOWN_GUARD_COST = 8;
 /** Guard halves incoming damage until the pet's next action. */
 export const SHOWDOWN_GUARD_MULT = 0.5;
 
-/** Move stamina cost by power band (absolute — a bigger pool literally buys
- *  more casts, which IS the species identity). */
-export const SHOWDOWN_COST_LIGHT = 18;   // power <= 120
-export const SHOWDOWN_COST_MEDIUM = 32;  // power <= 220
-export const SHOWDOWN_COST_HEAVY = 52;   // power > 220
-export const SHOWDOWN_COST_BASIC = 14;   // the universal Swift Strike
+/*
+ * Move stamina cost — PROPORTIONAL TO POWER, the Temtem shape.
+ *
+ * This replaced three coarse bands (18 / 32 / 52 at power <=120 / <=220 / >220)
+ * that were calibrated for a power range the content never reaches. Measured
+ * across all 160 catalog species: 83% of every kit move cost 14 or 18, the
+ * heavy band was used by ZERO moves, and the medium band by 5 of 717. Worse,
+ * the biggest damage move in a kit (power 142 at 18 EN) was also the most
+ * stamina-EFFICIENT thing a pet owned — so the strongest option was also the
+ * default option, every round, which is the textbook way to make a resource
+ * decorative.
+ *
+ * Temtem prices techniques at a near-FLAT damage-per-stamina (Scratch 20/4,
+ * Jaw Strike 60/9, Base Jump 100/22, Frond Whip 153/33 — all ~4.2-5.2 dmg per
+ * point), which means an expensive technique is never more efficient, only
+ * more IMMEDIATE. What you buy with the cost is tempo, and what you pay is the
+ * next few rounds. That is the trade we want, so cost is now linear in power.
+ *
+ * Calibration against a ~105 pool with 7%+2 regen (Temtem runs 5%+1, so ours
+ * is the more forgiving side of the same curve):
+ *   jab   power  55 ->  10 EN  (10% of pool; net +1/round, sustainable forever)
+ *   mid   power  90 ->  27 EN  (26%; ~3 casts before it bites)
+ *   big   power 142 ->  43 EN  (41%)
+ *   heavy power 200 ->  60 EN  (57%; roughly Temtem's 33/50 haymaker)
+ */
+export const SHOWDOWN_COST_PER_POWER = 0.36;
+/** Nothing costs less than this, so a 0-power utility move is never free. */
+export const SHOWDOWN_COST_MIN = 10;
+/** Nothing costs more than this, so even the biggest haymaker is castable from
+ *  a full pool rather than being a permanent overdraft. Sized against the
+ *  SMALLEST pool in the catalog (88): 78 is 89% of it — brutal, but payable. */
+export const SHOWDOWN_COST_MAX = 78;
+/** The universal Swift Strike. Deliberately the cheapest thing in the game:
+ *  its whole job is to be the play you can always afford. */
+export const SHOWDOWN_COST_BASIC = 12;
+/** Control and sustain are priced like haymakers whatever their listed power —
+ *  a stolen turn or an undone round of damage outvalues most hits. */
+export const SHOWDOWN_COST_CONTROL_FLOOR = 44;
+export const SHOWDOWN_COST_SUSTAIN_FLOOR = 40;
+
+/** Every kit's biggest damage move is promoted to that pet's HAYMAKER: this
+ *  much more power, priced on the same flat curve (so efficiency is unchanged
+ *  and only tempo moves), swinging last and unavailable on round one.
+ *
+ *  Deliberately a pure MULTIPLIER off the pet's own top move, never a flat
+ *  floor. A floor was tried first (0.46 x the rarity power ceiling) and it gave
+ *  every species of a rarity an identical haymaker — 147 power for every
+ *  standard pet, whatever its kit. That erased the kit-power spread the
+ *  per-element damage multipliers are balanced against, and Fire (which deals
+ *  1.52x and takes 0.70x) ran away to a 79.5% element win rate in simulation.
+ *  Scaling each pet off its OWN top move keeps species identity intact. */
+export const SHOWDOWN_HEAVY_PROMOTE_MULT = 1.35;
+/** ...and a premium ON TOP of the linear price. This is the one deliberate
+ *  break from flat damage-per-stamina: the haymaker is the only move in the
+ *  kit that is LESS efficient than the alternatives, which is what stops it
+ *  becoming the default. You are paying for the whole hit landing in ONE
+ *  round instead of two, and the bill lands at ~55% of a typical pool —
+ *  Temtem's own haymaker sits at 33 STA out of a ~50 pool. */
+export const SHOWDOWN_HEAVY_COST_PREMIUM = 1.3;
 
 /** Super meter: fills from combat, spent whole on the signature move. */
 export const SHOWDOWN_METER_MAX = 100;

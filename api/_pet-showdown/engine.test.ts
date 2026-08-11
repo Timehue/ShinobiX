@@ -27,6 +27,9 @@ import {
     SHOWDOWN_ELEMENT_ADVANTAGE,
     SHOWDOWN_ELEMENT_DISADVANTAGE,
     SHOWDOWN_METER_MAX,
+    SHOWDOWN_HOLD_HEAVY,
+    SHOWDOWN_STAMINA_REGEN_FLAT,
+    SHOWDOWN_STAMINA_REGEN_PCT,
     type ShowdownCommand,
     type ShowdownEvent,
 } from '../../shared/pet-showdown-contract.js';
@@ -47,7 +50,14 @@ function makePet(id: string, overrides: Partial<Pet> = {}): Pet {
         unlockedForPve: true,
         element: 'Fire',
         role: 'tracker',
+        // TWO kit moves on purpose. The kit's biggest damage move is promoted
+        // to that pet's haymaker (held on round 1, swings last), so a fixture
+        // with a single technique would make `moveIndex: 1` a held move and
+        // every mechanic test below would silently become a hold test.
+        // Ember Jab stays the plain mid-tier technique at index 1; Flame Bolt
+        // becomes the haymaker at index 2.
         jutsus: [
+            { name: 'Ember Jab', power: 90, cooldown: 1, currentCooldown: 0, kind: 'damage' },
             { name: 'Flame Bolt', power: 150, cooldown: 2, currentCooldown: 0, kind: 'damage' },
             { name: 'Cinder Finisher', power: 220, cooldown: 4, currentCooldown: 0, kind: 'damage', signature: true },
         ],
@@ -812,4 +822,37 @@ test('a full AI-vs-AI style fight completes inside the round cap with a winner',
         assert.equal(session.finished, true, `seed ${seed} finished`);
         assert.ok(session.outcome === 'win' || session.outcome === 'loss', `seed ${seed} has a winner`);
     }
+});
+
+test('every kit is a real stamina ladder: a spammable jab, mid techniques, and one haymaker', () => {
+    const session = makeSession([makePet('a')], [makePet('b')]);
+    const pet = session.player[0];
+    const jab = pet.moves[0];
+    const heavy = pet.moves.find((m) => m.hold > 0 && m.kind === 'damage');
+    const mid = pet.moves.find((m) => m !== jab && m !== heavy && m.power > 0);
+    assert.ok(heavy, 'the kit has a haymaker');
+    assert.ok(mid, 'the kit has a mid-tier technique');
+
+    // The ladder must actually be a ladder — the failure this guards is the one
+    // measured across the whole catalog before the reprice: 83% of every kit
+    // move cost the same 14-18, so the biggest hit was also the cheapest tier.
+    assert.ok(jab.cost < mid.cost, `jab ${jab.cost} < mid ${mid.cost}`);
+    assert.ok(mid.cost < heavy.cost, `mid ${mid.cost} < heavy ${heavy.cost}`);
+    assert.ok(heavy.power > mid.power, 'the haymaker hits hardest');
+
+    // The jab is sustainable forever; the haymaker is a real commitment.
+    const regen = Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT;
+    assert.ok(jab.cost <= regen * 1.6, `the jab (${jab.cost}) stays near the ${regen}/round regen`);
+    assert.ok(heavy.cost > pet.maxStamina * 0.35, `the haymaker (${heavy.cost}) costs a real slice of ${pet.maxStamina}`);
+
+    // Flat damage-per-stamina between jab and mid — an expensive technique is
+    // never MORE efficient — and the haymaker is deliberately the worst rate,
+    // because what it sells is tempo, not value.
+    const rate = (m: { power: number; cost: number }) => m.power / m.cost;
+    assert.ok(Math.abs(rate(jab) - rate(mid)) / rate(mid) < 0.25, 'jab and mid trade at a similar rate');
+    assert.ok(rate(heavy) < rate(mid), 'the haymaker is the least efficient move in the kit');
+
+    // It swings last and cannot open the fight.
+    assert.ok(heavy.priority < mid.priority, 'the haymaker swings late');
+    assert.equal(heavy.hold, SHOWDOWN_HOLD_HEAVY, 'the haymaker holds a round');
 });
