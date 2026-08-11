@@ -238,7 +238,7 @@ test('meter charges from both dealing and taking damage', () => {
     assert.ok(session.enemy[0].meter > 0);
 });
 
-test('rest recovers stamina and a little hp', () => {
+test('rest buys stamina back and NOTHING else — it never heals', () => {
     const session = makeSession([makePet('a')], [makePet('b', { attack: 1 })]);
     session.player[0].stamina = 5;
     session.player[0].hp = 400;
@@ -247,8 +247,11 @@ test('rest recovers stamina and a little hp', () => {
     ], [{ kind: 'rest', petId: 'b' }]);
     const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.equal(action?.moveKind, 'rest');
-    assert.ok((action?.targets[0].heal ?? 0) > 0);
-    assert.ok(session.player[0].stamina > 5);
+    assert.ok(session.player[0].stamina > 5, 'stamina came back');
+    // Temtem's rule, and the one this used to break: HP does not regenerate in
+    // combat. A resting pet on 400 HP is still on 400 HP.
+    assert.equal(action?.targets[0].heal ?? 0, 0, 'rest reports no heal');
+    assert.equal(session.player[0].hp, 400, 'rest restored no HP');
 });
 
 
