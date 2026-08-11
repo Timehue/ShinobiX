@@ -331,6 +331,11 @@ export type ShowdownEvent =
         element: string;
         /** Melee actions lunge; ranged actions fire a projectile. */
         delivery: "melee" | "ranged" | "self";
+        /** Presentation tier. The engine builds a real jab / technique /
+         *  haymaker ladder, but none of it used to reach the wire, so a
+         *  34-power poke and a 300-power finisher painted the identical burst
+         *  at the identical scale. Derived server-side from the move itself. */
+        weight: "light" | "normal" | "heavy";
         /** Full-meter signature cast — cinematic camera takeover. */
         super: boolean;
             targets: {

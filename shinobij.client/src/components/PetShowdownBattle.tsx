@@ -39,6 +39,7 @@ import {
     BeatDrivenVfx,
     SuperPillar,
     impactFlipbookKey,
+    vfxElementTint as elementVfxTint,
     type VfxSpawn,
     type PillarDrive,
 } from "./PetShowdownVfx";
@@ -1520,12 +1521,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, [stateView.player.length, stateView.enemy.length]);
 
     /** Spawn a one-shot painted flipbook at a pet's current position. */
-    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1) => {
+    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string) => {
+        // An empty key means "this action detonates nothing" (Rest).
+        if (!frames) return;
         const at = posRef.current.get(petId);
         if (!at) return;
         const key = popupKey.current++;
         setVfx((list) => [...list.slice(-14), {
-            key, frames, scale, durationMs, aspect,
+            key, frames, scale, durationMs, aspect, tint,
             pos: [at[0], at[1] + yLift, at[2]] as [number, number, number],
             startedAt: performance.now(),
         }]);
@@ -1635,6 +1638,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
+                // Attrition, burn and wound all used to render one purple
+                // numeral and nothing else — including the round-18 attrition
+                // bleed, which is the mechanic that ENDS long fights.
+                spawnFlipbook(
+                    event.targetId,
+                    event.kind === "attrition" ? "shadow" : event.kind === "wound" ? "poison" : "burn",
+                    event.kind === "attrition" ? 2.0 : 1.7,
+                    460 / speed,
+                    0.95,
+                    1,
+                    event.kind === "attrition" ? "#e0556f" : undefined,
+                );
+                fxRef.current.hitAt.set(event.targetId, performance.now());
+                fxRef.current.hitPower.set(event.targetId, 0.4);
                 playPetSfx("dot");
                 applyToDisplay(setDisplay, event.targetId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko }));
             }, durationMs * 0.35);
@@ -1671,6 +1688,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 let anySynergy = false;
                 let bestEffect: "super" | "weak" | null = null;
                 for (const target of event.targets) {
+                    // A hit the shield ate entirely arrives as damage 0, and the
+                    // whole impact block used to be gated on damage > 0 — so the
+                    // attacker lunged, and the victim reacted in no way at all.
+                    if (target.damage <= 0 && !target.heal && event.moveKind !== "guard" && event.moveKind !== "rest") {
+                        later(() => {
+                            addPopup(target.id, "ABSORBED", "guarded");
+                            spawnFlipbook(target.id, "eshield", 2.2, 520 / speed, 1.0, 1, "#8ecdf7");
+                            playPetSfx("shield");
+                        }, 0);
+                    }
                     if (target.damage > 0) {
                         addPopup(target.id, `-${target.damage}`, target.guarded ? "guarded" : event.super ? "super" : "damage");
                         fxRef.current.hitAt.set(target.id, performance.now());
@@ -1683,12 +1710,38 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         );
                         // Painted impact: the element's flipbook detonates on the
                         // victim (splash hits get a smaller wash).
+                        // Size the paint off the SAME damage fraction the body
+                        // reaction already uses. Before this there were exactly
+                        // two burst scales in the whole game (2.4 and 3.6) and
+                        // neither read the hit — a 12-damage chip and a
+                        // 600-damage haymaker painted the identical burst on a
+                        // model that folded completely differently.
+                        const frac = target.damage / Math.max(1, stateMaxHp(stateView, target.id));
+                        const weightMul = event.super ? 1.5 : event.weight === "heavy" ? 1.25 : event.weight === "light" ? 0.78 : 1;
+                        const burst = Math.min(4.2, (1.5 + Math.min(1, frac * 2.4) * 1.9) * weightMul) * (target.splash ? 0.7 : 1);
                         spawnFlipbook(
                             target.id,
                             impactFlipbookKey(event.element, event.moveKind, event.super),
-                            event.super ? (target.splash ? 2.6 : 3.6) : target.splash ? 1.8 : 2.4,
-                            event.super ? 720 : 560,
+                            burst,
+                            (440 + Math.min(1, frac * 2.4) * 380) / speed,
+                            1.0,
+                            1,
+                            elementVfxTint(event.element),
                         );
+                        // A heavy or lethal blow gets a second, larger shell over
+                        // the first — `explosion` and `bighit` ship in the bundle
+                        // and nothing used to spawn them.
+                        if (target.ko || event.weight === "heavy" || event.super) {
+                            later(() => spawnFlipbook(
+                                target.id,
+                                target.ko ? "explosion" : "bighit",
+                                burst * 1.35,
+                                460 / speed,
+                                1.05,
+                                1,
+                                elementVfxTint(event.element),
+                            ), 70 / speed);
+                        }
                         // Lightning ranged attacks STRIKE FROM THE SKY — a tall
                         // bolt drops on the victim (there was no travel to watch).
                         if (event.element === "Lightning" && event.delivery === "ranged" && !target.splash) {
