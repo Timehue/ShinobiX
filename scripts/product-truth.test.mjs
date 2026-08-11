@@ -12,8 +12,9 @@ test('README and canonical status agree that ShinobiX is a live public beta', ()
     assert.match(readme, /Live Product Status/);
     assert.match(status, /canonical repository authority/);
     assert.match(status, /live public-beta browser MMORPG/i);
-    assert.match(status, /Current authority as of August 10, 2026/);
-    assert.match(status, /Repository verification base: `d76a1e7e5d07aab1ac2dce3156e469c9984685c3`/);
+    assert.match(status, /Current authority as of August 11, 2026/);
+    assert.match(status, /Integrated upstream verification base: `0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a`/);
+    assert.match(status, /Certified implementation commit: `7791631cb`/);
     assert.doesNotMatch(readme, /public beta candidate|moves toward public beta|Gate or soft-launch/i);
     assert.doesNotMatch(roadmap, /before invites|public beta candidate|moves toward public beta|Gate or soft-launch/i);
 });

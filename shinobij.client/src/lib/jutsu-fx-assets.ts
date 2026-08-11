@@ -19,9 +19,13 @@
  */
 
 // eager: resolve URLs at build time; import the default (the asset URL string).
+// Force even small frames to remain hashed files instead of base64 strings in
+// the shared JS chunk. The renderer still receives the same kind of URL, while
+// browsers can fetch/cache only the sprite sequences a fight actually uses.
 const modules = import.meta.glob("../assets/fx/*/*.png", {
     eager: true,
     import: "default",
+    query: "?url&no-inline",
 }) as Record<string, string>;
 
 // Group frame URLs by their folder (= element key), ordered by source filename

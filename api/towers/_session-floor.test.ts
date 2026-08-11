@@ -35,7 +35,7 @@ function session(input: {
 describe('Tower floor identity and deploy-stable rule seals', () => {
     it('versions Story and Spire catalogs with safe authored identifiers', () => {
         assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v1');
-        assert.equal(SPIRE_CATALOG_VERSION, 'endless-spire-v1');
+        assert.equal(SPIRE_CATALOG_VERSION, 'endless-spire-v2');
         assert.match(TOWER_CATALOG_VERSION, /^[A-Za-z0-9_.-]{1,80}$/);
         assert.match(SPIRE_CATALOG_VERSION, /^[A-Za-z0-9_.-]{1,80}$/);
         assert.notEqual(TOWER_CATALOG_VERSION, SPIRE_CATALOG_VERSION);

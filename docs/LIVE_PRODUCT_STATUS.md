@@ -1,7 +1,8 @@
 # ShinobiX Live Product Status
 
-Current authority as of August 10, 2026
-Repository verification base: `d76a1e7e5d07aab1ac2dce3156e469c9984685c3`
+Current authority as of August 11, 2026
+Integrated upstream verification base: `0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a`
+Certified implementation commit: `7791631cb`
 
 This file is the canonical repository authority for current product stage and player-facing availability. Dated launch recommendations, rollout matrices, release notes, and implementation reports are historical evidence; when their availability wording conflicts with this file or executable runtime behavior, this file and the runtime win.
 
