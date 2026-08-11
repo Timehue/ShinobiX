@@ -1217,6 +1217,11 @@ function executeMove(
         moveKind: kind,
         element: actor.element,
         delivery: deliveryFor(kind, actor.role),
+        // The haymaker is exactly the move promoteHeavy stamped with a hold and
+        // the heavy priority; a jab is the cheap always-affordable opener.
+        weight: move.hold > 0 || move.priority <= SHOWDOWN_PRIORITY_HEAVY
+            ? 'heavy'
+            : move.priority >= SHOWDOWN_PRIORITY_LIGHT ? 'light' : 'normal',
         super: superCast,
         targets,
         staminaAfter: Math.round(actor.stamina),
@@ -1349,7 +1354,7 @@ export function resolveShowdownRound(
             pet.stamina = Math.max(0, pet.stamina - SHOWDOWN_GUARD_COST);
             events.push({
                 t: 'action', actorId: pet.id, actorSide: side, moveName: 'Guard', moveKind: 'guard',
-                element: pet.element, delivery: 'self', super: false,
+                element: pet.element, delivery: 'self', weight: 'light', super: false,
                 targets: [{ id: pet.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'guard' }],
                 staminaAfter: Math.round(pet.stamina), meterAfter: Math.round(pet.meter), overexerted: false,
             });
@@ -1358,7 +1363,7 @@ export function resolveShowdownRound(
             pet.guarding = false;
             events.push({
                 t: 'action', actorId: pet.id, actorSide: side, moveName: 'Catch Breath', moveKind: 'rest',
-                element: pet.element, delivery: 'self', super: false,
+                element: pet.element, delivery: 'self', weight: 'light', super: false,
                 targets: [{ id: pet.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'rest' }],
                 staminaAfter: Math.round(pet.stamina), meterAfter: Math.round(pet.meter), overexerted: false,
             });

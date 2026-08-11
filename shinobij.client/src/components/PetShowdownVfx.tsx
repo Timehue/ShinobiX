@@ -81,27 +81,14 @@ function projectileTexture(element: string): THREE.Texture | null {
 
 /** Impact/one-shot flipbook key for a move — kind identity first (every
  *  buff/debuff/heal family has its own painted burst), element fallback. */
-export function impactFlipbookKey(element: string, moveKind: string, superCast: boolean): string {
-    if (superCast) return "kaboom";
-    const el = element.toLowerCase();
-    if (moveKind === "heal") return "heal";
-    if (moveKind === "burn" || moveKind === "dot") return "burn";
-    if (moveKind === "wound") return "poison";
-    if (moveKind === "freeze") return "ice";
-    if (moveKind === "lifesteal") return "blood";
-    if (moveKind === "debuff") return "shadow";
-    if (moveKind === "slow" || moveKind === "movelock" || moveKind === "confuse") return "vortex";
-    if (moveKind === "mark" || moveKind === "stun") return "spark";
-    if (moveKind === "taunt") return "power";
-    if (moveKind === "buff" || moveKind === "haste" || moveKind === "move") return "buff";
-    if (moveKind === "shield" || moveKind === "barrier" || moveKind === "absorb" || moveKind === "guard") return "eshield";
-    if (el === "fire" || el === "water" || el === "earth" || el === "wind" || el === "lightning" || el === "lava") return el;
-    return "impact";
-}
+export { impactFlipbookKey, vfxElementTint, VFX_ELEMENT_TINT } from "../lib/showdown-vfx-map";
+
 
 // ─── One-shot flipbook billboard ─────────────────────────────────────────────
 
 export interface VfxSpawn {
+    /** Element tint applied to the painted frames (additive-blended). */
+    tint?: string;
     key: number;
     frames: string;
     pos: [number, number, number];
@@ -141,6 +128,7 @@ function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
                     ref={mat}
                     transparent
                     opacity={0}
+                    color={spawn.tint ?? "#ffffff"}
                     depthWrite={false}
                     blending={THREE.AdditiveBlending}
                     toneMapped={false}
@@ -169,14 +157,28 @@ const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; op
     confuse: { frames: "vortex", scale: 1.1, y: 1.9, opacity: 0.65 },
     mark: { frames: "spark", scale: 1.2, y: 1.9, opacity: 0.7 },
     stun: { frames: "spark", scale: 1.4, y: 1.7, opacity: 0.75 },
+    // The absorb pool, the redirect and the CC immunity are all things the
+    // player has to be able to SEE on a foe; none of them had an aura.
+    shield: { frames: "shield", scale: 1.7, y: 0.95, opacity: 0.6 },
+    taunt: { frames: "power", scale: 1.5, y: 1.0, opacity: 0.55 },
+    steadfast: { frames: "eshield", scale: 1.35, y: 0.8, opacity: 0.45 },
 };
+
+/** Which auras win when a pet carries more than two. Raw engine push order used
+ *  to decide, so a third status was dropped arbitrarily — a stun mattering less
+ *  than a buff purely because of insertion order. */
+const AURA_PRIORITY = ["stun", "freeze", "confuse", "shield", "burn", "wound", "taunt", "slow", "debuff", "crush", "mark", "steadfast", "buff", "haste"];
 
 export function StatusAuraFx({ statuses }: { statuses: readonly { kind: string }[] }) {
     // At most two auras so a debuff-stacked pet doesn't become a bonfire.
     const active = statuses
-        .map((s) => STATUS_AURA[s.kind])
-        .filter(Boolean)
-        .slice(0, 2);
+        .filter((s) => STATUS_AURA[s.kind])
+        // Sort BEFORE mapping: raw engine push order used to decide which two
+        // survived, so a stun could lose its aura to a buff purely because of
+        // insertion order.
+        .sort((a, b) => AURA_PRIORITY.indexOf(a.kind) - AURA_PRIORITY.indexOf(b.kind))
+        .slice(0, 2)
+        .map((s) => STATUS_AURA[s.kind]);
     return (
         <group>
             {active.map((aura, i) => <StatusAuraLoop key={`${aura.frames}-${i}`} aura={aura} phase={i * 0.5} />)}

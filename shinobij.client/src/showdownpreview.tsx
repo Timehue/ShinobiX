@@ -191,7 +191,7 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         if (c.kind === "guard" || c.kind === "rest") {
             events.push({
                 t: "action", actorId: actor.id, actorSide: "player", moveName: c.kind === "guard" ? "Guard" : "Catch Breath",
-                moveKind: c.kind, element: actor.element ?? "None", delivery: "self", super: false,
+                moveKind: c.kind, element: actor.element ?? "None", delivery: "self", weight: "light", super: false,
                 targets: [{ id: actor.id, damage: 0, heal: c.kind === "rest" ? 32 : 0, effectiveness: "neutral", guarded: false, ko: false, applied: c.kind }],
                 staminaAfter: 80, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
             });
@@ -208,7 +208,7 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
             moveName: superCast ? `${actor.element} Overdrive` : "Swift Strike",
             moveKind: "damage", element: actor.element ?? "None",
             delivery: actor.role === "assassin" || actor.role === "defender" ? "melee" : "ranged",
-            super: superCast,
+            weight: superCast ? "heavy" : "normal", super: superCast,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: world.round % 3 === 0 ? "super" : "neutral", guarded: false, ko }],
             staminaAfter: Math.max(0, 100 - world.round * 25), meterAfter: meter,
             overexerted: world.round === 3,
@@ -230,7 +230,7 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         world.meter.set(target.id, meter);
         events.push({
             t: "action", actorId: enemy.id, actorSide: "enemy", moveName: "Fang Rush",
-            moveKind: "damage", element: enemy.element ?? "None", delivery: "melee", super: false,
+            moveKind: "damage", element: enemy.element ?? "None", delivery: "melee", weight: "normal", super: false,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: "neutral", guarded: false, ko }],
             staminaAfter: 60, meterAfter: 40, overexerted: false,
         });
