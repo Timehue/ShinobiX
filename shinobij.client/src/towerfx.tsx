@@ -128,5 +128,7 @@ const session: TowerSession = {
 };
 
 createRoot(document.getElementById("root")!).render(
-    <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
+    <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}}
+        stateFn={async () => session}
+        actionFn={async () => ({ applied: false, reason: "dev-preview", session, currentVersion: session.actionVersion ?? 0 })} />,
 );

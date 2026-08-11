@@ -118,6 +118,22 @@ describe('Endless Spire — floor catalog', () => {
         assert.equal(revenant.boss!.mechanic, 'regen');
         assert.ok((revenant.boss!.regenFlatCap ?? 0) > 0, 'regen boss is flat-capped');
     });
+    it('every boss variant carries a focus policy and dodgeable signature strike', () => {
+        const expected = {
+            warden: ['squishiest', 'slam'],
+            revenant: ['support', 'volley'],
+            ravager: ['lowest-hp', 'nova'],
+            sovereign: ['lowest-hp', 'nova'],
+        } as const;
+        for (let tier = 1; tier <= SPIRE_MAX_TIER; tier++) {
+            const key = spireBossForFloor(tier)!;
+            const boss = getSpireFloor(tier)!.boss!;
+            assert.equal(boss.targetMode, expected[key][0], `T${tier} focus policy`);
+            assert.equal(boss.strike?.kind, expected[key][1], `T${tier} strike identity`);
+            assert.ok((boss.strike?.firstRound ?? 0) > 1, `T${tier} never opens with unavoidable strike damage`);
+            assert.ok((boss.strike?.pct ?? 100) <= 8, `T${tier} strike remains bounded`);
+        }
+    });
 });
 
 // ─── encounter sealing + story no-regression ─────────────────────────────────
@@ -203,6 +219,24 @@ function fakeKv(): TowerKv & { store: Map<string, unknown> } {
         async incr(key: string) { const v = (Number(store.get(key)) || 0) + 1; store.set(key, v); return v; },
     };
 }
+function forwardThenThrowOnFirstSave(): TowerKv & { store: Map<string, unknown> } {
+    const base = fakeKv();
+    let fail = true;
+    return {
+        store: base.store,
+        get: base.get.bind(base),
+        del: base.del.bind(base),
+        incr: base.incr.bind(base),
+        async set(key, value, opts) {
+            const result = await base.set(key, value, opts);
+            if (fail && key.startsWith('save:')) {
+                fail = false;
+                throw new Error('forwarded save, dropped response');
+            }
+            return result;
+        },
+    };
+}
 const passLock: TowerLock = async (_t, fn) => fn();
 function spireSquadActor(slug: string): TowerActor {
     return {
@@ -270,6 +304,23 @@ describe('Endless Spire — settleSpireForMember', () => {
         assert.equal(r.paid, false);
         assert.equal(r.reason, 'not-spire');
     });
+    it('requires the Spire tower id, direct tier binding, and no embedded floor', async () => {
+        const invalid = [
+            spireSession('wrong-id', 8, 'hero'),
+            spireSession('wrong-floor', 8, 'hero'),
+            spireSession('embedded', 8, 'hero'),
+        ];
+        invalid[0]!.towerId = 'celestial';
+        invalid[1]!.floor = 7;
+        invalid[2]!.encounterFloor = getSpireFloor(8);
+        for (const session of invalid) {
+            const kv = fakeKv(); seedSave(kv, 'hero');
+            assert.equal(isSpireRun(session), false);
+            const result = await settleSpireForMember({ slug: 'hero', session }, { kv, lock: passLock, now });
+            assert.equal(result.reason, 'not-spire');
+            assert.equal(charOf(kv, 'hero').fateShards, 0);
+        }
+    });
     it('upserts the weekly leaderboard board (best-per-player, no downgrade)', async () => {
         const kv = fakeKv(); seedSave(kv, 'hero');
         await settleSpireForMember({ slug: 'hero', session: spireSession('runA', 8, 'hero') }, { kv, lock: passLock, now });
@@ -286,6 +337,32 @@ describe('Endless Spire — settleSpireForMember', () => {
         await settleSpireForMember({ slug: 'hero', session: spireSession('runC', 6, 'hero') }, { kv, lock: passLock, now });
         board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
         assert.equal(board[0]!.tier, 11);
+    });
+    it('projects only the sealed clear tier, never a character-supplied weekly best', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'hero', {
+            battleTowerSpireWeeklyBest: 20,
+            battleTowerSpireWeekKey: weekKey(NOW),
+        });
+        await settleSpireForMember({ slug: 'hero', session: spireSession('authoritative-tier', 8, 'hero') }, { kv, lock: passLock, now });
+        const board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
+        assert.equal(board[0]!.tier, 8);
+    });
+    it('recovers a forwarded save without paying the run or weekly tier twice', async () => {
+        const kv = forwardThenThrowOnFirstSave(); seedSave(kv, 'hero');
+        const session = spireSession('forwarded-spire', 8, 'hero');
+        const dropped = await settleSpireForMember({ slug: 'hero', session }, { kv, lock: passLock, now });
+        assert.equal(dropped.reason, 'contended');
+        assert.equal(charOf(kv, 'hero').fateShards, SPIRE_SHARDS_PER_TIER);
+        assert.equal(kv.store.has(spireRewardKey('hero', weekKey(NOW), 8)), false);
+
+        const retry = await settleSpireForMember({ slug: 'hero', session }, { kv, lock: passLock, now });
+        assert.equal(retry.reason, 'already-paid');
+        assert.equal(charOf(kv, 'hero').fateShards, SPIRE_SHARDS_PER_TIER);
+        assert.equal(kv.store.has(spireRewardKey('hero', weekKey(NOW), 8)), true, 'retry repairs the weekly receipt');
+
+        await settleSpireForMember({ slug: 'hero', session: spireSession('new-run-same-tier', 8, 'hero') }, { kv, lock: passLock, now });
+        assert.equal(charOf(kv, 'hero').fateShards, SPIRE_SHARDS_PER_TIER);
     });
     it('weekly best RESETS when the reset-week rolls over', async () => {
         const kv = fakeKv();

@@ -7,7 +7,7 @@ import type { Pet } from "../types/pet";
 import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
-import { petFramePace, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
+import { scorePetMatchup } from "../lib/pet-battle-sim";
 import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
@@ -30,14 +30,12 @@ import { ELEMENT_ICON } from "../lib/element-icons";
 import { primePetSfx } from "../lib/pet-sfx";
 import { primeWarfrontAudio } from "../lib/warfront-audio";
 import { startBattleMusic } from "../lib/pet-music";
-import { rankedDelta } from "../lib/progression";
 import { makeId } from "../lib/utils";
 import { genericPetArenaOpponents, isGenericPetOpponent, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import {
     petTamerPveMultiplier,
     type DuelChallenge,
 } from "../App";
-import type { PetArenaFrame } from "../types/pet-arena";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import {
@@ -60,6 +58,8 @@ import {
     type WarfrontSetup,
 } from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
+import { activeCarriedPets } from "../lib/entitlements";
+import { publicEligiblePets } from "../lib/public-pet-roster";
 import { settleHollowGateCombat, type HollowGateCombatSettleResult } from "../lib/hollow-gate-combat-api";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import { wfThemeForVillage } from "../lib/pet-warfront-theme";
@@ -236,18 +236,13 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
     );
 }
 
-// HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
-// load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
-const loadPetColiseum = () => import("../components/PetColiseum");
 const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-model-preload")
     .then((module) => module.preloadPetColiseumModels(pets));
-const PetColiseum = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseum })));
-// Continuous-duel renderer (the new authoritative PvE engine, behind
-// petDuelEngine.v1) — same lazy chunk, mounted instead of PetColiseum when the
-// flag is on for a non-ranked fight.
-const PetColiseumDuel = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseumDuel })));
-// Hollow Warfront — the lane-war Tactical Arena (Ward Seal objective,
-// Guardian Totems, the Hollow Gate breach,
+// Every current Coliseum route uses the continuous duel engine. Keep its Three.js
+// presentation lazy; the retired round-frame renderer no longer ships here.
+const PetColiseumDuel = lazyWithRetry(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
+// Hollow Warfront — the lane-war game mode that REPLACED the capture-scroll
+// Tactical Arena (Ward Seal objective, Guardian Totems, the Hollow Gate breach,
 // bounty coins + the 30 s War Council). Own lazy chunk (three-heavy).
 const PetWarfrontMatch = lazyWithRetry(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 const preloadWarfrontExperience = (pets: readonly Pet[]) => {
@@ -522,7 +517,9 @@ const WARFRONT_DOCTRINE_COUNTER: Partial<Record<WfDoctrine, WfDoctrine>> = {
 
 
 export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, pendingArenaRecovery, onPendingArenaRecoveryHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onHollowGatePetBattleEnd }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: React.Dispatch<React.SetStateAction<DuelChallenge[]>>; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: PlayerOwnedArenaMatch | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; pendingArenaRecovery?: ArenaPvpRecovery | null; onPendingArenaRecoveryHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onHollowGatePetBattleEnd?: (result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) => void }) {
-    const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
+    const combatEligiblePets = activeCarriedPets<Pet>(character);
+    const preservedPetOverflow = Math.max(0, character.pets.length - combatEligiblePets.length);
+    const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? combatEligiblePets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
@@ -537,8 +534,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
     // (character.activePetId2v2). Still overridable per battle via the dropdown.
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
-    // Last party result, shown as a summary block ("2–0 — You take the set!").
-    const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
     // Hollow Warfront game mode — a full-screen 4v4 MOBA/autobattler match.
     // Teams and both coaches' opening plans are frozen on launch.
     const [arenaMatch, setArenaMatch] = useState<ActiveWarfrontMatch | null>(null);
@@ -726,7 +721,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     useEffect(() => {
         void requestPreparedWarfrontContract();
     }, [normalizedCharacterName]);
-    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => normalizeArenaSelection(pickArenaTeam(character.pets, 4).map((p) => p.id), 4));
+    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => normalizeArenaSelection(pickArenaTeam(combatEligiblePets, 4).map((p) => p.id), 4));
     const [tacticalSlot, setTacticalSlot] = useState(0);
     const [arenaChallengeName, setArenaChallengeName] = useState("");
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
@@ -762,7 +757,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         setArenaChallengeName("");
         setArenaChallengeMsg("");
         setArenaRecoveryRevision((revision) => revision + 1);
-        setTacticalPicks(normalizeArenaSelection(pickArenaTeam(character.pets, 4).map((pet) => pet.id), 4));
+        setTacticalPicks(normalizeArenaSelection(pickArenaTeam(combatEligiblePets, 4).map((pet) => pet.id), 4));
         setTacticalSlot(0);
         setRespondPicks(normalizeArenaSelection([], 4));
         setRespondSlot(0);
@@ -771,7 +766,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
     function sendDirectPetChallenge(toName: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
-        if (targetRecord?.character && targetRecord.character.pets.length === 0) {
+        if (targetRecord && publicEligiblePets(targetRecord).length === 0) {
             setPetChallengeMsg(`${toName} does not have a pet available for battle.`);
             return;
         }
@@ -781,13 +776,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         }
         // 2v2 challenge needs the player to have a reserve and the target
         // to have at least 2 pets. If either fails, fall back to 1v1.
-        const wantsParty = partyMode && character.pets.length >= 2;
+        const wantsParty = partyMode && combatEligiblePets.length >= 2;
         const reserveCandidate = wantsParty
-            ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
-                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+            ? (combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                ?? combatEligiblePets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
                 ?? null)
             : null;
-        const targetCanParty = (targetRecord?.character?.pets?.length ?? 0) >= 2;
+        const targetCanParty = publicEligiblePets(targetRecord).length >= 2;
         const doParty = wantsParty && !!reserveCandidate && targetCanParty;
         if (wantsParty && !doParty) {
             setPetChallengeMsg(
@@ -1272,13 +1267,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const name = toName.trim();
         if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
         if (normalizePlayerIdentity(name) === normalizedCharacterName) { setArenaChallengeMsg("You can't challenge yourself."); return; }
-        const availableIds = new Set(character.pets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
+        const availableIds = new Set(combatEligiblePets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
         if (!isExactAvailableArenaSelection(teamIds, availableIds, size)) {
             setArenaChallengeMsg(`A ${size}v${size} match requires exactly ${size} unique pets that are currently available.`);
             return;
         }
         const targetRecord = allServerPlayers.find((p) => p.name.toLowerCase() === name.toLowerCase());
-        if (targetRecord?.character && availablePetBattleCount(targetRecord.character.pets) < size) {
+        if (targetRecord && availablePetBattleCount(publicEligiblePets(targetRecord)) < size) {
             setArenaChallengeMsg(`${name} needs ${size} available pets for a ${size}v${size} arena match.`);
             return;
         }
@@ -1346,13 +1341,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             return;
         }
         const size = arenaSizeOf(challenge);
-        const availableIds = new Set(character.pets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
+        const availableIds = new Set(combatEligiblePets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
         if (!isExactAvailableArenaSelection(teamIds, availableIds, size)) {
             setArenaChallengeMsg(`This ${size}v${size} challenge needs exactly ${size} unique pets that are currently available. It was not started.`);
             return;
         }
         const myTeam = teamIds
-            .map((id) => character.pets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
+            .map((id) => combatEligiblePets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
             .filter((pet): pet is Pet => Boolean(pet));
         if (new Set(myTeam.map((pet) => pet.id)).size !== size) {
             setArenaChallengeMsg(`This ${size}v${size} challenge needs ${size} of your available pets. It was not started.`);
@@ -1469,14 +1464,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
         .filter((player) => player.name !== character.name)
-        .flatMap((player) => player.character.pets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => ({ owner: player.name, pet })));
+        .flatMap((player) => publicEligiblePets(player).filter((pet) => !isPetOnExpedition(pet)).map((pet) => ({ owner: player.name, pet })));
     const playerOpponentQuery = opponentSearch.trim().toLowerCase();
     const filteredPlayerOpponentPets = playerOpponentQuery
         ? playerOpponentPets.filter((entry) => entry.owner.toLowerCase().includes(playerOpponentQuery))
         : playerOpponentPets;
     const opponentPets: PetArenaOpponent[] = opponentMode === "player" ? filteredPlayerOpponentPets : genericPetArenaOpponents;
     const [selectedOpponentKey, setSelectedOpponentKey] = useState("");
-    const selectedPet = character.pets.find((pet) => pet.id === selectedPetId && !isPetOnExpedition(pet)) ?? character.pets.find((pet) => !isPetOnExpedition(pet));
+    const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
 
     // The matchup cards are visible for several seconds before Fight begins.
@@ -1490,10 +1485,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [battleReady, setBattleReady] = useState(false);
     const [battleOpponent, setBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
-    const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
-    // When the new continuous engine resolves a NON-ranked fight (petDuelEngine.v1
-    // ON), this holds the precomputed DuelResult + combatants for PetColiseumDuel
-    // to play. null → the old round engine / PetColiseum path renders instead.
+    // Holds the current continuous-duel timeline or live controller.
     const [duelBattle, setDuelBattle] = useState<{
         // Exactly one of `result` / `live` is set: a precomputed timeline to watch,
         // or a live player-controlled fight that reports its outcome via onOutcome.
@@ -1503,9 +1495,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         id: number; // per-fight nonce → React key so "Fight again" remounts the player
     } | null>(null);
     const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight id source (state, not ref → no render-time ref read)
-    const [frameIndex, setFrameIndex] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [result, setResult] = useState("");
     const [hollowGateSettlementStatus, setHollowGateSettlementStatus] = useState<"idle" | "pending" | "error" | "settled">("idle");
     const hollowGateSettlementRetryRef = useRef<(() => Promise<void>) | null>(null);
     const hollowGateSettlementInFlightRef = useRef(false);
@@ -1540,22 +1529,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         document.body.classList.add("pet-combat-active");
         return () => document.body.classList.remove("pet-combat-active");
     }, [fullscreenBattleActive]);
-    const currentFrame = battleFrames[frameIndex];
-    const showResult = currentFrame?.actionKind === "result";
-    const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : battleLog;
-
     // Auto-scroll to the fight the moment a battle becomes ready — both sides
     // accept (1v1 or 2v2 / PvP) and the page glides down to the arena so they
     // can watch it play out without hunting for it. Covers every accept path
     // because all three setBattleReady(true) sites flip this same flag.
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
-        if (!battleReady || battleFrames.length === 0) return;
+        if (!battleReady || !duelBattle) return;
         const t = window.setTimeout(() => {
             battlefieldRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 80); // let the battlefield mount first
         return () => window.clearTimeout(t);
-    }, [battleReady, battleFrames.length]);
+    }, [battleReady, duelBattle?.id]);
 
     useEffect(() => {
         if (opponentPets.length === 0) {
@@ -1565,20 +1550,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const keyStillExists = opponentPets.some((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey);
         if (!selectedOpponentKey || !keyStillExists) setSelectedOpponentKey(`${opponentPets[0].owner}:${opponentPets[0].pet.id}`);
     }, [selectedOpponentKey, opponentMode, opponentPets[0]?.owner, opponentPets[0]?.pet.id, opponentPets.length]);
-
-    useEffect(() => {
-        if (!isPlaying) return;
-        if (frameIndex >= battleFrames.length - 1) {
-            setIsPlaying(false);
-            return;
-        }
-        // Cinematic pacing — let dramatic frames breathe, snap through
-        // routine ones. Uniform 1200ms makes every action read the same;
-        // variable timing tells the player when to lean in.
-        const ms = petFramePace(battleFrames[frameIndex]);
-        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), ms);
-        return () => window.clearTimeout(timer);
-    }, [battleFrames.length, frameIndex, isPlaying]);
 
     // Battle consumables are applied inside the sim from each pet's loadout
     // (kept deterministic), then spent here once the sim has run. Returns the
@@ -1634,7 +1605,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             petReceipt: petBattleResult.petReceipt,
         });
         if (settled.character) updateCharacter(settled.character);
-        setResult(settled.won ? "Victory" : "Defeat");
         setBattleLog((prev) => [
             ...prev,
             settled.won
@@ -1666,7 +1636,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // Also cover instant incoming challenges, which can bypass the ordinary
         // matchup-card dwell time used by the preload effect above.
         void preloadPetColiseumModels([selectedPet, opponent.pet]).catch(() => undefined);
-        setPartyResult(null);
         setDuelBattle(null); // fresh fight — clear any prior duel overlay
         const nextDuelId = duelNonce + 1; // React key for the duel renderer
         setDuelNonce(nextDuelId);
@@ -1677,7 +1646,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         //   • Local AI battle: in-component partyMode toggle, player picks
         //     reserve, AI gets a random second pet from the pool.
         const pvpParty = !!(opponent.opponentParty && opponent.challengerParty);
-        const canAiParty = !opponent.hollowGate && partyMode && opponentMode === "ai" && character.pets.length >= 2;
+        const canAiParty = !opponent.hollowGate && partyMode && opponentMode === "ai" && combatEligiblePets.length >= 2;
         if (pvpParty || canAiParty) {
             let myLead: Pet;
             let myReserve: Pet;
@@ -1687,8 +1656,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 [myLead, myReserve] = opponent.challengerParty!;
                 [enemyLead, enemyReserve] = opponent.opponentParty!;
             } else {
-                const reserveCandidate = character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
-                    ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+                const reserveCandidate = combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                    ?? combatEligiblePets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
                     ?? null;
                 if (!reserveCandidate) {
                     return alert("Need a reserve pet (a second pet not on expedition).");
@@ -1756,7 +1725,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 ? null
                 : runPetPartyDuelCinematic(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, true);
             const settleParty = (partyOutcome: "win" | "loss" | "draw") => {
-                setResult(partyOutcome === "win" ? "Victory" : partyOutcome === "draw" ? "Draw" : "Defeat");
                 // Clan-war auto-report (pet 2v2): if this party battle was
                 // launched from a clan-war pet2v2 challenge, post the outcome
                 // to /api/clan/war/report so both clients converge on the
@@ -1808,100 +1776,16 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve,
                 seed, id: nextDuelId,
             });
-            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
+            setBattleLog([]);
             if (duel) settleParty(duel.result);
             return;
         }
 
-        // ── Ranked 1v1 (account-level pet ladder) ───────────────────────
-        // Both clients must agree on the winner for the Elo ladder to stay
-        // honest. runPetArenaBattle is role-asymmetric (its coin flip treats
-        // the FIRST arg as "player"), so two clients each passing their own
-        // pet first could disagree. Fix: run a CANONICAL simulation — order
-        // the two combatants by lowercase owner name so both clients feed
-        // the engine identical args (and pass multiplier 1, dropping the
-        // per-player Pet-Tamer PvE bonus for fairness). The seeded RNG then
-        // produces a byte-identical fight. We render from MY perspective:
-        // if I'm the canonical opponent, swap each frame so my pet shows on
-        // the left. Rating + W/L fold into ONE updateCharacter (no ryo, no
-        // clan-war report, no /api/pet/battle-result call).
+        // Ranked pet settlement is deliberately fail-closed until the match is
+        // challenge-bound and server-resolved. Never replay a stale pre-migration
+        // invite locally: even a deterministic client duel is not rating authority.
         if (opponent.ranked) {
-            // Use the handshake-locked pet (selfPet) rather than the UI's
-            // selectedPet so both clients simulate the exact same combatants.
-            const myPet = opponent.selfPet ?? selectedPet;
-            // Keep the picker (and thus the on-grid sprite) in sync with the
-            // locked combatant if they diverged after navigation.
-            if (opponent.selfPet && opponent.selfPet.id !== selectedPetId) setSelectedPetId(opponent.selfPet.id);
-            const myName = character.name.toLowerCase();
-            const oppName = opponent.owner.toLowerCase();
-            const iAmCanonicalPlayer = myName <= oppName;
-            const seed = opponent.battleSeed ?? Date.now();
-            const canonicalPlayerPet = iAmCanonicalPlayer ? myPet : opponent.pet;
-            const canonicalOpponentPet = iAmCanonicalPlayer ? opponent.pet : myPet;
-            // Ranked now resolves on the SAME cinematic duel engine as the Pet
-            // Coliseum (the old engines are retired here). Canonical ordering
-            // keeps both clients byte-identical, so they agree on the winner;
-            // multiplier 1 (no per-player PvE bonus) keeps it fair. We render the
-            // canonical duel (canonical player on the left, winner shown correctly)
-            // and label Victory/Defeat from MY perspective.
-            // applyItems=false (explicit): cinematic defaults items ON, but ranked stays
-            // neutral — no gear, no per-player multiplier — so this must opt out.
-            const duel = runPetDuelCinematic(canonicalPlayerPet, canonicalOpponentPet, seed, 1, 1, false, false);
-            const myResult: "win" | "loss" | "draw" = iAmCanonicalPlayer
-                ? duel.result
-                : duel.result === "win" ? "loss" : duel.result === "loss" ? "win" : "draw";
-            setBattleOpponent(opponent);
-            setBattleReady(true);
-            setDuelNonce(nextDuelId);
-            setDuelBattle({ result: duel, playerPet: canonicalPlayerPet, enemyPet: canonicalOpponentPet, seed, id: nextDuelId });
-            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
-            setResult(myResult === "win" ? "Victory" : myResult === "draw" ? "Draw" : "Defeat");
-            const myRating = character.petRankedRating ?? 1000;
-            const oppRating = opponent.opponentRating ?? 1000;
-            // Read-back + activation (audit #7 / Stage 3): the SERVER owns the
-            // petRankedRating swing. Report the outcome to /api/pet/battle-result
-            // (ranked) — which credits the rating under a save lock with an NX
-            // receipt keyed by `${seed}:ranked` (exactly-once) — and read the
-            // returned committed character back as the authoritative value.
-            // Offline/503 leaves rating and counters unchanged until retry. The shared, stable
-            // battleSeed makes reportKey refresh-replay-safe; ranked pet battles
-            // are intentionally NOT persisted for resume (see acceptPetChallenge),
-            // so this effect fires once and can't double the local counters.
-            // counters carry RELATIVE deltas (e.g. +1 win) applied off `prev`
-            // inside the updater so a regen/heartbeat setState landing during the
-            // await fetch can't be clobbered — and the deltas aren't double-baked
-            // onto a stale snapshot. petRankedRating is absolute (server-owned).
-            const reportRankedPet = (outcome: "win" | "loss" | "draw") => {
-                void (async () => {
-                    try {
-                        const r = await fetch("/api/pet/battle-result", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ playerName: character.name, outcome, ranked: true, matchToken: opponent.petRankedToken, opponentName: opponent.owner, opponentLevel: opponent.pet.level, reportKey: `${seed}:ranked` }),
-                        });
-                        if (r.ok) {
-                            const data = await r.json() as { character?: Character };
-                            if (data.character) {
-                                updateCharacter({ ...data.character, pets: clearConsumablePets([myPet.id]) });
-                                return;
-                            }
-                        }
-                    } catch { /* server save remains authoritative; no local rating/counter fallback */ }
-                    updateCharacter((prev) => prev ? ({ ...prev, pets: clearConsumablePets([myPet.id]) }) : prev);
-                })();
-            };
-            if (myResult === "win") {
-                const gain = rankedDelta(myRating, oppRating);
-                reportRankedPet("win");
-                setBattleLog([`🏆 Ranked pet victory! Server settlement requested (projected +${gain} Elo).`]);
-            } else if (myResult === "loss") {
-                const drop = rankedDelta(oppRating, myRating);
-                reportRankedPet("loss");
-                setBattleLog([`Ranked pet defeat. Server settlement requested (projected -${drop} Elo).`]);
-            } else {
-                reportRankedPet("draw");
-                setBattleLog(["Ranked pet draw — no Elo change."]);
-            }
+            setPetChallengeMsg("Ranked pet battles are temporarily unavailable until server-authoritative matchmaking returns.");
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
             return;
         }
@@ -1915,9 +1799,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         }
         setBattleOpponent(opponent);
         setBattleReady(true);
-        // Resolve via the new continuous engine (PetColiseumDuel) or the old round
-        // engine (PetColiseum). Outcome + clan-war report + ryo all key off the
-        // same `outcome` value, so the swap is invisible to the reward path.
+        // Resolve through the continuous engine. Outcome + clan-war report + ryo
+        // all key off the same `outcome` value.
         // PvE mastery modifiers only vs a built-in AI opponent. Any real-player
         // 1v1 (non-ranked challenge / clan) gets none.
         const pveOpp = isGenericPetOpponent(opponent.pet);
@@ -1951,7 +1834,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // Settlement is identical either way; only WHEN it runs differs. A live duel
         // settles from PetColiseumDuel's onOutcome once the fight actually ends.
         const settle1v1 = (outcome: "win" | "loss" | "draw") => {
-            setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
             // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
             // for non-clan-war battles since the helper no-ops without a
             // sessionStorage stash + opponent-name match.
@@ -2127,7 +2009,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             result: duel, live: liveDuel, onOutcome: (r) => settle1v1(r.result),
             playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId,
         });
-        setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
+        setBattleLog([]);
         // Watch-only duels are already decided, so settle immediately as before.
         if (duel) settle1v1(duel.result);
     }
@@ -2178,7 +2060,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const size = arenaSizeOf(currentPendingArenaResponse);
         setArenaView("tactical");
         setArenaChallengeMsg("");
-        setRespondPicks(normalizeArenaSelection(pickArenaTeam(character.pets, size).map((pet) => pet.id), size));
+        setRespondPicks(normalizeArenaSelection(pickArenaTeam(combatEligiblePets, size).map((pet) => pet.id), size));
         setRespondSlot(0);
     }, [currentPendingArenaResponse?.id, normalizedCharacterName]);
 
@@ -2321,8 +2203,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Hollow Gate (and other forced duels) skip the view tabs — those land
     // straight in a battle and shouldn't expose the Tactical Arena switch.
     const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
-    const availableArenaPetCount = availablePetBattleCount(character.pets);
-    const tacticalArenaUnlocked = canEnterTacticalArena(character.pets);
+    const availableArenaPetCount = availablePetBattleCount(combatEligiblePets);
+    const tacticalArenaUnlocked = canEnterTacticalArena(combatEligiblePets);
     const retryHollowGateSettlement = () => {
         const retry = hollowGateSettlementRetryRef.current;
         if (retry) void retry();
@@ -2472,16 +2354,21 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             <div className="pet-arena-grid">
                 <section className="summary-box pet-arena-selector">
                     <h3>Your Pet</h3>
-                    {character.pets.length === 0 ? (
+                    {combatEligiblePets.length === 0 ? (
                         <p className="hint">You need a pet before entering the arena.</p>
                     ) : (
                         <div className="pet-pick-panel">
                             {petPicker(
-                                character.pets.map((pet) => ({ key: pet.id, pet, dim: isPetOnExpedition(pet) })),
+                                combatEligiblePets.map((pet) => ({ key: pet.id, pet, dim: isPetOnExpedition(pet) })),
                                 selectedPetId,
                                 setSelectedPetId,
                             )}
                         </div>
+                    )}
+                    {preservedPetOverflow > 0 && (
+                        <p className="hint" style={{ color: "var(--gold-2)" }}>
+                            {preservedPetOverflow} overflow · cannot fight. Base: 3 carried · Supporter: 5. See Sanctuary.
+                        </p>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
                     {selectedPet && <MatchupHint element={selectedPet.element} />}
@@ -2497,9 +2384,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 setOpponentMode("player");
                                 setBattleReady(false);
                                 setBattleLog([]);
-                                setBattleFrames([]);
-                                setResult("");
-                                setIsPlaying(false);
+                                setDuelBattle(null);
                             }}
                         >
                             Fight Player
@@ -2511,9 +2396,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 setOpponentMode("ai");
                                 setBattleReady(false);
                                 setBattleLog([]);
-                                setBattleFrames([]);
-                                setResult("");
-                                setIsPlaying(false);
+                                setDuelBattle(null);
                             }}
                         >
                             Fight AI
@@ -2585,7 +2468,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </section>
             </div>
 
-            {character.pets.length >= 2 && (
+            {combatEligiblePets.length >= 2 && (
                 <div className="summary-box" style={{ marginTop: "0.4rem" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
                         <input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} />
@@ -2608,7 +2491,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                         <span className="pet-pick-name">Auto-pick</span>
                                         <span className="pet-pick-meta">best counter</span>
                                     </button>
-                                    {character.pets.filter((p) => p.id !== selectedPetId).map((pet) =>
+                                    {combatEligiblePets.filter((p) => p.id !== selectedPetId).map((pet) =>
                                         petPickCard(pet.id, pet, reservePetId === pet.id, () => setReservePetId(pet.id), { dim: isPetOnExpedition(pet) }),
                                     )}
                                 </div>
@@ -2629,7 +2512,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         <div className="pet-coliseum-versus">
                             <span>Exhibition</span>
                             <strong>VS</strong>
-                            <small>{partyMode && character.pets.length >= 2 ? "2v2 set" : "1v1 duel"}</small>
+                            <small>{partyMode && combatEligiblePets.length >= 2 ? "2v2 set" : "1v1 duel"}</small>
                         </div>
                         <div className="pet-coliseum-contender enemy">
                             <span className="pet-coliseum-kicker">Arena challenger</span>
@@ -2637,7 +2520,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             <span>Lv.{selectedOpponent.pet.level} · {selectedOpponent.pet.element ?? "Untyped"}</span>
                         </div>
                         <button className="pet-coliseum-enter" onClick={() => void startBattle()}>
-                            <span>{partyMode && character.pets.length >= 2 ? "Enter the 2v2 Set" : "Enter the Coliseum"}</span>
+                            <span>{partyMode && combatEligiblePets.length >= 2 ? "Enter the 2v2 Set" : "Enter the Coliseum"}</span>
                             <small>Fight under your command</small>
                         </button>
                     </div>
@@ -2646,40 +2529,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         Choose both contenders
                     </button>
                 ) : null}
-                {battleReady && battleFrames.length > 0 && (
-                    <button onClick={() => {
-                        if (frameIndex >= battleFrames.length - 1) {
-                            setFrameIndex(0);
-                            setIsPlaying(true);
-                            return;
-                        }
-                        setIsPlaying((playing) => !playing);
-                    }}>
-                        {isPlaying ? "Pause" : frameIndex >= battleFrames.length - 1 ? "Replay" : "Resume"}
-                    </button>
-                )}
-                {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
-
-            {partyResult && battleReady && showResult && (
-                <div className="summary-box" style={{ marginTop: "0.4rem", padding: "0.5rem 0.7rem" }}>
-                    <strong>Set: {partyResult.playerWins}–{partyResult.opponentWins}{partyResult.draws ? ` (${partyResult.draws} draw)` : ""}</strong>
-                    {partyResult.matches.map((m, i) => (
-                        <div key={i} style={{ fontSize: "0.85rem", color: "var(--text-dim)", marginTop: 2 }}>
-                            Match {i + 1}: {m.playerPet?.name ?? "—"} vs {m.opponentPet?.name ?? "—"} → <strong style={{ color: m.result === "win" ? "var(--green-400)" : m.result === "loss" ? "var(--red-400)" : "var(--gold)" }}>{m.result}</strong>
-                        </div>
-                    ))}
-                </div>
-            )}
 
             {/* Live PvP: the invite prompt, the "waiting to be accepted" notice and
                 the fight itself all live here. Renders nothing when idle. */}
             <PetDuelLiveHost
                 ref={liveDuelRef}
-                myPets={[selectedPet, partyMode ? character.pets.find((p) => p.id === reservePetId) : null].filter((p): p is Pet => !!p)}
+                myPets={[selectedPet, partyMode ? combatEligiblePets.find((p) => p.id === reservePetId) : null].filter((p): p is Pet => !!p)}
                 onError={(message) => setPetChallengeMsg(`❌ ${message}`)}
                 onOutcome={(outcome, opponent) => {
-                    setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
                     setPetChallengeMsg(outcome === "win" ? `✅ You beat ${opponent}!` : outcome === "draw" ? `Draw with ${opponent}.` : `${opponent} won that one.`);
                     // Clan-war pet battles still record through the existing helper;
                     // it no-ops when this fight was not part of one.
@@ -2688,14 +2546,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 sharedImages={sharedImages}
             />
 
-            {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
+            {battleReady && duelBattle && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
-                {duelBattle ? (
-                    // New continuous engine (petDuelEngine.v1 ON, non-ranked): the
-                    // screen already resolved the DuelResult + posted the outcome;
-                    // PetColiseumDuel just PLAYS it (full-screen portal). onExit
-                    // clears the duel + honours the opponent's returnScreen (Hollow
-                    // Gate sends you back to the shrine).
                     <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading tactical arena…</div>}>
                         <PetColiseumDuel
                             key={duelBattle.id}
@@ -2714,73 +2566,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             onExit={leaveCurrentPetBattle}
                         />
                     </Suspense>
-                ) : (() => {
-                    // Prop block for the HD-2D coliseum renderer. The renderer is a
-                    // pure presentation layer over the deterministic battle frames;
-                    // the engine and frame-stepping own the outcome.
-                    const battleProps = {
-                        playerPet: selectedPet,
-                        enemyPet: (battleOpponent ?? selectedOpponent)!.pet,
-                        enemyOwner: (battleOpponent ?? selectedOpponent)!.owner,
-                        // 2v2 mode — pass reserves so the renderer can place all
-                        // 4 pets on the grid and show 4 HP bars. partyResult tracks
-                        // them via matches[1] (or the opponent's carried
-                        // challengerParty/opponentParty for PvP).
-                        playerReservePet:
-                            partyResult?.matches[1]?.playerPet
-                            ?? (battleOpponent?.challengerParty ? battleOpponent.challengerParty[1] : undefined)
-                            ?? (partyMode && opponentMode === "ai"
-                                ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
-                                    ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0])
-                                : undefined),
-                        enemyReservePet:
-                            partyResult?.matches[1]?.opponentPet
-                            ?? (battleOpponent?.opponentParty ? battleOpponent.opponentParty[1] : undefined)
-                            ?? undefined,
-                        frame: currentFrame,
-                        recentFrames: battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result"),
-                        result: showResult ? result : "",
-                        obstacles: [],
-                        tiles: [],
-                        onReplay: () => {
-                            if (!battleFrames.length) return;
-                            setFrameIndex(0);
-                            setIsPlaying(true);
-                        },
-                        onFightAgain: battleOpponent?.hollowGate ? undefined : () => void startBattle(),
-                        settlementStatus: battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined,
-                        onRetrySettlement: battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined,
-                        onExit: () => {
-                            // Honour the opponent's returnScreen override if provided —
-                            // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
-                            // so the duel sends you back to the dungeon, not the village hub.
-                            leaveCurrentPetBattle();
-                        },
-                        sharedImages,
-                        playerRecord: { wins: character.petRankedWins ?? 0, losses: character.petRankedLosses ?? 0, rating: character.petRankedRating ?? 1000 },
-                        enemyRecord: (() => {
-                            // Ranked PvP carries the opponent's Elo snapshot; we don't
-                            // track their W/L, so show rating only. AI/wild opponents
-                            // carry no rating → no record card for them.
-                            const opp = (battleOpponent ?? selectedOpponent);
-                            return opp?.opponentRating !== undefined ? { rating: opp.opponentRating } : undefined;
-                        })(),
-                    };
-                    // HD-2D coliseum is the arena renderer — lazy-loaded so
-                    // three/r3f only ship when a battle actually mounts (the
-                    // cold-landing bundle is untouched).
-                    return (
-                        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading 3D arena…</div>}>
-                            <PetColiseum {...battleProps} />
-                        </Suspense>
-                    );
-                })()}
                 </div>
             )}
 
             <section className="summary-box pet-arena-log">
                 <h3>Battle Log</h3>
-                {visibleLog.length === 0 ? <p className="hint">Start a match to watch the pets fight.</p> : visibleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+                {battleLog.length === 0 ? <p className="hint">Start a match to watch the pets fight.</p> : battleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
             </section>
             </>
             )}
@@ -2800,7 +2591,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     </div>
 
                     {(() => {
-                        const available = character.pets.filter((p) => !isPetOnExpedition(p));
+                        const available = combatEligiblePets.filter((p) => !isPetOnExpedition(p));
                         // Slot-aware pet picker. A lane is selected first; choosing a
                         // pet assigns it there, and choosing one from another lane
                         // swaps the two rather than shifting every later deployment.
@@ -2873,7 +2664,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     </div>
                                     <div className="wf-deployment" role="group" aria-label="Response deployment slots">
                                         {WARFRONT_DEPLOYMENT_SLOTS.slice(0, size).map((slot, index) => {
-                                            const pet = character.pets.find((item) => item.id === respondPicks[index]);
+                                            const pet = available.find((item) => item.id === respondPicks[index]);
                                             return (
                                                 <button type="button" key={slot.id} aria-pressed={respondSlot === index}
                                                     className={`wf-deployment-card${pet ? " filled" : ""}${respondSlot === index ? " active" : ""}`}
@@ -2886,7 +2677,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                         })}
                                     </div>
                                     {available.length < size
-                                        ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
+                                        ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available carried pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
                                         : <div className="pet-pick-panel">{pickGrid(respondPicks, setRespondPicks, size, respondSlot, setRespondSlot)}</div>}
                                     <div className="menu">
                                         <button disabled={arenaResponding || !responseReady} style={{ background: "#16a34a" }}
@@ -2910,7 +2701,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             .filter((pet): pet is Pet => Boolean(pet));
                         const warmSelectedWarfront = () => preloadWarfrontExperience(selectedTacticalPets);
                         const pickedRoles = new Set(tacticalPicks.map((id) => {
-                            const pet = character.pets.find((item) => item.id === id);
+                            const pet = available.find((item) => item.id === id);
                             return pet ? (pet.role ?? derivePetRole(pet).role) as PetRole : null;
                         }).filter((role): role is PetRole => role !== null));
                         const selectedStance = WF_STANCES.find((item) => item.id === wfStancePref) ?? WF_STANCES[0];
@@ -2997,7 +2788,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                              <label className="wf-setup-label">Opening deployment ({arenaSelectionCount(tacticalPicks)}/{tacticalSize}) — select a named lane, then assign or swap its pet</label>
                                              <div className="wf-deployment" role="group" aria-label="Opening deployment slots">
                                                  {WARFRONT_DEPLOYMENT_SLOTS.map((slot, index) => {
-                                                     const pet = character.pets.find((item) => item.id === tacticalPicks[index]);
+                                                     const pet = available.find((item) => item.id === tacticalPicks[index]);
                                                      const role = pet ? (pet.role ?? derivePetRole(pet).role) as PetRole : null;
                                                      const roleMeta = role ? ROLE_META[role] : null;
                                                      return (
@@ -3015,7 +2806,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                              </div>
                                              <div className="wf-pick-panel">
                                                  {available.length < tacticalSize
-                                                     ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; pets on expeditions do not count.</p>
+                                                     ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available carried pets. You currently have {available.length}; pets on expeditions do not count.</p>
                                                     : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize, tacticalSlot, setTacticalSlot)}</div>}
                                             </div>
                                         </div>
@@ -3035,7 +2826,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                                 // Never rebuild this roster with `filter`, which silently
                                                 // reverts to collection order and changes the opening lanes.
                                                 const mine = tacticalPicks
-                                                    .map((id) => character.pets.find((pet) => pet.id === id))
+                                                    .map((id) => available.find((pet) => pet.id === id))
                                                     .filter((pet): pet is Pet => !!pet);
                                                 if (!mine.length) return;
                                                 if (preparedWarfrontContract) void startAuthorizedAiWarfront(mine, preparedWarfrontContract);

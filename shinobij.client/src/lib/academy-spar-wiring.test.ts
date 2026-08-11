@@ -70,11 +70,24 @@ test("the onboarding modal stands down while the sealed fight is on screen", () 
     assert.match(app, /screen !== "arena" && !storyFightOpen/, "the coach must hide for the sealed spar as well as the local one");
 });
 
-test("coaching progress is display-only and never gates a move", () => {
-    const send = arena.slice(arena.indexOf("async function send("), arena.indexOf("async function send(") + 700);
-    assert.match(send, /setSparAttacked\(true\)/);
-    assert.match(send, /setSparCasted\(true\)/);
-    // The flags are set, never read, inside send — a `return` driven by them
-    // would mean the tutorial banner could block a real action.
-    assert.doesNotMatch(send, /if \(sparAttacked|if \(sparCasted/, "coaching state must never decide whether a move is sent");
+test("coaching progress advances only after the server applies the lesson action", () => {
+    const sendStart = arena.indexOf("async function send(");
+    const send = arena.slice(sendStart, arena.indexOf("function resetTargeting", sendStart));
+    const response = send.indexOf("const res = await transport.submitAction");
+    const appliedBranch = send.indexOf("if (res.applied)");
+
+    assert.ok(response >= 0, "the lesson action must still be submitted to combat authority");
+    assert.ok(appliedBranch > response, "tutorial state must only be considered after the server responds");
+    assert.doesNotMatch(
+        send.slice(0, appliedBranch),
+        /setSparAttacked\(true\)|setSparCasted\(true\)/,
+        "submitting a rejected action must not complete its lesson",
+    );
+    const success = send.slice(appliedBranch, send.indexOf("} else {", appliedBranch));
+    assert.match(success, /action\.type === "attack"\) setSparAttacked\(true\)/);
+    assert.match(success, /action\.type === "jutsu"\) setSparCasted\(true\)/);
+
+    // The flags remain display-only: they may react to an accepted move, but
+    // they must never decide whether a real action is sent.
+    assert.doesNotMatch(send, /if \(sparAttacked|if \(sparCasted/, "coaching state must never gate a combat move");
 });

@@ -58,8 +58,15 @@ describe('authoritative balance response migration', () => {
         // Bounty placement now lives in the Battle Arena "Bounty Board" tab
         // (BountyBoardPanel); the Hall of Legends duplicate was retired.
         const panel = read('shinobij.client/src/components/BountyBoardPanel.tsx');
-        assert.match(api, /balances:\s*\{\s*ryo:\s*debit\.balance\s*\}/);
-        assert.match(api, /balances:\s*\{\s*ryo:\s*credit\.balance\s*\}/);
+        const committedBalanceResponses = api.match(
+            /balances:\s*\{\s*ryo:\s*num\(savedCharacter\?\.ryo\)\s*\}/g,
+        ) ?? [];
+        assert.equal(
+            committedBalanceResponses.length,
+            2,
+            'fresh PLACE and CLAIM responses must both expose the CAS-committed wallet balance',
+        );
+        assert.match(api, /replayed:\s*true[\s\S]{0,240}?balances:\s*\{\s*ryo:\s*wallet\.balance\s*\}/);
         assert.match(app, /ryo:\s*b\.balances\.ryo/);
         assert.match(panel, /ryo:\s*res\.balances\?\.ryo\s*\?\?\s*character\.ryo/);
         assert.doesNotMatch(app, /ryo:\s*\(c\.ryo\s*\?\?\s*0\)\s*\+\s*b\.amount/);
@@ -71,7 +78,7 @@ describe('authoritative balance response migration', () => {
         const settle = read('shinobij.client/src/lib/ai-fight-settle.ts');
         const app = read('shinobij.client/src/App.tsx');
         assert.match(api, /readSoloPveSession\(sealedSessionId\)/);
-        assert.match(api, /applySoloPveUsageCosts\(character, sealedSession\)/);
+        assert.match(api, /applySoloPveUsageCosts\(character, settledUsageSession\)/);
         assert.match(api, /const leveled = gainXp\(companionCharacter, reward\.xp\)/);
         assert.match(api, /character: result\.character, _saveVersion: result\._saveVersion/);
         // The save endpoint's protection of the AI-fight redemption ledger now
@@ -81,6 +88,10 @@ describe('authoritative balance response migration', () => {
         assert.ok(
             ownership.SERVER_ARRAY_LEDGER_CHARACTER_FIELDS.includes('redeemedAiFightRewards'),
             'redeemedAiFightRewards must stay a server-owned redemption ledger on the save path',
+        );
+        assert.ok(
+            ownership.ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS.includes('aiFightRewardSettlements'),
+            'non-evicting AI-fight authority must remain server-owned on generic saves',
         );
         assert.match(host, /startAiFight\(\{/);
         assert.match(host, /const settled = await settleAiFight\(\{/);
@@ -104,7 +115,8 @@ describe('authoritative balance response migration', () => {
         assert.match(api, /const redemptionKey = `run:\$\{runId\}`/);
         assert.match(api, /redeemed\.find\(\(entry\) => entry\.token === redemptionKey\)/);
         assert.match(api, /replayed:\s*true/);
-        assert.match(api, /applySoloPveUsageCosts\(character, session!\)/);
+        assert.match(api, /settleSoloPveTerminalUsage\(session, playerName\)/);
+        assert.match(api, /applySoloPveUsageCosts\(character, settlementSession!\)/);
         assert.match(api, /applyStoryBossSettlement\([\s\S]*validation\.binding\.opponentId/);
         assert.match(core, /proof\.opponentId !== storyOpponentId\(village, levelReq\)/);
         assert.match(saveApi, /char\.storyProgress = .*exChar\.storyProgress/);
@@ -171,6 +183,6 @@ describe('authoritative balance response migration', () => {
         const client = read('shinobij.client/src/screens/BattleTowerFight.tsx');
         assert.match(api, /const responseSlug = callerSlug \?\? safeName\(playerName\)/);
         assert.match(api, /character: committed\?\.character \?\? null/);
-        assert.match(client, /if \(response\.character\) \{[\s\S]*updateCharacter\(response\.character\)/);
+        assert.match(client, /if \(response\.character && updateCharacter\) updateCharacter\(response\.character\)/);
     });
 });

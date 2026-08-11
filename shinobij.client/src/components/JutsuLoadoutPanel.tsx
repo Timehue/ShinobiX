@@ -3,9 +3,10 @@ import type { Character } from "../types/character";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { JutsuEffectCards } from "./JutsuEffectCards";
+import { captureProductEvent } from "../lib/analytics";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
-import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
+import { activeJutsuLoadoutIds, isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 
@@ -71,7 +72,7 @@ function JutsuCard({
             >
                 <JutsuArtwork jutsu={jutsu} />
                 <span className="jutsu-workbench-level">{mastery.level}</span>
-                {equipped && <span className="jutsu-equipped-badge">Equipped</span>}
+                {equipped && <span className="jutsu-equipped-badge">Active</span>}
                 <span className="jutsu-collection-copy">
                     <strong>{jutsu.name}</strong>
                     <small>{jutsu.type} · {jutsu.element}</small>
@@ -80,8 +81,8 @@ function JutsuCard({
             <button
                 type="button"
                 className="jutsu-quick-equip"
-                aria-label={equipped ? `${jutsu.name} is equipped` : `Equip ${jutsu.name}`}
-                title={equipped ? "Already equipped" : "Equip jutsu"}
+                aria-label={equipped ? `${jutsu.name} is active` : `Equip ${jutsu.name}`}
+                title={equipped ? "Already active" : "Equip jutsu"}
                 disabled={equipped}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -154,7 +155,7 @@ function SelectedJutsuDetails({
                 disabled={!equipped && loadoutFull}
                 onClick={equipped ? onUnequip : onEquip}
             >
-                {equipped ? "Unequip Jutsu" : loadoutFull ? "Loadout Full" : "Equip Jutsu"}
+                {equipped ? "Unequip Jutsu" : loadoutFull ? "Select an Active Slot" : "Equip Jutsu"}
             </button>
         </div>
     );
@@ -183,14 +184,21 @@ export function JutsuLoadoutPanel({
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     const [lensOverride, setLensOverride] = useState<JutsuType | null>(null);
     const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">("loadout");
+    const [replacementSlot, setReplacementSlot] = useState<number | null>(null);
     const subscriber = isPatreonSubscriber(character);
     const unlockedSlots = subscriber ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
-    const loadoutFull = character.equippedJutsuIds.length >= unlockedSlots;
+    const activeEquippedIds = activeJutsuLoadoutIds(character);
+    const preservedCount = Math.max(0, character.equippedJutsuIds.length - unlockedSlots);
+    const loadoutFull = activeEquippedIds.length >= unlockedSlots;
+    const replacementSlotValid = replacementSlot !== null && replacementSlot < unlockedSlots;
 
     const equippedJutsus = character.equippedJutsuIds
         .map((id) => learnedJutsus.find((jutsu) => jutsu.id === id))
         .filter((jutsu): jutsu is Jutsu => Boolean(jutsu));
-    const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus);
+    const automaticLensDiscipline = resolveLoadoutLensDiscipline(
+        { ...character, equippedJutsuIds: activeEquippedIds },
+        learnedJutsus,
+    );
     const lensDiscipline = lensOverride ?? automaticLensDiscipline;
     const selectedJutsu = learnedJutsus.find((jutsu) => jutsu.id === selectedId) ?? equippedJutsus[0] ?? learnedJutsus[0];
     const signature = legacySignatureFor(character);
@@ -224,6 +232,16 @@ export function JutsuLoadoutPanel({
         onPlaceJutsu(jutsuId, slotIndex);
     };
 
+    const placeJutsu = (jutsuId: string) => {
+        onPlaceJutsu(jutsuId, loadoutFull && replacementSlotValid ? replacementSlot : undefined);
+    };
+
+    const moveActiveJutsu = (jutsuId: string, slotIndex: number) => {
+        setSelectedId(jutsuId);
+        setReplacementSlot(slotIndex);
+        onPlaceJutsu(jutsuId, slotIndex);
+    };
+
     return (
         <section className="profile-build-panel jutsu-workbench">
             <div className="jutsu-workbench-layout">
@@ -231,15 +249,21 @@ export function JutsuLoadoutPanel({
                     <header className="jutsu-workbench-header">
                         <div className="jutsu-workbench-heading">
                             <h2>Jutsu Loadout</h2>
-                            <strong>{character.equippedJutsuIds.length} / {LOADOUT_CAP_SUB}</strong>
+                            <strong>{activeEquippedIds.length} / {unlockedSlots} active</strong>
                         </div>
                         <button
                             type="button"
                             className="danger-button jutsu-unequip-all"
-                            disabled={character.equippedJutsuIds.length === 0}
+                            disabled={character.equippedJutsuIds.length === 0 || preservedCount > 0}
+                            aria-describedby={preservedCount ? "jutsu-dormant-bulk-copy" : undefined}
                             onClick={onUnequipAll}
                         >Unequip All</button>
                     </header>
+                    {preservedCount > 0 && (
+                        <p id="jutsu-dormant-bulk-copy" className="jutsu-dormant-bulk-copy" role="status">
+                            {preservedCount} dormant Supporter preference{preservedCount === 1 ? " is" : "s are"} preserved beyond your active slots. Bulk clear is unavailable because removing an active jutsu promotes the next saved preference into that open slot.
+                        </p>
+                    )}
 
                     <div className="jutsu-workbench-tabs" role="tablist" aria-label="Jutsu workspace">
                         <button
@@ -252,7 +276,7 @@ export function JutsuLoadoutPanel({
                             onClick={() => setWorkspaceTab("loadout")}
                         >
                             <span>Loadout</span>
-                            <strong>{character.equippedJutsuIds.length}/{unlockedSlots}</strong>
+                            <strong>{activeEquippedIds.length}/{unlockedSlots}</strong>
                         </button>
                         <button
                             type="button"
@@ -303,35 +327,48 @@ export function JutsuLoadoutPanel({
                     <div className="jutsu-section-heading">
                         <div>
                             <h3>Your Loadout <span className="jutsu-info-dot" title="Loadout order matches your battle action bar">i</span></h3>
-                            <p>Drag equipped jutsu to reorder your battle action bar.</p>
+                            <p id="jutsu-loadout-reorder-help">Drag equipped jutsu, or use each slot's arrow buttons, to reorder your battle action bar.</p>
                         </div>
                         <div className="jutsu-subscriber-callout">
                             <span>♛</span>
                             <div>
-                                <strong>{subscriber ? "Subscriber Active" : "Subscriber Bonus"}</strong>
-                                <small>{subscriber ? "All 15 slots unlocked." : "Unlock 3 additional slots."}</small>
+                                <strong>{subscriber ? "Supporter Active" : "Supporter Benefit"}</strong>
+                                <small id="jutsu-supporter-slot-copy">{subscriber ? "Supporter: 15 equipped jutsu." : "Base account: 12 equipped jutsu · Supporter: 15 equipped jutsu."}</small>
                             </div>
                         </div>
                     </div>
 
-                    <div className="jutsu-loadout-grid" aria-label="Equipped jutsu loadout">
+                    <div className="jutsu-loadout-grid" aria-label="Equipped jutsu loadout" aria-describedby="jutsu-loadout-reorder-help">
                         {Array.from({ length: LOADOUT_CAP_SUB }, (_, slotIndex) => {
-                            const jutsu = equippedJutsus[slotIndex];
+                            const jutsuId = character.equippedJutsuIds[slotIndex];
+                            const jutsu = learnedJutsus.find((candidate) => candidate.id === jutsuId);
                             const locked = slotIndex >= unlockedSlots;
                             if (locked) {
                                 return (
-                                    <div className="jutsu-loadout-slot is-locked" key={slotIndex}>
+                                    <button
+                                        type="button"
+                                        className="jutsu-loadout-slot is-locked"
+                                        key={slotIndex}
+                                        aria-describedby="jutsu-supporter-slot-copy"
+                                        onClick={() => {
+                                            if (jutsu) setSelectedId(jutsu.id);
+                                            captureProductEvent("locked_jutsu_slot_inspected", {
+                                                screenId: "jutsu-loadout",
+                                                source: "profile",
+                                                contentId: `slot-${slotIndex + 1}`,
+                                            });
+                                        }}
+                                    >
                                         <span className="jutsu-slot-number">{slotIndex + 1}</span>
-                                        <span className="jutsu-lock-icon">🔒</span>
-                                        <span className="jutsu-lock-crown">♛</span>
-                                        <strong>Subscriber Slot</strong>
-                                        <small>Unlocks with subscription</small>
-                                    </div>
+                                        <span className="jutsu-lock-icon">{jutsu ? "◇" : "🔒"}</span>
+                                        <strong>{jutsu?.name ?? "Supporter Slot"}</strong>
+                                        <small>{jutsu ? "Preserved · inactive" : "Inspect slot limits"}</small>
+                                    </button>
                                 );
                             }
                             return (
                                 <div
-                                    className={`jutsu-loadout-slot ${jutsu ? "is-filled" : "is-open"} ${selectedJutsu?.id === jutsu?.id ? "is-selected" : ""} ${dragOverSlot === slotIndex ? "is-drag-over" : ""}`}
+                                    className={`jutsu-loadout-slot ${jutsu ? "is-filled" : "is-open"} ${selectedJutsu?.id === jutsu?.id || replacementSlot === slotIndex ? "is-selected" : ""} ${dragOverSlot === slotIndex ? "is-drag-over" : ""}`}
                                     key={slotIndex}
                                     onDragOver={(event) => {
                                         event.preventDefault();
@@ -351,11 +388,25 @@ export function JutsuLoadoutPanel({
                                     <span className="jutsu-slot-number">{slotIndex + 1}</span>
                                     {jutsu ? (
                                         <>
-                                            <button type="button" className="jutsu-slot-select" onClick={() => setSelectedId(jutsu.id)} aria-label={`View ${jutsu.name}`}>
+                                            <button type="button" className="jutsu-slot-select" onClick={() => { setSelectedId(jutsu.id); setReplacementSlot(slotIndex); }} aria-label={`Select ${jutsu.name}, replacement slot ${slotIndex + 1}`}>
                                                 <JutsuArtwork jutsu={jutsu} />
                                                 <span className="jutsu-workbench-level">{getJutsuMastery(character, jutsu.id).level}</span>
                                                 <strong>{jutsu.name}</strong>
                                             </button>
+                                            <span className="jutsu-slot-order-controls" role="group" aria-label={`Reorder ${jutsu.name}`}>
+                                                <button
+                                                    type="button"
+                                                    disabled={slotIndex === 0}
+                                                    aria-label={`Move ${jutsu.name} to slot ${slotIndex}`}
+                                                    onClick={() => moveActiveJutsu(jutsu.id, slotIndex - 1)}
+                                                >←</button>
+                                                <button
+                                                    type="button"
+                                                    disabled={slotIndex >= activeEquippedIds.length - 1}
+                                                    aria-label={`Move ${jutsu.name} to slot ${slotIndex + 2}`}
+                                                    onClick={() => moveActiveJutsu(jutsu.id, slotIndex + 1)}
+                                                >→</button>
+                                            </span>
                                             <button type="button" className="jutsu-slot-remove" aria-label={`Unequip ${jutsu.name}`} onClick={() => onUnequip(jutsu.id)}>×</button>
                                         </>
                                     ) : (
@@ -373,15 +424,6 @@ export function JutsuLoadoutPanel({
                         role="tabpanel"
                         aria-labelledby="jutsu-workspace-tab-collection"
                     >
-                    <div className="jutsu-collection-loadout-summary">
-                        <span className="jutsu-collection-summary-icon" aria-hidden="true">◫</span>
-                        <div>
-                            <strong>{character.equippedJutsuIds.length} of {unlockedSlots} slots equipped</strong>
-                            <small>{loadoutFull ? "Loadout full — manage slots to make room." : "Quick equip fills the next open battle slot."}</small>
-                        </div>
-                        <button type="button" onClick={() => setWorkspaceTab("loadout")}>Manage Loadout</button>
-                    </div>
-
                     <section className="jutsu-collection-section">
                         <div className="jutsu-collection-heading">
                             <div>
@@ -426,12 +468,12 @@ export function JutsuLoadoutPanel({
                                     jutsu={jutsu}
                                     character={character}
                                     selected={selectedJutsu?.id === jutsu.id}
-                                    equipped={character.equippedJutsuIds.includes(jutsu.id)}
+                                    equipped={activeEquippedIds.includes(jutsu.id)}
                                     view={view}
                                     onSelect={() => setSelectedId(jutsu.id)}
                                     onEquip={() => {
                                         setSelectedId(jutsu.id);
-                                        onPlaceJutsu(jutsu.id);
+                                        placeJutsu(jutsu.id);
                                     }}
                                 />
                             )) : (
@@ -440,9 +482,6 @@ export function JutsuLoadoutPanel({
                         </div>
                     </section>
 
-                    <footer className="jutsu-workbench-tip">
-                        <strong>● Tip:</strong> Click + to equip <span>•</span> Double-click a card for quick equip <span>•</span> Equipped jutsu stay visible here
-                    </footer>
                     </section>
                     )}
                 </main>
@@ -454,34 +493,11 @@ export function JutsuLoadoutPanel({
                             jutsu={selectedJutsu}
                             character={character}
                             lensDiscipline={lensDiscipline}
-                            equipped={Boolean(selectedJutsu && character.equippedJutsuIds.includes(selectedJutsu.id))}
-                            loadoutFull={loadoutFull}
-                            onEquip={() => selectedJutsu && onPlaceJutsu(selectedJutsu.id)}
+                            equipped={Boolean(selectedJutsu && activeEquippedIds.includes(selectedJutsu.id))}
+                            loadoutFull={loadoutFull && !replacementSlotValid}
+                            onEquip={() => selectedJutsu && placeJutsu(selectedJutsu.id)}
                             onUnequip={() => selectedJutsu && onUnequip(selectedJutsu.id)}
                         />
-                    </section>
-                    <section className="jutsu-sidebar-section jutsu-how-it-works">
-                        <h3>How It Works</h3>
-                        <ul>
-                            <li>Equip jutsu instantly from the Learned Jutsu tab.</li>
-                            <li>Click a slot to preview the jutsu.</li>
-                            <li>Drag filled slots to reorder; use × to remove.</li>
-                        </ul>
-                    </section>
-                    <section className="jutsu-sidebar-section jutsu-subscription-benefits">
-                        <h3>♛ Subscription Benefits</h3>
-                        <ul>
-                            <li>Unlock 3 additional loadout slots (13–15)</li>
-                            <li>More loadout flexibility in battle</li>
-                        </ul>
-                    </section>
-                    <section className="jutsu-sidebar-section jutsu-element-legend">
-                        <h3>Element Legend</h3>
-                        <ul>
-                            {["Fire", "Water", "Wind", "Lightning", "Earth", "None"].map((element) => (
-                                <li key={element}><span data-element={element}>{ELEMENT_GLYPHS[element]}</span>{element === "None" ? "Other" : element}</li>
-                            ))}
-                        </ul>
                     </section>
                 </aside>
             </div>

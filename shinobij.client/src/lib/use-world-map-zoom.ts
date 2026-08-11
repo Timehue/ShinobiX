@@ -285,6 +285,11 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
+        // Buttons and other controls own clean taps. Capturing their pointer on
+        // the viewport retargets pointerup/click to the map and makes sector
+        // markers intermittently untappable on real touch devices. Panning can
+        // still begin from the painted map around the controls.
+        if ((e.target as Element).closest("button, a, input, select, textarea, [role='button']")) return;
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         const p = localPt(e);
         pointers.current.set(e.pointerId, p);
@@ -338,6 +343,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     const endPointer = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
+        if (!pointers.current.has(e.pointerId)) return;
         const p = localPt(e);
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;

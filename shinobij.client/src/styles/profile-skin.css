@@ -1927,7 +1927,7 @@
 }
 
 .profile-page-card .jutsu-unequip-all {
-    min-height: 34px;
+    min-height: var(--touch-target-min);
     padding: 6px 14px !important;
     border-radius: 4px !important;
     font-size: 0.74rem !important;
@@ -2021,62 +2021,6 @@
 
 .profile-page-card .jutsu-workspace-panel.is-collection {
     padding-top: 14px;
-}
-
-.profile-page-card .jutsu-collection-loadout-summary {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 58px;
-    padding: 9px 10px;
-    border: 1px solid rgba(116, 173, 189, 0.24);
-    border-radius: 6px;
-    background: linear-gradient(90deg, rgba(32, 61, 76, 0.24), rgba(12, 24, 37, 0.4));
-}
-
-.profile-page-card .jutsu-collection-summary-icon {
-    display: grid;
-    flex: 0 0 34px;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    color: #8dc5d3;
-    background: rgba(116, 173, 189, 0.12);
-    border: 1px solid rgba(116, 173, 189, 0.28);
-    border-radius: 5px;
-    font-size: 1.1rem;
-}
-
-.profile-page-card .jutsu-collection-loadout-summary div {
-    min-width: 0;
-}
-
-.profile-page-card .jutsu-collection-loadout-summary strong,
-.profile-page-card .jutsu-collection-loadout-summary small {
-    display: block;
-}
-
-.profile-page-card .jutsu-collection-loadout-summary strong {
-    color: #dce7ee;
-    font-size: 0.72rem;
-}
-
-.profile-page-card .jutsu-collection-loadout-summary small {
-    margin-top: 2px;
-    color: #8391a2;
-    font-size: 0.63rem;
-}
-
-.profile-page-card .jutsu-collection-loadout-summary button {
-    flex: 0 0 auto;
-    min-height: 32px;
-    margin-left: auto;
-    padding: 5px 10px !important;
-    color: #eed277;
-    background: rgba(232, 197, 94, 0.08);
-    border: 1px solid rgba(232, 197, 94, 0.28);
-    border-radius: 4px;
-    font-size: 0.65rem;
 }
 
 .profile-page-card .jutsu-lens-row {
@@ -2199,14 +2143,14 @@
 
 .profile-page-card .jutsu-loadout-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
     gap: 8px;
 }
 
 .profile-page-card .jutsu-loadout-slot {
     position: relative;
     min-width: 0;
-    min-height: 132px;
+    min-height: 184px;
     overflow: hidden;
     border: 1px solid rgba(147, 163, 184, 0.34);
     border-radius: 5px;
@@ -2214,6 +2158,22 @@
         linear-gradient(180deg, rgba(25, 36, 51, 0.8), rgba(12, 22, 35, 0.92));
     box-shadow: inset 0 1px rgba(255,255,255,0.035), 0 2px 8px rgba(0,0,0,0.2);
     transition: border-color 140ms, box-shadow 140ms, transform 140ms;
+}
+
+.profile-page-card .jutsu-dormant-bulk-copy {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--sj-gold) 36%, transparent);
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--sj-gold) 8%, transparent);
+    color: var(--profile-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+}
+
+.profile-page-card .jutsu-loadout-slot.is-filled {
+    display: grid;
+    grid-template-rows: minmax(132px, 1fr) auto;
 }
 
 .profile-page-card .jutsu-loadout-slot.is-filled:hover,
@@ -2247,11 +2207,11 @@
 .profile-page-card .jutsu-slot-remove {
     position: absolute;
     z-index: 4;
-    top: 3px;
-    right: 3px;
-    width: 23px;
-    height: 23px;
-    min-height: 0;
+    top: 0;
+    right: 0;
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    min-height: var(--touch-target-min);
     padding: 0 !important;
     color: #99a3b0;
     background: rgba(4, 9, 15, 0.72);
@@ -2272,14 +2232,42 @@
     grid-template-rows: minmax(0, 1fr) auto;
     gap: 6px;
     width: 100%;
-    height: 100%;
+    height: auto;
     min-height: 132px;
-    padding: 31px 6px 8px !important;
+    padding: 46px 6px 8px !important;
     color: #f5f7fa;
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
     cursor: pointer;
+}
+
+.profile-page-card .jutsu-slot-order-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 4px;
+}
+
+.profile-page-card .jutsu-slot-order-controls button {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: 0 !important;
+    border: 1px solid rgba(147, 163, 184, 0.42);
+    border-radius: 4px;
+    background: rgba(8, 18, 31, 0.88);
+    color: #dce7f1;
+    cursor: pointer;
+}
+
+.profile-page-card .jutsu-slot-order-controls button:disabled {
+    cursor: not-allowed;
+    opacity: 0.36;
+}
+
+.profile-page-card :is(.jutsu-slot-select, .jutsu-slot-remove, .jutsu-slot-order-controls button):focus-visible {
+    outline: 2px solid var(--sj-spirit-bright);
+    outline-offset: -2px;
 }
 
 .profile-page-card .jutsu-slot-select > strong {
@@ -2333,12 +2321,12 @@
         0 0 16px color-mix(in srgb, var(--jutsu-element, #d5dde7) 58%, transparent);
 }
 
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Fire"] { --jutsu-element: #e85d3f; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Water"] { --jutsu-element: #3e9bc9; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Wind"] { --jutsu-element: #58b77c; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Lightning"] { --jutsu-element: #e8b936; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Earth"] { --jutsu-element: #9b754a; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="None"] { --jutsu-element: #8a61b9; }
+.profile-page-card .jutsu-workbench-art[data-element="Fire"] { --jutsu-element: #e85d3f; }
+.profile-page-card .jutsu-workbench-art[data-element="Water"] { --jutsu-element: #3e9bc9; }
+.profile-page-card .jutsu-workbench-art[data-element="Wind"] { --jutsu-element: #58b77c; }
+.profile-page-card .jutsu-workbench-art[data-element="Lightning"] { --jutsu-element: #e8b936; }
+.profile-page-card .jutsu-workbench-art[data-element="Earth"] { --jutsu-element: #9b754a; }
+.profile-page-card .jutsu-workbench-art[data-element="None"] { --jutsu-element: #8a61b9; }
 
 .profile-page-card .jutsu-workbench-level {
     position: absolute;
@@ -2383,17 +2371,28 @@
     border-color: rgba(196, 162, 90, 0.25);
     background: rgba(4, 9, 16, 0.44);
     text-align: center;
+    cursor: pointer;
+}
+
+.profile-page-card .jutsu-loadout-slot.is-locked:hover {
+    border-color: color-mix(in srgb, var(--sj-gold) 58%, transparent);
+}
+
+.profile-page-card .jutsu-loadout-slot.is-locked:focus-visible {
+    outline: 2px solid var(--sj-spirit-bright);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-page-card .jutsu-loadout-slot.is-locked {
+        transition: none;
+    }
 }
 
 .profile-page-card .jutsu-lock-icon {
     filter: grayscale(1);
     opacity: 0.48;
     font-size: 1.25rem;
-}
-
-.profile-page-card .jutsu-lock-crown {
-    color: #e8b936;
-    font-size: 0.84rem;
 }
 
 .profile-page-card .jutsu-loadout-slot.is-locked strong {
@@ -2674,24 +2673,6 @@
     font-size: 0.75rem;
 }
 
-.profile-page-card .jutsu-workbench-tip {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: 0 -18px;
-    padding: 10px 12px;
-    color: #8f98a7;
-    background: rgba(10, 19, 31, 0.86);
-    border-top: 1px solid rgba(196, 162, 90, 0.18);
-    font-size: 0.66rem;
-    text-align: center;
-}
-
-.profile-page-card .jutsu-workbench-tip strong {
-    color: #efc54b;
-    text-transform: uppercase;
-}
-
 .profile-page-card .jutsu-workbench-sidebar {
     min-width: 0;
     padding: 18px 12px;
@@ -2703,20 +2684,9 @@
     padding: 0 5px 16px;
 }
 
-.profile-page-card .jutsu-sidebar-section + .jutsu-sidebar-section {
-    padding-top: 16px;
-    border-top: 1px solid rgba(196, 162, 90, 0.24);
-}
-
 .profile-page-card .jutsu-sidebar-section > h2 {
     margin-bottom: 12px !important;
     font-size: 0.92rem !important;
-}
-
-.profile-page-card .jutsu-sidebar-section h3 {
-    margin-bottom: 10px !important;
-    color: #c5cbd4 !important;
-    font-size: 0.76rem !important;
 }
 
 .profile-page-card .jutsu-detail-empty {
@@ -2891,50 +2861,6 @@
     border: 1px solid #bd5a61;
 }
 
-.profile-page-card .jutsu-sidebar-section ul {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-    padding: 0 0 0 14px;
-    color: #a5adba;
-    font-size: 0.63rem;
-    line-height: 1.45;
-}
-
-.profile-page-card .jutsu-subscription-benefits {
-    margin: 0 -2px 14px;
-    padding: 13px 10px !important;
-    border: 1px solid rgba(225, 177, 53, 0.48) !important;
-    border-radius: 5px;
-    background: rgba(82, 59, 10, 0.08);
-}
-
-.profile-page-card .jutsu-subscription-benefits h3 {
-    color: #f0c958 !important;
-}
-
-.profile-page-card .jutsu-element-legend ul {
-    list-style: none;
-    padding: 0;
-}
-
-.profile-page-card .jutsu-element-legend li {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.profile-page-card .jutsu-element-legend li span {
-    display: grid;
-    place-items: center;
-    width: 16px;
-    height: 16px;
-    color: #f5f7fa;
-    background: var(--jutsu-element, #7b8490);
-    border-radius: 3px;
-    font: 800 0.48rem var(--font-display);
-}
-
 .profile-page-card .jutsu-workbench-empty {
     min-height: 360px;
     display: grid;
@@ -2961,21 +2887,8 @@
         grid-template-columns: 1fr;
     }
     .profile-page-card .jutsu-workbench-sidebar {
-        display: grid;
-        grid-template-columns: minmax(240px, 1.2fr) repeat(2, minmax(170px, 0.8fr));
-        gap: 14px;
         border-top: 1px solid rgba(196, 162, 90, 0.22);
         border-left: 0;
-    }
-    .profile-page-card .jutsu-sidebar-section + .jutsu-sidebar-section {
-        padding-top: 0;
-        border-top: 0;
-    }
-    .profile-page-card .jutsu-details-section {
-        grid-row: span 2;
-    }
-    .profile-page-card .jutsu-subscription-benefits {
-        margin-bottom: 0;
     }
 }
 
@@ -3001,13 +2914,6 @@
     .profile-page-card .jutsu-collection-section {
         margin-inline: -10px;
     }
-    .profile-page-card .jutsu-collection-loadout-summary {
-        align-items: flex-start;
-        flex-wrap: wrap;
-    }
-    .profile-page-card .jutsu-collection-loadout-summary button {
-        margin-left: 44px;
-    }
     .profile-page-card .jutsu-collection-controls {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -3020,17 +2926,6 @@
     }
     .profile-page-card .jutsu-view-toggle {
         width: fit-content;
-    }
-    .profile-page-card .jutsu-workbench-sidebar {
-        grid-template-columns: 1fr 1fr;
-    }
-    .profile-page-card .jutsu-details-section {
-        grid-column: 1 / -1;
-        grid-row: auto;
-    }
-    .profile-page-card .jutsu-workbench-tip {
-        flex-wrap: wrap;
-        margin-inline: -10px;
     }
 }
 
@@ -3054,12 +2949,8 @@
     .profile-page-card .jutsu-collection-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .profile-page-card .jutsu-collection-grid.is-list-view,
-    .profile-page-card .jutsu-workbench-sidebar {
+    .profile-page-card .jutsu-collection-grid.is-list-view {
         grid-template-columns: 1fr;
-    }
-    .profile-page-card .jutsu-details-section {
-        grid-column: auto;
     }
 }
 .user-hub-screen .user-hub-search:focus {

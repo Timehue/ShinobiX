@@ -1,5 +1,7 @@
+import { useId } from "react";
 import { K_AMP_PVE } from "../lib/combat-math";
 import { isImageAvatar } from "../lib/avatar";
+import { combatStatusDuration, combatStatusSemantics, type CombatStatusTone } from "../lib/combat-status-semantics";
 
 // Tags that feed the diminishing-returns soft-cap pools in combat (see
 // combat-math.ts). For these, stacking is NOT linear — the HUD surfaces the
@@ -50,25 +52,80 @@ function tinyStatusLabel(name: string): string {
     return TINY_LABELS[name] ?? (name.length > 8 ? name.slice(0, 8) : name);
 }
 
-type GroupedStatus = { name: string; count: number; percent?: number; amount?: number; rounds: number };
+export type CombatHudStatus = {
+    name: string;
+    rounds: number;
+    amount?: number;
+    percent?: number;
+    kind: CombatStatusTone;
+    /** Authoritative origin when known (jutsu, weapon, zone, or system). */
+    source?: string;
+};
+
+type GroupedStatus = {
+    name: string;
+    count: number;
+    percent?: number;
+    amount?: number;
+    minRounds: number;
+    maxRounds: number;
+    sources: string[];
+};
 
 // Group duplicate stacking statuses into one entry with a ×count, summing raw
 // percent/amount. Shared by the desktop panel and the mobile strip so both read
 // identically.
-function groupStatuses(statuses: { name: string; rounds: number; amount?: number; percent?: number }[]): GroupedStatus[] {
+function groupStatuses(statuses: Array<Omit<CombatHudStatus, "kind">>): GroupedStatus[] {
     const grouped: GroupedStatus[] = [];
     for (const s of statuses) {
         const g = grouped.find((x) => x.name === s.name);
         if (g) {
             g.count += 1;
-            g.rounds = Math.max(g.rounds, s.rounds);
+            g.minRounds = Math.min(g.minRounds, s.rounds);
+            g.maxRounds = Math.max(g.maxRounds, s.rounds);
             if (s.percent != null) g.percent = (g.percent ?? 0) + s.percent;
             if (s.amount != null) g.amount = (g.amount ?? 0) + s.amount;
+            if (s.source && !g.sources.includes(s.source)) g.sources.push(s.source);
         } else {
-            grouped.push({ name: s.name, count: 1, percent: s.percent, amount: s.amount, rounds: s.rounds });
+            grouped.push({ name: s.name, count: 1, percent: s.percent, amount: s.amount, minRounds: s.rounds, maxRounds: s.rounds, sources: s.source ? [s.source] : [] });
         }
     }
     return grouped;
+}
+
+function statusDurationText(s: GroupedStatus, compact = false): string {
+    return combatStatusDuration(s.minRounds, s.maxRounds, compact);
+}
+
+function statusPresentation(s: GroupedStatus, tone: CombatStatusTone) {
+    const semantics = combatStatusSemantics({ name: s.name, kind: tone, source: s.sources.join(", ") });
+    const value = statusValueText(s);
+    const duration = statusDurationText(s);
+    const stacks = `${s.count} stack${s.count === 1 ? "" : "s"}`;
+    const readable = `${s.name}${s.count > 1 ? ` ×${s.count}` : ""}: ${value}, ${duration}; ${semantics.category}. ${semantics.effect}. Source: ${semantics.source}. ${semantics.removal}.`;
+    return { semantics, value, duration, stacks, readable };
+}
+
+function StatusPopover({ id, status, tone }: { id: string; status: GroupedStatus; tone: CombatStatusTone }) {
+    const { semantics, value, duration, stacks } = statusPresentation(status, tone);
+    const titleId = `${id}-title`;
+    return (
+        <div id={id} popover="auto" className="cme-status-popover" role="dialog" aria-labelledby={titleId}>
+            <header>
+                <strong id={titleId}><span aria-hidden="true">{semantics.icon}</span> {status.name}</strong>
+                <button type="button" popoverTarget={id} popoverTargetAction="hide" aria-label={`Close ${status.name} details`}>×</button>
+            </header>
+            <dl>
+                <div><dt>Category</dt><dd>{semantics.category}</dd></div>
+                <div><dt>Effect</dt><dd>{semantics.effect}</dd></div>
+                <div><dt>Value</dt><dd>{value}</dd></div>
+                <div><dt>Stacks</dt><dd>{stacks}</dd></div>
+                <div><dt>Duration</dt><dd>{duration}</dd></div>
+                <div><dt>Source</dt><dd>{semantics.source}</dd></div>
+                <div><dt>Removal</dt><dd>{semantics.removal}</dd></div>
+            </dl>
+        </div>
+    );
 }
 
 // The value that actually fires for a grouped status: effective % for soft-cap
@@ -113,7 +170,7 @@ export function CombatSideHud({
     shield: number;
     village: string;
     turn: number;
-    statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    statuses: CombatHudStatus[];
     isActive?: boolean;
     /** Optional dossier footer stats (level star + power). Omitted callers render no footer. */
     level?: number;
@@ -218,7 +275,7 @@ export function CombatEffectsPanel({
     tone = "positive",
 }: {
     title: string;
-    statuses: { name: string; rounds: number; amount?: number; percent?: number }[];
+    statuses: Array<Omit<CombatHudStatus, "kind">>;
     tone?: "positive" | "negative";
 }) {
     // Group duplicate stacking statuses (e.g. three "Increase Damage Given")
@@ -244,15 +301,21 @@ export function CombatEffectsPanel({
                     const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
                     const valueText = statusValueText(s);
                     const label = SHORT_LABELS[s.name] ?? s.name;
-                    const title = pooled
+                    const semantics = combatStatusSemantics({ name: s.name, kind: tone, source: s.sources.join(", ") });
+                    const mechanics = pooled
                         ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% raw ≈ ${effPct}% effective. Diminishing-returns pool shared with other damage modifiers.`
                         : capped
                             ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% total${(rawPct ?? 0) > HARD_CAP_PCT ? `, capped at ${HARD_CAP_PCT}%` : ""}.`
                             : s.name;
+                    const duration = statusDurationText(s);
+                    const tooltip = `${mechanics} ${semantics.effect}. Source: ${semantics.source}. ${semantics.removal}. ${duration} remaining.`;
                     return (
-                        <div key={i} className="effect-pill" title={title}>
-                            <span>{label}{s.count > 1 ? <span className="effect-stack"> ×{s.count}</span> : null}</span>
-                            <small>{valueText} · {s.rounds}r</small>
+                        <div key={i} className="effect-pill" title={tooltip} aria-label={tooltip}>
+                            <span className="effect-pill-name"><span className="effect-status-icon" aria-hidden="true">{semantics.icon}</span>{label}{s.count > 1 ? <span className="effect-stack"> ×{s.count}</span> : null}</span>
+                            <span className="effect-pill-readout">
+                                <small>{valueText} · {duration} · {semantics.category}</small>
+                                <small className="effect-pill-context">{semantics.source} · {semantics.removal}</small>
+                            </span>
                         </div>
                     );
                 })
@@ -271,9 +334,10 @@ export function MobileEffectsStrip({
     statuses,
     max = 6,
 }: {
-    statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    statuses: CombatHudStatus[];
     max?: number;
 }) {
+    const idPrefix = `combat-effect-${useId().replace(/:/g, "")}`;
     const entries = [
         ...groupStatuses(statuses.filter((s) => s.kind === "positive")).map((g) => ({ g, tone: "positive" as const })),
         ...groupStatuses(statuses.filter((s) => s.kind === "negative")).map((g) => ({ g, tone: "negative" as const })),
@@ -284,19 +348,45 @@ export function MobileEffectsStrip({
     return (
         <div className="combat-mobile-effects" aria-label="Active effects">
             {shown.map(({ g, tone }, i) => {
-                const value = statusValueText(g);
+                const id = `${idPrefix}-${i}`;
+                const { semantics, value, readable } = statusPresentation(g, tone);
                 return (
-                    <span
-                        key={i}
-                        className={`cme-chip ${tone === "negative" ? "cme-neg" : "cme-pos"}`}
-                        title={`${g.name}${g.count > 1 ? ` ×${g.count}` : ""} · ${value} · ${g.rounds}r`}
-                    >
-                        {tinyStatusLabel(g.name)}{g.count > 1 ? <b>×{g.count}</b> : null}
-                        <small>{value !== "active" ? `${value} ` : ""}{g.rounds}r</small>
-                    </span>
+                    <div className="cme-entry" key={`${tone}-${g.name}-${i}`}>
+                        <button
+                            type="button"
+                            className={`cme-chip ${tone === "negative" ? "cme-neg" : "cme-pos"}`}
+                            popoverTarget={id}
+                            aria-haspopup="dialog"
+                            aria-controls={id}
+                            aria-label={`Inspect ${readable}`}
+                        >
+                            <span className="effect-status-icon" aria-hidden="true">{semantics.icon}</span>{tinyStatusLabel(g.name)}{g.count > 1 ? <b>×{g.count}</b> : null}
+                            <small>{value !== "active" ? `${value} ` : ""}{statusDurationText(g, true)}</small>
+                        </button>
+                        <StatusPopover id={id} status={g} tone={tone} />
+                    </div>
                 );
             })}
-            {overflow > 0 && <span className="cme-chip cme-more" title={`${overflow} more active effect${overflow > 1 ? "s" : ""}`}>+{overflow}</span>}
+            {overflow > 0 && (() => {
+                const id = `${idPrefix}-more`;
+                return (
+                    <div className="cme-entry">
+                        <button type="button" className="cme-chip cme-more" popoverTarget={id} aria-haspopup="dialog" aria-controls={id} aria-label={`${overflow} more active effects`}>+{overflow}</button>
+                        <div id={id} popover="auto" className="cme-status-popover cme-overflow-popover" role="dialog" aria-labelledby={`${id}-title`}>
+                            <header>
+                                <strong id={`${id}-title`}>More active effects</strong>
+                                <button type="button" popoverTarget={id} popoverTargetAction="hide" aria-label="Close active effect details">×</button>
+                            </header>
+                            <ul>
+                                {entries.slice(max).map(({ g, tone: hiddenTone }, hiddenIndex) => {
+                                    const { semantics, value, duration } = statusPresentation(g, hiddenTone);
+                                    return <li key={`${hiddenTone}-${g.name}-${hiddenIndex}`}><strong><span aria-hidden="true">{semantics.icon}</span> {g.name}{g.count > 1 ? ` ×${g.count}` : ""}</strong><span>{value} · {duration} · {semantics.category}</span><span>{semantics.effect}</span><span>Source: {semantics.source} · {semantics.removal}</span></li>;
+                                })}
+                            </ul>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

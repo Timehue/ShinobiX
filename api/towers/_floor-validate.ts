@@ -222,7 +222,6 @@ export function validateFloor(floor: TowerFloor): string[] {
             const v = (r as Record<string, unknown>)[k];
             if (v != null && (typeof v !== 'number' || v < 0)) errs.push(`${where}: firstClearReward.${k} must be ≥0`);
         }
-        if (r.itemId != null && typeof r.itemId !== 'string') errs.push(`${where}: firstClearReward.itemId must be a string`);
         if (r.milestone != null && typeof r.milestone !== 'string') errs.push(`${where}: firstClearReward.milestone must be a string`);
     }
 

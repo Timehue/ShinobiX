@@ -4,6 +4,7 @@ import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
 import { runDoctrineDuel, parseDoctrine } from "../lib/pet-duel-doctrine";
 import { PetDuelReplayScreen, type PetDuelReplayView } from "../components/PetDuelReplayScreen";
+import { activeCarriedPets } from "../lib/entitlements";
 import { joinSectorPet, sectorPetState } from "../lib/village-war-map";
 
 /*
@@ -41,7 +42,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
 
     return (
         <PetDuelReplayScreen<PetSession>
-            pets={character.pets}
+            pets={activeCarriedPets(character)}
             config={{
                 title: "🐾 Pet Duel — Sector War",
                 intro: "Send a pet to fight for this sector. The duel resolves server-side and replays here.",

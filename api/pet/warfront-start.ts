@@ -30,7 +30,8 @@ import {
     type WarfrontDifficultySeal,
 } from './_warfront-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
-import { activeBreedingParentIds } from './_pet-busy.js';
+import { petCombatBusyReason } from './_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
 import { readManualWarfrontAttempt } from './_warfront-council.js';
 import {
     DEFAULT_WARFRONT_AUTHORED_SETUP,
@@ -523,6 +524,20 @@ export function sealWarfrontSlot(slot: ArenaSlot): SealedWarfrontSlot {
     };
 }
 
+export function chooseEligibleWarfrontPets(
+    character: Record<string, unknown>,
+    requestedIds: readonly string[],
+    petsOverride?: unknown,
+): Pet[] | null {
+    const ids = [...new Set(requestedIds.filter(Boolean))];
+    if (ids.length !== 4) return null;
+    const eligible = activeCarriedPets<Pet>(character, petsOverride);
+    const chosen = ids
+        .map((id) => eligible.find((pet) => String(pet.id) === id))
+        .filter((pet): pet is Pet => Boolean(pet));
+    return chosen.length === 4 ? chosen : null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -734,17 +749,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // never client-supplied), in the picked order.
         const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const myChar = mySave?.character as Record<string, unknown> | undefined;
-        const myPets = Array.isArray(myChar?.pets) ? myChar.pets as unknown as Pet[] : [];
-        const bluePets = playerPetIds
-            .map((id) => myPets.find((p) => String((p as { id?: unknown }).id ?? '') === id))
-            .filter(Boolean) as Pet[];
-        if (bluePets.length !== playerPetIds.length) return res.status(409).json({ error: 'Every selected Warfront pet must exist in the stored roster.' });
-        if (bluePets.some((pet) => Boolean((pet as { expedition?: unknown }).expedition))) {
-            return res.status(409).json({ error: 'A selected pet is on an expedition.' });
+        const myPets = Array.isArray(myChar?.pets) ? myChar.pets : [];
+        const bluePets = myChar ? chooseEligibleWarfrontPets(myChar, playerPetIds, myPets) : null;
+        if (!bluePets) {
+            return res.status(409).json({ error: 'Warfront needs 4 eligible pets. Base account: 3 carried. Shinobi Supporter: 5 carried.' });
         }
-        const breedingParents = activeBreedingParentIds(myChar ?? {});
-        if (bluePets.some((pet) => breedingParents.has(String(pet.id)))) {
-            return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+        if (bluePets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
+            return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
         }
 
         // Own the player-wide slot BEFORE opponent scaling or the deterministic
@@ -910,6 +921,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 mode: 'warfront',
                 createdAt,
                 notBefore,
+                rewardRyo: warfrontBaseRyoReward(sealedOpponentLevel),
                 playerPetIds,
                 warfrontAuthorization: grant,
                 ...(authoritativeOutcome ? { authoritativeOutcome } : {}),

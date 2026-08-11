@@ -9,6 +9,7 @@ import { clearSleeperCamp, listSleeperCamps, setSleeperCamp, type SleeperCamp } 
 import { parseTravelLease, settleTravelLeases, sleeperSectorForTravelLease, travelLeaseKey } from '../_realtime/travel-lease.js';
 import { cachedFor } from '../_proc-cache.js';
 import { earnedStatPoints } from '../_xp-engine.js';
+import { activeCarriedPets } from '../_entitlements.js';
 
 const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
 const FULL_ROSTER_CACHE_TTL_MS = 60_000;
@@ -92,6 +93,12 @@ function projectPet(p: unknown): unknown {
     return out;
 }
 
+/** Public, server-authoritative combat roster. The count reflects the current
+ * Base/Supporter entitlement without exposing the Patreon ledger itself. */
+export function projectEligibleRosterPets(character: unknown): unknown[] {
+    return activeCarriedPets<Record<string, unknown>>(character).map(projectPet);
+}
+
 // Defense-in-depth pattern guard (audit item #24). The explicit blacklist
 // above is intentionally a blacklist (not a whitelist) so a new *display*
 // field doesn't silently break opponent rendering — but that means a new
@@ -141,6 +148,7 @@ type RosterPlayer = {
     specialty: string;
     online: boolean;
     character?: unknown;
+    eligiblePets: unknown[];
     currentSector?: number;
     lastSeenAt?: number;
     sleeping?: boolean;
@@ -294,6 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     specialty: entry.specialty ?? '',
                     online: onlineNames.has((entry.name ?? '').toLowerCase()),
                     character,
+                    eligiblePets: projectEligibleRosterPets(fullCharacter),
                     currentSector: livePresence ? normalizeSector(livePresence.sector, 0) : (sleeperCamp?.sector ?? 0),
                     lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,
                     sleeping: !livePresence && !!sleeperCamp,
@@ -344,6 +353,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 specialty: (rawCharacter.specialty as string) ?? '',
                 online: true,
                 character,
+                // A presence-only player has no persisted server-owned roster
+                // yet, so fail closed instead of trusting the socket payload.
+                eligiblePets: [],
                 currentSector: normalizeSector(entry.sector, 40),
                 lastSeenAt: entry.lastSeenAt ?? 0,
             });

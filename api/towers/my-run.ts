@@ -3,12 +3,31 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { readSession, getTowerInvite, clearTowerInvite } from './_tower-store.js';
+import type { TowerSession } from './_tower-session.js';
+import {
+    ensureTowerBattleLeases,
+    recoverConfirmedMissingTowerBattleLease,
+    releaseTowerBattleLeases,
+    towerBattleLeaseForMember,
+    towerBattleLeaseMembers,
+} from './_battle-lease.js';
+import { activeTowerPartyForPlayer, repairStaleTowerPartyLifecycle } from './_party.js';
+import { compensateConfirmedMissingTowerEntry } from './_entry-recovery.js';
 
-/*
- * GET /api/towers/my-run?playerName=... — the active Battle Tower run this player has been
- * invited into (co-op), so an ally can DISCOVER + JOIN the host's run. Returns
- * { runId, session } when there's a live run they're a squad member of, else { runId: null }.
- * Membership is re-verified against the session; stale/finished invites are cleared.
+/** A KO changes turn eligibility; borrowed AI ownership never grants recovery access. */
+export function isDiscoverableTowerRun(session: TowerSession | null, slug: string): boolean {
+    return !!session
+        && (session.status === 'active'
+            || (session.status === 'done' && session.rewardSettlementState !== 'settled'))
+        && session.actors.some(actor => actor.side === 'squad'
+            && actor.ai === false
+            && actor.ownerSlug === slug);
+}
+
+/**
+ * GET /api/towers/my-run?playerName=... discovers an active run or a completed
+ * run whose authoritative settlement still needs a retry. Membership is always
+ * re-verified against the server session.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -22,20 +41,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         const slug = identity.admin ? playerName : identity.name;
-
         res.setHeader('Cache-Control', 'no-store');
 
-        const runId = await getTowerInvite(slug);
+        const activeParty = await activeTowerPartyForPlayer(slug);
+        const [inviteRunId, battleLease] = await Promise.all([
+            getTowerInvite(slug),
+            towerBattleLeaseForMember(slug),
+        ]);
+        const runId = battleLease?.battleId ?? activeParty?.launch?.runId ?? inviteRunId;
         if (!runId) return res.status(200).json({ runId: null });
 
+        // A thrown storage read reaches the outer 500 and preserves the lease.
+        // Only an authoritative null enters confirmed-missing recovery.
         const session = await readSession(runId);
-        const isMember = !!session && session.status === 'active'
-            && session.actors.some(a => a.side === 'squad' && a.ownerSlug === slug && a.hp > 0);
-        if (!isMember) {
-            await clearTowerInvite(slug).catch(() => undefined); // finished / wiped / expired → drop it
-            return res.status(200).json({ runId: null });
+        if (!isDiscoverableTowerRun(session, slug)) {
+            if (!session && battleLease?.battleId === runId && battleLease.meta.partyId) {
+                await repairStaleTowerPartyLifecycle(battleLease.meta.partyId);
+            }
+            const recovery = !session
+                ? await recoverConfirmedMissingTowerBattleLease(runId, slug, {
+                    beforeConfirmedMissingRelease: async observed => {
+                        if (!observed.meta.partyId) {
+                            await compensateConfirmedMissingTowerEntry({ hostSlug: slug, runId });
+                        }
+                    },
+                })
+                : { released: false, pending: false };
+            if (session?.rewardSettlementState === 'settled') {
+                await releaseTowerBattleLeases(runId, [slug]);
+            }
+            await clearTowerInvite(slug).catch(() => undefined);
+            return res.status(200).json({
+                runId: recovery.pending ? runId : null,
+                ...(recovery.pending ? { recoveryPending: true } : {}),
+                ...(recovery.released ? { leaseReleased: true } : {}),
+            });
         }
-        return res.status(200).json({ runId, session });
+
+        // The guard above verifies both presence and discoverable membership;
+        // retain a local concrete type without making its false branch claim
+        // that every non-discoverable (for example settled) session is null.
+        const liveSession = session as TowerSession;
+        const partyId = (liveSession as TowerSession & { towerPartyId?: string }).towerPartyId;
+        const lease = await ensureTowerBattleLeases({
+            runId,
+            members: towerBattleLeaseMembers(liveSession),
+            ...(partyId ? { partyId } : {}),
+        });
+        return res.status(200).json({
+            runId,
+            session: liveSession,
+            ...(lease.ok ? {} : { leaseConflict: true, members: lease.members }),
+        });
     } catch (err) {
         console.error('[towers/my-run]', err);
         return res.status(500).json({ error: 'Internal server error.' });

@@ -48,6 +48,40 @@ export type SoloPveCompanionUsage = {
     consumableId?: string;
 };
 
+/** Durable saga state for the summon-time companion cost. */
+export type SoloPveCompanionCostAuthority = {
+    version: 1;
+    leaseValue: string;
+    moveToken: string;
+    settlementState: 'pending' | 'settled';
+    chargedAt?: number;
+};
+
+export type SoloPveItemCostAuthority = {
+    version: 1;
+    leaseValue: string;
+    moveToken: string;
+    itemId: string;
+    count: number;
+    chargedAt: number;
+};
+
+/**
+ * Durable, pre-charge intent for a consumable action. The combat state and
+ * version do not advance until the save-bound debit is confirmed, so an
+ * expired action lock cannot charge an action that lost the session race.
+ */
+export type SoloPvePendingItemAction = {
+    version: 1;
+    expectedVersion: number;
+    moveToken: string;
+    action: { type: 'weapon' | 'item'; itemId: string };
+    itemId: string;
+    count: number;
+    leaseValue: string;
+    reservedAt: number;
+};
+
 export type SoloPveEncounter = {
     kind: string;
     id: string;
@@ -157,6 +191,12 @@ export type SoloPveRejectionEvent = {
 export type SoloPveSession = {
     runtime: typeof SOLO_PVE_RUNTIME;
     schemaVersion: typeof SOLO_PVE_SCHEMA_VERSION;
+    /**
+     * Server-sealed opt-in for action-time inventory authority. Sessions that
+     * predate this field keep the legacy terminal-charge contract until they
+     * expire instead of being stranded by a rolling deployment.
+     */
+    usageAuthorityVersion?: 1;
     sessionId: string;
     ownerSlug: string;
     encounter: SoloPveEncounter;
@@ -171,8 +211,11 @@ export type SoloPveSession = {
     pendingCompanion?: CompanionSeal;
     companion?: SoloPveCompanion;
     companionUsage?: SoloPveCompanionUsage;
+    companionCostAuthority?: SoloPveCompanionCostAuthority;
     itemCharges: Record<string, number>;
     itemsUsed: Record<string, number>;
+    itemCostAuthorities?: SoloPveItemCostAuthority[];
+    pendingItemAction?: SoloPvePendingItemAction;
     environment: SoloPveEnvironment;
     difficultyGuard?: SoloPveDifficultyGuard;
     weeklyBossGuard?: SoloPveWeeklyBossGuard;

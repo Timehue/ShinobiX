@@ -1459,7 +1459,7 @@
     }
     .landing-topnav .landing-navlink {
         width: 100%;
-        min-height: 32px;
+        min-height: var(--touch-target-min);
         font-size: 10px;
         letter-spacing: 0.04em;
         padding: 7px 3px;
@@ -1508,6 +1508,7 @@
     .landing-cta {
         width: 100%;
         max-width: 420px;
+        min-height: var(--touch-target-min);
         padding-inline: 18px;
         letter-spacing: 0.1em;
     }
@@ -1524,6 +1525,14 @@
     }
     .landing-footer-links {
         justify-content: center;
+    }
+    .landing-footer-links :is(a, button),
+    .landing-footer-policy-links a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
     }
 
     .legal-page-content {
