@@ -4,18 +4,27 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { creditRankedOutcome } from '../_ranked-rating.js';
+import { creditRankedOutcome, rankedDelta } from '../_ranked-rating.js';
 import { computePvpWinGains, creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
 import { recordPairWinAndDecay } from './_reward-farm.js';
-import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+import { hasRecentIpOrFpOverlap, hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
-import { pvpSessionMayReward, type PvpSession } from './session.js';
+import { isPlayerRankedV2Session, pvpSessionMayReward, type PvpSession } from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
+import {
+    settlePlayerRankedJournal,
+} from './_player-ranked-journal.js';
+import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
+import { confirmPlayerRankedTerminalEffects } from './_ranked-terminal-effects.js';
+import { boundExactPvpSession } from './_session-mutation.js';
+import { SESSION_TTL } from '../combat-core/constants.js';
+
+export { deductUsedItems } from './_consumable-settlement.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
@@ -69,32 +78,6 @@ async function withSavesLocked<T>(slugs: string[], fn: () => Promise<T>): Promis
 // Remove `used[id]` copies of each item from a save character — draining the
 // counted itemStacks first, then legacy inventory[] copies. Pure: returns a new
 // character. Backs the server-authoritative PvP consumable deduction below.
-export function deductUsedItems(char: Record<string, unknown>, used: Record<string, number>): Record<string, unknown> {
-    const stacks = Array.isArray(char.itemStacks)
-        ? (char.itemStacks as Array<Record<string, unknown>>).map((s) => ({ ...s }))
-        : [];
-    const inv = Array.isArray(char.inventory) ? [...(char.inventory as unknown[])] : [];
-    for (const [id, rawN] of Object.entries(used)) {
-        let n = Math.max(0, Math.floor(Number(rawN) || 0));
-        if (n <= 0) continue;
-        for (const s of stacks) {
-            if (n <= 0) break;
-            if (s.itemId !== id) continue;
-            const c = Math.max(0, Math.floor(Number(s.count) || 0));
-            const take = Math.min(c, n);
-            s.count = c - take;
-            n -= take;
-        }
-        while (n > 0) {
-            const idx = inv.indexOf(id);
-            if (idx < 0) break;
-            inv.splice(idx, 1);
-            n -= 1;
-        }
-    }
-    return { ...char, itemStacks: stacks.filter((s) => Math.floor(Number(s.count) || 0) > 0), inventory: inv };
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -135,8 +118,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
         }
+        const exactPlayerRankedV2Terminal = isPlayerRankedV2Session(session);
         const sessionAge = Date.now() - Number(session.createdAt ?? 0);
-        if (sessionAge > SESSION_REPLAY_WINDOW_MS) {
+        if (!exactPlayerRankedV2Terminal && sessionAge > SESSION_REPLAY_WINDOW_MS) {
             return res.status(409).json({ error: 'Battle session is too old to claim.' });
         }
         const winnerName = (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
@@ -151,6 +135,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const key = claimKey(playerName, battleId);
+        const rewardAuthorized = pvpSessionMayReward(session);
+        const playerRankedV2Claim = exactPlayerRankedV2Terminal
+            && (session.winner === 'p1' || session.winner === 'p2');
+        let playerRankedJournal: Awaited<ReturnType<typeof confirmPlayerRankedTerminalEffects>> | undefined;
 
         // ── Server-authoritative PvP consumable deduction ───────────────────
         // Remove the throwables / consumables / potions the SERVER recorded each
@@ -165,41 +153,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // realFighters at create are touched (an NPC sharing a real player's
         // name must never trigger a deduction); legacy sessions without the
         // stamp fall back to settling the authenticated claimer only.
-        const claimerRole: 'p1' | 'p2' | null =
-            playerName === safeName(session.p1?.name ?? '') ? 'p1'
-            : playerName === safeName(session.p2?.name ?? '') ? 'p2'
-            : null;
-        const itemSides = (['p1', 'p2'] as const)
-            .map((role) => ({
-                role,
-                slug: safeName(session[role]?.name ?? ''),
-                used: session.itemsUsed?.[role] ?? {},
-                real: session.realFighters ? session.realFighters[role] === true : role === claimerRole,
-            }))
-            .filter((side) => side.real && side.slug && Object.keys(side.used).length > 0);
-        if (itemSides.length > 0) {
-            try {
-                await withSavesLocked(itemSides.map((side) => side.slug), async () => {
-                    for (const side of itemSides) {
-                        // Exactly-once AND atomic: the idempotency receipt lives IN the
-                        // deducted save (serverSettlementReceipts), so the deduction and
-                        // its receipt land in ONE kv.set. A crash before the write
-                        // re-deducts (fresh) and a crash after skips (replay) — no gap.
-                        // Serialized by the save locks so concurrent claims can't double.
-                        const saveKey = `save:${side.slug}`;
-                        const record = await kv.get<Record<string, unknown>>(saveKey);
-                        const char = record?.character as Record<string, unknown> | undefined;
-                        if (!record || !char) continue;
-                        const sid = pvpSettlementId('items', battleId);
-                        const decision = inspectPvpCredit(char, sid, 'items');
-                        if (!decision.fresh) continue; // already deducted on a prior claim
-                        const deducted = deductUsedItems(char, side.used);
-                        const withReceipt = embedPvpSettlementReceipt(deducted, decision.receipts, sid, 'items', Date.now());
-                        const next = bumpSaveVersion({ ...record, character: withReceipt });
-                        await writeSaveProjected(saveKey, next, record);
-                    }
+        try {
+            const saveLock = <T>(saveKey: string, action: () => Promise<T>): Promise<T> => (
+                withKvLock(saveKey, action, { failClosed: true })
+            );
+            if (playerRankedV2Claim) {
+                // A claim may be the first retry after terminal-session CAS and
+                // process death. Run the full publish -> empty-item-confirm saga
+                // before Elo, rather than assuming move already published it.
+                playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {
+                    eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
+                    lock: saveLock,
                 });
-            } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
+            } else {
+                await settlePvpConsumablesDurably(
+                    kv,
+                    session,
+                    saveLock,
+                    { legacyPlayerName: playerName },
+                );
+            }
+        } catch (error) {
+            console.error('[pvp/claim-rewards] consumable settlement pending', error);
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('admission-cancelled') || message.includes('admission-missing')) {
+                return res.status(409).json({ error: 'This ranked match was cancelled as a season-close no-contest.' });
+            }
+            return res.status(503).json({
+                error: 'The ranked result is still being confirmed. Retry this claim.',
+            });
         }
 
         // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
@@ -220,12 +202,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // (failClosed → 503) leaves the relevant NX receipts unplaced so a retry
         // settles cleanly without ever double-crediting. Casual, non-baseRewards
         // sessions keep the unchanged NX-only path below.
-        const rewardAuthorized = pvpSessionMayReward(session);
-        const isRankedClaim =
-            rewardAuthorized &&
-            session.ranked === true &&
-            (session.rankedKind === 'player' || session.rankedKind === 'pet') &&
-            (session.winner === 'p1' || session.winner === 'p2');
+        const isRankedClaim = playerRankedV2Claim
+            || (rewardAuthorized
+                && session.ranked === true
+                && (session.rankedKind === 'player' || session.rankedKind === 'pet')
+                && (session.winner === 'p1' || session.winner === 'p2'));
         const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win';
         if (isRankedClaim || creditBase) {
             const kind: 'player' | 'pet' = session.rankedKind === 'pet' ? 'pet' : 'player';
@@ -254,11 +235,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // no device false-positives — so only the LADDER is protected.
             // Computed OUTSIDE the save lock (read-only key scan). Fails OPEN: a
             // KV hiccup must never block a legitimate rating settlement.
-            let rankedEligible = isRankedClaim;
-            if (isRankedClaim) {
+            let playerRankedRatingOut: RatingOut | undefined;
+            if (playerRankedV2Claim) {
+                try {
+                    const journal = playerRankedJournal;
+                    if (!journal) throw new Error('player-ranked-journal-missing');
+                    const settled = await settlePlayerRankedJournal(kv, journal, Date.now());
+                    await boundExactPvpSession(kv, `pvp:${battleId}`, session, SESSION_TTL);
+                    const side = claimerSlug === journal.terminal.a ? 'a'
+                        : claimerSlug === journal.terminal.b ? 'b'
+                            : null;
+                    if (side) {
+                        const value = settled.ratings[side];
+                        const winnerSnapshot = journal.terminal.winner === 'a'
+                            ? journal.terminal.aRating
+                            : journal.terminal.bRating;
+                        const loserSnapshot = journal.terminal.winner === 'a'
+                            ? journal.terminal.bRating
+                            : journal.terminal.aRating;
+                        const delta = journal.terminal.rankedEligible && journal.terminal.winner !== 'draw'
+                            ? rankedDelta(winnerSnapshot, loserSnapshot)
+                            : 0;
+                        playerRankedRatingOut = { field: 'rankedRating', value, delta };
+                    }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    if (message.includes('admission-cancelled') || message.includes('admission-missing')) {
+                        return res.status(409).json({ error: 'This ranked match was cancelled as a season-close no-contest.' });
+                    }
+                    throw error;
+                }
+            }
+            let rankedEligible = isRankedClaim && !playerRankedV2Claim;
+            if (rankedEligible) {
                 try {
                     if (await hasRecentIpOrFpOverlap(winnerName, loserName)) rankedEligible = false;
-                } catch { /* fail open */ }
+                } catch { /* legacy pet path retains its existing fail-open policy */ }
             }
 
             // Apply ONE fighter's once-per-battle ranked-rating delta and return
@@ -427,10 +439,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const already = !placedSelf;
 
                     // Settle BOTH ratings (each exactly once across the battle).
-                    const winnerRatingOut = await settleRatingFor(winnerSlug, 'winner');
-                    const loserRatingOut = (loserSlug && loserSlug !== winnerSlug)
-                        ? await settleRatingFor(loserSlug, 'loser')
-                        : undefined;
+                    const winnerRatingOut = playerRankedV2Claim
+                        ? undefined
+                        : await settleRatingFor(winnerSlug, 'winner');
+                    const loserRatingOut = playerRankedV2Claim
+                        ? undefined
+                        : (loserSlug && loserSlug !== winnerSlug)
+                            ? await settleRatingFor(loserSlug, 'loser')
+                            : undefined;
 
                     // Winner base reward — only when the WINNER is the caller. Its
                     // own in-save receipt gates the credit now (not `already`), so
@@ -440,9 +456,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ? await settleBaseForWinner()
                         : undefined;
 
-                    const rating = claimerSlug === winnerSlug ? winnerRatingOut
+                    const rating = playerRankedRatingOut
+                        ?? (claimerSlug === winnerSlug ? winnerRatingOut
                         : claimerSlug === loserSlug ? loserRatingOut
-                        : undefined;
+                        : undefined);
                     return { already, rating, base };
                 });
                 // Record the server-credited settlement on the durable battle
@@ -461,7 +478,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         event: 'pvp.settled',
                         playerName,
                         level: Number(finalChar?.level ?? 0),
-                        source: `${session.ranked ? `ranked-${session.rankedKind ?? 'player'}` : session.baseRewards ? 'base' : 'verified'}:${outcome}`,
+                        source: `${playerRankedV2Claim ? 'ranked-player-v2' : session.ranked ? `ranked-${session.rankedKind ?? 'player'}` : session.baseRewards ? 'base' : 'verified'}:${outcome}`,
                     });
                 }
                 return res.status(200).json({

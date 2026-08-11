@@ -218,6 +218,12 @@ function wireRealtime(io: IOServer): void {
         // multiple tabs has multiple sockets in the same room — all get kicked.
         socket.join(`user:${name}`);
 
+        // Reconnect reconciliation is intentionally a content-free kick. The
+        // authenticated client asks the Tower HTTP endpoints for its own party
+        // and recoverable run; no roster/session data crosses the socket before
+        // those endpoint-level membership checks run.
+        socket.emit('tower:kick', { channel: 'reconcile', reason: 'socket-connected' });
+
         // Accept the client's display-cased name ONLY when it canonicalizes to
         // this socket's authed identity — preserves nice casing, blocks anyone
         // rendering as a different player.

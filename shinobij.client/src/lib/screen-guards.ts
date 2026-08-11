@@ -86,10 +86,20 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 // and a refresh RESUMES it (the screen is restorable and re-fetches the session
 // by id). The combined BattleTowers screen stores the active runId under this key
 // while a fight is on the board, so its presence doubles as the "in a fight"
-// signal the nav lock reads here; the lobby state leaves it unset. lib can't
-// import from screens, so BattleTowers keeps the same key string (TOWER_RUN_KEY)
-// — keep the two in sync.
-const TOWER_RUN_KEY = "shinobix:towerRunId";
+// signal the nav lock reads here; the lobby state leaves it unset. The event is
+// same-tab reactivity for App's ref-backed guard (`storage` only fires in other
+// documents), and is dispatched synchronously after every Tower-owned write.
+export const TOWER_RUN_KEY = "shinobix:towerRunId";
+export const TOWER_FIGHT_STATE_EVENT = "shinobix:tower-fight-state";
+
+export function setTowerFightRunId(runId: string | null): void {
+    try {
+        if (runId) localStorage.setItem(TOWER_RUN_KEY, runId);
+        else localStorage.removeItem(TOWER_RUN_KEY);
+    } catch { /* storage disabled */ }
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(TOWER_FIGHT_STATE_EVENT));
+}
+
 export function hasActiveTowerFight(): boolean {
     try {
         return !!localStorage.getItem(TOWER_RUN_KEY);

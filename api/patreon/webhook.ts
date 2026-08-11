@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors } from '../_utils.js';
+import { captureServerProductEvent } from '../_product-analytics.js';
 import {
     verifyWebhookSignature,
     parseWebhookMember,
@@ -61,6 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ ok: true, applied: !!linkedPlayer, active: ent.active });
     } catch (err) {
+        captureServerProductEvent('subscription_entitlement_refresh_failed', {
+            source: 'patreon-webhook',
+            errorCategory: 'reconciliation-failed',
+        });
         console.error('[patreon/webhook]', err);
         // 500 so Patreon retries a transient failure (write contention, etc.).
         return res.status(500).json({ error: 'Internal error.' });

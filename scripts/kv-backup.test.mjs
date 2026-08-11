@@ -1,7 +1,25 @@
 import assert from 'node:assert/strict';
-import { rm } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { describe, it } from 'node:test';
-import { captureBracketedStores, digestOverlay, digestRows, readOverlayDirectory, representativeRecords, sameConnection, validatePayload, validateTargetSchemaEvidence, validatedProxyBase, writeOverlayDirectory } from './kv-backup.mjs';
+import {
+    captureBracketedStores,
+    databaseConnectionFingerprint,
+    digestOverlay,
+    digestRows,
+    readOverlayDirectory,
+    removeRestoreOverlayDirectory,
+    representativeRecords,
+    restoredRuntimeTopology,
+    restoreTargetConfirmation,
+    sameConnection,
+    validatePayload,
+    validateRestoreTargetGuard,
+    validateTargetSchemaEvidence,
+    validatedProxyBase,
+    writeOverlayDirectory,
+} from './kv-backup.mjs';
 
 const baseRows = [
     { key: 'pvp:battle-1', value: { winner: 'alice' }, expires_at: null, updated_at: '2026-07-12T00:00:02.000Z' },
@@ -91,9 +109,96 @@ describe('hybrid KV backup evidence helpers', () => {
         assert.throws(() => representativeRecords(records, ['save:missing']), /not present/i);
     });
 
-    it('refuses the same database even when source and target use different users', () => {
+    it('keeps ordinary database identity user-agnostic but distinguishes projects on one Supabase pooler', () => {
         assert.equal(sameConnection('postgres://source:one@db.example.com:5432/postgres', 'postgres://target:two@db.example.com:5432/postgres'), true);
         assert.equal(sameConnection('postgres://source:one@db.example.com:5432/postgres', 'postgres://target:two@other.example.com:5432/postgres'), false);
+        const pooler = 'aws-0-us-east-1.pooler.supabase.com:6543/postgres';
+        const production = `postgres://postgres.productionref1:one@${pooler}`;
+        const productionAlias = `postgres://postgres.productionref1:two@${pooler}`;
+        const isolated = `postgres://postgres.isolatedref123:three@${pooler}`;
+        assert.equal(sameConnection(production, productionAlias), true);
+        assert.equal(sameConnection(production, isolated), false);
+        assert.notEqual(databaseConnectionFingerprint(production), databaseConnectionFingerprint(isolated));
+        assert.throws(
+            () => databaseConnectionFingerprint(`postgres://postgres:one@${pooler}`),
+            /project discriminator/i,
+        );
+    });
+
+    it('prints only the guarded target fingerprint and confirmation', () => {
+        const targetUrl = 'postgres://postgres.isolatedref123:do-not-print@aws-0-us-east-1.pooler.supabase.com:6543/postgres';
+        const child = spawnSync(process.execPath, ['scripts/kv-backup.mjs', 'fingerprint'], {
+            cwd: process.cwd(),
+            env: { ...process.env, TARGET_DATABASE_URL: targetUrl },
+            encoding: 'utf8',
+        });
+        assert.equal(child.status, 0, child.stderr);
+        const output = JSON.parse(child.stdout);
+        assert.match(output.databaseFingerprint, /^[a-f0-9]{20}$/);
+        assert.equal(output.restoreConfirmation, `EMPTY-ISOLATED:${output.databaseFingerprint}`);
+        for (const secret of ['do-not-print', 'isolatedref123', 'pooler.supabase.com', 'postgres://']) {
+            assert.equal(child.stdout.includes(secret), false);
+            assert.equal(child.stderr.includes(secret), false);
+        }
+    });
+
+    it('requires an exact empty-isolated target acknowledgement before restore', () => {
+        const source = 'postgres://source:one@source.example.com:5432/postgres';
+        const target = 'postgres://restore:two@restore.example.com:6543/restore_drill';
+        const sourceFingerprint = databaseConnectionFingerprint(source);
+        const targetFingerprint = databaseConnectionFingerprint(target);
+        const expected = `EMPTY-ISOLATED:${targetFingerprint}`;
+        assert.equal(restoreTargetConfirmation(target), expected);
+        assert.throws(() => validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '0', confirmation: expected }), /ALLOW_ISOLATED_RESTORE/);
+        assert.throws(
+            () => validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '1', confirmation: 'yes', deniedDatabaseFingerprints: [sourceFingerprint] }),
+            (error) => /RESTORE_CONFIRM_TARGET/.test(error.message) && !/restore\.example\.com|restore_drill/.test(error.message),
+        );
+        assert.throws(
+            () => validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '1', confirmation: expected, deniedHosts: ['restore.example.com'], deniedDatabaseFingerprints: [sourceFingerprint] }),
+            (error) => /production database host/i.test(error.message) && !/restore\.example\.com|restore_drill/.test(error.message),
+        );
+        assert.throws(
+            () => validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '1', confirmation: expected }),
+            /RESTORE_DENY_DATABASE_FINGERPRINTS/,
+        );
+        assert.throws(
+            () => validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '1', confirmation: expected, deniedDatabaseFingerprints: [sourceFingerprint, targetFingerprint] }),
+            /database identity deny set/i,
+        );
+        assert.throws(
+            () => validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '1', confirmation: expected, deniedDatabaseFingerprints: ['not-a-fingerprint'] }),
+            /invalid database identity/i,
+        );
+        assert.equal(validateRestoreTargetGuard({ sourceUrl: source, targetUrl: target, allow: '1', confirmation: expected, deniedDatabaseFingerprints: [sourceFingerprint] }), expected);
+    });
+
+    it('returns an exact runtime topology and removes only isolated overlay workspaces', async () => {
+        assert.deepEqual(restoredRuntimeTopology(0), {
+            mode: 'base-only',
+            set: [],
+            unset: ['DISK_KV_DIR', 'REQUIRE_DISK_OVERLAY', 'KV_PROXY_URL', 'KV_PROXY_TOKEN'],
+        });
+        assert.equal(restoredRuntimeTopology(1).mode, 'base-plus-disk-overlay');
+        const root = await writeOverlayDirectory(overlayEntries);
+        assert.equal(await removeRestoreOverlayDirectory(root), true);
+        await assert.rejects(() => readOverlayDirectory(root));
+        await assert.rejects(() => removeRestoreOverlayDirectory(process.cwd()), /outside the isolated restore workspace/i);
+    });
+
+    it('removes a partially materialized plaintext overlay when writing fails', async () => {
+        const restoreDirs = async () => new Set((await readdir(tmpdir(), { withFileTypes: true }))
+            .filter((entry) => entry.isDirectory() && entry.name.startsWith('shinobix-restore-overlay-'))
+            .map((entry) => entry.name));
+        const before = await restoreDirs();
+        const circular = {};
+        circular.self = circular;
+        await assert.rejects(
+            () => writeOverlayDirectory([{ key: 'save:failure-probe', value: circular }]),
+            /circular/i,
+        );
+        const after = await restoreDirs();
+        assert.deepEqual([...after].filter((name) => !before.has(name)), []);
     });
 
     it('captures only an overlay bracketed by identical base-store reads', async () => {

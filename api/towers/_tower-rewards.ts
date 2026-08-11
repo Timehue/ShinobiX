@@ -23,7 +23,7 @@ export function computeFloorReward(floor: TowerFloor): TowerReward {
 }
 
 // Capped assist reward for a borrowed/offline ally: a fraction of the clear's ryo/xp,
-// no milestones/items. Bounded further by a daily cap in _tower-store.ts.
+// no milestones. Bounded further by a daily cap in _tower-store.ts.
 export const ASSIST_REWARD_FRACTION = 0.25;
 export function computeAssistReward(floor: TowerFloor): TowerReward {
     const r = floor.firstClearReward;

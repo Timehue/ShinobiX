@@ -5,14 +5,14 @@
  * fully server-authoritative:
  *   - settle takes the SERVER session (the authoritative tower:<runId> record) and
  *     re-checks completion (status 'done' + squad win) — never a client "I cleared it";
- *   - the floor + reward are resolved from the catalog BY ID (never a client floor);
+ *   - public rewards require the canonical story-tower identity and a direct
+ *     public-floor binding (never an embedded, reserved, clan-boss, or client floor);
  *   - the score is computed from the server session;
  *   - the one-time-first-clear gate is a PERMANENT server NX receipt
  *     (tower-firstclear:<slug>:<floor>) — NOT the client-writable battleTowerClearedFloors
  *     array, which is forgeable; the per-run receipt guards replay;
- *   - both receipts are placed INSIDE the member's failClosed save lock and rolled back
- *     if the save write fails (the receipt is on the base store, the save on the disk
- *     overlay — different backends, so rollback restores cross-store atomicity);
+ *   - receipts are placed inside the member's failClosed save lock; server-owned
+ *     character stamps recover a save that commits before its response is dropped;
  *   - Progression is credited as stat-pool points (character XP is retired; a raw pool grant
  *     the client clamps away on load).
  *
@@ -20,24 +20,28 @@
  * unit-testable with a fake in-memory store — same pattern as _lock.ts. See plan §8/§9.
  */
 import { kv as realKv } from '../_storage.js';
+import { createHash } from 'node:crypto';
 import { withKvLock as realWithKvLock } from '../_lock.js';
 import { mergePreservingImages, setSafeRecordValue } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
-import { getFloor } from './_floor-catalog.js';
-import { floorForSession } from './_session-floor.js';
+import { getFloor, isPublicFloor } from './_floor-catalog.js';
+import { floorForSession, sealedSpireFloorForSession, sealedStoryFloorForSession } from './_session-floor.js';
 import { isValidSpireTier } from './_spire-catalog.js';
 import { weekKey } from '../missions/_weekly-board.js';
 import type { TowerReward } from './_floor-catalog.js';
 import type { TowerSession } from './_tower-session.js';
+import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 
 // ─── minimal injectable interfaces ───────────────────────────────────────────
 export type TowerKv = {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, opts?: { ex?: number; nx?: boolean }): Promise<'OK' | null>;
+    compareSet?: (key: string, expected: unknown | null, value: unknown, opts?: { ex?: number }) => Promise<boolean>;
     del(...keys: string[]): Promise<number>;
+    delIfEqual?: (key: string, expected: string) => Promise<boolean>;
     incr(key: string, opts?: { ex?: number }): Promise<number>;
 };
 export type TowerLock = <T>(target: string, fn: () => Promise<T>, opts?: { failClosed?: boolean }) => Promise<T>;
@@ -69,9 +73,17 @@ export const MAX_ASSISTS_PER_DAY = 20;
 // deliberately below a one-time full story clear (~80) to protect the de-inflating economy.
 export const SPIRE_SHARDS_PER_TIER = 2;
 
-/** A settled session belongs to the Endless Spire (has a sealed ascension tier). */
+/** A settled session belongs to the Endless Spire only when all sealed identities agree. */
 export function isSpireRun(session: TowerSession): boolean {
-    return typeof session.ascensionTier === 'number' && session.ascensionTier > 0;
+    const tier = Math.floor(Number(session.ascensionTier ?? 0));
+    if (session.floorProvenance || session.sealedCatalogFloor) {
+        const sealed = sealedSpireFloorForSession(session);
+        return !!sealed && sealed.id === tier;
+    }
+    return session.towerId === 'endless-spire'
+        && session.encounterFloor === undefined
+        && isValidSpireTier(tier)
+        && session.floor === tier;
 }
 
 export function utcDateKey(ms: number): string {
@@ -123,7 +135,12 @@ export async function readSession(runId: string, deps: StoreDeps = {}): Promise<
 }
 export async function writeSession(session: TowerSession, deps: StoreDeps = {}): Promise<void> {
     const kv = deps.kv ?? realKv;
-    await kv.set(sessionKey(session.runId), session, { ex: TOWER_SESSION_TTL });
+    // Terminal evidence must outlive the live-fight window so a client that
+    // loses its settlement response can reconnect and retry against the same
+    // authoritative session for the full receipt window.
+    const ttl = session.status === 'done' ? PAID_RECEIPT_TTL : TOWER_SESSION_TTL;
+    const written = await kv.set(sessionKey(session.runId), session, { ex: ttl });
+    if (written === null) throw new Error('Tower session publication was not committed.');
 }
 
 // ─── Co-op invites — point an invited ally at the host's runId so they can join ──
@@ -154,10 +171,10 @@ function isSquadMember(session: TowerSession, slug: string): boolean {
 }
 
 /**
- * Is this run one of the CATALOG floors the tower reward channels exist to pay?
+ * Is this a canonical public story-Tower run that this reward channel may pay?
  *
- * This restores the invariant stated at the top of this file — "the floor + reward
- * are resolved from the catalog BY ID" — which `session.encounterFloor` had opened
+ * This restores the direct public-floor identity invariant that
+ * `session.encounterFloor` had opened
  * a hole in. Every solo mode built by `buildAuthoritativeSoloEncounter` (combat
  * missions, story bosses, the weekly boss, generic AI fights, the Academy spar)
  * EMBEDS a synthetic floor in the session so the engine can run it, with a
@@ -174,21 +191,31 @@ function isSquadMember(session: TowerSession, slug: string): boolean {
  * /api/towers/settle, and your public tower standing was whatever you liked,
  * permanently: the first-clear receipt has no TTL.
  *
- * Stated positively rather than as "reject embedded floors" so a future mode that
- * invents a floor some other way is refused by default too.
+ * Stated positively so clan bosses, embedded encounters, Spire tiers, and future
+ * modes are refused by default even if they reuse a catalog-shaped floor.
  */
-function isCatalogFloorRun(session: TowerSession): boolean {
+export function isPublicTowerRun(session: TowerSession): boolean {
+    const floorId = Math.floor(Number(session.floor));
+    if (session.floorProvenance || session.sealedCatalogFloor) {
+        const sealed = sealedStoryFloorForSession(session);
+        return !!sealed && sealed.id === floorId;
+    }
     const floor = floorForSession(session);
-    return !!floor && !!getFloor(floor.id);
+    return session.towerId === 'celestial'
+        && session.encounterFloor === undefined
+        && session.ascensionTier === undefined
+        && isPublicFloor(floorId)
+        && floor?.id === floorId
+        && getFloor(floorId)?.id === floorId;
 }
 
-// Apply a first-clear reward + score to a character. The one-time gate is the SERVER
-// firstClearKey NX receipt (placed by the caller) — so this ALWAYS credits when reached.
+// Apply a first-clear reward + score to a character. The caller checks both the
+// server-owned character claim and the legacy permanent firstClearKey projection.
 // Character XP is retired (leveling-without-xp map): the floor's old XP value converts
 // to ONE-TIME stat-pool points (xp ÷ 40, the same fold as story milestones) — outside
 // the daily checklist, non-farmable via the permanent receipt — then the rise-only
 // derived-level recompute picks the ledger move up.
-// The battleTower* arrays are DISPLAY state only (the receipt is the real gate).
+// battleTowerClaimedRewards is the atomic save-local gate; cleared floors are display state.
 function creditFloorClear(
     char: Record<string, unknown>, reward: TowerReward, score: number, floorId: number,
 ): Record<string, unknown> {
@@ -200,6 +227,10 @@ function creditFloorClear(
     const cleared = Array.isArray(char.battleTowerClearedFloors) ? (char.battleTowerClearedFloors as number[]) : [];
     const claimed = Array.isArray(char.battleTowerClaimedRewards) ? (char.battleTowerClaimedRewards as string[]) : [];
     const claimKey = `floor-${floorId}`;
+    const milestones = Array.isArray(char.battleTowerMilestones)
+        ? (char.battleTowerMilestones as unknown[]).filter((key): key is string => typeof key === 'string')
+        : [];
+    const milestone = typeof reward.milestone === 'string' ? reward.milestone.trim() : '';
     return {
         ...leveled,
         ryo: num(leveled.ryo) + num(reward.ryo),
@@ -207,15 +238,26 @@ function creditFloorClear(
         boneCharms: num(leveled.boneCharms) + num(reward.boneCharms),
         battleTowerClearedFloors: cleared.includes(floorId) ? cleared : [...cleared, floorId],
         battleTowerClaimedRewards: claimed.includes(claimKey) ? claimed : [...claimed, claimKey],
+        battleTowerMilestones: milestone && !milestones.includes(milestone)
+            ? [...milestones, milestone]
+            : milestones,
         battleTowerBestFloor: Math.max(num(char.battleTowerBestFloor), floorId),
-        // all-time rating = sum of first-clear scores. The PERMANENT firstClearKey receipt
-        // guarantees each floor adds exactly once, ever (forgery-proof).
+        // all-time rating = sum of first-clear scores. The server-owned character
+        // claim plus permanent firstClearKey projection guard every retry path.
         battleTowerRating: num(char.battleTowerRating) + Math.max(0, Math.floor(score)),
     };
 }
 
 export type SettleResult = { paid: boolean; reason?: string; score?: number };
 export type ConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
+
+function embeddedTowerReceipt(kind: 'items' | 'spire', parts: unknown[]): { requestId: string; fingerprint: string } {
+    const digest = createHash('sha256').update(JSON.stringify([kind, ...parts])).digest('hex');
+    return {
+        requestId: `tower_${kind}_${digest.slice(0, 40)}`,
+        fingerprint: `tower:${kind}:${digest}`,
+    };
+}
 
 function usedItemsForMember(session: TowerSession, slug: string): Record<string, number> {
     const used: Record<string, number> = {};
@@ -263,9 +305,29 @@ export async function settleConsumedItemsForMember(
                 result = { consumed: false, reason: 'no-save', used };
                 return;
             }
-            const updated = deductUsedItems(char, used);
-            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
-            await kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL });
+            const sortedUsed = Object.entries(used).sort(([a], [b]) => a.localeCompare(b));
+            const identity = embeddedTowerReceipt('items', [session.runId, slug, sortedUsed]);
+            const inspection = inspectSettlementReceipt(char, identity.requestId, identity.fingerprint);
+            if (inspection.status === 'replay') {
+                await kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL }).catch(() => null);
+                result = { consumed: false, reason: 'already-consumed', used };
+                return;
+            }
+            if (inspection.status !== 'fresh') {
+                result = { consumed: false, reason: 'invalid-receipt', used };
+                return;
+            }
+            const deducted = deductUsedItems(char, used);
+            const updated = appendSettlementReceipt(deducted, inspection.receipts, {
+                ...identity,
+                value: { runId: session.runId, used },
+                settledAt: now(),
+            });
+            const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+            if (written === null) throw new Error('Tower consumable settlement save was not committed.');
+            // Projection only. The receipt embedded in the same save write as the
+            // deduction is the crash-safe authority.
+            await kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL }).catch(() => null);
             result = { consumed: true, used };
         }, { failClosed: true });
     } catch {
@@ -295,7 +357,7 @@ export async function settleFloorForMember(
     if (!floor) return { paid: false, reason: 'no-floor' };
     // A mission/story/AI-fight/spar run is a won TowerSession the caller really is
     // a member of — only this refuses it. See isCatalogFloorRun.
-    if (!isCatalogFloorRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
+    if (!isPublicTowerRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
 
     const reward = computeFloorReward(floor);                            // sealed catalog reward
     const score = computeFloorClearScore(clearMetrics(session), floor);  // server-computed
@@ -304,29 +366,46 @@ export async function settleFloorForMember(
     try {
         await lock(`save:${slug}`, async () => {
             const paidReceipt = floorPaidKey(session.runId, floor.id, slug);
-            if (!(await kv.set(paidReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }))) {
+            const firstReceipt = firstClearKey(slug, floor.id);
+            if (await kv.get(paidReceipt)) {
                 result = { paid: false, reason: 'already-paid' }; return;
             }
-            const firstReceipt = firstClearKey(slug, floor.id);
-            const firstPlaced = await kv.set(firstReceipt, { ts: now() }, { nx: true }); // PERMANENT (no TTL)
-            if (!firstPlaced) { result = { paid: false, reason: 'already-first-cleared', score }; return; }
-
             const saveKey = `save:${slug}`;
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as Record<string, unknown> | undefined;
             if (!record || !char) {
-                await kv.del(paidReceipt, firstReceipt).catch(() => undefined);
                 result = { paid: false, reason: 'no-save' }; return;
+            }
+
+            // battleTowerClaimedRewards is server-owned and is written atomically
+            // with the reward. It recovers a forwarded save write whose adapter
+            // threw before the external receipts could be observed on retry.
+            const claimKey = `floor-${floor.id}`;
+            const claimed = Array.isArray(char.battleTowerClaimedRewards)
+                ? char.battleTowerClaimedRewards as unknown[]
+                : [];
+            if (claimed.includes(claimKey)) {
+                await kv.set(firstReceipt, { ts: now() }, { nx: true }).catch(() => null);
+                await kv.set(paidReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
+                result = { paid: false, reason: 'already-first-cleared', score };
+                return;
+            }
+            // Honor legacy/permanent receipts before paying, but make the
+            // server-owned character claim the atomic authority for new writes.
+            if (await kv.get(firstReceipt)) {
+                result = { paid: false, reason: 'already-first-cleared', score }; return;
             }
             const updated = creditFloorClear(char, reward, score, floor.id);
             try {
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                if (written === null) throw new Error('Tower floor settlement save was not committed.');
             } catch (e) {
-                // save (disk overlay) write failed AFTER the receipts (base store) committed →
-                // roll back both so the earned reward isn't permanently lost; a retry settles.
-                await kv.del(paidReceipt, firstReceipt).catch(() => undefined);
+                // The atomic character claim did not commit; no external receipt
+                // has been published, so a retry remains safe.
                 throw e;
             }
+            await kv.set(firstReceipt, { ts: now() }, { nx: true }).catch(() => null);
+            await kv.set(paidReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
             result = { paid: true, score };
         }, { failClosed: true });
     } catch {
@@ -356,44 +435,64 @@ export async function settleAssistForAlly(
     // Same rule as the first-clear channel. A dynamic floor pays no assist ryo
     // either, but reaching here still burns one of the day's assist slots and
     // writes a ledger row for a run that was never a tower assist.
-    if (!isCatalogFloorRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
+    if (!isPublicTowerRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
     const reward = computeAssistReward(floor);
 
     let result: SettleResult = { paid: false, reason: 'unknown' };
     try {
         await lock(`save:${slug}`, async () => {
             const receipt = assistPaidKey(session.runId, slug);
-            if (!(await kv.set(receipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }))) {
-                result = { paid: false, reason: 'assist-already-paid' }; return;
-            }
-            const count = await kv.incr(assistCountKey(slug, utcDateKey(now())), { ex: 25 * 60 * 60 });
-            if (count > MAX_ASSISTS_PER_DAY) {
-                await kv.del(receipt).catch(() => undefined); // don't burn the per-run receipt on a denied cap
-                result = { paid: false, reason: 'assist-daily-cap' }; return;
-            }
             const saveKey = `save:${slug}`;
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as Record<string, unknown> | undefined;
             if (!record || !char) {
-                await kv.del(receipt).catch(() => undefined);
                 result = { paid: false, reason: 'no-save' }; return;
+            }
+            const claimed = Array.isArray(char.battleTowerAssistRewardsClaimed)
+                ? char.battleTowerAssistRewardsClaimed as string[]
+                : [];
+            if (claimed.includes(session.runId)) {
+                await kv.set(receipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
+                result = { paid: false, reason: 'assist-already-paid' };
+                return;
+            }
+            if (await kv.get(receipt)) {
+                result = { paid: false, reason: 'assist-already-paid' }; return;
+            }
+            const countKey = assistCountKey(slug, utcDateKey(now()));
+            const count = await kv.incr(countKey, { ex: 25 * 60 * 60 });
+            if (count > MAX_ASSISTS_PER_DAY) {
+                result = { paid: false, reason: 'assist-daily-cap' }; return;
             }
             // Assists are the repeatable channel → ryo only (the old assist XP
             // folds into ryo at ~0.75:1); the derived-level recompute replaces
             // the retired gainXp level-up side effect.
             const leveled = applyDerivedLevel(char as XpCharacter) as unknown as Record<string, unknown>;
-            const claimed = Array.isArray(char.battleTowerAssistRewardsClaimed) ? (char.battleTowerAssistRewardsClaimed as string[]) : [];
             const updated: Record<string, unknown> = {
                 ...leveled,
                 ryo: num(leveled.ryo) + num(reward.ryo) + Math.floor(num(reward.xp) * 0.75),
                 battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
             };
             try {
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                if (written === null) throw new Error('Tower assist settlement save was not committed.');
             } catch (e) {
-                await kv.del(receipt).catch(() => undefined);
+                // If the save definitely did not land, release the daily slot.
+                // A forwarded write is detected through the atomic character
+                // receipt and keeps its corresponding cap reservation.
+                try {
+                    const observed = await kv.get<Record<string, unknown>>(saveKey);
+                    const observedChar = observed?.character as Record<string, unknown> | undefined;
+                    const observedClaims = Array.isArray(observedChar?.battleTowerAssistRewardsClaimed)
+                        ? observedChar.battleTowerAssistRewardsClaimed as unknown[]
+                        : [];
+                    if (!observedClaims.includes(session.runId)) {
+                        await kv.set(countKey, Math.max(0, count - 1), { ex: 25 * 60 * 60 });
+                    }
+                } catch { /* inconclusive read: fail closed and keep the slot */ }
                 throw e;
             }
+            await kv.set(receipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
             result = { paid: true };
         }, { failClosed: true });
     } catch {
@@ -461,53 +560,88 @@ export async function settleSpireForMember(
     if (!isClearedSquadWin(session)) return { paid: false, reason: 'not-cleared' };
     if (!isSquadMember(session, slug)) return { paid: false, reason: 'not-a-member' };
     const tier = Math.floor(Number(session.ascensionTier ?? 0));
-    if (!isValidSpireTier(tier)) return { paid: false, reason: 'not-spire' };
+    if (!isSpireRun(session)) return { paid: false, reason: 'not-spire' };
 
     let result: SettleResult = { paid: false, reason: 'unknown' };
     let boardEntry: SpireBoardEntry | null = null;
     let boardWeek = '';
+    const captureBoardEntry = (char: Record<string, unknown>, wk: string) => {
+        boardWeek = wk;
+        boardEntry = {
+            slug,
+            name: String(char.name ?? slug).slice(0, 40),
+            ...(typeof char.village === 'string' ? { village: char.village } : {}),
+            ...(typeof char.level === 'number' ? { level: char.level } : {}),
+            // Only the sealed session tier is authoritative. The character's
+            // weekly-best field can contain legacy data from before ownership.
+            tier,
+            at: now(),
+        };
+    };
     try {
         await lock(`save:${slug}`, async () => {
+            const saveKey = `save:${slug}`;
+            const record = await kv.get<Record<string, unknown>>(saveKey);
+            const char = record?.character as Record<string, unknown> | undefined;
+            if (!record || !char) {
+                result = { paid: false, reason: 'no-save' }; return;
+            }
+            const identity = embeddedTowerReceipt('spire', [session.runId, slug, tier]);
+            const inspection = inspectSettlementReceipt(char, identity.requestId, identity.fingerprint);
+            if (inspection.status === 'replay') {
+                const receiptWeek = String(inspection.receipt.value.weekKey ?? '');
+                if (receiptWeek) {
+                    captureBoardEntry(char, receiptWeek);
+                    if (num(inspection.receipt.value.shards) > 0) {
+                        await kv.set(spireRewardKey(slug, receiptWeek, tier), { ts: now() }, {
+                            nx: true,
+                            ex: SPIRE_REWARD_TTL,
+                        }).catch(() => null);
+                    }
+                }
+                result = { paid: false, reason: 'already-paid', score: tier };
+                return;
+            }
+            if (inspection.status !== 'fresh') {
+                result = { paid: false, reason: 'invalid-receipt', score: tier };
+                return;
+            }
             // Per-run replay guard (24h): a given run settles this member at most once.
             const runReceipt = floorPaidKey(session.runId, tier, slug);
-            if (!(await kv.set(runReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }))) {
+            if (await kv.get(runReceipt)) {
                 result = { paid: false, reason: 'already-paid', score: tier }; return;
             }
             // Best-tier-per-week reward: the flat Fate Shard trickle is paid the FIRST time this
             // tier is cleared this reset-week (so a full 1→20 climb pays 2×20 = 40, no farming).
             const wk = weekKey(now());
             const rewardReceipt = spireRewardKey(slug, wk, tier);
-            const rewardPlaced = await kv.set(rewardReceipt, { ts: now() }, { nx: true, ex: SPIRE_REWARD_TTL });
-            const shards = rewardPlaced ? SPIRE_SHARDS_PER_TIER : 0;
+            const embeddedWeeklyPaid = inspection.receipts.some(receipt =>
+                receipt.fingerprint.startsWith('tower:spire:')
+                && num(receipt.value.tier) === tier
+                && String(receipt.value.weekKey ?? '') === wk
+                && num(receipt.value.shards) > 0);
+            const externalWeeklyPaid = !!(await kv.get(rewardReceipt));
+            const weeklyPaid = embeddedWeeklyPaid || externalWeeklyPaid;
+            const shards = weeklyPaid ? 0 : SPIRE_SHARDS_PER_TIER;
 
-            const saveKey = `save:${slug}`;
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as Record<string, unknown> | undefined;
-            if (!record || !char) {
-                await kv.del(runReceipt).catch(() => undefined);
-                if (rewardPlaced) await kv.del(rewardReceipt).catch(() => undefined);
-                result = { paid: false, reason: 'no-save' }; return;
-            }
-            const updated = creditSpireClear(char, tier, wk, shards);
+            const credited = creditSpireClear(char, tier, wk, shards);
+            const updated = appendSettlementReceipt(credited, inspection.receipts, {
+                ...identity,
+                value: { runId: session.runId, tier, weekKey: wk, shards },
+                settledAt: now(),
+            });
             try {
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                if (written === null) throw new Error('Spire settlement save was not committed.');
             } catch (e) {
-                await kv.del(runReceipt).catch(() => undefined);
-                if (rewardPlaced) await kv.del(rewardReceipt).catch(() => undefined);
                 throw e;
             }
+            await kv.set(runReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
+            await kv.set(rewardReceipt, { ts: now() }, { nx: true, ex: SPIRE_REWARD_TTL }).catch(() => null);
             result = { paid: true, score: tier };
             // Capture the maintained-leaderboard entry (best tier this week) — written AFTER the
             // save lock releases so the board lock never nests inside the save lock.
-            boardWeek = wk;
-            boardEntry = {
-                slug,
-                name: String(char.name ?? slug).slice(0, 40),
-                ...(typeof char.village === 'string' ? { village: char.village } : {}),
-                ...(typeof char.level === 'number' ? { level: char.level } : {}),
-                tier: Math.max(tier, num(updated.battleTowerSpireWeeklyBest)),
-                at: now(),
-            };
+            captureBoardEntry(char, wk);
         }, { failClosed: true });
     } catch {
         result = { paid: false, reason: 'contended' };

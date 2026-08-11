@@ -35,6 +35,31 @@ describe('isolated QA memory KV', () => {
         assert.equal(await kv.delIfEqual('missing', 'anything'), false, 'absent key deletes nothing');
     });
 
+    it('compareSet atomically matches the complete JSON value and preserves absence/TTL semantics', async () => {
+        const kv = _makeMemoryKv();
+        await kv.set('save:cas', { z: 2, nested: { b: true, a: [1, 2] } });
+
+        assert.equal(await kv.compareSet(
+            'save:cas',
+            { nested: { a: [1, 2], b: true }, z: 2 },
+            { version: 2 },
+            { ex: 2 },
+        ), true, 'object key order is not part of JSON equality');
+        assert.equal(await kv.compareSet('save:cas', { version: 1 }, { corrupted: true }), false);
+        assert.deepEqual(await kv.get('save:cas'), { version: 2 }, 'mismatch changes nothing');
+        assert.equal(await kv.compareSet('missing', null, { created: true }), true);
+        assert.equal(await kv.compareSet('missing', null, { overwritten: true }), false, 'null means absent, never overwrite');
+
+        const realNow = Date.now;
+        const started = realNow();
+        Date.now = () => started + 2_001;
+        try {
+            assert.equal(await kv.compareSet('save:cas', null, { reclaimed: true }), true, 'expired row counts as absent');
+        } finally {
+            Date.now = realNow;
+        }
+    });
+
     it('delIfEqual will not delete a lock re-acquired by a new holder after expiry', async () => {
         // Reproduces the release TOCTOU: an old holder whose lease expired must
         // never delete the NEW holder's freshly-acquired lock.

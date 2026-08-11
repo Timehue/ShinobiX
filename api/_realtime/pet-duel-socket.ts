@@ -33,6 +33,9 @@ import {
 import { replayLockstepPetDuel, type LockstepAutonomy } from '../pet/_duel-replay.js';
 import { parseDoctrine, type PetDoctrine } from '../_pet-sim/pet-duel-doctrine.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { kv } from '../_storage.js';
+import { activeCarriedPets } from '../_entitlements.js';
+import { petCombatBusyReason } from '../pet/_pet-busy.js';
 
 /** Cap on inbound commands per player per fight. A legitimate player issues a
  *  handful; this only stops a scripted client flooding the session's input list,
@@ -55,6 +58,47 @@ interface Seat { pets: unknown[] | null; doctrine: PetDoctrine }
 const doctrineOf = (pets: unknown[]): PetDoctrine =>
     parseDoctrine((pets[0] as { doctrine?: unknown } | undefined)?.doctrine);
 const rosters = new Map<string, { p1: Seat; p2: Seat }>();
+
+/**
+ * Resolve only the requested ids from the server-owned save projection. The
+ * browser still chooses its team and order, but never supplies combat stats,
+ * equipment, jutsu, or disconnect doctrine. One-pet 2v2 remains valid because
+ * the existing client deliberately treats the second slot as optional.
+ */
+export function sealAuthoritativePetRoster(
+    character: unknown,
+    requestedPets: unknown,
+    mode: '1v1' | '2v2',
+): Pet[] | null {
+    if (!Array.isArray(requestedPets) || requestedPets.length === 0) return null;
+    const requestedIds = requestedPets
+        .slice(0, mode === '2v2' ? 2 : 1)
+        .map((pet) => pet && typeof pet === 'object' && typeof (pet as { id?: unknown }).id === 'string'
+            ? (pet as { id: string }).id
+            : '');
+    if (requestedIds.some((id) => !id) || new Set(requestedIds).size !== requestedIds.length) return null;
+
+    const eligible = activeCarriedPets<Pet>(character);
+    const byId = new Map(eligible.map((pet) => [pet.id, pet]));
+    const sealed = requestedIds.map((id) => byId.get(id));
+    if (!sealed.every((pet): pet is Pet => pet !== undefined)) return null;
+    const char = character && typeof character === 'object'
+        ? character as Record<string, unknown>
+        : {};
+    if (sealed.some((pet) => petCombatBusyReason(char, pet as unknown as Record<string, unknown>))) {
+        return null;
+    }
+    return sealed;
+}
+
+export async function loadAuthoritativePetRoster(
+    name: string,
+    requestedPets: unknown,
+    mode: '1v1' | '2v2',
+): Promise<Pet[] | null> {
+    const save = await kv.get<{ character?: unknown }>(`save:${name}`);
+    return sealAuthoritativePetRoster(save?.character, requestedPets, mode);
+}
 
 function countInputs(s: PetDuelSession, side: DuelSide): number {
     let n = 0;
@@ -120,14 +164,25 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
         return s && sideOf(s, name) ? s : null;
     };
 
-    socket.on('petduel:challenge', (payload: unknown) => {
+    socket.on('petduel:challenge', async (payload: unknown) => {
         const p = (payload ?? {}) as { to?: unknown; mode?: unknown; pets?: unknown };
         const to = typeof p.to === 'string' ? p.to.trim().toLowerCase() : '';
         const mode = p.mode === '2v2' ? '2v2' : '1v1';
-        const pets = Array.isArray(p.pets) ? p.pets : [];
         if (!to || to === name) return socket.emit('petduel:error', { error: 'Pick an opponent.' });
-        if (pets.length === 0) return socket.emit('petduel:error', { error: 'Bring at least one pet.' });
         // LIVE ONLY: no invite is queued for someone who is not connected.
+        if (!onlineStore.get(to)) return socket.emit('petduel:error', { error: 'That player is not online.' });
+        if (sessionForPlayer(name)) return socket.emit('petduel:error', { error: 'You are already in a duel.' });
+        if (sessionForPlayer(to)) return socket.emit('petduel:error', { error: 'That player is already in a duel.' });
+
+        let pets: Pet[] | null;
+        try {
+            pets = await loadAuthoritativePetRoster(name, p.pets, mode);
+        } catch {
+            return socket.emit('petduel:error', { error: 'Your carried pets could not be verified.' });
+        }
+        if (!pets?.length) return socket.emit('petduel:error', { error: 'Choose an eligible carried pet.' });
+        // The save read yields to the event loop. Re-check the live/session state
+        // so two near-simultaneous challenges cannot both create a duel.
         if (!onlineStore.get(to)) return socket.emit('petduel:error', { error: 'That player is not online.' });
         if (sessionForPlayer(name)) return socket.emit('petduel:error', { error: 'You are already in a duel.' });
         if (sessionForPlayer(to)) return socket.emit('petduel:error', { error: 'That player is already in a duel.' });
@@ -149,16 +204,44 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
         io.to(userRoom(to)).emit('petduel:invite', { id: s.id, from: name, mode });
     });
 
-    socket.on('petduel:accept', (payload: unknown) => {
+    socket.on('petduel:accept', async (payload: unknown) => {
         const p = (payload ?? {}) as { id?: unknown; pets?: unknown };
+        const pending = sessionFor(p.id);
+        if (!pending || pending.status !== 'pending') return socket.emit('petduel:error', { error: 'That challenge is no longer open.' });
+        if (sideOf(pending, name) !== 'p2') return;
+        const pendingSeat = rosters.get(pending.id);
+        if (!pendingSeat?.p1.pets) return socket.emit('petduel:error', { error: 'That challenge is no longer open.' });
+
+        let challengerPets: Pet[] | null;
+        let defenderPets: Pet[] | null;
+        try {
+            [challengerPets, defenderPets] = await Promise.all([
+                // Re-resolve the challenger's selected ids too: entitlement,
+                // ownership, stats, and busy state may have changed since invite.
+                loadAuthoritativePetRoster(pending.p1.name, pendingSeat.p1.pets, pending.mode),
+                loadAuthoritativePetRoster(name, p.pets, pending.mode),
+            ]);
+        } catch {
+            return socket.emit('petduel:error', { error: 'Your carried pets could not be verified.' });
+        }
+        // The invite may have lapsed or been declined while storage was read.
         const s = sessionFor(p.id);
-        if (!s || s.status !== 'pending') return socket.emit('petduel:error', { error: 'That challenge is no longer open.' });
-        if (sideOf(s, name) !== 'p2') return;
-        const pets = Array.isArray(p.pets) ? p.pets : [];
-        if (pets.length === 0) return socket.emit('petduel:error', { error: 'Bring at least one pet.' });
+        if (!s || s.status !== 'pending' || sideOf(s, name) !== 'p2') {
+            return socket.emit('petduel:error', { error: 'That challenge is no longer open.' });
+        }
         const seat = rosters.get(s.id);
         if (!seat) return socket.emit('petduel:error', { error: 'That challenge is no longer open.' });
-        seat.p2 = { pets, doctrine: doctrineOf(pets) };
+        if (!challengerPets?.length) {
+            const error = 'The challenger\'s carried pets are no longer available.';
+            socket.emit('petduel:error', { error });
+            io.to(userRoom(s.p1.name)).emit('petduel:error', { error });
+            rosters.delete(s.id);
+            endSession(s.id, 'abandoned');
+            return;
+        }
+        if (!defenderPets?.length) return socket.emit('petduel:error', { error: 'Choose an eligible carried pet.' });
+        seat.p1 = { pets: challengerPets, doctrine: doctrineOf(challengerPets) };
+        seat.p2 = { pets: defenderPets, doctrine: doctrineOf(defenderPets) };
         s.p2.ready = true;
         socket.join(duelRoom(s.id));
         if (!startIfReady(s, Date.now())) return;

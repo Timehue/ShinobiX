@@ -37,6 +37,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -116,6 +117,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // ── start ─────────────────────────────────────────────────────────────────────
 async function doStart(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'anbu-infil-start', 10, 60_000, identity.name))) return;
+    if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
+        return res.status(409).json(towerBattleActiveErrorBody());
+    }
     const sector = Math.floor(Number(body.sector) || 0);
     if (!sector) return res.status(400).json({ error: 'Missing sector.' });
 

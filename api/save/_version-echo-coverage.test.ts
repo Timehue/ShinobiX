@@ -119,9 +119,27 @@ const EXEMPT = new Set([
     'player/sleeper-kill.ts',
     'player/trade.ts',
     'missions/_progress.ts',
+    // Shared two-save ranked helper. pet/battle-result settles both fighters,
+    // then rereads and echoes only the requesting player's final `_saveVersion`;
+    // exposing either side's version from this helper would be ambiguous.
+    'pet/_ranked-settlement.ts',
+    // Shared two-save player-ranked journal. It may run from the claimant route
+    // (which rereads and echoes that caller's final version) or the season cron;
+    // the helper itself cannot choose one participant's version to expose.
+    'pvp/_player-ranked-journal.ts',
+    // Shared two-save consumable helper. Its version-bumping legacy branch is
+    // reached through pvp/claim-rewards, which rereads and echoes only the
+    // authenticated caller's final `_saveVersion` after both sides settle.
+    // Ranked-V2 move/cron callers take the empty-usage confirmation branch and
+    // do not mutate either save here, so this helper has no single safe echo.
+    'pvp/_consumable-settlement.ts',
     // Shared multi-member operation helper; assault-settle rereads and echoes the
     // requesting member's final `_saveVersion` after all reward helpers complete.
     'clan-boss/_profession.ts',
+    // Shared crash-recovery helper. Direct recovery changes the caller, while a
+    // party lifecycle repair can refund the host on another member's request;
+    // exposing the host's version from the helper would be ambiguous and unsafe.
+    'towers/_entry-recovery.ts',
     'towers/_tower-store.ts',
     'world-state.ts',
     '_clan-points.ts',
@@ -176,4 +194,32 @@ test('the pending backlog shrinks rather than drifts', () => {
             `${rel} now echoes its save version — move it from PENDING_ECHO to ECHOES_VERSION`,
         );
     }
+});
+
+test('the shared PvP consumable helper keeps its endpoint-owned echo boundary', () => {
+    const symbol = 'settlePvpConsumablesDurably(';
+    const callers = collect(API_DIR)
+        .filter((file) => relative(API_DIR, file).split('\\').join('/') !== 'pvp/_consumable-settlement.ts')
+        .filter((file) => readFileSync(file, 'utf8').includes(symbol))
+        .map((file) => relative(API_DIR, file).split('\\').join('/'))
+        .sort();
+
+    assert.deepEqual(callers, [
+        'pvp/_ranked-terminal-effects.ts',
+        'pvp/claim-rewards.ts',
+    ], 'a new production caller must explicitly own the save-version echo contract');
+
+    const claimSource = readFileSync(join(API_DIR, 'pvp/claim-rewards.ts'), 'utf8');
+    assert.match(
+        claimSource,
+        /settlePvpConsumablesDurably\([\s\S]*?\{\s*legacyPlayerName:\s*playerName\s*\}/,
+        'legacy settlement must remain scoped to the authenticated claim-rewards caller',
+    );
+
+    const helperSource = readFileSync(join(API_DIR, 'pvp/_consumable-settlement.ts'), 'utf8');
+    assert.match(
+        helperSource,
+        /if \(isPlayerRankedV2Session\(session\)\) \{\s*await confirmDisabledV2Consumables\([\s\S]*?\);\s*return;\s*\}\s*const sides = itemSides/,
+        'Ranked V2 must return after empty-usage confirmation, before the legacy save-bumping branch',
+    );
 });

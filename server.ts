@@ -100,6 +100,7 @@ import towersStateHandler  from './api/towers/state.js';
 import towersSettleHandler from './api/towers/settle.js';
 import towersMyRunHandler  from './api/towers/my-run.js';
 import towersJoinHandler   from './api/towers/join.js';
+import towersPartyHandler  from './api/towers/party.js';
 import towersSpireLeaderboardHandler from './api/towers/spire-leaderboard.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import trainingStartHandler from './api/training/start.js';
@@ -892,6 +893,24 @@ async function runDbHealthProbe(): Promise<{
         checks.setNx = (await kv.set(nxKey, token, { nx: true, ex: 60 })) === 'OK';
         await kv.del(nxKey).catch(() => undefined);
 
+        // Full-value atomic CAS (required by cross-row economy sagas). Probe a
+        // mismatch first to prove it cannot overwrite, then the exact-success
+        // path. A missing kv_compare_set schema RPC fails deep readiness before
+        // payout traffic reaches an unsafe/partially-migrated deployment.
+        const casKey = `health:probe:cas:${tag}`;
+        const casBefore = { probe: token, version: 1 };
+        const casAfter = { probe: token, version: 2 };
+        await kv.set(casKey, casBefore, { ex: 60 });
+        checks.compareSetMismatch = (await kv.compareSet(
+            casKey,
+            { probe: token, version: 0 },
+            { probe: token, version: 999 },
+            { ex: 60 },
+        )) === false && JSON.stringify(await kv.get(casKey)) === JSON.stringify(casBefore);
+        checks.compareSet = (await kv.compareSet(casKey, casBefore, casAfter, { ex: 60 })) === true
+            && JSON.stringify(await kv.get(casKey)) === JSON.stringify(casAfter);
+        await kv.del(casKey).catch(() => undefined);
+
         // kv_hset / kv_hdel RPCs.
         const hashKey = `health:probe:hash:${tag}`;
         await kv.hset(hashKey, { f: token });
@@ -1119,6 +1138,7 @@ route('/towers/state', towersStateHandler);
 route('/towers/settle', towersSettleHandler);
 route('/towers/my-run', towersMyRunHandler);
 route('/towers/join', towersJoinHandler);
+route('/towers/party', towersPartyHandler);
 route('/towers/spire-leaderboard', towersSpireLeaderboardHandler);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see

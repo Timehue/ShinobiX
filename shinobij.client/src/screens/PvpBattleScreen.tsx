@@ -211,6 +211,10 @@ export function PvpBattleScreen({
     const [session, setSession] = useState<PvpSessionState | null>(() => (
         seedSession && seedSession.battleId === battleId ? seedSession : null
     ));
+    const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
+    const playerRankedV2ItemsDisabled = session?.playerRankedAuthorityVersion === 2;
+    const effectiveIsSpar = isSpar && !serverPlayerRanked;
+    const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
     // Tracks the battleId we've already seeded so a later Realtime/move
     // update on the same fight doesn't get clobbered by a re-apply of the
     // (now-stale) initial seed.
@@ -719,7 +723,7 @@ export function PvpBattleScreen({
         // authoritative endpoint confirms the claim. Refreshes still call the
         // server so an old/stale browser latch can never replace that proof.
         try { window.localStorage.setItem(`pvp:rewarded:${battleId}`, "1"); } catch { /* storage quota — non-fatal */ }
-        setPvpRewardNotice((!result.rewardAuthorized || isSpar)
+        setPvpRewardNotice((!result.rewardAuthorized || effectiveIsSpar)
             ? "Spar complete — no progression rewards."
             : result.rating
                 ? `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`
@@ -733,7 +737,7 @@ export function PvpBattleScreen({
         const opponent = normalizeCharacter(oppFighter.character as Character);
         // Unsanctioned sessions confirm with no reward authority. Do not let
         // their callbacks mutate missions, bounties, wars, or ranking.
-        if (result.rewardAuthorized || isSpar) {
+        if (result.rewardAuthorized || effectiveIsSpar) {
             if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base);
             else onLoss?.(opponent, result.rating);
         }
@@ -758,7 +762,7 @@ export function PvpBattleScreen({
     const battleRecordedRef = useRef(false);
     useEffect(() => {
         // Spars must not touch battle history — they count for nothing.
-        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle || isSpar) return;
+        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle || effectiveIsSpar) return;
         battleRecordedRef.current = true;
         const meFighter = role === "p1" ? session.p1 : session.p2;
         const oppFighter = role === "p1" ? session.p2 : session.p1;
@@ -772,7 +776,7 @@ export function PvpBattleScreen({
         onRecordBattle(makeBattleEntry({
             id: `pvp-${battleId}`,
             ts: Date.now(),
-            mode: battleMode === "ranked" ? "Ranked" : isSpar ? "Spar" : "PvP",
+            mode: effectiveBattleMode === "ranked" ? "Ranked" : effectiveIsSpar ? "Spar" : "PvP",
             opponent: oppFighter.name,
             outcome,
             rounds,
@@ -851,7 +855,7 @@ export function PvpBattleScreen({
         const fight: ArenaSpectatorFight = {
             id: `pvp-${battleId}`,
             title: `${session.p1.name} vs ${session.p2.name}`,
-            mode: battleMode === "ranked" ? "Ranked" : battleMode === "clanWar1v1" ? "Clan War" : isSpar ? "Spar" : "PvP",
+            mode: effectiveBattleMode === "ranked" ? "Ranked" : effectiveBattleMode === "clanWar1v1" ? "Clan War" : effectiveIsSpar ? "Spar" : "PvP",
             startedAt: Date.now(),
             fighters: [session.p1.name, session.p2.name],
             battleId,
@@ -1185,8 +1189,12 @@ export function PvpBattleScreen({
             // left even though a 20-AP throwable was still usable. Depleted
             // consumables/throwables (0 sealed charges left) are excluded so an
             // empty supply doesn't keep a dead turn alive.
-            ...pvpEquippedThrown.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 40)),
-            ...pvpEquippedConsumables.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 35)),
+            ...(!playerRankedV2ItemsDisabled
+                ? pvpEquippedThrown.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 40))
+                : []),
+            ...(!playerRankedV2ItemsDisabled
+                ? pvpEquippedConsumables.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 35))
+                : []),
         ];
         // Fold via the shared reducer (lib/combat-affordability) — keep the PvE
         // twin (pveMinActionCost in Arena) in sync when adding actions.
@@ -1865,6 +1873,9 @@ export function PvpBattleScreen({
                                         })}
 
                                         {/* ── Thrown weapon cards (green) ── */}
+                                        {playerRankedV2ItemsDisabled
+                                            && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
+                                            && <p className="combat-action-hint">Consumables and thrown weapons are disabled in Player Ranked during the V2 rollout.</p>}
                                         {pvpEquippedThrown.map(item => {
                                             const wRange = item.weaponRange ?? 4;
                                             const apCost = item.apCost ?? 40;
@@ -1882,9 +1893,9 @@ export function PvpBattleScreen({
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
-                                                        onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={submitting || myAp < apCost || depleted || onCooldown}>
+                                                        title={playerRankedV2ItemsDisabled ? "Disabled in Player Ranked V2" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                        onClick={() => { if (onCooldown || playerRankedV2ItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                        disabled={playerRankedV2ItemsDisabled || submitting || myAp < apCost || depleted || onCooldown}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🎯</strong>}
                                                         </span>
@@ -1923,9 +1934,9 @@ export function PvpBattleScreen({
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
-                                                        onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                        disabled={submitting || myAp < apCost || depleted || onCooldown}>
+                                                        title={playerRankedV2ItemsDisabled ? "Disabled in Player Ranked V2" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                        onClick={() => { if (onCooldown || playerRankedV2ItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
+                                                        disabled={playerRankedV2ItemsDisabled || submitting || myAp < apCost || depleted || onCooldown}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
                                                         </span>

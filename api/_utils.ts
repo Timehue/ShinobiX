@@ -53,7 +53,24 @@ function isImageField(key: string, value: unknown) {
 // projections omit the key entirely (so this branch never fires for them — the
 // partial-payload protection is preserved). Scalars cleared to undefined (e.g.
 // activePetId) are handled client-side by sending `null` instead of omitting.
-const REPLACE_SUBTREE_KEYS = new Set<string>(['equipment', 'loadout', 'masterySpec']);
+const REPLACE_SUBTREE_KEYS = new Set<string>([
+    'equipment',
+    'loadout',
+    'masterySpec',
+    // Strict server-owned settlement journals are complete snapshots. Their
+    // entries intentionally omit terminal fields while pending, so positional
+    // object merging could otherwise copy committedAt/readyAt from the prior
+    // index into a newly prepended marker and destroy crash recovery.
+    'serverSettlementReceipts',
+    'weeklyBossStartSettlements',
+    'weeklyBossUsageSettlements',
+    'weeklyBossPayoutSettlements',
+    'vanguardRewardSettlementStamp',
+    'hollowGateCombatSettlements',
+    'soloPveCompanionSettlements',
+    'soloPveItemSettlements',
+    'aiFightRewardSettlements',
+]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 
 export function isSafeRecordKey(key: string): boolean {

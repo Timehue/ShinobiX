@@ -91,6 +91,7 @@ import {
     petHappiness,
 } from "../lib/pet";
 import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
+import { clientPetCombatBusyMessage, clientPetCombatBusyReason } from "../lib/pet-combat-busy";
 import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
@@ -98,12 +99,19 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { postPlayerChallengeNotice } from "../lib/player-api";
+import {
+    playerRankedAuthorityFromChallenge,
+    playerRankedAuthorityFromQueueMatch,
+    type PlayerRankedAuthority,
+} from "../lib/player-ranked-authority";
 import { boostAmount } from "../lib/village-upgrades";
 import { rankedDelta } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
+import { activeCarriedPets, activeJutsuLoadoutIds } from "../lib/entitlements";
+import { publicEligiblePets } from "../lib/public-pet-roster";
 import {
     getAllJutsus,
     getPvpJutsuLoadout,
@@ -229,6 +237,7 @@ export function Arena({
 }) {
     type CombatStatus = {
         name: string;
+        source?: string;
         rounds: number;
         activeRound?: number;
         amount?: number;
@@ -316,8 +325,11 @@ export function Arena({
     // the server's sealed-loadout injection in api/pvp/session.ts. Element
     // "None" means it always passes the element gate.
     const playerLegacySignature = legacySignatureFor(character);
+    // Do not memoize this time-sensitive projection: admin-comps can expire while
+    // Arena stays mounted, and the roster is tiny (3/5), so recomputing is cheap.
+    const combatEligiblePets = activeCarriedPets<Pet>(character);
     const equippedJutsus = [
-        ...character.equippedJutsuIds
+        ...activeJutsuLoadoutIds(character)
             .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
             .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines)),
         ...(playerLegacySignature ? [playerLegacySignature] : []),
@@ -563,6 +575,7 @@ export function Arena({
     const [battleArenaTab, setBattleArenaTab] = useState<"spar" | "bounty">("spar");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
+    const [playerRankedEnabled, setPlayerRankedEnabled] = useState(false);
     const [rankedQueueActive, setRankedQueueActive] = useState(false);
     const [rankedQueueSize, setRankedQueueSize] = useState(0);
     const [clanWarPointsActive, setClanWarPointsActive] = useState(0);
@@ -577,6 +590,22 @@ export function Arena({
         const id = setInterval(refreshArenaState, 5000);
         return () => clearInterval(id);
     }, []);
+    useEffect(() => {
+        let active = true;
+        fetch(`/api/pvp/ranked-queue?name=${encodeURIComponent(character.name)}`)
+            .then((response) => response.ok ? response.json() : null)
+            .then((data: { enabled?: boolean; queueSize?: number } | null) => {
+                if (!active) return;
+                const enabled = data?.enabled === true;
+                setPlayerRankedEnabled(enabled);
+                setRankedQueueSize(enabled ? data?.queueSize ?? 0 : 0);
+                if (!enabled) setRankedQueueActive(false);
+            })
+            .catch(() => {
+                if (active) setPlayerRankedEnabled(false);
+            });
+        return () => { active = false; };
+    }, [character.name]);
     /* ── Ranked queue polling (paused when tab hidden) ── */
     useEffect(() => {
         if (!rankedQueueActive) return;
@@ -591,8 +620,20 @@ export function Arena({
                 .then(r => r.json())
                 .then(data => {
                     if (!active) return;
+                    if (data.enabled !== true) {
+                        setPlayerRankedEnabled(false);
+                        setRankedQueueActive(false);
+                        setRankedQueueSize(0);
+                        return;
+                    }
                     setRankedQueueSize(data.queueSize ?? 0);
                     if (data.match) {
+                        const rankedAuthority = playerRankedAuthorityFromQueueMatch(data.match);
+                        if (!rankedAuthority) {
+                            setRankedQueueActive(false);
+                            alert("The ranked server returned an incomplete match proof. Rejoin the queue before starting a battle.");
+                            return;
+                        }
                         // Found a match. Only the deterministic INITIATOR sends the
                         // ranked challenge; the other side waits for it to land in
                         // their challenge inbox (audit #10 — both sides now discover
@@ -603,7 +644,7 @@ export function Arena({
                         if (data.match.initiator !== false) {
                             const opName = data.match.opponent;
                             const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, rankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                            challengePlayer(stub, "ranked");
+                            challengePlayer(stub, "ranked", 0, false, rankedAuthority);
                         }
                     }
                     if (!data.inQueue) {
@@ -619,6 +660,10 @@ export function Arena({
 
     function joinRankedQueue() {
         if (!requireServerSettlement("rankedPvp")) return;
+        if (!playerRankedEnabled) {
+            alert("Ranked PvP is temporarily unavailable while the v2 authority rollout completes.");
+            return;
+        }
         setRankedQueueActive(true);
         fetch("/api/pvp/ranked-queue", {
             method: "POST",
@@ -969,20 +1014,26 @@ export function Arena({
 
     const inspectedJutsu = equippedJutsus.find((jutsu) => jutsu.id === inspectedJutsuId);
     const inspectedCombatItem = combatEquippedItems.find((item) => item.id === inspectedCombatItemId);
-    const activeBattlePet = character.pets.find((pet) => pet.id === character.activePetId);
+    const activeBattlePet = combatEligiblePets.find((pet) => pet.id === character.activePetId);
+    const activeBattlePetBusyReason = activeBattlePet
+        ? clientPetCombatBusyReason(character, activeBattlePet)
+        : null;
+    const activeBattlePetBusyMessage = activeBattlePet && activeBattlePetBusyReason
+        ? clientPetCombatBusyMessage(activeBattlePetBusyReason, petDisplayName(activeBattlePet))
+        : "";
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
     // A summoned pet is a live on-field actor while it has HP and phases left.
     const isPetAlive = Boolean(summonedPet) && petHp > 0 && petTurnsRemaining > 0;
     const canSummonPet = Boolean(!opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
     const activeBattlePetCanSummon = Boolean(
         activeBattlePet &&
-        !isPetOnExpedition(activeBattlePet) &&
+        !activeBattlePetBusyReason &&
         (activeBattlePet.unlockedForPve || activeBattlePet.level >= 50),
     );
     const activeBattlePetSummonNote = !activeBattlePet
         ? "Choose an active pet in the Pet Yard"
-        : isPetOnExpedition(activeBattlePet)
-            ? `${petDisplayName(activeBattlePet)} is on an expedition`
+        : activeBattlePetBusyMessage
+            ? activeBattlePetBusyMessage
             : !activeBattlePet.unlockedForPve && activeBattlePet.level < 50
                 ? `Unlocks at pet level 50 (currently ${activeBattlePet.level})`
                 : `Summon ${petDisplayName(activeBattlePet)}`;
@@ -1327,9 +1378,19 @@ export function Arena({
         startPrefight(hp, `AI battle started against a Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[currentWeather].name}.`);
     }
 
-    async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0, party = false) {
+    async function challengePlayer(
+        opponent: PlayerRecord,
+        mode: DuelChallenge["mode"] = "standard",
+        clanWarPoints = 0,
+        party = false,
+        rankedAuthority?: PlayerRankedAuthority,
+    ) {
+        if (mode === "ranked" && !rankedAuthority) {
+            alert("A current server-ranked match proof is required. Rejoin the ranked queue.");
+            return;
+        }
         const isPetMode = mode === "clanWarPet" || mode === "rankedPet";
-        const availablePetCount = availablePetBattleCount(character.pets);
+        const availablePetCount = availablePetBattleCount(combatEligiblePets);
         if (isPetMode && availablePetCount < 1) {
             alert("You need a pet that is not on an expedition before sending a pet battle challenge.");
             return;
@@ -1339,7 +1400,7 @@ export function Arena({
             return;
         }
         const knownPetTarget = isPetMode ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase()) : undefined;
-        if (isPetMode && knownPetTarget && availablePetBattleCount(knownPetTarget.character.pets) < (party ? 2 : 1)) {
+        if (isPetMode && knownPetTarget && availablePetBattleCount(publicEligiblePets(knownPetTarget)) < (party ? 2 : 1)) {
             alert(`${opponent.name} does not have a pet available for battle.`);
             return;
         }
@@ -1347,9 +1408,10 @@ export function Arena({
         // pet ratings) so the rating swing is server-authoritative + exactly-once.
         // The SAME token rides the challenge to the responder and back via the
         // accepted notice, so both sides report it (the server NX-dedups per
-        // token, settling both accounts once). Mint failure → local Elo fallback.
+        // token, settling both accounts once). Mint failure is fail-closed; a
+        // client-only Elo fallback would make ranked settlement forgeable.
         let petRankedToken: string | undefined;
-        const challengePet = isPetMode ? (character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet))) : undefined;
+        const challengePet = isPetMode ? (combatEligiblePets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find(pet => !isPetOnExpedition(pet))) : undefined;
         const petBattleSeed = isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined;
         // 2v2 party: field my two best available (not-on-expedition) pets, lead
         // first. The responder auto-picks their own best two on accept
@@ -1357,7 +1419,7 @@ export function Arena({
         // a requested 2v2 never silently changes into a different mode.
         const partyPetIds: [string, string] | null = (party && isPetMode && challengePet)
             ? (() => {
-                const reserve = character.pets
+                const reserve = combatEligiblePets
                     .filter((p) => !isPetOnExpedition(p) && p.id !== challengePet.id)
                     .sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0];
                 return reserve ? [challengePet.id, reserve.id] : null;
@@ -1370,8 +1432,18 @@ export function Arena({
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ opponentName: opponent.name, petId: challengePet?.id, seed: petBattleSeed }),
                 });
-                if (tokRes.ok) petRankedToken = ((await tokRes.json()) as { matchToken?: string }).matchToken;
-            } catch { /* fall back to local Elo estimate */ }
+                const tokenData = await tokRes.json().catch(() => ({} as { matchToken?: string; error?: string }));
+                if (!tokRes.ok || typeof tokenData.matchToken !== "string") {
+                    alert(tokenData.error === "ranked-pet-server-authority-required"
+                        ? "Ranked pet battles are temporarily unavailable until server-authoritative matchmaking returns."
+                        : tokenData.error ?? "Ranked pet battles are temporarily unavailable.");
+                    return;
+                }
+                petRankedToken = tokenData.matchToken;
+            } catch {
+                alert("Ranked pet battles need the authoritative server. Reconnect and try again.");
+                return;
+            }
         }
         const challenge: DuelChallenge = {
             id: makeId(),
@@ -1388,6 +1460,7 @@ export function Arena({
             petRankedToken,
             createdAt: Date.now(),
             mode,
+            ...(mode === "ranked" ? rankedAuthority : {}),
             clanWarPoints,
             ...(partyPetIds ? { petParty: true, challengerPetIds: partyPetIds } : {}),
         };
@@ -1440,6 +1513,13 @@ export function Arena({
 
     async function acceptChallenge(challenge: DuelChallenge) {
         if (!requireServerSettlement("pvpSession")) return;
+        const rankedAuthority = challenge.mode === "ranked"
+            ? playerRankedAuthorityFromChallenge(challenge)
+            : null;
+        if (challenge.mode === "ranked" && !rankedAuthority) {
+            alert("This ranked challenge is missing its server match proof. Decline it and rejoin the ranked queue.");
+            return;
+        }
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {
@@ -1465,7 +1545,7 @@ export function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({ challengeId: challenge.id, useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: !(!challenge.mode || (challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack)), rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
+                body: stringifyPvpSessionPayload({ challengeId: challenge.id, useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", ...(rankedAuthority ?? {}), baseRewards: !(!challenge.mode || (challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack)), rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
@@ -1690,8 +1770,8 @@ export function Arena({
             setLog("No active pet selected. Choose one in the Pet Yard first.");
             return;
         }
-        if (isPetOnExpedition(activeBattlePet)) {
-            setLog(`${petDisplayName(activeBattlePet)} is exploring and cannot join PvE battles.`);
+        if (activeBattlePetBusyReason) {
+            setLog(clientPetCombatBusyMessage(activeBattlePetBusyReason, petDisplayName(activeBattlePet)));
             return;
         }
         if (!activeBattlePet.unlockedForPve && activeBattlePet.level < 50) {
@@ -2122,8 +2202,9 @@ export function Arena({
     function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">) {
         return !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT");
     }
-    function statusForJutsu(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">, status: CombatStatus): CombatStatus {
-        return bloodlineTagsResolveNextRound(jutsu) ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 } : status;
+    function statusForJutsu(jutsu: Pick<Jutsu, "name" | "bloodlineRank" | "target" | "method">, status: CombatStatus): CombatStatus {
+        const sourced = { ...status, source: jutsu.name };
+        return bloodlineTagsResolveNextRound(jutsu) ? { ...sourced, rounds: status.rounds + 1, activeRound: turn + 1 } : sourced;
     }
     // HUD display only: a deferred (not-yet-active) status carries an extra +1
     // round (statusForJutsu) so it survives the unconditional end-of-turn tick.
@@ -2547,28 +2628,29 @@ export function Arena({
         const finalDamage = Math.max(0, damage - blocked);
         const weaponLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
         const effectVal = item.weaponEffectValue ?? 0;
+        const weaponStatusSource = { source: item.name } as const;
 
         const effectLines: string[] = [];
         if (item.weaponEffect === "Absorb") {
-            setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Absorb", rounds: 2, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Absorb: ${character.name} converts ${effectVal}% incoming damage into healing for 2 rounds.`);
         }
         if (item.weaponEffect === "Lifesteal") {
             // Match PvP/jutsu Lifesteal: apply a 2-round status that heals a % of
             // damage dealt on subsequent attacks (was a one-time instant heal).
-            setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
+            setPlayerStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
             effectLines.push(`Lifesteal: ${character.name} will heal ${effectVal}% of damage dealt for 2 rounds.`);
         }
         if (item.weaponEffect === "Reflect") {
-            setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Reflect: ${character.name} reflects ${effectVal}% damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Increase Damage Given") {
-            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Increase Damage Given: ${character.name}'s next attacks deal ${effectVal}% more damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Decrease Damage Given") {
-            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => [...s, { ...weaponStatusSource, name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "negative" }]);
             effectLines.push(`Decrease Damage Given: ${opponentName} deals ${effectVal}% less damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Shield") {
@@ -2576,11 +2658,11 @@ export function Arena({
             effectLines.push(`Shield: ${character.name} gains ${effectVal} shield.`);
         }
         if (item.weaponEffect === "Wound") {
-            setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]));
+            setEnemyStatuses((s) => capWoundStacks([...s, { ...weaponStatusSource, name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]));
             effectLines.push(`Wound: ${opponentName} takes ${effectVal} damage per round for 2 rounds.`);
         }
         if (item.weaponEffect === "Poison") {
-            setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }));
+            setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }));
             effectLines.push(COMBAT_RESOURCES_V2
                 ? `Poison: ${opponentName} is poisoned for 2 rounds — casting jutsu will hurt.`
                 : `Poison: ${opponentName} is poisoned — takes ${effectVal}% chakra as damage per round for 2 rounds.`);
@@ -2591,19 +2673,19 @@ export function Arena({
             for (const wt of item.weaponTags) {
                 const p = wt.percent;
                 if (wt.name === "Absorb") {
-                    setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Absorb", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Absorb ${p}%`);
                 } else if (wt.name === "Lifesteal") {
                     // Match PvP/jutsu Lifesteal: 2-round status that heals a % of
                     // damage dealt on subsequent attacks (was a one-time instant heal).
-                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
                     effectLines.push(`Lifesteal: ${character.name} will heal ${p}% of damage dealt for 2 rounds.`);
                 } else if (wt.name === "Siphon") {
                     // Siphon stays an instant one-time heal off this swing (per its tooltip).
                     const ls = Math.floor(cappedPostDamage(finalDamage, p));
                     if (ls > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + ls)); effectLines.push(`Siphon +${ls} HP`); }
                 } else if (wt.name === "Reflect") {
-                    setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Reflect ${p}%`);
                 } else if (wt.name === "Shield" || wt.name === "Barrier") {
                     // Use the same flat shield/heal magnitudes as jutsu (was a tiny
@@ -2614,48 +2696,48 @@ export function Arena({
                     setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
                     effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
                 } else if (wt.name === "Wound") {
-                    setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
+                    setEnemyStatuses((s) => capWoundStacks([...s, { ...weaponStatusSource, name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
                     effectLines.push(`Wound ${p}%`);
                 } else if (wt.name === "Poison") {
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }));
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Poison", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Poison ${p}%`);
                 } else if (tagMatchesName(wt.name, "Ignition")) {
-                    setEnemyStatuses((s) => [...s, { name: "Ignition", rounds: 2, percent: p, kind: "negative" }]);
+                    setEnemyStatuses((s) => [...s, { ...weaponStatusSource, name: "Ignition", rounds: 2, percent: p, kind: "negative" }]);
                     effectLines.push(`Ignition ${p}%`);
                 } else if (wt.name === "Drain") {
                     // Drain ticks read `amount` (fallback 250); store a real amount so
                     // the weapon's percent isn't silently flattened to 250.
                     const drainAmt = drainTickPVE(character.level);
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" }));
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" }));
                     effectLines.push(`Drain ${drainAmt}/round`);
                 } else if (wt.name === "Increase Damage Given") {
-                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% Damage Given`);
                 } else if (wt.name === "Increase Generals") {
                     // Self-buff: raises str/spd/int/wil (read by generalsBonusFromStatuses
                     // in calculateDamage). Mirrors the Increase Damage Given weapon branch.
-                    setPlayerStatuses((s) => [...s, { name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% General stats`);
                 } else if (wt.name === "Decrease Damage Taken") {
-                    setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`-${p}% Damage Taken`);
                 } else if (wt.name === "Pierce") {
                     effectLines.push(`Pierce`);
                 } else if (wt.name === "Damage") {
                     effectLines.push(`+${p}% Damage`);
                 } else if (wt.name === "Recoil") {
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Recoil", rounds: 2, percent: p, kind: "negative" }));
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Recoil", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Recoil ${p}%`);
                 } else if (wt.name === "Stun Prevent" || wt.name === "Debuff Prevent") {
-                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: wt.name, rounds: 2, percent: p, kind: "positive" }));
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: wt.name, rounds: 2, percent: p, kind: "positive" }));
                     effectLines.push(`${wt.name}`);
                 } else if (wt.name === "Copy") {
                     const copied = activeStatuses(enemyStatuses).filter((st) => st.kind === "positive");
-                    if (copied.length) setPlayerStatuses((s) => copied.reduce((acc, c) => mergeCombatStatus(acc, { ...c, rounds: Math.min(2, c.rounds) }), s));
+                    if (copied.length) setPlayerStatuses((s) => copied.reduce((acc, c) => mergeCombatStatus(acc, { ...c, source: item.name, rounds: Math.min(2, c.rounds) }), s));
                     effectLines.push(`Copy ${copied.length} buff(s)`);
                 } else if (wt.name === "Mirror") {
                     const mirrored = activeStatuses(playerStatuses).filter((st) => st.kind === "negative" && st.name !== "Wound" && !statusMatchesName(st, "Ignition"));
-                    if (mirrored.length) setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, { ...m, rounds: Math.min(2, m.rounds) }), s));
+                    if (mirrored.length) setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, { ...m, source: item.name, rounds: Math.min(2, m.rounds) }), s));
                     effectLines.push(`Mirror ${mirrored.length} debuff(s)`);
                 }
             }
@@ -2759,22 +2841,22 @@ export function Arena({
         const isBothTarget = item.weaponEffectTarget === "both";
         const itemEffectLines: string[] = [];
         if (item.weaponEffect === "Increase Damage Given") {
-            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", source: item.name, rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             itemEffectLines.push(`boosts your damage by ${effectVal}% for 2 rounds`);
         }
         if (item.weaponEffect === "Decrease Damage Given") {
             // Always debuff enemy; if weaponEffectTarget === "both" also debuff self (Smoke Bomb)
             const smokeRounds = isBothTarget ? 1 : 2;
-            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: smokeRounds, percent: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", source: item.name, rounds: smokeRounds, percent: effectVal, kind: "negative" }]);
             if (isBothTarget) {
-                setPlayerStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: 1, percent: effectVal, kind: "negative" }]);
+                setPlayerStatuses((s) => [...s, { name: "Decrease Damage Given", source: item.name, rounds: 1, percent: effectVal, kind: "negative" }]);
                 itemEffectLines.push(`smoke fills the field — both you and ${opponentName} deal 0 damage for 1 round (Pierce bypasses)`);
             } else {
                 itemEffectLines.push(`reduces ${opponentName}'s damage by ${effectVal}% for 2 rounds`);
             }
         }
         if (item.weaponEffect === "Decrease Damage Taken") {
-            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", source: item.name, rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             itemEffectLines.push(`reduces damage you take by ${effectVal}% for 2 rounds`);
         }
         if (item.weaponEffect === "Shield") {
@@ -4045,8 +4127,8 @@ export function Arena({
         // Defer status effects to next round unless this is an INSTANT_EFFECT ground-zone jutsu.
         const deferEnemyStatus = (status: CombatStatus): CombatStatus =>
             !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
-                ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 }
-                : status;
+                ? { ...status, source: jutsu.name, rounds: status.rounds + 1, activeRound: turn + 1 }
+                : { ...status, source: jutsu.name };
         const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => capWoundStacks(mergeCombatStatus(s, deferEnemyStatus(status))));
         const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
 
@@ -5171,7 +5253,7 @@ export function Arena({
     ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, selectedActionId, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, activeMoveAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
-        const availablePetCount = availablePetBattleCount(character.pets);
+        const availablePetCount = availablePetBattleCount(combatEligiblePets);
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
@@ -5320,8 +5402,8 @@ export function Arena({
                     <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
                     <button
                         className={activeArenaTab === "petBattles" ? "active" : ""}
-                        disabled={!character.pets.some((pet) => !isPetOnExpedition(pet))}
-                        title={!character.pets.some((pet) => !isPetOnExpedition(pet)) ? "You need one available pet" : undefined}
+                        disabled={!combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}
+                        title={!combatEligiblePets.some((pet) => !isPetOnExpedition(pet)) ? "You need one available carried pet" : undefined}
                         onClick={() => setActiveArenaTab("petBattles")}
                     ><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</button>
                 </div>
@@ -5360,7 +5442,7 @@ export function Arena({
                                         <button onClick={() => {
                                             if (challenge.mode === "clanWarPet") {
                                                 const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
-                                                const responderPet = character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet));
+                                                const responderPet = combatEligiblePets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find(pet => !isPetOnExpedition(pet));
                                                 if (!challengerPet || !responderPet) {
                                                     alert("Both players need a pet before this pet battle can start.");
                                                     return;
@@ -5427,9 +5509,12 @@ export function Arena({
                             {rankedQueueActive ? (
                                 <button className="danger-button" onClick={leaveRankedQueue}>Leave Queue</button>
                             ) : (
-                                <button onClick={joinRankedQueue}>Queue Up for Ranked</button>
+                                <button disabled={!playerRankedEnabled} onClick={joinRankedQueue}>
+                                    {playerRankedEnabled ? "Queue Up for Ranked" : "Ranked Rollout Pending"}
+                                </button>
                             )}
                         </div>
+                        {!playerRankedEnabled && <p className="hint">Ranked matchmaking is temporarily paused during the v2 authority rollout.</p>}
                         {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
 
                         <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
