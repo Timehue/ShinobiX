@@ -199,7 +199,7 @@ function choosePetCommand(
     if (pet.meter >= SHOWDOWN_METER_MAX && pet.readiness >= pet.signatureMove.hold) {
         const eager = tier === 'scrapper' ? 0.9 : tier === 'warrior' ? 0.75 : (target.hp / target.maxHp < 0.75 ? 1 : 0.3);
         if (rand() < eager) {
-            return { kind: 'super', petId: pet.id, targetId: target.id, timing: tier === 'champion' ? 2 : 1 };
+            return { kind: 'super', petId: pet.id, targetId: target.id };
         }
     }
 
@@ -235,7 +235,7 @@ function choosePetCommand(
                 ? { kind: 'rest', petId: pet.id }
                 : { kind: 'guard', petId: pet.id };
         }
-        return { kind: 'move', petId: pet.id, moveIndex: killPower.i, targetId: target.id, timing: 2 };
+        return { kind: 'move', petId: pet.id, moveIndex: killPower.i, targetId: target.id };
     }
 
     // Score the affordable kit: damage value + status opportunism.
@@ -288,9 +288,5 @@ function choosePetCommand(
         })
         .sort((a, b) => b.score - a.score)[0];
 
-    const timing = tier === 'champion' ? (rand() < 0.7 ? 2 : 1)
-        : tier === 'warrior' ? (rand() < 0.5 ? 1 : rand() < 0.5 ? 2 : 0)
-        : (rand() < 0.35 ? 1 : 0);
-
-    return { kind: 'move', petId: pet.id, moveIndex: best.i, targetId: target.id, timing };
+    return { kind: 'move', petId: pet.id, moveIndex: best.i, targetId: target.id };
 }

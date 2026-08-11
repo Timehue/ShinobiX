@@ -155,10 +155,6 @@ export const SHOWDOWN_SUPER_SPLASH_SCALE = 0.72;
  *  multiplier when a LIVING ally's element beats the target's element. */
 export const SHOWDOWN_SYNERGY_MULT = 1.1;
 
-/** Timing-needle grades (client-measured, server-CLAMPED — expression, not
- *  requirement; the ceiling bounds what a dishonest client can gain). */
-export const SHOWDOWN_TIMING_MULTS: readonly number[] = Object.freeze([1.0, 1.1, 1.22]);
-
 /** Temtem-style MULTIPLICATIVE move priority (order = pet speed × priority of
  *  the chosen action). Multiplicative — not absolute brackets — so a slow
  *  pet's quick jab still doesn't outrun a fast pet's. Guard is the defensive
@@ -175,19 +171,47 @@ export const SHOWDOWN_PRIORITY_SUPER = 0.75;   // signatures swing last
 export const SHOWDOWN_HOLD_HEAVY = 1;   // power > 220
 export const SHOWDOWN_HOLD_SUPER = 2;   // signatures
 
-/** Hard round cap — at cap the judge scores remaining HP%; there are NO draws.
- *  A single KO averages ~7 rounds, so a flat 14 cannot resolve a team that
- *  fields its reserves one at a time: measured judge rates were 1v1+0 11.3%,
- *  1v1+1 49.1%, 1v1+2 **87.2%** — the format the lobby sells as "one on the
- *  field, two in reserve" was decided by the timer, not by combat. The cap
- *  therefore extends per RESERVE (bench depth), not per team size, which
- *  leaves 2v2/3v3 (which field everyone at once) exactly as tuned. */
-export const SHOWDOWN_MAX_ROUNDS = 14;
-export const SHOWDOWN_ROUNDS_PER_RESERVE = 5;
+/*
+ * NO ROUND LIMIT. A fight ends when a team is knocked out — never on a timer,
+ * and there is no judge scoring HP% at a cap.
+ *
+ * But "delete the cap" cannot ship on its own. Measured with the cap lifted:
+ * two pets that both Rest are a FIXED POINT (Rest heals 4% of max HP and costs
+ * nothing at 0 stamina, so neither bar ever moves) — 20,000 rounds, still
+ * unfinished. And it is not a degenerate case: an all-in-HP pet holding any of
+ * the catalog's 40 heal moves out-sustains incoming damage outright above
+ * ~1,700 x (atk/def) max HP, which never terminated in 87 of 100 real matchups
+ * over 600 rounds. Stamina pressure cannot fix it either, because Guard and
+ * Rest are the two actions that still work at an empty pool.
+ *
+ * ATTRITION is the replacement: from SHOWDOWN_ATTRITION_START, every living pet
+ * bleeds a share of its own max HP at end of round, ramping each round, while
+ * healing decays to nothing. It hits both sides equally, so it never picks the
+ * winner — it just guarantees someone falls, and the fight is still decided by
+ * who was ahead. It begins at the exact round the old cap used to fire, so the
+ * 95.7% of fights that finish sooner play out completely unchanged; what used
+ * to be an arbitrary ending is now the point where the fight starts closing.
+ */
+export const SHOWDOWN_ATTRITION_START = 14;
+/** Bleed per attrition round, as a share of max HP, multiplied by how many
+ *  rounds attrition has been running (round 14 = 2%, 15 = 4%, 16 = 6%, ...).
+ *  Cumulative ~56% of a bar by round 20, so the tail is bounded near 22. */
+export const SHOWDOWN_ATTRITION_BLEED_PCT = 0.02;
+/** Healing multiplier decay per attrition round — heals are dead by round 17,
+ *  which is what actually closes the sustain stall. */
+export const SHOWDOWN_ATTRITION_HEAL_DECAY = 0.25;
 
-export function showdownRoundCap(teamSize: number, fieldSize: number): number {
-    const reserves = Math.max(0, teamSize - fieldSize);
-    return SHOWDOWN_MAX_ROUNDS + reserves * SHOWDOWN_ROUNDS_PER_RESERVE;
+/** Multiplier applied to all healing this round (1 before attrition starts). */
+export function showdownHealScale(round: number): number {
+    const steps = round - SHOWDOWN_ATTRITION_START + 1;
+    if (steps <= 0) return 1;
+    return Math.max(0, 1 - steps * SHOWDOWN_ATTRITION_HEAL_DECAY);
+}
+
+/** Share of max HP each living pet bleeds at the end of `round` (0 before). */
+export function showdownAttritionPct(round: number): number {
+    const steps = round - SHOWDOWN_ATTRITION_START + 1;
+    return steps <= 0 ? 0 : steps * SHOWDOWN_ATTRITION_BLEED_PCT;
 }
 
 export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Object.freeze({
@@ -203,8 +227,8 @@ export const SHOWDOWN_MAX_TEAM = 3;
 /** One command per living pet per round. `timing` is the needle grade index
  *  into SHOWDOWN_TIMING_MULTS (0 = untapped/miss, 2 = perfect). */
 export type ShowdownCommand =
-    | { kind: "move"; petId: string; moveIndex: number; targetId: string; timing?: number }
-    | { kind: "super"; petId: string; targetId: string; timing?: number }
+    | { kind: "move"; petId: string; moveIndex: number; targetId: string }
+    | { kind: "super"; petId: string; targetId: string }
     | { kind: "guard"; petId: string }
     | { kind: "rest"; petId: string }
     /** Swap the field pet out for a living bench pet. Switches resolve BEFORE
@@ -274,7 +298,8 @@ export interface ShowdownStateView {
     format: ShowdownFormat;
     tier: ShowdownTier;
     round: number;
-    maxRounds: number;
+    /** The round attrition begins — the fight's pressure cue, not a limit. */
+    attritionAt: number;
     finished: boolean;
     outcome: ShowdownOutcome | null;
     player: ShowdownPetView[];
@@ -302,8 +327,7 @@ export type ShowdownEvent =
         delivery: "melee" | "ranged" | "self";
         /** Full-meter signature cast — cinematic camera takeover. */
         super: boolean;
-        timing: number;
-        targets: {
+            targets: {
             id: string;
             damage: number;
             heal: number;
@@ -341,7 +365,7 @@ export type ShowdownEvent =
     | { t: "confused"; actorId: string; actorSide: "player" | "enemy"; selfDamage: number; ko: boolean }
     | { t: "dot"; targetId: string; targetSide: "player" | "enemy"; kind: string; damage: number; ko: boolean }
     | { t: "roundEnd"; round: number }
-    | { t: "end"; outcome: ShowdownOutcome; byJudge: boolean };
+    | { t: "end"; outcome: ShowdownOutcome };
 
 export interface ShowdownTurnResponse {
     ok: boolean;

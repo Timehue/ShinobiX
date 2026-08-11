@@ -38,11 +38,11 @@ Core mechanics:
   unlocks the signature move at ×1.6 power with a cinematic camera takeover.
 - **Element wheel** (existing chart: Fire>Wind>Lightning>Earth>Water>Fire) at
   ×1.3 / ×0.8, always announced ("Super effective!").
-- **Timing needle.** Choosing an offensive move runs a ~1.1 s sweep; tapping in
-  the center grades Perfect/Good (×1.22/×1.1, server-clamped). Expression, not
-  requirement — and the cap bounds what a dishonest client could gain.
-- **No draws.** 14-round cap, then a judge decision on remaining HP%; exact
-  ties go against the player so stalling is never free.
+
+- **No round limit, no draws.** A fight ends when a team falls. If it runs long,
+  **attrition** sets in from round 14: every pet bleeds a ramping share of its
+  own max HP and healing decays to nothing, so the fight closes itself without
+  the game ever picking the winner (round 18).
 - **Statuses** map all 23 jutsu kinds onto turn-based effects (stun/freeze skip
   turns, taunt redirects in 2v2+, mark amplifies the next hit, shields soak,
   burn/wound tick at round end, etc.).
@@ -775,6 +775,46 @@ with unstyled text under a fully-designed 2.4s banner — now carries the HUD's
 lacquer-and-brass hardware: a display-font verdict plate, the reason and recap
 on plaques, the reward as a struck pill, and recap rows that assemble in
 sequence rather than appearing at once. Reduced motion covers all three.
+
+## Round 18 — no round limit, no needle (2026-08-11)
+
+**The round limit is gone, and so is the judge.** A fight ends when a team
+falls. But deleting the cap could not ship on its own: measured with it lifted,
+two pets that both Rest are a **fixed point** — Rest heals 4% of max HP and
+costs nothing at an empty pool, so neither bar ever moves — 20,000 rounds,
+still unfinished. And it is not a degenerate case. An all-in-HP pet holding any
+of the catalog's 40 heal moves out-sustains incoming damage outright above
+~1,700 x (atk/def) max HP: **87 of 100 real matchups never terminated over 600
+rounds**. Stamina pressure cannot fix it either, because Guard and Rest are
+precisely the two actions that still work at zero stamina.
+
+**Attrition** replaces the cap. From round 14, every living pet bleeds a ramping
+share of its own max HP at end of round (2%, 4%, 6%, …) while healing decays to
+nothing by round 17. It hits both sides equally, so it never picks the winner —
+it only guarantees there is one, and the fight is still decided by who was
+ahead. It begins at the exact round the old cap used to fire, so the **95.7% of
+fights that finish sooner play out completely unchanged**; what used to be an
+arbitrary ending is now the point where the fight starts closing itself. All
+three infinite-stall cases — mutual Rest, mutual Guard, and the heal-cycle
+build — now resolve in **23 rounds**. The old FINAL ROUND banner survives as the
+ATTRITION cue, so the mechanic announces itself.
+
+**The timing needle is gone.** The "tap the centre" sweep, its ×1.1/×1.22
+multipliers, the server clamp that bounded them, and the whole `timing` field on
+both the command and the event wire. A damaging command now fires the moment you
+pick a target — choose, click the creature, done. One consequence worth naming:
+the multiplier was the last client-supplied number anywhere in the damage
+formula, so removing it makes the engine's inputs entirely server-owned.
+
+The AI lost its timing grades too (it used to land ×1.22 on champion supers and
+on any lethal), which is a real difficulty reduction and is why pace moved 7.1 →
+8.0 rounds. Rebaselined: elements 43.2–56.6%, roles 37.9–58.5%, nothing reaches
+the simulator's 400-round guard.
+
+**Known open:** assassins have drifted to 37.9% across this session's changes —
+still inside the gate, but every change that lengthens a fight costs the glass
+role, and the role damage table is not the lever (compressing it moved defenders
+without moving assassins). That deserves its own pass.
 
 ## Follow-ups
 

@@ -30,7 +30,9 @@ import {
     SHOWDOWN_HOLD_HEAVY,
     SHOWDOWN_HOLD_SUPER,
     SHOWDOWN_MAX_TEAM,
-    showdownRoundCap,
+    showdownAttritionPct,
+    showdownHealScale,
+    SHOWDOWN_ATTRITION_START,
     SHOWDOWN_OVERDRAFT_HP_PER_POINT,
     SHOWDOWN_PRIORITY_GUARD,
     SHOWDOWN_PRIORITY_HEAVY,
@@ -51,7 +53,6 @@ import {
     SHOWDOWN_SUPER_POWER_MULT,
     SHOWDOWN_SUPER_SPLASH_SCALE,
     SHOWDOWN_SYNERGY_MULT,
-    SHOWDOWN_TIMING_MULTS,
     type ShowdownCommand,
     type ShowdownEvent,
     type ShowdownFormat,
@@ -773,12 +774,6 @@ function elementMult(attacker: string, defender: string): number {
 
 type Side = 'player' | 'enemy';
 
-/** The round cap for THIS session — extended per benched reserve, since a
- *  team that feeds reserves in one at a time needs more rounds to resolve. */
-export function sessionRoundCap(session: ShowdownSession): number {
-    const fieldSize = SHOWDOWN_FORMAT_SIZE[session.format];
-    return showdownRoundCap(Math.max(session.player.length, session.enemy.length), fieldSize);
-}
 
 /** Living FIELD pets — the ones who can act and be targeted. */
 function livingOf(session: ShowdownSession, side: Side): ShowdownPet[] {
@@ -843,9 +838,15 @@ function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: numb
     return { dealt, ko: target.ko };
 }
 
-function applyHeal(target: ShowdownPet, amount: number): number {
+function applyHeal(target: ShowdownPet, amount: number, round = 0): number {
     if (target.ko) return 0;
-    const safe = Number.isFinite(amount) ? amount : 0;
+    // Attrition damps healing toward zero. Without this the fight has no
+    // termination guarantee at all: two pets that both Rest are a fixed point,
+    // and a high-HP pet holding a heal move out-sustains any damage the game
+    // can produce. Damage escalation alone does not close that — the heal has
+    // to stop.
+    const scaled = (Number.isFinite(amount) ? amount : 0) * showdownHealScale(round);
+    const safe = scaled;
     const halved = hasStatus(target, 'wound') ? Math.round(safe * 0.5) : safe;
     const healed = Math.min(target.maxHp - target.hp, Math.max(0, Math.round(halved)));
     target.hp += healed;
@@ -887,7 +888,7 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
 // table hands it as stat normalization, and defenders ran to 63%. Compressed
 // on the same principle as the element table: the correction is real, it was
 // just fitted to a regime that no longer exists.
-const ROLE_MULT_COMPRESSION = 0.6;
+const ROLE_MULT_COMPRESSION = 0.25;
 const softenRoleMult = (v: number): number => 1 + (v - 1) * ROLE_MULT_COMPRESSION;
 const ROLE_DAMAGE_MULT: Record<string, number> = {
     tracker: softenRoleMult(0.82),
@@ -943,7 +944,7 @@ const ELEMENT_TAKEN_MULT: Record<string, number> = {
     Lightning: softenElementMult(1.02),
 };
 
-function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, timingMult: number, extraMult = 1, procs?: string[]): number {
+function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[]): number {
     const atk = effAttack(attacker);
     const def = effDefense(defender);
     const base = DAMAGE_SCALE * (power / 100) * REF_DEF * (atk / Math.max(1, def));
@@ -951,7 +952,7 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
     // Lucky shifts the whole window up.
     const variance = 0.92 + tableMult(TRAIT_FX.varianceShift, traitOf(attacker), 0) + Math.floor(nextRand(session) * 16) * 0.01;
-    let mult = elementMult(attacker.element, defender.element) * timingMult * variance * extraMult
+    let mult = elementMult(attacker.element, defender.element) * variance * extraMult
         * tableMult(ROLE_DAMAGE_MULT, attacker.role)
         * tableMult(ELEMENT_DAMAGE_MULT, attacker.element)
         * tableMult(ELEMENT_TAKEN_MULT, defender.element)
@@ -1026,7 +1027,6 @@ function deliveryFor(kind: string, role: string): 'melee' | 'ranged' | 'self' {
 interface ExecutedAction {
     move: ShowdownMove;
     superCast: boolean;
-    timing: number;
     targetId: string;
 }
 
@@ -1038,8 +1038,6 @@ function executeMove(
     events: ShowdownEvent[],
 ): void {
     const { move, superCast } = action;
-    const timingIdx = clampInt(action.timing, 0, SHOWDOWN_TIMING_MULTS.length - 1, 0);
-    const timingMult = SHOWDOWN_TIMING_MULTS[timingIdx];
     const kind = move.kind;
     const power = superCast ? Math.round(move.power * SHOWDOWN_SUPER_POWER_MULT) : move.power;
 
@@ -1090,13 +1088,13 @@ function executeMove(
             .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
         const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
         const procs: string[] = [];
-        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), timingMult, synergyMult, procs);
+        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs);
         const { dealt, ko } = applyDamage(session, target, dmg);
         if (dealt > 0) gainMeter(actor, SHOWDOWN_METER_ON_HIT_DEALT);
         // Hollowborn drinks a slice of every hit it lands.
         const drain = tableMult(TRAIT_FX.lifedrainPct, traitOf(actor), 0);
         if (dealt > 0 && drain > 0) {
-            applyHeal(actor, dealt * drain);
+            applyHeal(actor, dealt * drain, session.round);
             procs.push(traitOf(actor));
         }
         // Gear procs on plain strikes: on-hit poison and gear lifesteal.
@@ -1106,7 +1104,7 @@ function executeMove(
             procs.push(gear.name);
         }
         if (dealt > 0 && gear?.lifestealPctOfDamage && kind === 'damage') {
-            applyHeal(actor, dealt * gear.lifestealPctOfDamage / 100);
+            applyHeal(actor, dealt * gear.lifestealPctOfDamage / 100, session.round);
             procs.push(gear.name);
         }
         const eff = elementMult(actor.element, target.element);
@@ -1142,7 +1140,7 @@ function executeMove(
         // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the 2.2x
         // damage pace without enabling heal-stall (the judge counts HP%).
         const sageBonus = actor.role === 'sage' ? SAGE_HEAL_MULT : 1;
-        const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, (Math.max(60, power) / 700) * sageBonus));
+        const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, (Math.max(60, power) / 700) * sageBonus), session.round);
         targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
     } else {
         const target = resolveTarget(session, actorSide, action.targetId);
@@ -1164,7 +1162,7 @@ function executeMove(
                     const before = targets.length;
                     applyOffensiveHit(target, 1, 'lifesteal');
                     const dealt = targets[before]?.damage ?? 0;
-                    const healed = applyHeal(actor, dealt * 0.5);
+                    const healed = applyHeal(actor, dealt * 0.5, session.round);
                     if (healed > 0) targets.push({ id: actor.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false });
                     break;
                 }
@@ -1228,7 +1226,6 @@ function executeMove(
         element: actor.element,
         delivery: deliveryFor(kind, actor.role),
         super: superCast,
-        timing: timingIdx,
         targets,
         staminaAfter: Math.round(actor.stamina),
         meterAfter: Math.round(actor.meter),
@@ -1243,19 +1240,11 @@ function sideDefeated(session: ShowdownSession, side: Side): boolean {
     return livingTeam(session, side).length === 0;
 }
 
-function judgeOutcome(session: ShowdownSession): ShowdownOutcome {
-    const hpPct = (pets: ShowdownPet[]) => pets.reduce((sum, p) => sum + p.hp / p.maxHp, 0);
-    const mine = hpPct(session.player);
-    const theirs = hpPct(session.enemy);
-    // Strictly-greater wins the decision; the tie goes to the challenger's foe so
-    // stalling out the clock is never a free win. No draws by construction.
-    return mine > theirs ? 'win' : 'loss';
-}
 
-function finish(session: ShowdownSession, outcome: ShowdownOutcome, byJudge: boolean, events: ShowdownEvent[]): void {
+function finish(session: ShowdownSession, outcome: ShowdownOutcome, events: ShowdownEvent[]): void {
     session.finished = true;
     session.outcome = outcome;
-    events.push({ t: 'end', outcome, byJudge });
+    events.push({ t: 'end', outcome });
 }
 
 /**
@@ -1368,36 +1357,34 @@ export function resolveShowdownRound(
             pet.stamina = Math.max(0, pet.stamina - SHOWDOWN_GUARD_COST);
             events.push({
                 t: 'action', actorId: pet.id, actorSide: side, moveName: 'Guard', moveKind: 'guard',
-                element: pet.element, delivery: 'self', super: false, timing: 0,
+                element: pet.element, delivery: 'self', super: false,
                 targets: [{ id: pet.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'guard' }],
                 staminaAfter: Math.round(pet.stamina), meterAfter: Math.round(pet.meter), overexerted: false,
             });
         } else if (command.kind === 'rest') {
             pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_REST_PCT) + SHOWDOWN_REST_FLAT);
-            const healed = applyHeal(pet, pet.maxHp * SHOWDOWN_REST_HEAL_PCT);
+            const healed = applyHeal(pet, pet.maxHp * SHOWDOWN_REST_HEAL_PCT, session.round);
             pet.guarding = false;
             events.push({
                 t: 'action', actorId: pet.id, actorSide: side, moveName: 'Catch Breath', moveKind: 'rest',
-                element: pet.element, delivery: 'self', super: false, timing: 0,
+                element: pet.element, delivery: 'self', super: false,
                 targets: [{ id: pet.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'rest' }],
                 staminaAfter: Math.round(pet.stamina), meterAfter: Math.round(pet.meter), overexerted: false,
             });
         } else if (command.kind === 'super') {
             executeMove(session, pet, side, {
-                move: pet.signatureMove, superCast: true,
-                timing: command.timing ?? 0, targetId: command.targetId,
+                move: pet.signatureMove, superCast: true, targetId: command.targetId,
             }, events);
         } else if (command.kind === 'move') {
             executeMove(session, pet, side, {
-                move: pet.moves[command.moveIndex], superCast: false,
-                timing: command.timing ?? 0, targetId: command.targetId,
+                move: pet.moves[command.moveIndex], superCast: false, targetId: command.targetId,
             }, events);
         }
         // ('switch' never reaches here: successful swaps left the order, and
         // sanitizeCommand downgrades a failed swap to guard above.)
 
-        if (sideDefeated(session, 'enemy')) { finish(session, 'win', false, events); }
-        else if (sideDefeated(session, 'player')) { finish(session, 'loss', false, events); }
+        if (sideDefeated(session, 'enemy')) { finish(session, 'win', events); }
+        else if (sideDefeated(session, 'player')) { finish(session, 'loss', events); }
     }
 
     // ── End-of-round upkeep ──────────────────────────────────────────────────
@@ -1430,8 +1417,8 @@ export function resolveShowdownRound(
             // Hold timers tick for EVERYONE, field or bench (the Temtem rule).
             for (const pet of livingTeam(session, side)) pet.readiness += 1;
         }
-        if (sideDefeated(session, 'enemy')) finish(session, 'win', false, events);
-        else if (sideDefeated(session, 'player')) finish(session, 'loss', false, events);
+        if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
+        else if (sideDefeated(session, 'player')) finish(session, 'loss', events);
     }
 
     // ── Reinforcements: the bench fills empty field slots at round end ──────
@@ -1451,11 +1438,33 @@ export function resolveShowdownRound(
         }
     }
 
-    events.push({ t: 'roundEnd', round: session.round });
-
-    if (!session.finished && session.round >= sessionRoundCap(session)) {
-        finish(session, judgeOutcome(session), true, events);
+    // ── Attrition ───────────────────────────────────────────────────────────
+    // There is NO round cap and no judge: a fight ends when a team falls. What
+    // stops it running forever is this — from SHOWDOWN_ATTRITION_START every
+    // living pet bleeds a ramping share of its own max HP, and healing has
+    // already decayed (see applyHeal). It hits both sides equally, so it never
+    // decides the winner; it just guarantees there is one. It begins at the
+    // round the old cap used to fire, so the ~96% of fights that finish sooner
+    // are completely unaffected.
+    if (!session.finished) {
+        const pct = showdownAttritionPct(session.round);
+        if (pct > 0) {
+            for (const side of ['player', 'enemy'] as const) {
+                for (const pet of session[side]) {
+                    if (pet.ko || pet.benched) continue;
+                    const bleed = Math.max(1, Math.round(pet.maxHp * pct));
+                    const { dealt, ko } = applyDamage(session, pet, bleed, false);
+                    if (dealt > 0) {
+                        events.push({ t: 'dot', targetId: pet.id, targetSide: side, kind: 'attrition', damage: dealt, ko });
+                    }
+                }
+            }
+            if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
+            else if (sideDefeated(session, 'player')) finish(session, 'loss', events);
+        }
     }
+
+    events.push({ t: 'roundEnd', round: session.round });
     return events;
 }
 
@@ -1523,7 +1532,7 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         format: session.format,
         tier: session.tier,
         round: session.round,
-        maxRounds: sessionRoundCap(session),
+        attritionAt: SHOWDOWN_ATTRITION_START,
         finished: session.finished,
         outcome: session.outcome,
         player: session.player.map(petView),
