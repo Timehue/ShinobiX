@@ -852,6 +852,53 @@ baseline three regimes out of date.
 Pace 7.9 rounds, nothing reaches the simulator's guard. This is the tightest the
 mode has ever measured, and it closes the assassin drift flagged in round 18.
 
+## Round 20 — the move VFX pass (2026-08-11)
+
+An audit of the whole effect layer found the moves were barely differentiated at
+all. The numbers:
+
+- **20 of the 25 move kinds ignored the caster's element entirely.** A Fire stun
+  and a Water stun were pixel-identical. The 300-cell kind x element matrix
+  collapsed onto 18 sprites.
+- **Every signature played one sprite.** `superCast` short-circuited first, so
+  all 150 super cells resolved to `kaboom` — a lifesteal finisher and a pure
+  damage finisher were the same frame.
+- **A 34-power jab and a 300-power haymaker were identical.** There were exactly
+  two burst scales in the game (2.4 and 3.6) and neither read the hit. The
+  engine's whole jab/technique/haymaker ladder never reached the wire.
+- **Rest detonated the caster's own element on its own head** — the kind ladder
+  had no `rest` case, so a Fire pet catching its breath set off a fireball on
+  itself.
+- **A hit fully absorbed by a shield rendered nothing at all** — no number, no
+  sound, no flinch. The attacker lunged and the victim reacted in no way.
+- Burn, wound and the round-18 **attrition bleed** rendered one purple numeral
+  and no paint whatsoever.
+- Seven painted frame sets (60 frames) shipped in the bundle unreachable.
+
+**The fix.** Kind now chooses the *silhouette* (what the move does) and element
+carries as a *tint* on every burst, so all 150 cells read distinct without new
+art. Collided kinds were split apart on the evidence that they mean different
+things — stun off mark, confuse off slow, crush off plain damage, haste off
+buff — using frame sets already in the bundle (`bighit`, `explosion`, `magma`,
+`shield`, `none`). Supers keep their kind's shape and layer the blast over it.
+
+Burst scale and duration now derive from the same damage fraction the body
+reaction already used, multiplied by a new `weight` field the engine puts on the
+wire (`light` / `normal` / `heavy`, derived from the move's own hold and
+priority) — so the haymaker finally hits like one, and a KO or heavy blow layers
+a second larger shell over the first. Absorbed hits show an ABSORBED read and a
+shield flare; dots and attrition paint and flinch; the shield, taunt and
+steadfast statuses got auras (the absorb pool the defensive game runs on was
+invisible); and the two-aura cap now picks by authored importance instead of
+engine push order.
+
+**The mapping is now a pure module** (`lib/showdown-vfx-map.ts`) with a unit
+test that sweeps the full matrix. It lived inside the three.js component before,
+which is precisely why the most important table in the VFX layer could be this
+wrong without anyone seeing it — the test caught one more collision on its first
+run (a None-element Rest still shared a key), which is how Rest ended up
+correctly detonating nothing at all.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
