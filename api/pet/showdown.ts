@@ -264,12 +264,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: true, events, state: showdownStateView(session) });
             }
 
-            // Finishing turn: settle, then drop the session.
+            // Finishing turn: settle, then KEEP the finished session until its
+            // normal TTL instead of deleting it.
+            //
+            // Deleting here meant a dropped response on the settling turn was
+            // unrecoverable: the ryo was already paid (settleShowdownWin writes
+            // it under the save lock with a receipt), but the retry found no
+            // session and the client told the winner "no result was recorded" —
+            // no victory screen, no recap, no reward line, for a fight they won
+            // and were paid for. Retaining it lets the retry hit the
+            // already-resolved branch above, which returns no new events plus
+            // the terminal state, and the receipt check makes the settlement
+            // idempotent so nothing is paid twice.
             let settlement: Record<string, unknown> = { reward: 0 };
             if (session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
             }
-            await kv.del(key).catch(() => undefined);
+            await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             return res.status(200).json({ ok: true, events, state: showdownStateView(session), ...settlement });
         }
 

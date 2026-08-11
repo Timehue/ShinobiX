@@ -681,6 +681,62 @@ proportional costs would mean firing the haymaker at a full-health target and
 then rest-looping; it now weighs what a cast *leaves* it with, and spends the
 pool freely only when the hit closes the fight.
 
+## Round 16 — the signature was the win condition (2026-08-11)
+
+A completeness audit measured what the signature actually does. Against a
+mirror matchup with the meter full, across all 160 species:
+
+| | share of the target's HP bar |
+|---|---|
+| jab | 15% |
+| haymaker | 45% |
+| **signature** | **177%** |
+
+**159 of 160 species one-shot a full-health mirror.** That is not an ultimate,
+it is the win condition. Rounds 1–5 were a loading bar for the meter, and every
+lever round 15 shipped — the linear cost curve, the 1.35× haymaker, its 1.3×
+premium, its hold, its late swing — governed chip damage while one button ended
+the fight. In 2v2 the splash deleted both opponents at once.
+
+**Signature power is now 30% of the rarity ceiling, down from 72%** — 74% of a
+health bar, 1.7× the haymaker. Decisive but survivable from full, so it wins a
+fight you have already worked for instead of replacing it. The
+`max(authored, synth)` floor became a plain `synth`: its own comment recorded
+that the max never bound (authored raws are 90–152, the old synth 230–324) and
+that only the NAME was meant to come from the authored move. Once synth came
+down the max inverted that intent and left a tail of species still one-shotting.
+
+**What the signature was hiding.** With a one-shot ultimate, fights were decided
+by who charged the meter first, so per-element and per-role damage biases barely
+showed in aggregate. Fixing it exposed both: Fire jumped to a **74.4%** element
+win rate and defenders to **63.2%**. Neither table was wrong in principle — both
+are stat normalizations for species lines that really are weaker — they were
+just fitted to a regime that no longer exists. Both are now compressed toward
+neutral by an explicit, documented factor (elements 0.4, roles 0.6) rather than
+rewritten by hand, so the reasoning survives the next retune.
+
+Final spread, the tightest the mode has measured: pace 6.5 rounds, elements
+45.6–54.2%, roles 41.6–58.7%, judge 2.9%.
+
+**Three bugs fixed alongside it:**
+
+- **Overdraft HP was reported pre-shield.** `applyDamage` soaks through shields
+  and returns what it dealt; the raw rolled figure was going on the wire. The
+  client subtracts it straight off the bar and derives a KO from it, so a
+  shielded overdraft drained the bar by damage that never happened and fired the
+  full KO treatment until the end-of-script reconcile silently undid it. Every
+  other number in the event is the dealt amount; this one is now too.
+- **A dropped response on the settling turn was unrecoverable.** The session was
+  deleted the instant the reward was written, so the retry found nothing and the
+  client told the winner "no result was recorded" — for a fight they won and
+  were paid for. The finished session is now retained to its normal TTL, which
+  lets the retry hit the already-resolved branch that was written for exactly
+  this case; the payout receipt keeps it idempotent.
+- **The first frame of the mode was a dead button.** The lobby defaulted to 2v2
+  while the starter grants one pet, so the only gold button did nothing and
+  never said why. The format now defaults to what the roster can field, and a
+  disabled CTA always states what would enable it.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
