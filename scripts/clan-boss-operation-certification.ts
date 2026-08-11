@@ -11,15 +11,19 @@
  * --url in a future staging wrapper for those infrastructure measurements.
  */
 import { randomBytes } from 'node:crypto';
+import { once } from 'node:events';
 
-const PORT = Number(process.argv.find((arg) => arg.startsWith('--port='))?.slice('--port='.length) ?? 42_731);
-const BASE = `http://127.0.0.1:${PORT}`;
+// Let the OS reserve an available port by default. A fixed QA port made this
+// otherwise-hermetic certification intermittently fail with EADDRINUSE on
+// shared CI runners and when local certification processes overlapped.
+const REQUESTED_PORT = Number(process.argv.find((arg) => arg.startsWith('--port='))?.slice('--port='.length) ?? 0);
+let base = '';
 const ADMIN_PASSWORD = `Operation-${randomBytes(12).toString('hex')}`;
 const SUFFIX = randomBytes(3).toString('hex');
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
-process.env.PORT = String(PORT);
+process.env.PORT = String(REQUESTED_PORT);
 process.env.SESSION_SECRET = randomBytes(32).toString('hex');
 process.env.ADMIN_PASSWORD = ADMIN_PASSWORD;
 process.env.ENABLE_CLAN_BOSS = '1';
@@ -51,7 +55,7 @@ function requestId(prefix: string): string {
 async function http(path: string, input: { method?: string; body?: unknown; token?: string } = {}): Promise<HttpResult> {
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (input.token) headers['x-player-token'] = input.token;
-    const response = await fetch(`${BASE}${path}`, {
+    const response = await fetch(`${base}${path}`, {
         method: input.method ?? 'GET',
         headers,
         body: input.body === undefined ? undefined : JSON.stringify(input.body),
@@ -63,7 +67,7 @@ async function waitForHealth(timeoutMs = 30_000): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
         try {
-            if ((await fetch(`${BASE}/health`)).ok) return true;
+            if ((await fetch(`${base}/health`)).ok) return true;
         } catch { /* server is still starting */ }
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
@@ -174,6 +178,13 @@ async function runScenario(size: 1 | 2 | 4, kv: Json): Promise<void> {
 
     let actions = 0;
     let reconnects = 0;
+    // Prove reconnectability before combat. A very short one-player run can
+    // legitimately finish on its second action, which made the old every-other-
+    // action refresh condition impossible to reach while the run was active.
+    const initialRefresh = await http(`/api/towers/state?runId=${encodeURIComponent(runId)}&playerName=${encodeURIComponent(players[0]!.name)}`, { token: players[0]!.token });
+    if (!check(initialRefresh.status === 200 && initialRefresh.body.session?.runId === runId && initialRefresh.body.session?.status === 'active', `${players[0]!.name} reconnects to the active run before combat`)) return;
+    session = initialRefresh.body.session;
+    reconnects += 1;
     while (session?.status === 'active' && actions < 180) {
         const actorId = session.turnQueue?.[session.activeIndex];
         const actor = session.actors?.find((entry: Json) => entry.id === actorId);
@@ -280,7 +291,11 @@ async function main(): Promise<void> {
             import('../server.js'),
         ]);
         server = serverModule.server;
-        if (!check(await waitForHealth(), `${BASE}/health responds`)) throw new Error('server failed to start');
+        if (!server.listening) await once(server, 'listening');
+        const address = server.address();
+        if (!address || typeof address === 'string') throw new Error('server did not bind a TCP port');
+        base = `http://127.0.0.1:${address.port}`;
+        if (!check(await waitForHealth(), `${base}/health responds`)) throw new Error('server failed to start');
         const now = Date.now();
         const weekId = bossStorage.clanBossWeekId(now);
         await kv.set(bossStorage.clanBossWeekKey(weekId), {

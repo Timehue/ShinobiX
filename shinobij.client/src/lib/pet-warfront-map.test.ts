@@ -1,12 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_CELL_X, WF_CELL_Y,
-    wfWalkable, wfCellWalkable, wfMobRoute, wfThemeForVillage,
+    wfWalkable, wfCellWalkable, wfMobRoute,
     WF_SPAWNS, WF_CORE, WF_STATUES, WF_PADS, WF_LAIR, WF_LANES, WF_THEMES,
 } from "./pet-warfront-map";
+import { WF_BAKED_COLS, WF_BAKED_MASK, WF_BAKED_ROWS } from "./pet-warfront-mask-baked";
+import { wfThemeForVillage } from "./pet-warfront-theme";
 
 const cellOf = (x: number, y: number): [number, number] => [Math.floor((x + WF_X) / WF_CELL_X), Math.floor((y + WF_Y) / WF_CELL_Y)];
+
+test("baked reference mask expands to the exact symmetric source bytes", () => {
+    assert.equal(WF_BAKED_MASK.length, WF_BAKED_COLS * WF_BAKED_ROWS);
+    assert.match(WF_BAKED_MASK, /^[01]+$/);
+    for (let row = 0; row < WF_BAKED_ROWS; row++) {
+        const start = row * WF_BAKED_COLS;
+        for (let col = 0; col < WF_BAKED_COLS / 2; col++) {
+            assert.equal(
+                WF_BAKED_MASK[start + col],
+                WF_BAKED_MASK[start + WF_BAKED_COLS - 1 - col],
+                `baked x-mirror mismatch at ${col},${row}`,
+            );
+        }
+    }
+    assert.equal(
+        createHash("sha256").update(WF_BAKED_MASK).digest("hex"),
+        "171282de272b85e8ad5a7d28e23a7ad969a70b4929d3cd1af62f7601eea1eb09",
+    );
+});
 
 test("mask has the right size and a sane walkable share", () => {
     assert.equal(WF_MASK.length, WF_COLS * WF_ROWS);

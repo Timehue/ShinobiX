@@ -55,7 +55,11 @@ export function petVisualQuality(): PetVisualQualityConfig {
     const query = new URLSearchParams(window.location.search).get("petQuality");
     let stored: string | null = null;
     try { stored = window.localStorage.getItem(PET_VISUAL_QUALITY_STORAGE_KEY); } catch { /* storage may be unavailable */ }
-    if (query || stored) return resolvePetVisualQuality(query || stored);
+    if (query) return resolvePetVisualQuality(query);
+    // "High" is retired as a player-facing preset — the shadow pass + 1.75 DPR +
+    // dynamic lights tanked the Warfront frame rate. A previously stored "high"
+    // now runs Medium; the ?petQuality= QA override above can still reach it.
+    if (stored) return resolvePetVisualQuality(stored.toLowerCase() === "high" ? "medium" : stored);
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8);
     if (reduced || window.innerWidth <= 640 || memory <= 4) return PET_VISUAL_QUALITY_PRESETS.low;

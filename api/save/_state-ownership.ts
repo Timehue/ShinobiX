@@ -264,6 +264,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('redeemedDungeonRuns', 'character', 'server-payout-stamp', 'hollow-gate', ['progression-entitlement-char']),
     f('redeemedHollowGateRuns', 'character', 'server-payout-stamp', 'hollow-gate', ['progression-entitlement-char']),
     f('redeemedPetBattleTokens', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
+    f('warfrontSettlementReceipts', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char'], 'bounded idempotency receipts written with the authoritative Warfront payout'),
+    f('lastWarfrontFirstWinDate', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char'], 'durable first-win bonus guard written with the authoritative Warfront payout'),
     f('redeemedPetExpeditionTokens', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
     f('claimedServerMissions', 'character', 'server-payout-stamp', 'missions', ['progression-entitlement-char'], 'per-day mission claim receipts'),
     f('redeemedPetGauntletRuns', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),

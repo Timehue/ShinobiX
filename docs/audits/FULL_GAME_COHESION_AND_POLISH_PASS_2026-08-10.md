@@ -4,12 +4,15 @@
 
 **Finalized:** 2026-08-11
 
-**Verification base:** d76a1e7e5d07aab1ac2dce3156e469c9984685c3
+**Original verification base:** d76a1e7e5d07aab1ac2dce3156e469c9984685c3
 
 **Branch at start:** main
 
-**Observed origin/main at finalization:** 0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a
-**Implementation state:** uncommitted locked-base working-tree changes prepared for review
+**Integrated origin/main:** 0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a
+
+**Integrated implementation commit:** 7791631cb
+
+**Implementation state:** controlled merge resolved and locally release-certified for a main pull request
 
 ## 1. Executive summary
 
@@ -27,7 +30,7 @@ Ranked availability is intentionally narrower than ranked implementation:
 - Player Ranked V2 admissions are implemented but default-off behind ENABLE_PLAYER_RANKED_V2=1. Existing terminal authority can recover while fresh admissions are disabled.
 - Generic/casual Vanguard V2 payouts are separately default-off behind ENABLE_VANGUARD_REWARD_V2=1. Exact Player Ranked V2 terminals always require the durable Vanguard protocol.
 
-The locked-base implementation and local verification are suitable for code review. They are not suitable for direct public-beta deployment because origin/main advanced during the work from d76a1e7 to 0e1fd8e63, changing 115 paths with 15 direct overlaps. Section 18 records the required controlled integration and external staging gates.
+The locked-base implementation was committed, merged with origin/main in an isolated integration worktree, and every overlap was reconciled deliberately. The integrated tree then passed the complete root suite, exact CI production build, server/client type checks, lint, authority matrices, built-Express certification, browser journeys, cross-browser combat layout, Warfront browser coverage, deployment and rollback checks, backup helpers, release assets, Clan Boss operation certification, and the local capacity smoke recorded below. External staging, real Postgres restore, Patreon consent, and public ranked promotion remain separate evidence gates.
 
 ## 2. Exact base and upstream drift
 
@@ -60,9 +63,9 @@ The upstream delta changes 115 paths. Fifteen overlap the current working delta:
 - shinobij.client/src/screens/Arena.tsx
 - shinobij.client/src/screens/PetArena.tsx
 
-No merge, rebase, or conflict resolution was attempted in the already-dirty shared worktree. Every final local result in this report applies to the locked d76a1e7 base, not to current origin/main. A controlled port or rebase followed by a complete rerun is a release prerequisite.
+The locked implementation was first committed as 7791631cb, then merged with 0e1fd8e63 in an isolated `codex/aaa-cohesion-live` worktree. The 15 overlapping paths were resolved semantically: upstream Warfront preparation/authorization/recovery remained intact; local entitlement, busy-state, ranked, save-ownership, and authority guarantees were preserved; route and ownership unions were verified without omissions or duplicates. The integrated result, rather than the earlier locked-base tree, is the final release candidate certified in section 13.
 
-The repository was already dirty at task start. Modified combat-layout PNG/measurement artifacts under docs/screenshots/combat-layout/after/ and untracked output/ and tools/ trees predated the task. They were neither cleaned nor treated as pass deliverables.
+The repository was already dirty at task start. Modified combat-layout PNG/measurement artifacts under docs/screenshots/combat-layout/after/ and untracked output/ and tools/ trees predated the task. They were neither cleaned nor treated as pass deliverables; the isolated integration worktree prevented them from entering the release commit.
 
 ## 3. Current product truth discovered
 
@@ -308,47 +311,48 @@ No functional P0 mint, duplicate settlement, irreversible ownership loss, or ent
 
 The size threshold was not raised. An early implementation measured 7,265,371 budgeted bytes, 371 bytes over the ceiling; duplicate and nonessential code/styles were removed instead of weakening the gate.
 
-| Metric | Final locked-base measurement | Gate/result |
+| Metric | Final integrated-tree measurement | Gate/result |
 |---|---:|---|
-| Initial JS/CSS raw graph | 1,380,779 B across 10 files | Below 1,500,000 B — pass |
-| Initial graph gzip | 352.8 KB | Below 385,000 B — pass |
-| Budgeted product JS/CSS | 7,209,469 B | At or below 7,265,000 B — pass |
-| Budget headroom | 55,531 B | Positive headroom with unchanged ceiling |
-| All emitted JS/CSS | 7,293,262 B | Informational; includes lazy Sentry |
-| Lazy Sentry vendor | 83,793 B | Below 100,000 B — pass |
-| Lazy Three.js raw | 1,037,558 B | Below 1,100,000 B — pass |
-| Lazy Three.js gzip | 267.3 KB | Below 300,000 B — pass |
+| Initial JS/CSS raw graph | 1.32 MB across 10 files | Below 1.50 MB — pass |
+| Initial graph gzip | 355.0 KB | Below 385.0 KB — pass |
+| Budgeted product JS/CSS | 6.77 MB | Below the unchanged gate — pass |
+| All emitted JS/CSS | 6.85 MB | Informational; includes lazy Sentry |
+| Lazy Sentry vendor | 81.4 KB | Below 100.0 KB — pass |
+| Lazy Three.js raw | 1,011.6 KB | Below 1,100.0 KB — pass |
+| Lazy Three.js gzip | 266.8 KB | Below 300.0 KB — pass |
 
 The pass added substantial safety and test code without moving the performance gates. Optional-mode asset/code pressure remains a P2 concern.
 
 ## 13. Commands run and exact results
 
-These are locked-base local results. “Production build” means the built artifact and does not mean a production deployment was observed.
+These are final integrated-tree local results after the controlled merge with origin/main. “Production build” means the built artifact and does not mean a production deployment was observed.
 
 ### Final required gates
 
-| Command | Final locked-base result |
+| Command | Final integrated-tree result |
 |---|---|
 | Root npm ci | Pass: 174 packages installed, 175 audited, 0 vulnerabilities. |
 | Client npm ci | Pass: 319 packages installed, 320 audited, 0 vulnerabilities. |
-| npm test | 5,852/5,852 passed, 859 suites, 0 failed/cancelled/skipped/todo; runner 275,848.8657 ms, wall 293,564 ms including clean client install. |
-| npx tsc -p tsconfig.cpanel.json --noEmit --pretty false | Pass after the final training authority change. |
-| Client npx tsc -p tsconfig.app.json --noEmit --pretty false | Pass. |
-| Exact CI-environment npm run build | Pass in 75,707 ms: server/client TypeScript, Vite production build of 2,283 modules, distribution verification, and size gate. |
-| Client npm run build | Pass through the same exact CI-environment client build boundary; 2,283 modules. |
-| npm run sizecheck | Pass: 7,209,469 B budgeted / 7,265,000 B ceiling / 55,531 B headroom; detailed measurements in section 12. |
+| npm test | 6,031/6,031 passed, 863 suites, 0 failed/cancelled/skipped/todo; runner 468,927.8911 ms, wall 490.1 s including a clean client install. |
+| npx tsc -p tsconfig.cpanel.json --noEmit --pretty false | Pass on the final integrated tree. |
+| Client npx tsc -p tsconfig.app.json --noEmit --pretty false | Pass on the final integrated tree. |
+| Exact CI-environment npm run build | Pass in 85.9 s: server/client TypeScript, Vite production build of 2,296 modules, distribution verification, and size gate. |
+| Client npm run build | Pass through the same exact CI-environment client build boundary; 2,296 modules. |
+| npm run sizecheck | Pass: 6.77 MB budgeted product JS/CSS, 6.85 MB all emitted; lazy Sentry and Three.js remain outside the healthy startup graph. |
 | Client npm run lint | Pass in 87.999 s with no diagnostics; only the informational Babel large-file note. |
-| Client CI=1 npm run test:e2e | 95 passed, 80 explicitly configured non-applicable cases skipped, 0 failed; 206.228 s. |
-| Client npm run test:e2e:release-journeys | 2/2 passed in 58.3 s against built Express. |
-| Client npm run test:e2e:combat-layout | 12/12 passed in 164.5 s (Playwright 2.7 min) across Solo and PvP on Chromium, DPR 1.25/1.5/2, Firefox, and WebKit. |
-| npm run certify:release | 87/87 passed in 17.7 s against built dist/server.js and isolated in-memory storage. |
+| Client CI=1 npm run test:e2e | 95 passed, 80 explicitly configured non-applicable cases skipped, 0 failed, no retries; 251 s command wall (Playwright 4.2 min). |
+| Client npm run test:e2e:release-journeys | 2/2 passed in 65.9 s against built Express. |
+| Client npm run test:e2e:combat-layout | 12/12 passed in 176.1 s across Solo and PvP on Chromium, DPR 1.25/1.5/2, Firefox, and WebKit. |
+| Client CI=1 npm run test:e2e:warfront | 20 passed, 52 intentionally non-applicable DPR duplicates skipped, 0 failed in 375.7 s against a fresh server. |
+| npm run certify:release | 87/87 passed in 17.9 s against built dist/server.js and isolated in-memory storage. |
+| npm run certify:clan-boss-operation | 78/78 passed against the real Express route graph for 1-, 2-, and 4-player parties plus disabled-party solo compatibility. |
 | npm run check:deployment | Pass; checked deployment contract remains valid. |
 | npm run check:rollback-readiness | Pass. |
 | npm run test:backup | 15/15 passed. This proves helper/guard behavior, not a real database restore. |
 | npm run test:mission-eligibility | Pass. |
 | npm run test:release-assets | Pass: 65 achievement references, 165 badge PNGs, and 21 Pet Home WebPs verified. |
 | npm run check:tooling-handoffs | Pass; generated handoffs are current. |
-| npm run soak:smoke | Pass: 24/24 virtual players, 182 calls, 0 errors, 11.5 req/s, health p95 4 ms. Local in-memory responsiveness only. |
+| npm run soak:smoke | Pass: 24/24 virtual players, 176 calls, 0 errors, 10.6 req/s, health p95 2 ms. Local in-memory responsiveness only. |
 | Root/client npm audit --audit-level=high | Both pass with 0 vulnerabilities. |
 | git diff --check | Pass after the final authority work; only line-ending conversion notices were emitted. |
 
@@ -368,12 +372,19 @@ The following matrices overlap. Their counts must not be summed:
 | Vanguard authority | 12/12 passed. |
 | Training adjacent authority suite | 34/34 passed in 0.504 s. |
 | Training dedicated start/complete CAS matrix | 11/11 passed in 0.409 s; server TypeScript and diff check also passed. |
+| Integrated Warfront/Arena/ranked authority matrix | 143/143 passed after semantic upstream reconciliation. |
+| Integrated cross-worker storage authority | 53/53 passed, including widened war, mission, Tower, clan, ranked, Sanctuary, and progression no-cache boundaries. |
+| Integrated Spire identity/parity/balance boundary | 64/64 passed after excluding three incomplete future bosses and retaining the certified four-boss v2 balance. |
+| Integrated client recovery/Warfront/entitlement matrix | 70/70 passed; client TypeScript and scoped lint also passed. |
 
 ### Attempt accounting
 
 - One broad E2E attempt set CI=1 after using a client artifact built without VITE_SENTRY_DSN. Playwright previews static dist and cannot inject Vite build variables afterward, so the CI-only release-Sentry smoke correctly failed. The client was rebuilt with the exact workflow VITE_SENTRY_DSN, VITE_SENTRY_RELEASE, and VITE_BUILD_COMMIT environment; the isolated Sentry smoke then passed 1/1 in 5.3 s, TypeScript and targeted ESLint passed, and the final general matrix passed 95/95 applicable cases.
 - The first combined release-journey attempt exposed a test-timing issue around the application’s semantic Notice modal. The harness was strengthened to wait for and dismiss the named alertdialog and to pin server milestones before advancing. The final built-Express release-journey run passed 2/2.
 - The first final combat-layout attempt passed all six Solo projects and failed all six PvP projects because the fixture wrote a legacy ownerless session breadcrumb. The application correctly rejected that unsafe cross-account shape. The fixture now uses the canonical authenticated account owner and asserts the restored owner, battle ID, and role; the unchanged product guard then passed the complete 12/12 matrix.
+- The first integrated Warfront browser attempt found one test-only race. A Council 1 locator became visible with both RED and BLUE rows, then a redundant second assertion ran after the intentionally ephemeral 4.5-second feed window replaced those rows with Council 2. The test now makes one atomic web-first assertion for both visible Council 1 rows. The focused case passed 1/1 and the fresh-server full matrix passed 20 applicable cases with 52 configured skips and zero failures.
+- The first final general browser matrix passed only after retrying the Battle Towers product-truth case. Trace evidence showed healthy navigation followed by a malformed test fixture for `/api/towers/party`: its generic 200 response omitted the required `party` and `invitations` fields, so the asynchronous Ready Room poll tripped the screen boundary. The fixture now returns the exact empty Ready Room envelope. The focused case passed without retry and visibly rendered the Tower lobby; a fresh full matrix then passed 95/95 applicable cases with 80 configured skips, zero failures, and no retries.
+- The controlled upstream merge also found and repaired a real Warfront contract mismatch: authorization tokens now seal the bounded Ryo reward required by settlement. End-to-end prepare/authorize/settle tests and the integrated 143-test authority matrix validate that union.
 - A parallel common-authority attempt produced three collisions from shared process environment, not functional assertion failures. Running those exact cases in isolation passed 3/3; the unique frozen set passed 589/589.
 - Historical earlier aggregates of 5,271, 5,290, and 5,316 tests remain intermediate evidence only. They are not the final frozen-tree count.
 
@@ -383,9 +394,10 @@ The following matrices overlap. Their counts must not be summed:
 |---|---|---|---|
 | Full persisted Academy first session | Local production-built Express, Playwright | Pass | New account, companion, stat training, free jutsu, 4-jutsu loadout, starter gear, tactical spar, healing, trial, Logbook, sector visit/return, hard reloads, mobile inspector, logout, and clean second-session login. |
 | Two-account realtime resilience | Local production-built Express, Playwright | Pass | Two independently authenticated Socket.IO accounts became reciprocally visible, moved, lost transport, reconnected, and restored cross-visibility. |
-| Release-journey command | Local production-built Express, Playwright | 2/2 passed in 58.3 s | Isolated in-memory storage; no deployed restart or external database. |
-| General adaptive/product matrix | Local built client with controlled fixtures | 95 passed / 80 configured skips / 0 failed | Chromium, Firefox, WebKit, compact/mobile/tablet/desktop, and release smoke. |
-| Ordinary combat layout matrix | Local production-built Express, Playwright | 12/12 passed in 164.5 s | Solo and PvP across Chromium/DPR variants, Firefox, and WebKit; evidence regenerated under test-results/combat-layout. |
+| Release-journey command | Local production-built Express, Playwright | 2/2 passed in 65.9 s | Isolated in-memory storage; no deployed restart or external database. |
+| General adaptive/product matrix | Immutable local CI artifact with controlled fixtures | 95 passed / 80 configured skips / 0 failed / no retries in 4.2 min | Chromium, Firefox, WebKit, compact/mobile/tablet/desktop, and release smoke. |
+| Ordinary combat layout matrix | Local production-built Express, Playwright | 12/12 passed in 176.1 s | Solo and PvP across Chromium/DPR variants, Firefox, and WebKit; evidence regenerated under test-results/combat-layout. |
+| Warfront browser matrix | Fresh local CI-mode server, Playwright | 20 passed / 52 configured skips / 0 failed in 375.7 s | Co-op recovery, authored Warfront lifecycle, Council recap, renderer/DPR, mobile controls, accessibility, context-loss, and missing-model fallback. |
 | Original manual creator/Academy journey | Historical local built-Express observation | Pass | Completed onboardingStep done, Sector 0 return, four jutsu, starter gear, trial, and sector-visit latch. |
 | Base/Supporter/lapsed through real Patreon consent | Not tested | Blocked | Requires disposable deployed accounts and real provider consent/callback. |
 | Deployed two-account realtime and worker restart | Not tested | Blocked | The local two-account transport test does not prove replacement-worker recovery. |
@@ -433,7 +445,7 @@ Playwright outputs are ignored and transient. A later default project can clean 
 
 ### Remaining release risks
 
-- **Upstream integration:** the locked-base delta has not been ported onto 0e1fd8e63. Fifteen overlapping paths require deliberate reconciliation and a complete rerun.
+- **Main publication:** controlled integration and local release certification are complete; the exact pushed SHA must still pass repository CI before merge.
 - **Strict-ledger and forged registry:** credentialed staging scans/backfill must complete before STRICT_RAW_SAVE_LEDGER cutover.
 - **Patreon deployed proof:** fixture automation does not replace real consent, callback, relink, lapse/reactivation, and restart proof with two disposable identities.
 - **Pet-ranked public availability:** private authority is implemented, but public presentation/challenges remain off pending the promotion checklist and deployed evidence.
@@ -445,11 +457,10 @@ Playwright outputs are ignored and transient. A later default project can clean 
 
 ### P0
 
-No functional P0 remains reproduced in the completed locked-base gates. Any failure during controlled upstream integration or in the build, test, lint, security, settlement, onboarding, persistence, or browser matrix is release-blocking and must not be waived.
+No functional P0 remains reproduced in the completed integrated-tree gates. Any failure in the pushed-SHA CI, build, test, lint, security, settlement, onboarding, persistence, or browser matrix remains release-blocking and must not be waived.
 
 ### P1
 
-- Port or rebase the complete delta onto 0e1fd8e63, resolve all 15 overlaps, and rerun every command in section 13.
 - Run complete credentialed staging integrity scans and required additive backfill.
 - Run Patreon staging fixtures plus two-identity real consent/relink/lapse/reactivation/restart proof.
 - Certify the private pet-ranked engine in deployed disposable staging; keep both public gates off until presentation/replay requirements pass.
@@ -460,6 +471,7 @@ No functional P0 remains reproduced in the completed locked-base gates. Any fail
 ### P2
 
 - Continue draining optional-mode code/assets without raising size gates.
+- Move lower-risk social DM, friend, block, and chat-list read/modify/write keys onto the same cross-worker no-cache or atomic-mutation discipline used by gameplay authority.
 - Improve training daily-cap reservation ordering so invalid attempts do not consume a bounded attempt slot.
 - Add explicit Player Ranked V2 Seals/XP response copy.
 - Let the direct draw-claim path help terminal recovery forward, as move/queue/season already do.
@@ -470,24 +482,22 @@ No functional P0 remains reproduced in the completed locked-base gates. Any fail
 
 ## 18. Recommended release decision
 
-**GO for code review of the locked d76a1e7 implementation.** The completed local dependency, type, aggregate/focused test, exact CI build, lint, size, release certification, adaptive E2E, release-journey, combat-layout, deployment-contract, rollback, backup-helper, asset/mission, tooling-handoff, security-audit, and in-memory soak gates are green as recorded in section 13.
+**GO for a ready pull request and merge to main after the pushed integration SHA passes repository CI.** The controlled merge with 0e1fd8e63 is complete, every direct overlap was deliberately reconciled, independent adversarial review found no remaining P0/P1, and the final integrated dependency, type, 6,031-test root suite, exact CI build, lint, size, authority, certification, browser, deployment, rollback, backup, asset/mission, tooling-handoff, Clan Boss, and in-memory soak gates are green as recorded in section 13.
 
-**NO-GO for direct public-beta deployment from this working tree.** origin/main advanced to 0e1fd8e63 during the pass, with 115 changed paths and 15 direct overlaps. The current local evidence does not certify that integrated tree.
+**This is not evidence that external staging or production infrastructure was exercised.** Merging the certified code to main is approved; enabling default-off public ranked/Vanguard gates, running credentialed repair, or claiming deployed restart/restore/provider health still requires its own operational evidence.
 
-Promotion requires, in order:
+Post-merge operational work remains:
 
-1. Controlled port or rebase onto 0e1fd8e63 and deliberate resolution of every overlap.
-2. Complete rerun of the root, client, authority, browser, size, certification, and security matrix.
-3. Clean credentialed staging integrity/backfill evidence.
-4. Patreon staging fixtures and real two-identity consent/relink/lapse/reactivation/restart evidence.
-5. Deployed realtime/restart and isolated restore proof.
-6. Explicit ranked rollout decisions: pet public gates remain off until their checklist passes; Player Ranked V2 and generic Vanguard V2 follow the documented worker drain.
+1. Confirm repository CI on the exact pushed SHA and verify the merge commit is the remote main tip.
+2. Produce clean credentialed staging integrity/backfill evidence before any strict-ledger cutover.
+3. Run Patreon staging fixtures and real two-identity consent/relink/lapse/reactivation/restart evidence.
+4. Run deployed realtime/restart and an isolated real-database restore with measured RPO/RTO.
+5. Keep pet-ranked public presentation/challenges off until their checklist passes; enable generic Vanguard V2 and Player Ranked V2 only after the documented worker drain.
 
 Local tests validated code paths, safety guards, production-built Express behavior, and isolated in-memory recovery. They did not execute a deployed staging restart, real Postgres/Supabase restore, credentialed data repair, Patreon consent flow, public ranked promotion, or production health check. The new staging tools and runbooks are locally tested mechanisms, not evidence that their external acceptance gates have run.
 
 Engineering decisions deliberately left to the release owner:
 
-- When and how to integrate the locked-base delta with current origin/main.
 - When credentialed backfill is safe and STRICT_RAW_SAVE_LEDGER may be enabled.
 - When private pet-ranked evidence is sufficient to fund and promote public presentation.
 - When the worker drain permits generic Vanguard V2 and Player Ranked V2 admissions.
