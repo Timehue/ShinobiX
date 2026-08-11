@@ -133,3 +133,30 @@ test("the master switch hard-mutes every audio owner without reviving stopped mu
     unsubscribeHealthy();
     setAudioMuted(true);
 });
+
+test("each battle theme routes to its OWN track, and none silently falls back to the pool", () => {
+    // Pet Showdown is the flagship mode and shipped for months playing the same
+    // three-track pool as every other fight, so "the headline battle sounds
+    // generic" is a regression this codebase has already had once. The failure
+    // mode is quiet: drop the `showdown` branch and it falls through to the
+    // random pool, still plays music, and nothing else complains.
+    setAudioMuted(false);
+
+    startBattleMusic("showdown");
+    const el = MockAudio.instances[0];
+    assert.ok(el, "battle music element exists");
+    assert.equal(el.src, "/music/showdown-lantern-duel.mp3", "showdown plays its commissioned theme");
+
+    startBattleMusic("hollow-gate");
+    const hollowSrc = el.src;
+    assert.notEqual(hollowSrc, "/music/showdown-lantern-duel.mp3", "hollow-gate is not the showdown theme");
+
+    // The pooled theme must land on a track that is neither dedicated theme —
+    // this is what actually catches a mis-ordered branch.
+    startBattleMusic("standard");
+    assert.notEqual(el.src, "/music/showdown-lantern-duel.mp3", "standard never grabs the showdown theme");
+    assert.notEqual(el.src, hollowSrc, "standard never grabs the hollow-gate theme");
+
+    stopBattleMusic();
+    setAudioMuted(true);
+});

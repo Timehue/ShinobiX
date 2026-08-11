@@ -12,8 +12,13 @@ const TRACKS = [
     "/music/koi-kunai.ogg",
 ];
 const HOLLOW_GATE_TRACK = "/music/silk-shuriken-2.ogg";
+/** Pet Showdown's OWN theme. The flagship mode used to draw from the shared
+ *  three-track pool, so the headline battle sounded like every other fight in
+ *  the game. Commissioned for the mode (see docs/pet-showdown-design.md for the
+ *  generator and the exact prompt). */
+const SHOWDOWN_TRACK = "/music/showdown-lantern-duel.mp3";
 
-export type BattleMusicTheme = "standard" | "hollow-gate";
+export type BattleMusicTheme = "standard" | "hollow-gate" | "showdown";
 export type BattleMusicIntensity = "calm" | "pressure" | "climax";
 
 export function hollowGateMusicMix(intensity: BattleMusicIntensity): {
@@ -137,6 +142,8 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
 
     if (theme === "hollow-gate") {
         el.src = HOLLOW_GATE_TRACK;
+    } else if (theme === "showdown") {
+        el.src = SHOWDOWN_TRACK;
     } else {
         let index = Math.floor(Math.random() * TRACKS.length);
         if (TRACKS.length > 1 && index === lastTrackIndex) index = (index + 1) % TRACKS.length;

@@ -230,8 +230,9 @@ export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Ob
  *  cap — the switch is the prediction layer that replaces board movement. */
 export const SHOWDOWN_MAX_TEAM = 3;
 
-/** One command per living pet per round. `timing` is the needle grade index
- *  into SHOWDOWN_TIMING_MULTS (0 = untapped/miss, 2 = perfect). */
+/** One command per living pet per round. Deliberately carries no execution
+ *  input: the timing-needle grade that used to ride along here was removed in
+ *  round 18, so a command is pure INTENT and the engine alone decides outcome. */
 export type ShowdownCommand =
     | { kind: "move"; petId: string; moveIndex: number; targetId: string }
     | { kind: "super"; petId: string; targetId: string }
