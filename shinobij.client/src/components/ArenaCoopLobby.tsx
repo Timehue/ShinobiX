@@ -10,6 +10,7 @@ import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { activeCarriedPets } from "../lib/entitlements";
 import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { parseVersionedWarfrontSetup } from "../lib/arena-challenge";
 import {
@@ -134,8 +135,8 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     onExit: () => void;
 }) {
     const myName = character.name;
+    const availablePets = activeCarriedPets(character).filter((p) => !isPetOnExpedition(p));
     const normalizedName = normalizePlayerIdentity(myName);
-    const availablePets = character.pets.filter((pet) => !isPetOnExpedition(pet));
     const availableIds = new Set(availablePets.map((pet) => pet.id));
     const [requestOwner] = useState(() => new PlayerRequestOwner());
     const requestSequence = useRef(0);

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { maxPets } from '../_entitlements.js';
+import { activeCarriedPetIds, maxPets } from '../_entitlements.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { safeLogValue } from '../_safe-log.js';
 import { kv } from '../_storage.js';
@@ -26,6 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const character = record?.character as Record<string, unknown> | undefined;
         if (!character) return res.status(404).json({ error: 'Player save not found.' });
         const carried = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
+        const eligibleCarriedIds = activeCarriedPetIds(character, carried);
         const result = await listPetSanctuary(playerName, {
             cursor: queryValue(req.query?.cursor).slice(0, 32),
             search: queryValue(req.query?.search).slice(0, 64),
@@ -41,6 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...result,
             carriedCount: carried.length,
             carriedCapacity: maxPets(character),
+            eligibleCarriedCount: eligibleCarriedIds.length,
+            preservedOverflowCount: Math.max(0, carried.length - eligibleCarriedIds.length),
         });
     } catch (error) {
         console.error('[pet/sanctuary/list]', safeLogValue(error));

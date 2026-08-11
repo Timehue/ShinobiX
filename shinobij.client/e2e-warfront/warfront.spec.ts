@@ -135,10 +135,8 @@ test("automatic Councils produce a two-sided readable broadcast recap", async ({
     test.skip(testInfo.project.name !== "chromium-dpr1", "canonical Council recap runs once");
     await page.goto(`${warfrontUrl}&wfspeed=10&petQuality=low`);
     await expect(warfrontLoader(page)).toBeHidden({ timeout: 30_000 });
-    const recaps = page.locator(".wf-council-recap[role='status']").filter({ hasText: /COUNCIL 1/ });
-    await expect(recaps.first()).toBeVisible({ timeout: 20_000 });
-    await expect(recaps.first()).toContainText(/COUNCIL 1/);
-    expect(await recaps.count()).toBeGreaterThanOrEqual(2);
+    const recaps = page.locator(".wf-council-recap[role='status']:visible").filter({ hasText: /COUNCIL 1/ });
+    await expect(recaps).toHaveCount(2, { timeout: 20_000 });
 });
 
 test("a missing hound rig falls back without crashing the match", async ({ page }, testInfo) => {

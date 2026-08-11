@@ -5,8 +5,24 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { mintRankedMatchToken } from '../_ranked-match-token.js';
+import { mintPlayerRankedMatchToken } from '../_ranked-match-token.js';
+import {
+    findPlayerRankedAdmissionForPlayer,
+    cancelExpiredOrphanPlayerRankedAdmissions,
+    PLAYER_RANKED_ACTIVE_ORPHAN_TTL_MS,
+    PLAYER_RANKED_ADMISSION_TTL_MS,
+    readPetRankedSeasonGateFresh,
+    releaseExpiredQueuedPlayerRankedAdmissions,
+    releaseQueuedPlayerRankedAdmission,
+} from '../pet/_ranked-preparation.js';
+import { recordCancelledPlayerRankedAdmission } from './_player-ranked-journal.js';
+import { recoverCompletedPlayerRankedFinalizations } from './_ranked-terminal-effects.js';
+import {
+    PLAYER_RANKED_V2_DISABLED_MESSAGE,
+    playerRankedV2AdmissionsEnabled,
+} from './_player-ranked-rollout.js';
 import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
 
 export type QueueEntry = {
     name: string;
@@ -26,6 +42,7 @@ const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-
 // a match that never turns into a fight re-opens matchmaking for both sides.
 const MATCH_TTL_SECONDS = 30;
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
+const CURRENT_SEASON_KEY = 'ranked:season:current';
 // Matchmaking level band. Without this, the queue paired purely by Elo
 // proximity — a level-5 player and a level-100 player with default 1000 Elo
 // would match, which guaranteed the low-level player a free loss. Opens
@@ -74,7 +91,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const active = queue.filter(e => queueEntryIsActive(e, now));
         const inQueue = active.some(e => e.name === name);
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json({ inQueue, queueSize: active.length });
+        const enabled = playerRankedV2AdmissionsEnabled();
+        return res.status(200).json({ enabled, inQueue: enabled && inQueue, queueSize: enabled ? active.length : 0 });
     }
 
     if (req.method === 'POST') {
@@ -100,11 +118,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // is rate-limited; without this, spam serializes on the shared QUEUE_KEY
             // lock and degrades matchmaking latency for everyone. ~60/min comfortably
             // covers the client's ~2-3s poll cadence with headroom.
-            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'ranked-queue', 60, 60_000, identity.name))) return;
             // Keep the action allowlist explicit. Ranked consumables and rating
             // are settled from the sealed battle record by claim-rewards.
             if (!rankedPvpActionAllowedDuringSettlement(action)) {
                 return res.status(400).json({ error: 'Unknown ranked queue action.' });
+            }
+            if (action !== 'leave') {
+                // The kill switch/default-off gate prevents every new admission
+                // write, but must not strand already-authoritative work. Help
+                // terminal sagas forward and retire expired queued/unjoined
+                // capabilities before returning disabled; this never adds to
+                // the queue, consumes a rate-limit slot, or mints a token.
+                await recoverCompletedPlayerRankedFinalizations(
+                    kv,
+                    (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
+                    { eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)) },
+                );
+                const recoveryNow = Date.now();
+                await releaseExpiredQueuedPlayerRankedAdmissions(
+                    kv,
+                    recoveryNow - PLAYER_RANKED_ADMISSION_TTL_MS,
+                );
+                const cancelled = await cancelExpiredOrphanPlayerRankedAdmissions(
+                    kv,
+                    recoveryNow - PLAYER_RANKED_ACTIVE_ORPHAN_TTL_MS,
+                    recoveryNow,
+                );
+                for (const admission of cancelled) {
+                    await recordCancelledPlayerRankedAdmission(kv, admission, { reason: 'orphan-session-missing' });
+                }
+            }
+            if (action !== 'leave' && !playerRankedV2AdmissionsEnabled()) {
+                return res.status(503).json({ enabled: false, error: PLAYER_RANKED_V2_DISABLED_MESSAGE });
+            }
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'ranked-queue', 60, 60_000, identity.name))) return;
+
+            if (action !== 'leave') {
+                const [gate, season] = await Promise.all([
+                    readPetRankedSeasonGateFresh(kv),
+                    kv.get<{ id?: unknown }>(CURRENT_SEASON_KEY),
+                ]);
+                if (!gate || gate.state !== 'open' || gate.seasonId !== Number(season?.id)) {
+                    return res.status(409).json({ error: 'The ranked season is closing; wait for the next season.' });
+                }
+            } else {
+                const queued = await findPlayerRankedAdmissionForPlayer(kv, safeName(name));
+                if (queued?.phase === 'queued') {
+                    await releaseQueuedPlayerRankedAdmission(kv, queued.matchId, safeName(name));
+                }
             }
 
             // Pre-derive server-side level/elo for the join path before
@@ -174,9 +235,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // me, return that durable match instead of re-matching — so the
                     // side that didn't poll first still gets the match rather than a
                     // bare inQueue:false that looks like "you left".
-                    const myMatch = await kv.get<Record<string, unknown>>(matchKey(safeName(name)));
-                    if (myMatch) {
+                    const player = safeName(name);
+                    const myMatch = await kv.get<Record<string, unknown>>(matchKey(player));
+                    const gate = await readPetRankedSeasonGateFresh(kv);
+                    const matchAdmission = myMatch && typeof myMatch.matchId === 'string'
+                        ? gate?.playerAdmissions.find((entry) => entry.matchId === myMatch.matchId)
+                        : null;
+                    if (myMatch && matchAdmission?.phase === 'queued') {
                         return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
+                    }
+
+                    // A queue response may have been lost after the season-gate
+                    // admission committed but before one/both short match mirrors
+                    // landed. Rebuild the exact same token/match from the gate.
+                    const admitted = await findPlayerRankedAdmissionForPlayer(kv, player);
+                    if (admitted?.phase === 'queued') {
+                        const token = await mintPlayerRankedMatchToken({
+                            a: admitted.a,
+                            b: admitted.b,
+                            aLevel: admitted.aLevel,
+                            bLevel: admitted.bLevel,
+                            aRating: admitted.aRating,
+                            bRating: admitted.bRating,
+                            now: admitted.createdAt,
+                            matchId: admitted.matchId,
+                        });
+                        const opponentName = player === admitted.a ? admitted.b : admitted.a;
+                        const playerIsA = player === admitted.a;
+                        const recoveredMatch = {
+                            opponent: opponentName,
+                            opponentElo: playerIsA ? admitted.bRating : admitted.aRating,
+                            opponentLevel: playerIsA ? admitted.bLevel : admitted.aLevel,
+                            initiator: player < opponentName,
+                            createdAt: admitted.createdAt,
+                            matchId: token.matchId,
+                            seasonId: token.seasonId,
+                            seasonEpoch: token.seasonEpoch,
+                        };
+                        await kv.set(matchKey(player), recoveredMatch, { ex: MATCH_TTL_SECONDS });
+                        return { status: 200, body: { inQueue: false, queueSize: active.length, match: recoveredMatch } };
                     }
 
                     const me = active.find(e => e.name === safeName(name));
@@ -198,17 +295,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // waits for it — no double-challenge, no silent drop. Both get a
                     // durable match record so neither vanishes if a poll is missed.
                     const initiatorName = me.name < opponent.name ? me.name : opponent.name;
-                    const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now };
-                    const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now };
+                    // The season-gate admission is the first durable commit. If
+                    // close wins its CAS first, no token or public match exists.
+                    const token = await mintPlayerRankedMatchToken({
+                        a: me.name,
+                        b: opponent.name,
+                        aLevel: me.level,
+                        bLevel: opponent.level,
+                        aRating: me.elo,
+                        bRating: opponent.elo,
+                        now,
+                    });
+                    const common = {
+                        createdAt: now,
+                        matchId: token.matchId,
+                        seasonId: token.seasonId,
+                        seasonEpoch: token.seasonEpoch,
+                    };
+                    const matchForMe = { ...common, opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName };
+                    const matchForOpp = { ...common, opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName };
                     await Promise.all([
                         kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
                         kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
                         kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
-                        // #10: server proof that THESE two players genuinely matched
-                        // on the player ladder. pvp/session.ts consumes it (single-
-                        // use) before honoring a `ranked` claim, so the ranked flag
-                        // can no longer be self-asserted by the client.
-                        mintRankedMatchToken(me.name, opponent.name, 'player'),
                     ]);
 
                     return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
@@ -216,9 +325,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 return { status: 400, body: { error: 'Invalid action.' } };
             });
-            return res.status(out.status).json(out.body);
+            return res.status(out.status).json({
+                enabled: playerRankedV2AdmissionsEnabled(),
+                ...out.body,
+            });
         } catch (err) {
             console.error('[pvp/ranked-queue]', safeLogValue(err));
+            if (err instanceof Error && err.message.includes('ranked-season-admission-closed')) {
+                return res.status(409).json({ error: 'The ranked season is closing; wait for the next season.' });
+            }
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }

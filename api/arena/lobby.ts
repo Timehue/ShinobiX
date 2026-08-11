@@ -9,7 +9,8 @@ import {
     newLobby, codeFromBytes, openSeat, slotOf, findPlayerSlot, chooseOwnedPetRecords, snapshotPet,
     resolveMatch, startBlock, publicView, type Lobby, type Team,
 } from './_lobby-core.js';
-import { activeBreedingParentIds } from '../pet/_pet-busy.js';
+import { petCombatBusyReason } from '../pet/_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
 
 /*
  * Co-op Tactical Pet Arena lobby — server-authoritative coordinator for the
@@ -152,17 +153,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let preChosen: ReturnType<typeof snapshotPet>[] | null = null;
         if (action === 'pets') {
             const save = await kv.get<{ character?: { pets?: Array<Record<string, unknown>> } }>(`save:${me}`);
-            const owned = Array.isArray(save?.character?.pets) ? save!.character!.pets! : [];
+            const character = (save?.character ?? {}) as Record<string, unknown>;
+            const owned = activeCarriedPets<Record<string, unknown>>(character);
             const selected = chooseOwnedPetRecords(owned, (body as { petIds?: unknown }).petIds);
             if (!selected) return res.status(400).json({ error: 'Pick exactly 2 pets that you own.' });
-            if (selected.some((pet) => Boolean(pet.expedition))) {
-                return res.status(409).json({ error: 'A selected pet is on an expedition.' });
+            if (selected.some((pet) => petCombatBusyReason(character, pet))) {
+                return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
             }
             preChosen = selected.map(snapshotPet);
-            const breedingParents = activeBreedingParentIds((save?.character ?? {}) as Record<string, unknown>);
-            if (preChosen.some((pet) => breedingParents.has(String(pet.id ?? '')))) {
-                return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
-            }
         }
 
         const out = await withKvLock<LockOut>(key, async () => {
@@ -222,6 +220,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (action === 'start') {
                 const block = startBlock(lobby, me);
                 if (block) return { status: 409, body: { error: block } };
+                const occupied = lobby.slots.filter((slot) => slot.name);
+                const stillReady = await Promise.all(occupied.map(async (slot) => {
+                    const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(slot.name ?? '')}`);
+                    const character = save?.character;
+                    if (!character) return false;
+                    const carried = activeCarriedPets<Record<string, unknown>>(character);
+                    return slot.pets.every((snapshot) => {
+                        const current = carried.find((pet) => String(pet.id ?? '') === snapshot.id);
+                        return Boolean(current && !petCombatBusyReason(character, current));
+                    });
+                }));
+                if (stillReady.some((ready) => !ready)) {
+                    return { status: 409, body: { error: 'A selected pet became unavailable. Re-select combat-ready pets before starting.' } };
+                }
                 const seed = crypto.randomInt(1, 0x7fffffff);   // server-minted — neither client picks it
                 lobby.seed = seed;
                 lobby.match = resolveMatch(lobby, seed);

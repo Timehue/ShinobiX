@@ -1,12 +1,15 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
+import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
+import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { accountKey } from '../src/lib/player-accounts';
 
 const PHASE = process.env.COMBAT_LAYOUT_CAPTURE_PHASE === 'before' ? 'before' : 'after';
 const STRICT = PHASE === 'after' && process.env.COMBAT_LAYOUT_STRICT !== '0';
 const SCREENSHOT_ROOT = process.env.COMBAT_LAYOUT_ARTIFACT_ROOT
     ? resolve(process.env.COMBAT_LAYOUT_ARTIFACT_ROOT, PHASE)
-    : resolve(process.cwd(), '..', 'docs', 'screenshots', 'combat-layout', PHASE);
+    : resolve(process.cwd(), 'test-results', 'combat-layout', 'captures', PHASE);
 
 const VIEWPORTS = [
     [320, 568], [360, 800], [375, 667], [390, 844], [412, 915], [430, 932],
@@ -88,10 +91,18 @@ function character(name: string) {
     };
 }
 
-async function seedSave(request: APIRequestContext, name: string) {
+async function seedSave(
+    request: APIRequestContext,
+    name: string,
+    options: {
+        characterPatch?: Partial<ReturnType<typeof character>>;
+        triggeredEvents?: string[];
+    } = {},
+) {
+    const { characterPatch = {}, triggeredEvents = [] } = options;
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': 'live-express-e2e-admin' },
-        data: { character: character(name), currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
+        data: { character: { ...character(name), ...characterPatch }, currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents },
     });
     expect(seeded.status()).toBe(200);
 }
@@ -103,17 +114,71 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode:
     expect(registered.status()).toBe(200);
     const token = String((await registered.json()).token ?? '');
     expect(token.length).toBeGreaterThan(10);
-    await seedSave(request, name);
+    // Keep the PvP seed's stored level consistent with the high stat ledger.
+    // The UI derives this fixture to the first exam hold (L20), and L13 is the
+    // point where the server-authoritative profession choice becomes mandatory.
+    await seedSave(request, name, mode === 'pvp' ? {
+        characterPatch: { level: 20, rankTitle: 'Genin' },
+        // L9's Aura Sphere ceremony is already complete for this established
+        // combat account. Keep the real event id so the story engine and the
+        // fixture cannot silently drift apart.
+        triggeredEvents: [AURA_SPHERE_VN_ID],
+    } : {});
+    if (mode === 'pvp') {
+        // The high-stat combat fixture is raised above the profession unlock by
+        // the authoritative stat ledger. Complete that one-time progression
+        // choice through its real endpoint before mounting PvP; otherwise the
+        // lazy ProfessionPicker can cover the board mid-matrix on slower engines.
+        const chosen = await request.post('/api/profession/choose', {
+            headers: { 'x-player-name': name, 'x-player-token': token },
+            data: { playerName: name, profession: 'vanguard' },
+        });
+        const choice = await chosen.json() as { ok?: boolean; profession?: string; error?: string };
+        expect(chosen.status(), JSON.stringify(choice)).toBe(200);
+        expect(choice).toMatchObject({ ok: true, profession: 'vanguard' });
+
+        // Completing the presentation alone is not the reward receipt. Claim the
+        // ceremony through the same idempotent server command the live UI uses,
+        // so the fixture carries both the event ledger and its Aura Sphere.
+        const claimed = await request.post('/api/events/claim', {
+            headers: { 'x-player-name': name, 'x-player-token': token },
+            data: { playerName: name, eventId: AURA_SPHERE_VN_ID },
+        });
+        const eventClaim = await claimed.json() as {
+            ok?: boolean;
+            error?: string;
+            character?: { inventory?: string[]; claimedCreatorEvents?: string[] };
+        };
+        expect(claimed.status(), JSON.stringify(eventClaim)).toBe(200);
+        expect(eventClaim.ok).toBe(true);
+        expect(eventClaim.character?.claimedCreatorEvents).toContain(AURA_SPHERE_VN_ID);
+        expect(eventClaim.character?.inventory).toContain(AURA_SPHERE_ITEM_ID);
+    }
     return { name, token };
 }
 
-async function installSession(page: Page, name: string, token: string) {
-    await page.addInitScript(({ player, sessionToken }) => {
+async function installSession(
+    page: Page,
+    name: string,
+    token: string,
+    { acknowledgeEstablishedNotices = false }: { acknowledgeEstablishedNotices?: boolean } = {},
+) {
+    await page.addInitScript(({ player, sessionToken, establishedAccount, latestPatchVersion }) => {
         localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: player }));
         localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({ [player]: { token: sessionToken } }));
         localStorage.setItem('shinobix:activePlayerPersist', player);
         localStorage.setItem('shinobix:activeTokenPersist', sessionToken);
-    }, { player: name, sessionToken: token });
+        if (establishedAccount) {
+            localStorage.setItem('shinobix:storage-notice-ack', '1');
+            if (latestPatchVersion) localStorage.setItem('patchNotes.lastSeenVersion.v1', latestPatchVersion);
+            localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
+        }
+    }, {
+        player: name,
+        sessionToken: token,
+        establishedAccount: acknowledgeEstablishedNotices,
+        latestPatchVersion: LATEST_PATCH_NOTE?.version ?? '',
+    });
 }
 
 async function dismissNotices(page: Page) {
@@ -331,7 +396,10 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
 
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
     let current = await measure(page, rootSelector);
-    for (let attempt = 0; attempt < 4 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
+    for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
+        await page.evaluate(() => new Promise<void>((resolveFrame) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame()));
+        }));
         await page.waitForTimeout(180);
         current = await measure(page, rootSelector);
     }
@@ -434,7 +502,10 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.documentOverflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
         expect(current.visibleTileCount, `${label} tile count`).toBe(120);
         expect(current.allTilesNamed, `${label} tile accessible names`).toBe(true);
-        expect(current.tileCentersInsideBoard, `${label} tile centers`).toBe(true);
+        expect(
+            current.tileCentersInsideBoard,
+            `${label} tile centers outside board; centers=${JSON.stringify(current.tileCenterBounds)} board=${JSON.stringify(current.board)}`,
+        ).toBe(true);
         expect(
             current.tileCenterHitCount,
             `${label} tile center hit-testing misses: ${current.tileCenterMisses.join(', ')}; main=${JSON.stringify(current.main)} stage=${JSON.stringify(current.boardStage)} board=${JSON.stringify(current.board)}`,
@@ -539,7 +610,7 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     const { name, token } = await seedAccount(request, testInfo, 'pvp');
     const opponent = `${safeProject(testInfo)}opponent`.slice(0, 20);
     await seedSave(request, opponent);
-    await installSession(page, name, token);
+    await installSession(page, name, token, { acknowledgeEstablishedNotices: true });
     await page.goto('/#/village', { waitUntil: 'networkidle' });
     await dismissNotices(page);
     const created = await page.evaluate(async ({ p1, p2 }) => {
@@ -553,11 +624,12 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     expect(created.status).toBe(200);
     const battleId = String((created.body as { battleId?: string }).battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
-    await page.evaluate(({ id }) => {
-        localStorage.setItem('pvpSession.v1', JSON.stringify({ pvpBattleId: id, pvpRole: 'p1', pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
+    const owner = accountKey(name);
+    await page.evaluate(({ id, authenticatedOwner }) => {
+        localStorage.setItem('pvpSession.v1', JSON.stringify({ owner: authenticatedOwner, pvpBattleId: id, pvpRole: 'p1', pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
         localStorage.setItem('lastScreen.v1', 'pvpBattle');
         history.replaceState(null, '', '#/pvpBattle');
-    }, { id: battleId });
+    }, { id: battleId, authenticatedOwner: owner });
     // A hash-only page.goto is a same-document navigation, so startup restore
     // never runs. Reload the document after installing the breadcrumb to model
     // the real crash/refresh path.
@@ -580,5 +652,10 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         throw new Error(`PvP restore diagnostic: ${JSON.stringify(debug)}`);
     }
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
+    const restoredBreadcrumb = await page.evaluate(() => {
+        const raw = localStorage.getItem('pvpSession.v1');
+        return raw ? JSON.parse(raw) : null;
+    });
+    expect(restoredBreadcrumb).toMatchObject({ owner, pvpBattleId: battleId, pvpRole: 'p1' });
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 });

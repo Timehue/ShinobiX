@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { makeRng } from './_sim.js';
 import { buildTowerEncounter, pickTowerElements, scatterTerrain, type SquadMemberInput } from './_encounter.js';
-import { runTowerFloor, towerNeighbors } from './_engine.js';
+import { checkTowerWinner, runTowerFloor, startRound, towerNeighbors } from './_engine.js';
 import { getActor, type TowerMap } from './_tower-session.js';
 import { FLOOR_CATALOG, type TowerFloor } from './_floor-catalog.js';
 import { hasEnemyTemplate, getEnemyTemplate, ENEMY_TEMPLATE_IDS } from './_enemy-templates.js';
@@ -80,6 +80,50 @@ describe('Battle Towers encounter builder (P1.B)', () => {
         assert.equal(fullHp, getEnemyTemplate('grunt-bandit').hp, 'full party = unscaled template HP');
         assert.ok(duoHp < fullHp, `duo enemy HP ${duoHp} < full ${fullHp}`);
         assert.equal(getActor(duo, 'en-0')!.character.towerDmgScale, 0.6);
+    });
+
+    it('seals delayed pods and deploys them only at their authored round', () => {
+        const floor = smallFloor({
+            balanceFor: 4,
+            enemies: [
+                { aiId: 'grunt-bandit', count: 1 },
+                { aiId: 'grunt-archer', count: 2, spawnRound: 2 },
+            ],
+        });
+        const s = build(floor, [strongMember('sq-0'), strongMember('sq-1')], { partySize: 2 });
+        assert.equal(s.actors.filter(a => a.side === 'enemy').length, 1, 'round-1 pod is on the board');
+        assert.equal(s.pendingEnemyWaves?.length, 1);
+        assert.equal(s.pendingEnemyWaves?.[0]?.round, 2);
+        assert.equal(s.pendingEnemyWaves?.[0]?.actors.length, 2);
+        assert.equal(s.pendingEnemyWaves?.[0]?.actors[0]?.character.towerDmgScale, 0.6, 'delayed actors are party-scaled too');
+
+        const first = s.actors.find(a => a.side === 'enemy')!;
+        first.hp = 0;
+        checkTowerWinner(s, floor);
+        assert.equal(s.status, 'active', 'a pending wave prevents a premature clear');
+
+        startRound(s);
+        assert.equal(s.actors.filter(a => a.side === 'enemy' && a.hp > 0).length, 0, 'round 1 does not deploy round-2 actors');
+        s.round = 2;
+        startRound(s);
+        const livingEnemies = s.actors.filter(a => a.side === 'enemy' && a.hp > 0);
+        assert.equal(livingEnemies.length, 2);
+        assert.equal(s.pendingEnemyWaves, undefined);
+        assert.equal(new Set(s.actors.filter(a => a.hp > 0).map(a => a.pos)).size, s.actors.filter(a => a.hp > 0).length, 'reinforcements never overlap living actors');
+        assert.ok(s.log.some(line => line.includes('2 reinforcements')));
+    });
+
+    it('runs through delayed waves before awarding a defeat-all clear', () => {
+        const floor = smallFloor({
+            enemies: [
+                { aiId: 'grunt-bandit', count: 1 },
+                { aiId: 'grunt-archer', count: 1, spawnRound: 2 },
+            ],
+        });
+        const out = runTowerFloor(build(floor, [strongMember('sq-0'), strongMember('sq-1')]), floor, makeRng(19));
+        assert.equal(out.winner, 'squad');
+        assert.equal(out.pendingEnemyWaves, undefined);
+        assert.ok(out.log.some(line => line.includes('reinforcement')));
     });
 
     it('places a boss (with phases) and an npc when the floor has them', () => {

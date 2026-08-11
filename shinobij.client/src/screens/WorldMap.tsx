@@ -66,6 +66,7 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { Button } from "../components/ui/Button";
 import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
@@ -157,7 +158,7 @@ import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorArtKey, sectorNam
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
-import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
+import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkingRoute } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
@@ -413,6 +414,8 @@ export function WorldMap({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
+    const [inspectedMapSector, setInspectedMapSector] = useState<number | null>(null);
+    const mapInspectionRef = useRef<HTMLElement | null>(null);
     // Direction the player walked in from on an edge crossing — drives the brief
     // slide-in on the sector board (cleared right after the animation plays).
     const [sectorEnterDir, setSectorEnterDir] = useState<"north" | "east" | "south" | "west" | null>(null);
@@ -425,6 +428,22 @@ export function WorldMap({
     const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
+
+    useEffect(() => {
+        if (inspectedMapSector == null) return;
+        window.requestAnimationFrame(() => mapInspectionRef.current?.focus());
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            const sector = inspectedMapSector;
+            setInspectedMapSector(null);
+            setRouteHoverSector(null);
+            window.requestAnimationFrame(() => {
+                document.querySelector<HTMLButtonElement>(`[data-map-sector="${sector}"]`)?.focus();
+            });
+        };
+        window.addEventListener("keydown", closeOnEscape);
+        return () => window.removeEventListener("keydown", closeOnEscape);
+    }, [inspectedMapSector]);
     const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
         builtinHuntMissions
             .filter((mission) => acceptedMissionIds.includes(mission.id) && Boolean(mission.aiProfileId))
@@ -2123,6 +2142,20 @@ export function WorldMap({
     // rest of this screen is unchanged.
     const sectorPoints = SECTOR_POINTS;
 
+    useEffect(() => {
+        if (!wmZoom.active || !isWildSector(currentSector)) return;
+        const currentPoint = sectorPoints.find((point) => point.id === currentSector);
+        if (!currentPoint) return;
+        let innerFrame = 0;
+        const outerFrame = window.requestAnimationFrame(() => {
+            innerFrame = window.requestAnimationFrame(() => wmZoom.focusPoint(currentPoint.x, currentPoint.y, 2.4));
+        });
+        return () => {
+            window.cancelAnimationFrame(outerFrame);
+            window.cancelAnimationFrame(innerFrame);
+        };
+    }, [currentSector, wmZoom.active, wmZoom.focusPoint]);
+
     // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
     // chip flies the camera to the cluster centroid at a tappable zoom.
     // Region-block numbering (shared/sector-geo.ts): each village's home block,
@@ -2308,6 +2341,7 @@ export function WorldMap({
         })();
     }
     function triggerTravelPoint(sector: number) {
+        setInspectedMapSector(null);
         // Where you stood in the sector you LEFT, captured before any state moves.
         const originSector = currentSector;
         beginSectorTravel(sector, () => {
@@ -2340,6 +2374,25 @@ export function WorldMap({
         setSectorPlayerPos(road ? road.destinationTile : SECTOR_CENTRE_TILE);
         const splashLabel = regionSplashLabelFor(sector);
         if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
+        });
+    }
+
+    function chooseTravelPoint(sector: number) {
+        if (wmZoom.active) {
+            setInspectedMapSector(sector);
+            setRouteHoverSector(sector);
+            return;
+        }
+        triggerTravelPoint(sector);
+    }
+
+    function closeMapInspection(returnFocus = true) {
+        const sector = inspectedMapSector;
+        setInspectedMapSector(null);
+        setRouteHoverSector(null);
+        if (!returnFocus || sector == null) return;
+        window.requestAnimationFrame(() => {
+            document.querySelector<HTMLButtonElement>(`[data-map-sector="${sector}"]`)?.focus();
         });
     }
 
@@ -4560,13 +4613,51 @@ export function WorldMap({
         );
     }
 
+    const mapInspection = inspectedMapSector == null ? null : (() => {
+        const sector = inspectedMapSector;
+        const biome = biomeForSector(sector);
+        const weather = weatherForSector(sector, biome);
+        const territory = loadSectorTerritory(sector);
+        const huntTrail = huntTrailForSector(sector);
+        const shrine = isSectorTracesEnabled() ? shrineForSector(sector) : undefined;
+        const war = activeVillageWarsFor(character.village).find((entry) => entry.warGroundSector === sector && !entry.endedAt);
+        const route = walkingRoute(currentSector, sector);
+        const danger = sector === 99
+            ? "Extreme · open PvP"
+            : war
+                ? "High · active war ground"
+                : sector === weeklyBossSector
+                    ? `High · ${roamingBoss?.bossName ?? "weekly boss"}`
+                    : huntTrail
+                        ? `${huntTrail.mission.rank} hunt trail`
+                        : "Standard wild-sector risk";
+        return {
+            sector,
+            name: sectorName(sector) ?? `Sector ${sector}`,
+            region: sectorRegionName(sector),
+            biome: biomeLabel(biome),
+            weather: weatherEffects[weather].name,
+            danger,
+            owner: territory.ownerClan
+                ? `${territory.ownerClan} · ${territory.ownerVillage}`
+                : "Unclaimed",
+            hunt: huntTrail ? `${huntTrail.mission.name} · ${huntTrail.progress}/${huntTrail.requiredTracks} tracks` : "No active hunt trail",
+            shrine: shrine?.name ?? "No known shrine",
+            route: currentSector === sector
+                ? "You are here"
+                : route
+                    ? `${route.length - 1} road hop${route.length === 2 ? "" : "s"}`
+                    : "Direct travel route",
+        };
+    })();
+
     return (
         <div className="card">
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
                         onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                        label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                        label={isWildSector(currentSector) ? `\u2190 Return to ${sectorName(currentSector) ?? `Sector ${currentSector}`}` : "\u2190 Village"}
                     />
                     <div className="wm-zoom-controls">
                         <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
@@ -4577,7 +4668,7 @@ export function WorldMap({
             ) : (
                 <BackToVillageButton
                     onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                    label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                    label={isWildSector(currentSector) ? `\u2190 Return to ${sectorName(currentSector) ?? `Sector ${currentSector}`}` : "\u2190 Village"}
                 />
             )}
             {hollowGateMenu && (
@@ -4675,6 +4766,7 @@ export function WorldMap({
                     return (
                     <button
                         key={sector.id}
+                        data-map-sector={sector.id}
                         className={
                             (sector.id === 99
                                 ? "atlas-sector atlas-sector-deaths-gate"
@@ -4685,13 +4777,13 @@ export function WorldMap({
                             + (currentSector === sector.id ? " atlas-sector-current" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
-                        onClick={() => triggerTravelPoint(sector.id)}
+                        onClick={() => chooseTravelPoint(sector.id)}
                         onMouseEnter={() => setRouteHoverSector(sector.id)}
                         onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
                         title={currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle}
                         aria-label={currentSector === sector.id
                             ? `You are here, ${sectorName(sector.id) ?? `Sector ${sector.id}`}`
-                            : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
+                            : `${wmZoom.active ? "Inspect" : "Travel to"} ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                         {sector.id === 99 ? "💀" : sector.id === FESTIVAL_SECTOR ? "☀️" : sector.id}
@@ -4776,6 +4868,52 @@ export function WorldMap({
                 ))}
             </div>
             </div>{/* end world-map-scroll */}
+            {mapInspection && createPortal(
+                <aside
+                    ref={mapInspectionRef}
+                    className="world-map-sector-inspector"
+                    role="dialog"
+                    tabIndex={-1}
+                    aria-labelledby="world-map-sector-inspector-title"
+                >
+                    <header>
+                        <div>
+                            <span>Sector {mapInspection.sector} · {mapInspection.region}</span>
+                            <h2 id="world-map-sector-inspector-title">{mapInspection.name}</h2>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" className="world-map-sector-inspector__close" aria-label="Close sector details" onClick={() => closeMapInspection()}>×</Button>
+                    </header>
+                    <dl>
+                        <div><dt>Terrain</dt><dd>{mapInspection.biome}</dd></div>
+                        <div><dt>Weather</dt><dd>{mapInspection.weather}</dd></div>
+                        <div><dt>Danger</dt><dd>{mapInspection.danger}</dd></div>
+                        <div><dt>Control</dt><dd>{mapInspection.owner}</dd></div>
+                        <div><dt>Hunt</dt><dd>{mapInspection.hunt}</dd></div>
+                        <div><dt>Shrine</dt><dd>{mapInspection.shrine}</dd></div>
+                        <div><dt>Route</dt><dd>{mapInspection.route}</dd></div>
+                    </dl>
+                    <div className="world-map-sector-inspector__actions">
+                        <Button type="button" variant="ghost" onClick={() => closeMapInspection()}>Keep exploring</Button>
+                        <Button
+                            type="button"
+                            variant="primary"
+                            disabled={isTraveling}
+                            onClick={() => {
+                                const sector = mapInspection.sector;
+                                closeMapInspection(false);
+                                if (currentSector === sector) {
+                                    setSelectedSector(sector);
+                                    return;
+                                }
+                                triggerTravelPoint(sector);
+                            }}
+                        >
+                            {currentSector === mapInspection.sector ? "Enter sector" : `Travel to Sector ${mapInspection.sector}`}
+                        </Button>
+                    </div>
+                </aside>,
+                document.body,
+            )}
             {wmZoom.active && (
                 <div className="wm-village-bar" role="group" aria-label="Jump to region">
                     {WM_CLUSTERS.map((cl) => {

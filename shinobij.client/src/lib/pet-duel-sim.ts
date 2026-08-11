@@ -21,8 +21,8 @@
 //     by slot), projectiles in spawn order. Do not reorder.
 //
 // One core (`simulate`) drives BOTH `runPetDuel` (1v1) and `runPetPartyDuel`
-// (2v2). NOT wired to anything live yet (PvE wiring is Phase C; ranked stays on
-// the old engine until balance Phase D + server-validation Phase E). Consumes
+// (2v2). It now powers the fail-closed PRIVATE ranked server resolution; public
+// ranked presentation remains gated pending two-account certification. Consumes
 // only persisted Pet fields (hp/attack/defense/speed/element/trait/jutsus) → zero
 // save impact. Balance numbers here are PLACEHOLDERS to be tuned in Phase D.
 // ─────────────────────────────────────────────────────────────────────────────

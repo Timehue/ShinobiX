@@ -43,7 +43,39 @@ export type LegacyStats = Partial<Record<LegacyStatKey, number>> & {
     /** Last time ANY suspicion flag was raised — drives the slow decay that
      *  lets honest CGNAT / shared-device false positives self-heal. */
     lastSuspicionAt?: number;
+    combatMissionEffects?: Array<{
+        version: 1;
+        runId: string;
+        appliedAt: number;
+        acknowledgedAt?: number;
+    }>;
 };
+
+const MAX_PENDING_COMBAT_MISSION_EFFECTS = 40;
+const MAX_SETTLED_COMBAT_MISSION_EFFECTS = 64;
+
+function combatMissionEffects(stats: LegacyStats): NonNullable<LegacyStats['combatMissionEffects']> {
+    return Array.isArray(stats.combatMissionEffects)
+        ? stats.combatMissionEffects.filter((entry) => entry?.version === 1
+            && typeof entry.runId === 'string'
+            && entry.runId.length > 0
+            && Number.isFinite(entry.appliedAt)
+            && entry.appliedAt > 0
+            && (entry.acknowledgedAt === undefined
+                || (Number.isFinite(entry.acknowledgedAt) && entry.acknowledgedAt > 0)))
+        : [];
+}
+
+function boundCombatMissionEffects(
+    effects: NonNullable<LegacyStats['combatMissionEffects']>,
+): NonNullable<LegacyStats['combatMissionEffects']> {
+    const pending = effects.filter((entry) => entry.acknowledgedAt === undefined);
+    const settled = effects
+        .filter((entry) => entry.acknowledgedAt !== undefined)
+        .sort((a, b) => Number(b.acknowledgedAt) - Number(a.acknowledgedAt))
+        .slice(0, MAX_SETTLED_COMBAT_MISSION_EFFECTS);
+    return [...pending, ...settled];
+}
 
 export type LegacyEvent = {
     ts: number;
@@ -293,6 +325,77 @@ export async function bumpLegacyStats(
     } catch (err) {
         console.error(`[legacy-track] bump failed for ${playerName}:`, err instanceof Error ? err.message : err);
     }
+}
+
+/**
+ * Run-idempotent mission counters. The counter deltas and unresolved run marker
+ * share one CAS row; the claim receipt is stamped next, then acknowledges the
+ * marker. This makes either crash order help-forward without double counting.
+ */
+export async function bumpLegacyStatsForCombatRunOnce(
+    playerName: string,
+    runId: string,
+    deltas: LegacyStatDeltas,
+    characterForBootstrap?: Record<string, unknown> | null,
+): Promise<boolean> {
+    if (!legacyEnabled() || !playerName || !runId) return false;
+    return withKvLock(legacyStatsKey(playerName), async () => {
+        await getLegacyStats(playerName, characterForBootstrap ?? null);
+        const expected = await kv.get<LegacyStats>(legacyStatsKey(playerName));
+        if (!expected) throw new Error('legacy-combat-effect-stats-unavailable');
+        const effects = combatMissionEffects(expected);
+        if (effects.some((entry) => entry.runId === runId)) return false;
+        if (effects.filter((entry) => entry.acknowledgedAt === undefined).length
+            >= MAX_PENDING_COMBAT_MISSION_EFFECTS) {
+            throw new Error('legacy-combat-effect-pending-overflow');
+        }
+        const next: LegacyStats = { ...expected, updatedAt: Date.now() };
+        for (const [rawStat, rawDelta] of Object.entries(deltas)) {
+            const stat = rawStat as LegacyStatKey;
+            const delta = num(rawDelta);
+            if (delta <= 0) continue;
+            const previous = num(next[stat]);
+            next[stat] = MAX_STATS.has(stat) ? Math.max(previous, delta) : previous + delta;
+        }
+        next.combatMissionEffects = boundCombatMissionEffects([
+            ...effects,
+            { version: 1, runId, appliedAt: Date.now() },
+        ]);
+        let writeError: unknown;
+        let swapped = false;
+        try {
+            swapped = await kv.compareSet(legacyStatsKey(playerName), expected, next);
+        } catch (error) {
+            writeError = error;
+        }
+        const readback = await kv.get<LegacyStats>(legacyStatsKey(playerName));
+        if (swapped || combatMissionEffects(readback ?? {}).some((entry) => entry.runId === runId)) return true;
+        if (writeError) throw writeError;
+        throw new Error('legacy-combat-effect-write-conflict');
+    }, { failClosed: true });
+}
+
+export async function acknowledgeLegacyCombatRun(playerName: string, runId: string): Promise<void> {
+    if (!legacyEnabled()) return;
+    await withKvLock(legacyStatsKey(playerName), async () => {
+        const expected = await kv.get<LegacyStats>(legacyStatsKey(playerName));
+        if (!expected) return;
+        const effects = combatMissionEffects(expected);
+        const target = effects.find((entry) => entry.runId === runId);
+        if (!target || target.acknowledgedAt !== undefined) return;
+        const next: LegacyStats = {
+            ...expected,
+            combatMissionEffects: boundCombatMissionEffects(effects.map((entry) => entry.runId === runId
+                ? { ...entry, acknowledgedAt: Date.now() }
+                : entry)),
+        };
+        const swapped = await kv.compareSet(legacyStatsKey(playerName), expected, next);
+        if (swapped) return;
+        const readback = await kv.get<LegacyStats>(legacyStatsKey(playerName));
+        if (combatMissionEffects(readback ?? {}).some((entry) => entry.runId === runId
+            && entry.acknowledgedAt !== undefined)) return;
+        throw new Error('legacy-combat-effect-ack-conflict');
+    }, { failClosed: true });
 }
 
 /**

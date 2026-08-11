@@ -20,6 +20,15 @@ export function stampTurnClock(session: TowerSession, now: number): void {
     if (session.status === 'active') session.turnStartedAt = now;
 }
 
+/** Pure preflight used by polling before it takes the session mutation lock. */
+export function isAfkHumanTurnDue(session: TowerSession, now: number): boolean {
+    if (session.status !== 'active') return false;
+    const actor = activeActor(session);
+    if (!actor || actor.ai !== false || actor.hp <= 0) return false;
+    const started = Number(session.turnStartedAt ?? now);
+    return now - started >= TURN_AFK_MS;
+}
+
 /**
  * If the active actor is a HUMAN whose turn has gone stale (> TURN_AFK_MS), auto-'wait'
  * them and advance to the next human. Each freshly-active human gets a full window
@@ -35,10 +44,8 @@ export function autoPassAfkHumans(session: TowerSession, now: number): boolean {
     let advanced = false;
     let guard = 0;
     while (session.status === 'active' && guard++ < session.actors.length + 4) {
-        const actor = activeActor(session);
-        if (!actor || actor.ai !== false || actor.hp <= 0) break;   // not a live human's live turn
-        const started = Number(session.turnStartedAt ?? now);
-        if (now - started < TURN_AFK_MS) break;                     // current human still has time
+        if (!isAfkHumanTurnDue(session, now)) break;
+        const actor = activeActor(session)!;
         session.log.push(`${actor.name} was away — their turn passed.`);
         endTurn(session, floor);
         runAiUntilHuman(session, floor, rng);                       // advance past AI to the next human

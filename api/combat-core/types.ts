@@ -8,6 +8,7 @@ export type CombatStatusKind = 'positive' | 'negative';
 
 export type CombatStatus = {
     name: string;
+    source?: string;
     rounds: number;
     activeRound?: number;
     percent?: number;

@@ -29,6 +29,7 @@ describe('_ai-fight-token', () => {
         assert.equal(token.opponentId, 'forest-ai:1');
         assert.equal(token.opponentLevel, 42);
         assert.equal(token.battleKind, 'defense');
+        assert.equal(token.redemptionAuthorityVersion, 1);
     });
 
     it('normalizes unknown battle kinds to non-paying practice', () => {

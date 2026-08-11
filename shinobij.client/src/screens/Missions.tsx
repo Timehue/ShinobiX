@@ -25,6 +25,8 @@ import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } 
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 import { gainXp } from "../App";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
+import { enqueueClaim, removeClaim } from "../lib/claim-outbox";
+import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
 import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
@@ -54,6 +56,7 @@ export function Missions({
     setScreen,
     onBack,
     onMissionBattleStart,
+    onMissionBattleResolved,
     sharedImages,
     creatorItems,
     savedBloodlines,
@@ -72,6 +75,7 @@ export function Missions({
     setScreen: (screen: Screen) => void;
     onBack: () => void;
     onMissionBattleStart?: () => void;
+    onMissionBattleResolved?: () => void;
     sharedImages?: Record<string, string>;
     creatorItems?: GameItem[];
     savedBloodlines?: SavedBloodline[];
@@ -125,6 +129,7 @@ export function Missions({
         if (startingCombat) return;
         onMissionBattleStart?.();
         setStartingCombat(true);
+        let opened = false;
         try {
             const response = await fetch("/api/missions/combat-start", {
                 method: "POST",
@@ -136,21 +141,26 @@ export function Missions({
                 alert(data?.error ?? "The mission fight could not be started.");
                 return;
             }
+            opened = true;
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
         } finally {
             setStartingCombat(false);
+            if (!opened) onMissionBattleResolved?.();
         }
     }
 
     async function settleAuthoritativeMission(runId: string, playerName: string): Promise<unknown> {
         if (!authoritativeFight) return null;
-        const response = await fetch("/api/missions/queue-combat-claim", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, missionId: authoritativeFight.mission.key, runId }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || data?.queued !== true) throw new Error(data?.reason ?? data?.error ?? "Mission settlement failed.");
+        const missionId = authoritativeFight.mission.key;
+        enqueueClaim(playerName, missionId, runId);
+        const data = await queueCombatMissionClaim(playerName, missionId, runId, 1);
+        if (data.disposition === "retryable") {
+            throw new Error("Mission settlement is waiting for the server.");
+        }
+        removeClaim(playerName, missionId, runId);
+        if (data.disposition !== "accepted" || data.queued !== true) {
+            throw new Error(data.reason ?? "Mission settlement failed.");
+        }
         const responseAccepted = onServerVersion?.(data?._saveVersion) !== false;
         if (data?.character && responseAccepted) {
             updateCharacter(data.character);
@@ -191,12 +201,15 @@ export function Missions({
                 // only runs on a win, so without this a defeat left the player at
                 // full HP and free to re-enter immediately.
                 outcomeFn={reportMissionFightOutcome}
-                onExit={() => setAuthoritativeFight(null)}
+                onExit={() => {
+                    setAuthoritativeFight(null);
+                    onMissionBattleResolved?.();
+                }}
             />
         );
     }
-    // Combat missions are won in the Arena (which only queues the claim on the
-    // character) and paid out HERE. Mirrors the field-mission / hunt claim
+    // Combat missions are won in the sealed inline arena (which only queues the
+    // claim on the character) and paid out HERE. Mirrors the field/hunt claim
     // pattern: per-rank XP + ryo (matching the card), +1 Territory Scroll, and
     // the kill-counter / daily-mission bookkeeping that used to run on the win.
     // No stamina — stamina is not part of any mission reward.

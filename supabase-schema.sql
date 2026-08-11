@@ -176,6 +176,49 @@ exception
 end;
 $$;
 
+-- ── kv_compare_set — atomic full-value JSON compare-and-set ─────────────────
+-- `p_expected is null` means the live row must be absent; an expired row is
+-- treated as absent. Otherwise JSONB equality compares the complete stored
+-- value and the replacement occurs in the same row-locked SQL statement.
+-- The replacement expiry is authoritative: NULL clears an old TTL.
+
+create or replace function public.kv_compare_set(
+    p_key        text,
+    p_expected   jsonb,
+    p_value      jsonb,
+    p_expires_at timestamptz default null
+)
+returns boolean
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_changed integer;
+begin
+    if p_expected is null then
+        delete from public.kv_store
+        where key = p_key
+          and expires_at is not null
+          and expires_at <= now();
+
+        insert into public.kv_store (key, value, expires_at, updated_at)
+        values (p_key, p_value, p_expires_at, now())
+        on conflict (key) do nothing;
+    else
+        update public.kv_store
+        set value = p_value,
+            expires_at = p_expires_at,
+            updated_at = now()
+        where key = p_key
+          and value = p_expected
+          and (expires_at is null or expires_at > now());
+    end if;
+
+    get diagnostics v_changed = row_count;
+    return v_changed = 1;
+end;
+$$;
+
 -- ── kv_incr — atomic fixed-window counter (rate limiter) ─────────────────────
 -- Atomically increment a numeric counter and return the new value. Replaces the
 -- rate limiter's previous non-atomic get-then-set, which let concurrent requests
@@ -312,12 +355,14 @@ select cron.schedule(
 -- service-role key/DATABASE_URL.  It is idempotent and does not affect the
 -- browser's Realtime SELECT policy above.
 revoke all on function public.kv_set_nx(text, jsonb, timestamptz) from public, anon, authenticated;
+revoke all on function public.kv_compare_set(text, jsonb, jsonb, timestamptz) from public, anon, authenticated;
 revoke all on function public.kv_incr(text, timestamptz) from public, anon, authenticated;
 revoke all on function public.kv_hset(text, jsonb) from public, anon, authenticated;
 revoke all on function public.kv_hdel(text, text[]) from public, anon, authenticated;
 revoke all on function public.kv_delete_expired() from public, anon, authenticated;
 
 grant execute on function public.kv_set_nx(text, jsonb, timestamptz) to service_role;
+grant execute on function public.kv_compare_set(text, jsonb, jsonb, timestamptz) to service_role;
 grant execute on function public.kv_incr(text, timestamptz) to service_role;
 grant execute on function public.kv_hset(text, jsonb) to service_role;
 grant execute on function public.kv_hdel(text, text[]) to service_role;

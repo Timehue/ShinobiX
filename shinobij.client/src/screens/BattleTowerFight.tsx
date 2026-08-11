@@ -1,43 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import "../styles/battle-skin.css";
+import "../styles/tower-tactical.css";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import {
-    submitTowerAction, settleTowerRun, fetchTowerState, joinTowerRun, TOWER_TURN_AFK_MS,
-    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature, type TowerBoardObject, type TowerHostLoadout,
+    submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS,
+    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerSettleResult, type TowerFeature, type TowerBoardObject, type TowerHostLoadout, type TowerActionInput,
 } from "../lib/towers-api";
 import gameBg from "../assets/background-image.webp";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, towerClosingRingTiles, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
+import {
+    buildTowerMilestoneReceipt, buildTowerThreatSummary, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
+    TOWER_ZOOM_MAX, TOWER_ZOOM_MIN, TOWER_ZOOM_STEP, type TowerPan,
+} from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { tagMatchesName } from "../lib/tags";
 import { equipSlotForItem } from "../lib/equipment";
-import { resolveTowerEnemyPortrait, type TowerEnemySpriteKey } from "../lib/ai-fight-art";
+import {
+    resolveTowerCombatantArt, TOWER_SPIRE_PORTRAITS, UNKNOWN_TOWER_COMBATANT,
+} from "../lib/tower-art-manifest";
 import { gameConfirm } from "../components/GameAlert";
 import { CombatInstance } from "../components/CombatInstance";
+import { visiblePoll } from "../lib/poll";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
 import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
 import arenaFloorCentral from "../assets/towers/arena-floor-central.webp";
 import arenaFloorShadow from "../assets/towers/arena-floor-shadow.webp";
-import banditSprite from "../assets/towers/enemies/bandit.webp";
-import archerSprite from "../assets/towers/enemies/archer.webp";
-import blockerSprite from "../assets/towers/enemies/blocker.webp";
-import bruteSprite from "../assets/towers/enemies/brute.webp";
-import acolyteSprite from "../assets/towers/enemies/acolyte.webp";
-import wardenSprite from "../assets/towers/enemies/warden.webp";
-import ravagerSprite from "../assets/towers/enemies/ravager.webp";
-import geninSprite from "../assets/towers/enemies/genin.webp";
-import revenantSprite from "../assets/towers/enemies/revenant.webp";
-import sovereignSprite from "../assets/towers/enemies/sovereign.webp";
-import clanBossOni from "../assets/clan-boss/clan-boss-oni.webp";
-import clanBossLeviathan from "../assets/clan-boss/clan-boss-leviathan.webp";
-import clanBossKage from "../assets/clan-boss/clan-boss-kage.webp";
-import clanBossGolem from "../assets/clan-boss/clan-boss-golem.webp";
 import objectFont from "../assets/towers/objects/font.webp";
 import objectShrine from "../assets/towers/objects/shrine.webp";
 import hazardGeyser from "../assets/towers/hazards/geyser.webp";
@@ -63,7 +57,169 @@ import wardSprite from "../assets/towers/pylons/ward.webp";
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
 
 type Mode = "idle" | "move" | "dash" | "attack" | "jutsu" | "weapon" | "clear";
+type ActionFeedback =
+    | { phase: "idle" }
+    | { phase: "submitting"; label: string }
+    | { phase: "error"; label: string; message: string };
+type SettlementState = {
+    phase: "idle" | "pending" | "settled" | "error";
+    response: TowerSettleResponse | null;
+    message: string | null;
+    attempts: number;
+};
+
+const RETRYABLE_SETTLEMENT_REASONS = new Set(["contended", "no-save", "unknown", "invalid-receipt"]);
+
+function settlementRetryMessage(response: TowerSettleResponse, memberSlug: string): string {
+    const reasons = [
+        response.results[memberSlug]?.reason,
+        response.consumables?.[memberSlug]?.reason,
+    ].filter((reason): reason is string => Boolean(reason && RETRYABLE_SETTLEMENT_REASONS.has(reason)));
+    if (reasons.length > 0) return `The server asked to retry ${reasons.map(reason => reason.replace(/-/g, " ")).join(" and ")}.`;
+    return "The server returned a result but did not confirm a stable receipt.";
+}
+
+function isStableTowerSettlement(response: TowerSettleResponse): boolean {
+    if (response.settled !== true) return false;
+    const reasons = [
+        ...Object.values(response.results).map(result => result.reason),
+        ...Object.values(response.consumables ?? {}).map(result => result.reason),
+    ];
+    return reasons.every(reason => !reason || !RETRYABLE_SETTLEMENT_REASONS.has(reason));
+}
+
+function towerRewardReceiptText(result: TowerSettleResult, spire: boolean): string {
+    if (result.paid) return spire
+        ? `+${SPIRE_SHARDS_PER_TIER} Fate Shards`
+        : result.score ? `First-clear reward paid · score +${result.score}` : "First-clear reward paid";
+    if (result.reason === "already-paid") return spire ? "Weekly floor reward already banked" : "This run reward was already banked";
+    if (result.reason === "already-first-cleared") return "First-clear reward already claimed · no new reward";
+    if (result.reason === "unverified-assist") return "Unverified assist · no progression reward";
+    if (result.reason === "not-cleared") return "No clear reward on this attempt";
+    return `No new reward${result.reason ? ` · ${result.reason.replace(/-/g, " ")}` : ""}`;
+}
+
+function towerActionRejectionText(reason?: string): string {
+    if (reason === "stale-version") return "The battlefield changed before this command landed. Review the refreshed board and try again.";
+    if (reason === "not-your-turn") return "The turn advanced before this command landed. Wait for your next turn.";
+    if (reason === "invalid-target") return "That target is no longer valid. Choose a highlighted target.";
+    if (reason === "actor-defeated") return "Your fighter can no longer act in this run.";
+    return reason ? reason.replace(/-/g, " ") : "The Tower rejected this command.";
+}
 type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; tags?: Array<{ name?: string }> };
+
+const TOWER_DIALOG_FOCUSABLE = [
+    "button:not([disabled])",
+    "[href]",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+/** Focus the primary action, trap Tab, restore focus, and gate Escape for Tower modals. */
+function useTowerDialogFocus<TDialog extends HTMLElement, TPrimary extends HTMLElement>({
+    open,
+    dialogRef,
+    primaryRef,
+    escapeAllowed,
+    onEscape,
+    focusRevision,
+}: {
+    open: boolean;
+    dialogRef: RefObject<TDialog | null>;
+    primaryRef: RefObject<TPrimary | null>;
+    escapeAllowed: boolean;
+    onEscape: () => void;
+    focusRevision?: unknown;
+}) {
+    const escapeAllowedRef = useRef(escapeAllowed);
+    const onEscapeRef = useRef(onEscape);
+    useEffect(() => {
+        escapeAllowedRef.current = escapeAllowed;
+        onEscapeRef.current = onEscape;
+    }, [escapeAllowed, onEscape]);
+
+    useEffect(() => {
+        if (!open) return;
+        const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const focusFrame = window.requestAnimationFrame(() => {
+            const dialog = dialogRef.current;
+            const primary = primaryRef.current;
+            const primaryEnabled = primary && !primary.matches(":disabled") && primary.getAttribute("aria-disabled") !== "true";
+            const fallback = dialog?.querySelector<HTMLElement>(TOWER_DIALOG_FOCUSABLE) ?? dialog;
+            (primaryEnabled ? primary : fallback)?.focus({ preventScroll: true });
+        });
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (escapeAllowedRef.current) onEscapeRef.current();
+                return;
+            }
+            if (event.key !== "Tab") return;
+            const dialog = dialogRef.current;
+            if (!dialog) return;
+            const controls = Array.from(dialog.querySelectorAll<HTMLElement>(TOWER_DIALOG_FOCUSABLE))
+                .filter(control => control.getAttribute("aria-hidden") !== "true");
+            if (controls.length === 0) {
+                event.preventDefault();
+                dialog.focus();
+                return;
+            }
+            const first = controls[0]!;
+            const last = controls[controls.length - 1]!;
+            if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+        document.addEventListener("keydown", onKeyDown, true);
+        return () => {
+            window.cancelAnimationFrame(focusFrame);
+            document.removeEventListener("keydown", onKeyDown, true);
+            if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+        };
+    }, [open, dialogRef, primaryRef, focusRevision]);
+}
+
+function towerTurnRemaining(turnStartedAt: number): number {
+    return Math.max(0, Math.ceil((TOWER_TURN_AFK_MS - (Date.now() - turnStartedAt)) / 1_000));
+}
+
+function TowerTurnCountdown({ turnStartedAt }: { turnStartedAt: number }) {
+    const [remaining, setRemaining] = useState(() => towerTurnRemaining(turnStartedAt));
+    useEffect(() => {
+        const id = window.setInterval(() => setRemaining(towerTurnRemaining(turnStartedAt)), 1_000);
+        return () => window.clearInterval(id);
+    }, [turnStartedAt]);
+    return <span role="timer" aria-label={`${remaining} seconds remaining`}> · {remaining}s</span>;
+}
+
+function TowerBattleDebrief({ session, score }: { session: TowerSession; score?: number }) {
+    const squad = session.actors.filter(actor => actor.side === "squad");
+    const standing = squad.filter(actor => actor.hp > 0).length;
+    const totalHp = squad.reduce((sum, actor) => sum + Math.max(0, actor.hp), 0);
+    const maxHp = squad.reduce((sum, actor) => sum + Math.max(1, actor.maxHp), 0);
+    const healthPercent = maxHp > 0 ? Math.round((totalHp / maxHp) * 100) : 0;
+    const objective = session.objectiveState.kind.replace(/-/g, " ");
+    const objectiveOutcome = session.objectiveState.completed ? `${objective} complete`
+        : session.objectiveState.failed ? `${objective} failed`
+        : session.winner === "squad" ? `${objective} secured` : `${objective} incomplete`;
+    const roundBudget = session.sealedCatalogFloor?.roundBudget ?? session.roundCap;
+    return (
+        <dl className="tower-result-debrief" aria-label="Battle debrief">
+            <div><dt>Objective</dt><dd>{objectiveOutcome}</dd></div>
+            <div><dt>Rounds</dt><dd>{session.round}{roundBudget ? ` / ${roundBudget}` : ""}</dd></div>
+            <div><dt>Squad standing</dt><dd>{standing} / {squad.length}</dd></div>
+            <div><dt>Team health</dt><dd>{healthPercent}%</dd></div>
+            {Number.isFinite(score) && <div><dt>Clear score</dt><dd>{score}</dd></div>}
+        </dl>
+    );
+}
 
 // A Move-tagged jutsu (Flicker / body-flicker) repositions the caster — its valid
 // destinations are OPEN tiles (like Dash), not ground-zone tiles. normalizeJutsu forces
@@ -83,15 +239,9 @@ type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
 const BOSS_ORB = 78;     // bosses render larger
 
-// Enemy sprite-key → painted portrait (keyed by character.visual), with an emoji
-// fallback for anything unmapped. Players/allies use their actual avatarImage.
-const ENEMY_SPRITE: Record<TowerEnemySpriteKey, string> = {
-    bandit: banditSprite, archer: archerSprite, blocker: blockerSprite, brute: bruteSprite,
-    acolyte: acolyteSprite, warden: wardenSprite, ravager: ravagerSprite, genin: geninSprite,
-    revenant: revenantSprite, sovereign: sovereignSprite,
-    "clan-boss-oni": clanBossOni, "clan-boss-leviathan": clanBossLeviathan,
-    "clan-boss-kage": clanBossKage, "clan-boss-golem": clanBossGolem,
-};
+// Tower combatant art is resolved through the Tower-only manifest. Unknown enemy
+// visual IDs deliberately render the visible unknown treatment below; player and
+// allied actors may use their sealed avatarImage.
 // Painted elemental-pylon sprites, by element (drawn on the flower centre).
 const PYLON_SPRITE: Record<string, string> = {
     Fire: pylonFire, Water: pylonWater, Earth: pylonEarth, Lightning: pylonLightning, Wind: pylonWind,
@@ -158,10 +308,12 @@ export function BattleTowerFight({
     runId,
     initialSession,
     onExit,
+    onLeaveActive,
     onRecordBattle,
     settleFn,
     settleOnAnyDone,
     actionFn,
+    stateFn = fetchTowerState,
     storyTheme,
 }: {
     character: Character;
@@ -173,6 +325,8 @@ export function BattleTowerFight({
     runId: string;
     initialSession: TowerSession;
     onExit: () => void;
+    /** Leave only the active battle view; public Towers keep a recovery breadcrumb. */
+    onLeaveActive?: () => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     // Optional settle override — the Clan Boss reuses this whole fight screen but
     // banks damage into its weekly pool (api/clan-boss/assault-settle) instead of
@@ -186,6 +340,8 @@ export function BattleTowerFight({
     // (api/village/anbu-infiltration action:'act') instead of /api/towers/action.
     // Same request/response shape (the server runs the shared tower engine).
     actionFn?: typeof submitTowerAction;
+    // Test/dev harness seam. Production defaults to the authoritative Tower state route.
+    stateFn?: typeof fetchTowerState;
     // Story-boss presentation (display-only — never touches stats or rewards):
     // chapter backdrop art, a chapter label, and boss "barks" spoken at fight
     // start and as the boss's HP falls. See lib/story-fight-theme.ts.
@@ -197,10 +353,24 @@ export function BattleTowerFight({
     const [selWeaponId, setSelWeaponId] = useState<string>("");
     // Enemy the cursor is over — centres the AOE Burst splash preview on desktop.
     const [hoverEnemyPos, setHoverEnemyPos] = useState<number | null>(null);
-    const [busy, setBusy] = useState(false);
-    const [reject, setReject] = useState<string | null>(null);
-    const [settle, setSettle] = useState<TowerSettleResponse | null>(null);
-    const settledRef = useRef(false);
+    const [actionFeedback, setActionFeedback] = useState<ActionFeedback>({ phase: "idle" });
+    const busy = actionFeedback.phase === "submitting";
+    const reject = actionFeedback.phase === "error" ? actionFeedback.message : null;
+    const [settlement, setSettlement] = useState<SettlementState>({ phase: "idle", response: null, message: null, attempts: 0 });
+    const settlementPromiseRef = useRef<Promise<void> | null>(null);
+    const mountedRef = useRef(true);
+    const actionInFlightRef = useRef(false);
+    const [fightSyncState, setFightSyncState] = useState<"live" | "reconnecting">("live");
+    const initialTowerMilestonesRef = useRef(new Set(character.battleTowerMilestones ?? []));
+    const introDialogRef = useRef<HTMLDivElement | null>(null);
+    const introPrimaryRef = useRef<HTMLButtonElement | null>(null);
+    const resultDialogRef = useRef<HTMLDivElement | null>(null);
+    const resultPrimaryRef = useRef<HTMLButtonElement | null>(null);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
 
     // ── Story presentation (display-only): the boss speaks its own authored VN
     // lines at fight start / 2⁄3 / 1⁄3 HP and its last words on the killing
@@ -273,37 +443,123 @@ export function BattleTowerFight({
     useEffect(() => () => window.clearTimeout(barkTimerRef.current), []);
 
     const me = character.name;
-    // Server slugs are lowercased (safeName), so a squad actor's ownerSlug is the
-    // lowercase name — compare case-insensitively or it's NEVER our turn (the bug that
-    // froze the board on "enemies acting"). The API still takes the display name; the
-    // server lowercases it.
-    const meSlug = me.toLowerCase();
-    const ownedByMe = (slug: string | null) => !!slug && slug.toLowerCase() === meSlug;
+    // Actor ownership is sealed to the server's safeName slug. Mirror that canonical
+    // transform here while continuing to send the display name to authenticated APIs.
+    const meSlug = towerPlayerSlug(me);
+    const ownedByMe = (slug: string | null) => !!slug && towerPlayerSlug(slug) === meSlug;
     const w = session.map.width, h = session.map.height;
     const layer = useMemo(() => towerLayerSize(w, h), [w, h]);
-    const { battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(layer.width, layer.height);
+    const { battlefieldCallbackRef, boardContainerSize, effectiveScale: fittedScale } = useBoardScale(layer.width, layer.height);
+    const [boardZoom, setBoardZoom] = useState(TOWER_ZOOM_MIN);
+    const [boardPan, setBoardPan] = useState<TowerPan>({ x: 0, y: 0 });
+    const boardDragRef = useRef<{ pointerId: number; startX: number; startY: number; pan: TowerPan; moved: boolean } | null>(null);
+    const suppressBoardClickRef = useRef(false);
+    const suppressBoardClickTimerRef = useRef<number | null>(null);
 
     const activeId = session.turnQueue[session.activeIndex];
     const activeActor = session.actors.find(a => a.id === activeId);
     const summonedCompanion = session.actors.find(a => (a.character as Record<string, unknown> | undefined)?.companion === true && a.hp > 0);
     const myTurn = session.status === "active" && !!activeActor && activeActor.ai === false && ownedByMe(activeActor.ownerSlug) && activeActor.hp > 0;
-    const myActor = activeActor && ownedByMe(activeActor.ownerSlug) ? activeActor : null;
+    // Keep the owned fighter and sealed loadout visible while allies/enemies act.
+    // `activeAp` belongs to the current actor, but HP/resources/cooldowns belong to
+    // this persistent actor and must not disappear between the player's turns.
+    const myActor = session.actors.find(a => a.side === "squad" && ownedByMe(a.ownerSlug)) ?? null;
     const bossId = session.phaseState?.bossId;
+
+    const maximumBoardZoom = fittedScale > 0
+        ? clampTowerZoom(TOWER_ZOOM_MAX, TOWER_ZOOM_MAX / fittedScale)
+        : TOWER_ZOOM_MAX;
+    const renderedScale = Math.min(TOWER_ZOOM_MAX, fittedScale * boardZoom);
+    const renderedBoardSize = useMemo(() => ({
+        width: layer.width * renderedScale,
+        height: layer.height * renderedScale,
+    }), [layer.width, layer.height, renderedScale]);
+    const clampPanToBoard = useCallback((pan: TowerPan) => clampTowerPan(
+        pan,
+        { width: boardContainerSize.w, height: boardContainerSize.h },
+        renderedBoardSize,
+    ), [boardContainerSize.w, boardContainerSize.h, renderedBoardSize]);
+
+    useEffect(() => {
+        setBoardZoom(current => clampTowerZoom(current, maximumBoardZoom));
+    }, [maximumBoardZoom]);
+    useEffect(() => {
+        setBoardPan(current => clampPanToBoard(current));
+    }, [clampPanToBoard]);
+
+    const changeBoardZoom = useCallback((delta: number) => {
+        setBoardZoom(current => clampTowerZoom(current + delta, maximumBoardZoom));
+    }, [maximumBoardZoom]);
+    const resetBoardView = useCallback(() => {
+        setBoardZoom(TOWER_ZOOM_MIN);
+        setBoardPan({ x: 0, y: 0 });
+    }, []);
+    const onBoardPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        if (boardZoom <= TOWER_ZOOM_MIN) return;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        boardDragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            pan: boardPan,
+            moved: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    }, [boardPan, boardZoom]);
+    const onBoardPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        const drag = boardDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const dx = event.clientX - drag.startX;
+        const dy = event.clientY - drag.startY;
+        if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+        drag.moved = true;
+        event.preventDefault();
+        setBoardPan(clampPanToBoard({ x: drag.pan.x + dx, y: drag.pan.y + dy }));
+    }, [clampPanToBoard]);
+    const endBoardPointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        const drag = boardDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        if (drag.moved) {
+            suppressBoardClickRef.current = true;
+            if (suppressBoardClickTimerRef.current != null) window.clearTimeout(suppressBoardClickTimerRef.current);
+            suppressBoardClickTimerRef.current = window.setTimeout(() => {
+                suppressBoardClickRef.current = false;
+                suppressBoardClickTimerRef.current = null;
+            }, 0);
+        }
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        boardDragRef.current = null;
+    }, []);
+    useEffect(() => () => {
+        if (suppressBoardClickTimerRef.current != null) window.clearTimeout(suppressBoardClickTimerRef.current);
+        suppressBoardClickTimerRef.current = null;
+        suppressBoardClickRef.current = false;
+        boardDragRef.current = null;
+    }, []);
 
     // ── Endless Spire theater — boss identity, intro nameplate, phase banners ────
     const spireTier = Number(session.ascensionTier ?? 0);
     const isSpire = spireTier > 0;
     const spireMeta = useMemo(() => (isSpire ? spireFloorMeta(spireTier) : null), [isSpire, spireTier]);
-    const bossPortrait = spireMeta ? ENEMY_SPRITE[spireMeta.boss.key] : undefined;
+    const bossPortrait = spireMeta ? TOWER_SPIRE_PORTRAITS[spireMeta.boss.key] : undefined;
 
     // A fresh entry (round 1) into a spire floor gets a ~2.8s cinematic nameplate; a
     // refresh-resume mid-fight skips it (only shown when initialSession is round ≤ 1).
     const [showIntro, setShowIntro] = useState(() => isSpire && (initialSession.round ?? 1) <= 1 && initialSession.status === "active");
+    const dismissIntro = useCallback(() => setShowIntro(false), []);
+    const introOpen = showIntro && isSpire && spireMeta != null && session.status === "active";
+    useTowerDialogFocus({
+        open: introOpen,
+        dialogRef: introDialogRef,
+        primaryRef: introPrimaryRef,
+        escapeAllowed: true,
+        onEscape: dismissIntro,
+    });
     useEffect(() => {
         if (!showIntro) return;
-        const id = setTimeout(() => setShowIntro(false), 2800);
+        const id = setTimeout(dismissIntro, 2800);
         return () => clearTimeout(id);
-    }, [showIntro]);
+    }, [showIntro, dismissIntro]);
 
     // Phase-change banner — when the boss crosses an HP-gate (triggeredPhases grows), flash a
     // mechanic-flavored banner. Uses a ref so it fires once per crossing, not per re-render.
@@ -323,77 +579,129 @@ export function BattleTowerFight({
         return () => clearTimeout(id);
     }, [phaseBanner]);
 
-    // Live clock for the co-op turn countdown.
-    const [nowTick, setNowTick] = useState(() => Date.now());
-    useEffect(() => {
-        if (session.status !== "active") return;
-        const id = setInterval(() => setNowTick(Date.now()), 1000);
-        return () => clearInterval(id);
-    }, [session.status]);
-
     // Whose turn is it? + the AFK countdown for a live player's turn.
     const activeIsLiveHuman = !!activeActor && activeActor.ai === false && activeActor.side !== "enemy" && activeActor.hp > 0;
-    const afkRemaining = activeIsLiveHuman && session.turnStartedAt
-        ? Math.max(0, Math.ceil((TOWER_TURN_AFK_MS - (nowTick - session.turnStartedAt)) / 1000))
-        : null;
     const turnLabel = session.status !== "active" || !activeActor ? ""
         : myTurn ? "🟢 Your turn"
         : activeActor.side === "enemy" ? "⚔️ Enemies acting…"
         : activeActor.ai === false ? `⏳ ${activeActor.name}'s turn`
         : `${activeActor.name} acting…`;
 
+    useEffect(() => {
+        if (myTurn) return;
+        setMode("idle");
+        setSelJutsu(null);
+        setSelWeaponId("");
+        setHoverEnemyPos(null);
+        setActionFeedback(current => current.phase === "submitting" ? current : { phase: "idle" });
+    }, [myTurn, activeId]);
+
     // Reconnect: if mounted without a fresh session (or to recover), pull the latest once.
     useEffect(() => {
         if (initialSession.status === "active") return;
-        fetchTowerState(runId, me).then(setSession).catch(() => {});
-    }, [runId, me, initialSession.status]);
+        const controller = new AbortController();
+        stateFn(runId, me, controller.signal).then(next => {
+            if (controller.signal.aborted) return;
+            setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+        }).catch(() => {});
+        return () => controller.abort();
+    }, [runId, me, initialSession.status, stateFn]);
 
-    // On entering a run, gear MY own fighter with my client-computed loadout (pvpItems +
-    // equipment passives the save doesn't persist) — so a JOINING ally is equipped like the
-    // host (whose loadout was sealed at /start). Idempotent server-side; runs once on mount.
+    // Refresh the server-sealed actor/session when entering a run. The join route is
+    // deliberately read-only and ignores this compatibility loadout; it never re-gears
+    // the actor from client state. Best-effort and once per mount.
     useEffect(() => {
         if (!hostLoadout) return;
         let alive = true;
-        joinTowerRun(runId, me, hostLoadout).then(s => { if (alive && s) setSession(s); });
+        joinTowerRun(runId, me, hostLoadout).then(next => {
+            if (!alive || !next) return;
+            setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+        });
         return () => { alive = false; };
     }, [runId, me, hostLoadout]);
 
-    // Live co-op: while it's NOT our turn, poll the server so we see allies'/enemies'
-    // moves and get notified the instant it's our turn. Our own actions update directly,
-    // and a poll also nudges the server's AFK auto-pass so an absent player never stalls
-    // the run. Solo runs poll between our turns too, which is cheap + harmless.
+    // Poll every active turn, including ours: another member's request can authoritatively
+    // auto-pass an idle local turn. visiblePoll suspends hidden tabs and catches up on return;
+    // the in-flight latch prevents overlap and revision gating rejects late stale snapshots.
     useEffect(() => {
-        if (session.status !== "active" || myTurn) return;
+        if (session.status !== "active") return;
         let alive = true;
-        const id = setInterval(() => {
-            // Skip while the tab is backgrounded — no point fetching/re-rendering
-            // a fight nobody's watching; it resumes on the next tick after refocus.
-            if (document.visibilityState === "hidden") return;
-            fetchTowerState(runId, me).then(s => { if (alive) setSession(s); }).catch(() => {});
-        }, 2500);
-        return () => { alive = false; clearInterval(id); };
-    }, [session.status, myTurn, runId, me]);
+        let inFlight = false;
+        const controller = new AbortController();
+        const poll = () => {
+            if (!alive || inFlight) return;
+            inFlight = true;
+            stateFn(runId, me, controller.signal).then(next => {
+                if (!alive) return;
+                setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+                setFightSyncState("live");
+            }).catch(() => {
+                if (alive && !controller.signal.aborted) setFightSyncState("reconnecting");
+            }).finally(() => { inFlight = false; });
+        };
+        void poll();
+        const stop = visiblePoll(poll, 1_150, 0.05);
+        return () => { alive = false; controller.abort(); stop(); };
+    }, [session.status, runId, me, stateFn]);
 
     // Auto-settle once the fight resolves. Tower rewards pay only on a squad
     // clear, but the server can still finalize spent consumables on a wipe.
-    useEffect(() => {
-        const done = session.status === "done";
-        const shouldSettle = settleOnAnyDone ? done : (done && session.winner === "squad");
-        if (shouldSettle && !settledRef.current) {
-            settledRef.current = true;
-            if (settleFn) {
-                void settleFn(runId, me).catch(() => {});
-            } else {
-                settleTowerRun(runId, me).then((response) => {
-                    setSettle(response);
-                    if (!updateCharacter) return;
-                    if (response.character) {
-                        updateCharacter(response.character);
-                    }
-                }).catch(() => {});
+    const performSettlement = useCallback(() => {
+        if (settlementPromiseRef.current) return settlementPromiseRef.current;
+        setSettlement(current => ({ ...current, phase: "pending", message: null, attempts: current.attempts + 1 }));
+        const request = (async () => {
+            try {
+                if (settleFn) {
+                    await settleFn(runId, me);
+                    if (!mountedRef.current) return;
+                    setSettlement(current => ({ ...current, phase: "settled", message: null }));
+                    return;
+                }
+                const response = await settleTowerRun(runId, me);
+                if (!mountedRef.current) return;
+                if (response.character && updateCharacter) updateCharacter(response.character);
+                if (!isStableTowerSettlement(response)) {
+                    setSettlement(current => ({
+                        ...current,
+                        phase: "error",
+                        response,
+                        message: settlementRetryMessage(response, me.toLowerCase()),
+                    }));
+                    return;
+                }
+                setSettlement(current => ({ ...current, phase: "settled", response, message: null }));
+            } catch (error) {
+                if (!mountedRef.current) return;
+                setSettlement(current => ({
+                    ...current,
+                    phase: "error",
+                    message: String((error as Error)?.message || "Settlement could not be confirmed."),
+                }));
             }
-        }
-    }, [session.status, session.winner, runId, me, settleFn, settleOnAnyDone, session.ascensionTier, character, updateCharacter]);
+        })();
+        settlementPromiseRef.current = request;
+        void request.finally(() => {
+            if (settlementPromiseRef.current === request) settlementPromiseRef.current = null;
+        });
+        return request;
+    }, [runId, me, settleFn, updateCharacter]);
+
+    const shouldSettle = session.status === "done" && (settleOnAnyDone || session.winner === "squad");
+    useEffect(() => {
+        if (shouldSettle && settlement.phase === "idle") void performSettlement();
+    }, [shouldSettle, settlement.phase, performSettlement]);
+    const resultCanExit = !shouldSettle || settlement.phase === "settled";
+    const exitResult = useCallback(() => {
+        if (resultCanExit) onExit();
+    }, [resultCanExit, onExit]);
+    useTowerDialogFocus({
+        open: session.status === "done",
+        dialogRef: resultDialogRef,
+        primaryRef: resultPrimaryRef,
+        escapeAllowed: resultCanExit,
+        onEscape: exitResult,
+        focusRevision: settlement.phase,
+    });
 
     // Reflection log (display-only): record the floor once it resolves (win OR
     // loss) so it shows on Profile → Battles. The squad log names many fighters,
@@ -529,6 +837,16 @@ export function BattleTowerFight({
         for (const f of session.map.features ?? []) for (const t of f.tiles) if (!m.has(t)) m.set(t, f);
         return m;
     }, [session.map.features]);
+    const boardObjectByTile = useMemo(() => {
+        const objects = new Map<number, TowerBoardObject>();
+        for (const object of session.map.boardObjects ?? []) for (const tile of object.tiles ?? []) if (!objects.has(tile)) objects.set(tile, object);
+        return objects;
+    }, [session.map.boardObjects]);
+    const dynamicHazardByTile = useMemo(() => {
+        const hazards = new Map<number, NonNullable<TowerSession["map"]["dynamicHazards"]>[number]>();
+        for (const hazard of session.map.dynamicHazards ?? []) for (const tile of hazard.tiles ?? []) if (!hazards.has(tile)) hazards.set(tile, hazard);
+        return hazards;
+    }, [session.map.dynamicHazards]);
 
     // ── "Board attacks back" overlays — three DISTINCT danger reads ──────────────
     // violet = the boss's telegraphed strike (detonates at THIS round's end)
@@ -546,41 +864,100 @@ export function BattleTowerFight({
         () => (session.map.nextRoundHazardTiles ?? []).filter(t => !strikeTiles.has(t) && !ringTiles.has(t)),
         [session.map.nextRoundHazardTiles, strikeTiles, ringTiles],
     );
+    const crimsonTileSet = useMemo(() => new Set(crimsonTiles), [crimsonTiles]);
 
-    // Story encounter chips — surface the boss's kit (strike / hunting style / arena
-    // mechanics) the way the Spire surfaces its sealed modifiers, so a fight's demands
-    // read BEFORE they hurt. Spire floors keep their richer modifier manifest instead.
+    // Surface the run-sealed boss profile even when Spire's modifier manifest is present;
+    // target selection and recurring strikes are distinct threats, not modifier aliases.
     const encounterChips = useMemo(() => {
-        if (Array.isArray(session.modifierStack) && session.modifierStack.length > 0) return [];
+        const hasModifierManifest = Array.isArray(session.modifierStack) && session.modifierStack.length > 0;
         const chips: Array<{ icon: string; text: string; kind: string }> = [];
         const boss = session.actors.find(a => a.id === session.phaseState.bossId);
-        const strike = boss?.character?.bossStrike as { kind?: string; everyRounds?: number } | undefined;
-        const hunt = String(boss?.character?.aiTargetMode ?? "");
-        if (strike?.kind) chips.push({ icon: "☄️", text: `${strike.kind === "volley" ? "Telegraphed barrage" : "Telegraphed nova"} every ${Math.max(2, Number(strike.everyRounds ?? 3))} rounds — step off the violet tiles`, kind: "debuff" });
+        const sealedBoss = session.sealedCatalogFloor?.boss;
+        const strike = sealedBoss?.strike ?? boss?.character?.bossStrike as { kind?: "nova" | "volley" | "slam"; everyRounds?: number; firstRound?: number; radius?: number } | undefined;
+        const hunt = String(sealedBoss?.targetMode ?? boss?.character?.aiTargetMode ?? "");
+        if (strike?.kind) {
+            const strikeName = strike.kind === "volley" ? "Telegraphed barrage" : strike.kind === "slam" ? "Telegraphed slam and knockback" : "Telegraphed nova";
+            const cadence = Math.max(2, Number(strike.everyRounds ?? 3));
+            const firstRound = Math.max(1, Number(strike.firstRound ?? cadence));
+            chips.push({ icon: "☄️", text: `${strikeName} from round ${firstRound}, every ${cadence} rounds${strike.radius ? ` · radius ${strike.radius}` : ""} — step off violet tiles`, kind: "debuff" });
+        }
         if (hunt) chips.push({ icon: "🎯", text: hunt === "support" ? "Hunts your support" : hunt === "squishiest" ? "Hunts your weakest guard" : "Finishes the wounded", kind: "objective" });
-        if (boss?.character?.phasePillars) chips.push({ icon: "🪨", text: "Shatters the arena at phase gates", kind: "default" });
-        if (boss?.character?.aegis) chips.push({ icon: "🛡️", text: "Raises a shield at phase gates", kind: "healcut" });
-        if (session.map.closingRing) chips.push({ icon: "🔥", text: `Arena collapses from round ${Math.max(1, Number(session.map.closingRing.fromRound ?? 6))}`, kind: "extraPhase" });
-        if ((session.map.dynamicHazards ?? []).length) chips.push({ icon: "♨️", text: "Geysers erupt on a beat — don't end the round on a vent", kind: "hazard" });
+        if (!hasModifierManifest) {
+            if (boss?.character?.phasePillars) chips.push({ icon: "🪨", text: "Shatters the arena at phase gates", kind: "default" });
+            if (boss?.character?.aegis) chips.push({ icon: "🛡️", text: "Raises a shield at phase gates", kind: "healcut" });
+            if (session.map.closingRing) chips.push({ icon: "🔥", text: `Arena collapses from round ${Math.max(1, Number(session.map.closingRing.fromRound ?? 6))}`, kind: "extraPhase" });
+            if ((session.map.dynamicHazards ?? []).length) chips.push({ icon: "♨️", text: "Geysers erupt on a beat — don't end the round on a vent", kind: "hazard" });
+        }
         return chips;
-    }, [session.modifierStack, session.actors, session.phaseState.bossId, session.map.closingRing, session.map.dynamicHazards]);
+    }, [session.modifierStack, session.actors, session.phaseState.bossId, session.sealedCatalogFloor, session.map.closingRing, session.map.dynamicHazards]);
 
-    async function send(action: Parameters<typeof submitTowerAction>[2]) {
+    function actionLabel(action: TowerActionInput): string {
+        if (action.type === "jutsu") return selJutsu?.name ?? "jutsu";
+        if (action.type === "weapon") return armedWeapon?.item.name ?? "weapon attack";
+        if (action.type === "item") return myConsumables.find(entry => entry.item.id === action.itemId)?.item.name ?? "combat item";
+        if (action.type === "wait") return "end turn";
+        if (action.type === "clear") return "clear enemy buffs";
+        if (action.type === "cleanse") return "cleanse debuffs";
+        if (action.type === "summon") return "summon pet";
+        return action.type;
+    }
+
+    function clearTargeting() {
+        setMode("idle");
+        setSelJutsu(null);
+        setSelWeaponId("");
+        setHoverEnemyPos(null);
+    }
+
+    function cancelAction() {
         if (busy) return;
-        setBusy(true); setReject(null);
+        clearTargeting();
+        setActionFeedback({ phase: "idle" });
+    }
+
+    function toggleMode(next: Exclude<Mode, "idle">) {
+        if (busy) return;
+        setActionFeedback({ phase: "idle" });
+        setSelJutsu(null);
+        setSelWeaponId("");
+        setMode(current => current === next ? "idle" : next);
+    }
+
+    async function send(action: TowerActionInput) {
+        if (actionInFlightRef.current) return;
+        actionInFlightRef.current = true;
+        const label = actionLabel(action);
+        setActionFeedback({ phase: "submitting", label });
         try {
-            const res = await (actionFn ?? submitTowerAction)(runId, me, action);
-            setSession(res.session);
-            if (!res.applied) setReject(res.reason ?? "Invalid action");
+            // Injected encounter transports retain their established 3-argument
+            // contract. Public Towers get one token per intent and one same-token
+            // retry only when the response is lost at the transport layer.
+            const res = actionFn
+                ? await actionFn(runId, me, action)
+                : await submitTowerActionWithLostResponseRetry(runId, me, action, session.actionVersion);
+            if (!mountedRef.current) return;
+            const responseActionVersion = res.actionVersion ?? res.currentVersion;
+            const nextSession = responseActionVersion != null && res.session.actionVersion == null
+                ? { ...res.session, actionVersion: responseActionVersion }
+                : res.session;
+            setSession(current => (nextSession.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? nextSession : current);
+            setFightSyncState("live");
+            if (res.applied) {
+                clearTargeting();
+                setActionFeedback({ phase: "idle" });
+            } else {
+                setActionFeedback({ phase: "error", label, message: towerActionRejectionText(res.reason) });
+            }
         } catch (e) {
-            setReject(String((e as Error)?.message ?? e));
+            if (!mountedRef.current) return;
+            setActionFeedback({ phase: "error", label, message: String((e as Error)?.message ?? e) });
         } finally {
-            setBusy(false);
-            setMode("idle"); setSelJutsu(null); setSelWeaponId("");
+            actionInFlightRef.current = false;
         }
     }
 
     function onTileClick(tile: number) {
+        if (suppressBoardClickRef.current) return;
         if (!myTurn || busy) return;
         if (mode === "move" && moveTiles.has(tile)) { void send({ type: "move", tile }); return; }
         if (mode === "dash" && dashTiles.has(tile)) { void send({ type: "dash", tile }); return; }
@@ -605,12 +982,20 @@ export function BattleTowerFight({
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // enemies/npc → their painted portrait by sprite key.
         if (ownedByMe(a.ownerSlug) && character.avatarImage) return character.avatarImage;
+        if (a.side === "enemy") {
+            return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src;
+        }
         const sealed = a.character?.avatarImage;
         if (typeof sealed === "string" && sealed) return sealed;
         const visual = String(a.character?.visual ?? "");
-        return resolveTowerEnemyPortrait(visual, ENEMY_SPRITE, sharedImages);
+        return resolveTowerCombatantArt(visual, sharedImages).src;
+    }
+    function isUnknownCombatant(a: TowerActor): boolean {
+        if (a.side !== "enemy") return false;
+        return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
     }
     function emojiFor(a: TowerActor): string {
+        if (isUnknownCombatant(a)) return UNKNOWN_TOWER_COMBATANT.glyph;
         if (a.side === "squad") return "🥷";
         const visual = String(a.character?.visual ?? "");
         return ENEMY_EMOJI[visual] ?? (a.side === "npc" ? "🧑" : "✦");
@@ -630,14 +1015,44 @@ export function BattleTowerFight({
     // (a foe in range, a ground tile, or — for a self-cast — your own ninja).
     function armJutsuCard(j: JutsuLike) {
         if (busy) return;
+        setActionFeedback({ phase: "idle" });
+        setSelWeaponId("");
         setSelJutsu(prev => prev?.id === j.id ? null : j);
         setMode(prev => (prev === "jutsu" && selJutsu?.id === j.id) ? "idle" : "jutsu");
+    }
+    function armWeaponCard(itemId: string) {
+        if (busy) return;
+        const alreadyArmed = mode === "weapon" && selWeaponId === itemId;
+        setActionFeedback({ phase: "idle" });
+        setSelJutsu(null);
+        setSelWeaponId(alreadyArmed ? "" : itemId);
+        setMode(alreadyArmed ? "idle" : "weapon");
     }
     const objective = session.objectiveState.kind;
     // The squad rail also lists protect-target npcs (allies) so the player can watch
     // the genin's HP on a protect floor.
     const allies = session.actors.filter(a => a.side === "squad" || a.side === "npc");
     const enemies = session.actors.filter(a => a.side === "enemy");
+    const actorById = useMemo(() => new Map(session.actors.map(actor => [actor.id, actor])), [session.actors]);
+    const actorByTile = useMemo(() => new Map(session.actors.filter(actor => actor.hp > 0).map(actor => [actor.pos, actor])), [session.actors]);
+    const blockedTileSet = useMemo(() => new Set(session.map.blockedTiles), [session.map.blockedTiles]);
+    const objectiveTileSet = useMemo(() => new Set(session.map.objectiveTiles), [session.map.objectiveTiles]);
+    const hazardTileSet = useMemo(() => new Set(session.map.hazardTiles), [session.map.hazardTiles]);
+    const groundEffectByTile = useMemo(() => {
+        const effects = new Map<number, string[]>();
+        for (const zone of session.groundEffects ?? []) {
+            for (const tile of zone.tiles) {
+                const labels = effects.get(tile) ?? [];
+                labels.push(`${zone.name}, ${zone.rounds} round${zone.rounds === 1 ? "" : "s"} remaining`);
+                effects.set(tile, labels);
+            }
+        }
+        return effects;
+    }, [session.groundEffects]);
+    const remainingTurnActors = useMemo(() => session.turnQueue
+        .slice(session.activeIndex)
+        .map(id => actorById.get(id))
+        .filter((actor): actor is TowerActor => Boolean(actor && actor.hp > 0)), [session.turnQueue, session.activeIndex, actorById]);
     const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloorForest;
 
     // Objective progress readout (so the player can see how close they are to win/lose).
@@ -645,11 +1060,43 @@ export function BattleTowerFight({
     const npcActor = session.actors.find(a => a.side === "npc");
     const bossActor = bossId ? session.actors.find(a => a.id === bossId) : undefined;
     const hpPct = (a: TowerActor) => Math.max(0, Math.round((a.hp / Math.max(1, a.maxHp)) * 100));
+    const addsRemaining = session.objectiveState.addsRemaining;
+    const bossUnlocked = session.objectiveState.bossUnlocked;
+    const breakProgress = session.objectiveState.breakProgress ?? session.objectiveState.breakStagesCompleted;
+    const breakGoal = session.objectiveState.breakGoal ?? session.objectiveState.breakStagesTotal;
+    const roundsSurvived = session.objectiveState.roundsSurvived ?? 0;
+    const holdGoal = session.sealedCatalogFloor?.roundBudget;
+    const holdRemaining = holdGoal == null ? null : Math.max(0, holdGoal - roundsSurvived);
     const objectiveProgress =
-        objective === "defeat-boss" && bossActor ? `Boss ${hpPct(bossActor)}% HP`
-        : (objective === "protect-npc" || objective === "kill-escort") && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% · ${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`
+        bossUnlocked === false && Number.isFinite(addsRemaining) ? `Boss barrier · ${addsRemaining} reinforcement${addsRemaining === 1 ? "" : "s"} left`
+        : Number.isFinite(breakProgress) && Number.isFinite(breakGoal) ? `Break seals ${breakProgress}/${breakGoal}`
+        : bossUnlocked === true && bossActor ? `Boss vulnerable · ${hpPct(bossActor)}% HP`
+        : objective === "defeat-boss" && bossActor ? `Boss ${hpPct(bossActor)}% HP`
+        : objective === "protect-npc" && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% HP · hold ${roundsSurvived}${holdGoal == null ? " rounds" : `/${holdGoal} rounds · ${holdRemaining} remaining`}`
+        : objective === "kill-escort" && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% HP · ${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`
         : objective === "reach-tile" ? (session.objectiveState.reachedGoal ? "Goal reached" : "Reach the goal tile")
         : `${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`;
+    const nextEnemyWave = (session.pendingEnemyWaves ?? []).find(wave => wave.actors.length > 0);
+    const pendingBossPhases = session.phaseState.pendingPhases ?? [];
+    const nextBossPhase = pendingBossPhases.length > 0 ? Math.max(...pendingBossPhases) : undefined;
+    const threatSummary = buildTowerThreatSummary({
+        round: session.round,
+        strikeLabel: session.bossStrike?.label,
+        strikeTiles: strikeTiles.size,
+        hazardTiles: crimsonTiles.length,
+        ringTiles: ringTiles.size,
+        reinforcementRound: nextEnemyWave?.round,
+        reinforcementCount: nextEnemyWave?.actors.length,
+        nextBossPhase,
+        roundCap: session.roundCap,
+    });
+    const armedActionName = mode === "jutsu" ? selJutsu?.name ?? "Jutsu"
+        : mode === "weapon" ? armedWeapon?.item.name ?? "Weapon"
+        : mode === "clear" ? "Clear enemy buffs"
+        : mode === "attack" ? "Attack"
+        : mode === "move" ? "Move"
+        : mode === "dash" ? "Dash"
+        : null;
     // What to do with the currently-armed action (esp. ground jutsu, which need a tile).
     const targetingHint = !myTurn ? "" :
         mode === "move" ? "Click an adjacent tile to move." :
@@ -662,6 +1109,9 @@ export function BattleTowerFight({
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
         mode === "jutsu" && isBurstJutsu(selJutsu) ? `Click an enemy — ${selJutsu?.name ?? "the blast"} also hits foes in the amber tiles around them.` :
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
+    const newlyRecordedTowerMilestones = (settlement.response?.character?.battleTowerMilestones ?? [])
+        .filter(milestone => !initialTowerMilestonesRef.current.has(milestone));
+    const mySettlementResult = settlement.response?.results[meSlug];
 
     return (
         <CombatInstance className="screen-battleTowerFight" style={{ color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
@@ -679,13 +1129,16 @@ export function BattleTowerFight({
                 </div>
             )}
             {/* Endless Spire — boss intro nameplate (fresh entry only; click to skip) */}
-            {showIntro && spireMeta && (
-                <div className="spire-intro" onClick={() => setShowIntro(false)}>
-                    <div className="spire-intro-card" style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
+            {introOpen && spireMeta && (
+                <div className="spire-intro" onMouseDown={event => { if (event.target === event.currentTarget) dismissIntro(); }}>
+                    <div ref={introDialogRef} className="spire-intro-card" role="dialog" aria-modal="true"
+                        aria-labelledby="tower-spire-intro-title" aria-describedby="tower-spire-intro-description" tabIndex={-1}
+                        style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
                         <div className="spire-intro-band" style={{ color: spireMeta.band.color }}>{spireMeta.band.label} · Floor {spireMeta.tier}</div>
                         {bossPortrait && <img className="spire-intro-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
-                        <div className="spire-intro-name" style={{ color: spireMeta.boss.accent }}>{spireMeta.boss.name}</div>
-                        <div className="spire-intro-mech"><b>{spireMeta.boss.mechanicLabel}</b> — {spireMeta.boss.blurb}</div>
+                        <div id="tower-spire-intro-title" className="spire-intro-name" style={{ color: spireMeta.boss.accent }}>{spireMeta.boss.name}</div>
+                        <div id="tower-spire-intro-description" className="spire-intro-mech"><b>{spireMeta.boss.mechanicLabel}</b> — {spireMeta.boss.blurb}</div>
+                        <button ref={introPrimaryRef} type="button" className="tower-dialog-primary" onClick={dismissIntro}>Enter battle</button>
                     </div>
                 </div>
             )}
@@ -721,23 +1174,42 @@ export function BattleTowerFight({
                                 border: `1px solid ${myTurn ? "var(--green-400)" : activeActor?.side === "enemy" ? "var(--red-400)" : "var(--blue-400)"}`,
                                 color: myTurn ? "#dcfce7" : "var(--slate-200)",
                             }}>
-                                {turnLabel}{afkRemaining != null ? ` · ${afkRemaining}s` : ""}
+                                <span aria-live="polite">{turnLabel}</span>
+                                {activeIsLiveHuman && session.turnStartedAt ? <TowerTurnCountdown turnStartedAt={session.turnStartedAt} /> : null}
                             </span>
                         )}
-                        <input type="range" min={-0.4} max={0} step={0.05} value={userScaleOffset} title="Zoom" aria-label="Battlefield zoom"
-                            onChange={e => setUserScaleOffset(Number(e.target.value))} style={{ width: 90 }} />
                         {session.status === "active" && (
                             // Free, penalty-free abandon — floors have unlimited retries.
                             <button
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: "var(--slate-600)", color: "var(--slate-300)" }}
-                                onClick={async () => { if (await gameConfirm("Leave this floor? Your run won't be saved — floors have unlimited retries.")) onExit(); }}
-                            >Leave</button>
+                                onClick={async () => {
+                                    if (await gameConfirm("Leave the battle view? The server run will continue and may auto-pass your turns. Reopen Battle Towers to recover it.")) (onLeaveActive ?? onExit)();
+                                }}
+                            >Leave view</button>
                         )}
                     </div>
 
                     {/* Endless Spire — sealed modifier manifest (why the numbers are bigger this floor).
                         Wave-2 keystones (hazard/debuff/healcut) are colour-coded apart from the stat
                         chassis (hp/dmg/round/enrage) so tactical demands read at a glance. */}
+                    {session.status === "active" && remainingTurnActors.length > 0 && (
+                        <ol className="tower-turn-queue" aria-label="Remaining turn order">
+                            {remainingTurnActors.map((actor, index) => (
+                                <li key={actor.id} className={index === 0 ? "is-active" : undefined} aria-current={index === 0 ? "step" : undefined}>
+                                    <span className={`tower-turn-dot tower-turn-dot--${actor.side}`} aria-hidden="true" />
+                                    <span>{index === 0 ? "Now: " : "Next: "}{actor.name}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    )}
+
+                    <div className={`tower-threat-summary${threatSummary.length > 0 ? " has-threats" : ""}`} role="status" aria-live="polite" aria-label="Immediate battlefield threats">
+                        <strong>{threatSummary.length > 0 ? "Immediate threats" : "Tactical read"}</strong>
+                        {threatSummary.length > 0
+                            ? threatSummary.map(threat => <span key={threat}>{threat}</span>)
+                            : <span>No telegraphed strike this round. Hold formation and advance the objective.</span>}
+                    </div>
+
                     {Array.isArray(session.modifierStack) && session.modifierStack.length > 0 && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                             {session.modifierStack.map((m, i) => {
@@ -767,49 +1239,72 @@ export function BattleTowerFight({
                         </div>
                     )}
 
-                    {/* Live danger banners — a primed strike / the collapsing arena, this round */}
-                    {(strikeTiles.size > 0 || ringTiles.size > 0) && session.status === "active" && (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                            {strikeTiles.size > 0 && session.bossStrike && (
-                                <span style={{
-                                    fontSize: "0.76rem", fontWeight: 800, padding: "3px 10px", borderRadius: 8, whiteSpace: "nowrap",
-                                    color: "#e9d5ff", background: "rgba(147,51,234,0.22)", border: "1px solid rgba(192,132,252,0.75)",
-                                    textShadow: "0 1px 2px #000", animation: "towerHazardPulse 1s ease-in-out infinite",
-                                }}>⚠️ {session.bossStrike.label} — clear the violet tiles before round's end!</span>
-                            )}
-                            {ringTiles.size > 0 && (
-                                <span style={{
-                                    fontSize: "0.76rem", fontWeight: 800, padding: "3px 10px", borderRadius: 8, whiteSpace: "nowrap",
-                                    color: "#fed7aa", background: "rgba(194,65,12,0.24)", border: "1px solid rgba(251,146,60,0.75)",
-                                    textShadow: "0 1px 2px #000",
-                                }}>🔥 The arena is collapsing — stay inside the ring!</span>
-                            )}
+                    <div className="tower-board-toolbar">
+                        <span className="tower-board-help">Drag the field to pan after zooming in.</span>
+                        <div className="tower-board-controls" role="group" aria-label="Battlefield view controls">
+                            <button type="button" onClick={() => changeBoardZoom(-TOWER_ZOOM_STEP)} disabled={boardZoom <= TOWER_ZOOM_MIN} aria-label="Zoom battlefield out">−</button>
+                            <input type="range" min={TOWER_ZOOM_MIN} max={maximumBoardZoom} step={0.05} value={boardZoom} aria-label="Battlefield zoom"
+                                onChange={event => setBoardZoom(clampTowerZoom(Number(event.target.value), maximumBoardZoom))} />
+                            <output aria-live="polite">{Math.round(boardZoom * 100)}%</output>
+                            <button type="button" onClick={() => changeBoardZoom(TOWER_ZOOM_STEP)} disabled={boardZoom >= maximumBoardZoom} aria-label="Zoom battlefield in">+</button>
+                            <button type="button" onClick={resetBoardView} disabled={boardZoom === TOWER_ZOOM_MIN && boardPan.x === 0 && boardPan.y === 0}>Fit / reset</button>
                         </div>
-                    )}
+                    </div>
 
-                    <div ref={battlefieldCallbackRef} className="tower-board-area"
+                    <div ref={battlefieldCallbackRef} className={`tower-board-area${boardZoom > TOWER_ZOOM_MIN ? " is-pannable" : ""}`}
+                        role="region" aria-label="Tactical battlefield. Use the zoom controls, then drag to pan."
+                        onPointerDown={onBoardPointerDown} onPointerMove={onBoardPointerMove} onPointerUp={endBoardPointer} onPointerCancel={endBoardPointer}
                         style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
                         <div style={{
                             position: "absolute",
-                            left: `${Math.max(0, (boardContainerSize.w - layer.width * effectiveScale) / 2)}px`,
-                            top: `${Math.max(0, (boardContainerSize.h - layer.height * effectiveScale) / 2)}px`,
-                            width: `${layer.width * effectiveScale}px`, height: `${layer.height * effectiveScale}px`,
+                            left: `${(boardContainerSize.w - renderedBoardSize.width) / 2 + boardPan.x}px`,
+                            top: `${(boardContainerSize.h - renderedBoardSize.height) / 2 + boardPan.y}px`,
+                            width: `${renderedBoardSize.width}px`, height: `${renderedBoardSize.height}px`,
                         }}>
-                            <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}>
+                            <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${renderedScale})`, transformOrigin: "top left" }}>
                                 {/* hex tiles */}
                                 {Array.from({ length: w * h }, (_, pos) => {
                                     const { left, top } = towerHexPixel(pos, w);
                                     const isMove = moveTiles.has(pos) || dashTiles.has(pos);
                                     const inJ = (mode === "weapon" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu))) && jutsuRangeTiles.has(pos);
-                                    const isGoal = session.map.objectiveTiles.includes(pos);
-                                    const isBlocked = session.map.blockedTiles.includes(pos);
+                                    const isGoal = objectiveTileSet.has(pos);
+                                    const isBlocked = blockedTileSet.has(pos);
                                     const feat = featureByTile.get(pos);
+                                    const boardObject = boardObjectByTile.get(pos);
+                                    const dynamicHazard = dynamicHazardByTile.get(pos);
+                                    const occupant = actorByTile.get(pos);
+                                    const validGroundTarget = mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" && jutsuRangeTiles.has(pos) && !isBlocked;
+                                    const validAction = isMove
+                                        ? (mode === "dash" ? "Dash here" : "Move here")
+                                        : validGroundTarget ? `Place ${selJutsu?.name ?? "jutsu"} here` : undefined;
+                                    const danger: string[] = [];
+                                    if (strikeTiles.has(pos)) danger.push(`${session.bossStrike?.label ?? "Boss strike"} at round end`);
+                                    if (ringTiles.has(pos)) danger.push("Outside the safe ring");
+                                    if (crimsonTileSet.has(pos) || hazardTileSet.has(pos)) danger.push("Hazard damage at round end");
+                                    const tileFeatures = [
+                                        feat ? featureLabel(feat) : undefined,
+                                        boardObject ? objectLabel(boardObject) : undefined,
+                                        dynamicHazard ? `Geyser vent: ${dynamicHazard.pct}% max HP, erupts every ${Math.max(2, Number(dynamicHazard.everyRounds ?? 3))} rounds` : undefined,
+                                    ].filter((label): label is string => Boolean(label));
+                                    const tileLabel = buildTowerTileLabel({
+                                        position: pos,
+                                        width: w,
+                                        occupant: occupant?.name,
+                                        feature: tileFeatures.length > 0 ? tileFeatures.join(". ") : undefined,
+                                        groundEffect: groundEffectByTile.get(pos)?.join("; "),
+                                        blocked: isBlocked,
+                                        objective: isGoal,
+                                        danger,
+                                        validAction,
+                                    });
+                                    const tileActionable = Boolean(validAction && myTurn && !busy);
                                     return (
-                                        <button key={pos} onClick={() => onTileClick(pos)} title={feat ? featureLabel(feat) : undefined}
+                                        <button key={pos} type="button" onClick={() => onTileClick(pos)} title={tileLabel} aria-label={tileLabel}
+                                            aria-disabled={!tileActionable} tabIndex={tileActionable ? 0 : -1}
                                             className="tower-hex-tile"
                                             style={{
                                                 left, top, width: HEX_W, height: HEX_H,
-                                                cursor: (isMove || (mode !== "idle")) && myTurn ? "pointer" : "default",
+                                                cursor: tileActionable ? "pointer" : "default",
                                                 ...tileFill(feat, { isMove, inJ, isGoal, isBlocked }),
                                             }} />
                                     );
@@ -870,7 +1365,7 @@ export function BattleTowerFight({
                                     const sprite = feat.kind === "pylon" ? PYLON_SPRITE[feat.element] : FEATURE_SPRITE[feat.kind];
                                     if (sprite) {
                                         const S = 38;
-                                        return <img key={`f-${fi}`} src={sprite} alt={feat.label ?? feat.kind} title={featureLabel(feat)}
+                                        return <img key={`f-${fi}`} src={sprite} alt="" aria-hidden="true" title={featureLabel(feat)}
                                             style={{ position: "absolute", left: cx - S / 2, top: cy - S + 9, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.75))" }} />;
                                     }
                                     return (
@@ -901,7 +1396,7 @@ export function BattleTowerFight({
                                         <span key={`geyser-${hi}-${t}`}>
                                             <div className="tower-hex-tile" aria-hidden
                                                 style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: primed ? "rgba(234,88,12,0.34)" : "rgba(234,88,12,0.12)", filter: "drop-shadow(0 0 3px rgba(249,115,22,0.7))", zIndex: 2, pointerEvents: "none", animation: primed ? "towerHazardPulse 0.9s ease-in-out infinite" : "towerZonePulse 2.8s ease-in-out infinite" }} />
-                                            <img src={hazardGeyser} alt="Geyser vent" title={`Geyser — erupts every ${Math.max(2, Number(hz.everyRounds ?? 3))} rounds for ${hz.pct}% max HP; don't end the round on it`}
+                                            <img src={hazardGeyser} alt="" aria-hidden="true" title={`Geyser — erupts every ${Math.max(2, Number(hz.everyRounds ?? 3))} rounds for ${hz.pct}% max HP; don't end the round on it`}
                                                 style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.8))${primed ? " drop-shadow(0 0 7px rgba(249,115,22,0.95))" : ""}` }} />
                                         </span>
                                     );
@@ -927,7 +1422,7 @@ export function BattleTowerFight({
                                         <span key={`bo-${oi}-${t}`}>
                                             <div className="tower-hex-tile" aria-hidden
                                                 style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: fill, filter: `drop-shadow(0 0 3px ${glow})`, zIndex: 2, pointerEvents: "none", animation: "towerZonePulse 2.4s ease-in-out infinite" }} />
-                                            <img src={OBJECT_SPRITE[o.kind]} alt={o.label ?? o.kind} title={objectLabel(o)}
+                                            <img src={OBJECT_SPRITE[o.kind]} alt="" aria-hidden="true" title={objectLabel(o)}
                                                 style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.8)) drop-shadow(0 0 6px ${glow})` }} />
                                         </span>
                                     );
@@ -946,35 +1441,41 @@ export function BattleTowerFight({
                                     const selfTargetable = mode === "jutsu" && !!selJutsu && isSelfCastJutsu(selJutsu) && myActor != null && a.id === myActor.id;
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
+                                    const unknownCombatant = isUnknownCombatant(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "var(--gold)" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
                                     return (
-                                        <div key={a.id} onClick={() => onTileClick(a.pos)} title={`${a.name} ${a.hp}/${a.maxHp}`}
+                                        <button key={a.id} type="button" className="tower-board-actor" onClick={() => onTileClick(a.pos)}
+                                            aria-disabled={busy || (!targetable && !selfTargetable)}
+                                            tabIndex={!busy && (targetable || selfTargetable) ? 0 : -1}
+                                            aria-label={`${a.name}, ${Math.max(0, a.hp)} of ${a.maxHp} health${unknownCombatant ? ". Unknown combatant portrait" : ""}. ${targetable || selfTargetable ? `Select as target for ${armedActionName ?? "armed action"}` : "Not a valid target"}.`}
+                                            title={`${a.name} ${a.hp}/${a.maxHp}`}
                                             onMouseEnter={a.side === "enemy" ? () => setHoverEnemyPos(a.pos) : undefined}
                                             onMouseLeave={a.side === "enemy" ? () => setHoverEnemyPos(null) : undefined}
                                             style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: targetable || selfTargetable ? "pointer" : "default" }}>
-                                            <div className={`avatar-orb${a.side === "enemy" ? " enemy-orb" : ""}`}
+                                            <span className={`avatar-orb${a.side === "enemy" ? " enemy-orb" : ""}`}
                                                 style={{
                                                     width: size, height: size,
                                                     outline: isActive ? "3px solid #fde047" : targetable ? "3px solid var(--red-300)" : selfTargetable ? "3px solid #67e8f9" : "none",
                                                     outlineOffset: 2,
                                                     boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : selfTargetable ? "0 0 16px 4px rgba(34,211,238,0.85)" : undefined,
                                                 }}>
-                                                {img
-                                                    ? <img className="tiny-map-avatar" src={img} alt={a.name} />
-                                                    : <span style={{ fontSize: size * 0.52, lineHeight: 1 }} role="img" aria-label={a.name}>{emojiFor(a)}</span>}
-                                                {isBoss && <span style={{ position: "absolute", top: -2, right: -2, fontSize: 16, filter: "drop-shadow(0 1px 2px #000)" }}>👑</span>}
-                                            </div>
+                                                 {img
+                                                    ? <img className="tiny-map-avatar" src={img} alt="" aria-hidden="true" />
+                                                    : <span className={unknownCombatant ? "tower-unknown-combatant" : undefined} style={{ fontSize: size * 0.52, lineHeight: 1 }} aria-hidden="true">{emojiFor(a)}</span>}
+                                                {isBoss && <span aria-hidden="true" style={{ position: "absolute", top: -2, right: -2, fontSize: 16, filter: "drop-shadow(0 1px 2px #000)" }}>👑</span>}
+                                                {unknownCombatant && <span className="tower-unknown-combatant-badge" aria-hidden="true">Unknown</span>}
+                                            </span>
                                             {/* name + hp bar */}
-                                            <div style={{ marginTop: 3, textAlign: "center", pointerEvents: "none" }}>
-                                                <div style={{ height: 4, width: size, borderRadius: 2, background: "rgba(2,6,18,0.85)", border: "1px solid rgba(0,0,0,0.5)" }}>
-                                                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: ringColor }} />
-                                                </div>
-                                                <div style={{ fontSize: 9, fontWeight: 700, color: "var(--slate-200)", textShadow: "0 1px 3px #000", whiteSpace: "nowrap", marginTop: 1 }}>
+                                            <span style={{ display: "block", marginTop: 3, textAlign: "center", pointerEvents: "none" }}>
+                                                <span style={{ display: "block", height: 4, width: size, borderRadius: 2, background: "rgba(2,6,18,0.85)", border: "1px solid rgba(0,0,0,0.5)" }}>
+                                                    <span style={{ display: "block", width: `${pct}%`, height: "100%", borderRadius: 2, background: ringColor }} />
+                                                </span>
+                                                <span style={{ display: "block", fontSize: 9, fontWeight: 700, color: "var(--slate-200)", textShadow: "0 1px 3px #000", whiteSpace: "nowrap", marginTop: 1 }}>
                                                     {a.name}{isBoss ? "" : ""}
-                                                </div>
-                                            </div>
-                                        </div>
+                                                </span>
+                                            </span>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -982,59 +1483,74 @@ export function BattleTowerFight({
                     </div>
 
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
-                    <div style={{ marginTop: 8 }}>
+                    <div className="tower-action-dock">
                         {/* AP / chakra / stamina readout + turn status */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#0b1220", border: "1px solid var(--slate-700)" }}>
-                                <strong style={{ color: "var(--gold)", fontSize: "1rem", lineHeight: 1 }}>{session.activeAp}</strong>
+                                <strong style={{ color: "var(--gold)", fontSize: "1rem", lineHeight: 1 }}>{myTurn ? session.activeAp : "—"}</strong>
                                 <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>AP</span>
                                 <span style={{ color: "var(--slate-600)" }}>·</span>
-                                <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>{session.actionsThisTurn}/5</span>
+                                <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>{myTurn ? `${session.actionsThisTurn}/5` : "waiting"}</span>
                                 <span style={{ color: "var(--slate-600)" }}>·</span>
+                                <span title="Health" style={{ color: "#fb7185", fontSize: "0.7rem", fontWeight: 700 }}>♥ {Math.max(0, myActor?.hp ?? 0)}/{myActor?.maxHp ?? 0}</span>
                                 <span title="Chakra" style={{ color: "var(--cyan)", fontSize: "0.7rem", fontWeight: 700 }}>◆ {myChakra}</span>
                                 <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.7rem", fontWeight: 700 }}>⬢ {myStamina}</span>
                             </span>
-                            {reject && <span style={{ color: "var(--red-400)", fontSize: "0.78rem" }}>⚠ {reject}</span>}
-                            {!reject && targetingHint && <span style={{ color: "#7dd3fc", fontSize: "0.78rem", fontWeight: 600 }}>👉 {targetingHint}</span>}
-                            {!myTurn && session.status === "active" && (
-                                <span className="hint" style={{ fontSize: "0.78rem", color: "var(--text-dim)", margin: 0 }}>{turnLabel || "Allies & enemies are acting…"}{afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}</span>
-                            )}
                         </div>
 
+                        {(fightSyncState === "reconnecting" || actionFeedback.phase !== "idle" || armedActionName || (!myTurn && session.status === "active")) && (
+                            <div className={`tower-action-state tower-action-state--${actionFeedback.phase}`} role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-busy={busy}>
+                                <div>
+                                    <strong>{fightSyncState === "reconnecting" ? "Reconnecting to the Tower…"
+                                        : actionFeedback.phase === "submitting" ? `Submitting ${actionFeedback.label}…`
+                                        : actionFeedback.phase === "error" ? `${actionFeedback.label} was rejected`
+                                        : armedActionName ? `${armedActionName} armed`
+                                        : turnLabel || "Waiting for the active fighter"}</strong>
+                                    <span>{fightSyncState === "reconnecting" ? "Showing the last confirmed battlefield. Commands resume after the connection recovers."
+                                        : actionFeedback.phase === "error" ? reject
+                                        : actionFeedback.phase === "submitting" ? "Waiting for the authoritative Tower result."
+                                        : targetingHint || `${activeActor?.name ?? "Another fighter"} is acting. Your HUD and loadout remain available to inspect.`}</span>
+                                </div>
+                                {(armedActionName || actionFeedback.phase === "error") && (
+                                    <button type="button" onClick={cancelAction} disabled={busy}>Cancel action</button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Command bar */}
-                        <div className="basic-action-bar shinobi-command-bar" style={myTurn ? undefined : { opacity: 0.5, pointerEvents: "none" }}>
+                        <div className="basic-action-bar shinobi-command-bar" style={myTurn ? undefined : { opacity: 0.65 }}>
                             <button className={mode === "attack" ? "selected-action" : ""}
-                                onClick={() => setMode(m => m === "attack" ? "idle" : "attack")}
-                                disabled={busy || session.activeAp < 40}>
+                                aria-pressed={mode === "attack"} onClick={() => toggleMode("attack")}
+                                disabled={!myTurn || busy || session.activeAp < 40}>
                                 <span>Attack</span><small>40 AP | R1</small>
                             </button>
                             <button className={mode === "move" ? "selected-action" : ""}
-                                onClick={() => setMode(m => m === "move" ? "idle" : "move")}
-                                disabled={busy || session.activeAp < 30}>
+                                aria-pressed={mode === "move"} onClick={() => toggleMode("move")}
+                                disabled={!myTurn || busy || session.activeAp < 30}>
                                 <span>Move</span><small>30 AP / tile</small>
                             </button>
                             <button className={mode === "dash" ? "selected-action" : ""}
-                                onClick={() => setMode(m => m === "dash" ? "idle" : "dash")}
-                                disabled={busy || session.activeAp < 30}>
+                                aria-pressed={mode === "dash"} onClick={() => toggleMode("dash")}
+                                disabled={!myTurn || busy || session.activeAp < 30}>
                                 <span>Dash</span><small>3 tiles | 30 AP</small>
                             </button>
                             <button onClick={() => void send({ type: "heal" })}
-                                disabled={busy || healCd > 0 || myChakra < 10 || session.activeAp < 60}>
+                                disabled={!myTurn || busy || healCd > 0 || myChakra < 10 || session.activeAp < 60}>
                                 <span>Heal</span><small>60 AP | 10◆ | CD {healCd}</small>
                             </button>
                             <button className={mode === "clear" ? "selected-action" : ""}
-                                onClick={() => setMode(m => m === "clear" ? "idle" : "clear")}
-                                disabled={busy || clearCd > 0 || session.activeAp < 60}>
+                                aria-pressed={mode === "clear"} onClick={() => toggleMode("clear")}
+                                disabled={!myTurn || busy || clearCd > 0 || session.activeAp < 60}>
                                 <span>Clear</span><small>60 AP | CD {clearCd}</small>
                             </button>
                             <button onClick={() => void send({ type: "cleanse" })}
-                                disabled={busy || cleanseCd > 0 || session.activeAp < 60}>
+                                disabled={!myTurn || busy || cleanseCd > 0 || session.activeAp < 60}>
                                 <span>Cleanse</span><small>60 AP | CD {cleanseCd}</small>
                             </button>
                             {(session.pendingCompanion || summonedCompanion) && (
                                 <button
                                     onClick={() => void send({ type: "summon" })}
-                                    disabled={busy || !session.pendingCompanion || !!summonedCompanion}
+                                    disabled={!myTurn || busy || !session.pendingCompanion || !!summonedCompanion}
                                     title={summonedCompanion
                                         ? `${summonedCompanion.name} is already on the field`
                                         : `Summon ${session.pendingCompanion?.name ?? "your active pet"}`}
@@ -1043,7 +1559,7 @@ export function BattleTowerFight({
                                     <small>{summonedCompanion?.name ?? session.pendingCompanion?.name ?? "Active pet"}</small>
                                 </button>
                             )}
-                            <button onClick={() => void send({ type: "wait" })} disabled={busy}>
+                            <button onClick={() => void send({ type: "wait" })} disabled={!myTurn || busy}>
                                 <span>End Turn</span><small>Pass</small>
                             </button>
                         </div>
@@ -1051,7 +1567,7 @@ export function BattleTowerFight({
                         {/* Jutsu / weapon / consumable cards */}
                         {(myJutsu.length > 0 || myWeapons.length > 0 || myConsumables.length > 0) && (
                             <div className="jutsu-layout-card combat-jutsu-bar" style={{ marginTop: 8 }}>
-                                <div className="combat-equipped-jutsu-grid" style={myTurn ? undefined : { opacity: 0.5, pointerEvents: "none" }}>
+                                <div className="combat-equipped-jutsu-grid" style={myTurn ? undefined : { opacity: 0.65 }}>
                                     {myJutsu.map(j => {
                                         const ck = Number(j.chakraCost ?? 0), st = Number(j.staminaCost ?? 0);
                                         const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
@@ -1063,7 +1579,7 @@ export function BattleTowerFight({
                                                 <button type="button"
                                                     className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${j.name ?? j.id} | ${j.ap ?? 40} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
-                                                    onClick={() => armJutsuCard(j)} disabled={busy || !afford}>
+                                                    aria-pressed={armed} onClick={() => armJutsuCard(j)} disabled={!myTurn || busy || !afford}>
                                                     <span className="combat-jutsu-thumb">{art ? <img src={art} alt={j.name ?? ""} /> : <strong>✨</strong>}</span>
                                                     <span className="combat-jutsu-name">{j.name ?? j.id}</span>
                                                     <span className="combat-jutsu-info">{j.ap ?? 40} AP | R{j.range ?? 1} | CD {cd}</span>
@@ -1081,8 +1597,8 @@ export function BattleTowerFight({
                                                 <button type="button"
                                                     className={`combat-jutsu-button combat-item-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
-                                                    onClick={() => { setSelJutsu(null); setSelWeaponId(prev => prev === wp.id ? "" : (wp.id ?? "")); setMode(m => (m === "weapon" && selWeaponId === wp.id) ? "idle" : "weapon"); }}
-                                                    disabled={busy || out || cd > 0 || session.activeAp < ap}>
+                                                    aria-pressed={armed} onClick={() => armWeaponCard(wp.id ?? "")}
+                                                    disabled={!myTurn || busy || out || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(wp) ? <img src={itemArt(wp)} alt={wp.name ?? ""} /> : <strong>🗡</strong>}</span>
                                                     <span className="combat-jutsu-name">{wp.name ?? "Weapon"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""} | CD {cd}</span>
@@ -1098,7 +1614,7 @@ export function BattleTowerFight({
                                                 <button type="button" className={`combat-jutsu-button combat-item-button${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${cs.name ?? "Item"} | ${ap} AP | Use${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     onClick={() => void send({ type: "item", itemId: cs.id })}
-                                                    disabled={busy || left <= 0 || cd > 0 || session.activeAp < ap}>
+                                                    disabled={!myTurn || busy || left <= 0 || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(cs) ? <img src={itemArt(cs)} alt={cs.name ?? ""} /> : <strong>🧪</strong>}</span>
                                                     <span className="combat-jutsu-name">{cs.name ?? "Item"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | Use ×{left} | CD {cd}</span>
@@ -1115,9 +1631,9 @@ export function BattleTowerFight({
                 {/* Enemy + log rail */}
                 <aside style={{ minWidth: 0 }}>
                     <RailHeader icon="👹" label="Enemies" accent="var(--red-400)" />
-                    {enemies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} />)}
+                    {enemies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)} />)}
                     <RailHeader icon="📜" label="Battle Log" accent="var(--text-dim)" mt={12} />
-                    <div style={{ maxHeight: 220, overflow: "auto", fontSize: "0.74rem", lineHeight: 1.45, color: "var(--slate-300)", background: "rgba(2,6,18,0.55)", border: "1px solid var(--slate-800)", borderRadius: 8, padding: "6px 8px" }}>
+                    <div role="log" aria-live="polite" aria-relevant="additions text" aria-label="Battle log" style={{ maxHeight: 220, overflow: "auto", fontSize: "0.74rem", lineHeight: 1.45, color: "var(--slate-300)", background: "rgba(2,6,18,0.55)", border: "1px solid var(--slate-800)", borderRadius: 8, padding: "6px 8px" }}>
                         {session.log.slice(-30).map((line, i) => <div key={i} style={{ padding: "1px 0", borderBottom: i < Math.min(29, session.log.length - 1) ? "1px solid rgba(30,41,59,0.5)" : undefined }}>{line}</div>)}
                     </div>
                 </aside>
@@ -1127,37 +1643,44 @@ export function BattleTowerFight({
             {session.status === "done" && (isSpire && spireMeta ? (
                 // ── Endless Spire — cinematic ascension result ──
                 <div className="spire-result">
-                    <div className={`spire-result-card ${session.winner === "squad" ? "win" : "loss"}`}
+                    <div ref={resultDialogRef} className={`spire-result-card ${session.winner === "squad" ? "win" : "loss"}`}
+                        role="dialog" aria-modal="true" aria-labelledby="tower-spire-result-title" tabIndex={-1}
                         style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
                         {bossPortrait && <img className="spire-result-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
                         <div className="spire-result-kicker">Floor {spireMeta.tier} · {spireMeta.boss.name}</div>
                         {session.winner === "squad" ? (
                             <>
-                                <h1 className="spire-result-title win">🗼 Floor {spireMeta.tier} Ascended</h1>
+                                <h1 id="tower-spire-result-title" className="spire-result-title win">🗼 Floor {spireMeta.tier} Ascended</h1>
                                 {spireMeta.isMilestone && (
                                     <div className="spire-result-milestone">🏅 Title unlocked — <b>{spireMeta.milestoneTitle}</b></div>
                                 )}
                                 <div className="spire-result-rewards">
-                                    {/* settle.results is keyed by the lowercased ownerSlug (settle.ts),
+                                    {/* settle.results is keyed by the canonical ownerSlug (settle.ts),
                                         not the display name — look it up by meSlug, and only claim a
                                         banked/paid state once the member's result actually arrives. */}
-                                    {settle?.results[meSlug]
-                                        ? (settle.results[meSlug]!.paid
-                                            ? <span className="spire-reward-shard in">💠 +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
-                                            : <span className="spire-reward-shard muted in">💠 Weekly best already banked</span>)
-                                        : <span className="spire-reward-shard pending">💠 Settling…</span>}
+                                    {settlement.response?.results[meSlug]
+                                        ? <span className={`spire-reward-shard in${settlement.response.results[meSlug]!.paid ? "" : " muted"}`}>
+                                            💠 {towerRewardReceiptText(settlement.response.results[meSlug]!, true)}
+                                        </span>
+                                        : <span className="spire-reward-shard pending">💠 {settlement.phase === "error" ? "Settlement paused" : "Settling…"}</span>}
                                 </div>
+                                {newlyRecordedTowerMilestones.map(milestone => (
+                                    <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
+                                ))}
                                 <p className="spire-result-sub">
                                     {spireMeta.tier < 20 ? <>Floor <b>{spireMeta.tier + 1}</b> now open.</> : <>The Spire is conquered — the apex is yours.</>}
                                 </p>
                             </>
                         ) : (
                             <>
-                                <h1 className="spire-result-title loss">Turned Back</h1>
+                                <h1 id="tower-spire-result-title" className="spire-result-title loss">Turned Back</h1>
                                 <p className="spire-result-sub">The {spireMeta.boss.name} holds Floor {spireMeta.tier}. Regroup and climb again — retries are free.</p>
                             </>
                         )}
-                        <button className="spire-result-btn" onClick={onExit}>
+                        <TowerBattleDebrief session={session} score={mySettlementResult?.score} />
+                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
+                        <button ref={resultCanExit ? resultPrimaryRef : undefined} className="spire-result-btn" onClick={exitResult} aria-disabled={!resultCanExit} disabled={!resultCanExit}
+                            title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
                             {session.winner === "squad" ? "▲ Return to the Spire" : "↺ Back to the Spire"}
                         </button>
                     </div>
@@ -1165,16 +1688,26 @@ export function BattleTowerFight({
             ) : (
                 // ── Story floors — the original result card ──
                 <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(2,6,14,0.82)" }}>
-                    <div className="card" style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
-                        <h1 style={{ marginTop: 0, color: session.winner === "squad" ? "var(--green-400)" : "var(--red-400)" }}>
+                    <div ref={resultDialogRef} className="card" role="dialog" aria-modal="true" aria-labelledby="tower-story-result-title" tabIndex={-1}
+                        style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
+                        <h1 id="tower-story-result-title" style={{ marginTop: 0, color: session.winner === "squad" ? "var(--green-400)" : "var(--red-400)" }}>
                             {session.winner === "squad" ? "🏆 Floor Cleared!" : "💀 Floor Failed"}
                         </h1>
+                        <TowerBattleDebrief session={session} score={mySettlementResult?.score} />
                         {session.winner === "squad" && (
-                            settle?.results[meSlug]
-                                ? <p>Rewards settled. {settle.results[meSlug]!.score ? `Score +${settle.results[meSlug]!.score}` : ""}</p>
-                                : <p className="hint">Settling rewards…</p>
+                            settlement.response?.results[meSlug]
+                                ? <p>{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
+                                : <p className="hint">{settlement.phase === "error" ? "Reward settlement paused." : "Settling rewards…"}</p>
                         )}
-                        <button style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={onExit}>Return to the Tower</button>
+                        {newlyRecordedTowerMilestones.map(milestone => (
+                            <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
+                        ))}
+                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
+                        <button ref={resultCanExit ? resultPrimaryRef : undefined} style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={exitResult}
+                            aria-disabled={!resultCanExit} disabled={!resultCanExit}
+                            title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
+                            Return to the Tower
+                        </button>
                     </div>
                 </div>
             ))}
@@ -1183,6 +1716,25 @@ export function BattleTowerFight({
 }
 
 // ── Tile fill (feature tint + state highlight) ───────────────────────────────
+function SettlementStatusNotice({ state, required, onRetry, primaryRef }: { state: SettlementState; required: boolean; onRetry: () => void; primaryRef?: RefObject<HTMLButtonElement | null> }) {
+    if (!required || state.phase === "settled") return null;
+    if (state.phase === "error") {
+        return (
+            <div className="tower-settlement-status tower-settlement-status--error" role="alert">
+                <strong>Settlement was not confirmed</strong>
+                <span>{state.message ?? "The server did not confirm this receipt."} Your completed run is still saved.</span>
+                <button ref={primaryRef} type="button" onClick={onRetry}>Retry settlement</button>
+            </div>
+        );
+    }
+    return (
+        <div className="tower-settlement-status" role="status" aria-live="polite">
+            <strong>{state.attempts > 1 ? `Retrying settlement (attempt ${state.attempts})…` : "Finalizing the run receipt…"}</strong>
+            <span>Keep this result open until the server confirms it.</span>
+        </div>
+    );
+}
+
 function tileFill(
     feat: TowerFeature | undefined,
     s: { isMove: boolean; inJ: boolean; isGoal: boolean; isBlocked: boolean },
@@ -1216,14 +1768,14 @@ function featureLabel(feat: TowerFeature): string {
     return `${feat.label ?? "Hazard"}: ${feat.percent}% max HP if you end the round here`;
 }
 
-function ActorCard({ actor, highlight, avatar, emoji, boss, ally }: { actor: TowerActor; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean }) {
+function ActorCard({ actor, highlight, avatar, emoji, boss, ally, unknown }: { actor: TowerActor; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean; unknown?: boolean }) {
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
     const accent = actor.side === "squad" ? "var(--green-400)" : actor.side === "npc" ? "var(--gold)" : "var(--red-400)";
     return (
         <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 7px", marginBottom: 5, borderRadius: 6, background: highlight ? "#15233b" : "rgba(11,18,32,0.7)", border: `1px solid ${highlight ? "var(--blue-400)" : "var(--slate-800)"}`, opacity: dead ? 0.4 : 1 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1220" }}>
-                {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 15 }}>{emoji}</span>}
+                {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span className={unknown ? "tower-unknown-combatant" : undefined} aria-label={unknown ? UNKNOWN_TOWER_COMBATANT.label : undefined} style={{ fontSize: 15 }}>{emoji}</span>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", gap: 4 }}>
@@ -1244,6 +1796,7 @@ function ActorCard({ actor, highlight, avatar, emoji, boss, ally }: { actor: Tow
                         {actor.statuses.slice(0, 8).map((st, i) => <StatusChip key={i} status={st} />)}
                     </div>
                 )}
+                {unknown && <span className="tower-unknown-combatant-label">Unknown combatant art</span>}
             </div>
         </div>
     );

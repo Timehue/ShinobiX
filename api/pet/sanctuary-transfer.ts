@@ -11,8 +11,10 @@ import { settlePetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets } from './_owned-pet.js';
 import { petBusyReason, petBusyMessage } from './_pet-busy.js';
 import { getPetFromSanctuary, removePetFromSanctuary, storePetInSanctuary } from './_sanctuary.js';
+import { claimPetLifecycleLease } from './_active-battle-lease.js';
 
 type SanctuaryAction = 'to-sanctuary' | 'to-roster' | 'release';
+
 type TransferResult =
     | { ok: true; character: Record<string, unknown>; pet: Record<string, unknown>; version: number; action: SanctuaryAction; replayed: boolean }
     | { ok: false; status: number; error: string; message?: string };
@@ -41,6 +43,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only manage your own sanctuary.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-sanctuary-transfer', 30, 60_000, identity.name))) return;
+
+        // Claim the same NX lease used by every reward-bearing pet battle before
+        // touching either the save or Sanctuary. This closes both directions of
+        // the race: an existing battle blocks all roster/release mutations, while
+        // a battle-start racing this operation sees this short-lived sentinel and
+        // cannot seal a receipt from a pet snapshot that is being moved.
+        const lifecycleLease = await claimPetLifecycleLease(kv, playerName, 'sanctuary');
+        if (!lifecycleLease) {
+            return res.status(409).json({
+                error: 'pet-is-in-active-battle',
+                message: 'Finish or settle your active pet battle before managing the Sanctuary.',
+            });
+        }
 
         const result = await withKvLock<TransferResult>(`save:${playerName}`, async () => {
             const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -104,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const removed = await removePetFromSanctuary(playerName, petId);
             if (!removed) return { ok: false, status: 404, error: 'pet-not-in-sanctuary' };
             return { ok: true, character, pet: removed.pet, version: Number(record._saveVersion ?? 0), action, replayed: false };
-        }, { failClosed: true });
+        }, { failClosed: true }).finally(() => lifecycleLease.release());
 
         if (!result.ok) return res.status(result.status).json({ error: result.error, ...(result.message ? { message: result.message } : {}) });
         res.setHeader('Cache-Control', 'private, no-store');

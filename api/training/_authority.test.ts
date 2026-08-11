@@ -20,7 +20,11 @@ test('training start debits trusted stamina and persists a versioned save', () =
     assert.match(start, /withKvLock\(saveKey/);
     assert.match(start, /stamina < tier\.staminaCost/);
     assert.match(start, /stamina: stamina - tier\.staminaCost/);
-    assert.match(start, /writeVersionedPlayerSave\(saveKey, \{ \.\.\.record, activeTraining \}, nextCharacter\)/);
+    assert.match(start, /writeVersionedPlayerSave\(saveKey, record, nextCharacter, \{ activeTraining \}\)/);
+    assert.match(start, /isPlayerSaveVersionConflict\(error\)/, 'a racing autosave is retried from its successor');
+    const durableWrite = start.indexOf('const written = await writeVersionedPlayerSave');
+    const tokenPublish = start.indexOf('await publishTrainingCaches', durableWrite);
+    assert.ok(durableWrite >= 0 && tokenPublish > durableWrite, 'token caches publish only after the durable save');
 });
 
 test('training rewards ignore forged client modifiers and only one live lease can start', () => {
@@ -58,13 +62,13 @@ test('training rewards ignore forged client modifiers and only one live lease ca
         stat: 'strength', startedAt: 1_000, endsAt: 2_000, sealedGain: 22, sealedXp: 70,
     });
     assert.equal(storedTrainingGrant({ ...active, stat: 'strength', statGain: 22, xp: 70 }, 'newer-token'), null, 'a stale request cannot use another lease');
-    assert.match(start, /training-active:\$\{playerName\}/);
+    assert.match(start, /training-active:\$\{params\.playerName\}/);
 });
 
 test('training completion credits the save once with a durable receipt', () => {
     assert.match(complete, /record\._trainingReceipts/);
-    assert.match(complete, /receipts\.includes\(token\)/);
-    assert.match(complete, /writeVersionedPlayerSave/);
+    assert.match(complete, /receipts\.includes\(redemptionToken\)/);
+    assert.match(complete, /writeVersionedPlayerSave\(saveKey, record, nextCharacter, \{/);
     assert.match(complete, /_trainingReceipts: nextReceipts/);
     // Character XP is retired: completion applies the sealed stat grant (with
     // the derived-level recompute inside) and never calls the old XP driver.

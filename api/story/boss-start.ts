@@ -7,6 +7,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import {
     createStoryCombatBinding,
     storyBossEligibility,
@@ -36,6 +37,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own story battle.' });
+        if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
+            return res.status(409).json(towerBattleActiveErrorBody());
+        }
 
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
