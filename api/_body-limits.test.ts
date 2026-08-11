@@ -34,6 +34,11 @@ describe('classifyBodyLimit', () => {
         assert.equal(classifyBodyLimit('/api/save/clan-embers'), 'save');
     });
 
+    it('gives player challenges their bounded pre-auth parser', () => {
+        assert.equal(classifyBodyLimit('/api/player/challenge'), 'challenge');
+        assert.equal(classifyBodyLimit('/player/challenge'), 'challenge');
+    });
+
     it('does not confuse save-snapshot with the save route', () => {
         // save-snapshot is a big-body admin route, not a 1 MB save route.
         assert.equal(classifyBodyLimit('/api/admin/save-snapshot'), 'big');

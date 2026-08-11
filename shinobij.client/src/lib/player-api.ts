@@ -25,6 +25,38 @@ export async function postPlayerChallengeNotice(targetName: string, challenge: D
     return false;
 }
 
+/** Commits an accepted/declined response while the server's original outgoing
+ * authorization still exists, then cleans up the responder's inbox. Reversing
+ * these requests destroys the proof required by the terminal transition. */
+export async function postPlayerChallengeTerminal(
+    original: DuelChallenge,
+    terminal: DuelChallenge,
+): Promise<boolean> {
+    const normalize = (value: string) => value.trim().toLowerCase();
+    const accepted = terminal.accepted === true;
+    const declined = terminal.declined === true;
+    if (!original.id || terminal.id !== original.id || accepted === declined
+        || normalize(terminal.fromName) !== normalize(original.toName)
+        || normalize(terminal.toName) !== normalize(original.fromName)) return false;
+    const committed = await postPlayerChallengeNotice(original.fromName, terminal);
+    if (!committed) return false;
+    try {
+        await fetch("/api/player/challenge", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                targetName: original.toName,
+                fromName: original.fromName,
+                challengeId: original.id,
+            }),
+        });
+    } catch {
+        // The immutable terminal response is already committed. Heartbeat and
+        // the server TTL can safely retry/clean the responder's stale inbox.
+    }
+    return true;
+}
+
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.

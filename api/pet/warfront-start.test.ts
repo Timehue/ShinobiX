@@ -1,4 +1,4 @@
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.NODE_ENV = 'test';
@@ -8,12 +8,24 @@ process.env.SESSION_SECRET = 'warfront-start-test-session-secret-32-bytes';
 type Handler = (req: never, res: never) => Promise<unknown>;
 type Out = { statusCode: number; body?: Record<string, unknown> };
 
-const PLAYER = 'warfrontauthorityprobe';
+let playerSequence = 0;
+let PLAYER = 'wfstartprobe0';
 const PET_IDS = ['war-pet-1', 'war-pet-2', 'war-pet-3', 'war-pet-4'];
+const AUTHORED_SETUP = {
+    stance: 'siege',
+    doctrine: 'vanguard',
+    buyPolicy: 'offense',
+    deployment: ['top', 'mid', 'bottom', 'flex'],
+    buildPackage: 'hold-line',
+    coachOrder: 'contest',
+    objectiveTechnique: 'zone',
+    counterstrike: 'fortify',
+};
 
 let startHandler: Handler;
 let resultHandler: Handler;
 let kv: typeof import('../_storage.js').kv;
+let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let playerToken = '';
 
 const pet = (id: string, patch: Record<string, unknown> = {}) => ({
@@ -63,11 +75,38 @@ function request(body: Record<string, unknown>) {
     } as never;
 }
 
+async function prepare(): Promise<Out> {
+    const prepared = response();
+    await startHandler(request({ playerName: PLAYER, action: 'prepare' }), prepared.res);
+    assert.equal(prepared.out.statusCode, 200);
+    assert.match(String(prepared.out.body?.prepareToken), /^[A-Za-z0-9]{16,128}$/);
+    return prepared.out;
+}
+
+function authorizationBody(prepareToken: string, patch: Record<string, unknown> = {}) {
+    return {
+        playerName: PLAYER,
+        action: 'start',
+        prepareToken,
+        playerPetIds: PET_IDS,
+        ...AUTHORED_SETUP,
+        ...patch,
+    };
+}
+
+async function mature(out: Out): Promise<void> {
+    const token = String(out.body?.token ?? '');
+    const key = `pet:battle-token:${PLAYER}:${token}`;
+    const stored = await kv.get<Record<string, unknown>>(key);
+    assert.ok(stored, 'the server-minted settlement token exists');
+    await kv.set(key, { ...stored, notBefore: Date.now() - 1 });
+}
+
 async function settle(out: Out): Promise<Out> {
     const result = response();
     await resultHandler(request({
         playerName: PLAYER,
-        outcome: 'win',
+        outcome: out.body?.outcome,
         reportKey: out.body?.reportKey,
         battleToken: out.body?.token,
     }), result.res);
@@ -77,9 +116,24 @@ async function settle(out: Out): Promise<Out> {
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     const auth = await import('../_auth.js');
-    playerToken = auth.issuePlayerToken(PLAYER)!;
+    issuePlayerToken = auth.issuePlayerToken;
     startHandler = (await import('./warfront-start.js')).default as unknown as Handler;
     resultHandler = (await import('./battle-result.js')).default as unknown as Handler;
+});
+
+beforeEach(async () => {
+    PLAYER = `wfstartprobe${++playerSequence}`;
+    playerToken = issuePlayerToken(PLAYER)!;
+    for (const pattern of [
+        `pet:warfront-active:${PLAYER}`,
+        `pet:warfront-prepared:${PLAYER}`,
+        `pet:warfront-authorization:${PLAYER}:*`,
+        `pet:battle-active:${PLAYER}`,
+        `pet:battle-token:${PLAYER}:*`,
+        'ratelimit:*',
+    ]) {
+        for (const key of await kv.keys(pattern)) await kv.del(key);
+    }
     await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: character() });
 });
 
@@ -88,67 +142,77 @@ after(() => {
     delete process.env.SESSION_SECRET;
 });
 
-test('Warfront start ignores caller identifiers, seals a redeemable token, and resumes one outstanding receipt', async () => {
-    const body = {
-        playerName: PLAYER,
-        playerPetIds: PET_IDS,
+test('Warfront prepare hides its seed while authorization ignores caller identifiers and replays one sealed receipt', async () => {
+    const prepared = await prepare();
+    assert.equal('seed' in (prepared.body ?? {}), false, 'scouting cannot expose a seed-shopping oracle');
+    assert.equal('outcome' in (prepared.body ?? {}), false, 'scouting cannot expose an outcome-shopping oracle');
+    const prepareToken = String(prepared.body?.prepareToken);
+    const body = authorizationBody(prepareToken, {
         seed: 0,
         reportKey: 'caller-selected',
-        stance: 'siege',
-        doctrine: 'vanguard',
-        buyPolicy: 'offense',
-    };
+    });
     const first = response();
     await startHandler(request(body), first.res);
     assert.equal(first.out.statusCode, 200);
     assert.match(String(first.out.body?.token), /^[a-f0-9]{32}$/);
-    assert.equal(first.out.body?.reportKey, `pet:${String(first.out.body?.token)}`);
     assert.ok(Number.isSafeInteger(first.out.body?.seed));
     assert.ok(Number(first.out.body?.seed) > 0, 'the caller-supplied zero seed was ignored');
-    assert.equal('outcome' in (first.out.body ?? {}), false, 'start does not reveal a seed-shopping oracle');
+    assert.equal(first.out.body?.reportKey, `${String(first.out.body?.seed)}:tactical`);
+    assert.ok(['win', 'loss', 'draw'].includes(String(first.out.body?.outcome)));
+    assert.equal(first.out.body?.idempotentReplay, false);
 
     const stored = await kv.get<{
         playerName?: string;
         opponentLevel?: number;
         rewardRyo?: number;
         reportKey?: string;
-        seed?: number;
         mode?: string;
         playerPetIds?: string[];
         authoritativeOutcome?: string;
+        warfrontAuthorization?: { seed?: number; token?: string; prepareToken?: string };
     }>(`pet:battle-token:${PLAYER}:${String(first.out.body?.token)}`);
     assert.equal(stored?.playerName, PLAYER);
     assert.equal(stored?.mode, 'warfront');
-    assert.equal(stored?.seed, first.out.body?.seed);
+    assert.equal(stored?.warfrontAuthorization?.seed, first.out.body?.seed);
+    assert.equal(stored?.warfrontAuthorization?.token, first.out.body?.token);
+    assert.equal(stored?.warfrontAuthorization?.prepareToken, prepareToken);
     assert.equal(stored?.reportKey, first.out.body?.reportKey);
     assert.deepEqual(stored?.playerPetIds, PET_IDS);
     assert.ok(Number.isSafeInteger(stored?.opponentLevel) && Number(stored?.opponentLevel) >= 1 && Number(stored?.opponentLevel) <= 100);
     assert.ok(Number.isSafeInteger(stored?.rewardRyo) && Number(stored?.rewardRyo) >= 20 && Number(stored?.rewardRyo) <= 250);
     assert.ok(['win', 'loss', 'draw'].includes(String(stored?.authoritativeOutcome)));
-    assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), first.out.body?.token);
+    assert.equal(await kv.get(`pet:warfront-active:${PLAYER}`), first.out.body?.token);
 
     const resumed = response();
     await startHandler(request({ ...body, seed: 2_147_483_647, reportKey: 'also-ignored' }), resumed.res);
     assert.equal(resumed.out.statusCode, 200);
-    assert.equal(resumed.out.body?.resumed, true);
+    assert.equal(resumed.out.body?.idempotentReplay, true);
     assert.equal(resumed.out.body?.token, first.out.body?.token);
     assert.equal(resumed.out.body?.seed, first.out.body?.seed);
 
-    const conflict = response();
-    await startHandler(request({ ...body, playerPetIds: [...PET_IDS].reverse() }), conflict.res);
-    assert.equal(conflict.out.statusCode, 409);
-    assert.equal(conflict.out.body?.error, 'Finish or settle your active pet battle first.');
+    const replayedAfterPickerChange = response();
+    await startHandler(request({ ...body, playerPetIds: [...PET_IDS].reverse() }), replayedAfterPickerChange.res);
+    assert.equal(replayedAfterPickerChange.out.statusCode, 200);
+    assert.equal(replayedAfterPickerChange.out.body?.idempotentReplay, true);
+    assert.equal(replayedAfterPickerChange.out.body?.token, first.out.body?.token,
+        'a lost response recovers its immutable authorization even if the local picker changed');
+    assert.deepEqual(
+        (replayedAfterPickerChange.out.body?.blue as Array<{ pet?: { id?: string } }>).map((slot) => slot.pet?.id),
+        PET_IDS,
+    );
 
+    await mature(first.out);
     const settled = await settle(first.out);
     assert.equal(settled.statusCode, 200);
-    assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null);
+    assert.equal(await kv.get(`pet:warfront-active:${PLAYER}`), null);
     assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${String(first.out.body?.token)}`), null);
 
+    const nextPrepared = await prepare();
     const next = response();
-    await startHandler(request(body), next.res);
+    await startHandler(request(authorizationBody(String(nextPrepared.body?.prepareToken))), next.res);
     assert.equal(next.out.statusCode, 200, 'settling any authoritative outcome releases the start gate');
     assert.notEqual(next.out.body?.token, first.out.body?.token);
-    await kv.delIfEqual(`pet:battle-active:${PLAYER}`, String(next.out.body?.token));
+    await kv.delIfEqual(`pet:warfront-active:${PLAYER}`, String(next.out.body?.token));
     await kv.del(`pet:battle-token:${PLAYER}:${String(next.out.body?.token)}`);
 });
 
@@ -168,52 +232,43 @@ test('Warfront rejects breeding, training, and expedition-busy selections before
     for (const busy of cases) {
         const pets = PET_IDS.map((id, index) => pet(id, index === 0 ? busy.patch : {}));
         await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: character({ pets, ...busy.characterPatch }) });
+        const prepared = await prepare();
         const out = response();
-        await startHandler(request({ playerName: PLAYER, playerPetIds: PET_IDS }), out.res);
+        await startHandler(request(authorizationBody(String(prepared.body?.prepareToken))), out.res);
         assert.equal(out.out.statusCode, 409, busy.label);
         assert.match(String(out.out.body?.error), /breeding, training, or an expedition/i);
-        assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null);
+        assert.equal(await kv.get(`pet:warfront-active:${PLAYER}`), null);
+        assert.deepEqual(await kv.keys(`pet:battle-token:${PLAYER}:*`), []);
     }
 });
 
-test('Warfront claims before its roster snapshot and recovers lease/receipt acknowledgement loss', async () => {
+test('Warfront validates its roster before reservation and then seals one active receipt pointer', async () => {
     await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: character() });
-    const activeKey = `pet:battle-active:${PLAYER}`;
+    const prepared = await prepare();
+    const prepareToken = String(prepared.body?.prepareToken);
+    const activeKey = `pet:warfront-active:${PLAYER}`;
     const originalGet = kv.get.bind(kv);
-    const originalSet = kv.set.bind(kv);
     let leaseAtSaveRead: unknown = null;
-    let loseLeaseAck = true;
-    let loseReceiptAck = true;
     kv.get = (async (key: string) => {
         if (key === `save:${PLAYER}`) leaseAtSaveRead = await originalGet(activeKey);
         return originalGet(key);
     }) as typeof kv.get;
-    kv.set = (async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
-        const result = await originalSet(key, value, options);
-        if (key === activeKey && loseLeaseAck) {
-            loseLeaseAck = false;
-            throw new Error('simulated lease acknowledgement loss');
-        }
-        if (key.startsWith(`pet:battle-token:${PLAYER}:`) && loseReceiptAck) {
-            loseReceiptAck = false;
-            throw new Error('simulated receipt acknowledgement loss');
-        }
-        return result;
-    }) as typeof kv.set;
     const started = response();
     try {
-        await startHandler(request({ playerName: PLAYER, playerPetIds: PET_IDS }), started.res);
+        await startHandler(request(authorizationBody(prepareToken)), started.res);
     } finally {
         kv.get = originalGet as typeof kv.get;
-        kv.set = originalSet as typeof kv.set;
     }
     assert.equal(started.out.statusCode, 200);
-    assert.equal(leaseAtSaveRead, started.out.body?.token, 'the Warfront lease precedes the authoritative save read');
-    assert.equal(loseLeaseAck, false);
-    assert.equal(loseReceiptAck, false);
+    assert.equal(leaseAtSaveRead, null,
+        'availability validation does not hold an active reservation before the authoritative roster read');
     const battleToken = String(started.out.body?.token);
     assert.equal(await kv.get(activeKey), battleToken);
     assert.equal((await kv.get<{ reportKey?: string }>(`pet:battle-token:${PLAYER}:${battleToken}`))?.reportKey, started.out.body?.reportKey);
+    assert.equal(
+        (await kv.get<{ token?: string }>(`pet:warfront-authorization:${PLAYER}:${prepareToken}`))?.token,
+        battleToken,
+    );
     await kv.delIfEqual(activeKey, battleToken);
     await kv.del(`pet:battle-token:${PLAYER}:${battleToken}`);
 });

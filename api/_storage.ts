@@ -43,17 +43,103 @@ const _CACHE_MAX_ENTRIES = 5000;
 
 // These prefixes change too rapidly to benefit from caching.
 const _noCachePrefixes = [
-    'presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:',
-    // Durable bounty fences/completions coordinate different Node processes.
-    // A cached null/old owner could let a CAS loser loop under a released fence,
-    // so these authority reads must always reach the database.
-    'pvp:bounty-board-authority', 'pvp:bounty-active:', 'pvp:bounty-completed:', 'pvp:bounty-saga:',
-    // Cross-worker Vanguard intents are exact CAS authority. A process-local
-    // cached null/pending row would delay help-forward or stale-owner fencing.
-    'pvp:vanguard-rewarded:',
+    // Saves are mutable economy ledgers. Distributed save locks coordinate
+    // writers across processes, but a worker-local cached read inside the lock
+    // can still overwrite a prior worker's committed receipt or unrelated
+    // character field. Every lock holder must therefore read the backing store.
+    'save:',
+    'presence:',
+    'challenges:',
+    'challenge-outgoing:',
+    'challenge-terminal:',
+    'arena-challenge-setup:',
+    // Co-op lobbies and accepted Arena-match recovery records are shared,
+    // mutable coordination state. A worker-local cached snapshot can otherwise
+    // overwrite a newer join/start or hide a terminal reveal from another
+    // worker even while both writers correctly hold the distributed lock.
+    'arena:lobby:',
+    'arena-match-recovery:',
+    // Battle Towers sessions, parties, invites, and battle leases are mutated
+    // behind distributed locks. A lock holder must still bypass its worker-local
+    // L1 so it cannot overwrite a newer turn/roster/lease committed elsewhere.
+    'tower:',
+    'tower-party:',
+    'tower-party-code:',
+    'tower-party-player:',
+    'tower-party-invites:',
+    'tower-invite:',
+    'battle-lock:',
+    'tower-engine-clan-boss:',
+    // Mission progress, active-combat pointers, Clan Boss parties, and the
+    // Weekly Boss aggregate all use lock/CAS based cross-worker mutation. Cache
+    // hits inside those critical sections would turn a valid lock holder into
+    // a stale writer or make lost-ack recovery inspect an obsolete value.
+    'missions:',
+    'mission-combat-',
+    'clan-boss:',
+    'game:weekly-boss-state',
+    // Live combat and settlement sagas must read their backing authority on
+    // every worker. Local writes already invalidate only this process's L1;
+    // these prefixes close the corresponding cross-process stale-read window.
+    'solo-pve:',
+    'ai-fight-',
+    'pet:battle-active:',
+    'pet:ranked-',
+    // Reward-bearing progression and combat bindings.
+    'hg-',
+    'endless-wave-',
+    'story:',
+    'story-combat-binding:',
+    'legacy:',
+    'era:',
+    'game:era-state',
+    // War, Kage, clan, and treasury authority. These rows combine permissions
+    // with plain locked RMW, so even a brief stale read is unsafe.
+    'world:territory:',
+    'world:war:',
+    'shared:sector-war',
+    'shared:village-war:',
+    'game:village-state:',
+    'village:kage:',
+    'village:war-standing:',
+    'clan-war:',
+    'clan-war-pet:',
+    'cw-tilecards:',
+    'clan-seal-pool:',
+    'clan-mentor',
+    // Permanent pet storage, daily mint caps, live card sessions, and ranked
+    // ladders likewise require cross-worker backing-store truth.
+    'pet-sanctuary:',
+    'training-start-count:',
+    'card-clash:',
+    'cc-',
+    'petladder:',
+    'petgauntlet:lb:',
+    'sector-card:',
+    'sector-pet:',
+    'infil:',
+    'infil-active:',
+    // PvP sessions and settlement journals are cross-worker live authority.
+    // The broad prefix also covers bounty and Vanguard fences introduced by
+    // the cohesion hardening, so every owner/help-forward check reaches the
+    // backing store rather than a process-local null or stale owner.
+    'pvp:',
+    'reset-signal:',
+    'admin-lock:',
+    'auth:',
+    'auth-session:',
+    'world:travel-lease:',
+    // Security-sensitive Warfront grants, active leases, decision paths, and
+    // one-use battle tokens must always observe the backing store. A stale
+    // process-local read can otherwise reopen or fork an authorization.
+    'pet:warfront-prepared:',
+    'pet:warfront-active:',
+    'pet:warfront-authorization:',
+    'pet:warfront-council:',
+    'pet:battle-token:',
 ];
 
-function _shouldCache(key: string): boolean {
+export function _shouldCache(key: string): boolean {
     return !_noCachePrefixes.some(p => key.startsWith(p));
 }
 

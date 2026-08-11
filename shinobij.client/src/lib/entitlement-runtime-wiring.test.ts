@@ -41,30 +41,32 @@ test("local and shared pet pickers consume the active carried projection", () =>
     assert.doesNotMatch(accept, /character\.pets\.find|character\.pets\.filter/);
 });
 
-test("rewarded Warfront waits for and settles the server-issued battle seal", () => {
-    const start = petArena.slice(
-        petArena.indexOf("async function startRewardedWarfrontMatch"),
-        petArena.indexOf("async function redeemTacticalArenaResult"),
+test("rewarded Warfront launches from a prepared server contract and parks settlement before the request", () => {
+    const authorize = petArena.slice(
+        petArena.indexOf("async function mintWarfrontToken"),
+        petArena.indexOf("async function startAuthorizedAiWarfront"),
     );
-    const bodyStart = start.indexOf("body: JSON.stringify({");
-    const bodyEnd = start.indexOf("}),", bodyStart);
-    assert.ok(bodyStart >= 0 && bodyEnd > bodyStart, "Warfront start request body must remain inspectable");
-    const requestBody = start.slice(bodyStart, bodyEnd);
+    const requestStart = authorize.indexOf("const request = {");
+    const requestEnd = authorize.indexOf("};", requestStart);
+    assert.ok(requestStart >= 0 && requestEnd > requestStart, "Warfront authorization body must remain inspectable");
+    const requestBody = authorize.slice(requestStart, requestEnd);
+    assert.match(requestBody, /playerPetIds:/);
+    assert.match(requestBody, /prepareToken: contract\.prepareToken/);
     assert.doesNotMatch(requestBody, /\bseed\b|\breportKey\b/, "the client must never choose a rewarded seed or report key");
-    assert.match(start, /typeof data\?\.token !== "string"/);
-    assert.match(start, /typeof data\?\.reportKey !== "string"/);
-    assert.match(start, /Number\.isSafeInteger\(seed\)/);
-    assert.match(start, /warfrontRewardSeal\.current = \{ token: data\.token, reportKey: data\.reportKey, seed \}/);
+    assert.match(authorize, /typeof data\?\.token !== "string"/);
+    assert.match(authorize, /typeof data\.reportKey === "string"/);
+    assert.match(authorize, /Number\.isSafeInteger\(authorizedSeed\)/);
+    assert.match(authorize, /warfrontRewardToken\.current = \{[\s\S]*?token: data\.token,[\s\S]*?reportKey: authorizedReportKey/);
 
-    const redeem = petArena.slice(
-        petArena.indexOf("async function redeemTacticalArenaResult"),
-        petArena.indexOf("async function sendArenaChallenge"),
+    const report = petArena.slice(
+        petArena.indexOf("function reportTacticalArenaResult"),
+        petArena.indexOf("useEffect(() =>", petArena.indexOf("function reportTacticalArenaResult")),
     );
-    assert.match(redeem, /outcome,/);
-    assert.match(redeem, /reportKey: seal\.reportKey/);
-    assert.match(redeem, /battleToken: seal\.token/);
-    assert.match(petArena, /winner === "blue" \? "win" : winner === "red" \? "loss" : "draw"/);
-    assert.match(petArena, /allowReseed=\{false\}/);
+    assert.match(report, /const outcome = winner === "blue" \? "win" : winner === "red" \? "loss" : "draw"/);
+    assert.match(report, /reportKey: m\.reportKey \?\? authorization\.reportKey/);
+    assert.match(report, /battleToken: authorization\.token/);
+    assert.match(report, /writePendingWarfrontSettlement\(pending\)[\s\S]*?settlePendingWarfrontReward\(pending\)/,
+        "the exact terminal report must be durable locally before settlement starts");
 });
 
 test("Pet Arena ships only the active continuous-duel presentation", () => {

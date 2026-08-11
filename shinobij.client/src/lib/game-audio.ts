@@ -23,7 +23,10 @@ export type GameSfxCue =
   | "chapter-seal"
   | "omen"
   | "decision"
-  | "battle-transition";
+  | "battle-transition"
+  | "warfront-sigil-awakening"
+  | "warfront-warden-awakening"
+  | "warfront-objective-steal";
 
 export type GameAmbienceCue =
   | "ambience-shrine"
@@ -35,7 +38,7 @@ export type GameAmbienceCue =
 type AudioCueDefinition = {
   path: string;
   gain: number;
-  group: "impact" | "movement" | "status" | "terminal" | "ritual" | "story";
+  group: "impact" | "movement" | "status" | "terminal" | "crowd" | "ritual" | "story" | "warfront-objective" | "warfront-steal";
   cooldownMs: number;
   voiceLimit: number;
   rateJitter?: number;
@@ -113,7 +116,9 @@ const SFX_DEFINITIONS: Record<GameSfxCue, AudioCueDefinition> = {
   crowd: {
     path: "/sfx/production/crowd.wav",
     gain: 0.1,
-    group: "terminal",
+    // This supporting layer must not evict the decisive seal or knockout that
+    // is authored in the same event. It remains bounded in its own group.
+    group: "crowd",
     cooldownMs: 5_000,
     voiceLimit: 1,
   },
@@ -189,6 +194,27 @@ const SFX_DEFINITIONS: Record<GameSfxCue, AudioCueDefinition> = {
     cooldownMs: 800,
     voiceLimit: 1,
   },
+  "warfront-sigil-awakening": {
+    path: "/sfx/production/warfront-sigil-awakening-suno.mp3",
+    gain: 0.2,
+    group: "warfront-objective",
+    cooldownMs: 1_500,
+    voiceLimit: 1,
+  },
+  "warfront-warden-awakening": {
+    path: "/sfx/production/warfront-warden-awakening-suno.mp3",
+    gain: 0.2,
+    group: "warfront-objective",
+    cooldownMs: 5_000,
+    voiceLimit: 1,
+  },
+  "warfront-objective-steal": {
+    path: "/sfx/production/warfront-objective-steal-suno.mp3",
+    gain: 0.22,
+    group: "warfront-steal",
+    cooldownMs: 2_000,
+    voiceLimit: 1,
+  },
 };
 
 const AMBIENCE_PATHS: Record<GameAmbienceCue, string> = {
@@ -202,6 +228,7 @@ const AMBIENCE_PATHS: Record<GameAmbienceCue, string> = {
 type Voice = {
   source: AudioBufferSourceNode;
   startedAt: number;
+  priority: "normal" | "critical";
 };
 
 type AmbienceVoice = {
@@ -223,6 +250,32 @@ const buffers = new Map<string, AudioBuffer>();
 const loading = new Map<string, Promise<AudioBuffer | null>>();
 const lastPlayedAt = new Map<GameSfxCue, number>();
 const voicesByGroup = new Map<AudioCueDefinition["group"], Voice[]>();
+
+export function gameAudioCooldownAllows(
+  now: number,
+  lastPlayed: number,
+  cooldownMs: number,
+  priority: "normal" | "critical" = "normal",
+): boolean {
+  return priority === "critical" || now - lastPlayed >= cooldownMs;
+}
+
+export function gameAudioVoiceAdmission(
+  activePriorities: readonly ("normal" | "critical")[],
+  voiceLimit: number,
+  priority: "normal" | "critical" = "normal",
+): { allowed: boolean; replaceIndex: number | null } {
+  if (activePriorities.length < voiceLimit) return { allowed: true, replaceIndex: null };
+  if (priority !== "critical" || voiceLimit <= 0 || activePriorities.length === 0) return { allowed: false, replaceIndex: null };
+  const routineIndex = activePriorities.indexOf("normal");
+  return { allowed: true, replaceIndex: routineIndex >= 0 ? routineIndex : 0 };
+}
+
+/** Pure policy seam for proving that simultaneous authored layers occupy
+ * independent bounded voice slots. */
+export function gameAudioVoiceGroup(cue: GameSfxCue): AudioCueDefinition["group"] {
+  return SFX_DEFINITIONS[cue].group;
+}
 
 function audioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -339,12 +392,24 @@ function startSfx(
   buffer: AudioBuffer,
   gainScale: number,
   playbackRate?: number,
+  priority: "normal" | "critical" = "normal",
 ): void {
   const ctx = audioContext();
   if (!ctx || isAudioMuted()) return;
   const definition = SFX_DEFINITIONS[cue];
   const voices = activeVoices(definition);
-  if (voices.length >= definition.voiceLimit) return;
+  const admission = gameAudioVoiceAdmission(voices.map((voice) => voice.priority), definition.voiceLimit, priority);
+  if (!admission.allowed) return;
+  if (admission.replaceIndex !== null) {
+    // A decisive broadcast cue owns the bounded group slot. Prefer replacing
+    // a routine voice; if the whole group is already critical, replace its
+    // oldest member so concurrency never exceeds the authored voice limit.
+    const replacement = voices[admission.replaceIndex];
+    if (replacement) {
+      try { replacement.source.stop(); } catch { /* source already ended */ }
+      voicesByGroup.set(definition.group, voices.filter((voice) => voice !== replacement));
+    }
+  }
 
   const source = ctx.createBufferSource();
   const gain = ctx.createGain();
@@ -360,9 +425,10 @@ function startSfx(
   source.connect(gain);
   gain.connect(output(ctx));
 
-  const voice = { source, startedAt: performance.now() / 1_000 };
-  voices.push(voice);
-  voicesByGroup.set(definition.group, voices);
+  const voice = { source, startedAt: performance.now() / 1_000, priority };
+  const currentVoices = voicesByGroup.get(definition.group) ?? voices;
+  currentVoices.push(voice);
+  voicesByGroup.set(definition.group, currentVoices);
   source.addEventListener("ended", () => {
     source.disconnect();
     gain.disconnect();
@@ -403,25 +469,26 @@ export function primeGameAudio(
 
 export function playGameSfx(
   cue: GameSfxCue,
-  options: { gain?: number; playbackRate?: number } = {},
+  options: { gain?: number; playbackRate?: number; priority?: "normal" | "critical" } = {},
 ): void {
   if (isAudioMuted()) return;
+  const priority = options.priority ?? "normal";
   const definition = SFX_DEFINITIONS[cue];
   const now = performance.now();
   const last = lastPlayedAt.get(cue) ?? Number.NEGATIVE_INFINITY;
-  if (now - last < definition.cooldownMs) return;
+  if (!gameAudioCooldownAllows(now, last, definition.cooldownMs, priority)) return;
   lastPlayedAt.set(cue, now);
 
   const cached = buffers.get(definition.path);
   if (cached) {
-    startSfx(cue, cached, options.gain ?? 1, options.playbackRate);
+    startSfx(cue, cached, options.gain ?? 1, options.playbackRate, priority);
     return;
   }
 
   const requestedAt = now;
   void loadBuffer(definition.path).then((buffer) => {
-    if (!buffer || performance.now() - requestedAt > 180) return;
-    startSfx(cue, buffer, options.gain ?? 1, options.playbackRate);
+    if (!buffer || (priority !== "critical" && performance.now() - requestedAt > 180)) return;
+    startSfx(cue, buffer, options.gain ?? 1, options.playbackRate, priority);
   });
 }
 
