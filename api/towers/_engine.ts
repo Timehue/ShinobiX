@@ -225,7 +225,7 @@ function isTileBlocked(session: TowerSession, tile: number, ignoreId?: string): 
 // identically. Only floors that scatter terrain fall through to the BFS path, which routes
 // AROUND walls/dead-ends the single-step greedy would stall on (a stall would time the floor
 // out and score it as a squad loss — an unfair, non-combat lockout).
-function nextStepToward(session: TowerSession, from: number, to: number, ignoreId?: string): number {
+export function nextStepToward(session: TowerSession, from: number, to: number, ignoreId?: string): number {
     const w = session.map.width;
     if (session.map.blockedTiles.length === 0 && towerBarrierTiles(session).size === 0) {
         const here = hexDistance(from, to, w);
@@ -642,15 +642,28 @@ function dropPhasePillars(session: TowerSession, boss: TowerActor): void {
     const w = session.map.width, h = session.map.height;
     const maxBlocked = Math.floor(w * h * 0.10);
     const blocked = new Set(session.map.blockedTiles);
+    const barrierTiles = towerBarrierTiles(session);
     const reserved = new Set<number>();
     for (const t of session.map.objectiveTiles) { reserved.add(t); for (const nb of towerNeighbors(t, w, h)) reserved.add(nb); }
     for (const f of session.map.features ?? []) for (const t of f.tiles) reserved.add(t);
     // never bury a board object (a shrine/font must stay reachable + visible)
     for (const o of session.map.boardObjects ?? []) for (const t of o.tiles ?? []) reserved.add(t);
+    // Never bury a recurring vent. A pillar on a geyser tile makes the telegraph point
+    // at impassable ground and silently removes authored arena pressure for the rest of
+    // the fight. Initial terrain already reserves vents by placement order; phase terrain
+    // must maintain the same no-overlap contract after the arena starts reshaping.
+    for (const hazard of session.map.dynamicHazards ?? []) for (const t of hazard.tiles) reserved.add(t);
+    // Preserve an already-promised strike footprint for the rest of this round. The
+    // telegraph is a server guarantee, so a phase transition must not replace marked
+    // blast tiles with impassable pillars before the detonation resolves.
+    for (const t of session.bossStrike?.tiles ?? []) reserved.add(t);
+    // A temporary Barrier is still authoritative impassable terrain for this phase.
+    // Never overwrite it with a permanent pillar or grow a touching wall beside it.
+    for (const t of barrierTiles) reserved.add(t);
     const living = session.actors.filter(a => a.hp > 0);
     const occupied = new Set(living.map(a => a.pos));
     const freeNeighbors = (pos: number, minus: number) =>
-        towerNeighbors(pos, w, h).filter(t => t !== minus && !blocked.has(t) && !occupied.has(t)).length;
+        towerNeighbors(pos, w, h).filter(t => t !== minus && !blocked.has(t) && !barrierTiles.has(t) && !occupied.has(t)).length;
     let s = (((session.seed >>> 0) ^ 0x27d4eb2f ^ Math.imul(session.phaseState.triggeredPhases.length, 0x9e3779b9)) >>> 0) || 1;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
     let added = 0;
@@ -659,7 +672,7 @@ function dropPhasePillars(session: TowerSession, boss: TowerActor): void {
         const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2));
         const t = cy * w + cx;
         if (blocked.has(t) || occupied.has(t) || reserved.has(t)) continue;
-        if (towerNeighbors(t, w, h).some(nb => blocked.has(nb))) continue; // non-adjacency invariant
+        if (towerNeighbors(t, w, h).some(nb => blocked.has(nb) || barrierTiles.has(nb))) continue; // non-adjacency invariant
         // never seal an adjacent living unit's last exit
         if (living.some(a => a.pos !== t && towerNeighbors(a.pos, w, h).includes(t) && freeNeighbors(a.pos, t) === 0)) continue;
         blocked.add(t);
@@ -1906,10 +1919,11 @@ function squadFightersAlive(session: TowerSession): boolean {
 
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
     if (session.status !== 'active') return;
-    // Break stages are HP-gate crossings regardless of whether the HP loss came from a
-    // direct cast, a companion, or a deterministic round-end effect. Keep this scoped
-    // to the unshipped break objective so existing floor phase timing stays unchanged.
-    if (floor.objective === 'break-objective') tickBossPhases(session);
+    // HP gates are authoritative combat state, regardless of whether the crossing came
+    // from a direct cast, a companion, a DoT, or neutral arena damage. This defensive
+    // tick is intentionally objective-agnostic: otherwise lethal round-end damage can
+    // clear an adds-gated boss before its authored phase court has a chance to re-lock it.
+    tickBossPhases(session);
     refreshObjectiveProgress(session);
     if (!squadFightersAlive(session)) {
         session.status = 'done'; session.winner = 'enemy';
@@ -2380,6 +2394,10 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     applyBossStrikeAndRing(session); // detonate the telegraphed boss strike + closing-ring chip
     applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
+    // Resolve every HP gate before fonts/regen can heal the boss back above a threshold.
+    // checkTowerWinner also ticks defensively, but that later call is deliberately after
+    // healing and cannot prove that a transient round-end crossing actually occurred.
+    tickBossPhases(session);
     applyRoundFonts(session);   // fonts restore whoever holds them (capped; heal-cut honoured)
     applyBossRegen(session);    // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
@@ -2702,8 +2720,40 @@ function aiSafeStepToward(session: TowerSession, actor: TowerActor, dest: number
     return base;                                               // last resort: progress through danger
 }
 
+/**
+ * Deliberately limited Story recruit policy. It takes at most one action, never
+ * evaluates roles, AOE clusters, buffs, cleansing, fonts, shrines, or telegraphs,
+ * and occasionally hesitates. Terrain pathing remains legal so the helper cannot
+ * wedge a run, but it is visibly less competent than authored enemies or players.
+ */
+function pickNoviceRecruitAction(session: TowerSession, actor: TowerActor): TowerAction {
+    if (session.actionsThisTurn > 0) return { actorId: actor.id, type: 'wait' };
+    const target = nearestOpponent(session, actor);
+    if (!target) return { actorId: actor.id, type: 'wait' };
+    const hesitation = ((session.seed >>> 0)
+        ^ stableTextHash(actor.id)
+        ^ Math.imul(Math.max(1, session.round), 0x9e3779b9)) >>> 0;
+    if (hesitation % 5 === 0) return { actorId: actor.id, type: 'wait' };
+    const distance = hexDistance(actor.pos, target.pos, session.map.width);
+    if (distance <= 1 && canAct(session, BASIC_ATTACK_AP, actor)) {
+        return { actorId: actor.id, type: 'attack', targetId: target.id };
+    }
+    const technique = bestAffordableJutsu(session, actor, distance, target);
+    if (distance <= 2 && technique?.id) {
+        return { actorId: actor.id, type: 'jutsu', jutsuId: technique.id, targetId: target.id };
+    }
+    if (canAct(session, MOVE_AP, actor)) {
+        const step = nextStepToward(session, actor.pos, target.pos, actor.id);
+        if (step !== actor.pos) return { actorId: actor.id, type: 'move', tile: step };
+    }
+    return { actorId: actor.id, type: 'wait' };
+}
+
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
     void rng;
+    if (actor.character.towerGenericAiProfile === 'story-recruit-v1') {
+        return pickNoviceRecruitAction(session, actor);
+    }
     // A boss/enemy with an authored aiTargetMode focus-fires by priority; everyone else keeps
     // the nearest-opponent policy → floors that set no targetMode are byte-identical.
     const focusMode = actor.side === 'enemy'

@@ -102,6 +102,10 @@ import towersMyRunHandler  from './api/towers/my-run.js';
 import towersJoinHandler   from './api/towers/join.js';
 import towersPartyHandler  from './api/towers/party.js';
 import towersSpireLeaderboardHandler from './api/towers/spire-leaderboard.js';
+import towersPvpQueueHandler from './api/towers/pvp-queue.js';
+import towersPvpStateHandler from './api/towers/pvp-state.js';
+import towersPvpActionHandler from './api/towers/pvp-action.js';
+import towersPvpSettleHandler from './api/towers/pvp-settle.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import trainingStartHandler from './api/training/start.js';
 import trainingCompleteHandler from './api/training/complete.js';
@@ -1148,6 +1152,10 @@ route('/towers/my-run', towersMyRunHandler);
 route('/towers/join', towersJoinHandler);
 route('/towers/party', towersPartyHandler);
 route('/towers/spire-leaderboard', towersSpireLeaderboardHandler);
+route('/towers/pvp-queue', towersPvpQueueHandler);
+route('/towers/pvp-state', towersPvpStateHandler);
+route('/towers/pvp-action', towersPvpActionHandler);
+route('/towers/pvp-settle', towersPvpSettleHandler);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).

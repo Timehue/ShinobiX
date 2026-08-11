@@ -91,6 +91,7 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 // documents), and is dispatched synchronously after every Tower-owned write.
 export const TOWER_RUN_KEY = "shinobix:towerRunId";
 export const TOWER_FIGHT_STATE_EVENT = "shinobix:tower-fight-state";
+export const TOWER_PVP_RUN_PREFIX = "pvp:";
 
 export function setTowerFightRunId(runId: string | null): void {
     try {
@@ -98,6 +99,16 @@ export function setTowerFightRunId(runId: string | null): void {
         else localStorage.removeItem(TOWER_RUN_KEY);
     } catch { /* storage disabled */ }
     if (typeof window !== "undefined") window.dispatchEvent(new Event(TOWER_FIGHT_STATE_EVENT));
+}
+
+export function setTowerPvpMatchId(matchId: string | null): void {
+    setTowerFightRunId(matchId ? `${TOWER_PVP_RUN_PREFIX}${matchId}` : null);
+}
+
+export function towerPvpMatchIdFromRunKey(value: string | null | undefined): string | null {
+    if (!value?.startsWith(TOWER_PVP_RUN_PREFIX)) return null;
+    const matchId = value.slice(TOWER_PVP_RUN_PREFIX.length);
+    return /^tpvp-[a-f0-9]{32}$/i.test(matchId) ? matchId : null;
 }
 
 export function hasActiveTowerFight(): boolean {

@@ -147,6 +147,18 @@ export type TowerSession = {
     bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string };
     /** Narrow client view of the run-sealed catalog truth used by tactical HUD copy. */
     sealedCatalogFloor?: {
+        id?: number;
+        name?: string;
+        chapter?: number;
+        chapterTitle?: string | null;
+        chapterSubtitle?: string | null;
+        chapterSummary?: string | null;
+        artKey?: string | null;
+        briefing?: {
+            situation: string;
+            tactics: string[];
+            warnings: string[];
+        } | null;
         objective?: string;
         roundBudget?: number;
         boss?: {
@@ -183,7 +195,9 @@ export type TowerActionInput =
     | { type: 'cleanse' }
     | { type: 'clear'; targetId: string }
     | { type: 'summon' }
-    | { type: 'wait' };
+    | { type: 'wait' }
+    /** Public Tower Team Arena only; Story/Spire never render this command. */
+    | { type: 'forfeit' };
 
 /** The host's client-computed combat extras the SAVE doesn't persist (pvpItems + the
  *  equipment-derived passives) — sent to /start so the tower fighter matches PvP. */
@@ -225,6 +239,19 @@ export type TowerSettleResponse = {
 export type TowerFloorMeta = {
     id: number;
     name: string;
+    /** Public story-arc presentation authored by the same catalog as the encounter. */
+    chapter?: number;
+    chapterTitle?: string | null;
+    chapterSubtitle?: string | null;
+    chapterSummary?: string | null;
+    /** Tower-local visual key. Resolution is fail-safe and never affects combat. */
+    artKey?: string | null;
+    /** Concise, server-authored pre-run intelligence for this exact encounter. */
+    briefing?: {
+        situation: string;
+        tactics: string[];
+        warnings: string[];
+    } | null;
     biome: string;
     objective: string;
     roundBudget: number;
@@ -241,6 +268,9 @@ export type TowerFloorMeta = {
     dynamicHazards: Array<{ kind: string; everyRounds: number; firstRound: number; count: number }>;
     fieldRule: { kind: 'hazard' | 'debuff' | 'buff'; tag: string; percent?: number } | null;
     enemyCount: number;
+    /** Additional enemies authored at boss HP gates; excluded from enemyCount because
+     *  they are not present at encounter start. Older cached catalogs may omit it. */
+    phaseReinforcementCount?: number;
     reinforcementWaves: number[];
     firstClearReward: {
         ryo: number;
@@ -262,6 +292,9 @@ export type TowerPartyMember = {
     displayName: string;
     joinedAt: number;
     ready: boolean;
+    /** Server-authored novice recruit. It has no player identity or rewards. */
+    ai?: boolean;
+    aiProfile?: 'story-recruit-v1';
 };
 
 export type TowerPartyView = {
@@ -288,6 +321,14 @@ export type TowerPartyView = {
     sizeRequirements: { min: number; max: number; required: number | null };
     allReady: boolean;
     canLaunch: boolean;
+    liveMemberCount: number;
+    aiMemberCount: number;
+    aiPolicy: {
+        allowed: boolean;
+        max: number;
+        profile: 'story-recruit-v1';
+        progressionEligible: false;
+    };
 };
 
 export type TowerPartyInvitationView = {
@@ -311,7 +352,8 @@ export type TowerPartyMutation =
     | { action: 'create'; mode: 'spire'; ascensionTier: number }
     | { action: 'join'; inviteCode: string; expectedVersion?: number }
     | { action: 'accept' | 'decline' | 'leave' | 'ready' | 'unready'; partyId: string; expectedVersion: number }
-    | { action: 'invite' | 'kick' | 'revoke-invite'; partyId: string; target: string; expectedVersion: number };
+    | { action: 'invite' | 'kick' | 'revoke-invite' | 'remove-ai'; partyId: string; target: string; expectedVersion: number }
+    | { action: 'add-ai'; partyId: string; expectedVersion: number };
 
 export type TowerPartyMutationRequest = TowerPartyMutation & { playerName: string; requestId: string };
 
@@ -342,6 +384,7 @@ export type TowerPartyMemberRequirement = {
 
 export type TowerMyRunStatus = {
     runId: string | null;
+    pvpMatchId?: string;
     session?: TowerSession;
     recoveryPending?: boolean;
     leaseReleased?: boolean;
@@ -586,14 +629,14 @@ export function launchTowerPartyWithLostResponseRetry(
     return retryLostTowerResponseOnce(request, transport);
 }
 
-/** Legacy AI-assist practice: borrowed ally names are server-sealed AI, not live/full-reward members. */
-export function startTowerRun(hostName: string, floor: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession; character?: Character; chargedRyo?: number; _saveVersion?: number }> {
-    return postJson('/api/towers/start', { hostName, floor, allies, hostLoadout });
+/** Start a host-only Story run. AI teammates are added only through the Story Ready Room. */
+export function startTowerRun(hostName: string, floor: number, hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession; character?: Character; chargedRyo?: number; _saveVersion?: number }> {
+    return postJson('/api/towers/start', { hostName, floor, hostLoadout });
 }
 
 /** Admin/dev compatibility only. Regular Spire progression requires an exact-four live ready room. */
-export function startSpireRun(hostName: string, ascensionTier: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
-    return postJson('/api/towers/start', { hostName, mode: 'spire', ascensionTier, allies, hostLoadout });
+export function startSpireRun(hostName: string, ascensionTier: number, hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
+    return postJson('/api/towers/start', { hostName, mode: 'spire', ascensionTier, hostLoadout });
 }
 
 /** Confirm membership and refresh the server-sealed session on entry. The join route is
@@ -698,7 +741,7 @@ export async function fetchMyRunStatus(playerName: string): Promise<TowerMyRunSt
     return withTowerFetch(`/api/towers/my-run?playerName=${encodeURIComponent(playerName)}`, undefined, async res => {
         if (!res.ok) return null;
         const data = await res.json().catch(() => ({})) as TowerMyRunStatus;
-        if (data.runId || data.recoveryPending || data.leaseReleased) return data;
+        if (data.runId || data.pvpMatchId || data.recoveryPending || data.leaseReleased) return data;
         return null;
     });
 }

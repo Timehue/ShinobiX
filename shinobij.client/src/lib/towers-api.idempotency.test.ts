@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
     createTowerMoveToken,
+    startTowerRun,
     submitTowerAction,
     submitTowerActionWithLostResponseRetry,
     TowerTransportError,
@@ -47,6 +48,27 @@ test("Tower action retries are transport-only and capped at one replay", async (
     );
     assert.equal(calls, 1);
     assert.match(createTowerMoveToken(), /^[A-Za-z0-9_-]{16,80}$/);
+});
+
+test("direct Story starts send a host-only contract with no borrowed allies field", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestBody: Record<string, unknown> | null = null;
+    globalThis.fetch = async (input, init) => {
+        assert.equal(String(input), "/api/towers/start");
+        requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        return new Response(JSON.stringify({ runId: "tower-solo", session: { runId: "tower-solo" } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    };
+    try {
+        const result = await startTowerRun("Hero", 4);
+        assert.equal(result.runId, "tower-solo");
+        assert.deepEqual(requestBody, { hostName: "Hero", floor: 4 });
+        assert.equal("allies" in (requestBody ?? {}), false);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });
 
 test("Tower request deadlines abort a hung transport and surface a retryable error", async () => {

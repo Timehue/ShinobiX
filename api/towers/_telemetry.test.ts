@@ -38,6 +38,8 @@ describe('aggregate-only Tower lifecycle telemetry', () => {
         const story = session();
         assert.equal(towerTelemetrySource(story, 'started'), 'story:floor-5:party-3');
         assert.equal(towerTelemetrySource(story, 'settled'), 'story:floor-5:party-3:win:rounds-6-10');
+        assert.equal(towerTelemetrySource(session({ floor: 15 }), 'started'), 'story:floor-15:party-3');
+        assert.equal(towerTelemetrySource(session({ floor: 999 }), 'started'), 'story:floor-15:party-3', 'malformed values clamp to the authored finale');
 
         const spire = session({
             towerId: 'endless-spire', floor: 17, ascensionTier: 17, partySize: 4, round: 21,

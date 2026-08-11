@@ -43,6 +43,8 @@ import { towerModeDisabled } from './_mode-control.js';
 import { battleLockKey, claimTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { isTowerBattleLock } from '../_tower-battle-guard.js';
 import { activeClanBossConflictMembers } from './_clan-boss-conflict.js';
+import { buildGenericTowerAiCharacter, GENERIC_TOWER_AI_PROFILE } from './_generic-party-ai.js';
+import { kickTowerPlayers } from '../_realtime/notify.js';
 import {
     TOWER_PARTY_ID,
     TOWER_PARTY_REQUEST_ID,
@@ -50,6 +52,8 @@ import {
     loadTowerParty,
     prepareTowerPartyLaunch,
     reopenTowerPartyLaunch,
+    towerPartyAiMembers,
+    towerPartyHumanMembers,
     towerPartyView,
     type StoredTowerParty,
     type TowerPartyBinding,
@@ -68,23 +72,46 @@ function sameBinding(party: StoredTowerParty, binding: TowerPartyBinding): boole
             : party.binding.mode === 'spire' && party.binding.ascensionTier === binding.ascensionTier);
 }
 
-function sameMembers(session: TowerSession, members: string[]): boolean {
+function sameMembers(session: TowerSession, party: StoredTowerParty): boolean {
+    const members = towerPartyHumanMembers(party).map(member => member.slug);
     const owners = [...new Set(session.actors
-        .filter(actor => actor.side === 'squad')
+        .filter(actor => actor.side === 'squad' && actor.ai === false)
         .map(actor => actor.ownerSlug)
         .filter((slug): slug is string => !!slug))].sort();
+    const genericCount = session.actors.filter(actor => actor.side === 'squad'
+        && actor.ai === true
+        && actor.ownerSlug === null
+        && actor.character.towerGenericAiProfile === GENERIC_TOWER_AI_PROFILE).length;
     return owners.length === members.length
         && owners.every((slug, index) => slug === [...members].sort()[index])
-        && session.actors.filter(actor => actor.side === 'squad').every(actor => actor.ai === false);
+        && genericCount === towerPartyAiMembers(party).length;
+}
+
+function publishTowerStart(session: TowerSession, party?: StoredTowerParty | null): void {
+    const players = towerBattleLeaseMembers(session);
+    kickTowerPlayers(players, {
+        channel: 'session',
+        reason: 'started',
+        runId: session.runId,
+        actionVersion: Number((session as TowerSession & { actionVersion?: number }).actionVersion ?? 0),
+    });
+    if (party) {
+        kickTowerPlayers(towerPartyHumanMembers(party).map(member => member.slug), {
+            channel: 'party',
+            reason: 'launched',
+            partyId: party.id,
+            version: party.version,
+        });
+    }
 }
 
 /*
  * POST /api/towers/start — begin a Battle Towers run.
  *
  * `partyId` launches an authoritative ready room: the server derives the exact
- * member roster and every member is a live/full-reward actor. The legacy
- * `allies` input remains compatible, but those unverified borrowed snapshots are
- * AI assists and cannot act or receive full-member story rewards.
+ * live roster plus its optional, ownerless novice recruit. A direct Story start
+ * is host-only. Borrowed player saves are never accepted as new AI teammates;
+ * already-published legacy sessions remain recoverable through their run ID.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -164,12 +191,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const hostLoadout = body.hostLoadout && typeof body.hostLoadout === 'object'
             ? body.hostLoadout as Record<string, unknown>
             : {};
-        const legacyAllies: string[] = Array.isArray(body.allies)
-            ? body.allies.map((ally: unknown) => safeName(String(ally))).filter(Boolean)
-            : [];
+        const submittedAllies = body.allies;
+        const hasBorrowedAllyInput = Array.isArray(submittedAllies)
+            ? submittedAllies.length > 0
+            : submittedAllies !== undefined && submittedAllies !== null;
+        if (hasBorrowedAllyInput) {
+            return res.status(400).json({
+                error: 'Borrowed player AI assists are no longer available. Open a Story Ready Room and add the Novice Tower Recruit.',
+                errorCode: 'borrowed-allies-disabled',
+            });
+        }
         const memberSlugs = authoritativeParty
-            ? authoritativeParty.members.map(member => member.slug)
-            : [...new Set([hostName, ...legacyAllies])].slice(0, MAX_PARTY_SIZE);
+            ? towerPartyHumanMembers(authoritativeParty).map(member => member.slug)
+            : [hostName];
+        const genericAiMembers = authoritativeParty ? towerPartyAiMembers(authoritativeParty) : [];
 
         const unavailable: string[] = [];
         const ineligible: string[] = [];
@@ -304,8 +339,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             preparedView = prepared.party;
             const launch = prepared.party.launch;
             if (!launch) throw new Error('Tower party launch preparation did not mint a launch record.');
-            const preparedMembers = prepared.party.members.map(member => member.slug);
-            if (preparedMembers.length !== memberSlugs.length || preparedMembers.some((slug, index) => slug !== memberSlugs[index])) {
+            const preparedMembers = towerPartyHumanMembers(prepared.party).map(member => member.slug);
+            const preparedAi = towerPartyAiMembers(prepared.party).map(member => member.slug);
+            if (preparedMembers.length !== memberSlugs.length
+                || preparedMembers.some((slug, index) => slug !== memberSlugs[index])
+                || preparedAi.length !== genericAiMembers.length
+                || preparedAi.some((slug, index) => slug !== genericAiMembers[index]?.slug)) {
                 await reopenTowerPartyLaunch(prepared.party.id, partyRequestId);
                 return res.status(409).json({ error: 'The party roster changed. Review the latest status and retry.', errorCode: 'party-changed', party: towerPartyView(prepared.party) });
             }
@@ -321,7 +360,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const validModeIdentity = mode === 'story' ? isPublicTowerRun(existing) : isSpireRun(existing);
                 if (bound.towerPartyId !== prepared.party.id
                     || bound.towerPartyLaunchRequestId !== partyRequestId
-                    || !sameMembers(existing, memberSlugs)
+                    || !sameMembers(existing, prepared.party)
                     || !validModeIdentity
                     || existingFloor?.id !== expectedFloorId) {
                     throw new Error('Tower party launch record collided with another session.');
@@ -373,6 +412,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const activated = await activateTowerPartyLaunch(prepared.party.id, partyRequestId, runId);
                 for (const slug of towerBattleLeaseMembers(existing)) if (slug !== hostName) await setTowerInvite(slug, runId).catch(() => undefined);
                 await recordTowerRunStarted(existing);
+                publishTowerStart(existing, activated ?? prepared.party);
                 return res.status(200).json({
                     runId,
                     partyId: prepared.party.id,
@@ -423,8 +463,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Seal combat snapshots only after every live account is leased. Legacy
-        // ally names remain AI assists and therefore do not own cross-mode locks.
+        // Seal combat snapshots only after every live account is leased. Direct
+        // starts have exactly one human; AI teammates exist only in Story parties.
         const admin = await loadAdminCombatContent();
         const squad: SquadMemberInput[] = [];
         const unavailableAfterClaim: string[] = [];
@@ -440,9 +480,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 id: `sq-${index}`,
                 name: String(character.name ?? slug),
                 ownerSlug: slug,
-                ai: authoritativeParty ? false : slug !== hostName,
+                ai: false,
                 character: sealTowerFighter(character, record, slug === hostName ? hostLoadout : {}, admin),
                 itemCharges: sealTowerItemCharges(character),
+            });
+        }
+        for (const member of genericAiMembers) {
+            squad.push({
+                id: `sq-${member.slug}`,
+                name: member.displayName,
+                ownerSlug: '',
+                ownerless: true,
+                ai: true,
+                character: buildGenericTowerAiCharacter(floorNum),
+                itemCharges: {},
             });
         }
         if (unavailableAfterClaim.length || squad.length === 0) {
@@ -469,7 +520,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             bound.towerPartyLaunchRequestId = partyRequestId;
         }
         // Seal exact deploy-stable rules/reward data before the first engine read.
-        // Spire tiers overlap Story floor IDs 1–10 and extend through 20, so
+        // Spire tiers overlap Story floor IDs 1–15 and extend through 20, so
         // provenance is load-bearing for both action resolution and settlement.
         sealTowerCatalogFloor(session, floor, mode);
         initializeTowerActionVersion(session);
@@ -621,6 +672,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const slug of towerBattleLeaseMembers(session)) if (slug !== hostName) await setTowerInvite(slug, runId).catch(() => undefined);
         }
         await recordTowerRunStarted(session);
+        publishTowerStart(session, activatedParty);
 
         return res.status(200).json({
             runId,

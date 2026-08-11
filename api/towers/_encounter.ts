@@ -27,6 +27,8 @@ export type SquadMemberInput = {
     name: string;
     /** controlling player's slug (the host or a borrowed ally) */
     ownerSlug: string;
+    /** Server-authored actors with no account/reward owner set this explicitly. */
+    ownerless?: boolean;
     /** AI-driven? false for the live human host; true for async/borrowed allies */
     ai: boolean;
     character: Record<string, unknown>;
@@ -228,7 +230,7 @@ function vitals(character: Record<string, unknown>, fallbackHp: number) {
 function squadActor(m: SquadMemberInput, pos: number): TowerActor {
     const { maxHp, maxChakra, maxStamina } = vitals(m.character, 1000);
     return {
-        id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerSlug, ai: m.ai,
+        id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerless ? null : m.ownerSlug, ai: m.ai,
         hp: maxHp, maxHp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
         shield: 0, statuses: [], cooldowns: {}, pos, character: m.character,
         itemCharges: m.itemCharges ? { ...m.itemCharges } : {},

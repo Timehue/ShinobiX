@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { GROUND_EFFECT_TAGS, canonicalTagName } from "../pvp/_tags";
 import { ENEMY_TEMPLATE_IDS, getEnemyTemplate, requireEnemyTemplate } from "./_enemy-templates";
+import { getSpireFloor, spireBossForFloor, SPIRE_BOSS_VISUALS, SPIRE_MAX_TIER } from "./_spire-catalog";
 
 const PUBLISHED_TOWER_VISUALS = new Set([
     "bandit", "archer", "blocker", "brute", "acolyte", "warden", "ravager", "genin", "revenant", "sovereign",
+    "stormcaller", "mirror-shogun", "void-emperor",
+    "stormglass-lancer", "stormglass-marksman", "stormglass-bastion", "stormglass-weaver",
+    "thunder-archivist", "stormglass-regent", "tower-scout",
     "clan-boss-oni", "clan-boss-leviathan", "clan-boss-kage", "clan-boss-golem",
 ]);
 
@@ -33,12 +37,23 @@ test("story grunts ship tactical roles and authored combat kits", () => {
 test("story and Spire bosses ship multi-technique phase-ready kits", () => {
     for (const id of [
         "boss-warden", "boss-ravager", "boss-revenant", "boss-sovereign",
+        "boss-thunder-archivist", "boss-stormglass-regent",
         "spire-warden", "spire-ravager", "spire-revenant", "spire-sovereign",
+        "spire-stormcaller", "spire-mirror-shogun", "spire-void-emperor",
     ]) {
         const template = getEnemyTemplate(id);
         assert.equal(template.role, "boss", `${id} is classified as a boss`);
         assert.ok((template.jutsu?.length ?? 0) >= 3, `${id} has damage, control, and phase utility`);
         assert.ok(template.jutsu?.some(jutsu => jutsu.target === "SELF" || jutsu.target === "EMPTY_GROUND"), `${id} has a non-basic tactical option`);
+    }
+});
+
+test("every Spire tier's boss resolves through the server-owned art-manifest contract", () => {
+    for (let tier = 1; tier <= SPIRE_MAX_TIER; tier++) {
+        const key = spireBossForFloor(tier)!;
+        const template = requireEnemyTemplate(getSpireFloor(tier)!.boss!.aiId);
+        assert.equal(template.visual, SPIRE_BOSS_VISUALS[key], `tier ${tier}/${key} portrait key`);
+        assert.ok(PUBLISHED_TOWER_VISUALS.has(template.visual), `tier ${tier}/${key} portrait is published`);
     }
 });
 

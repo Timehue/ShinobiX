@@ -4,7 +4,7 @@ import { buildTowerEncounter, type SquadMemberInput } from '../api/towers/_encou
 import { FLOOR_CATALOG } from '../api/towers/_floor-catalog.js';
 import { makeRng } from '../api/towers/_sim.js';
 import { gearedSquad, runFloorSmart } from './spire-balance-sim.js';
-import { certifyStoryFloor } from './tower-story-certification-sim.js';
+import { advancingStorySquad, certifyStoryFloor } from './tower-story-certification-sim.js';
 
 function coordinatedMidBandSquad(n: number): SquadMemberInput[] {
     const stat = 1_800;
@@ -30,12 +30,29 @@ function coordinatedMidBandSquad(n: number): SquadMemberInput[] {
 }
 
 describe('Battle Towers story release balance', () => {
-    it('keeps sequentially advancing L32-L68 squads meaningful across every live party size', () => {
+    it('routes the coordinated certification squad around authored terrain instead of timing out in a local minimum', () => {
+        const floor = FLOOR_CATALOG.find(entry => entry.id === 11)!;
+        const seed = 22_109;
+        const run = buildTowerEncounter({
+            floor,
+            squad: advancingStorySquad(4, floor.id),
+            runId: 'story-pathing-regression',
+            seed,
+            partySize: 4,
+            now: 0,
+        });
+        runFloorSmart(run, floor, makeRng(seed));
+        assert.equal(run.winner, 'squad',
+            'seed 22109 previously left one Lancer alive at the engine cap despite a healthy full squad');
+    });
+
+    it('keeps sequentially advancing L32-L80 squads meaningful across every live party size', () => {
         // Minimum fraction of each floor's authored round budget a coordinated full squad should
         // actually use. This guards against a 100%-win result hiding a two-round faceroll.
         const minRoundUtilization: Record<number, number> = {
             1: 0.45, 2: 0.55, 3: 0.60, 4: 0.95, 5: 0.75,
             6: 0.45, 7: 0.50, 8: 0.50, 9: 0.55, 10: 0.45,
+            11: 0.45, 12: 0.40, 13: 0.95, 14: 0.45, 15: 0.45,
         };
         for (const partySize of [2, 3, 4]) {
             for (const floor of FLOOR_CATALOG) {
@@ -65,7 +82,7 @@ describe('Battle Towers story release balance', () => {
     });
 
     it('keeps defense and escort NPCs under visible but survivable pressure', () => {
-        for (const floorId of [4, 8]) {
+        for (const floorId of [4, 8, 13]) {
             for (const partySize of [2, 3, 4]) {
                 const result = certifyStoryFloor(floorId, partySize, 8);
                 assert.equal(result.wins, result.seeds,

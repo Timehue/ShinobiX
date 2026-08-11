@@ -14,7 +14,7 @@ import {
     type SettleResult,
     type ConsumedItemsResult,
 } from './_tower-store.js';
-import { closeTowerPartyRun } from './_party.js';
+import { closeTowerPartyRun, towerPartyHumanMembers, type StoredTowerParty } from './_party.js';
 import type { TowerSession } from './_tower-session.js';
 import { recordTowerRunSettled } from './_telemetry.js';
 import { refreshTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
@@ -24,6 +24,8 @@ import {
     TOWER_SESSION_RETRY_AFTER_SECONDS,
     towerSessionBusyErrorBody,
 } from './_session-mutation.js';
+import { publishTowerSessionKick } from './_realtime.js';
+import { kickTowerPlayers } from '../_realtime/notify.js';
 
 type PartyBoundSession = TowerSession & { towerPartyId?: string };
 
@@ -60,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!isMember) return res.status(403).json({ error: 'Not a member of this run.' });
 
         // Endless Spire runs settle through the weekly spire channel (best-tier-per-week); the
-        // 10 story floors keep the one-time first-clear channel. A legacy borrowed ally is
+        // Public Story floors keep the one-time first-clear channel. A legacy borrowed ally is
         // deliberately AI-marked at start and must never inherit full Spire progression.
         const spire = isSpireRun(session);
         if (!spire && !isPublicTowerRun(session)) {
@@ -116,11 +118,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ ...towerSessionBusyErrorBody(), settled: false });
             }
         }
+        let closedParty: StoredTowerParty | null = null;
         if (authoritativeSession.status === 'done' && authoritativeSession.rewardSettlementState === 'settled') {
             const towerPartyId = (authoritativeSession as PartyBoundSession).towerPartyId;
-            if (towerPartyId) await closeTowerPartyRun(towerPartyId, authoritativeSession.runId).catch(() => undefined);
+            if (towerPartyId) closedParty = await closeTowerPartyRun(towerPartyId, authoritativeSession.runId).catch(() => null);
             await releaseTowerBattleLeases(runId, leaseMembers).catch(() => undefined);
             await recordTowerRunSettled(authoritativeSession);
+            publishTowerSessionKick(authoritativeSession, 'settled');
+            if (closedParty) {
+                kickTowerPlayers(towerPartyHumanMembers(closedParty).map(member => member.slug), {
+                    channel: 'party',
+                    reason: 'closed',
+                    partyId: closedParty.id,
+                    version: closedParty.version,
+                });
+            }
         }
         // Return only the caller's committed character. The results map may cover
         // multiple squad members, but their private save data must not be exposed.

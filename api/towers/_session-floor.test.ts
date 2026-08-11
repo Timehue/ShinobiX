@@ -34,7 +34,7 @@ function session(input: {
 
 describe('Tower floor identity and deploy-stable rule seals', () => {
     it('versions Story and Spire catalogs with safe authored identifiers', () => {
-        assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v1');
+        assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v2');
         assert.equal(SPIRE_CATALOG_VERSION, 'endless-spire-v2');
         assert.match(TOWER_CATALOG_VERSION, /^[A-Za-z0-9_.-]{1,80}$/);
         assert.match(SPIRE_CATALOG_VERSION, /^[A-Za-z0-9_.-]{1,80}$/);
@@ -53,7 +53,7 @@ describe('Tower floor identity and deploy-stable rule seals', () => {
             assert.equal(isPublicTowerRun(active), false);
             assert.equal(active.floorProvenance?.kind, 'spire-generated');
             assert.equal(active.floorProvenance?.contentVersion, SPIRE_CATALOG_VERSION);
-            if (tier <= 10) assert.notDeepEqual(floorForSession(active), getFloor(tier), 'numeric overlap cannot select Story rules');
+            if (tier <= 15) assert.notDeepEqual(floorForSession(active), getFloor(tier), 'numeric overlap cannot select Story rules');
             else assert.equal(getFloor(tier), undefined, 'high Spire tiers have no Story fallback');
         });
     }

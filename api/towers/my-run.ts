@@ -51,6 +51,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runId = battleLease?.battleId ?? activeParty?.launch?.runId ?? inviteRunId;
         if (!runId) return res.status(200).json({ runId: null });
 
+        // Public Tower MPvP owns the same account-wide battle lease but persists
+        // under an isolated, non-reward session namespace. Do not interpret its
+        // intentionally absent `tower:<runId>` row as a crashed Story launch and
+        // release the live match after publication grace. The MPvP client follows
+        // this explicit pointer through /api/towers/pvp-state.
+        if (battleLease?.meta.mode === 'mpvp') {
+            return res.status(200).json({ runId: null, pvpMatchId: battleLease.battleId });
+        }
+
         // A thrown storage read reaches the outer 500 and preserves the lease.
         // Only an authoritative null enters confirmed-missing recovery.
         const session = await readSession(runId);

@@ -22,6 +22,7 @@ import {
     towerSessionBusyErrorBody,
     withTowerSessionMutation,
 } from './_session-mutation.js';
+import { publishTowerSessionKick } from './_realtime.js';
 
 /*
  * GET /api/towers/state?runId=...&playerName=... — reconnect / poll the live session.
@@ -98,6 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // fail-closed lock and fresh read, so a contended poll can never return a
         // locally auto-passed turn that was not persisted.
         let responseSession = session;
+        let afkPersisted = false;
         const now = Date.now();
         if (isAfkHumanTurnDue(session, now)) {
             try {
@@ -106,6 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (fresh && fresh.status === 'active' && autoPassAfkHumans(fresh, now)) {
                         bumpTowerActionVersion(fresh);
                         await writeSession(fresh);
+                        afkPersisted = true;
                     }
                     return fresh;
                 });
@@ -118,6 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         initializeTowerActionVersion(responseSession);
+        if (afkPersisted) publishTowerSessionKick(responseSession, 'afk');
 
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ session: responseSession });

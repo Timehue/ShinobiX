@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
@@ -10,15 +10,21 @@ import { battleEntryCost, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
 import { TowerReadyRoomPanel } from "../components/TowerReadyRoomPanel";
+import { TowerPvpPanel } from "../components/TowerPvpPanel";
+import type { TowerPvpMatch } from "../lib/tower-pvp-api";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
 import spireKeyArt from "../assets/towers/spire-banner.webp";
-import { TOWER_KEY_ART, TOWER_SPIRE_PORTRAITS } from "../lib/tower-art-manifest";
+import { resolveTowerStoryArt, resolveTowerStoryChapterArt, TOWER_KEY_ART, TOWER_SPIRE_PORTRAITS } from "../lib/tower-art-manifest";
+import {
+    groupTowerStoryChapters,
+    isTowerStoryFloorActionable,
+    orderedTowerStoryFloors,
+    recommendedTowerStoryFloor,
+} from "../lib/tower-story-catalog";
 import "../styles/tower-lobby.css";
 
-const MAX_ALLIES = 3; // legacy practice only: host + up to 3 server-sealed AI assists
 const TOWER_MIN_LEVEL = 30;
-const STORY_MAX_FLOOR = 10;
-const FLOOR_CACHE_KEY = "tower-floors:v3";
+const FLOOR_CACHE_KEY = "tower-floors:v4";
 const FLOOR_CACHE_TTL_MS = 5 * 60_000;
 
 function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
@@ -52,6 +58,12 @@ const BIOME: Record<string, { color: string; icon: string }> = {
 
 function readableTowerSlug(value: string): string {
     return value.replace(/-/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function towerRoundPaceLabel(objective: string, roundBudget: number): string {
+    if (objective === "protect-npc") return `Hold ${roundBudget} rounds`;
+    if (objective === "survive") return `Survive ${roundBudget} rounds`;
+    return `Par / score pace · ${roundBudget} rounds`;
 }
 
 function towerFieldRuleLabel(rule: TowerFloorMeta["fieldRule"]): string {
@@ -90,32 +102,98 @@ function towerDynamicHazardLabel(hazard: TowerFloorMeta["dynamicHazards"][number
     return `${hazard.count} ${hazardName}${hazard.count === 1 ? "" : "s"} · starts round ${hazard.firstRound}, every ${hazard.everyRounds} rounds`;
 }
 
+function StoryFloorCard({
+    floor,
+    selected,
+    cleared,
+    locked,
+    recommended,
+    levelEligible,
+    onSelect,
+}: {
+    floor: TowerFloorMeta;
+    selected: boolean;
+    cleared: boolean;
+    locked: boolean;
+    recommended: boolean;
+    levelEligible: boolean;
+    onSelect: (floor: number) => void;
+}) {
+    const biome = BIOME[floor.biome] ?? { color: "var(--text-dim)", icon: "🗺️" };
+    const floorArt = resolveTowerStoryArt(floor.artKey);
+    const status = cleared ? "First clear complete"
+        : locked ? (levelEligible ? `Locked; clear through Floor ${Math.max(1, floor.id - 1)} first` : `Locked until level ${TOWER_MIN_LEVEL}`)
+        : recommended ? "Next story floor"
+        : "Available";
+    const detailsId = `tower-story-floor-${floor.id}-details`;
+    return (
+        <div role="listitem" className="tower-story-floor-item">
+            <button
+                type="button"
+                className={`tower-story-floor-card${selected ? " is-selected" : ""}${locked ? " is-locked" : ""}${recommended ? " is-recommended" : ""}`}
+                onClick={() => onSelect(floor.id)}
+                aria-pressed={selected}
+                aria-describedby={detailsId}
+                title={locked || recommended ? status : undefined}
+                style={{ ["--tower-floor-accent" as string]: biome.color }}
+            >
+                <span className="tower-story-floor-stripe" aria-hidden="true" />
+                <span className={`tower-story-floor-icon${floorArt.kind === "authored" ? " has-art" : ""}`} aria-hidden="true">
+                    {floorArt.kind === "authored"
+                        ? <><img src={floorArt.src} alt="" loading="lazy" /><span className="tower-story-floor-art-fallback">{floor.isBoss ? "👑" : biome.icon}</span></>
+                        : floor.isBoss ? "👑" : biome.icon}
+                </span>
+                <span className="tower-story-floor-copy">
+                    <span className="tower-story-floor-name">
+                        <strong>F{floor.id}</strong>
+                        <b>{floor.name}</b>
+                        {floor.milestone ? <span title="Milestone" aria-label="Milestone floor">⭐</span> : null}
+                    </span>
+                    <span id={detailsId} className="tower-story-floor-details">
+                        {OBJECTIVE_LABEL[floor.objective] ?? readableTowerSlug(floor.objective)} · {readableTowerSlug(floor.biome)}{floor.isBoss ? " · Boss" : ""}
+                    </span>
+                </span>
+                <span className={`tower-story-floor-state${cleared ? " is-cleared" : locked ? " is-locked" : recommended ? " is-next" : ""}`} aria-label={status}>
+                    {cleared ? "✓" : locked ? "🔒" : recommended ? "Next" : "Open"}
+                </span>
+            </button>
+        </div>
+    );
+}
+
 export function BattleTowersLobby({
     character,
     updateCharacter,
     hostLoadout,
     onEnter,
+    onEnterPvp,
+    onPvpMatchChange,
     onBack,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     hostLoadout?: TowerHostLoadout;
     onEnter: (runId: string, session: TowerSession) => void;
+    onEnterPvp: (match: TowerPvpMatch) => void;
+    onPvpMatchChange: (matchId: string | null) => void;
     onBack: () => void;
 }) {
-    const [floors, setFloors] = useState<TowerFloorMeta[]>(() => readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList) ?? []);
+    const [floors, setFloors] = useState<TowerFloorMeta[]>(() => orderedTowerStoryFloors(readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList) ?? []));
     const [selected, setSelected] = useState<number | null>(null);
     const [loading, setLoading] = useState(() => !readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList));
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [floorError, setFloorError] = useState<string | null>(null);
     const [floorReloadKey, setFloorReloadKey] = useState(0);
-    const [allies, setAllies] = useState<string[]>([]);
     const [following, setFollowing] = useState<string[]>([]);
-    const [inviteName, setInviteName] = useState("");
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
     const [runRecoveryPending, setRunRecoveryPending] = useState(false);
     const [activeReadyRoom, setActiveReadyRoom] = useState<TowerPartyView | null>(null);
+    const [activePvpMatchId, setActivePvpMatchId] = useState<string | null>(null);
+    const handlePvpMatchChange = useCallback((matchId: string | null) => {
+        setActivePvpMatchId(matchId);
+        onPvpMatchChange(matchId);
+    }, [onPvpMatchChange]);
     // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
     // your highest cleared; the default selection is the next unlocked floor.
     const spireUnlocked = character.battleTowerAscension ?? 0;
@@ -128,53 +206,57 @@ export function BattleTowersLobby({
     const [spireBoard, setSpireBoard] = useState<SpireLeaderboardRow[]>([]);
     const [spireAffix, setSpireAffix] = useState<SpireWeeklyAffix | null>(null);
 
-    // Legacy practice assists are borrowed, server-sealed AI actors. They are
-    // deliberately separate from the authenticated live ready room below.
-    function addAlly(name: string) {
-        const n = name.trim();
-        const key = n.toLowerCase();
-        if (!n || key === me.toLowerCase() || allies.some(a => a.toLowerCase() === key) || allies.length >= MAX_ALLIES) return;
-        setAllies([...allies, n]);
-        setInviteName("");
-    }
-
     const bestFloor = character.battleTowerBestFloor ?? 0;
     const rating = character.battleTowerRating ?? 0;
-    const cleared = new Set(character.battleTowerClearedFloors ?? []);
+    const cleared = useMemo(() => new Set(character.battleTowerClearedFloors ?? []), [character.battleTowerClearedFloors]);
+    const orderedFloors = useMemo(() => orderedTowerStoryFloors(floors), [floors]);
+    const storyChapters = useMemo(() => groupTowerStoryChapters(orderedFloors), [orderedFloors]);
+    const nextStoryFloor = orderedFloors.some(floor => floor.id === Math.floor(bestFloor) + 1)
+        ? Math.floor(bestFloor) + 1
+        : null;
+    const clearedCatalogFloorCount = orderedFloors.filter(floor => cleared.has(floor.id)).length;
     const me = character.name;
     const entryFee = battleEntryCost(character);
     const towerLevelEligible = isAdmin || (character.level ?? 0) >= TOWER_MIN_LEVEL;
-    const storyFrontier = Math.min(STORY_MAX_FLOOR, Math.max(1, bestFloor + 1));
-    const isStoryFloorActionable = (floor: number) => isAdmin
-        || (towerLevelEligible && (cleared.has(floor) || floor === storyFrontier));
-    const practiceBlocked = activeReadyRoom != null && activeReadyRoom.status !== "closed";
-    const availableAllies = following.filter(f =>
-        f.toLowerCase() !== me.toLowerCase() && !allies.some(a => a.toLowerCase() === f.toLowerCase()));
+    const storyFloorActionable = (floor: number) => isTowerStoryFloorActionable({
+        floor,
+        bestFloor,
+        clearedFloors: cleared,
+        levelEligible: towerLevelEligible,
+        admin: isAdmin,
+    });
+    const readyRoomActive = activeReadyRoom != null && activeReadyRoom.status !== "closed";
+    const soloStartBlocked = readyRoomActive || activePvpMatchId != null;
 
     useEffect(() => {
         let alive = true;
         const cached = readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList);
-        const recommendedFloor = (list: TowerFloorMeta[]) => list.find(floor => floor.id === storyFrontier)?.id ?? list[0]?.id ?? null;
+        const applyCatalog = (list: TowerFloorMeta[]) => {
+            const ordered = orderedTowerStoryFloors(list);
+            const recommended = recommendedTowerStoryFloor(ordered, bestFloor);
+            setFloors(ordered);
+            setSelected(current => current != null && ordered.some(floor => floor.id === current) ? current : recommended);
+            return ordered;
+        };
         // Promote the tab-local cache in a microtask instead of issuing
         // synchronous state updates from this effect body.
         queueMicrotask(() => {
             if (!alive) return;
             if (cached) {
-                setFloors(cached);
-                setSelected(current => current ?? recommendedFloor(cached));
+                applyCatalog(cached);
                 setLoading(false);
             } else {
                 setLoading(true);
             }
         });
         fetchTowerFloors()
-            .then(f => { if (alive) { setFloors(f); setSelected(current => current ?? recommendedFloor(f)); setFloorError(null); writeScreenCache(FLOOR_CACHE_KEY, f, FLOOR_CACHE_TTL_MS); } })
+            .then(f => { if (alive) { const ordered = applyCatalog(f); setFloorError(null); writeScreenCache(FLOOR_CACHE_KEY, ordered, FLOOR_CACHE_TTL_MS); } })
             .catch(e => { if (alive) setFloorError(String(e?.message ?? e)); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
-    }, [storyFrontier, floorReloadKey]);
+    }, [bestFloor, floorReloadKey]);
 
-    // Recruitable allies = the players you follow.
+    // Followed players remain available as authenticated Ready Room invite targets.
     useEffect(() => subscribeFollowing(me, setFollowing), [me]);
 
     // Weekly Spire leaderboard (best-effort; refreshes on mount).
@@ -202,18 +284,18 @@ export function BattleTowersLobby({
         return () => { alive = false; stop(); };
     }, [me]);
 
-    async function enterPracticeFloor() {
+    async function enterSoloFloor() {
         if (selected == null || starting) return;
-        if (practiceBlocked) {
-            setError("Leave your Ready Room before starting AI practice.");
+        if (soloStartBlocked) {
+            setError("Leave your Ready Room or Team Arena match before starting a solo Tower run.");
             return;
         }
         if (!towerLevelEligible) {
             setError(`Battle Towers unlock at level ${TOWER_MIN_LEVEL}.`);
             return;
         }
-        if (!isStoryFloorActionable(selected)) {
-            setError(`Clear Story Floor ${storyFrontier} before entering Floor ${selected}.`);
+        if (!storyFloorActionable(selected)) {
+            setError(`Clear through Story Floor ${Math.max(1, selected - 1)} before entering Floor ${selected}.`);
             return;
         }
         // Ryo entry fee (first BATTLE_FREE_FLOORS floors/day free). Charged only on a
@@ -226,7 +308,7 @@ export function BattleTowersLobby({
         setStarting(true);
         setError(null);
         try {
-            const { runId, session, character: authoritativeCharacter } = await startTowerRun(me, selected, allies, hostLoadout);
+            const { runId, session, character: authoritativeCharacter } = await startTowerRun(me, selected, hostLoadout);
             if (authoritativeCharacter) updateCharacter(authoritativeCharacter);
             onEnter(runId, session);
         } catch (e) {
@@ -235,13 +317,23 @@ export function BattleTowersLobby({
         }
     }
 
-    const selFloor = floors.find(f => f.id === selected);
+    const selFloor = orderedFloors.find(f => f.id === selected);
+    const readyRoomBinding = activeReadyRoom?.binding;
+    const readyRoomStoryFloor = readyRoomBinding?.mode === "story"
+        ? orderedFloors.find(floor => floor.id === readyRoomBinding.floor) ?? null
+        : activeReadyRoom ? null : selFloor ?? null;
     const selectedFloorCleared = selFloor ? cleared.has(selFloor.id) : false;
-    const selectedFloorActionable = selFloor ? isStoryFloorActionable(selFloor.id) : false;
+    const selectedFloorActionable = selFloor ? storyFloorActionable(selFloor.id) : false;
     const selectedEntryFee = selectedFloorCleared ? 0 : entryFee;
     const selectedRewardParts = selFloor ? towerRewardParts(selFloor.firstClearReward) : [];
     const selectedTargetMode = selFloor ? towerTargetModeLabel(selFloor.bossTargetMode) : null;
     const selectedStrike = selFloor ? towerStrikeLabel(selFloor.bossStrike) : null;
+    const selectedFloorArt = selFloor ? resolveTowerStoryArt(selFloor.artKey) : null;
+    const selectedLockReason = selFloor && !selectedFloorActionable
+        ? (!towerLevelEligible
+            ? `Locked · Battle Towers unlock at level ${TOWER_MIN_LEVEL}.`
+            : `Locked · clear through Floor ${Math.max(1, selFloor.id - 1)} to reach this encounter.`)
+        : null;
 
     function focusReadyRoom() {
         const openSpire = document.getElementById("tower-ready-room-open-spire") as HTMLButtonElement | null;
@@ -288,18 +380,28 @@ export function BattleTowersLobby({
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
                 <Stat label="Deepest floor" value={String(bestFloor)} color="var(--gold)" />
                 <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
-                <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="var(--green-400)" />
+                <Stat label="Floors cleared" value={`${clearedCatalogFloorCount}/${orderedFloors.length || "—"}`} color="var(--green-400)" />
             </div>
 
             {!towerLevelEligible && <div className="tower-level-gate" role="status">Battle Towers unlock at level {TOWER_MIN_LEVEL}. Floors remain visible so you can plan the climb.</div>}
+
+            <TowerPvpPanel
+                playerName={character.name}
+                unlocked={towerLevelEligible}
+                blockedReason={readyRoomActive ? "Leave your co-op Ready Room before entering public 2v2 matchmaking." : null}
+                onMatchLockChange={handlePvpMatchChange}
+                onEnter={onEnterPvp}
+            />
 
             <TowerReadyRoomPanel
                 character={character}
                 following={following}
                 storyFloor={selected}
+                storyFloorMeta={readyRoomStoryFloor}
                 storyFloorActionable={selectedFloorActionable}
                 spireTier={spireTier}
                 towersUnlocked={towerLevelEligible}
+                externalBattleActive={activePvpMatchId != null}
                 hostLoadout={hostLoadout}
                 updateCharacter={updateCharacter}
                 onPartyChange={setActiveReadyRoom}
@@ -318,119 +420,103 @@ export function BattleTowersLobby({
                 affix={spireAffix}
                 isAdmin={isAdmin}
                 towerUnlocked={towerLevelEligible}
-                roomActive={practiceBlocked}
+                roomActive={soloStartBlocked}
                 onPrepareRoom={focusReadyRoom}
             />
-
-            {/* Legacy, explicitly non-live AI-assist practice assembly. */}
-            <div style={{ padding: "0.8rem 0.9rem", borderRadius: 12, border: "1px solid #293548", background: "linear-gradient(180deg,#0e1626,#0a111f)", marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    <strong style={{ fontSize: "0.98rem" }}>🤖 Practice with AI Assists <span style={{ color: "var(--text-dim)", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} borrowed shinobi</span></strong>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.76rem" }}>AI assists receive only a capped assist reward; they do not receive first-clear or Spire progression</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                    <SquadChip name={me} you />
-                    {allies.map(a => <SquadChip key={a} name={a} onRemove={() => setAllies(allies.filter(x => x !== a))} />)}
-                    {allies.length < MAX_ALLIES && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            {/* Borrow any existing save as a sealed AI practice actor. */}
-                            <input value={inviteName} onChange={e => setInviteName(e.target.value)} aria-label="Borrow an AI assist by player name"
-                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addAlly(inviteName); } }}
-                                placeholder="Borrow AI by player name…" maxLength={24}
-                                style={{ padding: "0.4rem 0.7rem", borderRadius: 20, background: "#0b1220", color: "var(--slate-200)", border: "1px solid var(--slate-600)", fontSize: "0.82rem", width: 170 }} />
-                            <button onClick={() => addAlly(inviteName)} disabled={!inviteName.trim()}
-                                style={{ padding: "0.4rem 0.8rem", borderRadius: 20, fontWeight: 700, fontSize: "0.8rem", cursor: inviteName.trim() ? "pointer" : "default", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)", border: "1px solid #3b5278", opacity: inviteName.trim() ? 1 : 0.5 }}>
-                                + Add AI assist
-                            </button>
-                            {/* Quick-add from players you follow */}
-                            {availableAllies.length > 0 && (
-                                <select value="" aria-label="Borrow an AI assist from followed players" onChange={e => { if (e.target.value) addAlly(e.target.value); }}
-                                    style={{ padding: "0.4rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "var(--slate-300)", border: "1px dashed var(--slate-600)", cursor: "pointer", fontSize: "0.82rem" }}>
-                                    <option value="">+ From follows…</option>
-                                    {availableAllies.map(f => <option key={f} value={f}>{f}</option>)}
-                                </select>
-                            )}
-                        </span>
-                    )}
-                </div>
-            </div>
 
             {loading && <LoadingState>Loading floors…</LoadingState>}
             {floorError && (
                 <div className="tower-floor-load-error" role="alert">
-                    <span>{floors.length > 0 ? "Showing the saved floor list; the live briefing refresh failed." : "The Story Tower floor list could not be loaded."} {floorError}</span>
+                    <span>{orderedFloors.length > 0 ? "Showing the saved floor list; the live briefing refresh failed." : "The Story Tower floor list could not be loaded."} {floorError}</span>
                     <button type="button" onClick={() => setFloorReloadKey(key => key + 1)}>Retry floor list</button>
                 </div>
             )}
             {error && <p role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
-            {!loading && floors.length === 0 && !floorError && (
+            {!loading && orderedFloors.length === 0 && !floorError && (
                 <div className="tower-floor-empty" role="status">
                     <strong>No Story Tower floors are available right now.</strong>
                     <button type="button" onClick={() => setFloorReloadKey(key => key + 1)}>Check again</button>
                 </div>
             )}
 
-            {!loading && floors.length > 0 && <h2 id="tower-story-floors-title" className="tower-story-floors-title">Story Tower Floors</h2>}
+            {!loading && orderedFloors.length > 0 && <h2 id="tower-story-floors-title" className="tower-story-floors-title">Story Tower Campaign</h2>}
 
-            {!loading && floors.length > 0 && (
-                <div role="group" aria-labelledby="tower-story-floors-title" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 16 }}>
-                    {floors.map(f => {
-                        const isCleared = cleared.has(f.id);
-                        const isSel = selected === f.id;
-                        const locked = !isStoryFloorActionable(f.id);
-                        const b = BIOME[f.biome] ?? { color: "var(--text-dim)", icon: "🗺️" };
+            {!loading && orderedFloors.length > 0 && (
+                <div className="tower-story-campaign" aria-labelledby="tower-story-floors-title">
+                    {storyChapters.map(chapter => {
+                        const chapterTitleId = `tower-story-chapter-${chapter.number}-title`;
+                        const chapterCleared = chapter.floors.filter(floor => cleared.has(floor.id)).length;
+                        const chapterArt = resolveTowerStoryChapterArt(chapter.number, chapter.artKey);
                         return (
-                            <button
-                                key={f.id}
-                                onClick={() => setSelected(f.id)}
-                                aria-pressed={isSel}
-                                title={locked ? (!towerLevelEligible ? `Preview only · unlocks at level ${TOWER_MIN_LEVEL}` : `Preview only · clear Floor ${storyFrontier} first`) : undefined}
-                                style={{
-                                    position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
-                                    padding: "0.7rem 0.8rem 0.7rem 0.9rem", borderRadius: 10, overflow: "hidden",
-                                    border: `1px solid ${isSel ? "var(--blue-400)" : "#293548"}`,
-                                    background: isSel ? "linear-gradient(180deg,#16263f,#0d1830)" : "linear-gradient(180deg,#0e1626,#0a111f)",
-                                    boxShadow: isSel ? "0 0 0 1px var(--blue-400), 0 6px 18px rgba(37,99,235,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
-                                    cursor: "pointer", color: "var(--slate-200)", opacity: locked ? 0.62 : 1,
-                                }}
-                            >
-                                {/* biome color stripe */}
-                                <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: b.color }} />
-                                <span style={{ fontSize: 22, width: 34, textAlign: "center", flexShrink: 0 }}>{f.isBoss ? "👑" : b.icon}</span>
-                                <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                        <strong style={{ color: b.color, fontSize: "0.78rem", letterSpacing: 0.5 }}>F{f.id}</strong>
-                                        <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</strong>
-                                        {f.milestone && <span title="Milestone" style={{ fontSize: 13 }}>⭐</span>}
-                                    </span>
-                                    <span style={{ display: "block", color: "var(--text-dim)", fontSize: "0.78rem", marginTop: 2 }}>
-                                        {OBJECTIVE_LABEL[f.objective] ?? f.objective} · {f.biome}{f.isBoss ? " · boss" : ""}
-                                    </span>
-                                </span>
-                                {isCleared && <span title="First-cleared" style={{ color: "var(--green-400)", fontWeight: 800, flexShrink: 0 }}>✓</span>}
-                                {locked && <span aria-label="Locked" style={{ color: "var(--slate-400)", flexShrink: 0 }}>🔒</span>}
-                            </button>
+                            <section key={chapter.key} className={`tower-story-chapter tower-story-chapter-${chapter.number}`} aria-labelledby={chapterTitleId}>
+                                <header
+                                    className="tower-story-chapter-head has-art"
+                                    data-art-fallback={chapterArt.kind === "fallback" ? "true" : undefined}
+                                    style={{ ["--tower-chapter-art" as string]: `url(${chapterArt.src})` }}
+                                >
+                                    <div className="tower-story-chapter-copy">
+                                        <span>Chapter {chapter.number}</span>
+                                        <h3 id={chapterTitleId}>{chapter.title}</h3>
+                                        {chapter.subtitle ? <p>{chapter.subtitle}</p> : null}
+                                        {chapter.summary ? <small>{chapter.summary}</small> : null}
+                                    </div>
+                                    <div className="tower-story-chapter-progress" aria-label={`${chapterCleared} of ${chapter.floors.length} chapter floors cleared`}>
+                                        <strong>{chapterCleared}/{chapter.floors.length}</strong>
+                                        <span>cleared</span>
+                                    </div>
+                                </header>
+                                <div className="tower-story-floor-grid" role="list" aria-label={`${chapter.title} floors`}>
+                                    {chapter.floors.map(floor => (
+                                        <StoryFloorCard
+                                            key={floor.id}
+                                            floor={floor}
+                                            selected={selected === floor.id}
+                                            cleared={cleared.has(floor.id)}
+                                            locked={!storyFloorActionable(floor.id)}
+                                            recommended={floor.id === nextStoryFloor}
+                                            levelEligible={towerLevelEligible}
+                                            onSelect={setSelected}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
                         );
                     })}
                 </div>
             )}
 
             {selFloor && (
-                <section className="tower-floor-briefing" aria-labelledby="tower-floor-briefing-title">
+                <section
+                    className="tower-floor-briefing has-art"
+                    aria-labelledby="tower-floor-briefing-title"
+                    data-art-fallback={selectedFloorArt?.kind === "fallback" ? "true" : undefined}
+                >
+                    {selectedFloorArt ? (
+                        <div
+                            className="tower-floor-briefing-hero"
+                            aria-hidden="true"
+                            style={{ ["--tower-floor-briefing-art" as string]: `url(${selectedFloorArt.src})` }}
+                        />
+                    ) : null}
                     <div className="tower-floor-briefing-copy">
-                        <span className="tower-floor-briefing-kicker">Selected floor briefing</span>
+                        <span className="tower-floor-briefing-kicker">
+                            {selFloor.chapter ? `Chapter ${selFloor.chapter} · ` : ""}Selected floor briefing
+                        </span>
                         <h2 id="tower-floor-briefing-title">Floor {selFloor.id} · {selFloor.name}</h2>
+                        {selFloor.briefing?.situation ? <p className="tower-floor-situation">{selFloor.briefing.situation}</p> : null}
                         <div className="tower-floor-briefing-tags">
                             <span>🎯 {selFloor.objective === "protect-npc"
-                                ? `Hold and protect the ally for ${selFloor.roundBudget} rounds`
+                                ? "Protect the ally"
                                 : OBJECTIVE_LABEL[selFloor.objective] ?? readableTowerSlug(selFloor.objective)}</span>
-                            <span>⏱ {selFloor.roundBudget} round budget</span>
-                            <span>👹 {selFloor.enemyCount} combatant{selFloor.enemyCount === 1 ? "" : "s"}</span>
+                            <span>⏱ {towerRoundPaceLabel(selFloor.objective, selFloor.roundBudget)}</span>
+                            <span>👹 {selFloor.phaseReinforcementCount
+                                ? `${selFloor.enemyCount} starting + ${selFloor.phaseReinforcementCount} phase reinforcements`
+                                : <>{selFloor.enemyCount} starting combatant{selFloor.enemyCount === 1 ? "" : "s"}</>}</span>
                         </div>
                         {selFloor.bossMechanic && <p><strong>Boss mechanic:</strong> {readableTowerSlug(selFloor.bossMechanic)}</p>}
                         {selectedTargetMode && <p><strong>🎯 Boss focus:</strong> {selectedTargetMode}</p>}
                         {selectedStrike && <p><strong>⚠️ Telegraph:</strong> {selectedStrike}</p>}
-                        {selFloor.closingRing && <p><strong>🔥 Closing ring:</strong> Starts round {selFloor.closingRing.fromRound};
+                        {selFloor.closingRing && <p><strong>🔥 Closing ring:</strong> After round {selFloor.closingRing.fromRound};
                             {` ${selFloor.closingRing.percent}% max HP outside the safe radius, shrinking to ${selFloor.closingRing.minRadius} hexes`}</p>}
                         <p><strong>Field rule:</strong> {towerFieldRuleLabel(selFloor.fieldRule)}</p>
                         <p><strong>Reinforcements:</strong> {selFloor.reinforcementWaves.length > 0
@@ -439,14 +525,30 @@ export function BattleTowersLobby({
                         {selFloor.dynamicHazards.map((hazard, index) => (
                             <p key={`${hazard.kind}-${index}`}><strong>♨️ Field hazard:</strong> {towerDynamicHazardLabel(hazard)}</p>
                         ))}
+                        {selFloor.briefing && (selFloor.briefing.tactics.length > 0 || selFloor.briefing.warnings.length > 0) ? (
+                            <div className="tower-floor-intel">
+                                {selFloor.briefing.tactics.length > 0 ? (
+                                    <div>
+                                        <strong>Squad plan</strong>
+                                        <ul>{selFloor.briefing.tactics.map((tactic, index) => <li key={`${index}-${tactic}`}>{tactic}</li>)}</ul>
+                                    </div>
+                                ) : null}
+                                {selFloor.briefing.warnings.length > 0 ? (
+                                    <div className="tower-floor-intel-warnings">
+                                        <strong>Watch for</strong>
+                                        <ul>{selFloor.briefing.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
                     </div>
                     <div className={`tower-floor-reward${selectedFloorCleared ? " is-claimed" : ""}`}>
-                        <span>{selectedFloorCleared ? "First clear already claimed" : "First-clear reward"}</span>
+                        <span>{selectedFloorCleared ? "First clear recorded" : "First-clear reward"}</span>
                         <strong>{selectedRewardParts.length > 0 ? selectedRewardParts.join(" · ") : "No first-clear package"}</strong>
                         {selectedFloorCleared
-                            ? <small>Cleared replay · no entry fee · rewards already claimed.</small>
+                            ? <small>Cleared replay · no entry fee · this one-time package is not paid again.</small>
                             : <small>{selectedEntryFee > 0 ? `Entry preview: ${selectedEntryFee.toLocaleString()} ryo` : "Entry preview: daily free entry available"}</small>}
-                        {!selectedFloorActionable && <small>Locked · clear floors sequentially to reach this encounter.</small>}
+                        {selectedLockReason ? <small>{selectedLockReason}</small> : null}
                     </div>
                 </section>
             )}
@@ -460,12 +562,12 @@ export function BattleTowersLobby({
                         background: "linear-gradient(180deg,#16803a,#0c5226)", border: "1px solid var(--green-400)",
                         boxShadow: "0 4px 16px rgba(34,197,94,0.3)", opacity: selected == null || loading ? 0.5 : 1,
                     }}
-                    onClick={enterPracticeFloor}
-                    disabled={selected == null || starting || loading || !selectedFloorActionable || practiceBlocked}
+                    onClick={enterSoloFloor}
+                    disabled={selected == null || starting || loading || !selectedFloorActionable || soloStartBlocked}
                 >
-                    {starting ? "Entering practice…" : practiceBlocked ? "Leave Ready Room to start AI practice" : selFloor ? !selectedFloorActionable ? `🔒 Floor ${selFloor.id} locked` : `▶ Practice Floor ${selFloor.id} with AI assists${allies.length ? ` · ${allies.length} assist${allies.length === 1 ? "" : "s"}` : ""}${selectedEntryFee > 0 ? ` · ${selectedEntryFee.toLocaleString()} ryo` : selectedFloorCleared ? " · free cleared replay" : ""}` : "Select a floor"}
+                    {starting ? "Entering solo run…" : soloStartBlocked ? "Finish current Tower activity to start solo" : selFloor ? !selectedFloorActionable ? `🔒 Floor ${selFloor.id} locked` : `▶ Enter Floor ${selFloor.id} solo${selectedEntryFee > 0 ? ` · ${selectedEntryFee.toLocaleString()} ryo` : selectedFloorCleared ? " · free cleared replay" : ""}` : "Select a floor"}
                 </button>
-                <button className="back-btn" onClick={onBack} disabled={starting}
+                <button className="back-btn tower-lobby-back" onClick={onBack} disabled={starting}
                     title={activeReadyRoom ? "Your Ready Room remains open until you leave it or it expires." : undefined}>
                     × Back to Central{activeReadyRoom ? " · room stays open" : ""}
                 </button>
@@ -658,21 +760,5 @@ function Stat({ label, value, color }: { label: string; value: string; color: st
             <div style={{ color: "var(--text-dim)", fontSize: "0.78rem" }}>{label}</div>
             <div style={{ fontSize: "1.5rem", fontWeight: 800, color }}>{value}</div>
         </div>
-    );
-}
-
-function SquadChip({ name, you, onRemove }: { name: string; you?: boolean; onRemove?: () => void }) {
-    return (
-        <span style={{
-            display: "inline-flex", alignItems: "center", gap: 6, padding: "0.35rem 0.7rem", borderRadius: 20, fontSize: "0.84rem",
-            background: you ? "linear-gradient(180deg,#15301f,#0d2014)" : "linear-gradient(180deg,#142036,#0d1830)",
-            border: `1px solid ${you ? "var(--green-400)" : "#3b5278"}`, color: "var(--slate-200)",
-        }}>
-            <span style={{ fontSize: 14 }}>{you ? "🥷" : "🤝"}</span>
-            <strong style={{ fontWeight: 700, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</strong>
-            {you
-                ? <span style={{ color: "var(--green-300)", fontSize: "0.72rem" }}>you</span>
-                : onRemove && <button onClick={onRemove} aria-label={`Remove ${name}`} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", fontSize: 14, padding: "4px 6px", lineHeight: 1 }}>✕</button>}
-        </span>
     );
 }
