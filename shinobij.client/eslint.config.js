@@ -50,7 +50,7 @@ export default defineConfig([
     // hgpreview.tsx are standalone dev-only harness pages (petvfx.html /
     // hgpreview.html), not in the player bundle. Turn the HMR rule off for
     // just these; remove the App.tsx entry once the drain is finished.
-    files: ['src/App.tsx', 'src/petvfx.tsx', 'src/hgpreview.tsx', 'src/showdownpreview.tsx'],
+    files: ['src/App.tsx', 'src/petvfx.tsx', 'src/hgpreview.tsx', 'src/showdownpreview.tsx', 'src/iconsheet.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

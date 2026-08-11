@@ -43,6 +43,8 @@ import {
     type VfxSpawn,
     type PillarDrive,
 } from "./PetShowdownVfx";
+import { ShowdownIcon, type ShowdownIconName } from "./icons/ShowdownIcon";
+import { ELEMENT_ICON } from "../lib/element-icons";
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
@@ -108,21 +110,45 @@ const ELEMENT_TINT: Record<string, string> = {
     Fire: "#ff7a35", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#fde047", Earth: "#d6a76a", None: "#a5b4fc",
 };
 
-/** One glyph per element, for the status plates and the move inspector. */
-const ELEMENT_GLYPH: Record<string, string> = {
-    Fire: "🔥", Water: "💧", Wind: "🌪", Lightning: "⚡", Earth: "🪨", None: "✦",
+/** One authored crest per element. The painted WebP (ELEMENT_ICON) is used only
+ *  at >=48px — 5-9 KB of paint turns to mud below ~32px, and only the vector
+ *  tints with `color`. */
+const ELEMENT_CREST: Record<string, ShowdownIconName> = {
+    Fire: "elem-fire", Water: "elem-water", Wind: "elem-wind",
+    Lightning: "elem-lightning", Earth: "elem-earth", None: "elem-none",
 };
 
-const KIND_ICON: Record<string, string> = {
-    damage: "⚔️", crush: "💥", lifesteal: "🩸", burn: "🔥", dot: "☠️", freeze: "❄️", stun: "🌀",
-    confuse: "😵", debuff: "📉", buff: "📈", heal: "💚", shield: "🛡️", barrier: "🛡️", absorb: "🛡️",
-    mark: "🎯", wound: "🗡️", slow: "🐌", movelock: "🐌", haste: "💨", move: "💨", taunt: "📢",
-    push: "🌊", pull: "🪝", guard: "🛡️", rest: "💤",
+function elementCrest(element: string): ShowdownIconName {
+    return ELEMENT_CREST[element] ?? "elem-none";
+}
+
+/** Move kinds collapse onto a smaller set of marks than there are kinds: the
+ *  four directional control kinds share one glyph, and burn/dot are one idea.
+ *  `aegis` (a held object, flat soak) and `veil` (a field over you) are
+ *  deliberately NOT the same mark — that distinction is why the column exists. */
+const KIND_GLYPH: Record<string, ShowdownIconName> = {
+    damage: "strike", crush: "crush", lifesteal: "siphon", wound: "rend",
+    burn: "pyre", dot: "pyre",
+    stun: "bind", freeze: "frost", confuse: "daze",
+    slow: "drag", movelock: "drag", push: "drag", pull: "drag",
+    mark: "mark", taunt: "provoke",
+    heal: "mend", shield: "aegis", guard: "aegis", barrier: "veil", absorb: "veil",
+    buff: "wax", debuff: "wane", haste: "haste", move: "haste", rest: "breath",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-    burn: "🔥", wound: "🗡️", stun: "🌀", freeze: "❄️", confuse: "😵", debuff: "📉", buff: "📈",
-    shield: "🛡️", mark: "🎯", slow: "🐌", haste: "💨", crush: "💥", taunt: "📢", steadfast: "💪",
+/** Offense / control / support — the icon's own colour, never a background. */
+const KIND_FAMILY: Record<string, "off" | "ctl" | "sup"> = {
+    damage: "off", crush: "off", lifesteal: "off", wound: "off", burn: "off", dot: "off",
+    stun: "ctl", freeze: "ctl", confuse: "ctl", slow: "ctl", movelock: "ctl",
+    push: "ctl", pull: "ctl", mark: "ctl", taunt: "ctl", debuff: "ctl",
+    heal: "sup", shield: "sup", guard: "sup", barrier: "sup", absorb: "sup",
+    buff: "sup", haste: "sup", move: "sup", rest: "sup",
+};
+
+const STATUS_GLYPH: Record<string, ShowdownIconName> = {
+    burn: "pyre", wound: "rend", stun: "bind", freeze: "frost", confuse: "daze",
+    debuff: "wane", buff: "wax", shield: "aegis", mark: "mark", slow: "drag",
+    haste: "haste", crush: "crush", taunt: "provoke", steadfast: "steadfast",
 };
 
 /** Plain English for every status the view can actually carry. `movelock` and
@@ -817,6 +843,25 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
 
 interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number; magnitude: number }[] }
 
+/** The one numeral treatment, reused for every ratio in the HUD.
+ *
+ *  Numerals NEVER tween — the value snaps to what the server sent the instant it
+ *  arrives, and only the bar animates. A counting tween would put numbers on
+ *  screen that no event ever carried.
+ *
+ *  Enemy readouts show a PERCENTAGE rather than absolutes: it is honest about
+ *  what the client legitimately knows, and it separates the two plate stacks
+ *  without spending a second colour. Both values are already server-sent, so
+ *  this implies nothing new. */
+function Num({ cur, max, pct }: { cur: number; max: number; pct?: boolean }) {
+    const safeMax = Math.max(1, Math.round(max));
+    const safeCur = Math.max(0, Math.round(cur));
+    if (pct) {
+        return <span className="sd-num pct">{Math.round((safeCur / safeMax) * 100)}<i>%</i></span>;
+    }
+    return <span className="sd-num">{safeCur}<i>/{safeMax}</i></span>;
+}
+
 /** A single ornate status plate: portrait, name/level/element, HP and Stamina
  *  read out as `cur / max`, then the signature meter. Bench members render the
  *  same plate at a reduced size so the team is always legible at a glance.
@@ -854,40 +899,42 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                 clickable ? "targetable" : "",
                 hovered ? "hovered" : "",
                 commanding ? "commanding" : "",
-                hpPct <= 25 && !d.ko ? "critical" : "",
+                // Threshold recolours the FILL only; the channel and the gloss
+                // ramp never change, so the bar keeps its character as it drains.
+                d.ko ? "" : hpPct < 20 ? "hp-low" : hpPct <= 50 ? "hp-mid" : "",
             ].join(" ")}
             style={{ "--plate-tint": tint } as React.CSSProperties}
         >
             <span className="showdown-plate-portrait">
                 {art
                     ? <img src={art} alt="" loading="lazy" />
-                    : <span className="showdown-plate-glyph">{ELEMENT_GLYPH[pet.element] ?? ELEMENT_GLYPH.None}</span>}
-                {d.ko && <span className="showdown-plate-ko">KO</span>}
+                    : <ShowdownIcon name={elementCrest(pet.element)} size={20} />}
+                {d.ko && <span className="showdown-plate-ko"><ShowdownIcon name="ko-stamp" size={26} title="Knocked out" /></span>}
             </span>
             <span className="showdown-plate-body">
                 <span className="showdown-plate-title">
                     <span className="showdown-plate-name">{pet.name}</span>
                     <span className="showdown-plate-lv">Lv{pet.level}</span>
-                    <span className="showdown-plate-elem" title={pet.element} style={{ color: tint }}>
-                        {ELEMENT_GLYPH[pet.element] ?? ELEMENT_GLYPH.None}
+                    <span className="showdown-plate-elem" style={{ color: tint }}>
+                        <ShowdownIcon name={elementCrest(pet.element)} size={14} title={pet.element} />
                     </span>
                 </span>
                 <span className="showdown-plate-bar hp">
-                    <span className="showdown-plate-key">HP</span>
+                    <span className="showdown-plate-key"><ShowdownIcon name="hp" size={12} title="Health" /></span>
                     <span className="showdown-plate-track">
                         {/* The chip layer drains SLOWLY behind the instant fill —
                             the classic "damage you just took" read. */}
                         <span className="chip" style={{ width: `${hpPct}%` }} />
                         <span className="fill" style={{ width: `${hpPct}%` }} />
                     </span>
-                    <span className="showdown-plate-num">{Math.max(0, Math.round(d.hp))}<i>/{pet.maxHp}</i></span>
+                    <Num cur={d.hp} max={pet.maxHp} pct={side === "enemy"} />
                 </span>
                 <span className="showdown-plate-bar en">
-                    <span className="showdown-plate-key">EN</span>
+                    <span className="showdown-plate-key"><ShowdownIcon name="stamina" size={12} title="Stamina" /></span>
                     <span className="showdown-plate-track">
                         <span className="fill" style={{ width: `${stPct}%` }} />
                     </span>
-                    <span className="showdown-plate-num">{Math.max(0, Math.round(d.stamina))}<i>/{pet.maxStamina}</i></span>
+                    <Num cur={d.stamina} max={pet.maxStamina} pct={side === "enemy"} />
                 </span>
                 <span className={`showdown-plate-meter ${d.meter >= 100 ? "full" : ""}`}>
                     <span style={{ width: `${Math.max(0, Math.min(100, d.meter))}%` }} />
@@ -896,16 +943,34 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                     {/* The matchup readout is gated on the ELEMENT being known,
                         never on the plate being a click target — it used to
                         require multi-target mode, so in 1v1 (the format whose
-                        blurb sells the wheel) it could never render at all. */}
-                    {strong && <span className="showdown-matchup up" title="Your element is strong here">▲ ×1.5</span>}
-                    {weak && <span className="showdown-matchup down" title="Your element is weak here">▼ ×0.75</span>}
-                    {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
-                    {pet.skipsNextAction && !d.ko && <span className="showdown-skip-tag" title="Loses its next action">SKIP</span>}
+                        blurb sells the wheel) it could never render at all.
+                        Word + crest, never colour alone. */}
+                    {strong && (
+                        <span className="showdown-matchup up" title={`Your ${hintElement} beats ${pet.element}`}>
+                            <ShowdownIcon name={elementCrest(hintElement!)} size={11} />STRONG
+                        </span>
+                    )}
+                    {weak && (
+                        <span className="showdown-matchup down" title={`${pet.element} resists your ${hintElement}`}>
+                            <ShowdownIcon name={elementCrest(pet.element)} size={11} />RESISTED
+                        </span>
+                    )}
+                    {benched && !d.ko && (
+                        <span className="showdown-bench-tag" title="Waiting on the bench">
+                            <ShowdownIcon name="bench" size={11} />BENCH
+                        </span>
+                    )}
+                    {pet.skipsNextAction && !d.ko && (
+                        <span className="showdown-skip-tag" title="Loses its next action">
+                            <ShowdownIcon name="action-lost" size={11} />SKIP
+                        </span>
+                    )}
                     {side === "player" && pet.trait && <span className="showdown-kit-chip trait" title="Trait">{pet.trait}</span>}
                     {side === "player" && pet.gearName && <span className="showdown-kit-chip gear" title="Equipped gear">{pet.gearName}</span>}
                     {d.statuses.map((s) => (
-                        <span key={s.kind} className="showdown-status-pip" title={statusTitle(s)}>
-                            {STATUS_LABEL[s.kind] ?? "✦"}<b>{s.rounds}</b>
+                        <span key={s.kind} className={`showdown-status-pip fam-${KIND_FAMILY[s.kind] ?? "ctl"}`} title={statusTitle(s)}>
+                            <ShowdownIcon name={STATUS_GLYPH[s.kind] ?? "mark"} size={12} />
+                            <b>{s.rounds}</b>
                         </span>
                     ))}
                 </span>
@@ -921,7 +986,7 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
     targeting: boolean;
     onPickTarget?: (petId: string) => void;
     commanderId?: string | null;
-    /** While targeting: the commander's element, for ▲/▼ matchup hints. */
+    /** While targeting: the commander's element, for the STRONG/RESISTED badge. */
     hintElement?: string;
     /** petId → portrait/card art url. */
     art?: Record<string, string>;
@@ -966,6 +1031,8 @@ type ShowdownMoveView = ShowdownPetView["moves"][number];
 /** What the bottom-right panel reads out for the highlighted menu row. */
 interface InspectorSpec {
     title: string;
+    /** The kind mark drawn beside the title. */
+    glyph?: ShowdownIconName;
     element?: string;
     category: string;
     description: string;
@@ -987,7 +1054,12 @@ type MenuAction =
 
 interface MenuRowSpec {
     key: string;
-    icon: string;
+    icon: ShowdownIconName;
+    /** Offense/control/support tint for the icon socket. Techniques override it
+     *  with the ELEMENT tint — the type colour is what a player scans for. */
+    family?: "off" | "ctl" | "sup";
+    /** Set on technique rows so the socket takes the element tint. */
+    element?: string;
     label: string;
     /** Short right-aligned cost/state text. */
     note?: string;
@@ -1005,6 +1077,7 @@ function moveInspector(move: ShowdownMoveView, element: string, staminaNow: numb
     const pace = move.priority > 1 ? "Fast" : move.priority < 1 ? "Slow" : "Even";
     return {
         title: move.name,
+        glyph: move.signature ? "signature" : KIND_GLYPH[move.kind] ?? "strike",
         element,
         category: move.signature ? "Signature" : `${element} · ${move.kind}`,
         description: move.effect,
@@ -1044,7 +1117,8 @@ function buildMenuRows({
     const element = commander.element;
     const switchRow: MenuRowSpec = {
         key: "switch",
-        icon: "🔄",
+        icon: "rotate",
+        family: "sup",
         label: "Switch",
         note: benchCount ? `${benchCount} ready` : "none",
         tone: "utility",
@@ -1070,7 +1144,8 @@ function buildMenuRows({
     if (mustSwitch) {
         return [switchRow, {
             key: "hold",
-            icon: "⏭",
+            icon: "brace",
+            family: "sup",
             label: "Hold the line",
             tone: "utility",
             action: { t: "guard" },
@@ -1088,7 +1163,9 @@ function buildMenuRows({
         // stays selectable — only an unmet HOLD disables the row.
         const rows: MenuRowSpec[] = moves.slice(1).map((entry): MenuRowSpec => ({
             key: `skill-${entry.index}`,
-            icon: KIND_ICON[entry.move.kind] ?? "⚔️",
+            icon: KIND_GLYPH[entry.move.kind] ?? "strike",
+            family: KIND_FAMILY[entry.move.kind],
+            element,
             label: entry.move.name,
             note: entry.move.hold > commander.readiness ? "charging" : `${entry.move.cost} EN`,
             disabled: entry.move.hold > commander.readiness,
@@ -1100,7 +1177,8 @@ function buildMenuRows({
             const ready = meterNow >= 100 && !sigHolding;
             rows.push({
                 key: "signature",
-                icon: "⭐",
+                icon: "signature",
+                element,
                 label: signature.name,
                 note: ready ? "READY" : sigHolding ? "charging" : `${Math.round(meterNow)}%`,
                 tone: "signature",
@@ -1116,7 +1194,7 @@ function buildMenuRows({
         }
         rows.push({
             key: "back",
-            icon: "↩",
+            icon: "caret-back",
             label: "Back",
             tone: "utility",
             action: { t: "backToRoot" },
@@ -1130,7 +1208,9 @@ function buildMenuRows({
     if (basic) {
         rows.push({
             key: "attack",
-            icon: KIND_ICON[basic.move.kind] ?? "⚔️",
+            icon: KIND_GLYPH[basic.move.kind] ?? "strike",
+            family: KIND_FAMILY[basic.move.kind],
+            element,
             label: "Attack",
             note: `${basic.move.cost} EN`,
             tone: "attack",
@@ -1142,7 +1222,7 @@ function buildMenuRows({
     if (moves.length > 1 || signature) {
         rows.push({
             key: "skill",
-            icon: "✦",
+            icon: "scroll",
             label: "Skill",
             note: `${moves.length - 1 + (signature ? 1 : 0)}`,
             action: { t: "openSkills" },
@@ -1161,7 +1241,8 @@ function buildMenuRows({
     }
     rows.push({
         key: "guard",
-        icon: "🛡️",
+        icon: "aegis",
+        family: "sup",
         label: "Guard",
         note: `${SHOWDOWN_GUARD_COST} EN`,
         tone: "utility",
@@ -1185,7 +1266,8 @@ function buildMenuRows({
     });
     rows.push({
         key: "rest",
-        icon: "💤",
+        icon: "breath",
+        family: "sup",
         label: "Rest",
         note: "+EN",
         tone: "utility",
@@ -1252,6 +1334,17 @@ function ActionMenu({ title, rows, focus, onFocusRow, onSelect, sub }: {
                 {sub && <span className="showdown-menu-sub">{sub}</span>}
             </div>
             <div className="showdown-menu-rows" ref={rowsRef} onKeyDown={onKeyDown}>
+                {/* ONE cursor that slides, not an arrow per row fading in and out.
+                    The slide is the thing that reads as designed; N opacity flips
+                    read as N separate widgets. Row pitch is a CSS variable so the
+                    transform never has to measure the DOM. */}
+                <span
+                    className="showdown-menu-cursor"
+                    aria-hidden="true"
+                    style={{ transform: `translateY(calc(var(--row-pitch) * ${Math.max(0, focus)}))` }}
+                >
+                    <ShowdownIcon name="cursor" size={16} />
+                </span>
                 {rows.map((row, i) => (
                     // Unavailable rows are aria-disabled, NOT natively disabled:
                     // a disabled button fires no hover and takes no focus, which
@@ -1261,13 +1354,17 @@ function ActionMenu({ title, rows, focus, onFocusRow, onSelect, sub }: {
                         key={row.key}
                         type="button"
                         aria-disabled={row.disabled || undefined}
-                        className={["showdown-menu-row", row.tone ?? "", row.disabled ? "is-disabled" : "", i === focus ? "focused" : ""].join(" ")}
+                        className={["showdown-menu-row", row.tone ?? "", row.element ? "technique" : "", row.disabled ? "is-disabled" : "", i === focus ? "focused" : ""].join(" ")}
+                        style={row.element
+                            ? { "--elem-tint": ELEMENT_TINT[row.element] ?? ELEMENT_TINT.None } as React.CSSProperties
+                            : undefined}
                         onMouseEnter={() => onFocusRow(i)}
                         onFocus={() => onFocusRow(i)}
                         onClick={() => { if (!row.disabled) onSelect(row.action); }}
                     >
-                        <span className="showdown-menu-arrow" aria-hidden="true">▶</span>
-                        <span className="showdown-menu-icon" aria-hidden="true">{row.icon}</span>
+                        <span className={`showdown-menu-icon fam-${row.family ?? "none"}`} aria-hidden="true">
+                            <ShowdownIcon name={row.icon} size={15} />
+                        </span>
                         <span className="showdown-menu-label">{row.label}</span>
                         {row.note && <span className="showdown-menu-note">{row.note}</span>}
                     </button>
@@ -1290,9 +1387,9 @@ function TargetingPanel({ title, sub, onBack }: { title: string; sub: string; on
                 <span className="showdown-menu-sub">{sub}</span>
             </div>
             <div className="showdown-menu-rows" ref={rowsRef}>
-                <button type="button" className="showdown-menu-row utility" onClick={onBack}>
-                    <span className="showdown-menu-arrow" aria-hidden="true">▶</span>
-                    <span className="showdown-menu-icon" aria-hidden="true">↩</span>
+                <span className="showdown-menu-cursor" aria-hidden="true"><ShowdownIcon name="cursor" size={16} /></span>
+                <button type="button" className="showdown-menu-row utility focused" onClick={onBack}>
+                    <span className="showdown-menu-icon fam-none" aria-hidden="true"><ShowdownIcon name="caret-back" size={15} /></span>
                     <span className="showdown-menu-label">Back</span>
                 </button>
             </div>
@@ -1305,9 +1402,22 @@ function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targe
     const element = spec.element ?? "None";
     const tint = ELEMENT_TINT[element] ?? ELEMENT_TINT.None;
     return (
-        <div className="showdown-inspector" style={{ "--insp-tint": tint } as React.CSSProperties}>
-            <span className="showdown-inspector-glyph" aria-hidden="true">{ELEMENT_GLYPH[element] ?? ELEMENT_GLYPH.None}</span>
+        <div
+            className="showdown-inspector"
+            style={{
+                "--insp-tint": tint,
+                // The painted crest earns its 5-9 KB here and nowhere else: one
+                // surface, shown large, where the vector would look thin.
+                "--elem-art": ELEMENT_ICON[element] ? `url(${ELEMENT_ICON[element]})` : "none",
+            } as React.CSSProperties}
+        >
+            <span className="showdown-inspector-glyph" aria-hidden="true" />
             <div className="showdown-inspector-head">
+                {spec.glyph && (
+                    <span className="showdown-inspector-mark" aria-hidden="true">
+                        <ShowdownIcon name={spec.glyph} size={16} />
+                    </span>
+                )}
                 <span className="showdown-inspector-title">{spec.title}</span>
                 <span className="showdown-inspector-cat">{spec.category}</span>
             </div>
@@ -1379,7 +1489,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [pickingSwitch, setPickingSwitch] = useState(false);
     /** Console-style menu: the root list, or the technique sub-list. */
     const [menuTab, setMenuTab] = useState<"root" | "skill">("root");
-    /** Highlighted menu row — drives the ▶ arrow and the inspector readout. */
+    /** Highlighted menu row — drives the cursor and the inspector readout. */
     const [focusRow, setFocusRow] = useState(0);
     /** The creature the pointer is over while targeting (drives the cursor and
      *  the inspector's "→ target" line). */
@@ -1530,7 +1640,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         if (event.t === "roundStart") {
             const isFinal = event.round >= stateView.maxRounds;
             showBanner(
-                event.round === 1 ? "⚔️ Battle Start!" : isFinal ? "⚡ FINAL ROUND" : `Round ${event.round}`,
+                event.round === 1 ? "BATTLE START" : isFinal ? "FINAL ROUND" : `ROUND ${event.round}`,
                 isFinal ? "super" : "round",
                 durationMs * 0.8,
             );
@@ -1576,7 +1686,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             // 11.3% of fights used to end on a rule the player was never told.
             if (event.byJudge) {
                 setEndedByJudge(true);
-                later(() => showBanner("⚖️ JUDGE'S DECISION", "judge", 1300 / speed), 0);
+                later(() => showBanner("JUDGE'S DECISION", "judge", 1300 / speed), 0);
             }
             setEndOutcome(event.outcome);
             later(() => {
@@ -1588,7 +1698,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             if (event.super) {
                 later(() => {
                     setLetterbox(true);
-                    showBanner(`⭐ ${event.moveName}!`, "super", durationMs * 0.6);
+                    showBanner(event.moveName, "super", durationMs * 0.6);
                     setBattleMusicIntensity("climax");
                     playPetSfx("finisher");
                 }, 0);
@@ -1651,7 +1761,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         anyHeal = true;
                     }
                     if (target.applied && target.damage === 0 && target.heal === 0) {
-                        addPopup(target.id, KIND_ICON[target.applied] ?? "✦", "status");
+                        addPopup(target.id, String(target.applied).toUpperCase(), "status");
                         spawnFlipbook(target.id, impactFlipbookKey(event.element, target.applied, false), 1.9, 620);
                     }
                     anyKo = anyKo || target.ko;
@@ -1722,7 +1832,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     later(() => addPopup(event.actorId, firedProcs[0], "proc"), 180);
                 }
                 if (event.timing === 2 && event.actorSide === "player") showBanner("PERFECT!", "perfect", 750 / speed);
-                else if (anySynergy && event.actorSide === "player") showBanner("🤝 Synergy!", "effective", 850 / speed);
+                else if (anySynergy && event.actorSide === "player") showBanner("SYNERGY", "effective", 850 / speed);
                 else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
                 else if (bestEffect === "weak") showBanner("Not very effective…", "weak", 900 / speed);
                 if (anyKo) later(() => { showBanner("KO!", "ko", 900 / speed); playPetSfx("ko"); }, 220);
@@ -2075,12 +2185,22 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             IN PROGRESS (command or playing) is always round + 1. */}
                         <div className="showdown-round">R{stateView.finished ? stateView.round : Math.min(stateView.round + 1, stateView.maxRounds)}/{stateView.maxRounds}</div>
                         <div className="showdown-vs">{stateView.enemyTeamName}</div>
-                        <button type="button" className="showdown-chip" onClick={() => setFast((f) => !f)}>{fast ? "▶▶ Fast" : "▶ Normal"}</button>
+                        <button
+                            type="button"
+                            className={`showdown-chip icon ${fast ? "on" : ""}`}
+                            onClick={() => setFast((f) => !f)}
+                        >
+                            <ShowdownIcon name="fast" size={15} title={fast ? "Fast playback" : "Normal playback"} />
+                        </button>
                         {/* The takeover hides the global menu, so this is the
                             only reachable audio control during a fight. */}
-                        <button type="button" className="showdown-chip" onClick={toggleAudio}>{muted ? "🔇 Muted" : "🔊 Sound"}</button>
+                        <button type="button" className="showdown-chip icon" onClick={toggleAudio}>
+                            <ShowdownIcon name={muted ? "sound-off" : "sound-on"} size={15} title={muted ? "Sound off" : "Sound on"} />
+                        </button>
                         {phase !== "finished" && (
-                            <button type="button" className="showdown-chip danger" onClick={() => setConfirmForfeit(true)}>Forfeit</button>
+                            <button type="button" className="showdown-chip danger icon" onClick={() => setConfirmForfeit(true)}>
+                                <ShowdownIcon name="flag" size={15} title="Forfeit" />
+                            </button>
                         )}
                     </div>
                 </div>
@@ -2180,7 +2300,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                         setFocusRow(0);
                                         setDraft((d) => d.slice(0, -1));
                                     }}>
-                                        ↩ Undo last order
+                                        <ShowdownIcon name="caret-back" size={13} /> Undo last order
                                     </button>
                                 )}
                                 <MoveInspector spec={inspectorSpec} targetName={hoveredName} />
@@ -2195,7 +2315,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 {phase === "finished" && (
                     <div className="showdown-result">
                         <div className={`showdown-result-title ${outcome === "win" ? "win" : "loss"}`}>
-                            {outcome === "win" ? "🏆 VICTORY" : "💀 DEFEAT"}
+                            {outcome === "win" ? "VICTORY" : "DEFEAT"}
                         </div>
                         {endedByJudge && (
                             <div className="showdown-result-reason">
@@ -2213,11 +2333,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     <div key={r.pet.id} className={`showdown-recap-row ${r.mvp ? "mvp" : ""}`}>
                                         {panelArt[r.pet.id] && <img src={panelArt[r.pet.id]} alt="" />}
                                         <span className="showdown-recap-name">
-                                            {r.mvp && <b title="Most damage dealt">👑 </b>}{r.pet.name}
+                                            {r.mvp && <b className="showdown-recap-mvp" title="Most damage dealt"><ShowdownIcon name="mvp" size={13} /></b>}{r.pet.name}
                                         </span>
-                                        <span className="showdown-recap-stat">{r.dmg} dmg</span>
-                                        {r.kos > 0 && <span className="showdown-recap-stat">{r.kos} KO</span>}
-                                        {r.supers > 0 && <span className="showdown-recap-stat">⭐{r.supers}</span>}
+                                        <span className="showdown-recap-stat"><ShowdownIcon name="strike" size={12} />{r.dmg}</span>
+                                        {r.kos > 0 && <span className="showdown-recap-stat"><ShowdownIcon name="ko-stamp" size={12} />{r.kos}</span>}
+                                        {r.supers > 0 && <span className="showdown-recap-stat"><ShowdownIcon name="signature" size={12} />{r.supers}</span>}
                                     </div>
                                 ))}
                             </div>
@@ -2231,7 +2351,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             <div className="showdown-result-reward capped">Daily arena reward cap reached</div>
                         )}
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta" onClick={onRematch}>⚔️ Battle Again</button>
+                            <button type="button" className="showdown-cta" onClick={onRematch}>Battle Again</button>
                             <button type="button" className="showdown-chip" onClick={onExit}>Leave the Showdown</button>
                         </div>
                     </div>
@@ -2239,7 +2359,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
                 {expired && (
                     <div className="showdown-result">
-                        <div className="showdown-result-title loss">⏳ This Showdown expired</div>
+                        <div className="showdown-result-title loss">This Showdown expired</div>
                         <div className="showdown-result-reward capped">The session timed out on the server — no result was recorded.</div>
                         <div className="showdown-result-buttons">
                             <button type="button" className="showdown-cta" onClick={onExit}>Back to the lobby</button>

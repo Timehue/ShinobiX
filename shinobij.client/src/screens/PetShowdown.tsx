@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import "./PetShowdown.css";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
@@ -65,10 +66,13 @@ const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string 
     { id: "3v3", label: "3v3 Rumble", size: 3, blurb: "Full squad warfare, no reserves." },
 ];
 
-const TIERS: { id: ShowdownTier; label: string; icon: string; blurb: string }[] = [
-    { id: "scrapper", label: "Scrapper", icon: "🐾", blurb: "Street strays. Learn the ropes." },
-    { id: "warrior", label: "Warrior", icon: "⚔️", blurb: "Hardened kennels. A fair fight." },
-    { id: "champion", label: "Champion", icon: "👑", blurb: "Apex beasts. Bring your best." },
+// GameIcon is already on the entry path (MobileNav), so reusing it from this
+// lazy screen costs nothing new — and it keeps the lobby in the same drawn
+// language as the battle HUD instead of three OS emoji.
+const TIERS: { id: ShowdownTier; label: string; icon: GameIconName; blurb: string }[] = [
+    { id: "scrapper", label: "Scrapper", icon: "paw", blurb: "Street strays. Learn the ropes." },
+    { id: "warrior", label: "Warrior", icon: "sword", blurb: "Hardened kennels. A fair fight." },
+    { id: "champion", label: "Champion", icon: "medal", blurb: "Apex beasts. Bring your best." },
 ];
 
 export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange }: {
@@ -200,7 +204,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         <div className="showdown-screen">
             <div className="showdown-header">
                 <button type="button" className="showdown-chip" onClick={() => setScreen("petArena")}>← Pet Arena</button>
-                <h1>🏟️ Pet Showdown</h1>
+                <h1>Pet Showdown</h1>
                 <p className="showdown-tagline">Command your companions in cinematic turn-based battle. Read the elements, ride the stamina, land the perfect strike — and finish with a signature.</p>
             </div>
 
@@ -236,7 +240,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                                 className={`showdown-choice ${tier === t.id ? "active" : ""}`}
                                 onClick={() => setTier(t.id)}
                             >
-                                <span className="showdown-choice-label">{t.icon} {t.label}</span>
+                                <span className="showdown-choice-label"><GameIcon name={t.icon} size={15} /> {t.label}</span>
                                 <span className="showdown-choice-blurb">{t.blurb}</span>
                             </button>
                         ))}
@@ -314,7 +318,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 </div>
             </div>
 
-            {error && <div className="showdown-error">⚠️ {error}</div>}
+            {error && <div className="showdown-error">{error}</div>}
 
             <div className="showdown-launch">
                 <button
@@ -323,7 +327,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     disabled={selected.length < size || starting}
                     onClick={() => void launch()}
                 >
-                    {starting ? "Summoning your opponents…" : `⚔️ Enter the ${format} Showdown`}
+                    {starting ? "Summoning your opponents…" : `Enter the ${format} Showdown`}
                 </button>
             </div>
 
