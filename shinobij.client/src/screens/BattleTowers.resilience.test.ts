@@ -11,8 +11,10 @@ const tacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.
 const guards = readFileSync(new URL("../lib/screen-guards.ts", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const api = readFileSync(new URL("../lib/towers-api.ts", import.meta.url), "utf8");
+const storyCatalog = readFileSync(new URL("../lib/tower-story-catalog.ts", import.meta.url), "utf8");
 const spireCatalog = readFileSync(new URL("../lib/spire-catalog.ts", import.meta.url), "utf8");
 const characterTypes = readFileSync(new URL("../types/character.ts", import.meta.url), "utf8");
+const floorCatalog = readFileSync(new URL("../../../api/towers/_floor-catalog.ts", import.meta.url), "utf8");
 
 test("completed Tower sessions retain their recovery breadcrumb and reopen results", () => {
     assert.match(wrapper, /\.then\(toFight\)/, "every fetched session, including done sessions, must reopen the fight/result screen");
@@ -85,13 +87,19 @@ test("short desktop Tower fights reserve a usable board and scroll the action do
     assert.match(shortDesktop, /\.combat-equipped-jutsu-grid[\s\S]*?overflow-x:\s*auto/, "the one-row loadout must remain horizontally reachable");
 });
 
-test("active co-op polling is visible, non-overlapping, and revision-safe", () => {
-    assert.match(fight, /visiblePoll\(poll, 1_150, 0\.05\)/);
+test("active co-op reconciliation is push-led, bounded, and revision-safe", () => {
+    assert.match(fight, /onTowerKick\(kick =>/);
+    assert.match(fight, /kick\.channel === "session" && kick\.runId === runId/);
+    assert.match(fight, /visiblePoll\(poll, realtimeConnected \? 20_000 : 2_500, 0\.08\)/);
+    assert.match(fight, /return onStatus\(setRealtimeConnected\)/);
     assert.match(fight, /let inFlight = false/);
-    assert.match(fight, /if \(!alive \|\| inFlight\) return/);
+    assert.match(fight, /if \(!alive\) return/);
+    assert.match(fight, /if \(inFlight\) \{[\s\S]{0,100}?refreshPending = true/,
+        "a socket kick received during an older HTTP read must queue another authoritative read");
+    assert.match(fight, /if \(alive && refreshPending\) queueMicrotask\(poll\)/);
     assert.match(fight, /const controller = new AbortController\(\)/);
     assert.match(fight, /stateFn\(runId, me, controller\.signal\)/);
-    assert.match(fight, /controller\.abort\(\); stop\(\)/);
+    assert.match(fight, /controller\.abort\(\); stopPush\(\); stopFallback\(\)/);
     assert.match(fight, /\(next\.actionVersion \?\? 0\) >= \(current\.actionVersion \?\? 0\)/);
     assert.doesNotMatch(fight, /session\.status !== "active" \|\| myTurn/, "own-turn polling must remain live for authoritative AFK auto-pass");
     assert.match(api, /if \(errorBody\.session\)[\s\S]*?applied: false/, "action conflicts must preserve an authoritative response session");
@@ -100,20 +108,26 @@ test("active co-op polling is visible, non-overlapping, and revision-safe", () =
 });
 
 test("selected Tower floors expose tactics and truthful first-clear rewards without bloating every row", () => {
-    for (const field of ["bossMechanic", "bossTargetMode", "bossStrike", "closingRing", "dynamicHazards", "fieldRule", "enemyCount", "reinforcementWaves", "firstClearReward"] as const) {
-        assert.match(api, new RegExp(`${field}:`), `${field} must remain in the public floor type`);
+    for (const field of ["chapter", "chapterTitle", "chapterSubtitle", "chapterSummary", "artKey", "briefing", "bossMechanic", "bossTargetMode", "bossStrike", "closingRing", "dynamicHazards", "fieldRule", "enemyCount", "reinforcementWaves", "firstClearReward"] as const) {
+        assert.match(api, new RegExp(`${field}\\??:`), `${field} must remain in the public floor type`);
     }
     assert.match(lobby, /Selected floor briefing/);
-    assert.match(lobby, /First clear already claimed/);
+    assert.match(lobby, /First clear recorded/);
     assert.match(lobby, /Boss focus/);
     assert.match(lobby, /Telegraph/);
     assert.match(lobby, /Closing ring/);
+    assert.match(lobby, /Closing ring:<\/strong> After round \{selFloor\.closingRing\.fromRound\}/);
+    assert.match(fight, /Arena contracts after round/);
+    assert.doesNotMatch(lobby, /Closing ring:<\/strong> Starts round/);
+    assert.doesNotMatch(fight, /Arena collapses from round/);
+    assert.match(floorCatalog, /The safe area contracts after round 8\./);
+    assert.match(floorCatalog, /then contracts after round 11\./);
     assert.match(lobby, /Field hazard/);
     assert.match(lobby, /selectedRewardParts\.join/);
-    assert.match(lobby, /floors\.map/, "the compact row grid must remain separate from the selected-floor briefing");
-    assert.equal((lobby.match(/<section className="tower-floor-briefing"/g) ?? []).length, 1);
+    assert.match(lobby, /chapter\.floors\.map/, "chapter floor cards must remain separate from the selected-floor briefing");
+    assert.equal((lobby.match(/className="tower-floor-briefing has-art"/g) ?? []).length, 1);
     assert.doesNotMatch(lobby, /disabled=\{locked\}/, "locked floors must remain selectable for preview");
-    assert.match(lobby, /Preview only/);
+    assert.match(lobby, /Locked; clear through Floor/);
 });
 
 test("story Tower milestone receipts report server progression without inventing a title", () => {
@@ -124,11 +138,27 @@ test("story Tower milestone receipts report server progression without inventing
     assert.doesNotMatch(rewardType, /itemId/);
 });
 
-test("live Tower parties use an authenticated ready room while legacy starts stay explicit practice", () => {
-    assert.match(lobby, /Practice with AI Assists/);
-    assert.match(lobby, /AI assists receive only a capped assist reward; they do not receive first-clear or Spire progression/);
-    assert.match(readyRoom, /Live squad · full member rewards/);
-    assert.match(readyRoom, /visiblePoll\(refresh, 1_150, 0\.05\)/);
+test("Tower AI teammates use one authenticated novice-recruit Ready Room path", () => {
+    assert.doesNotMatch(lobby, /Practice with AI Assists|borrowed shinobi|Borrow an AI assist/);
+    assert.match(lobby, /Enter Floor \$\{selFloor\.id\} solo/);
+    assert.match(api, /Start a host-only Story run/);
+    assert.match(api, /postJson\('\/api\/towers\/start', \{ hostName, floor, hostLoadout \}\)/);
+    assert.match(readyRoom, /Live squad · optional novice recruits/);
+    assert.match(readyRoom, /reward-ineligible AI recruits/);
+    assert.match(readyRoom, /action: "add-ai"/);
+    assert.match(readyRoom, /action: "remove-ai"/);
+    assert.match(readyRoom, /novice AI · no rewards/);
+    assert.match(api, /progressionEligible: false/);
+    assert.match(readyRoom, /onTowerKick\(kick =>/);
+    assert.match(readyRoom, /visiblePoll\(refresh, realtimeConnected \? 20_000 : 2_500, 0\.08\)/);
+    assert.match(readyRoom, /return onStatus\(setRealtimeConnected\)/);
+    assert.match(readyRoom, /if \(alive\) refreshPending = true/,
+        "party kicks blocked by an in-flight read or mutation must be reconciled afterward");
+    assert.match(readyRoom, /if \(alive && refreshPending && !requestInFlightRef\.current\) queueMicrotask\(refresh\)/);
+    assert.match(readyRoom, /controller\.abort\(\);[\s\S]{0,80}?stopPush\(\);[\s\S]{0,80}?stopFallback\(\)/);
+    assert.match(readyRoom, /roomRefreshRef\.current\(\)/, "completed mutations must immediately reconcile any coalesced party kick");
+    assert.match(readyRoom, /2–4 slots · live or novice AI/);
+    assert.match(readyRoom, /memberCount\}\/4 slots · 2 minimum/);
     assert.match(readyRoom, /requestInFlightRef\.current/, "same-tick mutations and launch must share a synchronous latch");
     assert.match(readyRoom, /canStartTowerRoomPoll\(alive, inFlight, Boolean\(requestInFlightRef\.current\)\)/, "polls must pause while a membership mutation owns response ordering");
     assert.match(readyRoom, /reconcileTowerRoomEnvelope/, "out-of-order room responses must be version-monotonic");
@@ -136,7 +166,7 @@ test("live Tower parties use an authenticated ready room while legacy starts sta
     assert.match(readyRoom, /syncState === "reconnecting"/);
     assert.match(readyRoom, /<TowerRoomExpiry/);
     assert.match(readyRoom, /expectedVersion: party\.version/);
-    assert.match(readyRoom, /Launch live squad/);
+    assert.match(readyRoom, /Launch squad/);
     assert.match(readyRoom, /Incoming invitations/);
     assert.match(readyRoom, /Copy code/);
     assert.match(readyRoom, /Mark ready/);
@@ -150,8 +180,8 @@ test("live Tower parties use an authenticated ready room while legacy starts sta
     assert.match(readyRoom, /onPartyChange\(room\.party\)/);
     assert.match(readyRoom, /storyFloor == null \|\| !storyFloorActionable/);
     assert.match(lobby, /storyFloor=\{selected\}/);
-    assert.match(lobby, /practiceBlocked/);
-    assert.match(lobby, /Leave Ready Room to start AI practice/);
+    assert.match(lobby, /soloStartBlocked/);
+    assert.match(lobby, /starting a solo Tower run/);
     assert.match(readyRoom, /\[\^ABCDEFGHJKLMNPQRSTUVWXYZ23456789\]/, "join codes must reject ambiguous I, O, 1, and 0 before submission");
 });
 
@@ -178,7 +208,8 @@ test("timed hold and Spire boss profiles remain visible from sealed authority", 
     for (const strike of ["slam", "volley", "nova"] as const) assert.match(spireCatalog, new RegExp(`kind: "${strike}"`));
     assert.match(lobby, /towerTargetModeLabel\(sel\.boss\.targetMode\)/);
     assert.match(lobby, /towerStrikeLabel\(sel\.boss\.strike\)/);
-    assert.match(lobby, /Hold and protect the ally for \$\{selFloor\.roundBudget\} rounds/);
+    assert.match(lobby, /objective === "protect-npc"\) return `Hold \$\{roundBudget\} rounds`/);
+    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds`/);
 });
 
 test("Tower identity, board semantics, and countdown updates remain bounded", () => {
@@ -195,8 +226,10 @@ test("Tower identity, board semantics, and countdown updates remain bounded", ()
 
 test("story floor access and replay fee copy stay aligned with server progression", () => {
     assert.match(lobby, /TOWER_MIN_LEVEL = 30/);
-    assert.match(lobby, /Math\.min\(STORY_MAX_FLOOR, Math\.max\(1, bestFloor \+ 1\)\)/);
-    assert.match(lobby, /cleared\.has\(floor\) \|\| floor === storyFrontier/);
-    assert.match(lobby, /Cleared replay · no entry fee · rewards already claimed/);
+    assert.doesNotMatch(lobby, /STORY_MAX_FLOOR/);
+    assert.match(lobby, /recommendedTowerStoryFloor\(ordered, bestFloor\)/);
+    assert.match(storyCatalog, /floorId === best \+ 1/);
+    assert.match(storyCatalog, /clearedFloors\.has\(floorId\) \|\| floorId === best \+ 1/);
+    assert.match(lobby, /Cleared replay · no entry fee · this one-time package is not paid again/);
     assert.match(lobby, /selectedFloorCleared \? 0 : entryFee/);
 });

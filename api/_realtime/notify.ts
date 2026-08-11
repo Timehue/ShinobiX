@@ -31,7 +31,18 @@ export type TowerRealtimeKick =
         reason: 'started' | 'action' | 'afk' | 'settled';
         runId: string;
         actionVersion?: number;
+    }
+    | {
+        channel: 'pvp';
+        reason: 'queued' | 'matched' | 'ready' | 'action' | 'settled' | 'closed';
+        matchId?: string;
+        version?: number;
     };
+
+export const TOWER_RECONNECT_KICK: TowerRealtimeKick = Object.freeze({
+    channel: 'reconcile',
+    reason: 'socket-connected',
+});
 
 let _emit: Emitter | null = null;
 

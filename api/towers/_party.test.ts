@@ -5,6 +5,7 @@ import {
     TOWER_PARTY_MAX,
     TOWER_PARTY_LAUNCH_GRACE_MS,
     activeTowerPartyForPlayer,
+    addGenericTowerAi,
     activateTowerPartyLaunch,
     closeTowerPartyRun,
     createTowerParty,
@@ -16,6 +17,7 @@ import {
     loadTowerParty,
     prepareTowerPartyLaunch,
     repairStaleTowerPartyLifecycle,
+    removeGenericTowerAi,
     reopenTowerPartyLaunch,
     revokeTowerPartyInvitation,
     setTowerPartyReady,
@@ -23,6 +25,8 @@ import {
     towerPartyInviteKey,
     towerPartyPlayerKey,
     towerPartyView,
+    towerPartyAiMembers,
+    towerPartyHumanMembers,
     type StoredTowerParty,
     type TowerPartyDeps,
 } from './_party.js';
@@ -105,6 +109,101 @@ async function ready(party: StoredTowerParty, actor: string, n: number, deps: To
 }
 
 describe('Battle Towers authoritative ready rooms', () => {
+    it('adds ownerless novice AI to Story rooms without creating a player identity or reward member', async () => {
+        const deps = setup();
+        let party = await create(deps);
+        party = await ready(party, 'host', 901, deps);
+        const added = await addGenericTowerAi({
+            partyId: party.id,
+            actor: 'host',
+            requestId: request(902),
+            expectedVersion: party.version,
+            fingerprint: 'add-ai:one',
+        }, deps);
+        assert.equal(added.ok, true);
+        if (!added.ok) return;
+        party = added.party;
+        assert.equal(towerPartyHumanMembers(party).length, 1);
+        assert.equal(towerPartyAiMembers(party).length, 1);
+        assert.equal(towerPartyHumanMembers(party)[0]?.ready, false, 'a roster change makes the live host reconfirm');
+        assert.deepEqual(towerPartyAiMembers(party)[0], {
+            slug: 'tower-ai:1',
+            displayName: 'Tower Recruit I (AI)',
+            joinedAt: NOW,
+            ready: true,
+            ai: true,
+            aiProfile: 'story-recruit-v1',
+        });
+        assert.equal(await deps.kv.get(towerPartyPlayerKey('tower-ai:1')), null, 'AI never receives an account party index');
+        assert.equal(await activeTowerPartyForPlayer('tower-ai:1', deps), null, 'AI is never discoverable as a player');
+        assert.deepEqual(towerPartyView(party).aiPolicy, {
+            allowed: true,
+            max: 1,
+            profile: 'story-recruit-v1',
+            progressionEligible: false,
+        });
+        const overCap = await addGenericTowerAi({
+            partyId: party.id,
+            actor: 'host',
+            requestId: request(905),
+            expectedVersion: party.version,
+            fingerprint: 'add-ai:two',
+        }, deps);
+        assert.equal(overCap.ok, false);
+        if (!overCap.ok) assert.equal(overCap.code, 'ai-cap', 'a weak helper must not become multi-slot scaling bait');
+
+        party = await ready(party, 'host', 903, deps);
+        assert.equal(towerPartyView(party).canLaunch, true, 'one live player plus one recruit meets Story minimum');
+        const prepared = await prepareTowerPartyLaunch({
+            partyId: party.id,
+            hostSlug: 'host',
+            requestId: request(904),
+            expectedVersion: party.version,
+            binding: { mode: 'story', floor: 5 },
+            enforceStartCap: false,
+        }, deps);
+        assert.equal(prepared.ok, true);
+    });
+
+    it('keeps generic AI out of Spire and lets only the host remove its reserved non-account ID', async () => {
+        const deps = setup();
+        const spire = await create(deps, 'spire');
+        const rejected = await addGenericTowerAi({
+            partyId: spire.id,
+            actor: 'host',
+            requestId: request(910),
+            expectedVersion: spire.version,
+            fingerprint: 'spire-ai',
+        }, deps);
+        assert.equal(rejected.ok, false);
+        if (!rejected.ok) assert.equal(rejected.code, 'ai-not-allowed');
+        assert.deepEqual(towerPartyView(spire).aiPolicy, {
+            allowed: false,
+            max: 0,
+            profile: 'story-recruit-v1',
+            progressionEligible: false,
+        });
+
+        const storyDeps = setup();
+        let story = await create(storyDeps);
+        const added = await addGenericTowerAi({
+            partyId: story.id, actor: 'host', requestId: request(911), expectedVersion: story.version, fingerprint: 'story-ai',
+        }, storyDeps);
+        assert.equal(added.ok, true);
+        if (!added.ok) return;
+        story = added.party;
+        const nonHost = await removeGenericTowerAi({
+            partyId: story.id, actor: 'alice', target: 'tower-ai:1', requestId: request(912), expectedVersion: story.version, fingerprint: 'remove-ai:alice',
+        }, storyDeps);
+        assert.equal(nonHost.ok, false);
+        if (!nonHost.ok) assert.equal(nonHost.code, 'host-required');
+        const removed = await removeGenericTowerAi({
+            partyId: story.id, actor: 'host', target: 'tower-ai:1', requestId: request(913), expectedVersion: story.version, fingerprint: 'remove-ai:host',
+        }, storyDeps);
+        assert.equal(removed.ok, true);
+        if (removed.ok) assert.equal(towerPartyAiMembers(removed.party).length, 0);
+    });
+
     it('server-mints a fixed-TTL party/code and idempotently recovers host create', async () => {
         const deps = setup();
         const party = await create(deps);

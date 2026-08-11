@@ -2,11 +2,16 @@ import type { TowerSession } from './_tower-session.js';
 
 export const TOWER_MOVE_TOKEN_HISTORY = 64;
 
-type VersionedTowerSession = TowerSession & { actionVersion?: number };
+type TowerMoveReceipt = { token: string; fingerprint: string };
+type VersionedTowerSession = TowerSession & {
+    actionVersion?: number;
+    recentMoveReceipts?: TowerMoveReceipt[];
+};
 
 export type TowerActionCommandInspection =
     | { status: 'proceed'; moveToken?: string; expectedVersion?: number; currentVersion: number }
     | { status: 'replay'; moveToken: string; currentVersion: number }
+    | { status: 'conflict'; moveToken: string; currentVersion: number }
     | { status: 'stale'; moveToken?: string; expectedVersion: number; currentVersion: number }
     | { status: 'invalid-token'; currentVersion: number }
     | { status: 'invalid-version'; currentVersion: number };
@@ -31,7 +36,7 @@ export function initializeTowerActionVersion(session: TowerSession): void {
  */
 export function inspectTowerActionCommand(
     session: TowerSession,
-    raw: { moveToken?: unknown; expectedVersion?: unknown },
+    raw: { moveToken?: unknown; expectedVersion?: unknown; commandFingerprint?: unknown },
 ): TowerActionCommandInspection {
     const currentVersion = towerActionVersion(session);
     let moveToken: string | undefined;
@@ -40,7 +45,14 @@ export function inspectTowerActionCommand(
         const candidate = raw.moveToken.trim();
         if (!/^[A-Za-z0-9_-]{16,80}$/.test(candidate)) return { status: 'invalid-token', currentVersion };
         moveToken = candidate;
-        if ((session.recentMoveTokens ?? []).includes(moveToken)) {
+        const receipt = ((session as VersionedTowerSession).recentMoveReceipts ?? [])
+            .find(entry => entry.token === moveToken);
+        if (receipt
+            && typeof raw.commandFingerprint === 'string'
+            && receipt.fingerprint !== raw.commandFingerprint) {
+            return { status: 'conflict', moveToken, currentVersion };
+        }
+        if (receipt || (session.recentMoveTokens ?? []).includes(moveToken)) {
             return { status: 'replay', moveToken, currentVersion };
         }
     }
@@ -58,10 +70,22 @@ export function inspectTowerActionCommand(
 }
 
 /** Commit metadata only after the combat mutation has applied. */
-export function commitTowerActionMetadata(session: TowerSession, moveToken?: string): number {
+export function commitTowerActionMetadata(
+    session: TowerSession,
+    moveToken?: string,
+    commandFingerprint?: string,
+): number {
     if (moveToken) {
         session.recentMoveTokens = [...(session.recentMoveTokens ?? []), moveToken]
             .slice(-TOWER_MOVE_TOKEN_HISTORY);
+        if (commandFingerprint) {
+            const versioned = session as VersionedTowerSession;
+            const retained = new Set(session.recentMoveTokens);
+            versioned.recentMoveReceipts = [
+                ...(versioned.recentMoveReceipts ?? []).filter(receipt => receipt.token !== moveToken),
+                { token: moveToken, fingerprint: commandFingerprint },
+            ].filter(receipt => retained.has(receipt.token)).slice(-TOWER_MOVE_TOKEN_HISTORY);
+        }
     }
     const next = towerActionVersion(session) + 1;
     (session as VersionedTowerSession).actionVersion = next;

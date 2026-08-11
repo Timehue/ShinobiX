@@ -39,6 +39,9 @@ const party: TowerPartyView = {
     sizeRequirements: { min: 2, max: 4, required: null },
     allReady: true,
     canLaunch: true,
+    liveMemberCount: 2,
+    aiMemberCount: 0,
+    aiPolicy: { allowed: true, max: 1, profile: "story-recruit-v1", progressionEligible: false },
 };
 
 const envelope: TowerPartyEnvelope = { party, invitations: [], replayed: true };

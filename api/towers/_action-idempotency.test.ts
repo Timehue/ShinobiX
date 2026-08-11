@@ -31,6 +31,32 @@ describe('Tower action idempotency and optimistic recovery', () => {
         });
     });
 
+    it('binds a committed move token to its original command intent', () => {
+        const current = session([], 2) as TowerSession & {
+            recentMoveReceipts?: Array<{ token: string; fingerprint: string }>;
+        };
+        commitTowerActionMetadata(current, token(8), 'wait-by-host');
+        assert.deepEqual(inspectTowerActionCommand(current, {
+            moveToken: token(8),
+            expectedVersion: 2,
+            commandFingerprint: 'wait-by-host',
+        }), {
+            status: 'replay',
+            moveToken: token(8),
+            currentVersion: 3,
+        });
+        assert.deepEqual(inspectTowerActionCommand(current, {
+            moveToken: token(8),
+            expectedVersion: 3,
+            commandFingerprint: 'heal-by-host',
+        }), {
+            status: 'conflict',
+            moveToken: token(8),
+            currentVersion: 3,
+        });
+        assert.deepEqual(current.recentMoveReceipts, [{ token: token(8), fingerprint: 'wait-by-host' }]);
+    });
+
     it('returns the authoritative version for stale and malformed commands', () => {
         const current = session([], 4);
         assert.deepEqual(inspectTowerActionCommand(current, {

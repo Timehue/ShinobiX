@@ -11,7 +11,7 @@ export type TowerBattleLock = {
     kind: typeof TOWER_BATTLE_LOCK_KIND;
     screen: typeof TOWER_BATTLE_LOCK_SCREEN;
     startedAt: number;
-    meta: { runId: string; partyId?: string };
+    meta: { runId: string; partyId?: string; mode?: 'mpvp' };
 };
 
 type BattleLockReader = Pick<typeof realKv, 'get'>;

@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "../styles/battle-skin.css";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";
 import { fetchTowerState, TowerStateApiError, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
-import { setTowerFightRunId, TOWER_RUN_KEY } from "../lib/screen-guards";
+import { setTowerFightRunId, setTowerPvpMatchId, towerPvpMatchIdFromRunKey, TOWER_RUN_KEY } from "../lib/screen-guards";
+import {
+    fetchTowerPvpSession,
+    settleAndLeaveTowerPvp,
+    submitTowerPvpActionWithLostResponseRetry,
+    type TowerPvpMatch,
+} from "../lib/tower-pvp-api";
 import { gameConfirm } from "../components/GameAlert";
 
 // ─── Battle Towers (combined lobby ↔ fight, refresh-resumable) ─────────────────
@@ -31,8 +37,9 @@ export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1";
 type View =
     | { phase: "checking"; runId: string }                       // resuming a persisted run
     | { phase: "resumeError"; runId: string; message: string; terminal?: boolean }
-    | { phase: "lobby" }                                         // pick a floor
-    | { phase: "fight"; runId: string; session: TowerSession };  // on the board
+    | { phase: "lobby"; pvpMatchId?: string }                     // pick a floor / resume queue
+    | { phase: "fight"; runId: string; session: TowerSession }   // on the Story/Spire board
+    | { phase: "pvpFight"; match: TowerPvpMatch };                // public exact-2v2 board
 
 function clearFightKey() {
     setTowerFightRunId(null);
@@ -64,6 +71,8 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
     const [view, setView] = useState<View>(() => {
         try {
             const saved = localStorage.getItem(TOWER_RUN_KEY) ?? localStorage.getItem(TOWER_RECOVERY_RUN_KEY);
+            const pvpMatchId = towerPvpMatchIdFromRunKey(saved);
+            if (pvpMatchId) return { phase: "lobby", pvpMatchId };
             return saved ? { phase: "checking", runId: saved } : { phase: "lobby" };
         } catch {
             return { phase: "lobby" };
@@ -112,6 +121,16 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
     // Clean exits clear the key directly so it can't linger. Recovery phases skip
     // this synchronization so the resume probe cannot lose its id before retry.
     useEffect(() => {
+        if (view.phase === "pvpFight") {
+            clearRecoveryKey();
+            setTowerPvpMatchId(view.match.matchId);
+            return;
+        }
+        if (view.phase === "lobby" && view.pvpMatchId) {
+            clearRecoveryKey();
+            setTowerPvpMatchId(view.pvpMatchId);
+            return;
+        }
         if (view.phase === "checking" || view.phase === "resumeError" || view.phase === "fight") {
             setTowerFightRunId(view.runId);
             writeRecoveryKey(view.runId);
@@ -119,6 +138,20 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
         }
         clearRunKeys();
     }, [view]);
+
+    const enterPvpMatch = useCallback((match: TowerPvpMatch) => {
+        setTowerPvpMatchId(match.matchId);
+        clearRecoveryKey();
+        setView({ phase: "pvpFight", match });
+    }, []);
+
+    const updatePvpMatchLock = useCallback((matchId: string | null) => {
+        if (matchId) setTowerPvpMatchId(matchId);
+        else clearFightKey();
+        setView(current => current.phase === "lobby"
+            ? matchId ? { phase: "lobby", pvpMatchId: matchId } : { phase: "lobby" }
+            : current);
+    }, []);
 
     if (view.phase === "checking") {
         return (
@@ -185,6 +218,25 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
             />
         );
     }
+    if (view.phase === "pvpFight") {
+        return (
+            <BattleTowerFight
+                character={character}
+                sharedImages={sharedImages}
+                runId={view.match.matchId}
+                initialSession={view.match.combat}
+                stateFn={fetchTowerPvpSession}
+                actionRetryFn={submitTowerPvpActionWithLostResponseRetry}
+                settleFn={settleAndLeaveTowerPvp}
+                settleOnAnyDone
+                variant="team-pvp"
+                onExit={() => {
+                    setTowerPvpMatchId(null);
+                    setView({ phase: "lobby" });
+                }}
+            />
+        );
+    }
     return (
         <BattleTowersLobby
             character={character}
@@ -196,6 +248,8 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
                 writeRecoveryKey(runId);
                 setView({ phase: "fight", runId, session });
             }}
+            onEnterPvp={enterPvpMatch}
+            onPvpMatchChange={updatePvpMatchLock}
             onBack={onExit}
         />
     );

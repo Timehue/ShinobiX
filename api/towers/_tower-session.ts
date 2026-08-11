@@ -154,6 +154,8 @@ export type TowerSession = {
     winner: TowerSide | 'draw' | null;
     /** idempotency ring for action retries (mirrors PvP recentMoveTokens) */
     recentMoveTokens: string[];
+    /** Additive intent binding for new action receipts; old sessions remain token-replay compatible. */
+    recentMoveReceipts?: Array<{ token: string; fingerprint: string }>;
     rewardSettlementState: 'pending' | 'settled';
     log: string[];
     createdAt: number;

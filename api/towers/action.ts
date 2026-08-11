@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -28,6 +29,29 @@ import {
     towerSessionBusyErrorBody,
     withTowerSessionMutation,
 } from './_session-mutation.js';
+import { publishTowerSessionKick } from './_realtime.js';
+
+function towerActionCommandFingerprint(
+    runId: string,
+    actor: string,
+    body: Record<string, unknown>,
+): string {
+    const type = String(body.type ?? '');
+    const intent: Record<string, unknown> = { runId, actor, type };
+    if (type === 'move' || type === 'dash') intent.tile = Math.floor(Number(body.tile));
+    else if (type === 'attack' || type === 'clear') intent.targetId = String(body.targetId ?? '');
+    else if (type === 'jutsu') {
+        intent.jutsuId = String(body.jutsuId ?? '');
+        if (body.targetId !== undefined) intent.targetId = String(body.targetId);
+        if (body.tile !== undefined) intent.tile = Math.floor(Number(body.tile));
+    } else if (type === 'weapon') {
+        intent.targetId = String(body.targetId ?? '');
+        if (body.itemId) intent.itemId = String(body.itemId);
+    } else if (type === 'item' && body.itemId) {
+        intent.itemId = String(body.itemId);
+    }
+    return createHash('sha256').update(JSON.stringify(intent)).digest('hex');
+}
 
 /*
  * POST /api/towers/action — submit ONE action for the human's actor on their turn.
@@ -54,6 +78,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
+        let realtimeSession: TowerSession | null = null;
+        let realtimeReason: 'action' | 'afk' = 'action';
+
         // Serialize the whole read-modify-write on the shared session so a concurrent
         // /state AFK-pass or /join can't clobber this turn write (lost-update / board
         // desync in a 2+ human run). Re-read INSIDE the fail-closed lock so we
@@ -66,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // have advanced the turn (or ended the run), so active-actor ownership
             // cannot be the replay authorization gate.
             const callerSlug = identity.admin ? null : identity.name;
+            const commandActor = identity.admin ? `admin:${playerName}` : identity.name;
             const isMember = identity.admin || session.actors.some(a => a.side === 'squad'
                 && a.ai === false
                 && a.ownerSlug === callerSlug);
@@ -98,9 +126,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            const commandFingerprint = towerActionCommandFingerprint(runId, commandActor, body);
             const command = inspectTowerActionCommand(session, {
                 moveToken: body.moveToken,
                 expectedVersion: body.expectedVersion,
+                commandFingerprint,
             });
             if (command.status === 'invalid-token') {
                 return { status: 400, body: { applied: false, reason: 'invalid-move-token', session, currentVersion: command.currentVersion } };
@@ -112,6 +142,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // expected version is now stale. This is the lost-response recovery path.
             if (command.status === 'replay') {
                 return { status: 200, body: { applied: true, replayed: true, session, currentVersion: command.currentVersion } };
+            }
+            if (command.status === 'conflict') {
+                return {
+                    status: 409,
+                    body: { applied: false, reason: 'move-token-conflict', session, currentVersion: command.currentVersion },
+                };
             }
             if (command.status === 'stale') {
                 return { status: 200, body: { applied: false, reason: 'stale-version', session, currentVersion: command.currentVersion } };
@@ -138,7 +174,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const actor = activeActor(session);
             const owns = !!actor && (identity.admin || (actor.ai === false && actor.hp > 0 && actor.ownerSlug === callerSlug));
             if (!owns) {
-                if (afkAdvanced) await writeSession(session); // persist the AFK pass even if it's not our turn
+                if (afkAdvanced) {
+                    await writeSession(session); // persist the AFK pass even if it's not our turn
+                    realtimeSession = session;
+                    realtimeReason = 'afk';
+                }
                 return {
                     status: 409,
                     body: {
@@ -153,7 +193,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const floor = floorForSession(session);
             if (!floor) {
-                if (afkAdvanced) await writeSession(session);
+                if (afkAdvanced) {
+                    await writeSession(session);
+                    realtimeSession = session;
+                    realtimeReason = 'afk';
+                }
                 return { status: 500, body: { error: 'Floor missing.' } };
             }
 
@@ -176,7 +220,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const contributionBefore = snapshotContributionState(session);
             const result = applyAction(session, floor, action, rng);
             if (!result.applied) {
-                if (afkAdvanced) await writeSession(session);
+                if (afkAdvanced) {
+                    await writeSession(session);
+                    realtimeSession = session;
+                    realtimeReason = 'afk';
+                }
                 return { status: 200, body: { applied: false, reason: result.reason, session, currentVersion: towerActionVersion(session) } };
             }
             recordClanBossContribution(session, actor.id, contributionBefore);
@@ -185,10 +233,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 runAiUntilHuman(session, floor, rng); // run allies + enemies until the human is up / done
             }
             stampTurnClock(session, now); // (re)start the AFK clock for whoever is up now
-            commitTowerActionMetadata(session, command.moveToken);
+            commitTowerActionMetadata(session, command.moveToken, commandFingerprint);
             await writeSession(session);
+            realtimeSession = session;
+            realtimeReason = 'action';
             return { status: 200, body: { applied: true, replayed: false, session, currentVersion: towerActionVersion(session) } };
         });
+        if (realtimeSession) publishTowerSessionKick(realtimeSession, realtimeReason);
         return res.status(outcome.status).json(outcome.body);
     } catch (err) {
         if (isTowerSessionContention(err)) {

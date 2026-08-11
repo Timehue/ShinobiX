@@ -7,10 +7,12 @@ import { kv } from '../_storage.js';
 import { getFloor, isPublicFloor } from './_floor-catalog.js';
 import { isValidSpireTier } from './_spire-catalog.js';
 import { towerModeDisabled } from './_mode-control.js';
+import { kickTowerPlayers } from '../_realtime/notify.js';
 import {
     TOWER_PARTY_ID,
     TOWER_PARTY_REQUEST_ID,
     activeTowerPartyForPlayer,
+    addGenericTowerAi,
     createTowerParty,
     declineTowerPartyInvitation,
     inviteTowerPartyMember,
@@ -20,15 +22,17 @@ import {
     loadTowerParty,
     resolveTowerPartyCode,
     revokeTowerPartyInvitation,
+    removeGenericTowerAi,
     setTowerPartyReady,
     towerPartyInvitations,
+    towerPartyHumanMembers,
     towerPartyView,
     type StoredTowerParty,
     type TowerPartyBinding,
     type TowerPartyMutationResult,
 } from './_party.js';
 
-const VERSION_REQUIRED_ACTIONS = new Set(['accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite']);
+const VERSION_REQUIRED_ACTIONS = new Set(['accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite', 'add-ai', 'remove-ai']);
 
 function parseBody(req: VercelRequest): Record<string, unknown> {
     return typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}) as Record<string, unknown>;
@@ -45,12 +49,16 @@ function bindingFrom(input: Record<string, unknown>): TowerPartyBinding | null {
 }
 
 function mutationFingerprint(body: Record<string, unknown>): string {
+    const action = String(body.action ?? '');
     const value = {
-        action: String(body.action ?? ''),
+        action,
         partyId: String(body.partyId ?? ''),
         inviteCode: String(body.inviteCode ?? '').trim().toUpperCase(),
         target: safeName(String(body.target ?? '')),
-        ready: body.ready === true || body.action === 'ready',
+        // Bind an idempotency key to the state the route will actually write.
+        // `action: ready, ready: false` is accepted for backwards compatibility
+        // and is equivalent to unready, so it must not collide with ready:true.
+        ready: action === 'ready' ? body.ready !== false : body.ready === true,
     };
     return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
@@ -62,6 +70,29 @@ async function envelope(player: string, party?: StoredTowerParty | null, replaye
         invitations: await towerPartyInvitations(player),
         ...(replayed === undefined ? {} : { replayed }),
     };
+}
+
+function partyAudience(...parties: Array<StoredTowerParty | null | undefined>): string[] {
+    const audience = new Set<string>();
+    for (const party of parties) {
+        if (!party) continue;
+        for (const member of towerPartyHumanMembers(party)) audience.add(member.slug);
+        for (const invited of party.invitedSlugs) audience.add(invited);
+    }
+    return [...audience];
+}
+
+function publishPartyChange(
+    before: StoredTowerParty | null | undefined,
+    after: StoredTowerParty,
+    reason: 'created' | 'changed' | 'launched' | 'closed' = 'changed',
+): void {
+    kickTowerPlayers(partyAudience(before, after), {
+        channel: 'party',
+        reason,
+        partyId: after.id,
+        version: after.version,
+    });
 }
 
 function mutationError(res: VercelResponse, result: Exclude<TowerPartyMutationResult, { ok: true }>) {
@@ -94,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const requested = await loadTowerParty(requestedId);
             if (!requested) return res.status(404).json({ error: 'That Tower party no longer exists.', errorCode: 'party-not-found' });
             const allowed = identity.admin
-                || requested.members.some(member => member.slug === playerName)
+                || towerPartyHumanMembers(requested).some(member => member.slug === playerName)
                 || requested.invitedSlugs.includes(playerName);
             if (!allowed) return res.status(403).json({ error: 'You cannot view that Tower party.', errorCode: 'party-forbidden' });
             return res.status(200).json(await envelope(playerName, requested));
@@ -118,6 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!binding) return res.status(400).json({ error: 'Choose a valid Tower floor or Spire tier.', errorCode: 'invalid-binding' });
             const result = await createTowerParty({ hostSlug: playerName, displayName, binding });
             if (!result.ok) return mutationError(res, result);
+            publishPartyChange(null, result.party, 'created');
             return res.status(200).json(await envelope(playerName, result.party, result.replayed));
         }
 
@@ -206,11 +238,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 expectedVersion,
                 fingerprint,
             });
+        } else if (action === 'add-ai') {
+            result = await addGenericTowerAi({
+                partyId,
+                actor: playerName,
+                requestId,
+                expectedVersion,
+                fingerprint,
+            });
+        } else if (action === 'remove-ai') {
+            const target = String(body.target ?? '');
+            result = await removeGenericTowerAi({
+                partyId,
+                actor: playerName,
+                target,
+                requestId,
+                expectedVersion,
+                fingerprint,
+            });
         } else {
             return res.status(400).json({ error: 'Unknown party action.', errorCode: 'unknown-action' });
         }
 
         if (!result.ok) return mutationError(res, result);
+        publishPartyChange(preview, result.party, result.party.status === 'closed' ? 'closed' : 'changed');
         return res.status(200).json(await envelope(playerName, result.party, result.replayed));
     } catch (error) {
         console.error('[towers/party]', error);

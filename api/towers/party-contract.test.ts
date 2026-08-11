@@ -11,7 +11,7 @@ describe('Battle Towers party endpoint and launch contract', () => {
         const endpoint = source('api/towers/party.ts');
         assert.match(endpoint, /authedPlayerOrAdmin\(req, playerName\)/);
         assert.match(endpoint, /Cache-Control', 'private, no-store'/);
-        for (const action of ['create', 'join', 'accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite']) {
+        for (const action of ['create', 'join', 'accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite', 'add-ai', 'remove-ai']) {
             assert.match(endpoint, new RegExp(`action === '${action}'`), action);
         }
         assert.match(endpoint, /expectedVersion/);
@@ -23,7 +23,7 @@ describe('Battle Towers party endpoint and launch contract', () => {
 
     it('requires an explicit optimistic version for every member mutation except open-code join', () => {
         const endpoint = source('api/towers/party.ts');
-        assert.match(endpoint, /VERSION_REQUIRED_ACTIONS = new Set\(\['accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite'\]\)/);
+        assert.match(endpoint, /VERSION_REQUIRED_ACTIONS = new Set\(\['accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite', 'add-ai', 'remove-ai'\]\)/);
         assert.match(endpoint, /VERSION_REQUIRED_ACTIONS\.has\(action\) && !validSuppliedVersion/);
         assert.match(endpoint, /action === 'join' && hasSuppliedVersion && !validSuppliedVersion/);
         assert.match(endpoint, /errorCode: 'invalid-version'/);
@@ -39,7 +39,7 @@ describe('Battle Towers party endpoint and launch contract', () => {
         assert.match(store, /party\.status !== 'forming'[\s\S]{0,180}party-locked/);
         assert.match(store, /target === actor/);
         assert.match(store, /clearPlayerIndexWith\(kv, target, input\.partyId\)/);
-        assert.match(store, /map\(member => \(\{ \.\.\.member, ready: false \}\)\)/);
+        assert.match(store, /map\(resetMemberReadiness\)/);
     });
 
     it('lets the host revoke a targeted invitation and reconciles its polling projection', () => {
@@ -52,10 +52,14 @@ describe('Battle Towers party endpoint and launch contract', () => {
         assert.match(store, /reconcileInvitationIndex\(input\.partyId, target, deps\)/);
     });
 
-    it('derives live members only from the bound party and keeps legacy allies AI assists', () => {
+    it('derives live members only from the bound party and rejects new borrowed-player AI assists', () => {
         const start = source('api/towers/start.ts');
-        assert.match(start, /authoritativeParty\.members\.map\(member => member\.slug\)/);
-        assert.match(start, /ai: authoritativeParty \? false : slug !== hostName/);
+        assert.match(start, /towerPartyHumanMembers\(authoritativeParty\)\.map\(member => member\.slug\)/);
+        assert.match(start, /towerPartyAiMembers\(authoritativeParty\)/);
+        assert.match(start, /errorCode: 'borrowed-allies-disabled'/);
+        assert.match(start, /:\s*\[hostName\]/);
+        assert.match(start, /ai: false/);
+        assert.doesNotMatch(start, /legacyAllies|slug !== hostName,\s*\n\s*character:/);
         assert.match(start, /prepareTowerPartyLaunch\(/);
         assert.match(start, /towerPartyId = authoritativeParty\.id/);
         assert.match(start, /towerPartyLaunchRequestId = partyRequestId/);
