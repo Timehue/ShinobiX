@@ -81,6 +81,33 @@ describe('reward-settlement contract inventory', () => {
         });
     }
 
+    it('a settled Showdown session survives its own response, so a dropped reply can be retried', () => {
+        // The reward is written under the save lock with a receipt BEFORE the
+        // response is known to have landed. Deleting the session at that moment
+        // made a dropped reply unrecoverable: the retry found nothing and the
+        // client told the winner "no result was recorded" for a fight they had
+        // won and been paid for. The endpoint must RETAIN the finished session
+        // so the retry hits the already-resolved branch, which the receipt makes
+        // idempotent.
+        const source = read('pet/showdown.ts');
+        const settling = source.slice(source.indexOf('Finishing turn'));
+        assert.doesNotMatch(
+            settling.slice(0, 1200),
+            /kv\.del\(key\)/,
+            'the settling turn must not delete the session — a dropped response would be unrecoverable',
+        );
+        assert.match(
+            settling.slice(0, 1200),
+            /kv\.set\(key, session, \{ ex: SESSION_TTL_SECONDS \}\)/,
+            'the settling turn must persist the finished session to its normal TTL',
+        );
+        assert.match(
+            source,
+            /if \(session\.finished\) \{/,
+            'the retry path (already-resolved -> no new events -> settle) must still exist',
+        );
+    });
+
     it('every currency-mutating settlement passes failClosed to its lock (spot inventory)', () => {
         // The full lock audit lives in docs/audits/concurrency-and-locking-audit.md;
         // this pins the currency-path convention on the highest-value endpoints.
