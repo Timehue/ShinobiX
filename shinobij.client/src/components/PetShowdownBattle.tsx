@@ -43,7 +43,13 @@ import {
     type VfxSpawn,
     type PillarDrive,
 } from "./PetShowdownVfx";
-import { SHOWDOWN_ELEMENT_BEATS } from "../../../shared/pet-showdown-contract";
+import {
+    SHOWDOWN_ELEMENT_BEATS,
+    SHOWDOWN_GUARD_COST,
+    SHOWDOWN_REST_PCT,
+    SHOWDOWN_METER_ON_GUARDED_HIT,
+    SHOWDOWN_METER_ON_HIT_TAKEN,
+} from "../../../shared/pet-showdown-contract";
 import type { Pet } from "../types/pet";
 import type {
     ShowdownCommand,
@@ -100,6 +106,11 @@ function stageForSession(sessionId: string): StageKey {
 
 const ELEMENT_TINT: Record<string, string> = {
     Fire: "#ff7a35", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#fde047", Earth: "#d6a76a", None: "#a5b4fc",
+};
+
+/** One glyph per element, for the status plates and the move inspector. */
+const ELEMENT_GLYPH: Record<string, string> = {
+    Fire: "🔥", Water: "💧", Wind: "🌪", Lightning: "⚡", Earth: "🪨", None: "✦",
 };
 
 const KIND_ICON: Record<string, string> = {
@@ -499,7 +510,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, popups, highlight }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, popups, highlight, targetable, onPick, onHover }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
@@ -513,12 +524,18 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
     popups: PopupEntry[];
     highlight: "none" | "commander" | "targeted";
+    /** You pick your target by clicking the CREATURE, not a name card. */
+    targetable: boolean;
+    onPick: (petId: string) => void;
+    onHover: (petId: string | null) => void;
 }) {
     const group = useRef<THREE.Group>(null);
     const impactRing = useRef<THREE.Mesh>(null);
     const impactMat = useRef<THREE.MeshBasicMaterial>(null);
     const guardBubble = useRef<THREE.Mesh>(null);
     const guardMat = useRef<THREE.MeshBasicMaterial>(null);
+    const reticle = useRef<THREE.Mesh>(null);
+    const selRing = useRef<THREE.Mesh>(null);
     /** Where this fighter currently stands — walks toward its assigned home. */
     const standing = useRef<[number, number, number] | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
@@ -641,6 +658,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 impactMat.current.opacity = 0.85 * (1 - t) * (1 - t);
             }
         }
+        // Reticle: spin + bob so a targetable creature reads as interactive.
+        if (reticle.current) {
+            reticle.current.rotation.z = now * 0.0022;
+            const bob = 1 + Math.sin(now * 0.005) * 0.12;
+            reticle.current.scale.setScalar(bob);
+        }
+        if (selRing.current) {
+            const pulse = 1 + Math.sin(now * 0.006) * 0.05;
+            selRing.current.scale.set(pulse, pulse, pulse);
+        }
         // Guard bubble: a soft breathing shell while the pet holds Guard.
         if (guardBubble.current && guardMat.current) {
             guardBubble.current.visible = guarding && !ko;
@@ -657,6 +684,21 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
 
     return (
         <group ref={group} position={info.basePos}>
+            {/* Invisible hit volume — the creature itself is the target button.
+                Sized generously so a tap lands on a phone, and only interactive
+                while this pet is a legal pick (so it never steals a stray click
+                during playback). Attached to the moving group, so it tracks the
+                body through lunges and bench walks. */}
+            <mesh
+                position={[0, 1.05, 0]}
+                visible={false}
+                onPointerOver={targetable ? (e) => { e.stopPropagation(); onHover(info.view.id); } : undefined}
+                onPointerOut={targetable ? (e) => { e.stopPropagation(); onHover(null); } : undefined}
+                onClick={targetable ? (e) => { e.stopPropagation(); onPick(info.view.id); } : undefined}
+            >
+                <boxGeometry args={[2.1, 2.4, 2.1]} />
+                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
             {info.model && !modelFailed ? (
                 <PetModelBoundary onFail={() => setModelFailed(true)}>
                     <Suspense fallback={null}>
@@ -690,10 +732,19 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             {/* Persistent painted status auras: burning pets burn, frozen pets frost. */}
             {!ko && <StatusAuraFx statuses={statuses} />}
             {highlight !== "none" && (
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+                <mesh ref={selRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
                     <ringGeometry args={[0.95, 1.12, 32]} />
                     <meshBasicMaterial color={highlight === "commander" ? "#fbbf24" : "#f87171"} transparent opacity={0.85} toneMapped={false} />
                 </mesh>
+            )}
+            {/* Floating reticle: the "this is clickable" affordance. */}
+            {targetable && !ko && (
+                <Billboard position={[0, 2.75, 0]}>
+                    <mesh ref={reticle}>
+                        <ringGeometry args={[0.3, 0.4, 3]} />
+                        <meshBasicMaterial color="#f87171" transparent opacity={0.95} toneMapped={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </Billboard>
             )}
             {!ko && highlight === "none" && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]}>
@@ -766,7 +817,104 @@ function TimingNeedle({ onGrade }: { onGrade: (grade: number) => void }) {
 
 interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number; magnitude: number }[] }
 
-function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement, art, benchedIds, benchPicking, onPickBench }: {
+/** A single ornate status plate: portrait, name/level/element, HP and Stamina
+ *  read out as `cur / max`, then the signature meter. Bench members render the
+ *  same plate at a reduced size so the team is always legible at a glance.
+ *
+ *  Plates are READOUTS, not the primary controls — you target by clicking the
+ *  creature itself. The plate is still focusable while it is a legal target so
+ *  keyboard players keep a path to the same choice. */
+function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hintElement, art, hovered }: {
+    pet: ShowdownPetView;
+    d: DisplayEntry;
+    side: "player" | "enemy";
+    benched: boolean;
+    clickable: boolean;
+    onPick?: (petId: string) => void;
+    commanding: boolean;
+    hintElement?: string;
+    art?: string;
+    hovered: boolean;
+}) {
+    const hpPct = Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100);
+    const stPct = Math.max(0, (d.stamina / Math.max(1, pet.maxStamina)) * 100);
+    const showHint = !!hintElement && !d.ko && !benched;
+    const strong = showHint && SHOWDOWN_ELEMENT_BEATS[hintElement!] === pet.element;
+    const weak = showHint && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement;
+    const tint = ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None;
+    const Tag = clickable ? "button" : "div";
+    return (
+        <Tag
+            type={clickable ? "button" : undefined}
+            onClick={clickable && onPick ? () => onPick(pet.id) : undefined}
+            className={[
+                "showdown-plate", side,
+                d.ko ? "ko" : "",
+                benched ? "benched" : "",
+                clickable ? "targetable" : "",
+                hovered ? "hovered" : "",
+                commanding ? "commanding" : "",
+                hpPct <= 25 && !d.ko ? "critical" : "",
+            ].join(" ")}
+            style={{ "--plate-tint": tint } as React.CSSProperties}
+        >
+            <span className="showdown-plate-portrait">
+                {art
+                    ? <img src={art} alt="" loading="lazy" />
+                    : <span className="showdown-plate-glyph">{ELEMENT_GLYPH[pet.element] ?? ELEMENT_GLYPH.None}</span>}
+                {d.ko && <span className="showdown-plate-ko">KO</span>}
+            </span>
+            <span className="showdown-plate-body">
+                <span className="showdown-plate-title">
+                    <span className="showdown-plate-name">{pet.name}</span>
+                    <span className="showdown-plate-lv">Lv{pet.level}</span>
+                    <span className="showdown-plate-elem" title={pet.element} style={{ color: tint }}>
+                        {ELEMENT_GLYPH[pet.element] ?? ELEMENT_GLYPH.None}
+                    </span>
+                </span>
+                <span className="showdown-plate-bar hp">
+                    <span className="showdown-plate-key">HP</span>
+                    <span className="showdown-plate-track">
+                        {/* The chip layer drains SLOWLY behind the instant fill —
+                            the classic "damage you just took" read. */}
+                        <span className="chip" style={{ width: `${hpPct}%` }} />
+                        <span className="fill" style={{ width: `${hpPct}%` }} />
+                    </span>
+                    <span className="showdown-plate-num">{Math.max(0, Math.round(d.hp))}<i>/{pet.maxHp}</i></span>
+                </span>
+                <span className="showdown-plate-bar en">
+                    <span className="showdown-plate-key">EN</span>
+                    <span className="showdown-plate-track">
+                        <span className="fill" style={{ width: `${stPct}%` }} />
+                    </span>
+                    <span className="showdown-plate-num">{Math.max(0, Math.round(d.stamina))}<i>/{pet.maxStamina}</i></span>
+                </span>
+                <span className={`showdown-plate-meter ${d.meter >= 100 ? "full" : ""}`}>
+                    <span style={{ width: `${Math.max(0, Math.min(100, d.meter))}%` }} />
+                </span>
+                <span className="showdown-plate-tags">
+                    {/* The matchup readout is gated on the ELEMENT being known,
+                        never on the plate being a click target — it used to
+                        require multi-target mode, so in 1v1 (the format whose
+                        blurb sells the wheel) it could never render at all. */}
+                    {strong && <span className="showdown-matchup up" title="Your element is strong here">▲ ×1.5</span>}
+                    {weak && <span className="showdown-matchup down" title="Your element is weak here">▼ ×0.75</span>}
+                    {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
+                    {pet.skipsNextAction && !d.ko && <span className="showdown-skip-tag" title="Loses its next action">SKIP</span>}
+                    {side === "player" && pet.trait && <span className="showdown-kit-chip trait" title="Trait">{pet.trait}</span>}
+                    {side === "player" && pet.gearName && <span className="showdown-kit-chip gear" title="Equipped gear">{pet.gearName}</span>}
+                    {d.statuses.map((s) => (
+                        <span key={s.kind} className="showdown-status-pip" title={statusTitle(s)}>
+                            {STATUS_LABEL[s.kind] ?? "✦"}<b>{s.rounds}</b>
+                        </span>
+                    ))}
+                </span>
+            </span>
+        </Tag>
+    );
+}
+
+function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement, art, benchedIds, benchPicking, onPickBench, hoveredId }: {
     side: "player" | "enemy";
     pets: ShowdownPetView[];
     display: Record<string, DisplayEntry>;
@@ -779,9 +927,11 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
     art?: Record<string, string>;
     /** Which team members currently wait on the bench. */
     benchedIds?: ReadonlySet<string>;
-    /** Switch flow: bench cards become the pick targets. */
+    /** Switch flow: bench plates become the pick targets. */
     benchPicking?: boolean;
     onPickBench?: (petId: string) => void;
+    /** Mirrors the creature the pointer is over in the 3D scene. */
+    hoveredId?: string | null;
 }) {
     return (
         <div className={`showdown-team-panel ${side}`}>
@@ -789,74 +939,388 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                 const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
                 const benched = benchedIds?.has(pet.id) ?? false;
                 const clickable = !d.ko && (benchPicking ? benched : targeting && !benched);
-                const showHint = !!hintElement && !d.ko && !benched;
-                const skipping = pet.skipsNextAction;
                 return (
-                    <button
+                    <StatusPlate
                         key={pet.id}
-                        type="button"
-                        disabled={!clickable}
-                        onClick={clickable
-                            ? () => (benchPicking ? onPickBench?.(pet.id) : onPickTarget?.(pet.id))
-                            : undefined}
-                        className={[
-                            "showdown-pet-card",
-                            d.ko ? "ko" : "",
-                            benched ? "benched" : "",
-                            clickable ? "targetable" : "",
-                            commanderId === pet.id ? "commanding" : "",
-                        ].join(" ")}
-                    >
-                        {art?.[pet.id] && <img className="showdown-pet-portrait" src={art[pet.id]} alt="" loading="lazy" />}
-                        <div className="showdown-pet-card-head">
-                            <span className="showdown-pet-name">{pet.name}</span>
-                            {/* The matchup readout is gated on the ELEMENT being
-                                known, never on the card being a click target —
-                                it used to require multi-target mode, so in 1v1
-                                (the format whose blurb sells the wheel) it could
-                                never render at all. */}
-                            {showHint && SHOWDOWN_ELEMENT_BEATS[hintElement!] === pet.element && (
-                                <span className="showdown-matchup up" title="Your element is strong here">▲ STRONG ×1.5</span>
-                            )}
-                            {showHint && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement && (
-                                <span className="showdown-matchup down" title="Your element is weak here">▼ WEAK ×0.75</span>
-                            )}
-                        </div>
-                        <div className="showdown-pet-card-sub">
-                            <span className="showdown-pet-level">Lv {pet.level}</span>
-                            <span className="showdown-pet-element" style={{ color: ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None }}>
-                                {pet.element !== "None" ? pet.element : ""}
-                            </span>
-                            {benched && !d.ko && <span className="showdown-bench-tag">BENCH</span>}
-                            {skipping && !d.ko && <span className="showdown-skip-tag" title="Loses its next action">💨 SKIP</span>}
-                        </div>
-                        {side === "player" && (pet.trait || pet.gearName) && (
-                            <div className="showdown-pet-kit">
-                                {pet.trait && <span className="showdown-kit-chip trait" title="Trait">{pet.trait}</span>}
-                                {pet.gearName && <span className="showdown-kit-chip gear" title="Equipped gear">{pet.gearName}</span>}
-                            </div>
-                        )}
-                        <div className="showdown-bar hp">
-                            {/* The chip layer drains SLOWLY behind the instant fill —
-                                the classic "damage you just took" read. */}
-                            <div className="chip" style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} />
-                            <div className="fill" style={{ width: `${Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100)}%` }} />
-                        </div>
-                        <div className="showdown-bar stamina"><div style={{ width: `${Math.max(0, (d.stamina / Math.max(1, pet.maxStamina)) * 100)}%` }} /></div>
-                        <div className={`showdown-bar meter ${d.meter >= 100 ? "full" : ""}`}><div style={{ width: `${Math.max(0, d.meter)}%` }} /></div>
-                        {d.statuses.length > 0 && (
-                            <div className="showdown-statuses">
-                                {d.statuses.map((s) => (
-                                    <span key={s.kind} className="showdown-status-pip" title={statusTitle(s)}>
-                                        {STATUS_LABEL[s.kind] ?? "✦"}
-                                        <b>{s.rounds}</b>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </button>
+                        pet={pet}
+                        d={d}
+                        side={side}
+                        benched={benched}
+                        clickable={clickable}
+                        onPick={benchPicking ? onPickBench : onPickTarget}
+                        commanding={commanderId === pet.id}
+                        hintElement={hintElement}
+                        art={art?.[pet.id]}
+                        hovered={hoveredId === pet.id}
+                    />
                 );
             })}
+        </div>
+    );
+}
+
+// ─── Action menu + move inspector ────────────────────────────────────────────
+
+type ShowdownMoveView = ShowdownPetView["moves"][number];
+
+/** What the bottom-right panel reads out for the highlighted menu row. */
+interface InspectorSpec {
+    title: string;
+    element?: string;
+    category: string;
+    description: string;
+    stats?: { k: string; v: string }[];
+    /** Red line under the description — overdraft, hold, empty bench. */
+    warn?: string;
+}
+
+/** What a menu row DOES, as data. The rows are built by a pure function, so
+ *  they cannot close over the command handlers (those reach refs, which the
+ *  React compiler forbids touching during render) — the component dispatches. */
+type MenuAction =
+    | { t: "move"; moveIndex: number; super: boolean }
+    | { t: "guard" }
+    | { t: "rest" }
+    | { t: "beginSwitch" }
+    | { t: "openSkills" }
+    | { t: "backToRoot" };
+
+interface MenuRowSpec {
+    key: string;
+    icon: string;
+    label: string;
+    /** Short right-aligned cost/state text. */
+    note?: string;
+    disabled?: boolean;
+    tone?: "attack" | "utility" | "signature";
+    action: MenuAction;
+    detail: InspectorSpec;
+}
+
+/** Builds the inspector readout for one technique. Every number here is a
+ *  server-sent field on the move view — nothing is recomputed client-side. */
+function moveInspector(move: ShowdownMoveView, element: string, staminaNow: number, readiness: number): InspectorSpec {
+    const deficit = Math.max(0, move.cost - staminaNow);
+    const holding = move.hold > readiness;
+    const pace = move.priority > 1 ? "Fast" : move.priority < 1 ? "Slow" : "Even";
+    return {
+        title: move.name,
+        element,
+        category: move.signature ? "Signature" : `${element} · ${move.kind}`,
+        description: move.effect,
+        stats: [
+            { k: "PWR", v: move.power > 0 ? String(move.power) : "—" },
+            { k: "STA", v: move.signature ? "meter" : String(move.cost) },
+            { k: "PACE", v: pace },
+            { k: "HOLD", v: move.hold > 0 ? `R${move.hold + 1}` : "ready" },
+        ],
+        warn: holding
+            ? `Still charging — unleashes from round ${move.hold + 1}.`
+            : deficit > 0
+                ? `Overdraft: costs ${deficit * 2} HP and skips the next round.`
+                : undefined,
+    };
+}
+
+/** Assembles the command list for the pet currently taking orders. Kept OUT of
+ *  the component body so it is a plain pure builder — the row objects it makes
+ *  are data, and the component just renders them. */
+function buildMenuRows({
+    commander, mustSwitch, tab, moves, signature, staminaNow, meterNow, benchCount, fieldCount,
+}: {
+    commander: ShowdownPetView | null;
+    mustSwitch: boolean;
+    tab: "root" | "skill";
+    /** Non-signature moves, each carrying its REAL index in `commander.moves`. */
+    moves: { move: ShowdownMoveView; index: number }[];
+    signature: ShowdownMoveView | null;
+    staminaNow: number;
+    meterNow: number;
+    benchCount: number;
+    /** Living pets on YOUR side of the field — switch redirection differs in 1v1. */
+    fieldCount: number;
+}): MenuRowSpec[] {
+    if (!commander) return [];
+    const element = commander.element;
+    const switchRow: MenuRowSpec = {
+        key: "switch",
+        icon: "🔄",
+        label: "Switch",
+        note: benchCount ? `${benchCount} ready` : "none",
+        tone: "utility",
+        disabled: !benchCount,
+        action: { t: "beginSwitch" },
+        detail: {
+            title: "Switch",
+            element,
+            category: "Rotation",
+            // The engine has no slot inheritance: an attack aimed at a pet that
+            // leaves the field falls through to the first pet still standing
+            // (or the taunt holder), which in 2v2/3v3 is usually NOT the one
+            // arriving. Only in 1v1 is the incoming pet guaranteed to eat it.
+            description: fieldCount > 1
+                ? "Rotate a reserve in before any attack lands. Anything aimed at the pet you pull out is redirected to whoever is still standing — not necessarily the pet coming in — and the one you pull out keeps regaining stamina on the bench."
+                : "Rotate a reserve in before any attack lands, so the incoming pet eats the hit meant for the one you pull out — and the one you pull out keeps regaining stamina on the bench.",
+            warn: benchCount ? undefined : "No reserves left to send in.",
+        },
+    };
+
+    // A stunned pet cannot act, but it MAY rotate out — so it gets the switch
+    // decision and nothing else.
+    if (mustSwitch) {
+        return [switchRow, {
+            key: "hold",
+            icon: "⏭",
+            label: "Hold the line",
+            tone: "utility",
+            action: { t: "guard" },
+            detail: {
+                title: "Hold the line",
+                element,
+                category: "Forced",
+                description: `${commander.name} loses this action either way. Staying in keeps the slot and the field position.`,
+            },
+        }];
+    }
+
+    if (tab === "skill") {
+        // Overdraft is allowed (it just costs HP), so a move you cannot afford
+        // stays selectable — only an unmet HOLD disables the row.
+        const rows: MenuRowSpec[] = moves.slice(1).map((entry): MenuRowSpec => ({
+            key: `skill-${entry.index}`,
+            icon: KIND_ICON[entry.move.kind] ?? "⚔️",
+            label: entry.move.name,
+            note: entry.move.hold > commander.readiness ? "charging" : `${entry.move.cost} EN`,
+            disabled: entry.move.hold > commander.readiness,
+            action: { t: "move", moveIndex: entry.index, super: false },
+            detail: moveInspector(entry.move, element, staminaNow, commander.readiness),
+        }));
+        if (signature) {
+            const sigHolding = signature.hold > commander.readiness;
+            const ready = meterNow >= 100 && !sigHolding;
+            rows.push({
+                key: "signature",
+                icon: "⭐",
+                label: signature.name,
+                note: ready ? "READY" : sigHolding ? "charging" : `${Math.round(meterNow)}%`,
+                tone: "signature",
+                disabled: !ready,
+                action: { t: "move", moveIndex: -1, super: true },
+                detail: {
+                    ...moveInspector(signature, element, staminaNow, commander.readiness),
+                    warn: sigHolding
+                        ? `Still charging — unleashes from round ${signature.hold + 1}.`
+                        : ready ? undefined : "The signature meter is not full yet.",
+                },
+            });
+        }
+        rows.push({
+            key: "back",
+            icon: "↩",
+            label: "Back",
+            tone: "utility",
+            action: { t: "backToRoot" },
+            detail: { title: "Back", element, category: "Menu", description: "Return to the main command list." },
+        });
+        return rows;
+    }
+
+    const rows: MenuRowSpec[] = [];
+    const basic = moves[0];
+    if (basic) {
+        rows.push({
+            key: "attack",
+            icon: KIND_ICON[basic.move.kind] ?? "⚔️",
+            label: "Attack",
+            note: `${basic.move.cost} EN`,
+            tone: "attack",
+            disabled: basic.move.hold > commander.readiness,
+            action: { t: "move", moveIndex: basic.index, super: false },
+            detail: moveInspector(basic.move, element, staminaNow, commander.readiness),
+        });
+    }
+    if (moves.length > 1 || signature) {
+        rows.push({
+            key: "skill",
+            icon: "✦",
+            label: "Skill",
+            note: `${moves.length - 1 + (signature ? 1 : 0)}`,
+            action: { t: "openSkills" },
+            detail: {
+                title: "Techniques",
+                element,
+                category: "Menu",
+                description: `${commander.name}'s learned techniques${signature ? ", including its signature" : ""}. Stamina and hold are the only gates — there are no cooldowns.`,
+                stats: [
+                    { k: "EN", v: `${Math.round(staminaNow)}/${commander.maxStamina}` },
+                    { k: "METER", v: `${Math.round(meterNow)}%` },
+                    { k: "ROUND", v: `${commander.readiness + 1}` },
+                ],
+            },
+        });
+    }
+    rows.push({
+        key: "guard",
+        icon: "🛡️",
+        label: "Guard",
+        note: `${SHOWDOWN_GUARD_COST} EN`,
+        tone: "utility",
+        action: { t: "guard" },
+        detail: {
+            title: "Guard",
+            element,
+            category: "Stance",
+            // Guarding banks LESS meter per hit than eating one (the engine pays
+            // SHOWDOWN_METER_ON_GUARDED_HIT, not _ON_HIT_TAKEN) — it is only ahead
+            // per point of health, because the hit is halved. Both figures come
+            // from the contract so the sentence cannot drift from the table.
+            description: `Brace. Incoming damage is halved this round. A guarded hit banks ${SHOWDOWN_METER_ON_GUARDED_HIT} meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN} — less per hit, but more per point of health spent. Guard resolves before almost everything else.`,
+            stats: [
+                { k: "METER", v: `+${SHOWDOWN_METER_ON_GUARDED_HIT}` },
+                { k: "STA", v: String(SHOWDOWN_GUARD_COST) },
+                { k: "PACE", v: "Fastest" },
+                { k: "HOLD", v: "ready" },
+            ],
+        },
+    });
+    rows.push({
+        key: "rest",
+        icon: "💤",
+        label: "Rest",
+        note: "+EN",
+        tone: "utility",
+        action: { t: "rest" },
+        detail: {
+            title: "Catch Breath",
+            element,
+            category: "Stance",
+            description: "Stand down to recover stamina and a little health. It swings late, so expect to eat the round's attacks first.",
+            stats: [
+                { k: "PWR", v: "—" },
+                { k: "STA", v: `+${Math.round(SHOWDOWN_REST_PCT * 100)}%` },
+                { k: "PACE", v: "Slow" },
+                { k: "HOLD", v: "ready" },
+            ],
+        },
+    });
+    rows.push(switchRow);
+    return rows;
+}
+
+/** Reclaims keyboard focus for a panel that has just REPLACED the control the
+ *  player activated. The battle is portalled to the end of `document.body`, so
+ *  focus falling back to `<body>` strands a keyboard player behind the whole
+ *  background app. Never yanks focus off a live element, so a mouse player is
+ *  unaffected. Mount-only on purpose: re-running would steal the caret the
+ *  moment a mouse user hovered a row. */
+function useReclaimFocus(container: React.RefObject<HTMLElement | null>, index = 0) {
+    const wanted = useRef(index);
+    useEffect(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const buttons = container.current?.querySelectorAll<HTMLButtonElement>("button");
+        (buttons?.[wanted.current] ?? buttons?.[0])?.focus({ preventScroll: true });
+    }, [container]);
+}
+
+function ActionMenu({ title, rows, focus, onFocusRow, onSelect, sub }: {
+    title: string;
+    /** Small line under the title (element + commander name). */
+    sub?: string;
+    rows: MenuRowSpec[];
+    focus: number;
+    onFocusRow: (index: number) => void;
+    onSelect: (action: MenuAction) => void;
+}) {
+    const rowsRef = useRef<HTMLDivElement>(null);
+    useReclaimFocus(rowsRef, focus);
+    // Arrow keys walk the list the way a console menu does; the buttons stay
+    // real buttons so Tab and screen readers keep working unchanged.
+    const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+        if (!buttons.length) return;
+        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        const next = at < 0 ? 0 : (at + step + buttons.length) % buttons.length;
+        buttons[next]?.focus();
+    };
+    return (
+        <div className="showdown-menu">
+            <div className="showdown-menu-head">
+                <span className="showdown-menu-title">{title}</span>
+                {sub && <span className="showdown-menu-sub">{sub}</span>}
+            </div>
+            <div className="showdown-menu-rows" ref={rowsRef} onKeyDown={onKeyDown}>
+                {rows.map((row, i) => (
+                    // Unavailable rows are aria-disabled, NOT natively disabled:
+                    // a disabled button fires no hover and takes no focus, which
+                    // made the inspector line explaining WHY it is unavailable
+                    // ("Still charging…", "No reserves left…") unreachable.
+                    <button
+                        key={row.key}
+                        type="button"
+                        aria-disabled={row.disabled || undefined}
+                        className={["showdown-menu-row", row.tone ?? "", row.disabled ? "is-disabled" : "", i === focus ? "focused" : ""].join(" ")}
+                        onMouseEnter={() => onFocusRow(i)}
+                        onFocus={() => onFocusRow(i)}
+                        onClick={() => { if (!row.disabled) onSelect(row.action); }}
+                    >
+                        <span className="showdown-menu-arrow" aria-hidden="true">▶</span>
+                        <span className="showdown-menu-icon" aria-hidden="true">{row.icon}</span>
+                        <span className="showdown-menu-label">{row.label}</span>
+                        {row.note && <span className="showdown-menu-note">{row.note}</span>}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/** The panel that replaces the command menu while a target is being picked.
+ *  Its only control is the way back, so it must claim focus — the row the
+ *  player just activated is gone. */
+function TargetingPanel({ title, sub, onBack }: { title: string; sub: string; onBack: () => void }) {
+    const rowsRef = useRef<HTMLDivElement>(null);
+    useReclaimFocus(rowsRef);
+    return (
+        <div className="showdown-menu targeting">
+            <div className="showdown-menu-head">
+                <span className="showdown-menu-title">{title}</span>
+                <span className="showdown-menu-sub">{sub}</span>
+            </div>
+            <div className="showdown-menu-rows" ref={rowsRef}>
+                <button type="button" className="showdown-menu-row utility" onClick={onBack}>
+                    <span className="showdown-menu-arrow" aria-hidden="true">▶</span>
+                    <span className="showdown-menu-icon" aria-hidden="true">↩</span>
+                    <span className="showdown-menu-label">Back</span>
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targetName?: string | null }) {
+    if (!spec) return null;
+    const element = spec.element ?? "None";
+    const tint = ELEMENT_TINT[element] ?? ELEMENT_TINT.None;
+    return (
+        <div className="showdown-inspector" style={{ "--insp-tint": tint } as React.CSSProperties}>
+            <span className="showdown-inspector-glyph" aria-hidden="true">{ELEMENT_GLYPH[element] ?? ELEMENT_GLYPH.None}</span>
+            <div className="showdown-inspector-head">
+                <span className="showdown-inspector-title">{spec.title}</span>
+                <span className="showdown-inspector-cat">{spec.category}</span>
+            </div>
+            <p className="showdown-inspector-desc">{spec.description}</p>
+            {targetName && <p className="showdown-inspector-target">→ {targetName}</p>}
+            {spec.warn && <p className="showdown-inspector-warn">{spec.warn}</p>}
+            {spec.stats && (
+                <div className="showdown-inspector-stats">
+                    {spec.stats.map((s) => (
+                        <span key={s.k}><i>{s.k}</i><b>{s.v}</b></span>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -913,6 +1377,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [draft, setDraft] = useState<ShowdownCommand[]>([]);
     const [pendingMove, setPendingMove] = useState<{ moveIndex: number; super: boolean } | null>(null);
     const [pickingSwitch, setPickingSwitch] = useState(false);
+    /** Console-style menu: the root list, or the technique sub-list. */
+    const [menuTab, setMenuTab] = useState<"root" | "skill">("root");
+    /** Highlighted menu row — drives the ▶ arrow and the inspector readout. */
+    const [focusRow, setFocusRow] = useState(0);
+    /** The creature the pointer is over while targeting (drives the cursor and
+     *  the inspector's "→ target" line). */
+    const [hoveredTarget, setHoveredTarget] = useState<string | null>(null);
     const [needleFor, setNeedleFor] = useState<{ petId: string; moveIndex: number; super: boolean; targetId: string } | null>(null);
     // VS intro card over the opening seconds.
     const [intro, setIntro] = useState(true);
@@ -1344,6 +1815,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setNeedleFor(null);
         setPendingMove(null);
         setPickingSwitch(false);
+        setMenuTab("root");
+        setFocusRow(0);
         const nextDraft = [...draft, command];
         setDraft(nextDraft);
         // Omitting a skipped pet is safe: the engine defaults any missing
@@ -1378,8 +1851,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setNeedleFor({ petId, moveIndex, super: superCast, targetId });
     };
 
+    /** One entry point for every "you clicked a creature" decision. */
     const pickTarget = (targetId: string) => {
-        if (!commander || !pendingMove) return;
+        if (!commander) return;
+        setHoveredTarget(null);
+        if (pickingSwitch) {
+            pushCommand({ kind: "switch", petId: commander.id, benchPetId: targetId });
+            return;
+        }
+        if (!pendingMove) return;
         const move = pendingMove.super ? commander.moves.find((m) => m.signature) : commander.moves[pendingMove.moveIndex];
         setPendingMove(null);
         beginNeedle(commander.id, pendingMove.moveIndex, pendingMove.super, targetId, move?.kind ?? "damage");
@@ -1397,6 +1877,35 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
     const outcome = stateView.outcome;
     const targetingAllies = !!pendingMove && !!commander && ALLY_MOVE_KINDS.has((pendingMove.super ? commander.moves.find((m) => m.signature) : commander.moves[pendingMove.moveIndex])?.kind ?? "");
+    /** Which creatures may be clicked right now. Targeting an enemy for an
+     *  attack, an ally for a heal, or a bench pet for a switch — all three are
+     *  done by clicking the MODEL. */
+    const isTargetable = (info: FighterSlotInfo): boolean => {
+        if (display[info.view.id]?.ko ?? info.view.ko) return false;
+        const benched = info.side === "player"
+            ? lineup.playerBench.includes(info.view.id)
+            : lineup.enemyBench.includes(info.view.id);
+        if (pickingSwitch) return info.side === "player" && benched;
+        if (!pendingMove) return false;
+        if (benched) return false;
+        return targetingAllies ? info.side === "player" : info.side === "enemy";
+    };
+
+    /** A hover only counts while targeting is actually open. r3f deletes a
+     *  mesh's handlers the moment `targetable` goes false and its cancelPointer
+     *  drops the hovered entry BEFORE the eventCount guard — so a pet that stops
+     *  being a legal target under a STATIONARY pointer never fires pointerout,
+     *  and the raw state would stay latched (stuck cursor, glowing plate, a
+     *  stale "→ target" line). Deriving it closes every exit at once. */
+    const activeHover = pendingMove || pickingSwitch ? hoveredTarget : null;
+
+    // Pointer feedback: a targetable creature gets the pointer cursor.
+    useEffect(() => {
+        if (!activeHover || phase !== "command") return;
+        document.body.style.cursor = "pointer";
+        return () => { document.body.style.cursor = ""; };
+    }, [activeHover, phase]);
+
     const panelArt = useMemo(
         () => Object.fromEntries([...slots.values()].map((i) => [i.view.id, i.fallbackImage])),
         [slots],
@@ -1434,8 +1943,54 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         add(lineup.enemyField, stateView.enemy, false);
         return rows.sort((a, b) => b.key - a.key);
     }, [stateView, draft, display, lineup.playerField, lineup.enemyField]);
-    const commanderMoves = commander?.moves.filter((m) => !m.signature) ?? [];
+    // Carry each move's REAL index in `pet.moves`. The engine reads
+    // `command.moveIndex` against its OWN move list, which the view mirrors with
+    // the signature appended last (engine.ts serializes `pet.moves` then
+    // concats the signature) — so today the filtered position happens to match.
+    // Addressing by real index does not depend on that ordering holding.
+    const commanderMoves = (commander?.moves ?? [])
+        .map((move, index) => ({ move, index }))
+        .filter((entry) => !entry.move.signature);
     const commanderSignature = commander?.moves.find((m) => m.signature) ?? null;
+
+    // ── Console-style command menu ──────────────────────────────────────────
+    const staminaNow = commanderDisplay?.stamina ?? commander?.stamina ?? 0;
+    const meterNow = commanderDisplay?.meter ?? commander?.meter ?? 0;
+    const commanderElement = commander?.element ?? "None";
+    const menuRows = buildMenuRows({
+        commander,
+        mustSwitch: commanderMustSwitch,
+        tab: menuTab,
+        moves: commanderMoves,
+        signature: commanderSignature,
+        staminaNow,
+        meterNow,
+        benchCount: livingBench.length,
+        fieldCount: livingPlayer.length,
+    });
+    const runMenuAction = (action: MenuAction) => {
+        if (!commander) return;
+        switch (action.t) {
+            case "move": return chooseMove(action.moveIndex, action.super);
+            case "guard": return pushCommand({ kind: "guard", petId: commander.id });
+            case "rest": return pushCommand({ kind: "rest", petId: commander.id });
+            case "beginSwitch": setPickingSwitch(true); setFocusRow(0); return;
+            case "openSkills": setMenuTab("skill"); setFocusRow(0); return;
+            case "backToRoot": setMenuTab("root"); setFocusRow(0); return;
+        }
+    };
+    const focusIndex = Math.min(focusRow, Math.max(0, menuRows.length - 1));
+    const pendingMoveView = commander && pendingMove
+        ? (pendingMove.super ? commanderSignature : commander.moves[pendingMove.moveIndex]) ?? null
+        : null;
+    const inspectorSpec: InspectorSpec | null = pendingMoveView && commander
+        ? moveInspector(pendingMoveView, commanderElement, staminaNow, commander.readiness)
+        : pickingSwitch
+            ? { title: "Switch", element: commanderElement, category: "Rotation", description: "Click the reserve you want on the field." }
+            : menuRows[focusIndex]?.detail ?? null;
+    const hoveredName = activeHover
+        ? [...stateView.player, ...stateView.enemy].find((p) => p.id === activeHover)?.name ?? null
+        : null;
 
     const overlay = (
         <div className="pet-combat-takeover showdown-takeover">
@@ -1469,6 +2024,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         highlight={commander?.id === info.view.id ? "commander"
                             : pendingMove && ((info.side === "enemy" && !targetingAllies) || (info.side === "player" && targetingAllies)) && !(display[info.view.id]?.ko) ? "targeted"
                             : "none"}
+                        targetable={isTargetable(info)}
+                        onPick={pickTarget}
+                        onHover={setHoveredTarget}
                     />
                 ))}
             </Canvas>
@@ -1510,6 +2068,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         hintElement={commander?.element}
                         art={panelArt}
                         benchedIds={enemyBenchedIds}
+                        hoveredId={activeHover}
                     />
                     <div className="showdown-topbar-right">
                         {/* stateView.round reconciles at playback end, so the round
@@ -1558,7 +2117,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     </div>
                 )}
 
-                <div className="showdown-bottombar">
+                <div className="showdown-playerbar">
                     <TeamPanel
                         side="player"
                         pets={stateView.player}
@@ -1573,130 +2132,62 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             if (!commander) return;
                             pushCommand({ kind: "switch", petId: commander.id, benchPetId: benchId });
                         }}
+                        hoveredId={activeHover}
                     />
+                </div>
+
+                <div className="showdown-bottombar">
                     {phase === "command" && commander && !needleFor && (
-                        <div className="showdown-deck">
-                            <div className="showdown-deck-title">
-                                {pickingSwitch
-                                    ? <>Who takes <b>{commander.name}</b>'s place? Tap a bench card…</>
-                                    : pendingMove
-                                        ? <>Choose a target for <b>{commander.name}</b>…</>
+                        <>
+                            {/* Targeting takes over the menu column: the choice is
+                                made in the 3D scene, so the panel only says who
+                                is asking and offers the way back. */}
+                            {(pendingMove || pickingSwitch) ? (
+                                <TargetingPanel
+                                    title={pickingSwitch ? "Send in…" : "Choose a target"}
+                                    /* Reserves wait in the side wings and can sit outside
+                                       the standoff shot, so their PLATE is named as the
+                                       reliable click target. */
+                                    sub={pickingSwitch
+                                        ? "Click a reserve — its plate or its model"
+                                        : `Click a ${targetingAllies ? "team-mate" : "rival"} — its model or its plate`}
+                                    onBack={() => {
+                                        if (pickingSwitch) { setPickingSwitch(false); return; }
+                                        setPendingMove(null);
+                                    }}
+                                />
+                            ) : (
+                                <ActionMenu
+                                    key={`${commander.id}:${menuTab}`}
+                                    title={menuTab === "skill" ? "Techniques" : commander.name}
+                                    sub={menuTab === "skill"
+                                        ? `${commander.name} · ${Math.round(staminaNow)} EN`
                                         : commanderMustSwitch
-                                            ? <><b>{commander.name}</b> loses this action — rotate it out, or hold the line.</>
-                                            : <><b>{commander.name}</b> — choose an action{netError ? " (connection hiccup — try again)" : ""}</>}
+                                            ? "Loses this action — rotate out or hold"
+                                            : netError
+                                                ? "Connection hiccup — try again"
+                                                : `${commanderElement} · Lv${commander.level}`}
+                                    rows={menuRows}
+                                    focus={focusIndex}
+                                    onFocusRow={setFocusRow}
+                                    onSelect={runMenuAction}
+                                />
+                            )}
+                            <div className="showdown-bottombar-right">
+                                {draft.length > 0 && !pendingMove && !pickingSwitch && (
+                                    <button type="button" className="showdown-chip showdown-undo" onClick={() => {
+                                        setMenuTab("root");
+                                        setFocusRow(0);
+                                        setDraft((d) => d.slice(0, -1));
+                                    }}>
+                                        ↩ Undo last order
+                                    </button>
+                                )}
+                                <MoveInspector spec={inspectorSpec} targetName={hoveredName} />
                             </div>
-                            {/* A stunned pet cannot act, but it MAY rotate out —
-                                so it gets the switch decision and nothing else. */}
-                            {!pendingMove && !pickingSwitch && commanderMustSwitch && (
-                                <div className="showdown-deck-grid">
-                                    <button
-                                        type="button"
-                                        className="showdown-move utility"
-                                        disabled={!livingBench.length}
-                                        onClick={() => setPickingSwitch(true)}
-                                    >
-                                        <span className="showdown-move-icon">🔄</span>
-                                        <span className="showdown-move-name">Switch</span>
-                                        <span className="showdown-move-sub">{livingBench.length ? "Send in a bench pet" : "No reserves left"}</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="showdown-move utility"
-                                        onClick={() => pushCommand({ kind: "guard", petId: commander.id })}
-                                    >
-                                        <span className="showdown-move-icon">⏭️</span>
-                                        <span className="showdown-move-name">Hold the line</span>
-                                        <span className="showdown-move-sub">Stay in and lose the action</span>
-                                    </button>
-                                </div>
-                            )}
-                            {!pendingMove && !pickingSwitch && !commanderMustSwitch && (
-                                <div className="showdown-deck-grid">
-                                    {commanderMoves.map((move, i) => {
-                                        // Temtem gating: stamina + hold only — no cooldowns.
-                                        const holding = move.hold > commander.readiness;
-                                        const deficit = Math.max(0, move.cost - (commanderDisplay?.stamina ?? 100));
-                                        const willOverexert = deficit > 0;
-                                        // "acts early/late" in words — a bare ▲/▼ collides with
-                                        // the element-matchup arrows on the target cards.
-                                        const pace = move.priority > 1 ? "acts early" : move.priority < 1 ? "swings last" : "";
-                                        return (
-                                            <button
-                                                key={`${move.name}-${i}`}
-                                                type="button"
-                                                disabled={holding}
-                                                className={`showdown-move ${holding ? "cooling" : ""} ${willOverexert ? "overexert" : ""}`}
-                                                style={{ borderLeft: `3px solid ${ELEMENT_TINT[commander.element] ?? ELEMENT_TINT.None}` }}
-                                                onClick={() => chooseMove(i, false)}
-                                            >
-                                                <span className="showdown-move-icon">{KIND_ICON[move.kind] ?? "⚔️"}</span>
-                                                <span className="showdown-move-name">{move.name}</span>
-                                                <span className="showdown-move-sub">
-                                                    {holding ? `Charging — ready round ${move.hold + 1}`
-                                                        : `${move.power > 0 ? `PWR ${move.power} · ` : ""}${move.cost} STA${pace ? ` · ${pace}` : ""}`}
-                                                </span>
-                                                <span className="showdown-move-effect">
-                                                    {willOverexert
-                                                        ? `OVERDRAFT · −${deficit * 2} HP · skips next round`
-                                                        : move.effect}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                    <button type="button" className="showdown-move utility" onClick={() => pushCommand({ kind: "guard", petId: commander.id })}>
-                                        <span className="showdown-move-icon">🛡️</span>
-                                        <span className="showdown-move-name">Guard</span>
-                                        <span className="showdown-move-sub">Halve damage · +meter</span>
-                                    </button>
-                                    <button type="button" className="showdown-move utility" onClick={() => pushCommand({ kind: "rest", petId: commander.id })}>
-                                        <span className="showdown-move-icon">💤</span>
-                                        <span className="showdown-move-name">Catch Breath</span>
-                                        <span className="showdown-move-sub">+22% STA · small heal</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="showdown-move utility"
-                                        disabled={!livingBench.length}
-                                        onClick={() => setPickingSwitch(true)}
-                                    >
-                                        <span className="showdown-move-icon">🔄</span>
-                                        <span className="showdown-move-name">Switch</span>
-                                        <span className="showdown-move-sub">{livingBench.length ? "Send in a bench pet" : "No reserves left"}</span>
-                                    </button>
-                                    {commanderSignature && (() => {
-                                        const meterFull = (commanderDisplay?.meter ?? 0) >= 100;
-                                        const sigHolding = commanderSignature.hold > commander.readiness;
-                                        return (
-                                            <button
-                                                type="button"
-                                                disabled={!meterFull || sigHolding}
-                                                className={`showdown-move signature ${meterFull && !sigHolding ? "ready" : ""}`}
-                                                onClick={() => chooseMove(-1, true)}
-                                            >
-                                                <span className="showdown-move-icon">⭐</span>
-                                                <span className="showdown-move-name">{commanderSignature.name}</span>
-                                                <span className="showdown-move-sub">
-                                                    {sigHolding ? `Unleashes from round ${commanderSignature.hold + 1}`
-                                                        : meterFull ? "SIGNATURE READY! · swings last" : "Fill the meter · swings last"}
-                                                </span>
-                                                <span className="showdown-move-effect">{commanderSignature.effect}</span>
-                                            </button>
-                                        );
-                                    })()}
-                                </div>
-                            )}
-                            {(draft.length > 0 || pendingMove || pickingSwitch) && (
-                                <button type="button" className="showdown-chip" onClick={() => {
-                                    if (pickingSwitch) { setPickingSwitch(false); return; }
-                                    setPendingMove(null);
-                                    setDraft((d) => d.slice(0, -1));
-                                }}>
-                                    ↩ {pickingSwitch ? "Cancel switch" : "Undo"}
-                                </button>
-                            )}
-                        </div>
+                        </>
                     )}
-                    {phase === "playing" && <div className="showdown-deck-title showdown-playing-hint">The exchange unfolds…</div>}
+                    {phase === "playing" && <div className="showdown-playing-hint">The exchange unfolds…</div>}
                 </div>
 
                 {needleFor && <TimingNeedle key={`${needleFor.petId}:${draft.length}`} onGrade={onNeedleGrade} />}
