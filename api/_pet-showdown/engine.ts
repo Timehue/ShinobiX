@@ -14,9 +14,13 @@
 
 import {
     SHOWDOWN_COST_BASIC,
-    SHOWDOWN_COST_HEAVY,
-    SHOWDOWN_COST_LIGHT,
-    SHOWDOWN_COST_MEDIUM,
+    SHOWDOWN_COST_CONTROL_FLOOR,
+    SHOWDOWN_COST_MAX,
+    SHOWDOWN_COST_MIN,
+    SHOWDOWN_COST_PER_POWER,
+    SHOWDOWN_COST_SUSTAIN_FLOOR,
+    SHOWDOWN_HEAVY_COST_PREMIUM,
+    SHOWDOWN_HEAVY_PROMOTE_MULT,
     SHOWDOWN_ELEMENT_ADVANTAGE,
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_ELEMENT_DISADVANTAGE,
@@ -207,13 +211,27 @@ const CONTROL_KINDS = new Set(['stun', 'freeze', 'confuse']);
 const SUSTAIN_KINDS = new Set(['heal']);
 
 export function moveStaminaCost(power: number, kind = 'damage'): number {
-    const band = power <= 120 ? SHOWDOWN_COST_LIGHT : power <= 220 ? SHOWDOWN_COST_MEDIUM : SHOWDOWN_COST_HEAVY;
+    // Linear in power: damage-per-stamina stays flat across the whole ladder,
+    // so an expensive move is never MORE efficient than a cheap one — it is
+    // only more immediate. You buy tempo and you pay for it next round.
+    const base = Math.max(
+        SHOWDOWN_COST_MIN,
+        Math.min(SHOWDOWN_COST_MAX, Math.round(power * SHOWDOWN_COST_PER_POWER)),
+    );
     // Control and sustain are priced like haymakers no matter their listed
     // power — a stolen turn or an undone round of damage outvalues most hits.
-    if (CONTROL_KINDS.has(kind)) return Math.max(band, 44);
-    if (SUSTAIN_KINDS.has(kind)) return Math.max(band, 40);
-    return band;
+    if (CONTROL_KINDS.has(kind)) return Math.max(base, SHOWDOWN_COST_CONTROL_FLOOR);
+    if (SUSTAIN_KINDS.has(kind)) return Math.max(base, SHOWDOWN_COST_SUSTAIN_FLOOR);
+    return base;
 }
+
+/** Kinds that can carry a kit's haymaker slot — only those whose value IS the
+ *  immediate hit. Utility kinds are excluded because promoting a `slow` or a
+ *  `taunt` would price a move that deals almost no damage like a finisher.
+ *  `burn`/`dot` are excluded for the opposite reason: their value is spread
+ *  over later rounds, so the haymaker framing does not fit and the round-one
+ *  hold would be strictly bad — you want the burn ticking EARLY. */
+const HEAVY_ELIGIBLE_KINDS = new Set(['damage', 'crush', 'wound', 'lifesteal']);
 
 const KNOWN_KINDS = new Set([
     'damage', 'buff', 'heal', 'debuff', 'dot', 'move', 'barrier', 'movelock', 'lifesteal',
@@ -422,11 +440,46 @@ export function moveHold(power: number, kind = 'damage'): number {
     return power > 220 ? SHOWDOWN_HOLD_HEAVY : 0;
 }
 
+/** Every kit's biggest damage move becomes that pet's haymaker: raised to the
+ *  heavy band so it swings last, holds a round, and costs a real fraction of
+ *  the pool. Without this a kit is four interchangeable pokes — measured across
+ *  the catalog, the strongest kit move was also the CHEAPEST-tier and therefore
+ *  the most efficient, so nothing else was ever worth casting. */
+export function promoteHeavy(moves: ShowdownMove[], rarity: string): ShowdownMove[] {
+    let bestIdx = -1;
+    for (let i = 0; i < moves.length; i++) {
+        const m = moves[i];
+        if (!HEAVY_ELIGIBLE_KINDS.has(m.kind) || m.power <= 0) continue;
+        if (bestIdx < 0 || m.power > moves[bestIdx].power) bestIdx = i;
+    }
+    if (bestIdx < 0) return moves;
+    const top = moves[bestIdx];
+    const power = Math.min(
+        petJutsuPowerCeil(rarity),
+        Math.round(top.power * SHOWDOWN_HEAVY_PROMOTE_MULT),
+    );
+    const next = moves.slice();
+    next[bestIdx] = {
+        ...top,
+        power,
+        cost: Math.min(
+            SHOWDOWN_COST_MAX,
+            Math.round(moveStaminaCost(power, top.kind) * SHOWDOWN_HEAVY_COST_PREMIUM),
+        ),
+        // Flagged explicitly rather than inferred from a power threshold: the
+        // haymaker is defined by its ROLE in the kit, not by clearing an
+        // absolute number the authored content may never reach.
+        priority: SHOWDOWN_PRIORITY_HEAVY,
+        hold: SHOWDOWN_HOLD_HEAVY,
+    };
+    return next;
+}
+
 /** Universal cheap opener every pet gets, so low stamina never means no play. */
 function basicStrike(): ShowdownMove {
     return {
         name: 'Swift Strike',
-        power: 55,
+        power: 34,
         kind: 'damage',
         cost: SHOWDOWN_COST_BASIC,
         signature: false,
@@ -589,7 +642,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
             },
         } : {}),
         statuses: [],
-        moves: [basicStrike(), ...kit],
+        moves: promoteHeavy([basicStrike(), ...kit], rarity),
         signatureMove: { ...signatureMove, cost: 0 },
     };
 }

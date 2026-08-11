@@ -257,9 +257,14 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     <li><b>Elements</b> — Fire &gt; Wind &gt; Lightning &gt; Earth &gt; Water &gt; Fire.
                         Attacking the element you beat deals <b>×1.5</b>; attacking the one that
                         beats you deals <b>×0.75</b>.</li>
-                    <li><b>Stamina</b> — every technique costs stamina, and it regenerates slowly.
-                        You may cast a move you cannot afford: it still fires, but the pet
-                        <b> bleeds HP</b> for the shortfall and <b>loses its next action</b>.</li>
+                    <li><b>Stamina</b> — a technique's cost tracks its power, and stamina comes
+                        back slowly. Every kit is a ladder: a <b>jab</b> you can throw all day,
+                        <b> techniques</b> in the middle, and one <b>haymaker</b> worth about half
+                        the pool. The jab and the mid tier trade at the same rate, so the haymaker
+                        is not the efficient pick — you are paying for it to land <em>now</em>.</li>
+                    <li><b>Overdraft</b> — you may cast a move you cannot afford: it still fires,
+                        but the pet <b>bleeds HP</b> for the shortfall and <b>loses its next
+                        action</b>.</li>
                     <li><b>Hold</b> — the heaviest techniques and signatures need a round or two in
                         battle before they come online.</li>
                     <li><b>Turn order</b> — speed × the priority of the move you picked. Guard
