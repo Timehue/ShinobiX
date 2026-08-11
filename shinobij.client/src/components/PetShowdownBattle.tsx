@@ -1432,7 +1432,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // nothing.
         if (!next) {
             primePetSfx();
-            startBattleMusic("standard");
+            startBattleMusic("showdown");
             setBattleMusicIntensity("pressure");
         }
     }, []);
@@ -1482,7 +1482,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // ── Fullscreen overlay + body scroll lock + music ───────────────────────
     useEffect(() => {
         document.body.classList.add("pet-combat-active");
-        startBattleMusic("standard");
+        startBattleMusic("showdown");
         primePetSfx();
         return () => {
             document.body.classList.remove("pet-combat-active");
