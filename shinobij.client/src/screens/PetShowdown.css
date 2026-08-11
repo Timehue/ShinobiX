@@ -200,6 +200,18 @@
     min-block-size: 34px;
 }
 .showdown-chip:hover { border-color: rgba(251, 191, 36, 0.6); }
+/* Icon-only chips are a fixed square, so a label swap can never reflow the
+   HUD column the way "Muted" / "Sound" used to. */
+.showdown-chip.icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+    color: var(--ink-dim, #b9a583);
+}
+.showdown-chip.icon.on { color: #fbbf24; border-color: rgba(251, 191, 36, 0.6); }
+.showdown-chip.danger.icon { color: #fca5a5; }
 .showdown-chip.danger { border-color: rgba(248, 113, 113, 0.5); color: #fca5a5; }
 
 /* ── Battle takeover ───────────────────────────────────────────────────── */
@@ -207,7 +219,34 @@
 .showdown-takeover { background: #0b0704; }
 .showdown-takeover canvas { display: block; }
 
+/* ── HUD material tokens ────────────────────────────────────────────────────
+   The HUD is lacquered shrine hardware bolted over a live arena: a dark
+   translucent body so the arena reads straight through it, an OPAQUE brass rim
+   doing all of the contrast work, and state expressed by recolouring the chrome
+   rather than by adding badges.
+
+   No backdrop-filter anywhere. The arena is the point, and a blur pass per
+   panel over a live r3f canvas is the most expensive thing this file could ask
+   for on a phone. */
 .showdown-hud {
+    --brass: #d9b478;
+    --brass-hot: #fbbf24;
+    --lacquer-hi: #2a1e10;
+    --lacquer-lo: #0b0805;
+    --ink: #f3ead7;
+    --ink-dim: #b9a583;
+    /* Family tints — the icon's own colour, never a background. */
+    --fam-off: #f0837e;
+    --fam-ctl: #93c5fd;
+    --fam-sup: #86efac;
+    --grain: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 3px);
+    --sheen: radial-gradient(120% 90% at 12% 0%, rgba(255, 228, 170, 0.09), transparent 62%);
+    /* Two easings and one overshoot. Everything that arrives uses --e-out,
+       everything that leaves uses --e-in, and exits run ~2/3 of entries. */
+    --e-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+    --e-in: cubic-bezier(0.4, 0, 0.9, 0.4);
+    --e-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
+
     position: absolute;
     inset: 0;
     pointer-events: none;
@@ -215,9 +254,50 @@
     flex-direction: column;
     justify-content: space-between;
     font-family: inherit;
-    color: #f3ead7;
+    color: var(--ink);
 }
 .showdown-hud button { pointer-events: auto; }
+
+/* The eight-hairline corner bracket, shared by EVERY framed surface. State is
+   expressed by changing --frame-ink and opacity only — the geometry never
+   changes, so nothing in the HUD reflows when a state flips. */
+.showdown-plate::before,
+.showdown-menu-rows::before,
+.showdown-inspector::before {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    pointer-events: none;
+    color: var(--frame-ink, var(--brass));
+    opacity: var(--frame-alpha, 0.55);
+    --b: linear-gradient(currentColor, currentColor);
+    background: var(--b), var(--b), var(--b), var(--b), var(--b), var(--b), var(--b), var(--b);
+    background-repeat: no-repeat;
+    background-size: 11px 1px, 1px 11px, 11px 1px, 1px 11px, 11px 1px, 1px 11px, 11px 1px, 1px 11px;
+    background-position: 0 0, 0 0, 100% 0, 100% 0, 0 100%, 0 100%, 100% 100%, 100% 100%;
+    transition: color 0.12s linear, opacity 0.12s linear;
+}
+
+/* ── The one numeral treatment ──────────────────────────────────────────────
+   Italic, tabular, stroked so it survives a white-blown VFX frame. Numerals
+   never tween — the value snaps to what the server sent and only the bar
+   animates. */
+.sd-num {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 0.66rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.9);
+    paint-order: stroke fill;
+    text-shadow: 0 1px 3px #000;
+}
+.sd-num i { font-style: italic; font-size: 0.58em; font-weight: 600; color: #8f7f66; -webkit-text-stroke: 0; }
+/* A percent sign is a UNIT, not a denominator — it must stay legible where a
+   "/max" is deliberately quiet. */
+.sd-num.pct i { color: var(--ink-dim); font-size: 0.66em; font-weight: 800; }
 
 .showdown-topbar {
     display: flex;
@@ -265,8 +345,9 @@
 }
 .showdown-team-panel.player { justify-content: flex-end; }
 
-/* The ornate frame: a gold-rimmed lacquer plaque. `--plate-tint` is the pet's
-   element colour and threads through the portrait rim and the name. */
+/* A lacquer plaque with a squared corner on the bar side: a radius on all four
+   corners reads as a card, one squared corner reads as mounted hardware.
+   `--plate-tint` is the pet's element colour, threaded through the portrait rim. */
 .showdown-plate {
     pointer-events: auto;
     position: relative;
@@ -274,43 +355,41 @@
     align-items: center;
     gap: 8px;
     width: 232px;
-    padding: 6px 10px 6px 6px;
+    padding: 6px 10px 7px 6px;
     text-align: left;
     color: inherit;
     font: inherit;
+    isolation: isolate;
+    border-radius: 10px 10px 3px 10px;
     background:
-        linear-gradient(155deg, rgba(48, 34, 18, 0.95), rgba(14, 10, 6, 0.95));
-    border: 1px solid rgba(217, 180, 120, 0.5);
-    border-radius: 10px;
+        var(--grain),
+        var(--sheen),
+        linear-gradient(155deg, rgba(42, 30, 16, 0.94), rgba(11, 8, 5, 0.94));
+    /* Opaque rim: this is what survives a white-blown VFX frame. */
+    border: 1px solid color-mix(in srgb, var(--brass) 62%, transparent);
     box-shadow:
-        inset 0 0 0 1px rgba(251, 220, 160, 0.16),
-        inset 0 1px 0 rgba(255, 235, 190, 0.18),
+        inset 0 1px 0 rgba(255, 235, 190, 0.2),
+        inset 0 0 0 1px rgba(251, 220, 160, 0.14),
         0 4px 14px rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(3px);
-    transition: border-color 0.15s, box-shadow 0.15s, opacity 0.2s;
+    transition: border-color 0.12s linear, box-shadow 0.12s linear, opacity 0.18s linear;
 }
-/* Corner filigree — two hairline brackets, no extra markup. */
-.showdown-plate::before,
-.showdown-plate::after {
-    content: "";
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border: 1px solid rgba(251, 220, 160, 0.55);
-    pointer-events: none;
-}
-.showdown-plate::before { top: 3px; left: 3px; border-width: 1px 0 0 1px; border-radius: 4px 0 0 0; }
-.showdown-plate::after { bottom: 3px; right: 3px; border-width: 0 1px 1px 0; border-radius: 0 0 4px 0; }
 
-.showdown-plate.ko { opacity: 0.45; filter: grayscale(0.8); }
+.showdown-plate.ko { opacity: 0.45; filter: grayscale(0.8); --frame-ink: #6b5a44; --frame-alpha: 0.35; }
 /* Bench plates trade the element mark and the signature meter for name room —
    a reserve you are choosing between needs its NAME legible above all else. */
 .showdown-plate.benched { width: 186px; opacity: 0.74; border-style: dashed; }
 .showdown-plate.benched .showdown-plate-elem,
 .showdown-plate.benched .showdown-plate-meter { display: none; }
-.showdown-plate.commanding { border-color: #fbbf24; box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.2), 0 0 14px rgba(251, 191, 36, 0.45); }
-.showdown-plate.critical .showdown-plate-bar.hp .fill { background: linear-gradient(90deg, #fca5a5, #ef4444); }
+.showdown-plate.commanding {
+    --frame-ink: var(--brass-hot);
+    --frame-alpha: 1;
+    border-color: var(--brass-hot);
+    box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.2), 0 0 14px rgba(251, 191, 36, 0.45);
+}
+/* Selection anywhere in this HUD is bracket ignition, never a hue swap. */
 .showdown-plate.targetable {
+    --frame-ink: #fff5d6;
+    --frame-alpha: 1;
     border-color: #f87171;
     box-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
     cursor: pointer;
@@ -337,17 +416,13 @@
     border: 1px solid color-mix(in srgb, var(--plate-tint, #d9b478) 55%, transparent);
 }
 .showdown-plate-portrait img { width: 100%; height: 100%; object-fit: cover; }
-.showdown-plate-glyph { font-size: 1.2rem; }
+.showdown-plate-portrait > svg { color: var(--plate-tint, #d9b478); opacity: 0.9; }
 .showdown-plate.benched .showdown-plate-portrait { width: 32px; height: 32px; }
 .showdown-plate-ko {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.62rem;
-    font-weight: 900;
-    letter-spacing: 0.1em;
+    display: grid;
+    place-items: center;
     color: #fca5a5;
     background: rgba(0, 0, 0, 0.55);
 }
@@ -365,49 +440,53 @@
     text-shadow: 0 1px 3px #000;
 }
 .showdown-plate-lv { flex: 0 0 auto; font-size: 0.66rem; font-weight: 800; color: #d9b478; }
-.showdown-plate-elem { flex: 0 0 auto; font-size: 0.8rem; line-height: 1; }
+.showdown-plate-elem { flex: 0 0 auto; display: grid; place-items: center; }
 
-/* Each bar is key + track + numbers on one baseline. */
+/* Each bar is glyph socket + recessed channel + numerals on one baseline. The
+   two-letter text keys (HP / EN) became 12px marks, which bought the NAME the
+   horizontal room it was truncating for on a phone. */
 .showdown-plate-bar { display: flex; align-items: center; gap: 5px; }
 .showdown-plate-key {
     flex: 0 0 auto;
-    width: 17px;
-    font-size: 0.55rem;
-    font-weight: 900;
-    letter-spacing: 0.06em;
-    color: #b9a583;
+    width: 13px;
+    height: 13px;
+    display: grid;
+    place-items: center;
+    opacity: 0.85;
 }
+.showdown-plate-bar.hp .showdown-plate-key { color: #6ee76a; }
+.showdown-plate-bar.en .showdown-plate-key { color: #7dc4fb; }
+.showdown-plate.hp-mid .showdown-plate-bar.hp .showdown-plate-key { color: #fde047; }
+.showdown-plate.hp-low .showdown-plate-bar.hp .showdown-plate-key { color: #f87171; }
+/* A channel cut INTO the lacquer: dark slate, radius on the leading corner
+   only, 26 degree cut on the trailing end. The cut is the identity. */
 .showdown-plate-track {
     position: relative;
     flex: 1 1 auto;
-    height: 8px;
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.55);
-    box-shadow: inset 0 0 0 1px rgba(217, 180, 120, 0.28);
+    height: 9px;
+    background: #26241f;
+    border-radius: 5px 0 0 5px;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.75);
     overflow: hidden;
 }
 .showdown-plate-track > span {
     position: absolute;
     inset: 0 auto 0 0;
     height: 100%;
-    border-radius: 4px;
-    transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
+    transition: width 0.45s var(--e-out);
 }
-/* HP is two layers: the fill snaps to the new value; the red chip layer
-   beneath it drains slowly, so the sliver between them reads as "damage
+/* HP is two layers: the fill snaps to the new value; the dark-crimson chip
+   layer beneath it drains slowly, so the sliver between them reads as "damage
    you just took". */
-.showdown-plate-bar.hp .chip { background: #ef4444; transition: width 1.1s cubic-bezier(0.3, 0, 0.4, 1) 0.35s; }
-.showdown-plate-bar.hp .fill { background: linear-gradient(90deg, #86efac, #22c55e); }
-.showdown-plate-bar.en .fill { background: linear-gradient(90deg, #bae6fd, #3b82f6); }
-.showdown-plate-num {
-    flex: 0 0 auto;
-    font-size: 0.6rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    color: #f3ead7;
-    text-shadow: 0 1px 3px #000;
-}
-.showdown-plate-num i { font-style: normal; font-weight: 600; color: #8f7f66; }
+.showdown-plate-bar.hp .chip { background: #7f1d2c; transition: width 1.1s cubic-bezier(0.3, 0, 0.4, 1) 0.35s; }
+/* VERTICAL gloss ramps, so a bar never changes character as it drains - only
+   the HUE moves at the thresholds. Stamina resolves faster than HP: it is a
+   resource, not a drama. */
+.showdown-plate-bar.hp .fill { background: linear-gradient(180deg, #6ee76a, #2fbf3a); }
+.showdown-plate.hp-mid .showdown-plate-bar.hp .fill { background: linear-gradient(180deg, #fde047, #f59e0b); }
+.showdown-plate.hp-low .showdown-plate-bar.hp .fill { background: #e81950; }
+.showdown-plate-bar.en .fill { background: linear-gradient(180deg, #bae6fd, #3b82f6); transition-duration: 0.3s; }
 
 .showdown-plate-meter {
     height: 4px;
@@ -441,23 +520,30 @@
 
 /* ── Command menu ──────────────────────────────────────────────────────── */
 
+/* Capsule-over-box: the head is its own stadium pill sitting ON the rows box,
+   so the two read as a stacked assembly rather than one blob. The wrapper is
+   layout only — it carries no material of its own. */
 .showdown-menu {
     pointer-events: auto;
     flex: 0 1 268px;
     min-width: 214px;
-    background: linear-gradient(155deg, rgba(46, 32, 16, 0.96), rgba(12, 9, 5, 0.96));
-    border: 1px solid rgba(217, 180, 120, 0.55);
-    border-radius: 12px;
-    box-shadow:
-        inset 0 0 0 1px rgba(251, 220, 160, 0.18),
-        0 8px 24px rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    overflow: hidden;
+    overflow: visible;
+    animation: showdown-panel-in 0.16s var(--e-out) both;
 }
 .showdown-menu-head {
-    padding: 7px 12px 6px;
-    background: linear-gradient(180deg, rgba(120, 88, 34, 0.55), rgba(60, 42, 18, 0.2));
-    border-bottom: 1px solid rgba(217, 180, 120, 0.35);
+    position: relative;
+    z-index: 1;
+    margin: 0 6px -8px;
+    padding: 6px 14px 12px;
+    border-radius: 999px;
+    background:
+        var(--grain),
+        linear-gradient(180deg, rgba(120, 88, 34, 0.74), rgba(52, 36, 15, 0.93));
+    border: 1px solid color-mix(in srgb, var(--brass) 58%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 235, 190, 0.22), 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+@keyframes showdown-panel-in {
+    from { opacity: 0; transform: translateY(10px); }
 }
 .showdown-menu-title {
     display: block;
@@ -471,23 +557,80 @@
 }
 .showdown-menu-sub { display: block; font-size: 0.64rem; color: #c3b090; margin-top: 1px; }
 
-.showdown-menu-rows { display: flex; flex-direction: column; padding: 5px; gap: 1px; }
+.showdown-menu-rows {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 13px 5px 5px;
+    gap: 1px;
+    /* Row pitch is a variable so the cursor transform never measures the DOM. */
+    --row-pitch: 45px;
+    border-radius: 12px 12px 4px 12px;
+    background:
+        var(--grain),
+        var(--sheen),
+        linear-gradient(155deg, rgba(44, 31, 16, 0.95), rgba(11, 8, 5, 0.96));
+    border: 1px solid color-mix(in srgb, var(--brass) 58%, transparent);
+    box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.16), 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ONE cursor that slides. N arrows fading in and out read as N widgets; a
+   single node travelling between rows is the thing that reads as designed. */
+.showdown-menu-cursor {
+    position: absolute;
+    left: 6px;
+    top: 13px;
+    height: var(--row-pitch);
+    display: flex;
+    align-items: center;
+    color: var(--brass-hot);
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+    transition: transform 0.09s var(--e-out);
+}
+.showdown-menu-cursor svg { animation: showdown-cursor-bob 1.6s ease-in-out infinite; }
+@keyframes showdown-cursor-bob {
+    50% { transform: translateX(1.5px); }
+}
 
 .showdown-menu-row {
     display: flex;
     align-items: center;
     gap: 7px;
     width: 100%;
-    padding: 7px 9px;
+    /* The left inset is the cursor's lane — rows never sit under it. */
+    padding: 7px 9px 7px 22px;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 7px;
+    border-radius: 999px;
     color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
     min-block-size: var(--touch-target-min, 44px);
-    transition: background 0.1s, border-color 0.1s;
+    transition: background 0.1s linear, border-color 0.1s linear;
+}
+/* The icon sits in a recessed well, so the kind mark reads as inlaid hardware
+   rather than as clip art dropped on a row. */
+.showdown-menu-icon {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.38);
+    box-shadow: inset 0 0 0 1px rgba(217, 180, 120, 0.22);
+    color: var(--ink-dim);
+}
+.showdown-menu-icon.fam-off { color: var(--fam-off); }
+.showdown-menu-icon.fam-ctl { color: var(--fam-ctl); }
+.showdown-menu-icon.fam-sup { color: var(--fam-sup); }
+/* On a technique the ELEMENT tint wins — the type colour is what a player is
+   scanning the list for, and it keeps that colour when selected. */
+.showdown-menu-row.technique .showdown-menu-icon {
+    color: var(--elem-tint);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--elem-tint) 45%, transparent);
 }
 /* `.is-disabled`, not `:disabled` — the rows are aria-disabled so they stay
    hoverable and focusable, which is the only way to read the inspector line
@@ -502,10 +645,6 @@
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(217, 180, 120, 0.35);
 }
-.showdown-menu-arrow { flex: 0 0 auto; width: 10px; font-size: 0.6rem; color: #fbbf24; opacity: 0; }
-.showdown-menu-row.focused .showdown-menu-arrow { opacity: 1; }
-.showdown-menu-row.focused.is-disabled .showdown-menu-arrow { color: #b9a583; }
-.showdown-menu-icon { flex: 0 0 auto; font-size: 0.95rem; }
 .showdown-menu-label {
     flex: 1 1 auto;
     min-width: 0;
@@ -536,22 +675,39 @@
     align-self: stretch;
     min-width: 0;
     padding: 9px 12px;
-    background: linear-gradient(155deg, rgba(30, 24, 14, 0.96), rgba(10, 8, 5, 0.96));
+    border-radius: 12px 12px 4px 12px;
+    background:
+        var(--grain),
+        var(--sheen),
+        linear-gradient(155deg, rgba(30, 22, 12, 0.95), rgba(10, 8, 5, 0.96));
     border: 1px solid color-mix(in srgb, var(--insp-tint, #d9b478) 45%, rgba(217, 180, 120, 0.4));
-    border-radius: 12px;
     box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.12), 0 8px 24px rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
     overflow: hidden;
+    animation: showdown-panel-in 0.16s var(--e-out) both;
 }
-/* Oversized element mark bled into the corner. */
+/* The PAINTED crest, bled into the corner. This is the one surface in the HUD
+   where the 5-9 KB WebP earns its bytes: shown once, shown large. */
 .showdown-inspector-glyph {
     position: absolute;
-    right: -8px;
-    bottom: -14px;
-    font-size: 4.2rem;
-    line-height: 1;
-    opacity: 0.13;
+    right: -10px;
+    bottom: -16px;
+    width: 92px;
+    height: 92px;
+    background: var(--elem-art, none) center / contain no-repeat;
+    opacity: 0.15;
+    filter: saturate(0.7);
     pointer-events: none;
+}
+.showdown-inspector-mark {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.38);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--insp-tint) 45%, transparent);
+    color: var(--insp-tint);
 }
 .showdown-inspector-head { display: flex; align-items: baseline; gap: 8px; }
 .showdown-inspector-title {
@@ -595,7 +751,7 @@
     border: 1px solid rgba(217, 180, 120, 0.25);
     border-radius: 6px;
 }
-.showdown-inspector-stats i { font-style: normal; font-size: 0.5rem; font-weight: 900; letter-spacing: 0.08em; color: #8f7f66; }
+.showdown-inspector-stats i { font-style: normal; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.06em; color: #8f7f66; }
 .showdown-inspector-stats b { font-size: 0.76rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* Inspector column on the right, with the undo affordance stacked above it so
@@ -618,13 +774,31 @@
 }
 @keyframes showdown-hint-pulse { 50% { opacity: 0.55; } }
 
-/* Status pips carry their remaining duration. */
-.showdown-status-pip { display: inline-flex; align-items: center; gap: 1px; }
-.showdown-status-pip b { font-size: 0.58rem; color: #d9c9a8; font-weight: 800; }
+/* Status pips: a framed socket carrying the mark, with the remaining rounds
+   set beside it. The family tint is the ICON's colour, never a fill. */
+.showdown-status-pip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 4px 1px 2px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.42);
+    box-shadow: inset 0 0 0 1px rgba(217, 180, 120, 0.24);
+    color: var(--ink-dim);
+}
+.showdown-status-pip.fam-off { color: var(--fam-off); }
+.showdown-status-pip.fam-ctl { color: var(--fam-ctl); }
+.showdown-status-pip.fam-sup { color: var(--fam-sup); }
+.showdown-status-pip b {
+    font-size: 0.62rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
 
 /* Trait / gear identity on the player's plates. */
 .showdown-kit-chip {
-    font-size: 0.55rem;
+    font-size: 0.62rem;
     font-weight: 700;
     padding: 1px 5px;
     border-radius: 4px;
@@ -639,10 +813,13 @@
 .showdown-kit-chip.gear { background: rgba(147, 197, 253, 0.14); border-color: rgba(147, 197, 253, 0.3); }
 
 .showdown-skip-tag {
-    font-size: 0.54rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.62rem;
     font-weight: 800;
     color: #fb923c;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
 }
 
 .showdown-result-reason {
@@ -655,41 +832,81 @@
 
 /* ── Banners + popups ──────────────────────────────────────────────────── */
 
+/* A banner is a PLATE, not a text box. One rgba rectangle used to serve eleven
+   semantically different moments; now the material tells you which moment it
+   is before you have read the word. The 26 degree cut on both ends is the same
+   angle the HP channel uses — one shear angle for the whole HUD. */
 .showdown-banner {
     position: absolute;
     top: 22%;
     left: 50%;
     transform: translateX(-50%);
-    padding: 10px 26px;
-    border-radius: 12px;
+    padding: 9px 30px;
+    font-family: var(--font-display, inherit);
     font-weight: 900;
     font-size: 1.5rem;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.85);
+    paint-order: stroke fill;
     text-shadow: 0 2px 8px #000;
-    background: rgba(10, 7, 3, 0.65);
-    border: 1px solid rgba(217, 180, 120, 0.4);
-    animation: showdown-banner-in 0.25s cubic-bezier(0.2, 1.4, 0.4, 1);
+    background:
+        var(--grain),
+        linear-gradient(180deg, rgba(40, 28, 14, 0.9), rgba(10, 7, 3, 0.94));
+    border-block: 1px solid color-mix(in srgb, var(--banner-ink, var(--brass)) 70%, transparent);
+    clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+    animation: showdown-banner-in 0.22s var(--e-pop);
     pointer-events: none;
     white-space: nowrap;
     max-width: 92vw;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* The rule the tiers share: colour rides --banner-ink, so the plate frame and
+   the word can never disagree. */
+.showdown-banner { color: var(--banner-ink, var(--ink)); }
 @keyframes showdown-banner-in {
-    from { transform: translateX(-50%) scale(1.6); opacity: 0; }
+    from { transform: translateX(-50%) scale(1.35); opacity: 0; }
     to { transform: translateX(-50%) scale(1); opacity: 1; }
 }
-.showdown-banner.round { color: #fbbf24; }
-.showdown-banner.effective { color: #4ade80; }
-.showdown-banner.weak { color: #94a3b8; font-size: 1.1rem; }
-.showdown-banner.perfect { color: #fcd34d; }
-.showdown-banner.super { color: #f59e0b; font-size: 1.7rem; }
-.showdown-banner.ko { color: #f87171; font-size: 2rem; }
-.showdown-banner.status { color: #93c5fd; font-size: 1.05rem; }
-.showdown-banner.declare { color: #e8dcc2; font-size: 1.02rem; top: 14%; font-weight: 700; }
-.showdown-banner.judge { color: #d9c9a8; font-size: 1.35rem; letter-spacing: 0.08em; }
-.showdown-banner.victory { color: #fcd34d; font-size: 2.2rem; }
-.showdown-banner.defeat { color: #f87171; font-size: 2.2rem; }
+.showdown-banner.round { --banner-ink: #fbbf24; }
+.showdown-banner.effective { --banner-ink: #4ade80; }
+.showdown-banner.weak { --banner-ink: #94a3b8; font-size: 1.1rem; }
+.showdown-banner.perfect { --banner-ink: #fcd34d; }
+.showdown-banner.super { --banner-ink: #f59e0b; font-size: 1.7rem; }
+/* Alarm tier: a crimson plate, heavier rim, and a wash behind it. */
+.showdown-banner.ko {
+    --banner-ink: #f87171;
+    font-size: 2rem;
+    background: var(--grain), linear-gradient(180deg, rgba(74, 12, 18, 0.92), rgba(18, 5, 6, 0.95));
+    box-shadow: 0 0 40px rgba(220, 38, 38, 0.35);
+}
+/* A declaration is narration, not a verdict — body face, sentence case, and it
+   sits above the beat plate so the two never collide. */
+.showdown-banner.declare {
+    --banner-ink: #e8dcc2;
+    font-family: inherit;
+    font-size: 1.02rem;
+    top: 14%;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    padding: 6px 22px;
+}
+.showdown-banner.status { --banner-ink: #93c5fd; font-size: 1.05rem; font-family: inherit; text-transform: none; }
+.showdown-banner.judge { --banner-ink: #d9c9a8; font-size: 1.35rem; letter-spacing: 0.1em; }
+/* Verdict tier: full-width, no shear — the one moment that stops the frame. */
+.showdown-banner.victory,
+.showdown-banner.defeat {
+    font-size: 2.2rem;
+    letter-spacing: 0.14em;
+    padding: 12px 44px;
+    clip-path: none;
+    border-block-width: 2px;
+}
+.showdown-banner.victory { --banner-ink: #fcd34d; }
+.showdown-banner.defeat { --banner-ink: #f87171; }
 
 .showdown-popup-anchor { pointer-events: none; }
 .showdown-popup {
@@ -779,13 +996,16 @@
    trick. In the plate's tag row this chip leads the line, so an auto margin
    right-aligns every chip after it too. */
 .showdown-bench-tag {
-    font-size: 0.54rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.62rem;
     font-weight: 800;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     color: #1c1207;
     background: #b9a583;
     border-radius: 4px;
-    padding: 0 5px;
+    padding: 0 5px 0 3px;
 }
 
 .showdown-vs-intro {
@@ -937,11 +1157,16 @@
 
 /* Filled pills, not colour-only — the matchup readout must survive a
    colour-vision difference and a small viewport. */
+/* Filled pills that lead with the element crest, so the matchup survives a
+   colour-vision difference: glyph + word, never colour alone. */
 .showdown-matchup {
-    font-size: 0.52rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.62rem;
     font-weight: 900;
-    letter-spacing: 0.02em;
-    padding: 1px 4px;
+    letter-spacing: 0.04em;
+    padding: 1px 5px 1px 3px;
     border-radius: 4px;
     white-space: nowrap;
     /* Must never be squeezed or pushed past the plate edge — the name yields. */
@@ -1027,10 +1252,10 @@
        mark is duplication — and it was costing the NAME ~18px on a phone, where
        names were truncating to a few letters. Bench plates already drop it. */
     .showdown-plate-elem { display: none; }
-    .showdown-plate-num { font-size: 0.52rem; }
-    .showdown-plate-num i { display: none; }
-    .showdown-plate-key { width: 13px; font-size: 0.48rem; }
-    .showdown-plate-track { height: 7px; }
+    /* Numerals hold the 10px floor; only the denominator is dropped. */
+    .sd-num { font-size: 0.62rem; }
+    .sd-num:not(.pct) i { display: none; }
+    .showdown-plate-track { height: 8px; }
     .showdown-banner { font-size: 1.15rem; padding: 8px 16px; }
     .showdown-banner.victory, .showdown-banner.defeat { font-size: 1.7rem; }
     /* Menu and inspector stay side by side — stacking them pushed the readout
@@ -1050,15 +1275,19 @@
     .showdown-inspector-stats > span { min-width: 0; padding: 2px 3px; }
     /* Server-sent values keep growing; clamp rather than overlap a neighbour. */
     .showdown-inspector-stats b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .showdown-inspector-glyph { font-size: 2.6rem; right: -4px; bottom: -8px; }
+    .showdown-inspector-glyph { width: 58px; height: 58px; right: -6px; bottom: -10px; }
     .showdown-inspector-desc { font-size: 0.64rem; }
     .showdown-menu-rows { padding: 3px; }
-    .showdown-menu-row { padding: 5px 6px; gap: 5px; min-block-size: 40px; }
+    .showdown-menu-rows { --row-pitch: 41px; padding: 11px 4px 4px; }
+    .showdown-menu-cursor { left: 4px; top: 11px; }
+    .showdown-menu-row { padding: 5px 6px 5px 19px; gap: 5px; min-block-size: 40px; }
+    .showdown-menu-icon { width: 20px; height: 20px; }
     .showdown-menu-label { font-size: 0.74rem; }
     .showdown-menu-note { font-size: 0.55rem; }
     .showdown-menu-head { padding: 5px 8px; }
     .showdown-menu-title { font-size: 0.8rem; }
     .showdown-topbar { flex-wrap: nowrap; gap: 6px; padding-inline: 6px; }
+    .showdown-topbar .showdown-team-panel { min-width: 0; }
     .showdown-topbar-right { flex: 0 0 auto; gap: 4px; }
     .showdown-topbar-right .showdown-chip { padding: 4px 8px; font-size: 0.62rem; min-block-size: 28px; }
     .showdown-playerbar { padding-inline: 6px; }
@@ -1083,6 +1312,12 @@
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,
     .showdown-playing-hint,
+    /* New in the art pass: the cursor's idle travel and the panel entrances.
+       The cursor's SLIDE between rows is kept — it is the focus indicator, and
+       removing it loses information. */
+    .showdown-menu-cursor svg,
+    .showdown-menu,
+    .showdown-inspector,
     /* Must repeat :not(.is-disabled) — the declaring selector carries it, and
        a lower-specificity `animation: none` silently loses the cascade. */
     .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note,
@@ -1094,6 +1329,7 @@
     }
     /* Static substitutes so state stays readable without the pulse. */
     .showdown-plate.targetable { box-shadow: 0 0 0 2px #f87171; }
+    .showdown-menu, .showdown-inspector { opacity: 1; transform: none; }
     .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note { opacity: 1; }
     .showdown-plate-meter.full > span { filter: brightness(1.35); }
     .showdown-playing-hint { opacity: 0.85; }
