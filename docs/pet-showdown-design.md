@@ -29,7 +29,7 @@ Core mechanics:
   burn/stun/taunt/mark/…) become its moves, plus a universal cheap
   `Swift Strike`. The kit's `signature` jutsu is reserved as the super.
 - **Per-pet stamina (Temtem-style push-your-luck).** Moves cost 30/45/60 by
-  power band; +25 regen per round; `Rest` (+45, small heal) and `Guard` (halve
+  power band; +25 regen per round; `Rest` (stamina only, no heal) and `Guard` (halve
   damage, +meter) are always-legal actions. **Overexertion is allowed**: cast
   without the stamina and the move still fires, but the pet is *winded* and
   skips its next action.
@@ -815,6 +815,42 @@ the simulator's 400-round guard.
 still inside the gate, but every change that lengthens a fight costs the glass
 role, and the role damage table is not the lever (compressing it moved defenders
 without moving assassins). That deserves its own pass.
+
+## Round 19 — Rest stops healing, and the tables are re-fitted (2026-08-11)
+
+**Rest heals nothing now.** It restored 4% of max HP, which Temtem never does —
+checked against the wiki again: Rest recovers *stamina only*, and in Temtem HP
+does not regenerate in combat at all. Ours was also doubly generous, granting
++22%+2 *and* still collecting the end-of-round +7%+2, for 29%+4 against Temtem's
+20%+1 total. Rest is now Temtem's exact bonus — **+15% on top of the passive
+regen**, for a 22%+2 total — and it buys stamina and nothing else. That invented
+heal was also what made mutual Rest a self-sustaining fixed point, so removing
+it makes the stall strictly more terminal (mutual Rest and mutual Guard still
+resolve in 23 rounds under attrition).
+
+**Then the balance tables were re-fitted, not nudged.** Removing the Rest heal
+barely moved the spread on its own — the AI rests only when nothing is
+affordable — and that exposed the real problem: the role and element tables were
+still priced for a game that three separate changes had already replaced (the
+signature nerf, the pool resize, the removal of the timing multiplier, each of
+which lengthened fights and quietly taxed the glass roles). The tell was stark:
+**trackers carried the lowest damage multiplier in the table (0.82) and won the
+most (59.4%), while assassins carried a neutral 1.02 and won the least (37.1%)**
+— the table failing at its only job, which is to price the statline each role
+ships with.
+
+Both tables are now fitted directly from measured win rates and written as
+concrete values, not as a compression factor over the original — so the next
+re-fit starts from what is actually running rather than from a 2026-08-07
+baseline three regimes out of date.
+
+| | before | after |
+|---|---|---|
+| roles | 37.1 – 59.4% (22.3 spread) | **47.2 – 52.4%** (5.2) |
+| elements | 41.4 – 56.8% (15.4) | **47.5 – 54.1%** (6.6) |
+
+Pace 7.9 rounds, nothing reaches the simulator's guard. This is the tightest the
+mode has ever measured, and it closes the assassin drift flagged in round 18.
 
 ## Follow-ups
 

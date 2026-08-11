@@ -1224,7 +1224,7 @@ function buildMenuRows({
             title: "Catch Breath",
             element,
             category: "Stance",
-            description: "Stand down to recover stamina and a little health. It swings late, so expect to eat the round's attacks first.",
+            description: "Give up your turn to buy stamina back. It heals nothing and it swings late, so expect to eat the round's attacks first — this is a tempo cost you pay to keep casting.",
             stats: [
                 { k: "PWR", v: "—" },
                 { k: "STA", v: `+${Math.round(SHOWDOWN_REST_PCT * 100)}%` },

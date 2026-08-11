@@ -53,7 +53,7 @@ export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.75;
  *  - Regen is LOW (Temtem: 5% + 1/turn): passive income sits an order of
  *    magnitude below nuke cost, so "spam your best move" is arithmetically
  *    self-terminating within 2-3 uses and Rest is a real rotation beat.
- *  - Rest recovers ~22% + 2 (Temtem: 20% + 1) plus a small heal.
+ *  - Rest recovers ~22% + 2 in total (Temtem: 20% + 1) and heals NOTHING.
  *  - OVERDRAFT (using a move costing more than remaining stamina): the move
  *    still fires, the pet takes HP damage proportional to the deficit, and
  *    it is winded (forced skip) next round — Temtem's overexertion, HP chip
@@ -70,11 +70,17 @@ export const SHOWDOWN_STAMINA_POOL_SCALE = 0.74;
 /** Regen fraction of MAX per round (+ the flat point), field or bench. */
 export const SHOWDOWN_STAMINA_REGEN_PCT = 0.07;
 export const SHOWDOWN_STAMINA_REGEN_FLAT = 2;
-/** Rest recovery fraction of MAX (+ flat). */
-export const SHOWDOWN_REST_PCT = 0.22;
-export const SHOWDOWN_REST_FLAT = 2;
-/** Rest also patches the pet up a little so it is a real decision, not a tax. */
-export const SHOWDOWN_REST_HEAL_PCT = 0.04;
+/** Rest's BONUS stamina, on top of the end-of-round passive regen a resting pet
+ *  still collects. Temtem's exact figure: passive is 5%+1 and Rest adds 15% for
+ *  a 20%+1 total; ours is a slightly kinder 7%+2 passive for a 22%+2 total.
+ *
+ *  Rest grants NO HEALING. It used to restore 4% of max HP, which Temtem never
+ *  does — HP does not regenerate in combat there at all. That invented heal was
+ *  also the thing that made mutual Rest a self-sustaining fixed point, and it
+ *  quietly made stalling the strongest defensive line in the game. Rest is now
+ *  what it is in Temtem: you give up your turn to buy stamina back. */
+export const SHOWDOWN_REST_PCT = 0.15;
+export const SHOWDOWN_REST_FLAT = 0;
 /** HP damage per point of stamina deficit on an overdraft. */
 export const SHOWDOWN_OVERDRAFT_HP_PER_POINT = 2;
 export const SHOWDOWN_GUARD_COST = 8;

@@ -44,7 +44,6 @@ import {
     SHOWDOWN_METER_ON_GUARDED_HIT,
     SHOWDOWN_METER_ON_HIT_DEALT,
     SHOWDOWN_METER_ON_HIT_TAKEN,
-    SHOWDOWN_REST_HEAL_PCT,
     SHOWDOWN_REST_FLAT,
     SHOWDOWN_REST_PCT,
     SHOWDOWN_STAMINA_POOL_SCALE,
@@ -877,24 +876,23 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
  * trackers hit lighter per action, assassins hit far harder (plus the execute
  * below), sages swing harder and heal stronger (sageHealMult). Tuned against
  * scripts/showdown-balance.mjs until every role sits in the 40-60% band. */
-// Retuned for the pure stamina+hold economy: removing cooldowns took the
-// enemy-burst cap that tanks sheltered under, so defenders hit harder and the
-// throughput roles give a little back.
+// RE-FITTED 2026-08-11 against the current regime, and no longer expressed as a
+// compression of the original table. Compressing toward neutral only exposed the
+// raw statlines underneath: trackers carried the LOWEST damage multiplier in the
+// table (0.82) and still won the most (59.4%), while assassins carried a neutral
+// 1.02 and won the least (37.1%). That is the table failing at its actual job,
+// which is to price the statline each role ships with — not a knob to soften.
 //
-// Then re-fitted again when the signature came down from 177% of a health bar
-// to 74%. With a one-shot ultimate, bulk barely mattered — a glass assassin
-// simply fired first and deleted you. With fights decided by sustained damage,
-// a defender's durability started compounding with the 1.32 damage bonus this
-// table hands it as stat normalization, and defenders ran to 63%. Compressed
-// on the same principle as the element table: the correction is real, it was
-// just fitted to a regime that no longer exists.
-const ROLE_MULT_COMPRESSION = 0.25;
-const softenRoleMult = (v: number): number => 1 + (v - 1) * ROLE_MULT_COMPRESSION;
+// These values are fitted directly from measured win rates (mult_new =
+// mult_old * (50 / winRate)^0.5, then rounded), because three separate changes
+// this session — the signature nerf, the pool resize, and the removal of the
+// timing multiplier — all lengthened fights, and every one of them taxed the
+// glass role and paid the bulky one. Re-fit rather than nudge.
 const ROLE_DAMAGE_MULT: Record<string, number> = {
-    tracker: softenRoleMult(0.82),
-    assassin: softenRoleMult(1.02),
-    sage: softenRoleMult(1.1),
-    defender: softenRoleMult(1.32),
+    tracker: 0.88,
+    assassin: 1.17,
+    sage: 1.07,
+    defender: 1.01,
 };
 const SAGE_HEAL_MULT = 1.15;
 
@@ -914,34 +912,28 @@ const RARITY_DAMAGE_TIER: Record<string, number> = {
     mythic: 1.18,
 };
 
-/** How hard the per-element normalization below is applied. 1 = the raw table,
- *  0 = no per-element correction at all.
- *
- *  The raw spreads (Fire 1.52 dealt / 0.70 taken against Earth 0.82 / 1.08 —
- *  a 2.2x swing) were tuned while the signature dealt 177% of a health bar and
- *  one-shot 159 of 160 species: outcomes were decided by who charged the meter
- *  first, so a per-element damage bias barely showed in the aggregate. With the
- *  signature down to 74% of a bar, fights are decided by sustained damage and
- *  the same table drove Fire to a 74.4% element win rate. Compression re-fits
- *  it to the regime it now actually runs in. */
-const ELEMENT_MULT_COMPRESSION = 0.4;
-const softenElementMult = (v: number): number => 1 + (v - 1) * ELEMENT_MULT_COMPRESSION;
-
+/* RE-FITTED 2026-08-11 from measured win rates, on the same reasoning as the
+ * role table above: these are statline normalizations, and after the signature
+ * nerf, the pool resize and the removal of the timing multiplier they were
+ * pricing a game that no longer exists. Expressed as concrete values rather
+ * than a compression factor so the next re-fit starts from what is actually
+ * running. The TAKEN side is left as-is and only the DAMAGE side was moved —
+ * one variable at a time. */
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: softenElementMult(1.52),
-    Water: softenElementMult(1.0),
-    Wind: softenElementMult(1.06),
-    Earth: softenElementMult(0.82),
-    Lightning: softenElementMult(0.9),
+    Fire: 1.13,
+    Water: 1.1,
+    Wind: 1.04,
+    Earth: 0.89,
+    Lightning: 0.96,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
 const ELEMENT_TAKEN_MULT: Record<string, number> = {
-    Fire: softenElementMult(0.70),
-    Water: softenElementMult(1.01),
-    Wind: softenElementMult(1.06),
-    Earth: softenElementMult(1.08),
-    Lightning: softenElementMult(1.02),
+    Fire: 0.88,
+    Water: 1.0,
+    Wind: 1.02,
+    Earth: 1.03,
+    Lightning: 1.01,
 };
 
 function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[]): number {
@@ -1363,12 +1355,11 @@ export function resolveShowdownRound(
             });
         } else if (command.kind === 'rest') {
             pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_REST_PCT) + SHOWDOWN_REST_FLAT);
-            const healed = applyHeal(pet, pet.maxHp * SHOWDOWN_REST_HEAL_PCT, session.round);
             pet.guarding = false;
             events.push({
                 t: 'action', actorId: pet.id, actorSide: side, moveName: 'Catch Breath', moveKind: 'rest',
                 element: pet.element, delivery: 'self', super: false,
-                targets: [{ id: pet.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'rest' }],
+                targets: [{ id: pet.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'rest' }],
                 staminaAfter: Math.round(pet.stamina), meterAfter: Math.round(pet.meter), overexerted: false,
             });
         } else if (command.kind === 'super') {
