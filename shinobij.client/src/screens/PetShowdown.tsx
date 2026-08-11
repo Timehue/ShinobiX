@@ -83,7 +83,14 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     onBattleActiveChange?: (active: boolean) => void;
     onFullscreenActiveChange?: (active: boolean) => void;
 }) {
-    const [format, setFormat] = useState<ShowdownFormat>("2v2");
+    // Default to a format the roster can actually FIELD. The starter grants
+    // exactly one pet, so an unconditional "2v2" default meant a brand-new
+    // player's first frame of the flagship mode was a gold button that did
+    // nothing when pressed, with nothing on screen saying why.
+    const [format, setFormat] = useState<ShowdownFormat>(() => {
+        const ready = (character.pets ?? []).length;
+        return ready >= 2 ? "2v2" : "1v1";
+    });
     const [tier, setTier] = useState<ShowdownTier>("scrapper");
     const [selected, setSelected] = useState<string[]>([]);
     const [starting, setStarting] = useState(false);
@@ -100,6 +107,9 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         if (pet.breedingSessionId) return "Breeding barn";
         return null;
     }, []);
+
+    /** Pets that are not away training/expeditioning — what the roster can field. */
+    const available = useMemo(() => pets.filter((p) => !busyReason(p)), [pets, busyReason]);
 
     const selectedPets = useMemo(
         () => selected.map((id) => pets.find((p) => p.id === id)).filter(Boolean) as Pet[],
@@ -334,6 +344,21 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 >
                     {starting ? "Summoning your opponents…" : `Enter the ${format} Showdown`}
                 </button>
+                {/* A disabled CTA must always say what would enable it. */}
+                {!starting && selected.length < size && (
+                    <p className="showdown-launch-hint">
+                        {available.length < size
+                            ? <>You need {size} ready {size === 1 ? "companion" : "companions"} for {format}
+                                {available.length > 0 && FORMATS.some((f) => f.size <= available.length) && (
+                                    <> — <button
+                                        type="button"
+                                        className="showdown-linkish"
+                                        onClick={() => setFormat(FORMATS.filter((f) => f.size <= available.length).slice(-1)[0].id)}
+                                    >switch to {FORMATS.filter((f) => f.size <= available.length).slice(-1)[0].label}</button></>
+                                )}.</>
+                            : <>Pick {size - selected.length} more from your roster to begin.</>}
+                    </p>
+                )}
             </div>
 
             {battle && (
