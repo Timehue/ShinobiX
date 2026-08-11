@@ -899,6 +899,69 @@ wrong without anyone seeing it — the test caught one more collision on its fir
 run (a None-element Rest still shared a key), which is how Rest ended up
 correctly detonating nothing at all.
 
+## Round 21 — the battle theme, and the chase tiers stop being unmeasured (2026-08-11)
+
+### The mode had no music of its own
+
+Showdown played `startBattleMusic("standard")` — the same loop as every other
+fight in the game. The flagship mode sounded like the thing it was meant to
+replace. `pet-music.ts` now carries a third theme, and both entry points
+(the intro and the post-swap resume) ask for `"showdown"`.
+
+**Track:** `shinobij.client/public/music/showdown-lantern-duel.mp3` — "Lantern
+Duel", 1:48, 2,552,915 bytes. Generated on Suno (the owner's account, Simple
+mode) from this exact prompt, recorded here so it can be regenerated or
+extended without guesswork — the same convention `docs/pet-home-art-manifest.md`
+uses for generated art:
+
+> Instrumental battle theme for a shinobi creature-duel arena. Driving taiko and
+> tsuzumi percussion, shamisen ostinato, low koto pulse, shakuhachi accents,
+> dark brass swells. Confident mid-tempo groove around 128 BPM that loops
+> seamlessly and sits UNDER gameplay - tense and propulsive but never busy or
+> shrill, no vocals, no lead melody fighting the foreground. Lantern-lit night
+> arena, ceremonial and dangerous.
+
+The "sits UNDER gameplay" and "no lead melody" clauses are load-bearing: the
+mode already has a dense SFX layer (menu, impact, KO, attrition), and a track
+with its own hook fights it.
+
+### The chase tiers were never simulated
+
+The balance ratchet looped over `['standard', 'rare']`. **Legendary and mythic —
+the tiers players actually chase — were never in the sample at all.** Extending
+`RARITIES` to all four passed on the first run in 523ms, which is the good news:
+the role, element and pace bands already held there. Nobody knew.
+
+Then a per-species band was added on top, because aggregate role/element numbers
+hide the thing that actually decides a match — *which pet you brought*. It
+failed immediately: **Armored Polar Bear at 89.7%**, against same-rarity peers.
+
+The cause was `BUDGET_DAMPING = 0.6`. Species stats are pulled toward their tier
+median by `(reference / budget) ^ damping`, so at 0.6 a species carrying 1.33x
+the median budget kept a meaningful slice of it. Raising damping to **0.78**
+closes it — but it also invalidated the role and element tables, which had been
+fitted against the old damping. Both were re-fitted from measurement:
+
+| | before | after |
+|---|---|---|
+| elements | 44.0–60.6% (16.6pp) | 47.6–53.4% (5.8pp) |
+| roles | 44.7–53.7% (9.0pp) | 48.5–51.2% (2.7pp) |
+
+Fire had been the worst offender and it was a self-inflicted double-dip: it held
+both the highest damage multiplier (1.13) *and* the lowest damage-taken (0.88),
+so it hit hardest and was hit least. Both sides were corrected, not just one.
+
+**What is still honest to state:** four legendary species remain outside the
+25–75% comfort band (Storm Wyvern 84.5%, Storm Roc 79.3%, Glacier Wolf 24.1%,
+Umbra Fox 22.4%), inside the 15–85% hard band the gate enforces. Their win rates
+track raw catalog budget almost perfectly (1.26x median → 84.5%, 0.86x → 22.4%),
+so the residual ~5% uniform stat edge left by damping still compounds across an
+eight-round fight. Note the simulator runs the *same* AI policy on both sides,
+which makes it close to a pure stat race and overstates how deterministic this
+is in real play — a human picks targets and spends stamina differently. Closing
+the gap further means either damping so hard that species identity disappears,
+or per-species kit work, which is the existing follow-up.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

@@ -308,14 +308,24 @@ export function moveEffectText(kind: string, power: number): string {
  * both "standard") — the continuous sims priced that with behavior levers
  * (kiting ranges, moveRange, positioning) that a turn-based duel doesn't have,
  * so raw budget would simply decide fights. At seal time each pet's combat
- * stats are scaled by (rarityMedianBudget / speciesBudget)^0.6 computed from
- * its CATALOG TEMPLATE — the damping keeps species personality (fast-vs-tanky
- * spreads survive) while compressing the innate budget gap, and because the
- * correction uses the template rather than the live stats, a player's TRAINING
- * gains keep their full value on top. Pets with no resolvable template
- * (admin-authored customs) are left untouched.
+ * stats are scaled by (rarityMedianBudget / speciesBudget)^BUDGET_DAMPING
+ * computed from its CATALOG TEMPLATE — the damping keeps species personality
+ * (fast-vs-tanky spreads survive) while compressing the innate budget gap, and
+ * because the correction uses the template rather than the live stats, a
+ * player's TRAINING gains keep their full value on top. Pets with no
+ * resolvable template (admin-authored customs) are left untouched.
+ *
+ * RAISED 0.6 -> 0.78 on 2026-08-11, when the balance ratchet first simulated
+ * legendary and mythic and first checked PER-SPECIES win rates: Armored Polar
+ * Bear (1.33x its tier's median budget) beat its own-rarity peers 89.7% of the
+ * time. Aggregate role/element numbers had looked fine the whole time, because
+ * a species that dominates its tier is invisible once you average over the
+ * tier. Raising the exponent is the blunt lever; the residual is still visible
+ * (see the per-species band in scripts/showdown-balance.test.ts) and closing it
+ * further needs per-species kit work rather than more damping, since damping
+ * hard enough to erase it also erases what makes species differ at all.
  */
-const BUDGET_DAMPING = 0.6;
+const BUDGET_DAMPING = 0.78;
 
 function speciesBudget(stats: { hp: number; attack: number; defense: number; speed: number }): number {
     // Weighted to the RATIO damage model's marginal values: atk, def, and hp
@@ -889,10 +899,10 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
 // timing multiplier — all lengthened fights, and every one of them taxed the
 // glass role and paid the bulky one. Re-fit rather than nudge.
 const ROLE_DAMAGE_MULT: Record<string, number> = {
-    tracker: 0.88,
-    assassin: 1.17,
+    tracker: 0.91,
+    assassin: 1.14,
     sage: 1.07,
-    defender: 1.01,
+    defender: 1.0,
 };
 const SAGE_HEAL_MULT = 1.15;
 
@@ -917,23 +927,30 @@ const RARITY_DAMAGE_TIER: Record<string, number> = {
  * nerf, the pool resize and the removal of the timing multiplier they were
  * pricing a game that no longer exists. Expressed as concrete values rather
  * than a compression factor so the next re-fit starts from what is actually
- * running. The TAKEN side is left as-is and only the DAMAGE side was moved —
- * one variable at a time. */
+ * running.
+ *
+ * RE-FITTED AGAIN 2026-08-11 after BUDGET_DAMPING moved 0.6 -> 0.78: that
+ * constant rescales every species' statline, so a table fitted against the old
+ * damping was pricing the wrong stats and Fire came out at 60.6%. This pass
+ * moved BOTH sides, because holding the taken side fixed is what let Fire
+ * accumulate a double advantage in the first place — it had the highest damage
+ * multiplier AND the lowest damage taken, so it hit hardest and was hit least.
+ * Result: elements now span 47.6-53.4% (was 44.0-60.6%). */
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.13,
+    Fire: 1.06,
     Water: 1.1,
-    Wind: 1.04,
-    Earth: 0.89,
-    Lightning: 0.96,
+    Wind: 1.05,
+    Earth: 0.91,
+    Lightning: 1.0,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
 const ELEMENT_TAKEN_MULT: Record<string, number> = {
-    Fire: 0.88,
+    Fire: 0.95,
     Water: 1.0,
-    Wind: 1.02,
-    Earth: 1.03,
-    Lightning: 1.01,
+    Wind: 1.01,
+    Earth: 1.01,
+    Lightning: 0.97,
 };
 
 function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[]): number {
