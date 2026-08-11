@@ -389,6 +389,10 @@ export interface ShowdownTurnResponse {
     totalPetWins?: number;
     dailyPetWins?: number;
     capped?: boolean;
+    /** True when the session was sealed reward-ineligible — the hand-picked-AI
+     *  practice entry. Nothing was paid and NO counter moved, so the response
+     *  carries no balances, no totalPetWins and no dailyPetWins either. */
+    practice?: boolean;
     _saveVersion?: number;
     character?: unknown;
 }

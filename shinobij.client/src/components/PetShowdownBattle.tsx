@@ -32,6 +32,7 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { petDuelImpactStrength } from "../lib/pet-duel-presentation";
+import { promptablePets } from "../lib/showdown-turn";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
     ShowdownVfxLayer,
@@ -1862,16 +1863,26 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const livingBench = lineup.playerBench
         .map((id) => stateView.player.find((p) => p.id === id))
         .filter((p): p is ShowdownPetView => !!p && !(display[p.id]?.ko ?? p.ko));
-    // A pet that will lose its next action is not asked for one — it used to
-    // get the full deck for a command the engine discards
-    // before ever reading it. A STUNNED pet is still prompted (it may switch);
-    // an overdraft-winded pet may not rotate away, so it is skipped entirely.
-    const promptable = livingPlayer.filter(
-        (p) => !p.skipsNextAction || (p.canSwitchOut && livingBench.length > 0),
-    );
+    // Rules live in lib/showdown-turn.ts so the EMPTY case is testable — see
+    // the soft-lock guard below.
+    const promptable = promptablePets(livingPlayer, livingBench.length);
     const commander = phase === "command" ? promptable[draft.length] ?? null : null;
     const commanderMustSwitch = !!commander && commander.skipsNextAction;
     const commanderDisplay = commander ? display[commander.id] : null;
+    // SOFT-LOCK GUARD. `promptable` can legitimately come back EMPTY — every
+    // living pet winded by overdraft (which bars switching) or stunned with no
+    // bench to rotate to. The command deck is gated on `commander`, and the
+    // only call to submitRound lives inside pushCommand, which the deck owns —
+    // so an empty promptable rendered a blank bottom bar with no way to advance
+    // the round, and the sole surviving control was Forfeit. The player threw
+    // away fights they were winning to escape a UI state the Overdraft rule is
+    // *designed* to produce.
+    //
+    // There is no decision to take here, so don't ask for one: resolve the
+    // round on an empty draft. The engine already defaults every missing
+    // command to a guard, and its winded/stun branch discards that anyway —
+    // the same reasoning pushCommand relies on when it omits skipped pets.
+    const roundStalled = phase === "command" && promptable.length === 0 && !expired;
 
     // Fire the round: called from the LAST pushCommand (event handler, not an
     // effect — every setState here runs in handler/async context).
@@ -1921,6 +1932,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             }
         }
     }, [submitTurn, onFinished]);
+
+    // Drive the soft-lock guard (see `roundStalled`). Deliberately on a short
+    // delay rather than instantly: the player should SEE the "no orders" panel
+    // register before the round resolves, otherwise a stunned round looks like
+    // the game skipped their turn for no reason.
+    useEffect(() => {
+        if (!roundStalled) return;
+        const t = setTimeout(() => { void submitRound([]); }, 900);
+        return () => clearTimeout(t);
+    }, [roundStalled, submitRound]);
 
     // Plain handlers (not useCallback): they close over render-derived values
     // (draft, livingPlayer) and only ever run from committed-event contexts.
@@ -2249,6 +2270,22 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 </div>
 
                 <div className="showdown-bottombar">
+                    {/* No pet can be given an order this round. Name the reason
+                        and show it resolving — the failure this replaces was a
+                        silent empty bar. The button is a manual escape hatch in
+                        case the auto-resolve above is ever prevented from
+                        firing; it must never be the ONLY way out. */}
+                    {roundStalled && (
+                        <div className="showdown-stalled" role="status" aria-live="polite">
+                            <div className="showdown-stalled-title">No orders possible</div>
+                            <div className="showdown-stalled-body">
+                                Every pet still standing is winded or stunned. The round resolves itself.
+                            </div>
+                            <button type="button" className="showdown-chip" onClick={() => { void submitRound([]); }}>
+                                Resolve round
+                            </button>
+                        </div>
+                    )}
                     {phase === "command" && commander && (
                         <>
                             {/* Targeting takes over the menu column: the choice is
@@ -2310,6 +2347,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         </div>
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
+                        )}
+                        {/* Say it outright. A win that pays nothing and SAYS
+                            nothing reads as a bug or a robbery — the player
+                            cannot tell "this mode is practice" apart from "the
+                            payout failed", and the honest label is also what
+                            stops them grinding a mode that will never pay. */}
+                        {settlement?.practice && (
+                            <div className="showdown-result-practice">
+                                Practice match — no ryo, and no daily wins spent.
+                            </div>
                         )}
                         {/* Squad recap — who actually carried the fight. */}
                         {recap.length > 0 && (
