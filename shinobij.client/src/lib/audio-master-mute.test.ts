@@ -148,14 +148,21 @@ test("each battle theme routes to its OWN track, and none silently falls back to
     assert.equal(el.src, "/music/showdown-lantern-duel.mp3", "showdown plays its commissioned theme");
 
     startBattleMusic("hollow-gate");
-    const hollowSrc = el.src;
-    assert.notEqual(hollowSrc, "/music/showdown-lantern-duel.mp3", "hollow-gate is not the showdown theme");
+    assert.equal(el.src, "/music/silk-shuriken-2.ogg", "hollow-gate keeps its own dedicated track");
 
-    // The pooled theme must land on a track that is neither dedicated theme —
-    // this is what actually catches a mis-ordered branch.
-    startBattleMusic("standard");
-    assert.notEqual(el.src, "/music/showdown-lantern-duel.mp3", "standard never grabs the showdown theme");
-    assert.notEqual(el.src, hollowSrc, "standard never grabs the hollow-gate theme");
+    // NOTE: do NOT assert standard != the hollow-gate track. silk-shuriken-2 is
+    // itself a member of the shared pool, so the pooled theme picking it is
+    // correct behaviour, and asserting otherwise is a coin-flip flake that
+    // passes in isolation and fails in a full run.
+    //
+    // The showdown theme is the one that must never leak into the pool: it is
+    // NOT in TRACKS, so this holds on every random draw.
+    const pool = ["/music/silk-shuriken.ogg", "/music/silk-shuriken-2.ogg", "/music/koi-kunai.ogg"];
+    for (let i = 0; i < 24; i++) {
+        startBattleMusic("standard");
+        assert.ok(pool.includes(el.src), `standard draws from the pool, got ${el.src}`);
+        assert.notEqual(el.src, "/music/showdown-lantern-duel.mp3", "standard never grabs the showdown theme");
+    }
 
     stopBattleMusic();
     setAudioMuted(true);
