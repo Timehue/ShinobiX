@@ -8,11 +8,17 @@
 
 **Branch at start:** main
 
-**Integrated origin/main:** 0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a
+**Original integration base:** 0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a
 
-**Integrated implementation commit:** 7791631cb
+**Original implementation commit:** 7791631cb6669ce4cd1f1cd4e6acb47771c15793
 
-**Implementation state:** controlled merge resolved and locally release-certified for a main pull request
+**PR #53 merge on main:** a452329354f054475405d2bc5b90e9aff952b209
+
+**Prior origin/main tip (recertification parent):** 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2
+
+**Immutable recertification candidate:** 259383f66bb00d14dab2f0097407b23932024396
+
+**Implementation state:** cohesion pass already merged to main; post-Tower generated tooling-handoff drift repaired; immutable candidate fully recertified locally
 
 ## 1. Executive summary
 
@@ -30,9 +36,9 @@ Ranked availability is intentionally narrower than ranked implementation:
 - Player Ranked V2 admissions are implemented but default-off behind ENABLE_PLAYER_RANKED_V2=1. Existing terminal authority can recover while fresh admissions are disabled.
 - Generic/casual Vanguard V2 payouts are separately default-off behind ENABLE_VANGUARD_REWARD_V2=1. Exact Player Ranked V2 terminals always require the durable Vanguard protocol.
 
-The locked-base implementation was committed, merged with origin/main in an isolated integration worktree, and every overlap was reconciled deliberately. The integrated tree then passed the complete root suite, exact CI production build, server/client type checks, lint, authority matrices, built-Express certification, browser journeys, cross-browser combat layout, Warfront browser coverage, deployment and rollback checks, backup helpers, release assets, Clan Boss operation certification, and the local capacity smoke recorded below. External staging, real Postgres restore, Patreon consent, and public ranked promotion remain separate evidence gates.
+The requested port was already complete, not stranded or stale: PR #53 merged the cohesion pass to main as a452329354f054475405d2bc5b90e9aff952b209, and the later main tip 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2 descends directly from it. A semantic re-audit of all 15 original overlap paths found no authority or UX regression. Thirteen remained unchanged after the PR merge; server.ts and shinobij.client/src/App.tsx changed only to add Tower PvP routing and authoritative match recovery. The post-Tower pass did expose stale generated design-token handoff data. Refreshing only docs/generated/design-tokens.json produced immutable candidate 259383f66bb00d14dab2f0097407b23932024396. That exact candidate passed the fresh root, client, release, built-Express, cross-browser, combat-layout, Warfront, and live Tower-harness matrix recorded below. External staging, real Postgres restore, Patreon consent, and public ranked promotion remain separate evidence gates.
 
-## 2. Exact base and upstream drift
+## 2. Exact base, main publication, and post-Tower recertification
 
 At task start, fetch and comparison established:
 
@@ -63,7 +69,11 @@ The upstream delta changes 115 paths. Fifteen overlap the current working delta:
 - shinobij.client/src/screens/Arena.tsx
 - shinobij.client/src/screens/PetArena.tsx
 
-The locked implementation was first committed as 7791631cb, then merged with 0e1fd8e63 in an isolated `codex/aaa-cohesion-live` worktree. The 15 overlapping paths were resolved semantically: upstream Warfront preparation/authorization/recovery remained intact; local entitlement, busy-state, ranked, save-ownership, and authority guarantees were preserved; route and ownership unions were verified without omissions or duplicates. The integrated result, rather than the earlier locked-base tree, is the final release candidate certified in section 13.
+Historically, the locked implementation was committed as 7791631cb6669ce4cd1f1cd4e6acb47771c15793 and semantically integrated with 0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a before PR #53 merged the completed result to main as a452329354f054475405d2bc5b90e9aff952b209. The requested implementation therefore did not require another cherry-pick or replay onto 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2.
+
+All 15 original overlap paths were re-audited at 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2. Thirteen are unchanged from a452329354f054475405d2bc5b90e9aff952b209. The two changed overlaps preserve the validated union: server.ts adds four Tower PvP endpoints, while shinobij.client/src/App.tsx restores Tower PvP matches through the existing server-owned battle-lock path. No entitlement, save-ownership, ranked, busy-state, Warfront, combat-authority, or validated UX behavior regressed. Route/import and ownership-manifest entries remain singular rather than duplicated.
+
+The remaining post-Tower defect was tooling-handoff drift in docs/generated/design-tokens.json. Canonical regeneration added the Tower lobby's 430 px breakpoint and refreshed five Tower CSS source-line references without changing runtime code. That repair produced immutable candidate 259383f66bb00d14dab2f0097407b23932024396 directly on 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2.
 
 The repository was already dirty at task start. Modified combat-layout PNG/measurement artifacts under docs/screenshots/combat-layout/after/ and untracked output/ and tools/ trees predated the task. They were neither cleaned nor treated as pass deliverables; the isolated integration worktree prevented them from entering the release commit.
 
@@ -292,7 +302,7 @@ Historical entitlement-focused subruns remain useful evidence, but the authorita
 
 The storage compare-set contract is implemented across local and Postgres-backed paths, with a dedicated Supabase compare-set migration. Strict settlement fields are protected from generic saves and from structural merge contamination.
 
-No functional P0 mint, duplicate settlement, irreversible ownership loss, or entitlement forgery remained reproduced on the locked base after the completed focused and aggregate gates. This does not claim the strict-ledger cutover, staging integrations, or upstream port are complete.
+No functional P0 mint, duplicate settlement, irreversible ownership loss, or entitlement forgery remained reproduced after the completed focused and aggregate gates. The upstream port is complete and on main. This does not claim the strict-ledger cutover or external staging integrations are complete.
 
 ## 11. UI, mobile, and accessibility verification
 
@@ -311,12 +321,12 @@ No functional P0 mint, duplicate settlement, irreversible ownership loss, or ent
 
 The size threshold was not raised. An early implementation measured 7,265,371 budgeted bytes, 371 bytes over the ceiling; duplicate and nonessential code/styles were removed instead of weakening the gate.
 
-| Metric | Final integrated-tree measurement | Gate/result |
+| Metric | Immutable-candidate measurement | Gate/result |
 |---|---:|---|
 | Initial JS/CSS raw graph | 1.32 MB across 10 files | Below 1.50 MB — pass |
-| Initial graph gzip | 355.0 KB | Below 385.0 KB — pass |
-| Budgeted product JS/CSS | 6.77 MB | Below the unchanged gate — pass |
-| All emitted JS/CSS | 6.85 MB | Informational; includes lazy Sentry |
+| Initial graph gzip | 355.2 KB | Below 385.0 KB — pass |
+| Budgeted product JS/CSS | 6.83 MB | Below the unchanged gate — pass |
+| All emitted JS/CSS | 6.91 MB | Informational; includes lazy Sentry |
 | Lazy Sentry vendor | 81.4 KB | Below 100.0 KB — pass |
 | Lazy Three.js raw | 1,011.6 KB | Below 1,100.0 KB — pass |
 | Lazy Three.js gzip | 266.8 KB | Below 300.0 KB — pass |
@@ -325,40 +335,42 @@ The pass added substantial safety and test code without moving the performance g
 
 ## 13. Commands run and exact results
 
-These are final integrated-tree local results after the controlled merge with origin/main. “Production build” means the built artifact and does not mean a production deployment was observed.
+These are fresh local results for immutable candidate 259383f66bb00d14dab2f0097407b23932024396, whose parent is prior main tip 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2. Results from the earlier 0e1fd8e63/a45232935 integration are historical evidence and are not silently reused here. “Production build” means the built artifact and does not mean a production deployment was observed.
 
 ### Final required gates
 
-| Command | Final integrated-tree result |
+| Command | Fresh immutable-candidate result |
 |---|---|
-| Root npm ci | Pass: 174 packages installed, 175 audited, 0 vulnerabilities. |
-| Client npm ci | Pass: 319 packages installed, 320 audited, 0 vulnerabilities. |
-| npm test | 6,031/6,031 passed, 863 suites, 0 failed/cancelled/skipped/todo; runner 468,927.8911 ms, wall 490.1 s including a clean client install. |
-| npx tsc -p tsconfig.cpanel.json --noEmit --pretty false | Pass on the final integrated tree. |
-| Client npx tsc -p tsconfig.app.json --noEmit --pretty false | Pass on the final integrated tree. |
-| Exact CI-environment npm run build | Pass in 85.9 s: server/client TypeScript, Vite production build of 2,296 modules, distribution verification, and size gate. |
-| Client npm run build | Pass through the same exact CI-environment client build boundary; 2,296 modules. |
-| npm run sizecheck | Pass: 6.77 MB budgeted product JS/CSS, 6.85 MB all emitted; lazy Sentry and Three.js remain outside the healthy startup graph. |
-| Client npm run lint | Pass in 87.999 s with no diagnostics; only the informational Babel large-file note. |
-| Client CI=1 npm run test:e2e | 95 passed, 80 explicitly configured non-applicable cases skipped, 0 failed, no retries; 251 s command wall (Playwright 4.2 min). |
-| Client npm run test:e2e:release-journeys | 2/2 passed in 65.9 s against built Express. |
-| Client npm run test:e2e:combat-layout | 12/12 passed in 176.1 s across Solo and PvP on Chromium, DPR 1.25/1.5/2, Firefox, and WebKit. |
-| Client CI=1 npm run test:e2e:warfront | 20 passed, 52 intentionally non-applicable DPR duplicates skipped, 0 failed in 375.7 s against a fresh server. |
-| npm run certify:release | 87/87 passed in 17.9 s against built dist/server.js and isolated in-memory storage. |
-| npm run certify:clan-boss-operation | 78/78 passed against the real Express route graph for 1-, 2-, and 4-player parties plus disabled-party solo compatibility. |
+| Root npm ci | Pass in 18.0 s: 174 packages installed, 175 audited, 0 vulnerabilities. |
+| Client npm ci | Pass in 20.6 s: 319 packages installed, 320 audited, 0 vulnerabilities. |
+| npm test | 6,157/6,157 passed, 874 suites, 0 failed/cancelled/skipped/todo; runner 586,387.0856 ms, wall 605.3 s including a clean 18 s client install. |
+| npx tsc -p tsconfig.cpanel.json --noEmit --pretty false | Pass in 14.2 s. |
+| Client npx tsc -p tsconfig.app.json --noEmit --pretty false | Pass in 49.8 s. |
+| Exact CI-environment npm run build | Pass in 104.8 s with CI=1 and the workflow Sentry/release/SHA variables: server/client TypeScript, Vite production build of 2,325 modules, distribution verification, and size gate. |
+| Client npm run build | Pass in 58.2 s through the same exact CI-environment client boundary; 2,325 modules. |
+| npm run sizecheck | Pass: 6.83 MB budgeted product JS/CSS, 6.91 MB all emitted; initial graph 1.32 MB raw / 355.2 KB gzip; lazy Sentry 81.4 KB and lazy Three.js 1,011.6 KB raw / 266.8 KB gzip remain outside the healthy startup graph. |
+| Client npm run lint | Pass in 76.6 s with no diagnostics; only the informational Babel large-file note. |
+| npx playwright install chromium firefox webkit | Pass; all three required engines available. |
+| Client CI=1 npm run test:e2e | 95 passed, 80 explicitly configured non-applicable cases skipped, 0 failed, no retries reported; 223.5 s command wall (Playwright 3.7 min). |
+| Client npm run test:e2e:release-journeys | 2/2 passed in 68.7 s against built Express. |
+| Client npm run test:e2e:combat-layout | 12/12 passed in 169.6 s across Solo and PvP on Chromium, DPR 1.25/1.5/2, Firefox, and WebKit. |
+| Client CI=1 npm run test:e2e:warfront | 20 passed, 52 intentionally non-applicable DPR/capture cases skipped, 0 failed in 394.5 s against a fresh HTTP Vite server. |
+| npm run certify:release | 87/87 passed in 17.8 s against built dist/server.js and isolated in-memory storage. |
+| npm run certify:clan-boss-operation | 78/78 passed in 4.7 s against the real Express route graph for 1-, 2-, and 4-player parties plus disabled-party solo compatibility. |
+| npm run audit:clan-boss-balance | Pass across 12 deterministic seeds for every 1-, 2-, and 4-player boss/party combination; human pacing remains a staging observation. |
 | npm run check:deployment | Pass; checked deployment contract remains valid. |
 | npm run check:rollback-readiness | Pass. |
 | npm run test:backup | 15/15 passed. This proves helper/guard behavior, not a real database restore. |
 | npm run test:mission-eligibility | Pass. |
 | npm run test:release-assets | Pass: 65 achievement references, 165 badge PNGs, and 21 Pet Home WebPs verified. |
-| npm run check:tooling-handoffs | Pass; generated handoffs are current. |
-| npm run soak:smoke | Pass: 24/24 virtual players, 176 calls, 0 errors, 10.6 req/s, health p95 2 ms. Local in-memory responsiveness only. |
+| npm run check:tooling-handoffs | Pass on 259383f66; generated artifacts are current after the canonical one-file Tower token refresh. |
+| npm run soak:smoke | Pass: 24/24 virtual players, 179 calls, 0 errors, 11.1 req/s, health p95 1 ms. Local in-memory responsiveness only. |
 | Root/client npm audit --audit-level=high | Both pass with 0 vulnerabilities. |
-| git diff --check | Pass after the final authority work; only line-ending conversion notices were emitted. |
+| git diff --check | Pass for the immutable candidate and the report-only closeout delta; no whitespace errors. |
 
-### Focused authority evidence
+### Focused authority evidence from the PR #53 campaign
 
-The following matrices overlap. Their counts must not be summed:
+The following standalone focused-run counts are historical PR #53 evidence. Their tests are included again in the fresh 6,157-test root suite, but the standalone matrices were not rerun as separate commands for 259383f66. The counts overlap and must not be summed:
 
 | Focus | Result |
 |---|---|
@@ -379,6 +391,15 @@ The following matrices overlap. Their counts must not be summed:
 
 ### Attempt accounting
 
+Fresh recertification attempt accounting:
+
+- A sandboxed clean install and the first sandboxed root-suite launch were blocked by Windows `spawn EPERM`; the latter failed all 790 file-worker launches before any assertion ran. The unchanged commands were rerun outside the sandbox, where both clean installs and all 6,157 assertions passed. These environment launch failures are not presented as code failures.
+- The first exact-main tooling-handoff check at 67f39c7e failed honestly because Tower CSS changes had left docs/generated/design-tokens.json stale. The canonical exporter changed only that generated file; the resulting immutable candidate 259383f66 passed the drift check and every subsequent gate.
+- The first live gut-check used HTTP against Vite's default local-HTTPS mode and received `ERR_EMPTY_RESPONSE`. It was restarted with the same `VITE_SKIP_HTTPS=1` setting as the Warfront browser config. The landing and Tower harness then returned 200 with no framework overlay or page exception; the isolated Tower PvP harness had 48 interactive controls and zero console/resource errors. The client-only landing's expected `/api/player/capabilities` 404 was not represented as built-Express health.
+- The fresh Warfront command exited 0 across its 72-test project matrix. Its line-reporter tail was obscured by expected Vite performance/deprecation warnings in captured stdout; project enumeration and the executable skip guards confirm 20 applicable passes and 52 configured skips.
+
+The bullets below describe the original PR #53 integration campaign. They remain useful historical evidence but are not fresh standalone attempts against 259383f66:
+
 - One broad E2E attempt set CI=1 after using a client artifact built without VITE_SENTRY_DSN. Playwright previews static dist and cannot inject Vite build variables afterward, so the CI-only release-Sentry smoke correctly failed. The client was rebuilt with the exact workflow VITE_SENTRY_DSN, VITE_SENTRY_RELEASE, and VITE_BUILD_COMMIT environment; the isolated Sentry smoke then passed 1/1 in 5.3 s, TypeScript and targeted ESLint passed, and the final general matrix passed 95/95 applicable cases.
 - The first combined release-journey attempt exposed a test-timing issue around the application’s semantic Notice modal. The harness was strengthened to wait for and dismiss the named alertdialog and to pin server milestones before advancing. The final built-Express release-journey run passed 2/2.
 - The first final combat-layout attempt passed all six Solo projects and failed all six PvP projects because the fixture wrote a legacy ownerless session breadcrumb. The application correctly rejected that unsafe cross-account shape. The fixture now uses the canonical authenticated account owner and asserts the restored owner, battle ID, and role; the unchanged product guard then passed the complete 12/12 matrix.
@@ -386,7 +407,7 @@ The following matrices overlap. Their counts must not be summed:
 - The first final general browser matrix passed only after retrying the Battle Towers product-truth case. Trace evidence showed healthy navigation followed by a malformed test fixture for `/api/towers/party`: its generic 200 response omitted the required `party` and `invitations` fields, so the asynchronous Ready Room poll tripped the screen boundary. The fixture now returns the exact empty Ready Room envelope. The focused case passed without retry and visibly rendered the Tower lobby; a fresh full matrix then passed 95/95 applicable cases with 80 configured skips, zero failures, and no retries.
 - The controlled upstream merge also found and repaired a real Warfront contract mismatch: authorization tokens now seal the bounded Ryo reward required by settlement. End-to-end prepare/authorize/settle tests and the integrated 143-test authority matrix validate that union.
 - A parallel common-authority attempt produced three collisions from shared process environment, not functional assertion failures. Running those exact cases in isolation passed 3/3; the unique frozen set passed 589/589.
-- Historical earlier aggregates of 5,271, 5,290, and 5,316 tests remain intermediate evidence only. They are not the final frozen-tree count.
+- Historical aggregates of 5,271, 5,290, 5,316, and 6,031 tests remain intermediate or prior-candidate evidence only. The authoritative fresh root result for 259383f66 is 6,157/6,157.
 
 ## 14. Browser flows completed
 
@@ -394,10 +415,11 @@ The following matrices overlap. Their counts must not be summed:
 |---|---|---|---|
 | Full persisted Academy first session | Local production-built Express, Playwright | Pass | New account, companion, stat training, free jutsu, 4-jutsu loadout, starter gear, tactical spar, healing, trial, Logbook, sector visit/return, hard reloads, mobile inspector, logout, and clean second-session login. |
 | Two-account realtime resilience | Local production-built Express, Playwright | Pass | Two independently authenticated Socket.IO accounts became reciprocally visible, moved, lost transport, reconnected, and restored cross-visibility. |
-| Release-journey command | Local production-built Express, Playwright | 2/2 passed in 65.9 s | Isolated in-memory storage; no deployed restart or external database. |
-| General adaptive/product matrix | Immutable local CI artifact with controlled fixtures | 95 passed / 80 configured skips / 0 failed / no retries in 4.2 min | Chromium, Firefox, WebKit, compact/mobile/tablet/desktop, and release smoke. |
-| Ordinary combat layout matrix | Local production-built Express, Playwright | 12/12 passed in 176.1 s | Solo and PvP across Chromium/DPR variants, Firefox, and WebKit; evidence regenerated under test-results/combat-layout. |
-| Warfront browser matrix | Fresh local CI-mode server, Playwright | 20 passed / 52 configured skips / 0 failed in 375.7 s | Co-op recovery, authored Warfront lifecycle, Council recap, renderer/DPR, mobile controls, accessibility, context-loss, and missing-model fallback. |
+| Release-journey command | Local production-built Express, Playwright | 2/2 passed in 68.7 s | Isolated in-memory storage; no deployed restart or external database. |
+| General adaptive/product matrix | Immutable local CI artifact with controlled fixtures | 95 passed / 80 configured skips / 0 failed / no retries reported in 223.5 s | Chromium, Firefox, WebKit, compact/mobile/tablet/desktop, and release smoke. |
+| Ordinary combat layout matrix | Local production-built Express, Playwright | 12/12 passed in 169.6 s | Solo and PvP across Chromium/DPR variants, Firefox, and WebKit; evidence regenerated under test-results/combat-layout. |
+| Warfront browser matrix | Fresh local CI-mode server, Playwright | 20 passed / 52 configured skips / 0 failed in 394.5 s | Co-op recovery, authored Warfront lifecycle, Council recap, renderer/DPR, mobile controls, accessibility, context-loss, and missing-model fallback. |
+| Live landing and Tower PvP harness | Local HTTP Vite, headless Chromium | Pass | Both returned 200 with substantive content and no overlay/page exception. The isolated Tower harness rendered 48 interactive controls with zero console/resource errors; the client-only landing emitted the expected capabilities 404 because Express was not attached. |
 | Original manual creator/Academy journey | Historical local built-Express observation | Pass | Completed onboardingStep done, Sector 0 return, four jutsu, starter gear, trial, and sector-visit latch. |
 | Base/Supporter/lapsed through real Patreon consent | Not tested | Blocked | Requires disposable deployed accounts and real provider consent/callback. |
 | Deployed two-account realtime and worker restart | Not tested | Blocked | The local two-account transport test does not prove replacement-worker recovery. |
@@ -443,9 +465,9 @@ Playwright outputs are ignored and transient. A later default project can clean 
 - Battle Towers party, entry, action, settlement, tactical UI, and art contracts.
 - Local integrity/Patreon/resilience/restore safety tooling and runbooks.
 
-### Remaining release risks
+### Post-main status and remaining release risks
 
-- **Main publication:** controlled integration and local release certification are complete; the exact pushed SHA must still pass repository CI before merge.
+- **Main status:** PR #53 is already merged as a452329354f054475405d2bc5b90e9aff952b209 and is an ancestor of prior origin/main tip 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2. The cohesion pass is not waiting to be ported. Candidate 259383f66bb00d14dab2f0097407b23932024396 is the one-file post-main generated-handoff repair and passed the complete fresh local matrix. Repository CI on the final pushed report closeout remains a separate remote result.
 - **Strict-ledger and forged registry:** credentialed staging scans/backfill must complete before STRICT_RAW_SAVE_LEDGER cutover.
 - **Patreon deployed proof:** fixture automation does not replace real consent, callback, relink, lapse/reactivation, and restart proof with two disposable identities.
 - **Pet-ranked public availability:** private authority is implemented, but public presentation/challenges remain off pending the promotion checklist and deployed evidence.
@@ -457,7 +479,7 @@ Playwright outputs are ignored and transient. A later default project can clean 
 
 ### P0
 
-No functional P0 remains reproduced in the completed integrated-tree gates. Any failure in the pushed-SHA CI, build, test, lint, security, settlement, onboarding, persistence, or browser matrix remains release-blocking and must not be waived.
+No functional P0 remains reproduced in the semantic post-main audit or the complete immutable-candidate matrix. All fresh local root, client, release, and browser gates passed. Any failure in repository CI on the final pushed closeout remains release-blocking and must not be waived.
 
 ### P1
 
@@ -480,15 +502,17 @@ No functional P0 remains reproduced in the completed integrated-tree gates. Any 
 - Extend built-Express acceptance coverage where it adds a distinct authority boundary.
 - Continue Veiled Steel migration on lower-traffic screens.
 
-## 18. Recommended release decision
+## 18. Post-main release status
 
-**GO for a ready pull request and merge to main after the pushed integration SHA passes repository CI.** The controlled merge with 0e1fd8e63 is complete, every direct overlap was deliberately reconciled, independent adversarial review found no remaining P0/P1, and the final integrated dependency, type, 6,031-test root suite, exact CI build, lint, size, authority, certification, browser, deployment, rollback, backup, asset/mission, tooling-handoff, Clan Boss, and in-memory soak gates are green as recorded in section 13.
+**The cohesion pass is already on main, not stale work awaiting another port.** PR #53 landed as a452329354f054475405d2bc5b90e9aff952b209, and prior main tip 67f39c7e34f6ba1dc5203468bf22d1b834e9fff2 descends directly from it. The 15-overlap semantic audit found no regression in validated authority or UX behavior. The only post-Tower correction was regenerated design-token handoff metadata, captured by immutable candidate 259383f66bb00d14dab2f0097407b23932024396.
 
-**This is not evidence that external staging or production infrastructure was exercised.** Merging the certified code to main is approved; enabling default-off public ranked/Vanguard gates, running credentialed repair, or claiming deployed restart/restore/provider health still requires its own operational evidence.
+**GO for publishing 259383f66bb00d14dab2f0097407b23932024396 as the post-Tower follow-up.** The fresh 6,157-test root suite, root/client types and builds, lint, size, release certifications, deployment/rollback/backup/assets/audits, local soak, four automated browser matrices, and live Tower harness are green. No second cohesion cherry-pick or port is recommended. The report closeout is documentation-only and does not alter the certified runtime tree.
 
-Post-merge operational work remains:
+**This is not evidence that external staging or production infrastructure was exercised.** The locally certified post-Tower follow-up is approved for main; enabling default-off public ranked/Vanguard gates, running credentialed repair, or claiming deployed restart/restore/provider health still requires its own operational evidence.
 
-1. Confirm repository CI on the exact pushed SHA and verify the merge commit is the remote main tip.
+Post-main operational work remains:
+
+1. Confirm repository CI on the final pushed report closeout and verify remote main contains both a452329354f054475405d2bc5b90e9aff952b209 and the generated-handoff repair 259383f66bb00d14dab2f0097407b23932024396.
 2. Produce clean credentialed staging integrity/backfill evidence before any strict-ledger cutover.
 3. Run Patreon staging fixtures and real two-identity consent/relink/lapse/reactivation/restart evidence.
 4. Run deployed realtime/restart and an isolated real-database restore with measured RPO/RTO.
