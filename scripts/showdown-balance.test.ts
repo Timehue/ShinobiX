@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { PET_CATALOG } from '../api/pet/_catalog.js';
 import { createShowdownSession, resolveShowdownRound } from '../api/_pet-showdown/engine.js';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.js';
-import { SHOWDOWN_MAX_ROUNDS } from '../shared/pet-showdown-contract.js';
+const HARD_STOP = 400;  // sim-only guard; the engine has no round cap
 import type { Pet } from '../api/_pet-sim/pet-types.js';
 import type { ShowdownSession } from '../api/_pet-showdown/engine.js';
 
@@ -55,7 +55,7 @@ function fight(tplA: Record<string, unknown>, tplB: Record<string, unknown>, see
         playerPets: [scaled(tplA, 'a')], enemyPets: [scaled(tplB, 'b')], enemyTeamName: 'B',
     });
     let guard = 0;
-    while (!session.finished && guard < SHOWDOWN_MAX_ROUNDS + 1) {
+    while (!session.finished && guard < HARD_STOP + 1) {
         guard += 1;
         const playerCommands = commandsFor(session, 'player');
         const enemyCommands = commandsFor(session, 'enemy');
@@ -88,7 +88,7 @@ test('showdown balance bands hold on the standard+rare slice', () => {
                 const [A, B] = (i + j) % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
                 const { won, rounds } = fight(A, B, seed);
                 totalGames += 1; totalRounds += rounds;
-                judgeGames += rounds >= SHOWDOWN_MAX_ROUNDS ? 1 : 0;
+                judgeGames += rounds >= HARD_STOP ? 1 : 0;
                 for (const [tpl, w] of [[A, won], [B, !won]] as const) {
                     bump(roleStats, String(tpl.role ?? 'none'), w);
                     bump(elementStats, String(tpl.element ?? 'None'), w);
