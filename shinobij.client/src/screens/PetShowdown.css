@@ -1136,6 +1136,7 @@
     animation: showdown-fade-in 0.3s ease-out both;
 }
 .showdown-recap-row {
+    animation: showdown-recap-row-in 0.26s var(--e-out) both;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1210,6 +1211,10 @@
 
 /* ── Result / confirm panel ────────────────────────────────────────────── */
 
+/* The LAST frame of every run, and it was a bare scrim with unstyled text
+   while the 2.4-second banner above it was fully designed. The panel the player
+   actually reads — reward, recap, MVP, and the two buttons deciding whether
+   they play again — now gets the same lacquer-and-brass hardware as the HUD. */
 .showdown-result {
     position: absolute;
     inset: 0;
@@ -1217,15 +1222,75 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    background: rgba(5, 3, 1, 0.62);
+    gap: 12px;
+    padding: 18px;
+    background:
+        radial-gradient(120% 80% at 50% 42%, rgba(0, 0, 0, 0.35), rgba(4, 3, 1, 0.82) 70%);
     pointer-events: auto;
+    animation: showdown-result-in 0.3s var(--e-out) both;
 }
-.showdown-result-title { font-size: 2.4rem; font-weight: 900; text-shadow: 0 3px 14px #000; }
-.showdown-result-title.win { color: #fcd34d; }
-.showdown-result-title.loss { color: #f87171; }
-.showdown-result-reward { font-size: 1.2rem; color: #4ade80; font-weight: 800; }
-.showdown-result-reward.capped { color: #b9a583; font-size: 0.9rem; }
+@keyframes showdown-result-in { from { opacity: 0; } }
+
+/* The verdict rides its own plate — no shear, full-width ends: the one moment
+   in the mode that stops the frame. */
+.showdown-result-title {
+    font-family: var(--font-display, inherit);
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 10px 46px;
+    color: var(--banner-ink, var(--ink));
+    background:
+        var(--grain),
+        linear-gradient(180deg, rgba(40, 28, 14, 0.92), rgba(10, 7, 3, 0.95));
+    border-block: 2px solid color-mix(in srgb, var(--banner-ink, var(--brass)) 70%, transparent);
+    -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.85);
+    paint-order: stroke fill;
+    text-shadow: 0 3px 14px #000;
+}
+.showdown-result-title.win { --banner-ink: #fcd34d; box-shadow: 0 0 60px rgba(251, 191, 36, 0.22); }
+.showdown-result-title.loss { --banner-ink: #f87171; box-shadow: 0 0 60px rgba(220, 38, 38, 0.18); }
+
+/* Everything below the verdict sits on one plaque, so the panel reads as a
+   single object instead of four floating text runs. */
+.showdown-result-reason,
+.showdown-recap {
+    position: relative;
+    padding: 10px 14px;
+    border-radius: 12px 12px 4px 12px;
+    background:
+        var(--grain),
+        var(--sheen),
+        linear-gradient(155deg, rgba(42, 30, 16, 0.94), rgba(11, 8, 5, 0.95));
+    border: 1px solid color-mix(in srgb, var(--brass) 55%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 235, 190, 0.18), 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.showdown-result-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.3rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #86efac;
+    padding: 6px 18px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(22, 62, 32, 0.8), rgba(8, 24, 12, 0.9));
+    border: 1px solid rgba(134, 239, 172, 0.45);
+    text-shadow: 0 1px 3px #000;
+    animation: showdown-reward-in 0.36s var(--e-pop) 0.12s both;
+}
+@keyframes showdown-reward-in { from { opacity: 0; transform: scale(0.82); } }
+.showdown-result-reward.capped {
+    color: var(--ink-dim);
+    font-size: 0.9rem;
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(217, 180, 120, 0.3);
+    animation: none;
+}
+
 .showdown-result-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 
 /* ── Mobile compression ────────────────────────────────────────────────── */
@@ -1318,6 +1383,9 @@
     .showdown-menu-cursor svg,
     .showdown-menu,
     .showdown-inspector,
+    .showdown-result,
+    .showdown-result-reward,
+    .showdown-recap-row,
     /* Must repeat :not(.is-disabled) — the declaring selector carries it, and
        a lower-specificity `animation: none` silently loses the cascade. */
     .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note,
@@ -1330,6 +1398,7 @@
     /* Static substitutes so state stays readable without the pulse. */
     .showdown-plate.targetable { box-shadow: 0 0 0 2px #f87171; }
     .showdown-menu, .showdown-inspector { opacity: 1; transform: none; }
+    .showdown-result, .showdown-result-reward, .showdown-recap-row { opacity: 1; transform: none; }
     .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note { opacity: 1; }
     .showdown-plate-meter.full > span { filter: brightness(1.35); }
     .showdown-playing-hint { opacity: 0.85; }
@@ -1363,3 +1432,10 @@
     text-decoration: underline;
     cursor: pointer;
 }
+
+/* Recap rows assemble in sequence — the difference between a panel that
+   appears and a panel that is dealt. */
+@keyframes showdown-recap-row-in { from { opacity: 0; transform: translateY(6px); } }
+.showdown-recap-row:nth-child(2) { animation-delay: 0.06s; }
+.showdown-recap-row:nth-child(3) { animation-delay: 0.12s; }
+.showdown-recap-row:nth-child(4) { animation-delay: 0.18s; }

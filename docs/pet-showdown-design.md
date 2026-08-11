@@ -737,6 +737,45 @@ Final spread, the tightest the mode has measured: pace 6.5 rounds, elements
   never said why. The format now defaults to what the roster can field, and a
   disabled CTA always states what would enable it.
 
+## Round 17 — the pool actually binds, and the menu makes sound (2026-08-11)
+
+**The pool was too big.** Round 15 built the ladder but left the pool at
+80–125 (median 105), and at that size a mid-tier technique bought **five
+consecutive casts against a 6.5-round fight** — you could throw your best
+affordable move every single round and only run dry on the last one. A resource
+that never binds is decoration, however carefully its prices are set.
+
+The pool now scales to 0.74 of the old curve (median 78, range 65–85). Scaling
+rather than re-deriving keeps the glass-cannon-to-war-tortoise spread exactly as
+tuned; only the absolute size moves. What that buys, measured:
+
+| | cost | share of pool | consecutive casts |
+|---|---|---|---|
+| jab | 12 | 15% | 14 — effectively unlimited, which is its whole job |
+| technique | 28 | 36% | **3** |
+| haymaker | 51 | **65%** | **1** |
+
+The haymaker landing at 65% of the pool puts it exactly on Temtem's own
+reference (33 STA against a ~50 pool). Simulated over 260 real fights, rounds
+where a pet has **nothing** affordable went 2.5% → 10.3%: overspend and you pay
+with an idle round. Balance held — pace 7.1, elements 44–55%, roles 40–59%.
+
+**The menu makes sound now.** All 11 of the mode's audio calls were
+playback-driven; the surface the player's hands are on for most of a turn-based
+match was silent, and a disabled row was indistinguishable from a dropped
+input. Cursor travel, confirm, cancel and *denied* now play, plus the timing
+needle — the mode's only skill expression — which previously felt identical
+whether you nailed it or let the sweep expire. All of it rides the existing
+**procedural WebAudio** cues at lower gain and shifted rate, so the UI sounds
+like the same instrument as combat and costs zero bytes. Haptics land on the
+same events; absent on desktop and iOS Safari, which is the correct degradation.
+
+**The result screen** — the last frame of every run, previously a bare scrim
+with unstyled text under a fully-designed 2.4s banner — now carries the HUD's
+lacquer-and-brass hardware: a display-font verdict plate, the reason and recap
+on plaques, the reward as a struck pill, and recap rows that assemble in
+sequence rather than appearing at once. Reduced motion covers all three.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

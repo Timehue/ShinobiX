@@ -21,7 +21,19 @@ export type PetSfxKind =
   | "superEffective"
   | "command"
   | "finisher"
-  | "crowd";
+  | "crowd"
+  // ── Menu / input feedback ────────────────────────────────────────────────
+  // A turn-based game keeps the player's hands on the menu for most of the
+  // wall-clock time, so a silent menu is the loudest "prototype" tell there is.
+  // These reuse the same procedural cues as combat at lower gain and shifted
+  // rate, so the UI sounds like it belongs to the same instrument.
+  | "uiMove"      // the cursor travels to another row
+  | "uiConfirm"   // a row is activated
+  | "uiCancel"    // back / undo
+  | "uiDenied"    // an unavailable row was pressed
+  | "needlePerfect"
+  | "needleGood"
+  | "needleMiss";
 
 const MUTE_KEY = "petSfxMuted";
 
@@ -45,7 +57,27 @@ const PET_CUES: Record<
   command: { cue: "command" },
   finisher: { cue: "battle-transition", gain: 0.7 },
   crowd: { cue: "crowd" },
+  uiMove: { cue: "paper", gain: 0.3, playbackRate: 1.5 },
+  uiConfirm: { cue: "command", gain: 0.55, playbackRate: 1.12 },
+  uiCancel: { cue: "paper", gain: 0.4, playbackRate: 0.82 },
+  uiDenied: { cue: "chakra-negative", gain: 0.34, playbackRate: 0.9 },
+  needlePerfect: { cue: "reveal", gain: 0.62, playbackRate: 1.15 },
+  needleGood: { cue: "command", gain: 0.5, playbackRate: 1.3 },
+  needleMiss: { cue: "paper", gain: 0.34, playbackRate: 0.72 },
 };
+
+/** Short, non-blocking haptic. Mobile is where this mode is played one-handed,
+ *  and the needle is the only twitch input in the game — a tap that makes no
+ *  sound AND no vibration reads as an input the game missed. Silently absent on
+ *  desktop and on iOS Safari, which is the correct degradation. */
+export function petHaptic(pattern: number | number[]): void {
+  if (isPetSfxMuted()) return;
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    // Vibration unsupported or blocked by the platform — never fatal.
+  }
+}
 
 export function isPetSfxMuted(): boolean {
   if (isAudioMuted()) return true;

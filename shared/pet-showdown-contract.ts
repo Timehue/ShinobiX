@@ -60,6 +60,13 @@ export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.75;
  *    included.
  */
 export const SHOWDOWN_STAMINA_REFERENCE = 100;
+/** Scales the whole pool curve. At 1.0 the band was 80-125 (median 105) and a
+ *  mid-tier technique bought FIVE consecutive casts against a 6.5-round fight —
+ *  you could throw your best affordable move every round and only run dry on
+ *  the last one, which is a resource that does not bind. Scaling (rather than
+ *  re-deriving the curve) keeps the glass-cannon-to-war-tortoise spread exactly
+ *  as tuned; only the absolute size moves. */
+export const SHOWDOWN_STAMINA_POOL_SCALE = 0.74;
 /** Regen fraction of MAX per round (+ the flat point), field or bench. */
 export const SHOWDOWN_STAMINA_REGEN_PCT = 0.07;
 export const SHOWDOWN_STAMINA_REGEN_FLAT = 2;

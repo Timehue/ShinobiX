@@ -31,7 +31,7 @@ import { PetModelBoundary } from "./PetModelBoundary";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
-import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
+import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
@@ -1358,9 +1358,17 @@ function ActionMenu({ title, rows, focus, onFocusRow, onSelect, sub }: {
                         style={row.element
                             ? { "--elem-tint": ELEMENT_TINT[row.element] ?? ELEMENT_TINT.None } as React.CSSProperties
                             : undefined}
-                        onMouseEnter={() => onFocusRow(i)}
-                        onFocus={() => onFocusRow(i)}
-                        onClick={() => { if (!row.disabled) onSelect(row.action); }}
+                        onMouseEnter={() => { if (i !== focus) playPetSfx("uiMove"); onFocusRow(i); }}
+                        onFocus={() => { if (i !== focus) playPetSfx("uiMove"); onFocusRow(i); }}
+                        onClick={() => {
+                            // An unavailable row must SOUND unavailable: silence
+                            // is indistinguishable from a dropped input, and the
+                            // player just presses again.
+                            if (row.disabled) { playPetSfx("uiDenied"); return; }
+                            playPetSfx("uiConfirm");
+                            petHaptic(12);
+                            onSelect(row.action);
+                        }}
                     >
                         <span className={`showdown-menu-icon fam-${row.family ?? "none"}`} aria-hidden="true">
                             <ShowdownIcon name={row.icon} size={15} />
@@ -1388,7 +1396,7 @@ function TargetingPanel({ title, sub, onBack }: { title: string; sub: string; on
             </div>
             <div className="showdown-menu-rows" ref={rowsRef}>
                 <span className="showdown-menu-cursor" aria-hidden="true"><ShowdownIcon name="cursor" size={16} /></span>
-                <button type="button" className="showdown-menu-row utility focused" onClick={onBack}>
+                <button type="button" className="showdown-menu-row utility focused" onClick={() => { playPetSfx("uiCancel"); onBack(); }}>
                     <span className="showdown-menu-icon fam-none" aria-hidden="true"><ShowdownIcon name="caret-back" size={15} /></span>
                     <span className="showdown-menu-label">Back</span>
                 </button>
@@ -1964,6 +1972,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** One entry point for every "you clicked a creature" decision. */
     const pickTarget = (targetId: string) => {
         if (!commander) return;
+        playPetSfx("uiConfirm");
+        petHaptic(12);
         setHoveredTarget(null);
         if (pickingSwitch) {
             pushCommand({ kind: "switch", petId: commander.id, benchPetId: targetId });
@@ -1979,6 +1989,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // Closure over the needle that mounted this sweep — the needle unmounts
         // the moment pushCommand clears it, so this fires at most once per sweep.
         if (!needleFor) return;
+        // Landing it perfectly used to feel identical to letting the sweep
+        // expire: one text banner, no sound, no haptic. This is the only moment
+        // in the mode where the player's reflexes matter — it has to land.
+        playPetSfx(grade === 2 ? "needlePerfect" : grade === 1 ? "needleGood" : "needleMiss");
+        petHaptic(grade === 2 ? [14, 26, 22] : grade === 1 ? 16 : 8);
         if (grade === 2) showBanner("PERFECT!", "perfect", 600);
         pushCommand(needleFor.super
             ? { kind: "super", petId: needleFor.petId, targetId: needleFor.targetId, timing: grade }
@@ -2296,6 +2311,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             <div className="showdown-bottombar-right">
                                 {draft.length > 0 && !pendingMove && !pickingSwitch && (
                                     <button type="button" className="showdown-chip showdown-undo" onClick={() => {
+                                        playPetSfx("uiCancel");
                                         setMenuTab("root");
                                         setFocusRow(0);
                                         setDraft((d) => d.slice(0, -1));
