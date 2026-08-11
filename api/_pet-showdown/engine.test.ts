@@ -872,3 +872,32 @@ test('the universal basic is never promoted — every pet can attack on round on
     }
     assert.ok(checked > 100, `swept the catalog (${checked} species)`);
 });
+
+test('an overdraft onto a SHIELD reports what was dealt, not what was rolled', () => {
+    const session = makeSession([makePet('a', { speed: 200 })], [makePet('b', { speed: 10, attack: 1, hp: 6000 })]);
+    const actor = session.player[0];
+    // A big shield pool: the overdraft chip should be fully soaked.
+    actor.statuses = [{ kind: 'shield', rounds: 3, magnitude: 500, bornRound: session.round }];
+    const hpBefore = actor.hp;
+    actor.stamina = 2;   // guarantees a deficit on any real move
+    const events = resolveShowdownRound(session, [
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b', timing: 0 },
+    ], [{ kind: 'rest', petId: 'b' }]);
+    const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+    assert.ok(action);
+    assert.equal(action.overexerted, true, 'it did overdraft');
+    // The shield ate it, so the actor lost no HP — and the wire must agree.
+    assert.equal(actor.hp, hpBefore, 'the shield absorbed the chip');
+    assert.equal(action.overexertDamage ?? 0, 0,
+        'the event reports the DEALT chip (0), not the rolled figure the client would subtract off the HP bar');
+
+    // And with no shield the chip is reported in full, so the fix did not
+    // simply zero the field.
+    const bare = makeSession([makePet('c', { speed: 200 })], [makePet('d', { speed: 10, attack: 1, hp: 6000 })]);
+    bare.player[0].stamina = 2;
+    const bareEvents = resolveShowdownRound(bare, [
+        { kind: 'move', petId: 'c', moveIndex: 1, targetId: 'd', timing: 0 },
+    ], [{ kind: 'rest', petId: 'd' }]);
+    const bareAction = bareEvents.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'c');
+    assert.ok((bareAction?.overexertDamage ?? 0) > 0, 'an unshielded overdraft still bleeds');
+});
