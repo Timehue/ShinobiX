@@ -38,11 +38,19 @@ import { buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/
  *   forfeit — concede; ends the session as a loss, no payout.
  *   state   — resume view after a refresh.
  *
- * Reward integrity: the payout magnitude (opponent level) is SEALED at start
- * from the AI team actually generated; the outcome is engine-computed on the
- * server; the receipt (`sd:<sessionId>` in redeemedPetBattleTokens) makes the
- * credit idempotent; the shared dailyPetWins cap bounds the faucet. The client
- * never reports an outcome, a reward, or combat numbers.
+ * Rewards: this entry is PRACTICE and pays nothing — see settleShowdownWin.
+ * Choosing your own AI opponent on demand is a sparring match; the ryo loop
+ * belongs to the fights the world starts (Hollow Gate, sector ambush,
+ * clan/sector war). Eligibility is a flag sealed into the session at start
+ * (`rewardEligible`), not a hardcoded zero, so the live modes can migrate onto
+ * this engine later and pay without the settle path being rewritten.
+ *
+ * Reward integrity, for when a caller IS eligible: the payout magnitude
+ * (opponent level) is SEALED at start from the AI team actually generated; the
+ * outcome is engine-computed on the server; the receipt (`sd:<sessionId>` in
+ * redeemedPetBattleTokens) makes the credit idempotent; the shared dailyPetWins
+ * cap bounds the faucet. The client never reports an outcome, a reward, or
+ * combat numbers.
  *
  * Kill switch: DISABLE_PET_SHOWDOWN=1 (ships ON by default).
  */
@@ -88,6 +96,22 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
 
 /** Win payout under the save lock. Exactly-once via the receipt array. */
 async function settleShowdownWin(playerName: string, session: ShowdownSession): Promise<Record<string, unknown>> {
+    // PRACTICE FIGHTS PAY NOTHING, and pay it cheaply: no lock, no save write,
+    // no receipt. Picking your own AI opponent is a sparring match — the reward
+    // loop lives in the fights the world starts (Hollow Gate, sector ambush,
+    // clan/sector war), not in one the player can queue at will.
+    //
+    // This must ALSO leave the counters alone, which is the part that is easy
+    // to get wrong: totalPetWins feeds the public 'pets' leaderboard
+    // (api/player/_public-index.ts), the pet-100 achievement
+    // (api/achievements/_catalog.ts) and a sector quest metric
+    // (api/sector/_questbook.ts), and dailyPetWins is the shared 100/day faucet
+    // counter. Incrementing either from a free, unlimited practice mode would
+    // hand out leaderboard rank and achievement progress for nothing, and would
+    // burn the player's real daily allowance on fights that never paid.
+    if (!session.rewardEligible) {
+        return { reward: 0, practice: true };
+    }
     const saveKey = `save:${playerName}`;
     const receipt = `sd:${session.sessionId}`;
     return withKvLock(saveKey, async () => {
@@ -212,6 +236,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const session = createShowdownSession({
                 sessionId, playerName, format, tier, seed,
                 playerPets: chosen, enemyPets, enemyTeamName: teamName,
+                // This entry point is the player choosing a tier and an AI team
+                // to fight, on demand and without limit — practice, so it pays
+                // nothing. Sealed at start, never taken from the request body.
+                rewardEligible: false,
             });
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
             return res.status(200).json({ ok: true, state: showdownStateView(session) });

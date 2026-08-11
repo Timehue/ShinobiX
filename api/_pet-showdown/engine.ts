@@ -148,6 +148,9 @@ export interface ShowdownSession {
     outcome: ShowdownOutcome | null;
     /** Reward magnitude sealed at start — the opponent actually fought. */
     sealedOpponentLevel: number;
+    /** Whether a win here may pay at all. Sealed at start; see
+     *  createShowdownSession. False for the hand-picked-AI practice entry. */
+    rewardEligible: boolean;
     enemyTeamName: string;
     player: ShowdownPet[];
     enemy: ShowdownPet[];
@@ -698,6 +701,13 @@ export function createShowdownSession(input: {
     playerPets: Pet[];
     enemyPets: Pet[];
     enemyTeamName: string;
+    /** Whether a WIN from this session may pay. Sealed here at start so the
+     *  payout can never be argued from anything the client sends later. Every
+     *  caller today is the hand-picked-AI practice entry and passes false; the
+     *  flag exists because the live entry points (Hollow Gate, sector ambush,
+     *  clan/sector war) are slated to migrate onto this engine and those DO
+     *  pay — at which point they set it true and nothing else has to move. */
+    rewardEligible: boolean;
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[]): ShowdownPet[] =>
@@ -722,6 +732,7 @@ export function createShowdownSession(input: {
         finished: false,
         outcome: null,
         sealedOpponentLevel: clampInt(Math.max(1, ...input.enemyPets.map((p) => Number(p.level) || 1)), 1, 100, 1),
+        rewardEligible: input.rewardEligible === true,
         enemyTeamName: input.enemyTeamName,
         player: sealTeam(input.playerPets),
         enemy: sealTeam(input.enemyPets),

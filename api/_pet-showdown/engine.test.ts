@@ -70,10 +70,11 @@ function makeSession(
     enemyPets: Pet[],
     seed = 12345,
     format: '1v1' | '2v2' | '3v3' = playerPets.length === 1 ? '1v1' : playerPets.length === 2 ? '2v2' : '3v3',
+    rewardEligible = false,
 ): ShowdownSession {
     return createShowdownSession({
         sessionId: 'testsession', playerName: 'Tester', format, tier: 'warrior', seed,
-        playerPets, enemyPets, enemyTeamName: 'Test Foes',
+        playerPets, enemyPets, enemyTeamName: 'Test Foes', rewardEligible,
     });
 }
 

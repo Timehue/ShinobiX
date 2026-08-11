@@ -1291,6 +1291,45 @@
     animation: none;
 }
 
+/* "No orders possible" panel — the soft-lock guard's visible half. Sized to
+   occupy the command deck's slot so the bottom bar never reads as empty. */
+.showdown-stalled {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 18px 12px;
+    text-align: center;
+}
+.showdown-stalled-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+    text-shadow: 0 1px 3px #000;
+}
+.showdown-stalled-body {
+    font-size: 0.85rem;
+    color: var(--ink-dim);
+    max-width: 44ch;
+}
+
+/* Practice notice. Deliberately NOT styled like the reward pill — it is an
+   explanation, not a payout, and dressing it up green would read as a reward
+   the player then can't find in their balance. */
+.showdown-result-practice {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--ink-dim);
+    padding: 5px 16px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(217, 180, 120, 0.3);
+    text-shadow: 0 1px 3px #000;
+}
+
 .showdown-result-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 
 /* ── Mobile compression ────────────────────────────────────────────────── */

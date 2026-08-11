@@ -962,6 +962,69 @@ is in real play — a human picks targets and spends stamina differently. Closin
 the gap further means either damping so hard that species identity disappears,
 or per-species kit work, which is the existing follow-up.
 
+## Round 22 — Showdown becomes practice, and the soft-lock is closed (2026-08-11)
+
+### Picking your own opponent is sparring, so it pays nothing
+
+**Owner ruling.** Rewards belong to the fights the *world* starts — a sector
+wanderer jumping you, a Hollow Gate pet battle, clan and sector war. Choosing a
+tier and an AI team on demand is practice, and practice pays nothing.
+
+It had been paying: `max(20, level * 2)` ryo per win, up to a **100 wins/day**
+shared cap. Now it pays zero, via a `rewardEligible` flag **sealed into the
+session at start** rather than a hardcoded zero — Hollow Gate, sector ambush and
+the war modes are slated to migrate onto this engine, and they *do* pay, so the
+settle path has to keep working for an eligible caller. Every start today passes
+`false`, and a test asserts no start path passes `true` until such a caller
+exists.
+
+The part that is easy to get wrong is the counters. A practice win must move
+**neither** `dailyPetWins` **nor** `totalPetWins`, because:
+
+- `totalPetWins` feeds the public `pets` leaderboard (`api/player/_public-index.ts`),
+  the `pet-100` achievement (`api/achievements/_catalog.ts`) and a sector quest
+  metric (`api/sector/_questbook.ts`) — a free, unlimited mode incrementing it
+  hands out rank and achievement progress for nothing;
+- `dailyPetWins` is the shared 100/day allowance — burning it on fights that
+  never paid would *cost* the player their real faucet.
+
+So the guard returns before the save lock: no lock, no write, no receipt. The
+result screen says "Practice match — no ryo, and no daily wins spent" outright,
+because a win that pays nothing and *says* nothing is indistinguishable from a
+failed payout.
+
+This also incidentally closes three audit findings for this mode: the payout
+can't double-pay through the 64-entry receipt ring, can't be lost when the
+settle throws, and can't ride the unfloored `dailyPetWins` counter — because
+there is no payout. **Those holes remain open in the legacy coliseum**
+(`api/pet/battle-result.ts`), which still pays through all three.
+
+### The Overdraft rule could strand you forever
+
+`promptable` filters out any pet that will lose its next action. A stunned pet
+is still asked (it may rotate out); an overdraft-**winded** pet may not rotate,
+so it is skipped. That filter can legitimately return **empty** — and the
+command deck is gated on a `commander` drawn from it, while the *only* call to
+`submitRound` lives inside `pushCommand`, which the deck owns.
+
+Empty promptable therefore meant: blank bottom bar, no Attack, no Guard, no
+Rest, no Switch, no waiting text, and no way to advance the round. The only
+surviving control was Forfeit — so the escape from the soft-lock was to throw
+away a fight you might be winning. Overdraft your only pet in a 1v1 and you were
+there, which makes this the tutorial-level lesson of the mechanic, not an
+exotic edge.
+
+There is no decision to take when nobody can act, so the round now resolves
+itself on an empty draft (the engine already defaults missing commands to a
+guard its winded/stun branch discards — the same reasoning `pushCommand` uses
+when it omits skipped pets), behind a short delay and a panel that names the
+reason, plus a manual "Resolve round" button that must never be the only way
+out.
+
+The filter moved to `lib/showdown-turn.ts` as a pure function specifically so
+the empty case is testable. It could not be seen before: it was a local `const`
+inside a 2,300-line component, which is exactly how a reachable soft-lock ships.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
